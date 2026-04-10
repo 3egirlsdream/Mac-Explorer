@@ -1,0 +1,207 @@
+using FKFinder.Models;
+using FKFinder.Services;
+
+namespace FKFinder.Platforms.MacCatalyst.Services;
+
+public class MacContextMenuService : IContextMenuService
+{
+    private readonly IApplicationLauncherService _launcher;
+    private readonly IFileService _fileService;
+    private HashSet<string>? _installedApps;
+
+    public MacContextMenuService(IApplicationLauncherService launcher, IFileService fileService)
+    {
+        _launcher = launcher;
+        _fileService = fileService;
+    }
+
+    public async Task<IReadOnlyList<ContextMenuAction>> GetFileContextMenuActionsAsync(FileSystemEntry entry)
+    {
+        var actions = new List<ContextMenuAction>
+        {
+            new() { Label = "打开", IconSvg = Icons.Open, ShortcutText = "⌘O", Execute = () => _launcher.OpenFileAsync(entry.FullPath) },
+        };
+
+        var apps = await GetApplicationsForFileAsync(entry.FullPath);
+        if (apps.Count > 0)
+        {
+            actions.Add(new ContextMenuAction
+            {
+                Label = "打开方式",
+                IconSvg = Icons.Open,
+                SubItems = apps.Select(app => new ContextMenuAction
+                {
+                    Label = app.Name,
+                    IconSvg = Icons.Finder,
+                    Execute = () => _launcher.OpenFileWithAppAsync(entry.FullPath, app.BundleIdentifier)
+                }).ToList()
+            });
+        }
+
+        actions.Add(ContextMenuAction.Separator);
+
+        actions.Add(new() { Label = "拷贝", IconSvg = Icons.Copy, ShortcutText = "⌘C" });
+        actions.Add(new() { Label = "剪切", IconSvg = Icons.Cut, ShortcutText = "⌘X" });
+        actions.Add(new() { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V" });
+        actions.Add(new() { Label = "复制路径", IconSvg = Icons.CopyPath, ShortcutText = "⌥⌘C", Execute = () => CopyToClipboard(entry.FullPath) });
+
+        actions.Add(ContextMenuAction.Separator);
+
+        actions.Add(new() { Label = "重命名", IconSvg = Icons.Rename, ShortcutText = "↵" });
+        actions.Add(new() { Label = "移到废纸篓", IconSvg = Icons.Delete, ShortcutText = "⌘⌫" });
+
+        actions.Add(ContextMenuAction.Separator);
+
+        actions.Add(new() { Label = "在 Finder 中显示", IconSvg = Icons.Finder, Execute = () => _launcher.RevealInFinderAsync(entry.FullPath) });
+
+        // Terminal / VS Code: for directories use the path directly, for files use parent directory
+        var terminalPath = entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
+        actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(terminalPath) });
+        if (IsAppInstalled("com.microsoft.VSCode"))
+            actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(terminalPath) });
+
+        actions.Add(ContextMenuAction.Separator);
+        actions.Add(new() { Label = "查看文件信息", IconSvg = Icons.Info, ShortcutText = "⌘I" });
+
+        return actions;
+    }
+
+    public async Task<IReadOnlyList<ContextMenuAction>> GetBackgroundContextMenuActionsAsync(string currentDirectory)
+    {
+        var actions = new List<ContextMenuAction>
+        {
+            new() { Label = "新建文件夹", IconSvg = Icons.NewFolder, ShortcutText = "⇧⌘N" },
+            new() { Label = "新建文件", IconSvg = Icons.NewFile },
+        };
+
+        actions.Add(ContextMenuAction.Separator);
+
+        actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(currentDirectory) });
+        if (IsAppInstalled("com.microsoft.VSCode"))
+            actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(currentDirectory) });
+
+        actions.Add(ContextMenuAction.Separator);
+
+        actions.Add(new() { Label = "复制路径", IconSvg = Icons.CopyPath, Execute = () => CopyToClipboard(currentDirectory) });
+        actions.Add(new() { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V" });
+
+        actions.Add(ContextMenuAction.Separator);
+
+        actions.Add(new() { Label = "刷新", IconSvg = Icons.Refresh, ShortcutText = "⌘R" });
+
+        return await Task.FromResult(actions.AsReadOnly());
+    }
+
+    public async Task<IReadOnlyList<RegisteredApp>> GetApplicationsForFileAsync(string filePath)
+    {
+        var apps = new List<RegisteredApp>();
+        try
+        {
+            var ext = Path.GetExtension(filePath)?.ToLowerInvariant();
+            if (string.IsNullOrEmpty(ext)) return apps;
+            var knownApps = GetKnownAppsForExtension(ext);
+            foreach (var app in knownApps)
+                if (IsAppInstalled(app.BundleIdentifier))
+                    apps.Add(app);
+        }
+        catch { }
+        return await Task.FromResult(apps.AsReadOnly());
+    }
+
+    public bool IsAppInstalled(string bundleIdentifier)
+    {
+        _installedApps ??= ScanInstalledApps();
+        return _installedApps.Contains(bundleIdentifier);
+    }
+
+    private static HashSet<string> ScanInstalledApps()
+    {
+        var apps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var appPath in new[] { "/Applications", "/System/Applications", "/Applications/Utilities" })
+        {
+            try
+            {
+                if (!Directory.Exists(appPath)) continue;
+                foreach (var dir in Directory.EnumerateDirectories(appPath, "*.app"))
+                {
+                    try
+                    {
+                        var plistPath = Path.Combine(dir, "Contents", "Info.plist");
+                        if (!File.Exists(plistPath)) continue;
+                        var bundleId = ExtractBundleIdentifier(plistPath);
+                        if (!string.IsNullOrEmpty(bundleId)) apps.Add(bundleId);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+        return apps;
+    }
+
+    private static string? ExtractBundleIdentifier(string plistPath)
+    {
+        try
+        {
+            var content = File.ReadAllText(plistPath);
+            var marker = "<key>CFBundleIdentifier</key>";
+            var idx = content.IndexOf(marker, StringComparison.Ordinal);
+            if (idx < 0) return null;
+            var afterMarker = content.AsSpan(idx + marker.Length).TrimStart();
+            if (!afterMarker.StartsWith("<string>")) return null;
+            var start = "<string>".Length;
+            var endIdx = afterMarker.IndexOf("</string>");
+            if (endIdx < start) return null;
+            return afterMarker.Slice(start, endIdx - start).ToString();
+        }
+        catch { return null; }
+    }
+
+    private static async Task CopyToClipboard(string text)
+    {
+        await Task.Run(() =>
+        {
+            try
+            {
+                var process = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "pbcopy",
+                        RedirectStandardInput = true,
+                        UseShellExecute = false
+                    }
+                };
+                process.Start();
+                process.StandardInput.Write(text);
+                process.StandardInput.Close();
+                process.WaitForExit();
+            }
+            catch { }
+        });
+    }
+
+    private static List<RegisteredApp> GetKnownAppsForExtension(string ext) => ext switch
+    {
+        ".txt" or ".md" or ".log" or ".csv" => [
+            new() { Name = "TextEdit", BundleIdentifier = "com.apple.TextEdit", IsDefault = true },
+            new() { Name = "VS Code", BundleIdentifier = "com.microsoft.VSCode" },
+        ],
+        ".png" or ".jpg" or ".jpeg" or ".gif" or ".tiff" or ".webp" or ".svg" => [
+            new() { Name = "Preview", BundleIdentifier = "com.apple.Preview", IsDefault = true },
+            new() { Name = "VS Code", BundleIdentifier = "com.microsoft.VSCode" },
+        ],
+        ".pdf" => [
+            new() { Name = "Preview", BundleIdentifier = "com.apple.Preview", IsDefault = true },
+        ],
+        ".mp4" or ".mov" or ".avi" or ".mkv" => [
+            new() { Name = "QuickTime Player", BundleIdentifier = "com.apple.QuickTimePlayerX", IsDefault = true },
+            new() { Name = "VLC", BundleIdentifier = "org.videolan.vlc" },
+        ],
+        ".html" or ".css" or ".js" or ".ts" or ".py" or ".java" or ".cs" or ".go" or ".rs" or ".swift" => [
+            new() { Name = "VS Code", BundleIdentifier = "com.microsoft.VSCode", IsDefault = true },
+            new() { Name = "Xcode", BundleIdentifier = "com.apple.dt.Xcode" },
+        ],
+        _ => []
+    };
+}

@@ -1,0 +1,78 @@
+namespace FKFinder.Models;
+
+public class ContextMenuAction
+{
+    public string Label { get; init; } = string.Empty;
+    public string IconSvg { get; init; } = string.Empty;
+    public string ShortcutText { get; init; } = string.Empty;
+    public bool IsEnabled { get; init; } = true;
+    public bool IsSeparator { get; init; }
+    public Func<Task>? Execute { get; init; }
+    public IReadOnlyList<ContextMenuAction>? SubItems { get; init; }
+
+    public static ContextMenuAction Separator => new() { IsSeparator = true };
+}
+
+/// <summary>
+/// SVG icon constants for the context menu and UI.
+/// Simple, flat, modern icons.
+/// </summary>
+public static class Icons
+{
+    // Navigation
+    public const string Back = "M15 19l-7-7 7-7";
+    public const string Forward = "M9 5l7 7-7 7";
+    public const string Up = "M12 19V5M5 12l7-7 7 7";
+    public const string Refresh = "M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15";
+
+    // File operations
+    public const string NewFolder = "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z";
+    public const string NewFile = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M12 18v-6M9 15h6";
+    public const string Open = "M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z";
+    public const string Copy = "M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2zM5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1";
+    public const string Cut = "M9 6a3 3 0 11-6 0 3 3 0 016 0zM9 18a3 3 0 11-6 0 3 3 0 016 0zM20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12";
+    public const string Paste = "M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M9 2h6a1 1 0 011 1v2a1 1 0 01-1 1H9a1 1 0 01-1-1V3a1 1 0 011-1z";
+    public const string Delete = "M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6";
+    public const string Rename = "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z";
+
+    // View
+    public const string Grid = "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z";
+    public const string List = "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01";
+    public const string Sort = "M3 6h18M3 12h12M3 18h6";
+    public const string SortAsc = "M12 5v14M5 12l7-7 7 7";
+    public const string SortDesc = "M12 19V5M5 12l7 7 7-7";
+
+    // Info
+    public const string Info = "M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 16v-4M12 8h.01";
+    public const string CopyPath = "M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71";
+
+    // Apps
+    public const string Terminal = "M4 17l6-5-6-5M12 19h8";
+    public const string Finder = "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z";
+    public const string Search = "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z";
+    public const string VSCode = "M23.15 2.587L18.21.21a1.494 1.494 0 00-1.705.29l-6.046 5.503-3.27-2.517a.998.998 0 00-1.289.072l-1.7 1.7a.999.999 0 000 1.414l2.825 2.825-2.825 2.825a.999.999 0 000 1.414l1.7 1.7c.36.36.926.388 1.29.072l3.269-2.517 6.046 5.503a1.494 1.494 0 001.705.29l4.94-2.377A1.5 1.5 0 0024 18.41V5.59a1.5 1.5 0 00-.85-1.003zM17.5 18.5l-7-5.5 7-5.5v11z";
+
+    /// <summary>
+    /// Returns true if the icon should be rendered with fill instead of stroke.
+    /// </summary>
+    public static bool IsFillIcon(string? iconSvg) => iconSvg == VSCode;
+
+    // Add
+    public const string Plus = "M12 5v14M5 12h14";
+    public const string Close = "M18 6L6 18M6 6l12 12";
+
+    // Folder/File type icons (simplified SVG paths for 24x24 viewBox)
+    public const string Folder = "M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z";
+    public const string File = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6";
+    public const string FileText = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M16 13H8M16 17H8M10 9H8";
+    public const string FileCode = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2";
+    public const string FileImage = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M8 16l3-4 2 3 3-4 4 5H8z";
+    public const string FileArchive = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M10 12v2M10 16v2M12 12h2v2h-2z";
+    public const string FileVideo = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M10 11v6l5-3-5-3z";
+    public const string FileAudio = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M11 14a2 2 0 11-4 0 2 2 0 014 0zM11 14V10l4-1";
+    public const string FilePdf = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M8 13h2a1 1 0 001-1v-1a1 1 0 00-1-1H8v5";
+    public const string FileSpreadsheet = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M8 13h8M8 17h8M12 10v10";
+    public const string FilePresentation = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M7 11h10v7H7z";
+    public const string FileMarkdown = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M7 13v5l2.5-2.5L12 18v-5M15 13v5";
+    public const string FileConfig = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M12 18a2 2 0 100-4 2 2 0 000 4zM12 12v2";
+}

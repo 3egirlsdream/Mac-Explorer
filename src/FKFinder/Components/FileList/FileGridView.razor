@@ -1,0 +1,501 @@
+@using FKFinder.Models
+@implements IDisposable
+
+<div class="file-content-area"
+     @oncontextmenu:preventDefault
+     @oncontextmenu="@(async e => await OnBackgroundContextMenu(e))"
+     @onmousedown="OnContentMouseDown"
+     @ondragover="OnContentDragOver"
+     @ondragover:preventDefault
+     @ondrop="OnContentDrop"
+     @ondrop:preventDefault>
+
+    @if (ViewModel.ViewMode == ViewMode.List && ViewModel.Entries.Count > 0)
+    {
+        <div class="file-list-header">
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Name ? "active" : "")"
+                  @onclick="() => ViewModel.SetSort(SortField.Name)">
+                名称
+                @if (ViewModel.SortField == SortField.Name)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Modified ? "active" : "")"
+                  @onclick="() => ViewModel.SetSort(SortField.Modified)">
+                修改日期
+                @if (ViewModel.SortField == SortField.Modified)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Size ? "active" : "")"
+                  @onclick="() => ViewModel.SetSort(SortField.Size)">
+                大小
+                @if (ViewModel.SortField == SortField.Size)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Type ? "active" : "")"
+                  @onclick="() => ViewModel.SetSort(SortField.Type)">
+                类型
+                @if (ViewModel.SortField == SortField.Type)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+        </div>
+    }
+
+    <div class="file-content-scroll">
+        @if (ViewModel.IsLoading)
+        {
+            <div class="loading-indicator"></div>
+        }
+
+        @if (ViewModel.Entries.Count == 0 && !ViewModel.IsLoading)
+        {
+            <div class="empty-state">
+                <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="@Icons.Folder" />
+                </svg>
+                <div class="empty-state-text">此文件夹为空</div>
+            </div>
+        }
+        else if (ViewModel.ViewMode == ViewMode.List)
+        {
+            <div class="file-list">
+                @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
+                {
+                    @foreach (var group in ViewModel.Groups)
+                    {
+                        <div class="file-group-header">@group.Name</div>
+                        @foreach (var entry in group.Entries)
+                        {
+                            @RenderListRow(entry);
+                        }
+                    }
+                }
+                else
+                {
+                    @foreach (var entry in ViewModel.Entries)
+                    {
+                        @RenderListRow(entry);
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
+            {
+                @foreach (var group in ViewModel.Groups)
+                {
+                    <div class="file-group-header">@group.Name</div>
+                    <div class="file-grid">
+                        @foreach (var entry in group.Entries)
+                        {
+                            @RenderGridItem(entry);
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="file-grid">
+                    @foreach (var entry in ViewModel.Entries)
+                    {
+                        @RenderGridItem(entry);
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<div class="status-bar">
+    @if (ViewModel.SelectedEntries.Count > 0)
+    {
+        <span>已选 @ViewModel.SelectedEntries.Count 项 / </span>
+    }
+    @ViewModel.StatusText
+</div>
+
+@code {
+    [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        ViewModel.RenameRequested += OnRenameRequested;
+    }
+
+    private void OnRenameRequested(FileSystemEntry entry)
+    {
+        StartRename(entry);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ViewModel.RenameRequested -= OnRenameRequested;
+        _dblClickTimer?.Dispose();
+    }
+
+    // Drag-and-drop state
+    private FileSystemEntry? _draggedEntry;
+    private FileSystemEntry? _dragOverEntry;
+
+    // Inline rename state
+    private FileSystemEntry? _renamingEntry;
+    private string _renameText = "";
+
+    // ── Render helpers using inline templates ──
+
+    private RenderFragment<FileSystemEntry> RenderListRow => (entry) => builder =>
+    {
+        var isSelected = ViewModel.SelectedEntries.Contains(entry);
+        var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", $"file-list-row {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")}");
+        builder.AddAttribute(2, "draggable", _renamingEntry != entry ? "true" : "false");
+        builder.AddAttribute(3, "ondragstart", EventCallback.Factory.Create(this, () => OnDragStart(entry)));
+        builder.AddAttribute(4, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
+        builder.AddAttribute(41, "ondragover:preventDefault", true);
+        builder.AddAttribute(42, "ondragleave", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragLeave(entry)));
+        builder.AddAttribute(43, "ondrop", EventCallback.Factory.Create(this, () => OnDrop(entry)));
+        builder.AddAttribute(44, "ondrop:preventDefault", true);
+        builder.AddAttribute(6, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryClick(entry, e)));
+        builder.AddAttribute(60, "onclick:stopPropagation", true);
+        builder.AddAttribute(61, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryMouseDown(entry, e)));
+        builder.AddAttribute(62, "onmousedown:stopPropagation", true);
+        builder.AddAttribute(8, "oncontextmenu", EventCallback.Factory.Create<MouseEventArgs>(this, async e => await OnFileContextMenu(e, entry)));
+        builder.AddAttribute(9, "oncontextmenu:preventDefault", true);
+        builder.AddAttribute(90, "oncontextmenu:stopPropagation", true);
+        builder.AddAttribute(91, "ondragend", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragEnd()));
+
+        // Name column
+        builder.OpenElement(10, "div");
+        builder.AddAttribute(11, "class", "file-list-name");
+        builder.OpenElement(12, "span");
+        builder.AddAttribute(13, "class", "file-list-icon");
+        builder.AddContent(14, (MarkupString)GetIconSvg(entry, 20));
+        builder.CloseElement();
+
+        if (_renamingEntry == entry)
+        {
+            builder.OpenElement(15, "input");
+            builder.AddAttribute(16, "class", "rename-input");
+            builder.AddAttribute(17, "value", _renameText);
+            builder.AddAttribute(18, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
+            builder.AddAttribute(19, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
+            builder.AddAttribute(20, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e => OnRenameKeyDown(e)));
+            builder.AddAttribute(21, "onclick:stopPropagation", true);
+            builder.AddAttribute(22, "ondblclick:stopPropagation", true);
+            builder.AddElementReferenceCapture(23, async el => await FocusRenameInput(el));
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(15, "span");
+            builder.AddContent(16, entry.Name);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
+        builder.OpenElement(30, "div");
+        builder.AddAttribute(31, "class", "file-list-size");
+        builder.AddContent(32, entry.FormattedSize);
+        builder.CloseElement();
+
+        builder.OpenElement(50, "div");
+        builder.AddAttribute(51, "class", "file-list-modified");
+        builder.AddContent(52, entry.LastModified.ToString("yyyy-MM-dd HH:mm"));
+        builder.CloseElement();
+
+        builder.OpenElement(70, "div");
+        builder.AddAttribute(71, "class", "file-list-kind");
+        builder.AddContent(72, entry.IsDirectory ? "文件夹" : entry.Extension.TrimStart('.').ToUpperInvariant());
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+
+    private RenderFragment<FileSystemEntry> RenderGridItem => (entry) => builder =>
+    {
+        var isSelected = ViewModel.SelectedEntries.Contains(entry);
+        var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", $"file-grid-item {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")}");
+        builder.AddAttribute(2, "draggable", _renamingEntry != entry ? "true" : "false");
+        builder.AddAttribute(3, "ondragstart", EventCallback.Factory.Create(this, () => OnDragStart(entry)));
+        builder.AddAttribute(4, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
+        builder.AddAttribute(41, "ondragover:preventDefault", true);
+        builder.AddAttribute(42, "ondragleave", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragLeave(entry)));
+        builder.AddAttribute(43, "ondrop", EventCallback.Factory.Create(this, () => OnDrop(entry)));
+        builder.AddAttribute(44, "ondrop:preventDefault", true);
+        builder.AddAttribute(6, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryClick(entry, e)));
+        builder.AddAttribute(60, "onclick:stopPropagation", true);
+        builder.AddAttribute(61, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryMouseDown(entry, e)));
+        builder.AddAttribute(62, "onmousedown:stopPropagation", true);
+        builder.AddAttribute(8, "oncontextmenu", EventCallback.Factory.Create<MouseEventArgs>(this, async e => await OnFileContextMenu(e, entry)));
+        builder.AddAttribute(9, "oncontextmenu:preventDefault", true);
+        builder.AddAttribute(90, "oncontextmenu:stopPropagation", true);
+        builder.AddAttribute(91, "ondragend", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragEnd()));
+
+        builder.OpenElement(10, "div");
+        builder.AddAttribute(11, "class", "file-grid-icon");
+        builder.AddContent(12, (MarkupString)GetIconSvg(entry, 36));
+        builder.CloseElement();
+
+        if (_renamingEntry == entry)
+        {
+            builder.OpenElement(20, "input");
+            builder.AddAttribute(21, "class", "rename-input rename-input-grid");
+            builder.AddAttribute(22, "value", _renameText);
+            builder.AddAttribute(23, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
+            builder.AddAttribute(24, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
+            builder.AddAttribute(25, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e => OnRenameKeyDown(e)));
+            builder.AddAttribute(26, "onclick:stopPropagation", true);
+            builder.AddAttribute(27, "ondblclick:stopPropagation", true);
+            builder.AddElementReferenceCapture(28, async el => await FocusRenameInput(el));
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(20, "div");
+            builder.AddAttribute(21, "class", "file-grid-name");
+            builder.AddContent(22, entry.Name);
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    // ── Selection logic ──
+
+    private void OnEntryClick(FileSystemEntry entry, MouseEventArgs e)
+    {
+        if (_renamingEntry != null) return;
+        ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
+    }
+
+    // Custom double-click via timer (only fast double-clicks open, not slow clicks)
+    private FileSystemEntry? _pendingOpenEntry;
+    private System.Threading.Timer? _dblClickTimer;
+
+    private void OnEntryMouseDown(FileSystemEntry entry, MouseEventArgs e)
+    {
+        if (e.Button != 0 || _renamingEntry != null) return;
+
+        if (_pendingOpenEntry == entry)
+        {
+            // Second fast click on same entry — open it
+            _dblClickTimer?.Dispose();
+            _dblClickTimer = null;
+            _pendingOpenEntry = null;
+            _ = OpenEntry(entry);
+        }
+        else
+        {
+            // First click — start timer
+            _pendingOpenEntry = entry;
+            _dblClickTimer?.Dispose();
+            _dblClickTimer = new System.Threading.Timer(_ =>
+            {
+                _pendingOpenEntry = null;
+            }, null, 350, Timeout.Infinite);
+        }
+    }
+
+    private void OnContentMouseDown(MouseEventArgs e)
+    {
+        if (e.Button == 0 && e.Detail == 1)
+        {
+            // Cancel rename if active
+            if (_renamingEntry != null)
+            {
+                _renamingEntry = null;
+                _renameText = "";
+            }
+
+            // Click on blank area clears selection
+            if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey)
+                ViewModel.ClearSelection();
+        }
+    }
+
+    private async Task OpenEntry(FileSystemEntry entry)
+    {
+        if (_renamingEntry != null) return;
+        await ViewModel.OpenEntryCommand.ExecuteAsync(entry);
+    }
+
+    // ── Drag and drop ──
+
+    private void OnDragStart(FileSystemEntry entry)
+    {
+        _draggedEntry = entry;
+        if (!ViewModel.SelectedEntries.Contains(entry))
+            ViewModel.SelectEntry(entry, false, false);
+    }
+
+    private void OnDragOver(FileSystemEntry entry)
+    {
+        if (_draggedEntry != null && entry.IsDirectory && entry != _draggedEntry)
+            _dragOverEntry = entry;
+    }
+
+    private void OnDragLeave(FileSystemEntry entry)
+    {
+        if (_dragOverEntry == entry)
+            _dragOverEntry = null;
+    }
+
+    private async Task OnDrop(FileSystemEntry target)
+    {
+        _dragOverEntry = null;
+        if (_draggedEntry == null || !target.IsDirectory || target == _draggedEntry) 
+        {
+            _draggedEntry = null;
+            return;
+        }
+
+        // Move all selected entries if dragged entry is part of selection
+        var entriesToMove = ViewModel.SelectedEntries.Contains(_draggedEntry)
+            ? ViewModel.SelectedEntries.ToList()
+            : new List<FileSystemEntry> { _draggedEntry };
+
+        _draggedEntry = null;
+
+        foreach (var entry in entriesToMove)
+        {
+            if (entry != target)
+                await ViewModel.MoveEntryAsync(entry, target);
+        }
+    }
+
+    private void OnDragEnd()
+    {
+        _draggedEntry = null;
+        _dragOverEntry = null;
+    }
+
+    private void OnContentDragOver(DragEventArgs e)
+    {
+        // Allow drop on content area (prevents browser default)
+    }
+
+    private void OnContentDrop(DragEventArgs e)
+    {
+        // Dropped on blank area — just clean up drag state
+        _draggedEntry = null;
+        _dragOverEntry = null;
+    }
+
+    // ── Inline rename ──
+
+    public void StartRename(FileSystemEntry entry)
+    {
+        _renamingEntry = entry;
+        // Pre-select name without extension for files
+        if (entry.IsDirectory)
+            _renameText = entry.Name;
+        else
+        {
+            var ext = Path.GetExtension(entry.Name);
+            _renameText = string.IsNullOrEmpty(ext) ? entry.Name : entry.Name[..^ext.Length];
+        }
+        StateHasChanged();
+    }
+
+    private async Task FocusRenameInput(ElementReference el)
+    {
+        try
+        {
+            await Task.Yield();
+            await JSRuntime.InvokeVoidAsync("fkfinderSelection.focusAndSelect", el);
+        }
+        catch { }
+    }
+
+    private void OnRenameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            _ = CommitRename();
+        else if (e.Key == "Escape")
+            CancelRename();
+    }
+
+    private async Task CommitRename()
+    {
+        if (_renamingEntry == null) return;
+        var entry = _renamingEntry;
+        _renamingEntry = null;
+
+        var newName = _renameText.Trim();
+        if (string.IsNullOrWhiteSpace(newName) || newName == entry.Name)
+        {
+            _renameText = "";
+            return;
+        }
+
+        // For files, preserve original extension if user didn't include one
+        if (!entry.IsDirectory && !string.IsNullOrEmpty(entry.Extension) && !newName.Contains('.'))
+            newName += entry.Extension;
+
+        await ViewModel.RenameEntryAsync(entry, newName);
+        _renameText = "";
+    }
+
+    private void CancelRename()
+    {
+        _renamingEntry = null;
+        _renameText = "";
+    }
+
+    // ── Context menu ──
+
+    private bool _fileContextMenuActive;
+
+    private async Task OnFileContextMenu(MouseEventArgs e, FileSystemEntry entry)
+    {
+        _fileContextMenuActive = true;
+        if (!ViewModel.SelectedEntries.Contains(entry))
+            ViewModel.SelectEntry(entry, false, false);
+        await ViewModel.ShowFileContextMenuAsync(entry, e.ClientX, e.ClientY);
+    }
+
+    private async Task OnBackgroundContextMenu(MouseEventArgs e)
+    {
+        // If a file context menu was just triggered, the event bubbled up here —
+        // skip to avoid overwriting the file menu with the background menu.
+        if (_fileContextMenuActive)
+        {
+            _fileContextMenuActive = false;
+            return;
+        }
+        await ViewModel.ShowBackgroundContextMenuAsync(e.ClientX, e.ClientY);
+    }
+
+    // ── SVG Icon helper ──
+
+    private static string GetIconSvg(FileSystemEntry entry, int size)
+    {
+        var (path, color) = entry.IsDirectory
+            ? (Icons.Folder, "#54A3F7")
+            : GetFileIcon(entry.IconKey);
+        return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 24 24"" fill=""none"" stroke=""{color}"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{path}""/></svg>";
+    }
+
+    private static (string path, string color) GetFileIcon(string iconKey) => iconKey switch
+    {
+        "file-image" => (Icons.FileImage, "#E8912D"),
+        "file-video" => (Icons.FileVideo, "#8B5CF6"),
+        "file-audio" => (Icons.FileAudio, "#EC4899"),
+        "file-pdf" => (Icons.FilePdf, "#EF4444"),
+        "file-document" => (Icons.FileText, "#3B82F6"),
+        "file-spreadsheet" => (Icons.FileSpreadsheet, "#22C55E"),
+        "file-presentation" => (Icons.FilePresentation, "#F97316"),
+        "file-archive" => (Icons.FileArchive, "#A855F7"),
+        "file-code" => (Icons.FileCode, "#6366F1"),
+        "file-markdown" => (Icons.FileMarkdown, "#64748B"),
+        "file-config" => (Icons.FileConfig, "#F59E0B"),
+        "file-executable" => (Icons.File, "#64748B"),
+        "file-package" => (Icons.FileArchive, "#64748B"),
+        _ => (Icons.File, "#94A3B8")
+    };
+}

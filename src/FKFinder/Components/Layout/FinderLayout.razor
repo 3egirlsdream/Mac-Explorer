@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+
+<ErrorBoundary @ref="errorBoundary">
+    <ChildContent>
+        @Body
+    </ChildContent>
+    <ErrorContent Context="ex">
+        <div style="padding: 20px; color: red; font-family: monospace; font-size: 14px; background: #fff; margin: 20px; border: 2px solid red; border-radius: 8px;">
+            <h3 style="margin: 0 0 10px;">渲染错误</h3>
+            <p style="margin: 0 0 10px;">@ex.Message</p>
+            <pre style="font-size: 11px; white-space: pre-wrap;">@ex.StackTrace</pre>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    private ErrorBoundary? errorBoundary;
+
+    protected override void OnParametersSet()
+    {
+        errorBoundary?.Recover();
+    }
+}

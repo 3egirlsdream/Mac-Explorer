@@ -1,0 +1,86 @@
+@using FKFinder.Models
+
+<div class="breadcrumb-bar" @onclick="ActivatePathInput" @onclick:stopPropagation>
+    @if (_isEditingPath)
+    {
+        <input class="breadcrumb-input" type="text"
+               @bind="_pathInput" @bind:event="oninput"
+               @onkeydown="OnPathInputKeyDown"
+               @onblur="CommitPathInput"
+               @ref="_pathInputRef" />
+    }
+    else
+    {
+        @if (ViewModel.Breadcrumbs.Count == 0)
+        {
+            <div class="breadcrumb-segment">
+                <span class="breadcrumb-link current">主页</span>
+            </div>
+        }
+        else
+        {
+            @foreach (var segment in ViewModel.Breadcrumbs)
+            {
+                <div class="breadcrumb-segment">
+                    <span class="breadcrumb-link @(segment == ViewModel.Breadcrumbs.Last() ? "current" : "")"
+                          @onclick="() => NavigateTo(segment.FullPath)">
+                        @segment.Name
+                    </span>
+                    @if (segment != ViewModel.Breadcrumbs.Last())
+                    {
+                        <svg class="breadcrumb-chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    }
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+
+    private bool _isEditingPath;
+    private string _pathInput = "";
+    private ElementReference _pathInputRef;
+
+    private async Task NavigateTo(string path)
+    {
+        await ViewModel.NavigateToCommand.ExecuteAsync(path);
+    }
+
+    private void ActivatePathInput()
+    {
+        _isEditingPath = true;
+        _pathInput = ViewModel.CurrentPath;
+    }
+
+    private async Task OnPathInputKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await CommitPathInput();
+        }
+        else if (e.Key == "Escape")
+        {
+            _isEditingPath = false;
+        }
+    }
+
+    private async Task CommitPathInput()
+    {
+        _isEditingPath = false;
+        var path = _pathInput.Trim();
+        if (!string.IsNullOrEmpty(path) && path != ViewModel.CurrentPath)
+        {
+            await ViewModel.NavigateToCommand.ExecuteAsync(path);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_isEditingPath)
+        {
+            try { await _pathInputRef.FocusAsync(); } catch { }
+        }
+    }
+}

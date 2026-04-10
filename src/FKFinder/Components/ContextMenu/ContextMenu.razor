@@ -1,0 +1,193 @@
+@using FKFinder.Models
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="context-menu glass-effect" @ref="_menuRef" style="@MenuPosition" @oncontextmenu:preventDefault>
+    @foreach (var action in Actions)
+    {
+        @if (action.IsSeparator)
+        {
+            <div class="context-menu-separator"></div>
+        }
+        else if (action.SubItems is { Count: > 0 })
+        {
+            <div class="context-menu-item has-submenu"
+                 @onmouseenter="() => _hoveredSubMenu = action"
+                 @onmouseleave="() => { if (_hoveredSubMenu == action) _hoveredSubMenu = null; }"
+                 @oncontextmenu:preventDefault>
+                <span class="context-menu-icon">
+                    @if (!string.IsNullOrEmpty(action.IconSvg))
+                    {
+                        @if (Icons.IsFillIcon(action.IconSvg))
+                        {
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                <path d="@action.IconSvg" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="@action.IconSvg" />
+                            </svg>
+                        }
+                    }
+                </span>
+                <span class="context-menu-label">@action.Label</span>
+                <span class="context-menu-arrow">›</span>
+
+                @if (_hoveredSubMenu == action)
+                {
+                    <div class="context-submenu glass-effect">
+                        @foreach (var sub in action.SubItems)
+                        {
+                            @if (sub.IsSeparator)
+                            {
+                                <div class="context-menu-separator"></div>
+                            }
+                            else
+                            {
+                                <div class="context-menu-item @(!sub.IsEnabled ? "disabled" : "")"
+                                     @onclick="() => ExecuteAction(sub)"
+                                     @onclick:stopPropagation>
+                                    <span class="context-menu-icon">
+                                        @if (!string.IsNullOrEmpty(sub.IconSvg))
+                                        {
+                                            @if (Icons.IsFillIcon(sub.IconSvg))
+                                            {
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                                    <path d="@sub.IconSvg" />
+                                                </svg>
+                                            }
+                                            else
+                                            {
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="@sub.IconSvg" />
+                                                </svg>
+                                            }
+                                        }
+                                    </span>
+                                    <span class="context-menu-label">@sub.Label</span>
+                                    @if (!string.IsNullOrEmpty(sub.ShortcutText))
+                                    {
+                                        <span class="context-menu-shortcut">@sub.ShortcutText</span>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="context-menu-item @(!action.IsEnabled ? "disabled" : "")"
+                 @onclick="() => ExecuteAction(action)"
+                 @oncontextmenu:preventDefault>
+                <span class="context-menu-icon">
+                    @if (!string.IsNullOrEmpty(action.IconSvg))
+                    {
+                        @if (Icons.IsFillIcon(action.IconSvg))
+                        {
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                <path d="@action.IconSvg" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="@action.IconSvg" />
+                            </svg>
+                        }
+                    }
+                </span>
+                <span class="context-menu-label">@action.Label</span>
+                @if (!string.IsNullOrEmpty(action.ShortcutText))
+                {
+                    <span class="context-menu-shortcut">@action.ShortcutText</span>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public double X { get; set; }
+    [Parameter] public double Y { get; set; }
+    [Parameter] public IReadOnlyList<ContextMenuAction> Actions { get; set; } = [];
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private ElementReference _menuRef;
+    private DotNetObjectReference<ContextMenu>? _dotNetRef;
+    private double _adjustedX;
+    private double _adjustedY;
+    private bool _adjusted;
+    private ContextMenuAction? _hoveredSubMenu;
+
+    private string MenuPosition => _adjusted
+        ? $"left: {_adjustedX}px; top: {_adjustedY}px;"
+        : $"left: {X}px; top: {Y}px;";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("fkfinderContextMenu.registerAutoClose", _dotNetRef);
+            }
+            catch { }
+        }
+
+        if (!_adjusted)
+        {
+            try
+            {
+                var result = await JS.InvokeAsync<double[]>("fkfinderContextMenu.adjustPosition", _menuRef, X, Y);
+                if (result is { Length: 2 })
+                {
+                    _adjustedX = result[0];
+                    _adjustedY = result[1];
+                    _adjusted = true;
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                _adjustedX = X;
+                _adjustedY = Y;
+                _adjusted = true;
+            }
+        }
+    }
+
+    [Microsoft.JSInterop.JSInvokable]
+    public async Task RequestClose()
+    {
+        await Close();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ExecuteAction(ContextMenuAction action)
+    {
+        if (!action.IsEnabled) return;
+        await Close();
+        if (action.Execute != null)
+            await action.Execute();
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("fkfinderContextMenu.unregisterAutoClose");
+        }
+        catch { }
+        _dotNetRef?.Dispose();
+    }
+}

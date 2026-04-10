@@ -1,0 +1,139 @@
+@page "/"
+
+@inject FileListViewModel ViewModel
+@inject IJSRuntime JSRuntime
+@inject FKFinder.Services.IQuickLookService QuickLookService
+@implements IAsyncDisposable
+
+<CascadingValue Value="ViewModel">
+    <div class="finder-layout">
+        <FinderSidebar />
+        <div class="finder-main">
+            <FinderToolbar />
+            <BreadcrumbBar />
+            @if (ViewModel.IsHomePage)
+            {
+                <HomeView />
+            }
+            else
+            {
+                <FileGridView />
+            }
+        </div>
+    </div>
+</CascadingValue>
+
+@if (ViewModel.IsContextMenuVisible)
+{
+    <ContextMenu X="ViewModel.ContextMenuX" Y="ViewModel.ContextMenuY"
+                 Actions="ViewModel.ContextMenuActions"
+                 OnClose="CloseContextMenu" />
+}
+
+@if (ViewModel.IsMetadataPanelVisible)
+{
+    <MetadataPanel Metadata="ViewModel.CurrentMetadata" OnClose="CloseMetadata" />
+}
+
+@code {
+    private DotNetObjectReference<Home>? _dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        // Subscribe to ViewModel property changes to trigger re-render
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("fkfinderKeyboard.init", _dotNetRef);
+            }
+            catch { }
+        }
+    }
+
+    [Microsoft.JSInterop.JSInvokable]
+    public async Task OnKeyboardShortcut(string action)
+    {
+        try
+        {
+            switch (action)
+            {
+                case "copy":
+                    ViewModel.CopySelectedCommand.Execute(null);
+                    break;
+                case "cut":
+                    ViewModel.CutSelectedCommand.Execute(null);
+                    break;
+                case "paste":
+                    await ViewModel.PasteCommand.ExecuteAsync(null);
+                    break;
+                case "delete":
+                    await ViewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                    break;
+                case "selectAll":
+                    ViewModel.SelectAll();
+                    break;
+                case "navigateUp":
+                    await ViewModel.NavigateUpCommand.ExecuteAsync(null);
+                    break;
+                case "refresh":
+                    await ViewModel.RefreshCommand.ExecuteAsync(null);
+                    break;
+                case "showInfo":
+                    if (ViewModel.SelectedEntries.Count == 1)
+                        await ViewModel.ShowMetadataCommand.ExecuteAsync(ViewModel.SelectedEntries.First());
+                    break;
+                case "enter":
+                    if (ViewModel.SelectedEntries.Count == 1)
+                    {
+                        // Enter key triggers rename, not open (macOS Finder behavior)
+                        ViewModel.RequestRename(ViewModel.SelectedEntries.First());
+                    }
+                    break;
+                case "open":
+                    if (ViewModel.SelectedEntries.Count == 1)
+                        await ViewModel.OpenEntryCommand.ExecuteAsync(ViewModel.SelectedEntries.First());
+                    break;
+                case "newFolder":
+                    await ViewModel.CreateNewFolderCommand.ExecuteAsync(null);
+                    break;
+                case "newFile":
+                    await ViewModel.CreateNewFileCommand.ExecuteAsync(".txt");
+                    break;
+                case "quickLook":
+                    if (ViewModel.SelectedEntries.Count == 1)
+                        await QuickLookService.PreviewFileAsync(ViewModel.SelectedEntries.First().FullPath);
+                    break;
+            }
+        }
+        catch { }
+    }
+
+    private void CloseMetadata()
+    {
+        ViewModel.CloseMetadataCommand.Execute(null);
+    }
+
+    private void CloseContextMenu()
+    {
+        ViewModel.CloseContextMenuCommand.Execute(null);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        _dotNetRef?.Dispose();
+        await ValueTask.CompletedTask;
+    }
+}
