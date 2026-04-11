@@ -423,6 +423,10 @@ end tell");
         var ext = Path.GetExtension(dir.Name);
         var bundleIconKey = Indexing.SqliteFileIndex.ResolveBundleIconKey(ext);
 
+        // Handle known macOS library bundles that have no file extension
+        if (bundleIconKey == "folder" && IsKnownLibraryBundle(dir.Name))
+            bundleIconKey = "app-bundle";
+
         return new FileSystemEntry
         {
             FullPath = dir.FullName,
@@ -439,6 +443,13 @@ end tell");
             IconKey = bundleIconKey,
             // Icons loaded lazily via ResolveAppIconsAsync
         };
+    }
+
+    private static bool IsKnownLibraryBundle(string dirName)
+    {
+        // Photo Booth library has no extension on macOS
+        // Chinese: "Photo Booth图库", English: "Photo Booth Library"
+        return dirName.StartsWith("Photo Booth", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task ResolveAppIconsAsync(IEnumerable<FileSystemEntry> entries, Action? onBatchResolved = null)

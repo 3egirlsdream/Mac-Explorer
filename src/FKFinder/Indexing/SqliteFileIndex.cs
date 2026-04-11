@@ -257,8 +257,13 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
     internal static string ResolveBundleIconKey(string extension) => extension.ToLowerInvariant() switch
     {
         ".app" => "app-bundle",
+        ".photoslibrary" or ".photobooth" or ".miximages"
+            or ".musiclibrary" or ".tvlibrary" or ".aplibrary"
+            or ".fcpbundle" or ".fcpproject"
+            or ".garageband" or ".band" or ".logicx"
+            or ".bundle" or ".framework" or ".plugin" or ".appex" or ".kext" => "app-bundle",
         ".pvm" or ".vmwarevm" or ".vbox" => "file-vm",
-        ".xcodeproj" or ".xcworkspace" => "file-code",
+        ".xcodeproj" or ".xcworkspace" or ".playground" => "file-code",
         _ => "folder"
     };
 
