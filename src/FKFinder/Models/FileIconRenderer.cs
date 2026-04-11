@@ -3,9 +3,9 @@ namespace FKFinder.Models;
 using System.Net;
 
 /// <summary>
-/// Renders rich SVG file type icons with extension labels.
-/// Unified modern design system. ViewBox: 0 0 32 32.
-/// All icons fill a consistent 28×28 visual area (2,2 → 30,30).
+/// Renders SVG file type icons in Microsoft Fluent Design style.
+/// ViewBox: 0 0 32 32. All icons fill a consistent 28×28 visual area.
+/// Fluent characteristics: rounded shapes, layered depth, vibrant fills, minimal strokes.
 /// </summary>
 public static class FileIconRenderer
 {
@@ -36,311 +36,337 @@ public static class FileIconRenderer
             "file-3d" => ThreeDFile(ext),
             "file-subtitle" => SubtitleFile(ext),
             "file-executable" => ExecutableFile(ext),
+            "file-vm" => VirtualMachineFile(ext),
             _ => GenericFile()
         };
         return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 32 32"" xmlns=""http://www.w3.org/2000/svg"">{inner}</svg>";
     }
 
+    /// <summary>Renders a Fluent-style folder icon at given size.</summary>
+    public static string RenderFolder(int size) =>
+        $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 32 32"" xmlns=""http://www.w3.org/2000/svg"">{FolderIcon()}</svg>";
+
+    static string FolderIcon() =>
+        // Soft shadow (consistent with Doc/Card)
+        @"<path d=""M3 9.5A4.5 4.5 0 0 1 7.5 5h3.964a3.5 3.5 0 0 1 2.475 1.025L16 8.085l-3.475 3.476a1.5 1.5 0 0 1-1.06.439H3zM3 14v10.5A4.5 4.5 0 0 0 7.5 29h19a4.5 4.5 0 0 0 4.5-4.5V13a4.5 4.5 0 0 0-4.5-4.5h-8.086l-4.475 4.475A3.5 3.5 0 0 1 11.464 14z"" fill=""#000"" opacity=""0.04""/>" +
+        // Back panel (deep amber) — Fluent folder silhouette
+        @"<path d=""M2 8.5A4.5 4.5 0 0 1 6.5 4h3.964a3.5 3.5 0 0 1 2.475 1.025L15 7.085l-3.475 3.476a1.5 1.5 0 0 1-1.06.439H2z"" fill=""#D4A017""/>" +
+        // Front body (warm amber)
+        @"<path d=""M2 13v10.5A4.5 4.5 0 0 0 6.5 28h19a4.5 4.5 0 0 0 4.5-4.5V12a4.5 4.5 0 0 0-4.5-4.5h-8.086l-4.475 4.475A3.5 3.5 0 0 1 10.464 13z"" fill=""#F5C731""/>" +
+        // Subtle top-edge highlight
+        @"<rect x=""2"" y=""13"" width=""28"" height=""1"" rx=""0.5"" fill=""#FFF"" opacity=""0.15""/>";
+
     static string E(string s) => WebUtility.HtmlEncode(s);
 
-    // ── Font sizing helpers ──
-    static double BFs(string t) => t.Length switch { <= 2 => 6.5, 3 => 5.8, 4 => 5, _ => 4.2 };
-    static double LFs(string t) => t.Length switch { <= 1 => 11, 2 => 9.5, 3 => 8, 4 => 6.8, _ => 5.5 };
+    // ── Font sizing ──
+    static double TFs(string t) => t.Length switch { <= 2 => 6.2, 3 => 5.5, 4 => 4.8, _ => 4 };
+    static double LFs(string t) => t.Length switch { <= 1 => 11, 2 => 9, 3 => 7.5, 4 => 6.5, _ => 5.2 };
 
-    // ── Shared shapes ── all fill 2,2 → 30,30 (28×28) ──
+    // ── Fluent shared shapes ──
 
-    // Card container: 28×28 rounded rect
-    static string Card(string fill, string stroke) =>
-        $@"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""4.5"" fill=""{fill}"" stroke=""{stroke}"" stroke-width=""0.9""/>";
+    // Fluent document base: soft white card with subtle shadow layer + folded corner
+    static string Doc(string tint = "#E8ECF0") =>
+        // Shadow layer for depth
+        $@"<rect x=""3"" y=""3"" width=""28"" height=""28"" rx=""5"" fill=""#000"" opacity=""0.04""/>" +
+        // Main page
+        $@"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""5"" fill=""#FAFBFC""/>" +
+        // Top-right tinted fold area
+        $@"<path d=""M22 2h3c2.76 0 5 2.24 5 5v0h-5c-1.66 0-3-1.34-3-3V2z"" fill=""{tint}""/>";
 
-    // Document page: 28×28 white page with folded corner
-    static string Page(string accent = "#C1CAD6") =>
-        $@"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""4"" fill=""#fff"" stroke=""{accent}"" stroke-width=""0.9""/>" +
-        $@"<path d=""M21 2v5.5c0 .55.45 1 1 1h5.5"" fill=""#F1F5F9"" stroke=""{accent}"" stroke-width=""0.8"" fill-rule=""evenodd""/>";
+    // Fluent rounded card (for non-document icons)
+    static string Card(string fill, string tint) =>
+        $@"<rect x=""3"" y=""3"" width=""28"" height=""28"" rx=""6"" fill=""#000"" opacity=""0.04""/>" +
+        $@"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""6"" fill=""{fill}""/>" +
+        $@"<rect x=""2"" y=""2"" width=""28"" height=""14"" rx=""6"" fill=""{tint}"" opacity=""0.35""/>";
 
-    // Extension tab at bottom-right
-    static string Tab(string text, string bg, double ty = 23)
+    // Fluent floating extension badge (bottom-right, rounded pill)
+    static string Badge(string text, string bg)
     {
         if (string.IsNullOrEmpty(text)) return "";
-        var fs = BFs(text);
-        var w = Math.Max(12, 4 + text.Length * 3.8);
-        return $@"<rect x=""{28 - w:F1}"" y=""{ty:F1}"" width=""{w:F1}"" height=""7"" rx=""2"" fill=""{bg}""/>" +
-               $@"<text x=""{28 - w / 2:F1}"" y=""{ty + 3.6:F1}"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'SF Pro Text','SF Pro',-apple-system,'Helvetica Neue',sans-serif"" font-size=""{fs:F1}"" font-weight=""700"" fill=""#fff"" letter-spacing=""0.3"">{E(text)}</text>";
+        var fs = TFs(text);
+        var w = Math.Max(11, 3.5 + text.Length * 3.6);
+        var x = 29 - w;
+        return $@"<rect x=""{x:F1}"" y=""22.5"" width=""{w:F1}"" height=""7.5"" rx=""3"" fill=""{bg}""/>" +
+               $@"<text x=""{x + w / 2:F1}"" y=""26.4"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Text',-apple-system,sans-serif"" font-size=""{fs:F1}"" font-weight=""700"" fill=""#fff"" letter-spacing=""0.2"">{E(text)}</text>";
     }
 
-    // Large centered text on page body
-    static string BigLabel(string text, string color, double cy = 18)
+    // Centered extension label (for doc-type icons that show ext in body)
+    static string CenterExt(string text, string color, double cy = 19)
     {
         if (string.IsNullOrEmpty(text)) return "";
         var fs = LFs(text);
-        return $@"<text x=""16"" y=""{cy:F1}"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'SF Pro Display','SF Pro',-apple-system,'Helvetica Neue',sans-serif"" font-size=""{fs:F1}"" font-weight=""800"" fill=""{color}"" opacity=""0.85"" letter-spacing=""0.3"">{E(text)}</text>";
+        return $@"<text x=""16"" y=""{cy:F1}"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""{fs:F1}"" font-weight=""700"" fill=""{color}"" letter-spacing=""0.2"">{E(text)}</text>";
+    }
+
+    // Fluent text lines (filled rounded rects instead of strokes)
+    static string TextLines(double x, double y, double w, int count, string color, double opacity = 0.12)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < count; i++)
+            sb.Append($@"<rect x=""{x}"" y=""{y + i * 3.2:F1}"" width=""{w - i * 2.5:F1}"" height=""1.6"" rx=""0.8"" fill=""{color}"" opacity=""{opacity}""/>");
+        return sb.ToString();
     }
 
     // ── Icon types ──
 
     // ━━ Generic fallback ━━
     static string GenericFile() =>
-        Page() +
-        @"<line x1=""8"" y1=""14"" x2=""22"" y2=""14"" stroke=""#D1D5DB"" stroke-width=""0.8"" stroke-linecap=""round""/>" +
-        @"<line x1=""8"" y1=""17.5"" x2=""19"" y2=""17.5"" stroke=""#D1D5DB"" stroke-width=""0.8"" stroke-linecap=""round""/>" +
-        @"<line x1=""8"" y1=""21"" x2=""16"" y2=""21"" stroke=""#D1D5DB"" stroke-width=""0.8"" stroke-linecap=""round""/>";
+        Doc() + TextLines(8, 12, 16, 4, "#94A3B8", 0.2);
 
     // ━━ Text files (txt, ini, cfg, log, etc.) ━━
     static string TextFile(string ext) =>
-        Page("#94A3B8") +
-        @"<line x1=""8"" y1=""11"" x2=""20"" y2=""11"" stroke=""#CBD5E1"" stroke-width=""0.8"" stroke-linecap=""round""/>" +
-        @"<line x1=""8"" y1=""14"" x2=""17"" y2=""14"" stroke=""#CBD5E1"" stroke-width=""0.8"" stroke-linecap=""round""/>" +
-        BigLabel(ext, "#475569", 22) +
-        Tab(ext, "#64748B");
+        Doc("#CBD5E1") +
+        TextLines(8, 10, 16, 2, "#94A3B8", 0.18) +
+        CenterExt(ext, "#64748B", 22);
 
     // ━━ Markdown ━━
     static string MarkdownFile(string ext) =>
-        Page("#818CF8") +
-        @"<path d=""M8 12v7l2.8-2.8L13.5 19v-7"" fill=""none"" stroke=""#6366F1"" stroke-width=""1.3"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
-        @"<path d=""M20 18l2.2-3.5L24.4 18"" fill=""none"" stroke=""#6366F1"" stroke-width=""1.3"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
-        BigLabel(ext, "#4338CA", 25);
+        Doc("#C7D2FE") +
+        TextLines(8, 10, 16, 2, "#818CF8", 0.18) +
+        CenterExt(ext, "#4338CA", 22);
 
-    // ━━ Microsoft Word ━━
+    // ━━ Microsoft Word (Fluent file icon style) ━━
     static string WordIcon() =>
-        // Right side: 28×28 document page with text lines
-        @"<rect x=""10"" y=""2"" width=""20"" height=""28"" rx=""3"" fill=""#E8EFF9"" stroke=""#2B579A"" stroke-width=""0.5"" opacity=""0.7""/>" +
-        @"<line x1=""14"" y1=""8"" x2=""27"" y2=""8"" stroke=""#B4C7E0"" stroke-width=""0.9"" stroke-linecap=""round""/>" +
-        @"<line x1=""14"" y1=""12"" x2=""27"" y2=""12"" stroke=""#B4C7E0"" stroke-width=""0.9"" stroke-linecap=""round""/>" +
-        @"<line x1=""14"" y1=""16"" x2=""27"" y2=""16"" stroke=""#B4C7E0"" stroke-width=""0.9"" stroke-linecap=""round""/>" +
-        @"<line x1=""14"" y1=""20"" x2=""24"" y2=""20"" stroke=""#B4C7E0"" stroke-width=""0.9"" stroke-linecap=""round""/>" +
-        @"<line x1=""14"" y1=""24"" x2=""21"" y2=""24"" stroke=""#B4C7E0"" stroke-width=""0.9"" stroke-linecap=""round""/>" +
-        // Left panel: Word brand blue
-        @"<rect x=""2"" y=""4"" width=""16"" height=""24"" rx=""3"" fill=""#2B579A""/>" +
-        @"<rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""3"" fill=""#3568B5"" opacity=""0.5""/>" +
-        @"<text x=""10"" y=""17.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'SF Pro Display','SF Pro',-apple-system,'Helvetica Neue',sans-serif"" font-size=""14"" font-weight=""700"" fill=""#fff"">W</text>";
+        // Background doc page
+        @"<rect x=""10"" y=""2"" width=""20"" height=""28"" rx=""4"" fill=""#D6E4F5""/>" +
+        @"<rect x=""10"" y=""2"" width=""20"" height=""14"" rx=""4"" fill=""#E8EFF9"" opacity=""0.7""/>" +
+        TextLines(14, 8, 13, 5, "#2B579A", 0.12) +
+        // Brand panel with Fluent layered depth
+        @"<rect x=""2"" y=""4"" width=""16"" height=""24"" rx=""4"" fill=""#185ABD""/>" +
+        @"<rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""4"" fill=""#2B7CD3"" opacity=""0.6""/>" +
+        @"<text x=""10"" y=""17.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""13"" font-weight=""700"" fill=""#fff"">W</text>";
 
     // ━━ Microsoft Excel ━━
     static string ExcelIcon() =>
-        @"<rect x=""10"" y=""2"" width=""20"" height=""28"" rx=""3"" fill=""#E8F5ED"" stroke=""#217346"" stroke-width=""0.5"" opacity=""0.7""/>" +
-        @"<rect x=""13"" y=""7"" width=""7"" height=""5"" fill=""none"" stroke=""#A9D5BB"" stroke-width=""0.6""/>" +
-        @"<rect x=""20"" y=""7"" width=""7"" height=""5"" fill=""none"" stroke=""#A9D5BB"" stroke-width=""0.6""/>" +
-        @"<rect x=""13"" y=""12"" width=""7"" height=""5"" fill=""none"" stroke=""#A9D5BB"" stroke-width=""0.6""/>" +
-        @"<rect x=""20"" y=""12"" width=""7"" height=""5"" fill=""none"" stroke=""#A9D5BB"" stroke-width=""0.6""/>" +
-        @"<rect x=""13"" y=""17"" width=""7"" height=""5"" fill=""none"" stroke=""#A9D5BB"" stroke-width=""0.6""/>" +
-        @"<rect x=""20"" y=""17"" width=""7"" height=""5"" fill=""none"" stroke=""#A9D5BB"" stroke-width=""0.6""/>" +
-        // Left panel: Excel brand green
-        @"<rect x=""2"" y=""4"" width=""16"" height=""24"" rx=""3"" fill=""#217346""/>" +
-        @"<rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""3"" fill=""#2D9158"" opacity=""0.5""/>" +
-        @"<text x=""10"" y=""17.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'SF Pro Display','SF Pro',-apple-system,'Helvetica Neue',sans-serif"" font-size=""14"" font-weight=""700"" fill=""#fff"">X</text>";
+        @"<rect x=""10"" y=""2"" width=""20"" height=""28"" rx=""4"" fill=""#D0E8D8""/>" +
+        @"<rect x=""10"" y=""2"" width=""20"" height=""14"" rx=""4"" fill=""#E3F2E8"" opacity=""0.7""/>" +
+        // Simplified grid cells (filled)
+        @"<rect x=""14"" y=""8"" width=""6"" height=""4.5"" rx=""1"" fill=""#217346"" opacity=""0.08""/>" +
+        @"<rect x=""21"" y=""8"" width=""6"" height=""4.5"" rx=""1"" fill=""#217346"" opacity=""0.08""/>" +
+        @"<rect x=""14"" y=""13.5"" width=""6"" height=""4.5"" rx=""1"" fill=""#217346"" opacity=""0.06""/>" +
+        @"<rect x=""21"" y=""13.5"" width=""6"" height=""4.5"" rx=""1"" fill=""#217346"" opacity=""0.06""/>" +
+        @"<rect x=""14"" y=""19"" width=""6"" height=""4.5"" rx=""1"" fill=""#217346"" opacity=""0.04""/>" +
+        @"<rect x=""21"" y=""19"" width=""6"" height=""4.5"" rx=""1"" fill=""#217346"" opacity=""0.04""/>" +
+        // Brand panel
+        @"<rect x=""2"" y=""4"" width=""16"" height=""24"" rx=""4"" fill=""#107C41""/>" +
+        @"<rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""4"" fill=""#21A366"" opacity=""0.6""/>" +
+        @"<text x=""10"" y=""17.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""13"" font-weight=""700"" fill=""#fff"">X</text>";
 
     // ━━ Microsoft PowerPoint ━━
     static string PowerPointIcon() =>
-        @"<rect x=""10"" y=""2"" width=""20"" height=""28"" rx=""3"" fill=""#FDF0EC"" stroke=""#B7472A"" stroke-width=""0.5"" opacity=""0.7""/>" +
-        @"<rect x=""14"" y=""7"" width=""12"" height=""7.5"" rx=""1.2"" fill=""none"" stroke=""#E0A999"" stroke-width=""0.7""/>" +
-        @"<rect x=""14"" y=""17"" width=""12"" height=""7.5"" rx=""1.2"" fill=""none"" stroke=""#E0A999"" stroke-width=""0.7""/>" +
-        // Left panel: PowerPoint brand red-orange
-        @"<rect x=""2"" y=""4"" width=""16"" height=""24"" rx=""3"" fill=""#B7472A""/>" +
-        @"<rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""3"" fill=""#D4563A"" opacity=""0.5""/>" +
-        @"<text x=""10"" y=""17.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'SF Pro Display','SF Pro',-apple-system,'Helvetica Neue',sans-serif"" font-size=""14"" font-weight=""700"" fill=""#fff"">P</text>";
+        @"<rect x=""10"" y=""2"" width=""20"" height=""28"" rx=""4"" fill=""#F2D9D0""/>" +
+        @"<rect x=""10"" y=""2"" width=""20"" height=""14"" rx=""4"" fill=""#F8E8E2"" opacity=""0.7""/>" +
+        // Slide previews (filled rects)
+        @"<rect x=""14"" y=""8"" width=""12"" height=""7"" rx=""2"" fill=""#C43E1C"" opacity=""0.08""/>" +
+        @"<rect x=""14"" y=""17"" width=""12"" height=""7"" rx=""2"" fill=""#C43E1C"" opacity=""0.06""/>" +
+        // Brand panel
+        @"<rect x=""2"" y=""4"" width=""16"" height=""24"" rx=""4"" fill=""#C43E1C""/>" +
+        @"<rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""4"" fill=""#E04E2C"" opacity=""0.6""/>" +
+        @"<text x=""10"" y=""17.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""13"" font-weight=""700"" fill=""#fff"">P</text>";
 
     // ━━ PDF ━━
     static string PdfFile() =>
-        Page("#E53E3E") +
-        @"<rect x=""4"" y=""15"" width=""24"" height=""10"" rx=""3"" fill=""#DC2626""/>" +
-        @"<text x=""16"" y=""20.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'SF Pro Display','SF Pro',-apple-system,'Helvetica Neue',sans-serif"" font-size=""7.5"" font-weight=""800"" fill=""#fff"" letter-spacing=""1"">PDF</text>" +
-        @"<line x1=""8"" y1=""7"" x2=""20"" y2=""7"" stroke=""#FECACA"" stroke-width=""0.8"" stroke-linecap=""round""/>" +
-        @"<line x1=""8"" y1=""10"" x2=""17"" y2=""10"" stroke=""#FECACA"" stroke-width=""0.8"" stroke-linecap=""round""/>";
+        Doc("#FECACA") +
+        TextLines(8, 7, 14, 2, "#DC2626", 0.1) +
+        // Fluent red banner
+        @"<rect x=""4"" y=""15"" width=""24"" height=""10"" rx=""4"" fill=""#DC2626""/>" +
+        @"<rect x=""4"" y=""15"" width=""24"" height=""5"" rx=""4"" fill=""#EF4444"" opacity=""0.4""/>" +
+        @"<text x=""16"" y=""20.8"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""7"" font-weight=""700"" fill=""#fff"" letter-spacing=""0.8"">PDF</text>";
 
-    // ━━ Archive / compressed files (zip, 7z, rar, etc.) ━━
+    // ━━ Archive / compressed files ━━
     static string ArchiveFile(string ext) =>
-        Page("#A78BFA") +
-        // Zipper teeth pattern
-        @"<rect x=""14"" y=""5"" width=""3.5"" height=""2.2"" rx=""0.6"" fill=""#8B5CF6"" opacity=""0.3""/>" +
-        @"<rect x=""14"" y=""8.5"" width=""3.5"" height=""2.2"" rx=""0.6"" fill=""#8B5CF6"" opacity=""0.4""/>" +
-        @"<rect x=""14"" y=""12"" width=""3.5"" height=""2.2"" rx=""0.6"" fill=""#8B5CF6"" opacity=""0.5""/>" +
-        // Zipper pull
-        @"<rect x=""13"" y=""15.5"" width=""6"" height=""3.5"" rx=""1"" fill=""#7C3AED"" opacity=""0.7""/>" +
-        @"<rect x=""15"" y=""16.2"" width=""2"" height=""2"" rx=""0.5"" fill=""#fff"" opacity=""0.6""/>" +
-        BigLabel(ext, "#5B21B6", 24) +
-        Tab(ext, "#7C3AED");
+        Doc("#DDD6FE") +
+        // Zipper track (alternating filled blocks)
+        @"<rect x=""14"" y=""5"" width=""4"" height=""2.4"" rx=""1.2"" fill=""#8B5CF6"" opacity=""0.15""/>" +
+        @"<rect x=""14"" y=""8.5"" width=""4"" height=""2.4"" rx=""1.2"" fill=""#8B5CF6"" opacity=""0.22""/>" +
+        @"<rect x=""14"" y=""12"" width=""4"" height=""2.4"" rx=""1.2"" fill=""#8B5CF6"" opacity=""0.28""/>" +
+        // Zipper pull (rounded)
+        @"<rect x=""13"" y=""15.5"" width=""6"" height=""4"" rx=""2"" fill=""#7C3AED"" opacity=""0.55""/>" +
+        @"<rect x=""15"" y=""16.5"" width=""2"" height=""2"" rx=""1"" fill=""#fff"" opacity=""0.5""/>" +
+        CenterExt(ext, "#6D28D9", 25);
 
     // ━━ Certificate files ━━
     static string CertificateFile() =>
-        Card("#FFFBEB", "#D97706") +
-        // Decorative dashed inner border
-        @"<rect x=""5"" y=""5"" width=""22"" height=""22"" rx=""2"" fill=""none"" stroke=""#F59E0B"" stroke-width=""0.5"" stroke-dasharray=""1.5 1""/>" +
-        // Seal rosette
-        @"<circle cx=""16"" cy=""13"" r=""4.5"" fill=""#FCD34D"" stroke=""#D97706"" stroke-width=""0.8""/>" +
-        @"<circle cx=""16"" cy=""13"" r=""2.8"" fill=""#FBBF24"" stroke=""#B45309"" stroke-width=""0.5""/>" +
-        // Star
-        @"<path d=""M16 10.5l.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z"" fill=""#B45309""/>" +
-        // Ribbon tails
-        @"<path d=""M13 17.5l-2 6 3-1.5 1.5 2v-6.5"" fill=""#EF4444"" opacity=""0.7""/>" +
-        @"<path d=""M19 17.5l2 6-3-1.5-1.5 2v-6.5"" fill=""#EF4444"" opacity=""0.7""/>" +
-        @"<line x1=""9"" y1=""6.5"" x2=""23"" y2=""6.5"" stroke=""#D4A574"" stroke-width=""0.7"" stroke-linecap=""round""/>";
+        Card("#FFFBEB", "#FEF3C7") +
+        // Seal circle with layered depth
+        @"<circle cx=""16"" cy=""13.5"" r=""5.5"" fill=""#FDE68A"" opacity=""0.6""/>" +
+        @"<circle cx=""16"" cy=""13.5"" r=""4"" fill=""#FBBF24""/>" +
+        @"<circle cx=""16"" cy=""13.5"" r=""2.5"" fill=""#F59E0B""/>" +
+        // Checkmark
+        @"<path d=""M14 13.5l1.5 1.5 3-3"" fill=""none"" stroke=""#fff"" stroke-width=""1.3"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
+        // Ribbon
+        @"<path d=""M12.5 18.5l-2 7 3.5-1.5 2 2.5v-8"" fill=""#EF4444"" opacity=""0.55""/>" +
+        @"<path d=""M19.5 18.5l2 7-3.5-1.5-2 2.5v-8"" fill=""#EF4444"" opacity=""0.55""/>";
 
-    // ━━ Installer / disk image / package files ━━
+    // ━━ Installer / package files ━━
     static string InstallerFile(string ext) =>
-        Card("#EFF6FF", "#3B82F6") +
-        // Box flap / lid
-        @"<path d=""M2 12l14-8 14 8"" fill=""#DBEAFE"" stroke=""#3B82F6"" stroke-width=""0.8"" stroke-linejoin=""round""/>" +
-        // Center seam
-        @"<line x1=""16"" y1=""12"" x2=""16"" y2=""30"" stroke=""#93C5FD"" stroke-width=""0.5"" opacity=""0.4""/>" +
-        // Down arrow (install)
-        @"<path d=""M16 14.5v7"" stroke=""#2563EB"" stroke-width=""1.6"" stroke-linecap=""round""/>" +
-        @"<path d=""M12.5 19L16 22.5l3.5-3.5"" fill=""none"" stroke=""#2563EB"" stroke-width=""1.6"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
-        (ext.Length > 0 ? Tab(ext, "#2563EB") : "");
+        Card("#DBEAFE", "#BFDBFE") +
+        // Package box (filled, layered)
+        @"<rect x=""6"" y=""11"" width=""20"" height=""14"" rx=""3"" fill=""#3B82F6"" opacity=""0.12""/>" +
+        // Box flap
+        @"<path d=""M6 14l10-7 10 7"" fill=""#60A5FA"" opacity=""0.2""/>" +
+        // Down arrow (rounded)
+        @"<circle cx=""16"" cy=""19"" r=""5"" fill=""#3B82F6"" opacity=""0.15""/>" +
+        @"<path d=""M16 15v6m-2.5-2.5L16 21l2.5-2.5"" fill=""none"" stroke=""#2563EB"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
+        (ext.Length > 0 ? Badge(ext, "#2563EB") : "");
 
     // ━━ Image files ━━
     static string ImageFile(string ext) =>
-        Card("#FFF7ED", "#EA580C") +
-        // Sun
-        @"<circle cx=""10"" cy=""10"" r=""3"" fill=""#FDBA74""/>" +
-        @"<circle cx=""10"" cy=""10"" r=""1.8"" fill=""#FB923C""/>" +
-        // Mountains
-        @"<path d=""M2 22l7.5-8 5 5.5 3.5-3L30 23v4.5c0 1.38-1.12 2.5-2.5 2.5h-23C3.12 30 2 28.88 2 27.5V22z"" fill=""#F97316"" opacity=""0.25""/>" +
-        @"<path d=""M15 19.5l3-2.5L30 23v4.5c0 1.38-1.12 2.5-2.5 2.5h-23C3.12 30 2 28.88 2 27.5v-.5L15 19.5z"" fill=""#EA580C"" opacity=""0.18""/>" +
-        Tab(ext, "#C2410C");
+        Card("#FFF7ED", "#FFEDD5") +
+        // Sun (layered circles)
+        @"<circle cx=""10.5"" cy=""10"" r=""3.5"" fill=""#FDBA74"" opacity=""0.5""/>" +
+        @"<circle cx=""10.5"" cy=""10"" r=""2.2"" fill=""#FB923C""/>" +
+        // Mountains (soft filled shapes)
+        @"<path d=""M2 23l8-9 5.5 6 3.5-3.5L30 24v3.5c0 1.38-1.12 2.5-2.5 2.5h-23C3.12 30 2 28.88 2 27.5V23z"" fill=""#FB923C"" opacity=""0.2""/>" +
+        @"<path d=""M16 20l3-3L30 24v3.5c0 1.38-1.12 2.5-2.5 2.5h-23C3.12 30 2 28.88 2 27.5v-1L16 20z"" fill=""#EA580C"" opacity=""0.15""/>" +
+        Badge(ext, "#C2410C");
 
     // ━━ Web / HTML files ━━
     static string WebFile(string ext) =>
-        Card("#F0FDF4", "#16A34A") +
-        // Title bar
-        @"<rect x=""2"" y=""2"" width=""28"" height=""7"" rx=""4.5"" fill=""#DCFCE7""/>" +
-        @"<rect x=""2"" y=""6"" width=""28"" height=""3"" fill=""#DCFCE7""/>" +
-        // Traffic lights
-        @"<circle cx=""6"" cy=""5.5"" r=""1"" fill=""#EF4444"" opacity=""0.6""/>" +
-        @"<circle cx=""9.5"" cy=""5.5"" r=""1"" fill=""#EAB308"" opacity=""0.6""/>" +
-        @"<circle cx=""13"" cy=""5.5"" r=""1"" fill=""#22C55E"" opacity=""0.6""/>" +
-        // Angle brackets
-        @"<path d=""M11 14L7 17.5 11 21"" fill=""none"" stroke=""#16A34A"" stroke-width=""1.4"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
-        @"<path d=""M21 14l4 3.5L21 21"" fill=""none"" stroke=""#16A34A"" stroke-width=""1.4"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
-        @"<line x1=""17.5"" y1=""13"" x2=""14.5"" y2=""22"" stroke=""#4ADE80"" stroke-width=""1.2"" stroke-linecap=""round""/>" +
-        Tab(ext, "#16A34A");
+        Card("#F0FDF4", "#DCFCE7") +
+        // Browser chrome (Fluent rounded)
+        @"<rect x=""5"" y=""5"" width=""22"" height=""4"" rx=""2"" fill=""#16A34A"" opacity=""0.1""/>" +
+        @"<circle cx=""8"" cy=""7"" r=""0.8"" fill=""#EF4444"" opacity=""0.5""/>" +
+        @"<circle cx=""10.5"" cy=""7"" r=""0.8"" fill=""#EAB308"" opacity=""0.5""/>" +
+        @"<circle cx=""13"" cy=""7"" r=""0.8"" fill=""#22C55E"" opacity=""0.5""/>" +
+        // HTML brackets (Fluent rounded)
+        @"<path d=""M12 13L8 17 12 21"" fill=""none"" stroke=""#16A34A"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
+        @"<path d=""M20 13l4 4-4 4"" fill=""none"" stroke=""#16A34A"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
+        @"<line x1=""17.5"" y1=""12"" x2=""14.5"" y2=""22"" stroke=""#4ADE80"" stroke-width=""1.2"" stroke-linecap=""round""/>" +
+        Badge(ext, "#16A34A");
 
     // ━━ Code files ━━
     static string CodeFile(string ext) =>
-        Card("#1E1B4B", "#4338CA") +
-        // Title bar dots
-        @"<circle cx=""6"" cy=""5.5"" r=""1"" fill=""#EF4444"" opacity=""0.65""/>" +
-        @"<circle cx=""9.5"" cy=""5.5"" r=""1"" fill=""#F59E0B"" opacity=""0.65""/>" +
-        @"<circle cx=""13"" cy=""5.5"" r=""1"" fill=""#22C55E"" opacity=""0.65""/>" +
-        // Code lines (colored)
-        @"<line x1=""6"" y1=""10"" x2=""13"" y2=""10"" stroke=""#818CF8"" stroke-width=""1"" stroke-linecap=""round"" opacity=""0.7""/>" +
-        @"<line x1=""15"" y1=""10"" x2=""24"" y2=""10"" stroke=""#67E8F9"" stroke-width=""1"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        @"<line x1=""8"" y1=""13"" x2=""18"" y2=""13"" stroke=""#A78BFA"" stroke-width=""1"" stroke-linecap=""round"" opacity=""0.6""/>" +
-        @"<line x1=""20"" y1=""13"" x2=""26"" y2=""13"" stroke=""#FCA5A5"" stroke-width=""1"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        @"<line x1=""8"" y1=""16"" x2=""15"" y2=""16"" stroke=""#86EFAC"" stroke-width=""1"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        @"<line x1=""6"" y1=""19"" x2=""19"" y2=""19"" stroke=""#818CF8"" stroke-width=""1"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        Tab(ext, "#6366F1");
+        // Dark Fluent card
+        $@"<rect x=""3"" y=""3"" width=""28"" height=""28"" rx=""6"" fill=""#000"" opacity=""0.06""/>" +
+        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""6"" fill=""#1E1B4B""/>" +
+        @"<rect x=""2"" y=""2"" width=""28"" height=""14"" rx=""6"" fill=""#312E81"" opacity=""0.5""/>" +
+        // Window dots
+        @"<circle cx=""6.5"" cy=""6"" r=""1"" fill=""#EF4444"" opacity=""0.55""/>" +
+        @"<circle cx=""10"" cy=""6"" r=""1"" fill=""#F59E0B"" opacity=""0.55""/>" +
+        @"<circle cx=""13.5"" cy=""6"" r=""1"" fill=""#22C55E"" opacity=""0.55""/>" +
+        // Syntax-colored code lines (Fluent: rounded rects, not strokes)
+        @"<rect x=""6"" y=""10"" width=""8"" height=""1.4"" rx=""0.7"" fill=""#818CF8"" opacity=""0.7""/>" +
+        @"<rect x=""16"" y=""10"" width=""10"" height=""1.4"" rx=""0.7"" fill=""#67E8F9"" opacity=""0.4""/>" +
+        @"<rect x=""8"" y=""13.5"" width=""11"" height=""1.4"" rx=""0.7"" fill=""#A78BFA"" opacity=""0.5""/>" +
+        @"<rect x=""21"" y=""13.5"" width=""5"" height=""1.4"" rx=""0.7"" fill=""#FCA5A5"" opacity=""0.4""/>" +
+        @"<rect x=""8"" y=""17"" width=""7"" height=""1.4"" rx=""0.7"" fill=""#86EFAC"" opacity=""0.45""/>" +
+        @"<rect x=""6"" y=""20.5"" width=""14"" height=""1.4"" rx=""0.7"" fill=""#818CF8"" opacity=""0.4""/>" +
+        Badge(ext, "#6366F1");
 
     // ━━ Config files (json, yaml, xml, toml, plist) ━━
     static string ConfigFile(string ext) =>
-        Page("#D97706") +
-        // Gear icon
-        @"<circle cx=""16"" cy=""15"" r=""5"" fill=""none"" stroke=""#D97706"" stroke-width=""1"" opacity=""0.4""/>" +
-        @"<circle cx=""16"" cy=""15"" r=""2"" fill=""#D97706"" opacity=""0.35""/>" +
-        @"<line x1=""16"" y1=""8.5"" x2=""16"" y2=""10"" stroke=""#D97706"" stroke-width=""1.5"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        @"<line x1=""16"" y1=""20"" x2=""16"" y2=""21.5"" stroke=""#D97706"" stroke-width=""1.5"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        @"<line x1=""9.5"" y1=""15"" x2=""11"" y2=""15"" stroke=""#D97706"" stroke-width=""1.5"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        @"<line x1=""21"" y1=""15"" x2=""22.5"" y2=""15"" stroke=""#D97706"" stroke-width=""1.5"" stroke-linecap=""round"" opacity=""0.5""/>" +
-        Tab(ext, "#B45309");
+        Doc("#FDE68A") +
+        // Fluent toggle sliders (filled rounded rects)
+        @"<rect x=""8"" y=""10"" width=""16"" height=""3"" rx=""1.5"" fill=""#D97706"" opacity=""0.12""/>" +
+        @"<circle cx=""12"" cy=""11.5"" r=""2"" fill=""#F59E0B"" opacity=""0.7""/>" +
+        @"<rect x=""8"" y=""16"" width=""16"" height=""3"" rx=""1.5"" fill=""#D97706"" opacity=""0.12""/>" +
+        @"<circle cx=""20"" cy=""17.5"" r=""2"" fill=""#F59E0B"" opacity=""0.7""/>" +
+        Badge(ext, "#B45309");
 
     // ━━ Video files ━━
     static string VideoFile() =>
-        Card("#F5F3FF", "#7C3AED") +
-        // Film perforations left
-        @"<rect x=""3.5"" y=""5"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""3.5"" y=""10"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""3.5"" y=""15"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""3.5"" y=""20"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""3.5"" y=""25"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        // Film perforations right
-        @"<rect x=""26"" y=""5"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""26"" y=""10"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""26"" y=""15"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""26"" y=""20"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<rect x=""26"" y=""25"" width=""2.5"" height=""2"" rx=""0.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        // Play triangle
-        @"<path d=""M13 11v10l9-5z"" fill=""#7C3AED"" opacity=""0.65""/>";
+        Card("#F5F3FF", "#EDE9FE") +
+        // Play button (layered circle + triangle)
+        @"<circle cx=""16"" cy=""16"" r=""8"" fill=""#7C3AED"" opacity=""0.12""/>" +
+        @"<circle cx=""16"" cy=""16"" r=""5.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
+        @"<path d=""M14 13v6l5.5-3z"" fill=""#7C3AED"" opacity=""0.75""/>";
 
     // ━━ Audio files ━━
     static string AudioFile() =>
-        Card("#FDF2F8", "#DB2777") +
-        // Vinyl record hints
-        @"<circle cx=""16"" cy=""16"" r=""10"" fill=""#F9A8D4"" opacity=""0.15""/>" +
-        @"<circle cx=""16"" cy=""16"" r=""6.5"" fill=""none"" stroke=""#DB2777"" stroke-width=""0.4"" opacity=""0.25""/>" +
-        @"<circle cx=""16"" cy=""16"" r=""3"" fill=""#DB2777"" opacity=""0.12""/>" +
-        // Music note
-        @"<circle cx=""12.5"" cy=""21"" r=""2.5"" fill=""#EC4899"" opacity=""0.6"" stroke=""#DB2777"" stroke-width=""0.6""/>" +
-        @"<path d=""M15 21V9.5l8-2v9"" fill=""none"" stroke=""#DB2777"" stroke-width=""1.2"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
-        @"<circle cx=""23"" cy=""16.5"" r=""2.5"" fill=""#EC4899"" opacity=""0.6"" stroke=""#DB2777"" stroke-width=""0.6""/>";
+        Card("#FDF2F8", "#FCE7F3") +
+        // Sound wave bars (Fluent rounded)
+        @"<rect x=""7"" y=""14"" width=""2"" height=""4"" rx=""1"" fill=""#DB2777"" opacity=""0.3""/>" +
+        @"<rect x=""10.5"" y=""11"" width=""2"" height=""10"" rx=""1"" fill=""#DB2777"" opacity=""0.4""/>" +
+        @"<rect x=""14"" y=""8"" width=""2"" height=""16"" rx=""1"" fill=""#DB2777"" opacity=""0.5""/>" +
+        @"<rect x=""17.5"" y=""10"" width=""2"" height=""12"" rx=""1"" fill=""#DB2777"" opacity=""0.4""/>" +
+        @"<rect x=""21"" y=""12"" width=""2"" height=""8"" rx=""1"" fill=""#DB2777"" opacity=""0.35""/>" +
+        @"<rect x=""24.5"" y=""14"" width=""2"" height=""4"" rx=""1"" fill=""#DB2777"" opacity=""0.25""/>";
 
     // ━━ Font files ━━
     static string FontFile(string ext) =>
-        Page("#6B7280") +
-        @"<text x=""16"" y=""15"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""Georgia,'Times New Roman',serif"" font-size=""13"" font-weight=""700"" fill=""#374151"" font-style=""italic"">Aa</text>" +
-        Tab(ext, "#6B7280");
+        Doc("#D1D5DB") +
+        @"<text x=""16"" y=""16"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""Georgia,'Times New Roman',serif"" font-size=""14"" font-weight=""700"" fill=""#374151"" opacity=""0.7"">Aa</text>" +
+        Badge(ext, "#6B7280");
 
     // ━━ Database files ━━
     static string DatabaseFile(string ext) =>
-        Card("#ECFDF5", "#059669") +
-        // Cylinder top ellipse
-        @"<ellipse cx=""16"" cy=""8"" rx=""12"" ry=""5"" fill=""#D1FAE5"" stroke=""#059669"" stroke-width=""0.8""/>" +
-        // Cylinder body
-        @"<path d=""M4 8v16c0 2.76 5.37 5 12 5s12-2.24 12-5V8"" fill=""none"" stroke=""#059669"" stroke-width=""0.8""/>" +
-        // Layer lines
-        @"<ellipse cx=""16"" cy=""15"" rx=""12"" ry=""3.5"" fill=""none"" stroke=""#059669"" stroke-width=""0.4"" opacity=""0.3""/>" +
-        @"<ellipse cx=""16"" cy=""21"" rx=""12"" ry=""3.5"" fill=""none"" stroke=""#059669"" stroke-width=""0.4"" opacity=""0.3""/>" +
-        Tab(ext, "#059669");
+        Card("#ECFDF5", "#D1FAE5") +
+        // Cylinder (layered fills)
+        @"<ellipse cx=""16"" cy=""9"" rx=""10"" ry=""4.5"" fill=""#34D399"" opacity=""0.25""/>" +
+        @"<rect x=""6"" y=""9"" width=""20"" height=""14"" fill=""#059669"" opacity=""0.08""/>" +
+        @"<ellipse cx=""16"" cy=""23"" rx=""10"" ry=""4"" fill=""#34D399"" opacity=""0.12""/>" +
+        // Layer separators
+        @"<ellipse cx=""16"" cy=""15"" rx=""10"" ry=""3"" fill=""none"" stroke=""#059669"" stroke-width=""0.5"" opacity=""0.2""/>" +
+        @"<ellipse cx=""16"" cy=""19.5"" rx=""10"" ry=""3"" fill=""none"" stroke=""#059669"" stroke-width=""0.5"" opacity=""0.15""/>" +
+        Badge(ext, "#059669");
 
     // ━━ eBook files ━━
     static string EbookFile(string ext) =>
-        // Book cover filling 28×28
-        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""3"" fill=""#FEF3C7"" stroke=""#92400E"" stroke-width=""0.9""/>" +
-        // Book spine
-        @"<rect x=""2"" y=""2"" width=""5"" height=""28"" rx=""3"" fill=""#D97706"" opacity=""0.25""/>" +
-        @"<line x1=""7"" y1=""2"" x2=""7"" y2=""30"" stroke=""#92400E"" stroke-width=""0.4"" opacity=""0.5""/>" +
-        // Text lines on cover
-        @"<line x1=""10"" y1=""9"" x2=""26"" y2=""9"" stroke=""#B45309"" stroke-width=""0.9"" stroke-linecap=""round"" opacity=""0.4""/>" +
-        @"<line x1=""10"" y1=""13"" x2=""22"" y2=""13"" stroke=""#B45309"" stroke-width=""0.9"" stroke-linecap=""round"" opacity=""0.3""/>" +
-        Tab(ext, "#92400E");
+        // Book shape with Fluent depth
+        @"<rect x=""3"" y=""3"" width=""28"" height=""28"" rx=""4"" fill=""#000"" opacity=""0.04""/>" +
+        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""4"" fill=""#FEF3C7""/>" +
+        // Spine gradient
+        @"<rect x=""2"" y=""2"" width=""6"" height=""28"" rx=""4"" fill=""#D97706"" opacity=""0.2""/>" +
+        // Cover lines
+        @"<rect x=""11"" y=""9"" width=""15"" height=""1.6"" rx=""0.8"" fill=""#92400E"" opacity=""0.15""/>" +
+        @"<rect x=""11"" y=""13"" width=""11"" height=""1.6"" rx=""0.8"" fill=""#92400E"" opacity=""0.1""/>" +
+        Badge(ext, "#92400E");
 
     // ━━ Design files (psd, ai, sketch, figma, etc.) ━━
     static string DesignFile(string ext) =>
-        Card("#FDF2F8", "#DB2777") +
-        // Checkerboard transparency hint
-        @"<rect x=""5"" y=""5"" width=""5.5"" height=""5.5"" fill=""#FBCFE8"" opacity=""0.3""/>" +
-        @"<rect x=""10.5"" y=""10.5"" width=""5.5"" height=""5.5"" fill=""#FBCFE8"" opacity=""0.3""/>" +
-        // Pen bezier path
-        @"<path d=""M7 21c4-14 14-14 18 0"" fill=""none"" stroke=""#DB2777"" stroke-width=""1.3"" stroke-linecap=""round""/>" +
-        // Control handles
-        @"<line x1=""7"" y1=""21"" x2=""11"" y2=""7"" stroke=""#F9A8D4"" stroke-width=""0.5"" stroke-dasharray=""1.5 1""/>" +
-        @"<line x1=""25"" y1=""21"" x2=""21"" y2=""7"" stroke=""#F9A8D4"" stroke-width=""0.5"" stroke-dasharray=""1.5 1""/>" +
-        @"<circle cx=""7"" cy=""21"" r=""1.5"" fill=""#EC4899""/>" +
-        @"<circle cx=""25"" cy=""21"" r=""1.5"" fill=""#EC4899""/>" +
-        @"<circle cx=""11"" cy=""7"" r=""1.2"" fill=""#F472B6""/>" +
-        @"<circle cx=""21"" cy=""7"" r=""1.2"" fill=""#F472B6""/>" +
-        Tab(ext, "#DB2777");
+        Card("#FDF2F8", "#FCE7F3") +
+        // Pen bezier path (Fluent smooth curves)
+        @"<path d=""M8 22Q12 6 16 14Q20 22 24 10"" fill=""none"" stroke=""#DB2777"" stroke-width=""1.5"" stroke-linecap=""round""/>" +
+        // Anchor dots
+        @"<circle cx=""8"" cy=""22"" r=""2"" fill=""#EC4899"" opacity=""0.6""/>" +
+        @"<circle cx=""16"" cy=""14"" r=""1.5"" fill=""#EC4899"" opacity=""0.5""/>" +
+        @"<circle cx=""24"" cy=""10"" r=""2"" fill=""#EC4899"" opacity=""0.6""/>" +
+        Badge(ext, "#DB2777");
 
     // ━━ 3D model files ━━
     static string ThreeDFile(string ext) =>
-        Card("#F5F3FF", "#7C3AED") +
-        // 3D cube wireframe - fills the card
-        @"<path d=""M16 4l-10 5.5v11L16 26l10-5.5v-11L16 4z"" fill=""none"" stroke=""#7C3AED"" stroke-width=""0.9"" stroke-linejoin=""round""/>" +
-        @"<path d=""M6 9.5l10 5.5 10-5.5"" fill=""none"" stroke=""#7C3AED"" stroke-width=""0.7"" stroke-linejoin=""round""/>" +
-        @"<line x1=""16"" y1=""15"" x2=""16"" y2=""26"" stroke=""#7C3AED"" stroke-width=""0.7""/>" +
-        // Shading
-        @"<path d=""M6 9.5l10 5.5v11l-10-5.5z"" fill=""#8B5CF6"" opacity=""0.1""/>" +
-        @"<path d=""M26 9.5l-10 5.5v11l10-5.5z"" fill=""#8B5CF6"" opacity=""0.06""/>" +
-        Tab(ext, "#7C3AED");
+        Card("#F5F3FF", "#EDE9FE") +
+        // 3D cube (filled faces with layered opacity)
+        @"<path d=""M16 5L6 10.5 16 16l10-5.5z"" fill=""#8B5CF6"" opacity=""0.15""/>" +
+        @"<path d=""M6 10.5v11L16 27V16z"" fill=""#8B5CF6"" opacity=""0.1""/>" +
+        @"<path d=""M26 10.5v11L16 27V16z"" fill=""#8B5CF6"" opacity=""0.06""/>" +
+        // Edges
+        @"<path d=""M16 5L6 10.5 16 16l10-5.5zM6 10.5v11L16 27V16M26 10.5v11L16 27"" fill=""none"" stroke=""#7C3AED"" stroke-width=""0.7"" stroke-linejoin=""round""/>" +
+        Badge(ext, "#7C3AED");
 
     // ━━ Subtitle files ━━
     static string SubtitleFile(string ext) =>
-        Page("#64748B") +
-        @"<rect x=""6"" y=""12"" width=""20"" height=""4"" rx=""1.5"" fill=""#CBD5E1"" opacity=""0.5""/>" +
-        @"<rect x=""8"" y=""18"" width=""16"" height=""4"" rx=""1.5"" fill=""#CBD5E1"" opacity=""0.35""/>" +
-        Tab(ext, "#64748B");
+        Doc("#CBD5E1") +
+        // Subtitle bars (Fluent filled rects)
+        @"<rect x=""6"" y=""12"" width=""20"" height=""3.5"" rx=""1.75"" fill=""#64748B"" opacity=""0.15""/>" +
+        @"<rect x=""8"" y=""18"" width=""16"" height=""3.5"" rx=""1.75"" fill=""#64748B"" opacity=""0.1""/>" +
+        Badge(ext, "#64748B");
 
     // ━━ Executable files ━━
     static string ExecutableFile(string ext) =>
-        Page("#475569") +
-        @"<path d=""M9 13l3.5 3.5L9 20"" fill=""none"" stroke=""#475569"" stroke-width=""1.3"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
-        @"<line x1=""15"" y1=""20"" x2=""23"" y2=""20"" stroke=""#475569"" stroke-width=""1.2"" stroke-linecap=""round""/>" +
-        Tab(ext, "#475569");
+        Doc("#CBD5E1") +
+        // Terminal prompt (Fluent rounded)
+        @"<path d=""M10 13l3.5 3.5L10 20"" fill=""none"" stroke=""#475569"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
+        @"<rect x=""16"" y=""19"" width=""8"" height=""1.6"" rx=""0.8"" fill=""#475569"" opacity=""0.4""/>" +
+        Badge(ext, "#475569");
+
+    // ━━ Virtual machine files (Parallels, VMware, VirtualBox, etc.) ━━
+    static string VirtualMachineFile(string ext) =>
+        Card("#EFF6FF", "#DBEAFE") +
+        // Monitor frame
+        @"<rect x=""5"" y=""6"" width=""22"" height=""14"" rx=""3"" fill=""#3B82F6"" opacity=""0.1""/>" +
+        @"<rect x=""7"" y=""8"" width=""18"" height=""10"" rx=""2"" fill=""#2563EB"" opacity=""0.08""/>" +
+        // VM chip symbol inside screen
+        @"<rect x=""12"" y=""10.5"" width=""8"" height=""5"" rx=""1.5"" fill=""#3B82F6"" opacity=""0.25""/>" +
+        @"<rect x=""14"" y=""12"" width=""4"" height=""2"" rx=""0.5"" fill=""#2563EB"" opacity=""0.5""/>" +
+        // Chip pins (left/right)
+        @"<rect x=""10.5"" y=""11.5"" width=""1.5"" height=""1"" rx=""0.5"" fill=""#3B82F6"" opacity=""0.3""/>" +
+        @"<rect x=""10.5"" y=""13.5"" width=""1.5"" height=""1"" rx=""0.5"" fill=""#3B82F6"" opacity=""0.3""/>" +
+        @"<rect x=""20"" y=""11.5"" width=""1.5"" height=""1"" rx=""0.5"" fill=""#3B82F6"" opacity=""0.3""/>" +
+        @"<rect x=""20"" y=""13.5"" width=""1.5"" height=""1"" rx=""0.5"" fill=""#3B82F6"" opacity=""0.3""/>" +
+        // Stand
+        @"<rect x=""13"" y=""21"" width=""6"" height=""1.2"" rx=""0.6"" fill=""#3B82F6"" opacity=""0.15""/>" +
+        @"<rect x=""11"" y=""23"" width=""10"" height=""1.2"" rx=""0.6"" fill=""#3B82F6"" opacity=""0.1""/>" +
+        Badge(ext, "#2563EB");
 }
