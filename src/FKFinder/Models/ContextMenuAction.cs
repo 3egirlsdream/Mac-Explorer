@@ -36,9 +36,9 @@ public static class Icons
     public const string Delete = "M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6";
     public const string Rename = "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z";
 
-    // View
-    public const string Grid = "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z";
-    public const string List = "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01";
+    // View (Fluent Design — rounded, balanced at small sizes)
+    public const string Grid = "M3 3h7a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V4a1 1 0 011-1zM14 3h7a1 1 0 011 1v6a1 1 0 01-1 1h-7a1 1 0 01-1-1V4a1 1 0 011-1zM3 14h7a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1v-6a1 1 0 011-1zM14 14h7a1 1 0 011 1v6a1 1 0 01-1 1h-7a1 1 0 01-1-1v-6a1 1 0 011-1z";
+    public const string List = "M3 5.5h2a1 1 0 011 1v0a1 1 0 01-1 1H3a1 1 0 01-1-1v0a1 1 0 011-1zM3 11h2a1 1 0 011 1v0a1 1 0 01-1 1H3a1 1 0 01-1-1v0a1 1 0 011-1zM3 16.5h2a1 1 0 011 1v0a1 1 0 01-1 1H3a1 1 0 01-1-1v0a1 1 0 011-1zM9 6.5h13M9 12h13M9 17.5h13";
     public const string Sort = "M3 6h18M3 12h12M3 18h6";
     public const string SortAsc = "M12 5v14M5 12l7-7 7 7";
     public const string SortDesc = "M12 19V5M5 12l7 7 7-7";
@@ -68,7 +68,7 @@ public static class Icons
 
     // Collections / Preview
     public const string CollectionAdd = "M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z";
-    public const string Preview = "M21 3H3v18h18V3zM15 3v18";
+    public const string Preview = "M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zM14.5 2v20";
 
     // Folder/File type icons (simplified SVG paths for 24x24 viewBox)
     public const string Folder = "M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z";
