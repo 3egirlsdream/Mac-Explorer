@@ -1,4 +1,6 @@
 @using FKFinder.Models
+@using FKFinder.Services
+@inject IThumbnailService ThumbnailService
 @implements IDisposable
 
 <div class="preview-pane">
@@ -23,22 +25,25 @@
             </div>
         }
 
-        <div class="preview-pane-actions">
-            <div class="preview-pane-rating">
-                @for (int i = 1; i <= 5; i++)
-                {
-                    var starIndex = i;
-                    var isFilled = starIndex <= _currentRating;
-                    <button class="star-btn @(isFilled ? "filled" : "")"
-                            @onclick="() => OnStarClick(starIndex)"
-                            title="@starIndex 星">
-                        <svg viewBox="0 0 24 24" fill="@(isFilled ? "currentColor" : "none")" stroke="currentColor" stroke-width="1.5">
-                            <path d="@Icons.StarOutline"/>
-                        </svg>
-                    </button>
-                }
+        @if (_selectedEntry != null && !_selectedEntry.IsDirectory)
+        {
+            <div class="preview-pane-actions">
+                <div class="preview-pane-rating">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        var starIndex = i;
+                        var isFilled = starIndex <= _currentRating;
+                        <button class="star-btn @(isFilled ? "filled" : "")"
+                                @onclick="() => OnStarClick(starIndex)"
+                                title="@starIndex 星">
+                            <svg viewBox="0 0 24 24" fill="@(isFilled ? "currentColor" : "none")" stroke="currentColor" stroke-width="1.5">
+                                <path d="@Icons.StarOutline"/>
+                            </svg>
+                        </button>
+                    }
+                </div>
             </div>
-        </div>
+        }
     }
     else
     {
@@ -54,6 +59,8 @@
     private FileSystemEntry? _selectedEntry;
     private string? _previewImageUrl;
     private int _currentRating;
+    private int _previewLoadGeneration;
+    private bool _hasHighResPreview;
 
     protected override void OnInitialized()
     {
@@ -74,7 +81,8 @@
         else if (e.PropertyName == nameof(ViewModel.Entries))
         {
             // Thumbnails resolved asynchronously — refresh preview if the selected entry got a thumbnail
-            if (_selectedEntry != null && _previewImageUrl == null && !string.IsNullOrEmpty(_selectedEntry.ThumbnailUrl))
+            // But don't downgrade if we already have a high-res preview
+            if (_selectedEntry != null && !_hasHighResPreview && _previewImageUrl == null && !string.IsNullOrEmpty(_selectedEntry.ThumbnailUrl))
             {
                 _previewImageUrl = _selectedEntry.ThumbnailUrl;
                 await InvokeAsync(StateHasChanged);
@@ -90,18 +98,43 @@
 
     private void UpdateSelection()
     {
+        _hasHighResPreview = false;
         if (ViewModel.SelectedEntries.Count == 1)
         {
             var entry = ViewModel.SelectedEntries[0];
             _selectedEntry = entry;
             _previewImageUrl = entry.ThumbnailUrl;
             _currentRating = ViewModel.GetRating(entry.FullPath);
+
+            // If it's an image file, asynchronously load a higher-resolution preview
+            if (entry.IconKey == "file-image")
+            {
+                _ = LoadHighResPreviewAsync(entry);
+            }
         }
         else
         {
             _selectedEntry = null;
             _previewImageUrl = null;
             _currentRating = 0;
+        }
+    }
+
+    private async Task LoadHighResPreviewAsync(FileSystemEntry entry)
+    {
+        var generation = ++_previewLoadGeneration;
+        try
+        {
+            var bytes = await ThumbnailService.GetThumbnailAsync(entry.FullPath, 512);
+            if (generation != _previewLoadGeneration || bytes == null) return;
+
+            _previewImageUrl = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+            _hasHighResPreview = true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Silently fall back to the low-res thumbnail already displayed
         }
     }
 
