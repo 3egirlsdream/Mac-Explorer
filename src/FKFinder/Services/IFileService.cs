@@ -18,4 +18,8 @@ public interface IFileService
     IReadOnlyList<string> GetVolumes();
     string HomeDirectory { get; }
     string RootDirectory { get; }
+    string TrashDirectory { get; }
+    Task DeletePermanentlyAsync(string path);
+    Task EmptyTrashAsync();
+    Task ResolveAppIconsAsync(IEnumerable<FileSystemEntry> entries, Action? onBatchResolved = null);
 }

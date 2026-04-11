@@ -9,6 +9,7 @@ public class ContextMenuAction
     public bool IsSeparator { get; init; }
     public Func<Task>? Execute { get; init; }
     public IReadOnlyList<ContextMenuAction>? SubItems { get; init; }
+    public string? Tag { get; init; }
 
     public static ContextMenuAction Separator => new() { IsSeparator = true };
 }
@@ -48,18 +49,26 @@ public static class Icons
 
     // Apps
     public const string Terminal = "M4 17l6-5-6-5M12 19h8";
-    public const string Finder = "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z";
+    public const string Finder = "M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM12 2v13M8.5 9.5h.01M15.5 9.5h.01M7.5 16c1.5 2 3 2.5 4.5 2.5s3-.5 4.5-2.5";
     public const string Search = "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z";
     public const string VSCode = "M23.15 2.587L18.21.21a1.494 1.494 0 00-1.705.29l-6.046 5.503-3.27-2.517a.998.998 0 00-1.289.072l-1.7 1.7a.999.999 0 000 1.414l2.825 2.825-2.825 2.825a.999.999 0 000 1.414l1.7 1.7c.36.36.926.388 1.29.072l3.269-2.517 6.046 5.503a1.494 1.494 0 001.705.29l4.94-2.377A1.5 1.5 0 0024 18.41V5.59a1.5 1.5 0 00-.85-1.003zM17.5 18.5l-7-5.5 7-5.5v11z";
 
     /// <summary>
     /// Returns true if the icon should be rendered with fill instead of stroke.
     /// </summary>
-    public static bool IsFillIcon(string? iconSvg) => iconSvg == VSCode;
+    public static bool IsFillIcon(string? iconSvg) => iconSvg == VSCode || iconSvg == StarFilled;
 
     // Add
     public const string Plus = "M12 5v14M5 12h14";
     public const string Close = "M18 6L6 18M6 6l12 12";
+
+    // Star ratings
+    public const string StarFilled = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z";
+    public const string StarOutline = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z";
+
+    // Collections / Preview
+    public const string CollectionAdd = "M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z";
+    public const string Preview = "M21 3H3v18h18V3zM15 3v18";
 
     // Folder/File type icons (simplified SVG paths for 24x24 viewBox)
     public const string Folder = "M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z";
@@ -75,4 +84,9 @@ public static class Icons
     public const string FilePresentation = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M7 11h10v7H7z";
     public const string FileMarkdown = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M7 13v5l2.5-2.5L12 18v-5M15 13v5";
     public const string FileConfig = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M12 18a2 2 0 100-4 2 2 0 000 4zM12 12v2";
+
+    // Quick access / Frequent
+    public const string QuickAccess = "M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7zM13 2v7h7M9 13l2 2 4-4";
+    public const string FrequentFolder = "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2zM12 11v4M10 13h4";
+    public const string NewWindow = "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7";
 }

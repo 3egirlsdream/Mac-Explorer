@@ -14,8 +14,10 @@ public class FileSystemEntry
     public bool IsReadable { get; init; } = true;
     public bool IsWritable { get; init; } = true;
     public string IconKey { get; init; } = "file-generic";
+    public string? IconUrl { get; set; }
+    public string? ThumbnailUrl { get; set; }
 
-    public string DisplayName => IsDirectory ? Name : Name;
+    public string DisplayName => IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
     public string FormattedSize => FormatSize(Size, IsDirectory);
 
     private static string FormatSize(long bytes, bool isDirectory)
