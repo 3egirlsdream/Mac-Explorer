@@ -41,6 +41,7 @@ public class TransparentWebViewHandler : Microsoft.AspNetCore.Components.WebView
         if (platformView.ScrollView != null)
         {
             platformView.ScrollView.BackgroundColor = UIColor.Clear;
+            platformView.ScrollView.Opaque = false;
         }
     }
 }

@@ -1,12 +1,29 @@
 using FKFinder.Models;
+using FKFinder.Indexing;
 using FKFinder.Services;
+using Foundation;
+using System.Diagnostics;
 
 namespace FKFinder.Platforms.MacCatalyst.Services;
 
 public class MacFileService : IFileService
 {
+    private readonly SqliteFileIndex? _iconCache;
+    private readonly string _iconCacheDir;
+    public MacFileService(SqliteFileIndex? iconCache = null)
+    {
+        _iconCache = iconCache;
+        _iconCacheDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FKFinder", "icon-cache");
+        if (!Directory.Exists(_iconCacheDir))
+            Directory.CreateDirectory(_iconCacheDir);
+    }
+
     public string HomeDirectory => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     public string RootDirectory => "/";
+    // Use a sentinel path for trash - actual enumeration uses Finder AppleScript
+    public string TrashDirectory => "__system_trash__";
 
     public async Task<IReadOnlyList<FileSystemEntry>> GetDirectoryContentsAsync(string path, CancellationToken cancellationToken = default)
     {
@@ -16,6 +33,12 @@ public class MacFileService : IFileService
 
             try
             {
+                // Trash: use Finder AppleScript (macOS SIP protects ~/.Trash)
+                if (path == TrashDirectory)
+                {
+                    return EnumerateTrashViaFinder(cancellationToken);
+                }
+
                 if (!Directory.Exists(path))
                     return entries;
 
@@ -65,6 +88,41 @@ public class MacFileService : IFileService
                 {
                     // Partial file listing - continue with what we have
                 }
+
+                // Merge /System/Applications counterpart when browsing under /Applications
+                if (path == "/Applications" || path.StartsWith("/Applications/"))
+                {
+                    var systemPath = "/System" + path;
+                    if (Directory.Exists(systemPath))
+                    {
+                        try
+                        {
+                            foreach (var dirPath in Directory.EnumerateDirectories(systemPath))
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                try
+                                {
+                                    var dirInfo = new DirectoryInfo(dirPath);
+                                    if (!entries.Any(e => e.Name == dirInfo.Name))
+                                        entries.Add(CreateEntryFromDirectoryInfo(dirInfo));
+                                }
+                                catch { }
+                            }
+                            foreach (var filePath in Directory.EnumerateFiles(systemPath))
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                try
+                                {
+                                    var fileInfo = new FileInfo(filePath);
+                                    if (!fileInfo.Name.StartsWith('.') && !entries.Any(e => e.Name == fileInfo.Name))
+                                        entries.Add(CreateEntryFromFileInfo(fileInfo));
+                                }
+                                catch { }
+                            }
+                        }
+                        catch { }
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
@@ -77,6 +135,75 @@ public class MacFileService : IFileService
 
             return entries;
         }, cancellationToken);
+    }
+
+    private List<FileSystemEntry> EnumerateTrashViaFinder(CancellationToken ct)
+    {
+        var entries = new List<FileSystemEntry>();
+        try
+        {
+            // Write AppleScript to temp file to avoid shell escaping issues
+            var scriptPath = Path.Combine(Path.GetTempPath(), "fkfinder_trash.scpt");
+            File.WriteAllText(scriptPath, @"tell application ""Finder""
+set output to """"
+repeat with anItem in (get every item of trash)
+try
+set itemPath to POSIX path of (anItem as alias)
+set output to output & itemPath & linefeed
+end try
+end repeat
+return output
+end tell");
+
+            var process = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "/usr/bin/osascript",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+            process.StartInfo.ArgumentList.Add(scriptPath);
+            process.Start();
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(15000);
+
+            var paths = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var itemPath in paths)
+            {
+                ct.ThrowIfCancellationRequested();
+                // Remove trailing slash if present
+                var cleanPath = itemPath.TrimEnd('/');
+                if (string.IsNullOrEmpty(cleanPath)) continue;
+                try
+                {
+                    if (Directory.Exists(cleanPath))
+                    {
+                        entries.Add(CreateEntryFromDirectoryInfo(new DirectoryInfo(cleanPath)));
+                    }
+                    else if (File.Exists(cleanPath))
+                    {
+                        entries.Add(CreateEntryFromFileInfo(new FileInfo(cleanPath)));
+                    }
+                    else
+                    {
+                        // File exists in trash but we can't stat it - create basic entry
+                        var name = Path.GetFileName(cleanPath);
+                        entries.Add(CreateInaccessibleEntry(cleanPath, name, isDirectory: false));
+                    }
+                }
+                catch
+                {
+                    var name = Path.GetFileName(cleanPath);
+                    entries.Add(CreateInaccessibleEntry(cleanPath, name, isDirectory: false));
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { }
+        return entries;
     }
 
     public Task<FileSystemEntry?> GetEntryAsync(string path)
@@ -163,6 +290,55 @@ public class MacFileService : IFileService
         });
     }
 
+    public async Task DeletePermanentlyAsync(string path)
+    {
+        await Task.Run(() =>
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+            else if (File.Exists(path))
+                File.Delete(path);
+        });
+    }
+
+    public async Task EmptyTrashAsync()
+    {
+        await Task.Run(() =>
+        {
+            try
+            {
+                // Use Finder AppleScript to empty system trash (handles all volumes + permissions)
+                var process = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "osascript",
+                        Arguments = "-e 'tell application \"Finder\" to empty trash'",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    }
+                };
+                process.Start();
+                process.WaitForExit(30000);
+            }
+            catch
+            {
+                // Fallback: manual delete from user trash
+                var trashPath = TrashDirectory;
+                if (!Directory.Exists(trashPath)) return;
+                foreach (var dir in Directory.EnumerateDirectories(trashPath))
+                {
+                    try { Directory.Delete(dir, recursive: true); } catch { }
+                }
+                foreach (var file in Directory.EnumerateFiles(trashPath))
+                {
+                    try { File.Delete(file); } catch { }
+                }
+            }
+        });
+    }
+
     public async Task RenameAsync(string path, string newName)
     {
         await Task.Run(() =>
@@ -244,6 +420,8 @@ public class MacFileService : IFileService
 
     private FileSystemEntry CreateEntryFromDirectoryInfo(DirectoryInfo dir)
     {
+        var isAppBundle = dir.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase);
+
         return new FileSystemEntry
         {
             FullPath = dir.FullName,
@@ -252,13 +430,117 @@ public class MacFileService : IFileService
             Size = 0,
             LastModified = dir.LastWriteTime,
             Created = dir.CreationTime,
-            Extension = "",
+            Extension = isAppBundle ? ".app" : "",
             IsHidden = dir.Name.StartsWith('.'),
             IsSymbolicLink = dir.Attributes.HasFlag(FileAttributes.ReparsePoint),
             IsReadable = true,
             IsWritable = !dir.Attributes.HasFlag(FileAttributes.ReadOnly),
-            IconKey = "folder"
+            IconKey = isAppBundle ? "app-bundle" : "folder",
+            // Icons loaded lazily via ResolveAppIconsAsync
         };
+    }
+
+    public async Task ResolveAppIconsAsync(IEnumerable<FileSystemEntry> entries, Action? onBatchResolved = null)
+    {
+        var appEntries = entries.Where(e => e.IconKey == "app-bundle" && e.IconUrl == null).ToList();
+        if (appEntries.Count == 0) return;
+
+        // Build mapping: appPath → cachedPngPath (skip already cached)
+        var toExtract = new List<(FileSystemEntry entry, string appPath, string pngPath)>();
+        foreach (var entry in appEntries)
+        {
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(entry.FullPath))).Substring(0, 16).ToLowerInvariant();
+            var cachedPngPath = Path.Combine(_iconCacheDir, $"{hash}.png");
+
+            if (File.Exists(cachedPngPath) && new FileInfo(cachedPngPath).Length > 0)
+            {
+                entry.IconUrl = cachedPngPath;
+            }
+            else
+            {
+                toExtract.Add((entry, entry.FullPath, cachedPngPath));
+            }
+        }
+
+        // Notify for already-cached icons
+        if (appEntries.Any(e => e.IconUrl != null))
+            onBatchResolved?.Invoke();
+
+        if (toExtract.Count == 0) return;
+
+        // Process in batches via a single JXA script per batch
+        const int batchSize = 20;
+        for (int i = 0; i < toExtract.Count; i += batchSize)
+        {
+            var batch = toExtract.Skip(i).Take(batchSize).ToList();
+            await Task.Run(() => ExtractIconsBatchJXA(batch));
+
+            foreach (var (entry, _, pngPath) in batch)
+            {
+                if (File.Exists(pngPath) && new FileInfo(pngPath).Length > 0)
+                    entry.IconUrl = pngPath;
+            }
+            onBatchResolved?.Invoke();
+        }
+    }
+
+    private void ExtractIconsBatchJXA(List<(FileSystemEntry entry, string appPath, string pngPath)> batch)
+    {
+        try
+        {
+            // Build a single JXA script that processes all apps in this batch
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("ObjC.import('AppKit');");
+            sb.AppendLine("ObjC.import('Foundation');");
+            sb.AppendLine("var ws = $.NSWorkspace.sharedWorkspace;");
+            // Create a 128x128 blank image to draw into for proper resizing
+            sb.AppendLine("function extractIcon(appPath, outPath) {");
+            sb.AppendLine("  try {");
+            sb.AppendLine("    var icon = ws.iconForFile(appPath);");
+            sb.AppendLine("    var sz = $.NSMakeSize(128, 128);");
+            sb.AppendLine("    var newImg = $.NSImage.alloc.initWithSize(sz);");
+            sb.AppendLine("    newImg.lockFocus;");
+            sb.AppendLine("    icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,128,128), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);");
+            sb.AppendLine("    newImg.unlockFocus;");
+            sb.AppendLine("    var tiff = newImg.TIFFRepresentation;");
+            sb.AppendLine("    var rep = $.NSBitmapImageRep.imageRepWithData(tiff);");
+            sb.AppendLine("    var png = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $({}));");
+            sb.AppendLine("    png.writeToFileAtomically(outPath, true);");
+            sb.AppendLine("  } catch(e) {}");
+            sb.AppendLine("}");
+
+            foreach (var (_, appPath, pngPath) in batch)
+            {
+                var escapedApp = appPath.Replace("\\", "\\\\").Replace("'", "\\'");
+                var escapedPng = pngPath.Replace("\\", "\\\\").Replace("'", "\\'");
+                sb.AppendLine($"extractIcon('{escapedApp}', '{escapedPng}');");
+            }
+            sb.AppendLine("'done'");
+
+            var scriptPath = Path.Combine(Path.GetTempPath(), $"fkfinder_icons_{Guid.NewGuid():N}.js");
+            File.WriteAllText(scriptPath, sb.ToString());
+
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "/usr/bin/osascript",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                }
+            };
+            process.StartInfo.ArgumentList.Add("-l");
+            process.StartInfo.ArgumentList.Add("JavaScript");
+            process.StartInfo.ArgumentList.Add(scriptPath);
+            process.Start();
+            process.WaitForExit(30000);
+
+            try { File.Delete(scriptPath); } catch { }
+        }
+        catch { }
     }
 
     private FileSystemEntry CreateEntryFromFileInfo(FileInfo file)
@@ -296,24 +578,61 @@ public class MacFileService : IFileService
     {
         return extension.ToLowerInvariant() switch
         {
-            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".tiff" or ".svg" or ".webp" or ".heic" or ".ico" => "file-image",
+            // Image (including RAW formats)
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".tiff" or ".tif" or ".svg" or ".webp" or ".heic" or ".ico"
+                or ".raw" or ".dng" or ".cr2" or ".cr3" or ".nef" or ".arw" or ".orf" or ".rw2" or ".pef" => "file-image",
+            // Video
             ".mp4" or ".mov" or ".avi" or ".mkv" or ".wmv" or ".flv" or ".webm" => "file-video",
+            // Audio
             ".mp3" or ".wav" or ".flac" or ".aac" or ".m4a" or ".ogg" or ".wma" => "file-audio",
+            // PDF
             ".pdf" => "file-pdf",
-            ".doc" or ".docx" or ".txt" or ".rtf" or ".odt" or ".pages" => "file-document",
-            ".xls" or ".xlsx" or ".csv" or ".numbers" => "file-spreadsheet",
-            ".ppt" or ".pptx" or ".key" => "file-presentation",
-            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" or ".bz2" or ".xz" or ".dmg" => "file-archive",
+            // Microsoft Word style
+            ".doc" or ".docx" or ".odt" or ".pages" => "file-word",
+            // Microsoft Excel style
+            ".xls" or ".xlsx" or ".csv" or ".numbers" => "file-excel",
+            // Microsoft PowerPoint style
+            ".ppt" or ".pptx" or ".key" => "file-powerpoint",
+            // Archive / compressed
+            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" or ".bz2" or ".xz" or ".tgz" or ".zst" => "file-archive",
+            // Markdown
             ".md" or ".mdx" or ".markdown" => "file-markdown",
-            ".json" or ".yaml" or ".yml" or ".toml" or ".ini" or ".cfg" or ".conf" or ".env" or ".plist" or ".xml" => "file-config",
+            // Plain text files
+            ".txt" or ".rtf" or ".log" or ".nfo" or ".ini" or ".cfg" or ".conf" or ".env" => "file-text",
+            // Config / data files
+            ".json" or ".yaml" or ".yml" or ".toml" or ".plist" or ".xml" => "file-config",
+            // Web pages
+            ".html" or ".htm" => "file-web",
+            // Code (programming languages)
             ".cs" or ".js" or ".ts" or ".tsx" or ".jsx" or ".py" or ".java" or ".cpp" or ".c" or ".h" or ".hpp"
                 or ".go" or ".rs" or ".swift" or ".kt" or ".rb" or ".php" or ".lua" or ".r" or ".m" or ".mm"
                 or ".scala" or ".clj" or ".ex" or ".erl" or ".hs" or ".dart" or ".v" or ".zig" => "file-code",
-            ".html" or ".htm" or ".css" or ".scss" or ".sass" or ".less" or ".vue" or ".svelte" => "file-code",
+            // Style / template (code-style icon)
+            ".css" or ".scss" or ".sass" or ".less" or ".vue" or ".svelte" => "file-code",
+            // Shell / script
             ".sh" or ".bash" or ".zsh" or ".fish" or ".bat" or ".cmd" or ".ps1" => "file-code",
+            // Query languages
             ".sql" or ".graphql" or ".gql" => "file-code",
-            ".app" => "file-executable",
-            ".pkg" or ".deb" or ".rpm" => "file-package",
+            // Certificate files
+            ".cer" or ".crt" or ".pem" or ".p12" or ".pfx" or ".der" or ".cert" or ".ca-bundle" => "file-certificate",
+            // System installers / packages
+            ".pkg" or ".dmg" or ".msi" or ".exe" or ".deb" or ".rpm" or ".appimage" or ".snap" => "file-installer",
+            // Font files
+            ".ttf" or ".otf" or ".woff" or ".woff2" or ".eot" or ".fon" or ".ttc" => "file-font",
+            // Database files
+            ".db" or ".sqlite" or ".sqlite3" or ".mdb" or ".accdb" or ".dbf" or ".realm" => "file-database",
+            // eBook files
+            ".epub" or ".mobi" or ".azw" or ".azw3" or ".fb2" or ".djvu" or ".cbz" or ".cbr" => "file-ebook",
+            // Design / vector files
+            ".psd" or ".psb" or ".ai" or ".eps" or ".sketch" or ".fig" or ".xd" or ".indd" or ".afdesign" or ".afphoto" => "file-design",
+            // Disk image / ISO
+            ".iso" or ".img" or ".vhd" or ".vhdx" or ".vmdk" or ".qcow2" => "file-disk-image",
+            // 3D model files
+            ".obj" or ".fbx" or ".stl" or ".blend" or ".3ds" or ".dae" or ".gltf" or ".glb" or ".usdz" or ".step" or ".stp" => "file-3d",
+            // Subtitle files
+            ".srt" or ".ass" or ".ssa" or ".sub" or ".vtt" or ".idx" or ".lrc" => "file-subtitle",
+            // App bundle
+            ".app" => "app-bundle",
             _ => "file-generic"
         };
     }

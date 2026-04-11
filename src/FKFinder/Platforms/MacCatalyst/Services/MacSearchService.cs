@@ -29,30 +29,39 @@ public class MacSearchService : ISearchService
         if (string.IsNullOrWhiteSpace(pattern))
             yield break;
 
-        bool hasMatchingResults = false;
+        bool hasIndexResults = false;
 
-        // Try FTS5 index search first
-        if (_indexConfig.ShouldIndex(directory))
+        // Try FTS5 index search first (skip if index is unavailable)
+        if (_fileIndex != null && _indexConfig.ShouldIndex(directory))
         {
-            var indexResults = await _fileIndex.SearchByNameAsync(pattern, 200);
-            foreach (var entry in indexResults)
+            List<FileSystemEntry>? indexResults = null;
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Filter results to current directory tree
-                if (entry.FullPath.StartsWith(directory, StringComparison.OrdinalIgnoreCase))
-                {
-                    hasMatchingResults = true;
-                    yield return entry;
-                }
+                indexResults = new List<FileSystemEntry>(await _fileIndex.SearchByNameAsync(pattern, 200));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"FTS5 search failed, falling back to filesystem: {ex.Message}");
             }
 
-            // Only skip filesystem fallback if we found results IN the current directory
-            if (hasMatchingResults)
-                yield break;
+            if (indexResults != null)
+            {
+                foreach (var entry in indexResults)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (entry.FullPath.StartsWith(directory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasIndexResults = true;
+                        yield return entry;
+                    }
+                }
+
+                if (hasIndexResults)
+                    yield break;
+            }
         }
 
-        // Fallback: file system search
+        // Fallback: recursive file system search
         var fsResults = await SearchFileSystemAsync(directory, pattern, cancellationToken);
         foreach (var entry in fsResults)
         {

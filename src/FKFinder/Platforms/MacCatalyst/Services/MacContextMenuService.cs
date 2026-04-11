@@ -22,6 +22,12 @@ public class MacContextMenuService : IContextMenuService
             new() { Label = "打开", IconSvg = Icons.Open, ShortcutText = "⌘O", Execute = () => _launcher.OpenFileAsync(entry.FullPath) },
         };
 
+        // Add "Show Package Contents" for .app bundles
+        if (entry.IconKey == "app-bundle")
+        {
+            actions.Add(new() { Label = "显示包内容", IconSvg = Icons.Folder, Execute = null });
+        }
+
         var apps = await GetApplicationsForFileAsync(entry.FullPath);
         if (apps.Count > 0)
         {
@@ -90,6 +96,24 @@ public class MacContextMenuService : IContextMenuService
         actions.Add(new() { Label = "刷新", IconSvg = Icons.Refresh, ShortcutText = "⌘R" });
 
         return await Task.FromResult(actions.AsReadOnly());
+    }
+
+    public Task<IReadOnlyList<ContextMenuAction>> GetTrashFileContextMenuActionsAsync(FileSystemEntry entry)
+    {
+        var actions = new List<ContextMenuAction>
+        {
+            new() { Label = "永久删除", IconSvg = Icons.Delete, Execute = null },
+        };
+        return Task.FromResult<IReadOnlyList<ContextMenuAction>>(actions.AsReadOnly());
+    }
+
+    public Task<IReadOnlyList<ContextMenuAction>> GetTrashBackgroundContextMenuActionsAsync()
+    {
+        var actions = new List<ContextMenuAction>
+        {
+            new() { Label = "清倒废纸篓", IconSvg = Icons.Delete, Execute = null },
+        };
+        return Task.FromResult<IReadOnlyList<ContextMenuAction>>(actions.AsReadOnly());
     }
 
     public async Task<IReadOnlyList<RegisteredApp>> GetApplicationsForFileAsync(string filePath)
