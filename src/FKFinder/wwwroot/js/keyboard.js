@@ -52,12 +52,26 @@ window.fkfinderKeyboard = {
             } else if (key === ' ' && !meta) {
                 e.preventDefault();
                 this.dotNetRef.invokeMethodAsync('OnKeyboardShortcut', 'quickLook');
+            } else if (meta && e.shiftKey && key === 'p') {
+                e.preventDefault();
+                this.dotNetRef.invokeMethodAsync('OnKeyboardShortcut', 'togglePreview');
             }
         });
 
         // Prevent native context menu globally
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+        });
+
+        // Mouse side buttons: button 3 = back, button 4 = forward
+        document.addEventListener('mouseup', (e) => {
+            if (e.button === 3) {
+                e.preventDefault();
+                this.dotNetRef.invokeMethodAsync('OnKeyboardShortcut', 'navigateBack');
+            } else if (e.button === 4) {
+                e.preventDefault();
+                this.dotNetRef.invokeMethodAsync('OnKeyboardShortcut', 'navigateForward');
+            }
         });
     }
 };

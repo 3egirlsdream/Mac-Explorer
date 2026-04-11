@@ -1,0 +1,153 @@
+@using FKFinder.Models
+@implements IDisposable
+
+<div class="preview-pane">
+    <div class="preview-resize-handle"></div>
+    @if (_selectedEntry != null)
+    {
+        <div class="preview-pane-header">
+            <h3 title="@_selectedEntry.DisplayName">@_selectedEntry.DisplayName</h3>
+            <div class="preview-subtitle">@_selectedEntry.FormattedSize — @_selectedEntry.LastModified.ToString("yyyy-MM-dd HH:mm")</div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_previewImageUrl))
+        {
+            <div class="preview-pane-image">
+                <img src="@_previewImageUrl" alt="@_selectedEntry.DisplayName" />
+            </div>
+        }
+        else
+        {
+            <div class="preview-pane-icon">
+                @((MarkupString)GetLargeIcon(_selectedEntry))
+            </div>
+        }
+
+        <div class="preview-pane-actions">
+            <div class="preview-pane-rating">
+                @for (int i = 1; i <= 5; i++)
+                {
+                    var starIndex = i;
+                    var isFilled = starIndex <= _currentRating;
+                    <button class="star-btn @(isFilled ? "filled" : "")"
+                            @onclick="() => OnStarClick(starIndex)"
+                            title="@starIndex 星">
+                        <svg viewBox="0 0 24 24" fill="@(isFilled ? "currentColor" : "none")" stroke="currentColor" stroke-width="1.5">
+                            <path d="@Icons.StarOutline"/>
+                        </svg>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="preview-pane-empty">
+            <span>选择文件以预览</span>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+
+    private FileSystemEntry? _selectedEntry;
+    private string? _previewImageUrl;
+    private int _currentRating;
+
+    protected override void OnInitialized()
+    {
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        ViewModel.SelectedEntries.CollectionChanged += OnSelectionChanged;
+        UpdateSelection();
+    }
+
+    private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ViewModel.SelectedEntries))
+        {
+            ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
+            ViewModel.SelectedEntries.CollectionChanged += OnSelectionChanged;
+            UpdateSelection();
+            await InvokeAsync(StateHasChanged);
+        }
+        else if (e.PropertyName == nameof(ViewModel.Entries))
+        {
+            // Thumbnails resolved asynchronously — refresh preview if the selected entry got a thumbnail
+            if (_selectedEntry != null && _previewImageUrl == null && !string.IsNullOrEmpty(_selectedEntry.ThumbnailUrl))
+            {
+                _previewImageUrl = _selectedEntry.ThumbnailUrl;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async void OnSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        UpdateSelection();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateSelection()
+    {
+        if (ViewModel.SelectedEntries.Count == 1)
+        {
+            var entry = ViewModel.SelectedEntries[0];
+            _selectedEntry = entry;
+            _previewImageUrl = entry.ThumbnailUrl;
+            _currentRating = ViewModel.GetRating(entry.FullPath);
+        }
+        else
+        {
+            _selectedEntry = null;
+            _previewImageUrl = null;
+            _currentRating = 0;
+        }
+    }
+
+    private async Task OnStarClick(int rating)
+    {
+        if (_selectedEntry == null) return;
+        var newRating = rating == _currentRating ? 0 : rating;
+        _currentRating = newRating;
+        await ViewModel.SetRatingAsync(_selectedEntry.FullPath, newRating);
+    }
+
+    private static string GetLargeIcon(FileSystemEntry entry)
+    {
+        if (entry.IsDirectory)
+            return @"<svg width=""80"" height=""80"" viewBox=""0 0 24 24"" fill=""none"" stroke=""#54A3F7"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""" + Icons.Folder + @"""/></svg>";
+
+        var ext = entry.Extension.TrimStart('.').ToUpperInvariant();
+        var color = GetExtColor(ext);
+        return $@"<svg width=""80"" height=""80"" viewBox=""0 0 24 24"" fill=""none"" stroke=""{color}"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{Icons.File}""/></svg>
+                  <div style=""margin-top:8px;font-size:13px;color:var(--color-text-tertiary);font-weight:500;"">.{ext}</div>";
+    }
+
+    private static string GetExtColor(string ext) => ext switch
+    {
+        "PDF" => "#E74C3C",
+        "DOC" or "DOCX" => "#2B579A",
+        "XLS" or "XLSX" => "#217346",
+        "PPT" or "PPTX" => "#D24726",
+        "ZIP" or "RAR" or "7Z" or "TAR" or "GZ" => "#F39C12",
+        "MP3" or "WAV" or "FLAC" or "AAC" => "#8E44AD",
+        "MP4" or "AVI" or "MKV" or "MOV" => "#E91E63",
+        "JS" or "TS" or "JSX" or "TSX" => "#F0DB4F",
+        "PY" => "#3776AB",
+        "CS" => "#68217A",
+        "JAVA" => "#B07219",
+        "GO" => "#00ADD8",
+        "RS" => "#DEA584",
+        "HTML" or "HTM" => "#E34F26",
+        "CSS" or "SCSS" => "#1572B6",
+        "JSON" or "YAML" or "YML" or "XML" => "#A0A0A0",
+        _ => "#8E8E93"
+    };
+
+    public void Dispose()
+    {
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
+    }
+}
