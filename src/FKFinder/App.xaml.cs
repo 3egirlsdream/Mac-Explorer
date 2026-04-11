@@ -3,6 +3,7 @@
 public partial class App : Application
 {
     private bool _dockMenuRegistered;
+    private readonly HashSet<Window> _initializedWindows = new();
 
 	public App()
 	{
@@ -19,6 +20,11 @@ public partial class App : Application
 		var window = new Window(new MainPage()) { Title = "FKFinder" };
 
 #if MACCATALYST
+        // Set consistent default window size for all windows (including new ones from Dock menu)
+        window.Width = 1372;
+        window.Height = 849;
+        window.MinimumWidth = 800;
+        window.MinimumHeight = 500;
         window.Activated += OnWindowActivated;
 #endif
 
@@ -53,10 +59,14 @@ public partial class App : Application
     private void OnWindowActivated(object? sender, EventArgs e)
     {
         var window = sender as Window;
-        if (window?.Handler?.PlatformView is UIKit.UIWindow platformWindow)
+        if (window != null && _initializedWindows.Add(window))
         {
-            // Make UIKit layers transparent so the AppKit NSVisualEffectView shows through
-            Platforms.MacCatalyst.Handlers.VibrancyHelper.MakeUIKitLayerTransparent(platformWindow);
+            // First activation of this window — apply one-time setup
+            if (window.Handler?.PlatformView is UIKit.UIWindow platformWindow)
+            {
+                // Make UIKit layers transparent so the AppKit NSVisualEffectView shows through
+                Platforms.MacCatalyst.Handlers.VibrancyHelper.MakeUIKitLayerTransparent(platformWindow);
+            }
         }
 
         // Register Dock menu once services are available

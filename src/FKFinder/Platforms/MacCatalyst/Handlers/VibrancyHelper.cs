@@ -50,7 +50,8 @@ public static class VibrancyHelper
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_void_double(IntPtr receiver, IntPtr selector, double arg);
 
-    private static bool _configured;
+    private static bool _registered;
+    private static readonly HashSet<IntPtr> _configuredWindows = new();
     private static NSObject? _notificationObserver;
 
     /// <summary>
@@ -59,9 +60,11 @@ public static class VibrancyHelper
     /// </summary>
     public static void Register()
     {
-        if (_configured) return;
+        if (_registered) return;
+        _registered = true;
 
         // Listen for the notification that fires when AppKit creates the host NSWindow
+        // This fires for EVERY new window scene, not just the first one
         _notificationObserver = NSNotificationCenter.DefaultCenter.AddObserver(
             new NSString("UISBHSDidCreateWindowForSceneNotification"),
             OnWindowCreatedForScene);
@@ -137,33 +140,35 @@ public static class VibrancyHelper
         return IntPtr.Zero;
     }
 
-    private static void SetupFromNSApplication()
+    private static void SetupFromNSApplication(int retryCount = 0)
     {
+        if (retryCount > 10) return; // Give up after ~3 seconds
         try
         {
             var nsAppClass = Class.GetHandle("NSApplication");
             var sharedApp = objc_msgSend(nsAppClass, Selector.GetHandle("sharedApplication"));
             if (sharedApp == IntPtr.Zero) return;
 
+            // Try keyWindow first (the most recently activated window)
             var keyWindow = objc_msgSend(sharedApp, Selector.GetHandle("keyWindow"));
-            if (keyWindow != IntPtr.Zero)
+            if (keyWindow != IntPtr.Zero && !_configuredWindows.Contains(keyWindow))
             {
                 ConfigureNSWindow(keyWindow);
                 return;
             }
 
-            // If keyWindow not available yet, try mainWindow
+            // Try mainWindow
             var mainWindow = objc_msgSend(sharedApp, Selector.GetHandle("mainWindow"));
-            if (mainWindow != IntPtr.Zero)
+            if (mainWindow != IntPtr.Zero && !_configuredWindows.Contains(mainWindow))
             {
                 ConfigureNSWindow(mainWindow);
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine("VibrancyHelper: No NSWindow found via NSApplication, retrying...");
+            System.Diagnostics.Debug.WriteLine($"VibrancyHelper: No unconfigured NSWindow found, retry {retryCount}...");
             DispatchQueue.MainQueue.DispatchAfter(
                 new DispatchTime(DispatchTime.Now, (long)(0.3 * 1_000_000_000)),
-                () => SetupFromNSApplication());
+                () => SetupFromNSApplication(retryCount + 1));
         }
         catch (Exception ex)
         {
@@ -177,7 +182,9 @@ public static class VibrancyHelper
     /// </summary>
     private static void ConfigureNSWindow(IntPtr nsWindow)
     {
-        if (_configured) return;
+        // Track per-window to avoid configuring the same NSWindow twice
+        if (_configuredWindows.Contains(nsWindow)) return;
+        _configuredWindows.Add(nsWindow);
 
         try
         {
@@ -250,8 +257,17 @@ public static class VibrancyHelper
             // ── 6. Set shadow ──
             objc_msgSend_void_bool(nsWindow, Selector.GetHandle("setHasShadow:"), true);
 
-            _configured = true;
-            System.Diagnostics.Debug.WriteLine("VibrancyHelper: NSVisualEffectView inserted at AppKit layer. Setup complete!");
+            // ── 7. Set default window size (1372×849) at NSWindow level ──
+            // NSWindow uses flipped coordinates (origin at bottom-left)
+            // First get current frame to preserve origin, then resize with center
+            var currentFrame = objc_msgSend_ret_CGRect(nsWindow, Selector.GetHandle("frame"));
+            var newFrame = new CGRect(currentFrame.X, currentFrame.Y, 1372, 849);
+            objc_msgSend_setFrame(nsWindow, Selector.GetHandle("setFrame:display:"), newFrame, true);
+
+            // ── 8. Center the new window on screen ──
+            objc_msgSend(nsWindow, Selector.GetHandle("center"));
+
+            System.Diagnostics.Debug.WriteLine($"VibrancyHelper: NSVisualEffectView inserted at AppKit layer for window {nsWindow}. Total configured: {_configuredWindows.Count}");
         }
         catch (Exception ex)
         {
@@ -262,6 +278,10 @@ public static class VibrancyHelper
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_addSubview_positioned(
         IntPtr receiver, IntPtr selector, IntPtr view, nint place, IntPtr relativeTo);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void objc_msgSend_setFrame(
+        IntPtr receiver, IntPtr selector, CGRect frame, bool display);
 
     /// <summary>
     /// Also ensure UIKit views are transparent so the AppKit effect shows through.
@@ -278,4 +298,5 @@ public static class VibrancyHelper
             rootView.Opaque = false;
         }
     }
+
 }

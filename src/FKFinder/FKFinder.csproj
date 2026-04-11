@@ -79,6 +79,16 @@
         <Exec Command="sips -z 1024 1024 '$(_IconSource)' --out '$(_IconsetDir)/icon_512x512@2x.png' &gt;/dev/null 2&gt;&amp;1" />
         <Exec Command="iconutil -c icns '$(_IconsetDir)' -o '$(_AppBundlePath)/Contents/Resources/appicon.icns'" />
         <Exec Command="/usr/libexec/PlistBuddy -c 'Delete :CFBundleIconName' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <!-- Inject UIApplicationSceneManifest for multi-window support (MAUI build doesn't merge nested dicts from Info.plist) -->
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest dict' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool true' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations dict' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication array' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0 dict' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneConfigurationName string __MAUI_DEFAULT_SCENE_CONFIGURATION__' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string SceneDelegate' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <!-- Re-sign after Info.plist modification to avoid -54 launch error -->
+        <Exec Command="codesign --force --sign - '$(_AppBundlePath)'" />
     </Target>
 
 </Project>

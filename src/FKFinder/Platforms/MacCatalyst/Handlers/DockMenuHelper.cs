@@ -172,7 +172,29 @@ public static class DockMenuHelper
         // 2. Separator
         AddSeparatorToMenu(menu);
 
-        // 3. Frequent folders (max 6)
+        // 3. Fixed folders: 文稿、下载、应用程序
+        var fixedFolders = new (string Name, string Path)[]
+        {
+            ("文稿", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents")),
+            ("下载", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads")),
+            ("应用程序", "/Applications"),
+        };
+        foreach (var (name, path) in fixedFolders)
+        {
+            var item = CreateMenuItem(name, "navigateToFolder:");
+            if (item != IntPtr.Zero)
+            {
+                objc_msgSend_void_IntPtr(item, Selector.GetHandle("setTarget:"), _delegateHandle);
+                var nsPath = new NSString(path);
+                objc_msgSend_void_IntPtr(item, Selector.GetHandle("setRepresentedObject:"), nsPath.Handle);
+                AddItemToMenu(menu, item);
+            }
+        }
+
+        // 4. Separator
+        AddSeparatorToMenu(menu);
+
+        // 5. Frequent folders (max 6)
         var folders = _frequentFolderService?.GetTopFoldersAsync(6).GetAwaiter().GetResult();
         if (folders != null && folders.Count > 0)
         {
