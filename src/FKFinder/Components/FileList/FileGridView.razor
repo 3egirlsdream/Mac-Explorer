@@ -1,5 +1,5 @@
 @using FKFinder.Models
-@implements IDisposable
+@implements IAsyncDisposable
 
 <div class="file-content-area"
      @oncontextmenu:preventDefault
@@ -12,39 +12,41 @@
 
     @if (ViewModel.ViewMode == ViewMode.List && ViewModel.Entries.Count > 0)
     {
-        <div class="file-list-header">
+        <div class="file-list-header" id="file-list-header">
             <span class="file-list-header-col @(ViewModel.SortField == SortField.Name ? "active" : "")"
                   @onclick="() => ViewModel.SetSort(SortField.Name)">
                 名称
                 @if (ViewModel.SortField == SortField.Name)
                 {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
             </span>
-            <span class="file-list-header-col @(ViewModel.SortField == SortField.Modified ? "active" : "")"
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Modified ? "active" : "")" data-col="modified"
                   @onclick="() => ViewModel.SetSort(SortField.Modified)">
+                <span class="col-resize-handle" data-resize="modified"></span>
                 修改日期
                 @if (ViewModel.SortField == SortField.Modified)
                 {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
             </span>
-            <span class="file-list-header-col @(ViewModel.SortField == SortField.Size ? "active" : "")"
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Size ? "active" : "")" data-col="size"
                   @onclick="() => ViewModel.SetSort(SortField.Size)">
+                <span class="col-resize-handle" data-resize="size"></span>
                 大小
                 @if (ViewModel.SortField == SortField.Size)
                 {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
             </span>
-            <span class="file-list-header-col @(ViewModel.SortField == SortField.Type ? "active" : "")"
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Type ? "active" : "")" data-col="type"
                   @onclick="() => ViewModel.SetSort(SortField.Type)">
+                <span class="col-resize-handle" data-resize="type"></span>
                 类型
                 @if (ViewModel.SortField == SortField.Type)
                 {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col" data-col="rating">
+                评分
             </span>
         </div>
     }
 
     <div class="file-content-scroll">
-        @if (ViewModel.IsLoading)
-        {
-            <div class="loading-indicator"></div>
-        }
 
         @if (ViewModel.Entries.Count == 0 && !ViewModel.IsLoading)
         {
@@ -121,6 +123,50 @@
     protected override void OnInitialized()
     {
         ViewModel.RenameRequested += OnRenameRequested;
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("fkfinderColumnResize.init");
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ViewModel.IsLoading) or nameof(ViewModel.CurrentPath) or nameof(ViewModel.ViewMode)
+            or nameof(ViewModel.Groups) or nameof(ViewModel.GroupField))
+        {
+            InvokeAsync(StateHasChanged);
+        }
+        else if (e.PropertyName == nameof(ViewModel.Entries))
+        {
+            bool shouldScroll = ViewModel.IsRestoringNavigation;
+            if (shouldScroll)
+            {
+                InvokeAsync(async () =>
+                {
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.hideContent"); }
+                    catch { }
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.scrollToSelected"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+            else
+            {
+                InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.resetScroll"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+        }
     }
 
     private void OnRenameRequested(FileSystemEntry entry)
@@ -129,10 +175,12 @@
         InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         ViewModel.RenameRequested -= OnRenameRequested;
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _dblClickTimer?.Dispose();
+        await RevokeAllBlobUrlsAsync();
     }
 
     // Drag-and-drop state
@@ -191,24 +239,55 @@
         else
         {
             builder.OpenElement(15, "span");
-            builder.AddContent(16, entry.Name);
+            builder.AddContent(16, entry.DisplayName);
             builder.CloseElement();
         }
         builder.CloseElement();
 
         builder.OpenElement(30, "div");
-        builder.AddAttribute(31, "class", "file-list-size");
-        builder.AddContent(32, entry.FormattedSize);
+        builder.AddAttribute(31, "class", "file-list-modified");
+        builder.AddContent(32, entry.LastModified.ToString("yyyy-MM-dd HH:mm"));
         builder.CloseElement();
 
         builder.OpenElement(50, "div");
-        builder.AddAttribute(51, "class", "file-list-modified");
-        builder.AddContent(52, entry.LastModified.ToString("yyyy-MM-dd HH:mm"));
+        builder.AddAttribute(51, "class", "file-list-size");
+        builder.AddContent(52, entry.FormattedSize);
         builder.CloseElement();
 
         builder.OpenElement(70, "div");
         builder.AddAttribute(71, "class", "file-list-kind");
-        builder.AddContent(72, entry.IsDirectory ? "文件夹" : entry.Extension.TrimStart('.').ToUpperInvariant());
+        builder.AddContent(72, GetKindText(entry));
+        builder.CloseElement();
+
+        // Rating column
+        builder.OpenElement(80, "div");
+        builder.AddAttribute(81, "class", "file-list-rating");
+        var currentRating = ViewModel.GetRating(entry.FullPath);
+        for (int i = 1; i <= 5; i++)
+        {
+            var starVal = i;
+            var isFilled = starVal <= currentRating;
+            builder.OpenElement(82, "svg");
+            builder.AddAttribute(83, "class", isFilled ? "star-icon filled" : "star-icon");
+            builder.AddAttribute(84, "width", "12");
+            builder.AddAttribute(85, "height", "12");
+            builder.AddAttribute(86, "viewBox", "0 0 24 24");
+            builder.AddAttribute(861, "fill", isFilled ? "currentColor" : "none");
+            builder.AddAttribute(862, "stroke", "currentColor");
+            builder.AddAttribute(863, "stroke-width", "1.5");
+            Func<MouseEventArgs, Task> starHandler = async _ =>
+            {
+                var newRating = starVal == currentRating ? 0 : starVal;
+                await ViewModel.SetRatingAsync(entry.FullPath, newRating);
+                StateHasChanged();
+            };
+            builder.AddAttribute(87, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, starHandler));
+            builder.AddAttribute(88, "onclick:stopPropagation", true);
+            builder.OpenElement(89, "path");
+            builder.AddAttribute(891, "d", Icons.StarOutline);
+            builder.CloseElement();
+            builder.CloseElement();
+        }
         builder.CloseElement();
 
         builder.CloseElement();
@@ -258,7 +337,7 @@
         {
             builder.OpenElement(20, "div");
             builder.AddAttribute(21, "class", "file-grid-name");
-            builder.AddContent(22, entry.Name);
+            builder.AddContent(22, entry.DisplayName);
             builder.CloseElement();
         }
 
@@ -271,6 +350,10 @@
     {
         if (_renamingEntry != null) return;
         ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
+
+        // Auto-close metadata panel when clicking a file
+        if (ViewModel.IsMetadataPanelVisible)
+            ViewModel.CloseMetadataCommand.Execute(null);
     }
 
     // Custom double-click via timer (only fast double-clicks open, not slow clicks)
@@ -315,6 +398,10 @@
             // Click on blank area clears selection
             if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey)
                 ViewModel.ClearSelection();
+
+            // Auto-close metadata panel when clicking blank area
+            if (ViewModel.IsMetadataPanelVisible)
+                ViewModel.CloseMetadataCommand.Execute(null);
         }
     }
 
@@ -471,31 +558,91 @@
         await ViewModel.ShowBackgroundContextMenuAsync(e.ClientX, e.ClientY);
     }
 
-    // ── SVG Icon helper ──
-
-    private static string GetIconSvg(FileSystemEntry entry, int size)
+    private static string GetKindText(FileSystemEntry entry)
     {
-        var (path, color) = entry.IsDirectory
-            ? (Icons.Folder, "#54A3F7")
-            : GetFileIcon(entry.IconKey);
-        return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 24 24"" fill=""none"" stroke=""{color}"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{path}""/></svg>";
+        if (entry.IconKey == "app-bundle") return "应用程序";
+        if (entry.IsDirectory) return "文件夹";
+        return entry.Extension.TrimStart('.').ToUpperInvariant();
     }
 
-    private static (string path, string color) GetFileIcon(string iconKey) => iconKey switch
+    // ── SVG Icon helper ──
+
+    // Blob URL cache: file path → blob:http://... URL
+    private readonly Dictionary<string, string> _blobUrlCache = new();
+    private readonly List<string> _activeBlobUrls = new();
+
+    private string GetIconSvg(FileSystemEntry entry, int size)
     {
-        "file-image" => (Icons.FileImage, "#E8912D"),
-        "file-video" => (Icons.FileVideo, "#8B5CF6"),
-        "file-audio" => (Icons.FileAudio, "#EC4899"),
-        "file-pdf" => (Icons.FilePdf, "#EF4444"),
-        "file-document" => (Icons.FileText, "#3B82F6"),
-        "file-spreadsheet" => (Icons.FileSpreadsheet, "#22C55E"),
-        "file-presentation" => (Icons.FilePresentation, "#F97316"),
-        "file-archive" => (Icons.FileArchive, "#A855F7"),
-        "file-code" => (Icons.FileCode, "#6366F1"),
-        "file-markdown" => (Icons.FileMarkdown, "#64748B"),
-        "file-config" => (Icons.FileConfig, "#F59E0B"),
-        "file-executable" => (Icons.File, "#64748B"),
-        "file-package" => (Icons.FileArchive, "#64748B"),
-        _ => (Icons.File, "#94A3B8")
-    };
+        // Use thumbnail if available (image files resolved by ViewModel)
+        if (!string.IsNullOrEmpty(entry.ThumbnailUrl))
+        {
+            var cssClass = size <= 20 ? "file-list-thumbnail" : "file-grid-thumbnail";
+            var displaySize = size <= 20 ? 20 : 64;
+            return $@"<img src=""{entry.ThumbnailUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""{cssClass}"" />";
+        }
+
+        // Use Blob URL if available for this entry
+        if (!string.IsNullOrEmpty(entry.IconUrl) && _blobUrlCache.TryGetValue(entry.IconUrl, out var blobUrl))
+            return $@"<img src=""{blobUrl}"" width=""{size}"" height=""{size}"" class=""app-icon-img"" />";
+
+        // Folder: simple stroke icon
+        if (entry.IsDirectory)
+            return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 24 24"" fill=""none"" stroke=""#54A3F7"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{Icons.Folder}""/></svg>";
+
+        // File: rich SVG icon with extension label
+        return FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
+    }
+
+    private string GetStarRatingMarkup(FileSystemEntry entry, int starSize)
+    {
+        var rating = ViewModel.GetRating(entry.FullPath);
+        var sb = new System.Text.StringBuilder();
+        sb.Append(@"<span class=""star-rating-inline"">");
+        for (int i = 1; i <= 5; i++)
+        {
+            var filled = i <= rating;
+            var fill = filled ? "currentColor" : "none";
+            var cls = filled ? "star-icon filled" : "star-icon";
+            sb.Append($@"<svg class=""{cls}"" width=""{starSize}"" height=""{starSize}"" viewBox=""0 0 24 24"" fill=""{fill}"" stroke=""currentColor"" stroke-width=""1.5""><path d=""{Icons.StarOutline}""/></svg>");
+        }
+        sb.Append("</span>");
+        return sb.ToString();
+    }
+
+    private async Task CreateBlobUrlsForEntriesAsync()
+    {
+        var entriesNeedingBlob = ViewModel.Entries
+            .Where(e => !string.IsNullOrEmpty(e.IconUrl) && !_blobUrlCache.ContainsKey(e.IconUrl))
+            .ToList();
+        if (entriesNeedingBlob.Count == 0) return;
+
+        foreach (var entry in entriesNeedingBlob)
+        {
+            try
+            {
+                var bytes = await System.IO.File.ReadAllBytesAsync(entry.IconUrl!);
+                var blobUrl = await JSRuntime.InvokeAsync<string>("createBlobUrl", bytes, "image/png");
+                _blobUrlCache[entry.IconUrl!] = blobUrl;
+                _activeBlobUrls.Add(blobUrl);
+            }
+            catch { }
+        }
+        StateHasChanged();
+    }
+
+    private async Task RevokeAllBlobUrlsAsync()
+    {
+        if (_activeBlobUrls.Count > 0)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("revokeBlobUrls", _activeBlobUrls.ToArray());
+            }
+            catch { }
+            _activeBlobUrls.Clear();
+        }
+        _blobUrlCache.Clear();
+    }
+
+
 }

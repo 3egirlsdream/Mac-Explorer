@@ -3,6 +3,8 @@
 @inject FileListViewModel ViewModel
 @inject IJSRuntime JSRuntime
 @inject FKFinder.Services.IQuickLookService QuickLookService
+@inject FKFinder.Services.IMouseNavigationService MouseNavService
+@inject FKFinder.Services.NavigationBridge NavigationBridge
 @implements IAsyncDisposable
 
 <CascadingValue Value="ViewModel">
@@ -10,15 +12,24 @@
         <FinderSidebar />
         <div class="finder-main">
             <FinderToolbar />
-            <BreadcrumbBar />
-            @if (ViewModel.IsHomePage)
-            {
-                <HomeView />
-            }
-            else
-            {
-                <FileGridView />
-            }
+            <div class="finder-content-split">
+                <div class="finder-content-main">
+                    <BreadcrumbBar />
+                    <div class="loading-indicator @(ViewModel.IsLoading ? "active" : "")"></div>
+                    @if (ViewModel.IsHomePage)
+                    {
+                        <HomeView />
+                    }
+                    else
+                    {
+                        <FileGridView />
+                    }
+                </div>
+                @if (ViewModel.IsPreviewPaneVisible && !ViewModel.IsHomePage)
+                {
+                    <PreviewPane />
+                }
+            </div>
         </div>
     </div>
 </CascadingValue>
@@ -40,13 +51,50 @@
 
     protected override void OnInitialized()
     {
+        // Register this window's ViewModel with the navigation bridge
+        NavigationBridge.Register(ViewModel);
+
+        // Check if this new window should navigate to a pending folder path
+        var pendingPath = NavigationBridge.PendingNavigationPath;
+        if (!string.IsNullOrEmpty(pendingPath))
+        {
+            NavigationBridge.PendingNavigationPath = null;
+            _ = ViewModel.NavigateToCommand.ExecuteAsync(pendingPath);
+        }
+
         // Subscribe to ViewModel property changes to trigger re-render
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        // Subscribe to mouse side buttons (back/forward)
+        MouseNavService.BackButtonPressed += OnMouseBack;
+        MouseNavService.ForwardButtonPressed += OnMouseForward;
+        MouseNavService.Start();
+    }
+
+    private async void OnMouseBack()
+    {
+        await InvokeAsync(async () => await ViewModel.NavigateBackCommand.ExecuteAsync(null));
+    }
+
+    private async void OnMouseForward()
+    {
+        await InvokeAsync(async () => await ViewModel.NavigateForwardCommand.ExecuteAsync(null));
     }
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        await InvokeAsync(StateHasChanged);
+        // Only re-render Home for properties that affect its layout
+        if (e.PropertyName is nameof(ViewModel.IsHomePage)
+            or nameof(ViewModel.IsLoading)
+            or nameof(ViewModel.CurrentPath)
+            or nameof(ViewModel.IsPreviewPaneVisible)
+            or nameof(ViewModel.IsContextMenuVisible)
+            or nameof(ViewModel.IsMetadataPanelVisible)
+            or nameof(ViewModel.SortField)
+            or nameof(ViewModel.SortAscending))
+        {
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -87,6 +135,12 @@
                 case "navigateUp":
                     await ViewModel.NavigateUpCommand.ExecuteAsync(null);
                     break;
+                case "navigateBack":
+                    await ViewModel.NavigateBackCommand.ExecuteAsync(null);
+                    break;
+                case "navigateForward":
+                    await ViewModel.NavigateForwardCommand.ExecuteAsync(null);
+                    break;
                 case "refresh":
                     await ViewModel.RefreshCommand.ExecuteAsync(null);
                     break;
@@ -115,6 +169,9 @@
                     if (ViewModel.SelectedEntries.Count == 1)
                         await QuickLookService.PreviewFileAsync(ViewModel.SelectedEntries.First().FullPath);
                     break;
+                case "togglePreview":
+                    ViewModel.TogglePreviewPane();
+                    break;
             }
         }
         catch { }
@@ -132,7 +189,10 @@
 
     public async ValueTask DisposeAsync()
     {
+        NavigationBridge.Unregister(ViewModel);
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        MouseNavService.BackButtonPressed -= OnMouseBack;
+        MouseNavService.ForwardButtonPressed -= OnMouseForward;
         _dotNetRef?.Dispose();
         await ValueTask.CompletedTask;
     }

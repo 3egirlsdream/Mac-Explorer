@@ -2,7 +2,7 @@
 
 @if (Metadata != null)
 {
-    <div class="metadata-panel">
+    <div class="metadata-panel glass-effect-without-border">
         <button class="metadata-close-btn" @onclick="Close" title="关闭">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="@Icons.Close"/>
@@ -291,40 +291,37 @@
 
     private string GetMetadataIcon()
     {
-        if (Metadata == null) return BuildSvg(Icons.File, "#94A3B8");
+        if (Metadata == null) return FileIconRenderer.Render("file-generic", "", 36);
 
         var kind = Metadata.Kind;
         var ct = Metadata.ContentType;
 
+        // Folder: use simple stroke icon
         if (kind.Contains("文件夹") || kind.Contains("folder") || ct.Contains("folder"))
-            return BuildSvg(Icons.Folder, "#54A3F7");
-        if (kind.Contains("图像") || kind.Contains("image") || ct.Contains("image"))
-            return BuildSvg(Icons.FileImage, "#E8912D");
-        if (kind.Contains("影片") || kind.Contains("movie") || kind.Contains("视频") || ct.Contains("video"))
-            return BuildSvg(Icons.FileVideo, "#8B5CF6");
-        if (kind.Contains("音频") || kind.Contains("audio") || ct.Contains("audio"))
-            return BuildSvg(Icons.FileAudio, "#EC4899");
-        if (kind.Contains("PDF") || ct.Contains("pdf"))
-            return BuildSvg(Icons.FilePdf, "#EF4444");
-        if (ct.Contains("spreadsheet") || ct.Contains("excel"))
-            return BuildSvg(Icons.FileSpreadsheet, "#22C55E");
-        if (ct.Contains("presentation") || ct.Contains("powerpoint"))
-            return BuildSvg(Icons.FilePresentation, "#F97316");
-        if (ct.Contains("word") || ct.Contains("document") || kind.Contains("文档"))
-            return BuildSvg(Icons.FileText, "#3B82F6");
-        if (ct.Contains("archive") || ct.Contains("zip") || ct.Contains("compressed"))
-            return BuildSvg(Icons.FileArchive, "#A855F7");
-        if (ct.Contains("source-code") || ct.Contains("script") || ct.Contains("json") || ct.Contains("xml"))
-            return BuildSvg(Icons.FileCode, "#6366F1");
-        if (ct.Contains("markdown"))
-            return BuildSvg(Icons.FileMarkdown, "#64748B");
+            return $@"<svg width=""36"" height=""36"" viewBox=""0 0 24 24"" fill=""none"" stroke=""#54A3F7"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{Icons.Folder}""/></svg>";
 
-        return BuildSvg(Icons.File, "#94A3B8");
+        // Determine icon key from content type / kind
+        var ext = Path.GetExtension(Metadata.Name);
+        var iconKey = MapToIconKey(kind, ct);
+        return FileIconRenderer.Render(iconKey, ext, 36);
     }
 
-    private static string BuildSvg(string path, string color)
+    private static string MapToIconKey(string kind, string ct)
     {
-        return $@"<svg width=""36"" height=""36"" viewBox=""0 0 24 24"" fill=""none"" stroke=""{color}"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{path}""/></svg>";
+        if (kind.Contains("图像") || kind.Contains("image") || ct.Contains("image")) return "file-image";
+        if (kind.Contains("影片") || kind.Contains("movie") || kind.Contains("视频") || ct.Contains("video")) return "file-video";
+        if (kind.Contains("音频") || kind.Contains("audio") || ct.Contains("audio")) return "file-audio";
+        if (kind.Contains("PDF") || ct.Contains("pdf")) return "file-pdf";
+        if (ct.Contains("spreadsheet") || ct.Contains("excel")) return "file-excel";
+        if (ct.Contains("presentation") || ct.Contains("powerpoint")) return "file-powerpoint";
+        if (ct.Contains("word") || ct.Contains("document") || kind.Contains("文档")) return "file-word";
+        if (ct.Contains("archive") || ct.Contains("zip") || ct.Contains("compressed")) return "file-archive";
+        if (ct.Contains("html")) return "file-web";
+        if (ct.Contains("certificate") || ct.Contains("x-x509")) return "file-certificate";
+        if (ct.Contains("source-code") || ct.Contains("script")) return "file-code";
+        if (ct.Contains("json") || ct.Contains("xml") || ct.Contains("yaml")) return "file-config";
+        if (ct.Contains("markdown")) return "file-markdown";
+        return "file-generic";
     }
 
     private static string FormatPropertyKey(string key)

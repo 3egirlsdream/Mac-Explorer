@@ -1,7 +1,17 @@
 @using FKFinder.Models
+@inject FKFinder.Services.NavigationBridge NavigationBridge
 
-<div class="breadcrumb-bar" @onclick="ActivatePathInput" @onclick:stopPropagation>
-    @if (_isEditingPath)
+<div class="breadcrumb-bar @GetCssClass()" @onclick="ActivatePathInput" @onclick:stopPropagation>
+    @if (ViewModel.IsHomePage)
+    {
+        <svg class="breadcrumb-home-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        <input class="breadcrumb-home-input" type="text"
+               placeholder="输入路径前往..."
+               @bind="_pathInput" @bind:event="oninput"
+               @onkeydown="OnPathInputKeyDown"
+               @ref="_pathInputRef" />
+    }
+    else if (_isEditingPath)
     {
         <input class="breadcrumb-input" type="text"
                @bind="_pathInput" @bind:event="oninput"
@@ -23,7 +33,7 @@
             {
                 <div class="breadcrumb-segment">
                     <span class="breadcrumb-link @(segment == ViewModel.Breadcrumbs.Last() ? "current" : "")"
-                          @onclick="() => NavigateTo(segment.FullPath)">
+                          @onclick="() => NavigateTo(segment.FullPath)" @onclick:stopPropagation>
                         @segment.Name
                     </span>
                     @if (segment != ViewModel.Breadcrumbs.Last())
@@ -42,6 +52,18 @@
     private bool _isEditingPath;
     private string _pathInput = "";
     private ElementReference _pathInputRef;
+    private bool _wasHomePage = true;
+
+    private string GetCssClass()
+    {
+        if (ViewModel.IsHomePage) return "breadcrumb-home";
+        return "";
+    }
+
+    protected override void OnParametersSet()
+    {
+        _wasHomePage = ViewModel.IsHomePage;
+    }
 
     private async Task NavigateTo(string path)
     {
@@ -50,6 +72,7 @@
 
     private void ActivatePathInput()
     {
+        if (ViewModel.IsHomePage) return;
         _isEditingPath = true;
         _pathInput = ViewModel.CurrentPath;
     }
@@ -63,6 +86,7 @@
         else if (e.Key == "Escape")
         {
             _isEditingPath = false;
+            _pathInput = "";
         }
     }
 
@@ -70,7 +94,8 @@
     {
         _isEditingPath = false;
         var path = _pathInput.Trim();
-        if (!string.IsNullOrEmpty(path) && path != ViewModel.CurrentPath)
+        _pathInput = "";
+        if (!string.IsNullOrEmpty(path))
         {
             await ViewModel.NavigateToCommand.ExecuteAsync(path);
         }
@@ -78,7 +103,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_isEditingPath)
+        if (firstRender && ViewModel.IsHomePage && NavigationBridge.PendingQuickAccessFocus)
+        {
+            NavigationBridge.PendingQuickAccessFocus = false;
+            try { await _pathInputRef.FocusAsync(); } catch { }
+        }
+        else if (_isEditingPath)
         {
             try { await _pathInputRef.FocusAsync(); } catch { }
         }
