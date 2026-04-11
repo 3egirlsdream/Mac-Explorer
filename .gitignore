@@ -3,4 +3,10 @@ obj
 *.suo
 .DS_Store
 .qoder
+.idea
 vibe-images
+icon-cache
+thumbnail-cache
+index.db
+index.db-shm
+index.db-wal
