@@ -6,25 +6,59 @@ namespace FKFinder.Indexing;
 public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 {
     private readonly SqliteConnection _connection;
+    private readonly string _databasePath;
     private bool _disposed;
 
     public SqliteFileIndex(string databasePath)
     {
+        _databasePath = databasePath;
         var directory = Path.GetDirectoryName(databasePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
 
-        _connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadWriteCreate");
-        _connection.Open();
+        // Try to open existing DB; if schema init fails, delete and recreate
+        _connection = OpenAndInitialize(databasePath, allowRecreate: true);
+    }
 
-        // Enable WAL mode for concurrent reads
-        using (var cmd = _connection.CreateCommand())
+    private static SqliteConnection OpenAndInitialize(string dbPath, bool allowRecreate)
+    {
+        var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadWriteCreate");
+        try
         {
-            cmd.CommandText = "PRAGMA journal_mode=WAL";
-            cmd.ExecuteNonQuery();
-        }
+            conn.Open();
 
-        SqliteSchema.Initialize(_connection);
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA journal_mode=WAL";
+                cmd.ExecuteNonQuery();
+            }
+
+            SqliteSchema.Initialize(conn);
+            return conn;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"SQLite init failed: {ex.Message}");
+            conn.Close();
+            conn.Dispose();
+
+            if (!allowRecreate)
+                throw;
+
+            // Delete corrupted/incompatible DB and recreate from scratch
+            try
+            {
+                foreach (var suffix in new[] { "", "-shm", "-wal", "-journal" })
+                {
+                    var f = dbPath + suffix;
+                    if (File.Exists(f)) File.Delete(f);
+                }
+                System.Diagnostics.Debug.WriteLine("Deleted old DB, recreating...");
+            }
+            catch { /* best effort cleanup */ }
+
+            return OpenAndInitialize(dbPath, allowRecreate: false);
+        }
     }
 
     // IFileIndex - Read operations
@@ -74,6 +108,10 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 
     public async Task<IReadOnlyList<FileSystemEntry>> SearchByNameAsync(string pattern, int limit = 100)
     {
+        // If FTS5 is not available, go directly to LIKE search
+        if (!SqliteSchema.IsFts5Available)
+            return await SearchByNameLikeAsync(pattern, limit);
+
         var entries = new List<FileSystemEntry>();
 
         using var cmd = _connection.CreateCommand();
@@ -198,17 +236,57 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 
     private static FileSystemEntry ReadEntry(SqliteDataReader reader)
     {
+        var isDirectory = reader.GetInt32(5) != 0;
+        var extension = reader.IsDBNull(2) ? "" : reader.GetString(2);
         return new FileSystemEntry
         {
             FullPath = reader.GetString(0),
             Name = reader.GetString(1),
-            Extension = reader.IsDBNull(2) ? "" : reader.GetString(2),
+            Extension = extension,
             Size = reader.GetInt64(4),
-            IsDirectory = reader.GetInt32(5) != 0,
+            IsDirectory = isDirectory,
             Created = new DateTime(reader.GetInt64(6), DateTimeKind.Utc).ToLocalTime(),
             LastModified = new DateTime(reader.GetInt64(7), DateTimeKind.Utc).ToLocalTime(),
             IsHidden = reader.GetInt32(9) != 0,
-            IconKey = "file-generic" // Will be resolved by IconService
+            IconKey = isDirectory
+                ? (extension.Equals(".app", StringComparison.OrdinalIgnoreCase) ? "app-bundle" : "folder")
+                : ResolveIconKey(extension)
+        };
+    }
+
+    internal static string ResolveIconKey(string extension)
+    {
+        return extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".tiff" or ".tif" or ".svg" or ".webp" or ".heic" or ".ico"
+                or ".raw" or ".dng" or ".cr2" or ".cr3" or ".nef" or ".arw" or ".orf" or ".rw2" or ".pef" => "file-image",
+            ".mp4" or ".mov" or ".avi" or ".mkv" or ".wmv" or ".flv" or ".webm" => "file-video",
+            ".mp3" or ".wav" or ".flac" or ".aac" or ".m4a" or ".ogg" or ".wma" => "file-audio",
+            ".pdf" => "file-pdf",
+            ".doc" or ".docx" or ".odt" or ".pages" => "file-word",
+            ".xls" or ".xlsx" or ".csv" or ".numbers" => "file-excel",
+            ".ppt" or ".pptx" or ".key" => "file-powerpoint",
+            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" or ".bz2" or ".xz" or ".tgz" or ".zst" => "file-archive",
+            ".md" or ".mdx" or ".markdown" => "file-markdown",
+            ".txt" or ".rtf" or ".log" or ".nfo" or ".ini" or ".cfg" or ".conf" or ".env" => "file-text",
+            ".json" or ".yaml" or ".yml" or ".toml" or ".plist" or ".xml" => "file-config",
+            ".html" or ".htm" => "file-web",
+            ".cs" or ".js" or ".ts" or ".tsx" or ".jsx" or ".py" or ".java" or ".cpp" or ".c" or ".h" or ".hpp"
+                or ".go" or ".rs" or ".swift" or ".kt" or ".rb" or ".php" or ".lua" or ".r" or ".m" or ".mm"
+                or ".scala" or ".clj" or ".ex" or ".erl" or ".hs" or ".dart" or ".v" or ".zig"
+                or ".css" or ".scss" or ".sass" or ".less" or ".vue" or ".svelte"
+                or ".sh" or ".bash" or ".zsh" or ".fish" or ".bat" or ".cmd" or ".ps1"
+                or ".sql" or ".graphql" or ".gql" => "file-code",
+            ".cer" or ".crt" or ".pem" or ".p12" or ".pfx" or ".der" or ".cert" or ".ca-bundle" => "file-certificate",
+            ".pkg" or ".dmg" or ".msi" or ".exe" or ".deb" or ".rpm" or ".appimage" or ".snap" => "file-installer",
+            ".ttf" or ".otf" or ".woff" or ".woff2" or ".eot" or ".fon" or ".ttc" => "file-font",
+            ".db" or ".sqlite" or ".sqlite3" or ".mdb" or ".accdb" or ".dbf" or ".realm" => "file-database",
+            ".epub" or ".mobi" or ".azw" or ".azw3" or ".fb2" or ".djvu" or ".cbz" or ".cbr" => "file-ebook",
+            ".psd" or ".psb" or ".ai" or ".eps" or ".sketch" or ".fig" or ".xd" or ".indd" or ".afdesign" or ".afphoto" => "file-design",
+            ".iso" or ".img" or ".vhd" or ".vhdx" or ".vmdk" or ".qcow2" => "file-disk-image",
+            ".obj" or ".fbx" or ".stl" or ".blend" or ".3ds" or ".dae" or ".gltf" or ".glb" or ".usdz" or ".step" or ".stp" => "file-3d",
+            ".srt" or ".ass" or ".ssa" or ".sub" or ".vtt" or ".idx" or ".lrc" => "file-subtitle",
+            _ => "file-generic"
         };
     }
 
@@ -262,6 +340,30 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             _connection.Dispose();
             _disposed = true;
         }
+    }
+
+    // Icon cache operations
+
+    public string? GetCachedIcon(string appPath)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT icon_base64 FROM icon_cache WHERE app_path = @path";
+        cmd.Parameters.AddWithValue("@path", appPath);
+        var result = cmd.ExecuteScalar();
+        return result as string;
+    }
+
+    public void SetCachedIcon(string appPath, string iconBase64)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO icon_cache (app_path, icon_base64, modified_at)
+            VALUES (@path, @icon, @modifiedAt)
+            """;
+        cmd.Parameters.AddWithValue("@path", appPath);
+        cmd.Parameters.AddWithValue("@icon", iconBase64);
+        cmd.Parameters.AddWithValue("@modifiedAt", DateTime.UtcNow.Ticks);
+        cmd.ExecuteNonQuery();
     }
 }
 

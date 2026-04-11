@@ -4,7 +4,12 @@ namespace FKFinder.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 4;
+
+    /// <summary>
+    /// Whether FTS5 is available (set during Initialize).
+    /// </summary>
+    public static bool IsFts5Available { get; private set; }
 
     public static void Initialize(SqliteConnection connection)
     {
@@ -40,36 +45,31 @@ public static class SqliteSchema
             CREATE INDEX IF NOT EXISTS idx_files_is_directory ON files(is_directory)
             """, transaction);
 
-        // Create FTS5 virtual table for full-text search
-        ExecuteNonQuery(connection, """
-            CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
-                name,
-                path,
-                content='files',
-                content_rowid='rowid',
-                tokenize='unicode61 categories L* N* Co'
-            )
-            """, transaction);
+        // Create FTS5 virtual table — best-effort with tokenizer fallback
+        IsFts5Available = TryCreateFts5(connection, transaction);
 
-        // Create triggers to keep FTS in sync with files table
-        ExecuteNonQuery(connection, """
-            CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN
-                INSERT INTO files_fts(rowid, name, path) VALUES (new.rowid, new.name, new.path);
-            END
-            """, transaction);
+        if (IsFts5Available)
+        {
+            // Create triggers to keep FTS in sync with files table
+            ExecuteNonQuery(connection, """
+                CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN
+                    INSERT INTO files_fts(rowid, name, path) VALUES (new.rowid, new.name, new.path);
+                END
+                """, transaction);
 
-        ExecuteNonQuery(connection, """
-            CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN
-                INSERT INTO files_fts(files_fts, rowid, name, path) VALUES ('delete', old.rowid, old.name, old.path);
-            END
-            """, transaction);
+            ExecuteNonQuery(connection, """
+                CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN
+                    INSERT INTO files_fts(files_fts, rowid, name, path) VALUES ('delete', old.rowid, old.name, old.path);
+                END
+                """, transaction);
 
-        ExecuteNonQuery(connection, """
-            CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
-                INSERT INTO files_fts(files_fts, rowid, name, path) VALUES ('delete', old.rowid, old.name, old.path);
-                INSERT INTO files_fts(rowid, name, path) VALUES (new.rowid, new.name, new.path);
-            END
-            """, transaction);
+            ExecuteNonQuery(connection, """
+                CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
+                    INSERT INTO files_fts(files_fts, rowid, name, path) VALUES ('delete', old.rowid, old.name, old.path);
+                    INSERT INTO files_fts(rowid, name, path) VALUES (new.rowid, new.name, new.path);
+                END
+                """, transaction);
+        }
 
         // Create directories table
         ExecuteNonQuery(connection, """
@@ -82,12 +82,30 @@ public static class SqliteSchema
             )
             """, transaction);
 
+        // Create icon cache table for .app icons
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS icon_cache (
+                app_path TEXT PRIMARY KEY,
+                icon_base64 TEXT NOT NULL,
+                modified_at INTEGER NOT NULL DEFAULT 0
+            )
+            """, transaction);
+
         // Create schema_version table
         ExecuteNonQuery(connection, """
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
             """, transaction);
+
+        // Run migrations based on current stored version
+        var storedVersion = GetStoredVersion(connection, transaction);
+        if (storedVersion < 2)
+            MigrateToV2(connection, transaction);
+        if (storedVersion < 3)
+            MigrateToV3(connection, transaction);
+        if (storedVersion < 4)
+            MigrateToV4(connection, transaction);
 
         // Record current version
         ExecuteNonQuery(connection, """
@@ -96,6 +114,164 @@ public static class SqliteSchema
             ("@version", CurrentVersion));
 
         transaction.Commit();
+    }
+
+    private static int GetStoredVersion(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        try
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = "SELECT MAX(version) FROM schema_version";
+            var result = cmd.ExecuteScalar();
+            if (result != null && result != DBNull.Value)
+                return Convert.ToInt32(result);
+        }
+        catch { }
+        return 0;
+    }
+
+    private static void MigrateToV2(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS collections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                icon TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            )
+            """, transaction);
+
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS collection_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                collection_id INTEGER NOT NULL,
+                file_path TEXT NOT NULL,
+                added_at INTEGER NOT NULL,
+                UNIQUE(collection_id, file_path)
+            )
+            """, transaction);
+
+        ExecuteNonQuery(connection, """
+            CREATE INDEX IF NOT EXISTS idx_ci_collection_id ON collection_items(collection_id)
+            """, transaction);
+
+        ExecuteNonQuery(connection, """
+            CREATE INDEX IF NOT EXISTS idx_ci_file_path ON collection_items(file_path)
+            """, transaction);
+
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS file_ratings (
+                file_path TEXT PRIMARY KEY,
+                rating INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            )
+            """, transaction);
+
+        ExecuteNonQuery(connection, """
+            CREATE INDEX IF NOT EXISTS idx_fr_rating ON file_ratings(rating)
+            """, transaction);
+
+        System.Diagnostics.Debug.WriteLine("Schema migrated to v2: collections, collection_items, file_ratings");
+    }
+
+    private static void MigrateToV3(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """, transaction);
+
+        System.Diagnostics.Debug.WriteLine("Schema migrated to v3: app_settings");
+    }
+
+    private static void MigrateToV4(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS frequent_folders (
+                path TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                visit_count INTEGER NOT NULL DEFAULT 1,
+                last_visited INTEGER NOT NULL
+            )
+            """, transaction);
+
+        ExecuteNonQuery(connection, """
+            CREATE INDEX IF NOT EXISTS idx_ff_visit_count ON frequent_folders(visit_count DESC)
+            """, transaction);
+
+        System.Diagnostics.Debug.WriteLine("Schema migrated to v4: frequent_folders");
+    }
+
+    /// <summary>
+    /// Attempt to create FTS5 virtual table with progressive tokenizer fallback.
+    /// Returns true if FTS5 is available (either already existed or was just created).
+    /// </summary>
+    private static bool TryCreateFts5(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        // Check if already exists
+        try
+        {
+            using var check = connection.CreateCommand();
+            check.Transaction = transaction;
+            check.CommandText = "SELECT 1 FROM files_fts LIMIT 0";
+            check.ExecuteNonQuery();
+            return true; // Already exists
+        }
+        catch { /* Doesn't exist yet, try to create */ }
+
+        // Try tokenizers from most capable to most basic
+        string[] tokenizers =
+        [
+            "tokenize='unicode61 categories L* N* Co'",  // Best: Unicode-aware with categories
+            "tokenize='unicode61'",                       // Good: Unicode-aware
+            "tokenize='ascii'"                            // Basic: ASCII only
+        ];
+
+        foreach (var tokenizer in tokenizers)
+        {
+            try
+            {
+                ExecuteNonQuery(connection, $"""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+                        name,
+                        path,
+                        content='files',
+                        content_rowid='rowid',
+                        {tokenizer}
+                    )
+                    """, transaction);
+                System.Diagnostics.Debug.WriteLine($"FTS5 created with {tokenizer}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"FTS5 with {tokenizer} failed: {ex.Message}");
+            }
+        }
+
+        // Last resort: FTS5 without any tokenize option
+        try
+        {
+            ExecuteNonQuery(connection, """
+                CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+                    name,
+                    path,
+                    content='files',
+                    content_rowid='rowid'
+                )
+                """, transaction);
+            System.Diagnostics.Debug.WriteLine("FTS5 created with default tokenizer");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"FTS5 completely unavailable: {ex.Message}");
+            return false;
+        }
     }
 
     private static void ExecuteNonQuery(SqliteConnection connection, string sql, SqliteTransaction transaction, params (string name, object value)[] parameters)
