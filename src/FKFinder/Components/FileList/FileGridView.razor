@@ -132,6 +132,12 @@
         {
             await JSRuntime.InvokeVoidAsync("fkfinderColumnResize.init");
         }
+        if (_needRestoreScrollAfterRename)
+        {
+            _needRestoreScrollAfterRename = false;
+            try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.restoreScroll"); }
+            catch { }
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -143,8 +149,20 @@
         }
         else if (e.PropertyName == nameof(ViewModel.Entries))
         {
-            bool shouldScroll = ViewModel.IsRestoringNavigation;
-            if (shouldScroll)
+            // When CommitRename already saved scroll, skip the normal scroll handling
+            // to avoid overwriting the saved position. Just render and create blob URLs.
+            if (_skipScrollHandlingOnNextEntriesChange)
+            {
+                _skipScrollHandlingOnNextEntriesChange = false;
+                InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+                return;
+            }
+            var scrollMode = ViewModel.ScrollBehaviorAfterLoad;
+            if (scrollMode == FileListViewModel.ScrollMode.RestoreNavigation)
             {
                 InvokeAsync(async () =>
                 {
@@ -152,6 +170,28 @@
                     catch { }
                     StateHasChanged();
                     try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.scrollToSelected"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+            else if (scrollMode == FileListViewModel.ScrollMode.ScrollToSelected)
+            {
+                InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.scrollToSelected"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+            else if (scrollMode == FileListViewModel.ScrollMode.PreservePosition)
+            {
+                InvokeAsync(async () =>
+                {
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.saveScroll"); }
+                    catch { }
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.restoreScroll"); }
                     catch { }
                     await CreateBlobUrlsForEntriesAsync();
                 });
@@ -171,8 +211,14 @@
 
     private void OnRenameRequested(FileSystemEntry entry)
     {
-        StartRename(entry);
-        InvokeAsync(StateHasChanged);
+        InvokeAsync(async () =>
+        {
+            StartRename(entry);
+            StateHasChanged();
+            // 滚动定位到新建的条目
+            try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.scrollToSelected"); }
+            catch { }
+        });
     }
 
     public async ValueTask DisposeAsync()
@@ -190,6 +236,7 @@
     // Inline rename state
     private FileSystemEntry? _renamingEntry;
     private string _renameText = "";
+    private bool _skipScrollHandlingOnNextEntriesChange;
 
     // ── Render helpers using inline templates ──
 
@@ -230,9 +277,10 @@
             builder.AddAttribute(17, "value", _renameText);
             builder.AddAttribute(18, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
             builder.AddAttribute(19, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
-            builder.AddAttribute(20, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e => OnRenameKeyDown(e)));
+            builder.AddAttribute(20, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
             builder.AddAttribute(21, "onclick:stopPropagation", true);
             builder.AddAttribute(22, "ondblclick:stopPropagation", true);
+            builder.AddAttribute(210, "onmousedown:stopPropagation", true);
             builder.AddElementReferenceCapture(23, async el => await FocusRenameInput(el));
             builder.CloseElement();
         }
@@ -262,31 +310,34 @@
         // Rating column
         builder.OpenElement(80, "div");
         builder.AddAttribute(81, "class", "file-list-rating");
-        var currentRating = ViewModel.GetRating(entry.FullPath);
-        for (int i = 1; i <= 5; i++)
+        if (!entry.IsDirectory)
         {
-            var starVal = i;
-            var isFilled = starVal <= currentRating;
-            builder.OpenElement(82, "svg");
-            builder.AddAttribute(83, "class", isFilled ? "star-icon filled" : "star-icon");
-            builder.AddAttribute(84, "width", "12");
-            builder.AddAttribute(85, "height", "12");
-            builder.AddAttribute(86, "viewBox", "0 0 24 24");
-            builder.AddAttribute(861, "fill", isFilled ? "currentColor" : "none");
-            builder.AddAttribute(862, "stroke", "currentColor");
-            builder.AddAttribute(863, "stroke-width", "1.5");
-            Func<MouseEventArgs, Task> starHandler = async _ =>
+            var currentRating = ViewModel.GetRating(entry.FullPath);
+            for (int i = 1; i <= 5; i++)
             {
-                var newRating = starVal == currentRating ? 0 : starVal;
-                await ViewModel.SetRatingAsync(entry.FullPath, newRating);
-                StateHasChanged();
-            };
-            builder.AddAttribute(87, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, starHandler));
-            builder.AddAttribute(88, "onclick:stopPropagation", true);
-            builder.OpenElement(89, "path");
-            builder.AddAttribute(891, "d", Icons.StarOutline);
-            builder.CloseElement();
-            builder.CloseElement();
+                var starVal = i;
+                var isFilled = starVal <= currentRating;
+                builder.OpenElement(82, "svg");
+                builder.AddAttribute(83, "class", isFilled ? "star-icon filled" : "star-icon");
+                builder.AddAttribute(84, "width", "12");
+                builder.AddAttribute(85, "height", "12");
+                builder.AddAttribute(86, "viewBox", "0 0 24 24");
+                builder.AddAttribute(861, "fill", isFilled ? "currentColor" : "none");
+                builder.AddAttribute(862, "stroke", "currentColor");
+                builder.AddAttribute(863, "stroke-width", "1.5");
+                Func<MouseEventArgs, Task> starHandler = async _ =>
+                {
+                    var newRating = starVal == currentRating ? 0 : starVal;
+                    await ViewModel.SetRatingAsync(entry.FullPath, newRating);
+                    StateHasChanged();
+                };
+                builder.AddAttribute(87, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, starHandler));
+                builder.AddAttribute(88, "onclick:stopPropagation", true);
+                builder.OpenElement(89, "path");
+                builder.AddAttribute(891, "d", Icons.StarOutline);
+                builder.CloseElement();
+                builder.CloseElement();
+            }
         }
         builder.CloseElement();
 
@@ -327,9 +378,10 @@
             builder.AddAttribute(22, "value", _renameText);
             builder.AddAttribute(23, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
             builder.AddAttribute(24, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
-            builder.AddAttribute(25, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e => OnRenameKeyDown(e)));
+            builder.AddAttribute(25, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
             builder.AddAttribute(26, "onclick:stopPropagation", true);
             builder.AddAttribute(27, "ondblclick:stopPropagation", true);
+            builder.AddAttribute(270, "onmousedown:stopPropagation", true);
             builder.AddElementReferenceCapture(28, async el => await FocusRenameInput(el));
             builder.CloseElement();
         }
@@ -478,6 +530,7 @@
     public void StartRename(FileSystemEntry entry)
     {
         _renamingEntry = entry;
+        _renameInputFocused = false;
         // Pre-select name without extension for files
         if (entry.IsDirectory)
             _renameText = entry.Name;
@@ -489,8 +542,14 @@
         StateHasChanged();
     }
 
+    private bool _renameInputFocused;
+    private bool _isCommitting;
+    private bool _needRestoreScrollAfterRename;
+
     private async Task FocusRenameInput(ElementReference el)
     {
+        if (_renameInputFocused) return;
+        _renameInputFocused = true;
         try
         {
             await Task.Yield();
@@ -499,39 +558,69 @@
         catch { }
     }
 
-    private void OnRenameKeyDown(KeyboardEventArgs e)
+    private async Task OnRenameKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
-            _ = CommitRename();
+            await CommitRename();
         else if (e.Key == "Escape")
-            CancelRename();
+            await CancelRename();
     }
 
     private async Task CommitRename()
     {
-        if (_renamingEntry == null) return;
-        var entry = _renamingEntry;
-        _renamingEntry = null;
-
-        var newName = _renameText.Trim();
-        if (string.IsNullOrWhiteSpace(newName) || newName == entry.Name)
+        if (_isCommitting || _renamingEntry == null) return;
+        _isCommitting = true;
+        try
         {
+            // Save scroll BEFORE the input is removed from DOM.
+            // This is the single source of truth for scroll position during rename.
+            try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.saveScroll"); }
+            catch { }
+            _needRestoreScrollAfterRename = true;
+
+            // Blur the rename input while it's still in DOM to prevent
+            // browser scroll adjustment when the focused element is removed.
+            try { await JSRuntime.InvokeVoidAsync("fkfinderSelection.blurActive"); }
+            catch { }
+
+            var entry = _renamingEntry;
+            var newName = _renameText.Trim();
+            _renamingEntry = null;
             _renameText = "";
-            return;
+            StateHasChanged();
+
+            if (string.IsNullOrWhiteSpace(newName))
+                return;
+
+            // For files, preserve original extension if user didn't include one
+            if (!entry.IsDirectory && !string.IsNullOrEmpty(entry.Extension) && !newName.Contains('.'))
+                newName += entry.Extension;
+
+            // Skip rename if name didn't actually change
+            if (newName == entry.Name)
+                return;
+
+            // Tell the PropertyChanged handler to skip its own scroll management,
+            // since we already saved scroll and will restore in OnAfterRenderAsync.
+            _skipScrollHandlingOnNextEntriesChange = true;
+            await ViewModel.RenameEntryAsync(entry, newName);
         }
-
-        // For files, preserve original extension if user didn't include one
-        if (!entry.IsDirectory && !string.IsNullOrEmpty(entry.Extension) && !newName.Contains('.'))
-            newName += entry.Extension;
-
-        await ViewModel.RenameEntryAsync(entry, newName);
-        _renameText = "";
+        finally { _isCommitting = false; }
     }
 
-    private void CancelRename()
+    private async Task CancelRename()
     {
+        try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.saveScroll"); }
+        catch { }
+        _needRestoreScrollAfterRename = true;
+        // Blur the rename input while it's still in DOM to prevent
+        // browser scroll adjustment when the focused element is removed.
+        try { await JSRuntime.InvokeVoidAsync("fkfinderSelection.blurActive"); }
+        catch { }
         _renamingEntry = null;
         _renameText = "";
+        _renameInputFocused = false;
+        StateHasChanged();
     }
 
     // ── Context menu ──
@@ -573,8 +662,10 @@
 
     private static readonly HashSet<string> _bundleExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".pvm", ".vmwarevm", ".vbox", ".app", ".xcodeproj", ".xcworkspace",
-        ".bundle", ".framework", ".kext", ".plugin", ".appex"
+        ".pvm", ".vmwarevm", ".vbox", ".app", ".xcodeproj", ".xcworkspace", ".playground",
+        ".bundle", ".framework", ".kext", ".plugin", ".appex",
+        ".photoslibrary", ".photobooth", ".miximages", ".musiclibrary", ".tvlibrary", ".aplibrary",
+        ".fcpbundle", ".fcpproject", ".garageband", ".band", ".logicx"
     };
 
     private static bool IsBundleFile(FileSystemEntry entry) =>

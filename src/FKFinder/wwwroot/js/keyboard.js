@@ -7,7 +7,9 @@ window.fkfinderKeyboard = {
         this.dotNetRef = dotNetRef;
 
         document.addEventListener('keydown', (e) => {
+            // Skip shortcuts when inside input/textarea or when rename input is active
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (document.querySelector('.rename-input')) return;
 
             const key = e.key.toLowerCase();
             const meta = e.metaKey || e.ctrlKey;
@@ -151,7 +153,15 @@ window.fkfinderSelection = {
     focusAndSelect: function(el) {
         if (el && el.focus) {
             el.focus();
-            if (el.select) el.select();
+            // Delay selection to ensure it survives pending Blazor re-renders
+            setTimeout(function() {
+                if (el.select) el.select();
+            }, 0);
+        }
+    },
+    blurActive: function() {
+        if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
         }
     }
 };
