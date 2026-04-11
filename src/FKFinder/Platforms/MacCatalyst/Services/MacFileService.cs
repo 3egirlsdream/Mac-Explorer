@@ -420,7 +420,8 @@ end tell");
 
     private FileSystemEntry CreateEntryFromDirectoryInfo(DirectoryInfo dir)
     {
-        var isAppBundle = dir.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase);
+        var ext = Path.GetExtension(dir.Name);
+        var bundleIconKey = Indexing.SqliteFileIndex.ResolveBundleIconKey(ext);
 
         return new FileSystemEntry
         {
@@ -430,12 +431,12 @@ end tell");
             Size = 0,
             LastModified = dir.LastWriteTime,
             Created = dir.CreationTime,
-            Extension = isAppBundle ? ".app" : "",
+            Extension = ext,
             IsHidden = dir.Name.StartsWith('.'),
             IsSymbolicLink = dir.Attributes.HasFlag(FileAttributes.ReparsePoint),
             IsReadable = true,
             IsWritable = !dir.Attributes.HasFlag(FileAttributes.ReadOnly),
-            IconKey = isAppBundle ? "app-bundle" : "folder",
+            IconKey = bundleIconKey,
             // Icons loaded lazily via ResolveAppIconsAsync
         };
     }

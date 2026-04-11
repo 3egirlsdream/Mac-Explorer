@@ -249,10 +249,18 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             LastModified = new DateTime(reader.GetInt64(7), DateTimeKind.Utc).ToLocalTime(),
             IsHidden = reader.GetInt32(9) != 0,
             IconKey = isDirectory
-                ? (extension.Equals(".app", StringComparison.OrdinalIgnoreCase) ? "app-bundle" : "folder")
+                ? ResolveBundleIconKey(extension)
                 : ResolveIconKey(extension)
         };
     }
+
+    internal static string ResolveBundleIconKey(string extension) => extension.ToLowerInvariant() switch
+    {
+        ".app" => "app-bundle",
+        ".pvm" or ".vmwarevm" or ".vbox" => "file-vm",
+        ".xcodeproj" or ".xcworkspace" => "file-code",
+        _ => "folder"
+    };
 
     internal static string ResolveIconKey(string extension)
     {
@@ -284,6 +292,7 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             ".epub" or ".mobi" or ".azw" or ".azw3" or ".fb2" or ".djvu" or ".cbz" or ".cbr" => "file-ebook",
             ".psd" or ".psb" or ".ai" or ".eps" or ".sketch" or ".fig" or ".xd" or ".indd" or ".afdesign" or ".afphoto" => "file-design",
             ".iso" or ".img" or ".vhd" or ".vhdx" or ".vmdk" or ".qcow2" => "file-disk-image",
+            ".pvm" or ".pvs" or ".hdd" or ".vdi" or ".vmx" or ".vmwarevm" or ".ova" or ".ovf" or ".vbox" => "file-vm",
             ".obj" or ".fbx" or ".stl" or ".blend" or ".3ds" or ".dae" or ".gltf" or ".glb" or ".usdz" or ".step" or ".stp" => "file-3d",
             ".srt" or ".ass" or ".ssa" or ".sub" or ".vtt" or ".idx" or ".lrc" => "file-subtitle",
             _ => "file-generic"

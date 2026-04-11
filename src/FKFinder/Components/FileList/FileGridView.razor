@@ -571,6 +571,15 @@
     private readonly Dictionary<string, string> _blobUrlCache = new();
     private readonly List<string> _activeBlobUrls = new();
 
+    private static readonly HashSet<string> _bundleExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pvm", ".vmwarevm", ".vbox", ".app", ".xcodeproj", ".xcworkspace",
+        ".bundle", ".framework", ".kext", ".plugin", ".appex"
+    };
+
+    private static bool IsBundleFile(FileSystemEntry entry) =>
+        !string.IsNullOrEmpty(entry.Extension) && _bundleExtensions.Contains(entry.Extension);
+
     private string GetIconSvg(FileSystemEntry entry, int size)
     {
         // Use thumbnail if available (image files resolved by ViewModel)
@@ -585,11 +594,11 @@
         if (!string.IsNullOrEmpty(entry.IconUrl) && _blobUrlCache.TryGetValue(entry.IconUrl, out var blobUrl))
             return $@"<img src=""{blobUrl}"" width=""{size}"" height=""{size}"" class=""app-icon-img"" />";
 
-        // Folder: simple stroke icon
-        if (entry.IsDirectory)
-            return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 24 24"" fill=""none"" stroke=""#54A3F7"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{Icons.Folder}""/></svg>";
+        // Folder: Fluent design icon (skip for known bundle types like .pvm, .vmwarevm, .app)
+        if (entry.IsDirectory && !IsBundleFile(entry))
+            return FileIconRenderer.RenderFolder(size);
 
-        // File: rich SVG icon with extension label
+        // File (or bundle): rich SVG icon with extension label
         return FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
     }
 

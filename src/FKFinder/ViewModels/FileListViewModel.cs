@@ -1206,7 +1206,6 @@ public partial class FileListViewModel : ObservableObject
                         if (isDir)
                         {
                             var di = new DirectoryInfo(path);
-                            var isApp = di.Extension.Equals(".app", StringComparison.OrdinalIgnoreCase);
                             entries.Add(new FileSystemEntry
                             {
                                 FullPath = path,
@@ -1216,7 +1215,7 @@ public partial class FileListViewModel : ObservableObject
                                 LastModified = di.LastWriteTime,
                                 Created = di.CreationTime,
                                 IsDirectory = true,
-                                IconKey = isApp ? "app-bundle" : "folder"
+                                IconKey = Indexing.SqliteFileIndex.ResolveBundleIconKey(di.Extension)
                             });
                         }
                         else
