@@ -183,6 +183,14 @@ public partial class FileListViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(path)) return;
 
+        // Validate that the path exists on the filesystem
+        // Skip validation for trash directory (macOS SIP blocks .NET Directory.Exists)
+        if (path != _fileService.TrashDirectory && !Directory.Exists(path))
+        {
+            StatusText = $"\u8def\u5f84\u4e0d\u5b58\u5728: {path}";
+            return;
+        }
+
         if (CurrentPath == path && Entries.Count > 0) return;
 
         // Show loading indicator FIRST for immediate visual feedback

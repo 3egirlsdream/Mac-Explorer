@@ -636,6 +636,16 @@ input:focus {
     z-index: 1;
 }
 
+/* Breadcrumb input error state */
+.breadcrumb-input-error {
+    color: #ef4444 !important;
+}
+
+.breadcrumb-input-error::placeholder {
+    color: #ef4444 !important;
+    opacity: 0.85;
+}
+
 .breadcrumb-input {
     flex: 1;
     height: calc(var(--breadcrumb-height) - 6px);

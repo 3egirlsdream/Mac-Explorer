@@ -1,22 +1,26 @@
 @using FKFinder.Models
+@using System.IO
 @inject FKFinder.Services.NavigationBridge NavigationBridge
 
 <div class="breadcrumb-bar @GetCssClass()" @onclick="ActivatePathInput" @onclick:stopPropagation>
     @if (ViewModel.IsHomePage)
     {
         <svg class="breadcrumb-home-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        <input class="breadcrumb-home-input" type="text"
-               placeholder="输入路径前往..."
+        <input class="breadcrumb-home-input @(_pathError != null ? "breadcrumb-input-error" : "")" type="text"
+               placeholder="@(_pathError ?? "输入路径前往...")" 
                @bind="_pathInput" @bind:event="oninput"
                @onkeydown="OnPathInputKeyDown"
+               @onfocus="ClearPathError"
                @ref="_pathInputRef" />
     }
     else if (_isEditingPath)
     {
-        <input class="breadcrumb-input" type="text"
+        <input class="breadcrumb-input @(_pathError != null ? "breadcrumb-input-error" : "")" type="text"
+               placeholder="@(_pathError ?? "")" 
                @bind="_pathInput" @bind:event="oninput"
                @onkeydown="OnPathInputKeyDown"
                @onblur="CommitPathInput"
+               @onfocus="ClearPathError"
                @ref="_pathInputRef" />
     }
     else
@@ -51,6 +55,7 @@
 
     private bool _isEditingPath;
     private string _pathInput = "";
+    private string? _pathError;
     private ElementReference _pathInputRef;
     private bool _wasHomePage = true;
 
@@ -73,6 +78,8 @@
     private void ActivatePathInput()
     {
         if (ViewModel.IsHomePage) return;
+        // 虚拟文件夹（收藏夹）不允许编辑路径
+        if (ViewModel.IsCollectionView) return;
         _isEditingPath = true;
         _pathInput = ViewModel.CurrentPath;
     }
@@ -92,13 +99,26 @@
 
     private async Task CommitPathInput()
     {
-        _isEditingPath = false;
         var path = _pathInput.Trim();
+        if (!string.IsNullOrEmpty(path) && !Directory.Exists(path))
+        {
+            _pathError = $"路径不存在: {path}";
+            _pathInput = "";
+            _isEditingPath = false;
+            return;
+        }
+        _isEditingPath = false;
+        _pathError = null;
         _pathInput = "";
         if (!string.IsNullOrEmpty(path))
         {
             await ViewModel.NavigateToCommand.ExecuteAsync(path);
         }
+    }
+
+    private void ClearPathError()
+    {
+        _pathError = null;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
