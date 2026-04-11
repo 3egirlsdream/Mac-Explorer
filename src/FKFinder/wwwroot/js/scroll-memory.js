@@ -1,9 +1,23 @@
 // Scroll position memory for navigation back/forward — pure JS
 window.fkfinderScroll = {
+    _savedScrollTop: 0,
+
     // Reset scroll to top for normal navigation
     resetScroll() {
         const el = document.querySelector('.file-content-scroll');
         if (el) el.scrollTop = 0;
+    },
+
+    // Save current scroll position before re-render
+    saveScroll() {
+        const el = document.querySelector('.file-content-scroll');
+        this._savedScrollTop = el ? el.scrollTop : 0;
+    },
+
+    // Restore saved scroll position after re-render
+    restoreScroll() {
+        const el = document.querySelector('.file-content-scroll');
+        if (el) el.scrollTop = Math.min(this._savedScrollTop, el.scrollHeight - el.clientHeight);
     },
 
     // Hide scroll content before re-rendering (prevents flash at wrong position)

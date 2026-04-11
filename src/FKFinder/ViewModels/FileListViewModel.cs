@@ -33,8 +33,12 @@ public partial class FileListViewModel : ObservableObject
     private bool _isNavigatingHistory;
     private readonly Dictionary<string, string?> _pathSelectedEntries = new();
 
-    // Flag to indicate back/forward navigation for scroll restoration
-    public bool IsRestoringNavigation { get; private set; }
+    // Scroll behavior after Entries change
+    public enum ScrollMode { ResetToTop, RestoreNavigation, ScrollToSelected, PreservePosition }
+    public ScrollMode ScrollBehaviorAfterLoad { get; private set; } = ScrollMode.ResetToTop;
+
+    // Keep backward-compat alias
+    public bool IsRestoringNavigation => ScrollBehaviorAfterLoad == ScrollMode.RestoreNavigation;
 
     public string HomeDirectory => _fileService.HomeDirectory;
 
@@ -114,7 +118,7 @@ public partial class FileListViewModel : ObservableObject
 
     private static readonly HashSet<string> SystemFileNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".DS_Store", "Thumbs.db", "desktop.ini", ".Spotlight-V100", ".Trashes", ".fseventsd"
+        ".DS_Store", "Thumbs.db", "desktop.ini", ".Spotlight-V100", ".Trashes", ".fseventsd", ".localized"
     };
 
     // Collections
@@ -182,6 +186,7 @@ public partial class FileListViewModel : ObservableObject
     public async Task NavigateToAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
+        ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
 
         // Validate that the path exists on the filesystem
         // Skip validation for trash directory (macOS SIP blocks .NET Directory.Exists)
@@ -253,6 +258,7 @@ public partial class FileListViewModel : ObservableObject
     {
         if (IsHomePage) return;
         IsLoading = true;
+        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         try { await LoadDirectoryContentsAsync(forceRefresh: true); }
         finally { IsLoading = false; }
     }
@@ -263,7 +269,7 @@ public partial class FileListViewModel : ObservableObject
         if (!CanGoBack) return;
         _historyIndex--;
         _isNavigatingHistory = true;
-        IsRestoringNavigation = true;
+        ScrollBehaviorAfterLoad = ScrollMode.RestoreNavigation;
         try
         {
             await NavigateToAsync(_historyStack[_historyIndex]);
@@ -282,7 +288,7 @@ public partial class FileListViewModel : ObservableObject
         if (!CanGoForward) return;
         _historyIndex++;
         _isNavigatingHistory = true;
-        IsRestoringNavigation = true;
+        ScrollBehaviorAfterLoad = ScrollMode.RestoreNavigation;
         try
         {
             await NavigateToAsync(_historyStack[_historyIndex]);
@@ -583,7 +589,7 @@ public partial class FileListViewModel : ObservableObject
         }
 
         // Insert "添加到收藏夹" submenu before the last separator+info block
-        if (_collectionService != null && Collections.Count > 0)
+        if (_collectionService != null && Collections.Count > 0 && !entry.IsDirectory)
         {
             var insertIdx = result.FindLastIndex(a => a.IsSeparator);
             if (insertIdx < 0) insertIdx = result.Count;
@@ -685,6 +691,7 @@ public partial class FileListViewModel : ObservableObject
                     Execute = async () =>
                     {
                         await _fileService.DeletePermanentlyAsync(entry.FullPath);
+                        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
                         await LoadDirectoryContentsAsync(forceRefresh: true);
                     }
                 });
@@ -709,6 +716,7 @@ public partial class FileListViewModel : ObservableObject
                     Execute = async () =>
                     {
                         await _fileService.EmptyTrashAsync();
+                        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
                         await LoadDirectoryContentsAsync(forceRefresh: true);
                     }
                 });
@@ -781,6 +789,7 @@ public partial class FileListViewModel : ObservableObject
                     await _fileService.MoveAsync(sourcePath, CurrentPath);
             }
             if (entry.Operation == ClipboardOperation.Cut) _clipboardService.Clear();
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = $"已粘贴 {entry.SourcePaths.Count} 项";
         }
@@ -795,6 +804,7 @@ public partial class FileListViewModel : ObservableObject
         {
             foreach (var entry in SelectedEntries.ToList())
                 await _fileService.DeleteAsync(entry.FullPath, moveToTrash: true);
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
         }
         catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
@@ -846,19 +856,47 @@ public partial class FileListViewModel : ObservableObject
         }
     }
 
+    private string GetUniqueNameInCurrentDir(string baseName, bool isDirectory)
+    {
+        var existingNames = new HashSet<string>(_rawEntries.Select(e => e.Name), StringComparer.OrdinalIgnoreCase);
+        if (!existingNames.Contains(baseName)) return baseName;
+
+        // For files, separate name and extension
+        string nameWithoutExt, ext;
+        if (!isDirectory)
+        {
+            ext = Path.GetExtension(baseName);
+            nameWithoutExt = string.IsNullOrEmpty(ext) ? baseName : baseName[..^ext.Length];
+        }
+        else
+        {
+            ext = "";
+            nameWithoutExt = baseName;
+        }
+
+        for (int i = 2; ; i++)
+        {
+            var candidate = $"{nameWithoutExt} {i}{ext}";
+            if (!existingNames.Contains(candidate)) return candidate;
+        }
+    }
+
     [RelayCommand]
     public async Task CreateNewFolderAsync()
     {
         try
         {
-            var name = "未命名文件夹";
+            var name = GetUniqueNameInCurrentDir("未命名文件夹", isDirectory: true);
             var fullPath = await _fileService.CreateFolderAsync(CurrentPath, name);
+            ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             var newEntry = Entries.FirstOrDefault(e => e.FullPath == fullPath);
             if (newEntry != null)
             {
                 SelectedEntries.Clear();
                 SelectedEntries.Add(newEntry);
+                // 自动进入重命名编辑模式
+                RequestRename(newEntry);
             }
         }
         catch (Exception ex) { StatusText = $"创建文件夹失败: {ex.Message}"; }
@@ -870,14 +908,18 @@ public partial class FileListViewModel : ObservableObject
         try
         {
             var ext = extension ?? ".txt";
-            var name = ext == ".txt" ? "未命名.txt" : $"未命名{ext}";
+            var baseName = ext == ".txt" ? "未命名.txt" : $"未命名{ext}";
+            var name = GetUniqueNameInCurrentDir(baseName, isDirectory: false);
             var fullPath = await _fileService.CreateFileAsync(CurrentPath, name);
+            ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             var newEntry = Entries.FirstOrDefault(e => e.FullPath == fullPath);
             if (newEntry != null)
             {
                 SelectedEntries.Clear();
                 SelectedEntries.Add(newEntry);
+                // 自动进入重命名编辑模式
+                RequestRename(newEntry);
             }
         }
         catch (Exception ex) { StatusText = $"创建文件失败: {ex.Message}"; }
@@ -889,6 +931,7 @@ public partial class FileListViewModel : ObservableObject
         try
         {
             await _fileService.MoveAsync(source.FullPath, targetFolder.FullPath);
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
         }
         catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
@@ -907,6 +950,7 @@ public partial class FileListViewModel : ObservableObject
         try
         {
             await _fileService.RenameAsync(entry.FullPath, newName);
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             // Re-select the renamed entry
             var renamed = Entries.FirstOrDefault(e => e.Name == newName);
@@ -1016,12 +1060,10 @@ public partial class FileListViewModel : ObservableObject
                 SelectedEntries.Add(entry);
                 _lastClickedEntry = entry;
             }
-            IsRestoringNavigation = false;
         }
-        else
-        {
-            IsRestoringNavigation = false;
-        }
+
+        // Reset to PreservePosition so background icon/thumbnail updates don't affect scroll
+        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
 
         StatusText = $"{Entries.Count} 项";
     }
