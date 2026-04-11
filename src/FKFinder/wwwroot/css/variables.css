@@ -92,15 +92,15 @@
     --space-20: 40px;
 
     /* Typography */
-    --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI Variable', system-ui, sans-serif;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', system-ui, sans-serif;
     --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-    --font-size-micro: 15px;
-    --font-size-caption: 17px;
-    --font-size-body: 18px;
-    --font-size-subtitle: 19px;
-    --font-size-title: 21px;
-    --font-size-headline: 26px;
-    --font-weight-regular: 400;
+    --font-size-micro: 12px;
+    --font-size-caption: 13px;
+    --font-size-body: 14px;
+    --font-size-subtitle: 16px;
+    --font-size-title: 18px;
+    --font-size-headline: 23px;
+    --font-weight-regular: 300;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;

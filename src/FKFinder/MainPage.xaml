@@ -4,12 +4,18 @@
              xmlns:local="clr-namespace:FKFinder"
              xmlns:components="clr-namespace:FKFinder.Components"
              x:Class="FKFinder.MainPage"
-             BackgroundColor="#F3F3F3">
+             BackgroundColor="Transparent">  <!-- 保持窗口透明 -->
 
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
-        <BlazorWebView.RootComponents>
-            <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
-        </BlazorWebView.RootComponents>
-    </BlazorWebView>
-
+    <Grid>
+        <!-- BlazorWebView -->
+        <BlazorWebView x:Name="blazorWebView" 
+                       HostPage="wwwroot/index.html" 
+                       Background="Transparent"
+                       HorizontalOptions="Fill"
+                       VerticalOptions="Fill">
+            <BlazorWebView.RootComponents>
+                <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
+            </BlazorWebView.RootComponents>
+        </BlazorWebView>
+    </Grid>
 </ContentPage>

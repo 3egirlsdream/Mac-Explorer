@@ -28,6 +28,35 @@
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
     <script src="js/keyboard.js"></script>
+    <script src="js/column-resize.js"></script>
+    <script src="js/preview-resize.js"></script>
+    <script src="js/scroll-memory.js"></script>
+    <script>
+        // Create a Blob URL from a byte array for efficient local image display
+        function createBlobUrl(byteArray, mimeType) {
+            var blob = new Blob([byteArray], { type: mimeType || 'image/png' });
+            return URL.createObjectURL(blob);
+        }
+        // Batch create Blob URLs: takes array of {id, bytes} and returns {id, url}
+        function createBlobUrlBatch(items) {
+            var result = {};
+            for (var i = 0; i < items.length; i++) {
+                var blob = new Blob([items[i].bytes], { type: 'image/png' });
+                result[items[i].id] = URL.createObjectURL(blob);
+            }
+            return result;
+        }
+        // Revoke a single Blob URL
+        function revokeBlobUrl(url) {
+            URL.revokeObjectURL(url);
+        }
+        // Batch revoke Blob URLs
+        function revokeBlobUrls(urls) {
+            for (var i = 0; i < urls.length; i++) {
+                URL.revokeObjectURL(urls[i]);
+            }
+        }
+    </script>
 
 </body>
 

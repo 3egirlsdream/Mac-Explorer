@@ -47,6 +47,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="AcrylicView.Maui" Version="3.0.1" />
         <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.51" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.51" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
@@ -55,5 +56,29 @@
         <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
     </ItemGroup>
+
+    <!-- Generate a proper macOS .icns from Resizetizer output (which only has iPad idiom),
+         then remove CFBundleIconName so macOS uses CFBundleIconFile -> appicon.icns. -->
+    <Target Name="ReplaceMacCatalystIcon" AfterTargets="Build" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+        <PropertyGroup>
+            <_AppBundlePath>$(OutputPath)$(AssemblyName).app</_AppBundlePath>
+            <_IconSource>$(IntermediateOutputPath)resizetizer/r/Assets.xcassets/appicon.appiconset/appiconItunesArtwork.png</_IconSource>
+            <_IconsetDir>$(IntermediateOutputPath)macicon.iconset</_IconsetDir>
+        </PropertyGroup>
+        <RemoveDir Directories="$(_IconsetDir)" />
+        <MakeDir Directories="$(_IconsetDir)" />
+        <Exec Command="sips -z 16 16 '$(_IconSource)' --out '$(_IconsetDir)/icon_16x16.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 32 32 '$(_IconSource)' --out '$(_IconsetDir)/icon_16x16@2x.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 32 32 '$(_IconSource)' --out '$(_IconsetDir)/icon_32x32.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 64 64 '$(_IconSource)' --out '$(_IconsetDir)/icon_32x32@2x.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 128 128 '$(_IconSource)' --out '$(_IconsetDir)/icon_128x128.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 256 256 '$(_IconSource)' --out '$(_IconsetDir)/icon_128x128@2x.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 256 256 '$(_IconSource)' --out '$(_IconsetDir)/icon_256x256.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 512 512 '$(_IconSource)' --out '$(_IconsetDir)/icon_256x256@2x.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 512 512 '$(_IconSource)' --out '$(_IconsetDir)/icon_512x512.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="sips -z 1024 1024 '$(_IconSource)' --out '$(_IconsetDir)/icon_512x512@2x.png' &gt;/dev/null 2&gt;&amp;1" />
+        <Exec Command="iconutil -c icns '$(_IconsetDir)' -o '$(_AppBundlePath)/Contents/Resources/appicon.icns'" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Delete :CFBundleIconName' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+    </Target>
 
 </Project>
