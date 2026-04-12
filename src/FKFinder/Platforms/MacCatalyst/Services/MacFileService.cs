@@ -690,4 +690,150 @@ end tell");
                 return newName;
         }
     }
+
+    public bool IsCrossVolume(string sourcePath, string destinationPath)
+    {
+        return !string.Equals(GetVolumeRoot(sourcePath), GetVolumeRoot(destinationPath), StringComparison.Ordinal);
+    }
+
+    private static string GetVolumeRoot(string path)
+    {
+        // /Volumes/X/... → /Volumes/X
+        if (path.StartsWith("/Volumes/", StringComparison.Ordinal))
+        {
+            var idx = path.IndexOf('/', "/Volumes/".Length);
+            return idx < 0 ? path : path[..idx];
+        }
+        // Everything else is on the root volume
+        return "/";
+    }
+
+    public async Task MoveWithProgressAsync(IReadOnlyList<string> sourcePaths, string destinationDirectory,
+        IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
+    {
+        await Task.Run(() =>
+        {
+            // Phase 1: calculate total bytes
+            long totalBytes = 0;
+            foreach (var src in sourcePaths)
+            {
+                ct.ThrowIfCancellationRequested();
+                totalBytes += CalculateTotalBytes(src);
+            }
+            if (totalBytes == 0) totalBytes = 1; // avoid division by zero
+
+            long bytesCopied = 0;
+            var copiedDestinations = new List<string>();
+
+            try
+            {
+                // Phase 2: copy with progress
+                foreach (var src in sourcePaths)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var name = Path.GetFileName(src);
+                    var destPath = Path.Combine(destinationDirectory, name);
+
+                    if (Directory.Exists(src))
+                    {
+                        CopyDirectoryWithProgress(src, destPath, ref bytesCopied, totalBytes, progress, ct);
+                    }
+                    else if (File.Exists(src))
+                    {
+                        CopyFileWithProgress(src, destPath, ref bytesCopied, totalBytes, progress, ct);
+                    }
+                    copiedDestinations.Add(destPath);
+                }
+
+                // Phase 3: delete sources after all copies succeed
+                foreach (var src in sourcePaths)
+                {
+                    if (Directory.Exists(src))
+                        Directory.Delete(src, true);
+                    else if (File.Exists(src))
+                        File.Delete(src);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Clean up partially copied files
+                foreach (var dest in copiedDestinations)
+                {
+                    try
+                    {
+                        if (Directory.Exists(dest))
+                            Directory.Delete(dest, true);
+                        else if (File.Exists(dest))
+                            File.Delete(dest);
+                    }
+                    catch { }
+                }
+                throw;
+            }
+        }, ct);
+    }
+
+    private static long CalculateTotalBytes(string path)
+    {
+        if (File.Exists(path))
+            return new FileInfo(path).Length;
+
+        if (!Directory.Exists(path))
+            return 0;
+
+        long total = 0;
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try { total += new FileInfo(file).Length; }
+                catch { }
+            }
+        }
+        catch { }
+        return total;
+    }
+
+    private static void CopyFileWithProgress(string src, string dest, ref long bytesCopied,
+        long totalBytes, IProgress<FileOperationProgress>? progress, CancellationToken ct)
+    {
+        const int bufferSize = 64 * 1024;
+        var buffer = new byte[bufferSize];
+
+        using var sourceStream = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var destStream = new FileStream(dest, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+
+        int bytesRead;
+        while ((bytesRead = sourceStream.Read(buffer, 0, bufferSize)) > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+            destStream.Write(buffer, 0, bytesRead);
+            bytesCopied += bytesRead;
+            progress?.Report(new FileOperationProgress
+            {
+                Percentage = (double)bytesCopied / totalBytes * 100,
+                CurrentFile = Path.GetFileName(src)
+            });
+        }
+    }
+
+    private static void CopyDirectoryWithProgress(string sourceDir, string destDir, ref long bytesCopied,
+        long totalBytes, IProgress<FileOperationProgress>? progress, CancellationToken ct)
+    {
+        Directory.CreateDirectory(destDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            ct.ThrowIfCancellationRequested();
+            var fileName = Path.GetFileName(file);
+            CopyFileWithProgress(file, Path.Combine(destDir, fileName), ref bytesCopied, totalBytes, progress, ct);
+        }
+
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            ct.ThrowIfCancellationRequested();
+            var dirName = Path.GetFileName(dir);
+            CopyDirectoryWithProgress(dir, Path.Combine(destDir, dirName), ref bytesCopied, totalBytes, progress, ct);
+        }
+    }
 }
