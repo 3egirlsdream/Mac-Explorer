@@ -143,7 +143,7 @@
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ViewModel.IsLoading) or nameof(ViewModel.CurrentPath) or nameof(ViewModel.ViewMode)
-            or nameof(ViewModel.Groups) or nameof(ViewModel.GroupField))
+            or nameof(ViewModel.Groups) or nameof(ViewModel.GroupField) or nameof(ViewModel.CutPaths))
         {
             InvokeAsync(StateHasChanged);
         }
@@ -244,8 +244,9 @@
     {
         var isSelected = ViewModel.SelectedEntries.Contains(entry);
         var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
+        var isCut = ViewModel.CutPaths.Contains(entry.FullPath);
         builder.OpenElement(0, "div");
-        builder.AddAttribute(1, "class", $"file-list-row {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")}");
+        builder.AddAttribute(1, "class", $"file-list-row {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")}");
         builder.AddAttribute(2, "draggable", _renamingEntry != entry ? "true" : "false");
         builder.AddAttribute(3, "ondragstart", EventCallback.Factory.Create(this, () => OnDragStart(entry)));
         builder.AddAttribute(4, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
@@ -348,8 +349,9 @@
     {
         var isSelected = ViewModel.SelectedEntries.Contains(entry);
         var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
+        var isCut = ViewModel.CutPaths.Contains(entry.FullPath);
         builder.OpenElement(0, "div");
-        builder.AddAttribute(1, "class", $"file-grid-item {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")}");
+        builder.AddAttribute(1, "class", $"file-grid-item {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")}");
         builder.AddAttribute(2, "draggable", _renamingEntry != entry ? "true" : "false");
         builder.AddAttribute(3, "ondragstart", EventCallback.Factory.Create(this, () => OnDragStart(entry)));
         builder.AddAttribute(4, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));

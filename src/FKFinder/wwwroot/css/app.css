@@ -770,6 +770,10 @@ input:focus {
     outline-offset: -2px;
 }
 
+.file-grid-item.cut {
+    opacity: 0.45;
+}
+
 .file-grid-icon {
     width: 48px;
     height: 48px;
@@ -889,6 +893,10 @@ input:focus {
     background: var(--color-bg-selected);
     outline: 2px dashed var(--color-accent);
     outline-offset: -2px;
+}
+
+.file-list-row.cut {
+    opacity: 0.45;
 }
 
 .file-list-name {

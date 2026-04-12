@@ -35,6 +35,9 @@ public partial class FileListViewModel : ObservableObject
     private bool _isNavigatingHistory;
     private readonly Dictionary<string, string?> _pathSelectedEntries = new();
 
+    /// <summary>被剪切文件的完整路径集合，用于 UI 半透明显示</summary>
+    public HashSet<string> CutPaths { get; } = [];
+
     // Scroll behavior after Entries change
     public enum ScrollMode { ResetToTop, RestoreNavigation, ScrollToSelected, PreservePosition }
     public ScrollMode ScrollBehaviorAfterLoad { get; private set; } = ScrollMode.ResetToTop;
@@ -1082,6 +1085,7 @@ public partial class FileListViewModel : ObservableObject
     {
         if (_clipboardService == null || SelectedEntries.Count == 0) return;
         _clipboardService.CopyFiles(SelectedEntries.Select(e => e.FullPath).ToArray());
+        if (CutPaths.Count > 0) { CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
         StatusText = $"已拷贝 {SelectedEntries.Count} 项";
     }
 
@@ -1090,6 +1094,9 @@ public partial class FileListViewModel : ObservableObject
     {
         if (_clipboardService == null || SelectedEntries.Count == 0) return;
         _clipboardService.CutFiles(SelectedEntries.Select(e => e.FullPath).ToArray());
+        CutPaths.Clear();
+        foreach (var e in SelectedEntries) CutPaths.Add(e.FullPath);
+        OnPropertyChanged(nameof(CutPaths));
         StatusText = $"已剪切 {SelectedEntries.Count} 项";
     }
 
@@ -1109,7 +1116,7 @@ public partial class FileListViewModel : ObservableObject
                 else
                     await _fileService.MoveAsync(sourcePath, CurrentPath);
             }
-            if (entry.Operation == ClipboardOperation.Cut) _clipboardService.Clear();
+            if (entry.Operation == ClipboardOperation.Cut) { _clipboardService.Clear(); CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = $"已粘贴 {entry.SourcePaths.Count} 项";
