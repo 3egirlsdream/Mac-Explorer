@@ -1263,6 +1263,61 @@ public partial class FileListViewModel : ObservableObject
         catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
     }
 
+    public async Task MoveEntriesAsync(IReadOnlyList<FileSystemEntry> entries, FileSystemEntry targetFolder)
+    {
+        if (!targetFolder.IsDirectory) return;
+
+        var sourcePaths = entries.Where(e => e != targetFolder)
+            .Select(e => e.FullPath).ToList();
+        if (sourcePaths.Count == 0) return;
+
+        bool crossVolume = _fileService.IsCrossVolume(sourcePaths[0], targetFolder.FullPath);
+
+        if (!crossVolume)
+        {
+            try
+            {
+                foreach (var path in sourcePaths)
+                    await _fileService.MoveAsync(path, targetFolder.FullPath);
+                ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+                await LoadDirectoryContentsAsync(forceRefresh: true);
+            }
+            catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
+            return;
+        }
+
+        // 跨卷：后台任务 + 进度弹窗
+        if (_taskManager == null) return;
+
+        var taskInfo = _taskManager.AddTask("正在移动...", async () =>
+        {
+            await RefreshAsync();
+        });
+        ActiveTaskId = taskInfo.Id;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var progress = new Progress<Models.FileOperationProgress>(p =>
+                {
+                    _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile);
+                });
+                await _fileService.MoveWithProgressAsync(sourcePaths, targetFolder.FullPath,
+                    progress, taskInfo.Cts.Token);
+                _taskManager.CompleteTask(taskInfo.Id);
+            }
+            catch (OperationCanceledException)
+            {
+                _taskManager.RemoveTask(taskInfo.Id);
+            }
+            catch (Exception ex)
+            {
+                _taskManager.FailTask(taskInfo.Id, ex.Message);
+            }
+        });
+    }
+
     // Rename support: event to notify the view to start inline rename
     public event Action<FileSystemEntry>? RenameRequested;
 
