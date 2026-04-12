@@ -22,4 +22,7 @@ public interface IFileService
     Task DeletePermanentlyAsync(string path);
     Task EmptyTrashAsync();
     Task ResolveAppIconsAsync(IEnumerable<FileSystemEntry> entries, Action? onBatchResolved = null);
+    bool IsCrossVolume(string sourcePath, string destinationPath);
+    Task MoveWithProgressAsync(IReadOnlyList<string> sourcePaths, string destinationDirectory,
+        IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default);
 }
