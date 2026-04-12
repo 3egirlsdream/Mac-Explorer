@@ -98,13 +98,49 @@
         }
     </div>
 
+    <!-- View dropdown -->
+    <div class="sort-dropdown-wrapper">
+        <button class="sort-btn" @onclick="ToggleViewDropdown" title="查看">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>查看</span>
+        </button>
+        @if (_showViewDropdown)
+        {
+            <div class="sort-dropdown glass-effect" @onclick:stopPropagation>
+                <div class="sort-dropdown-header">视图模式</div>
+                <div class="sort-dropdown-item @(ViewModel.ViewMode == ViewMode.List ? "active" : "")"
+                     @onclick="@(() => SetViewMode(ViewMode.List))">
+                    <span>列表</span>
+                    @if (ViewModel.ViewMode == ViewMode.List)
+                    {<span class="sort-dropdown-check">✓</span>}
+                </div>
+                <div class="sort-dropdown-item @(ViewModel.ViewMode == ViewMode.Grid ? "active" : "")"
+                     @onclick="@(() => SetViewMode(ViewMode.Grid))">
+                    <span>平铺</span>
+                    @if (ViewModel.ViewMode == ViewMode.Grid)
+                    {<span class="sort-dropdown-check">✓</span>}
+                </div>
+                <div class="sort-dropdown-divider"></div>
+                <div class="sort-dropdown-item @(ViewModel.IsPreviewPaneVisible ? "active" : "")"
+                     @onclick="TogglePreview">
+                    <span>预览窗格</span>
+                    @if (ViewModel.IsPreviewPaneVisible)
+                    {<span class="sort-dropdown-check">✓</span>}
+                </div>
+            </div>
+        }
+    </div>
+
     <div style="flex:1"></div>
 
+    @if (ViewModel.IsPreviewPaneVisible)
+    {
     <!-- Preview pane toggle -->
-    <button class="toolbar-btn @(ViewModel.IsPreviewPaneVisible ? "active" : "")"
+    <button class="toolbar-btn active"
             @onclick="TogglePreview" title="预览窗格 (⇧⌘P)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Preview"/></svg>
     </button>
+    }
 </div>
 }
 
@@ -112,6 +148,7 @@
     [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
     private bool _showSortDropdown;
     private bool _showNewDropdown;
+    private bool _showViewDropdown;
     private DotNetObjectReference<FinderToolbar>? _dropdownRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -130,10 +167,11 @@
     [Microsoft.JSInterop.JSInvokable]
     public void CloseDropdowns()
     {
-        if (_showNewDropdown || _showSortDropdown)
+        if (_showNewDropdown || _showSortDropdown || _showViewDropdown)
         {
             _showNewDropdown = false;
             _showSortDropdown = false;
+            _showViewDropdown = false;
             InvokeAsync(StateHasChanged);
         }
     }
@@ -144,8 +182,9 @@
     private async Task DeleteSelected() => await ViewModel.DeleteSelectedCommand.ExecuteAsync(null);
     private void GoHome() => ViewModel.GoHomeCommand.Execute(null);
 
-    private void ToggleSortDropdown() { _showSortDropdown = !_showSortDropdown; _showNewDropdown = false; }
-    private void ToggleNewDropdown() { _showNewDropdown = !_showNewDropdown; _showSortDropdown = false; }
+    private void ToggleSortDropdown() { _showSortDropdown = !_showSortDropdown; _showNewDropdown = false; _showViewDropdown = false; }
+    private void ToggleNewDropdown() { _showNewDropdown = !_showNewDropdown; _showSortDropdown = false; _showViewDropdown = false; }
+    private void ToggleViewDropdown() { _showViewDropdown = !_showViewDropdown; _showSortDropdown = false; _showNewDropdown = false; }
 
     private void SelectSortField(SortField field) { ViewModel.SetSort(field); _showSortDropdown = false; }
     private void ToggleSortDirection() { ViewModel.SetSort(ViewModel.SortField, !ViewModel.SortAscending); _showSortDropdown = false; }
@@ -154,6 +193,7 @@
     private async Task NewFolder() { _showNewDropdown = false; await ViewModel.CreateNewFolderCommand.ExecuteAsync(null); }
     private async Task NewFile(string ext) { _showNewDropdown = false; await ViewModel.CreateNewFileCommand.ExecuteAsync(ext); }
     private void TogglePreview() => ViewModel.TogglePreviewPane();
+    private void SetViewMode(ViewMode mode) { if (ViewModel.ViewMode != mode) ViewModel.ToggleViewMode(); }
 
     private string GetSortFieldLabel(SortField field) => field switch
     {

@@ -868,13 +868,13 @@ input:focus {
 .file-list-row {
     display: grid;
     grid-template-columns: 1fr var(--col-modified, 150px) var(--col-size, 90px) var(--col-type, 100px) var(--col-rating, 80px);
-    padding: var(--space-4) var(--space-5);
-    margin: 0 var(--space-2);
+    padding: var(--space-2) var(--space-5);
+    margin: 2px var(--space-2);
     align-items: center;
     cursor: pointer;
     transition: background var(--transition-fast);
     border-radius: var(--radius-sm);
-    min-height: 40px;
+    min-height: 34px;
 }
 
 .file-list-row:hover {
