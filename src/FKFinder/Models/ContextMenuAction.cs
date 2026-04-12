@@ -24,7 +24,8 @@ public static class Icons
     public const string Back = "M15 19l-7-7 7-7";
     public const string Forward = "M9 5l7 7-7 7";
     public const string Up = "M12 19V5M5 12l7-7 7 7";
-    public const string Refresh = "M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15";
+    public const string Refresh = "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
+    public const string Home = "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2zM9 22V12h6v10";
 
     // File operations
     public const string NewFolder = "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z";
@@ -32,7 +33,7 @@ public static class Icons
     public const string Open = "M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z";
     public const string Copy = "M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2zM5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1";
     public const string Cut = "M9 6a3 3 0 11-6 0 3 3 0 016 0zM9 18a3 3 0 11-6 0 3 3 0 016 0zM20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12";
-    public const string Paste = "M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M9 2h6a1 1 0 011 1v2a1 1 0 01-1 1H9a1 1 0 01-1-1V3a1 1 0 011-1z";
+    public const string Paste = "M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M9 2h6a1 1 0 011 1v2a1 1 0 01-1 1H9a1 1 0 01-1-1V3a1 1 0 011-1zM9 10h6M9 14h6";
     public const string Delete = "M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6";
     public const string Rename = "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z";
 
@@ -42,6 +43,7 @@ public static class Icons
     public const string Sort = "M3 6h18M3 12h12M3 18h6";
     public const string SortAsc = "M12 5v14M5 12l7-7 7 7";
     public const string SortDesc = "M12 19V5M5 12l7 7 7-7";
+    public const string SortUpDown = "M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4";
 
     // Info
     public const string Info = "M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 16v-4M12 8h.01";
@@ -69,6 +71,10 @@ public static class Icons
     // Collections / Preview
     public const string CollectionAdd = "M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z";
     public const string Preview = "M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zM14.5 2v20";
+
+    // Archive operations
+    public const string Extract = "M12 3v12m0 0l-4-4m4 4l4-4M4 15v2a2 2 0 002 2h12a2 2 0 002-2v-2";
+    public const string Compress = "M12 21V9m0 0l4 4m-4-4l-4 4M4 9V7a2 2 0 012-2h12a2 2 0 012 2v2";
 
     // Folder/File type icons (simplified SVG paths for 24x24 viewBox)
     public const string Folder = "M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z";

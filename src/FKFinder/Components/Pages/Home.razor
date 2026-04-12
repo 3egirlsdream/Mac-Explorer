@@ -5,12 +5,16 @@
 @inject FKFinder.Services.IQuickLookService QuickLookService
 @inject FKFinder.Services.IMouseNavigationService MouseNavService
 @inject FKFinder.Services.NavigationBridge NavigationBridge
+@inject FKFinder.Services.IBackgroundTaskManager TaskManager
 @implements IAsyncDisposable
 
 <CascadingValue Value="ViewModel">
     <div class="finder-layout">
-        <FinderNavBar />
-        <FinderToolbar />
+        @if (!ViewModel.IsHomePage)
+        {
+            <FinderNavBar />
+            <FinderToolbar />
+        }
         <div class="finder-body">
             <FinderSidebar />
             <div class="finder-content-split">
@@ -18,6 +22,7 @@
                     <div class="loading-indicator @(ViewModel.IsLoading ? "active" : "")"></div>
                     @if (ViewModel.IsHomePage)
                     {
+                        <BreadcrumbBar />
                         <HomeView />
                     }
                     else
@@ -46,6 +51,24 @@
     <MetadataPanel Metadata="ViewModel.CurrentMetadata" OnClose="CloseMetadata" />
 }
 
+@if (ViewModel.ActiveTaskId != null)
+{
+    var task = TaskManager.Tasks.FirstOrDefault(t => t.Id == ViewModel.ActiveTaskId);
+    if (task != null)
+    {
+        <CenterProgressCard Task="task" OnMinimize="OnMinimizeTask" />
+    }
+}
+
+@if (ViewModel.IsCompressDialogVisible && ViewModel.PendingCompressOptions != null)
+{
+    <CompressDialog Options="ViewModel.PendingCompressOptions"
+                    OnConfirm="OnCompressConfirm"
+                    OnCancel="OnCompressCancel" />
+}
+
+<TaskPanel />
+
 @code {
     private DotNetObjectReference<Home>? _dotNetRef;
 
@@ -64,6 +87,7 @@
 
         // Subscribe to ViewModel property changes to trigger re-render
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        TaskManager.TasksChanged += OnTasksChanged;
 
         // Subscribe to mouse side buttons (back/forward)
         MouseNavService.BackButtonPressed += OnMouseBack;
@@ -91,7 +115,10 @@
             or nameof(ViewModel.IsContextMenuVisible)
             or nameof(ViewModel.IsMetadataPanelVisible)
             or nameof(ViewModel.SortField)
-            or nameof(ViewModel.SortAscending))
+            or nameof(ViewModel.SortAscending)
+            or nameof(ViewModel.IsCompressDialogVisible)
+            or nameof(ViewModel.ActiveTaskId)
+            or nameof(ViewModel.IsArchiveView))
         {
             await InvokeAsync(StateHasChanged);
         }
@@ -118,15 +145,19 @@
             switch (action)
             {
                 case "copy":
+                    if (ViewModel.IsArchiveView) break;
                     ViewModel.CopySelectedCommand.Execute(null);
                     break;
                 case "cut":
+                    if (ViewModel.IsArchiveView) break;
                     ViewModel.CutSelectedCommand.Execute(null);
                     break;
                 case "paste":
+                    if (ViewModel.IsArchiveView) break;
                     await ViewModel.PasteCommand.ExecuteAsync(null);
                     break;
                 case "delete":
+                    if (ViewModel.IsArchiveView) break;
                     await ViewModel.DeleteSelectedCommand.ExecuteAsync(null);
                     break;
                 case "selectAll":
@@ -151,8 +182,10 @@
                 case "enter":
                     if (ViewModel.SelectedEntries.Count == 1)
                     {
-                        // Enter key triggers rename, not open (macOS Finder behavior)
-                        ViewModel.RequestRename(ViewModel.SelectedEntries.First());
+                        if (ViewModel.IsArchiveView)
+                            await ViewModel.OpenEntryCommand.ExecuteAsync(ViewModel.SelectedEntries.First());
+                        else
+                            ViewModel.RequestRename(ViewModel.SelectedEntries.First());
                     }
                     break;
                 case "open":
@@ -160,9 +193,11 @@
                         await ViewModel.OpenEntryCommand.ExecuteAsync(ViewModel.SelectedEntries.First());
                     break;
                 case "newFolder":
+                    if (ViewModel.IsArchiveView) break;
                     await ViewModel.CreateNewFolderCommand.ExecuteAsync(null);
                     break;
                 case "newFile":
+                    if (ViewModel.IsArchiveView) break;
                     await ViewModel.CreateNewFileCommand.ExecuteAsync(".txt");
                     break;
                 case "quickLook":
@@ -187,10 +222,31 @@
         ViewModel.CloseContextMenuCommand.Execute(null);
     }
 
+    private void OnCompressConfirm(FKFinder.Models.CompressOptions options)
+    {
+        ViewModel.ConfirmCompress(options);
+    }
+
+    private void OnCompressCancel()
+    {
+        ViewModel.CancelCompressDialog();
+    }
+
+    private void OnMinimizeTask()
+    {
+        ViewModel.MinimizeActiveTask();
+    }
+
+    private async void OnTasksChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
     public async ValueTask DisposeAsync()
     {
         NavigationBridge.Unregister(ViewModel);
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        TaskManager.TasksChanged -= OnTasksChanged;
         MouseNavService.BackButtonPressed -= OnMouseBack;
         MouseNavService.ForwardButtonPressed -= OnMouseForward;
         _dotNetRef?.Dispose();

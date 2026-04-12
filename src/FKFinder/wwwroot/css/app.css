@@ -560,13 +560,29 @@ input:focus {
     border-radius: var(--radius-sm);
 }
 
-/* ═══ Breadcrumb — Home Mode (inline in navbar) ═══ */
+/* ═══ Breadcrumb — Home Centered Mode (PowerToys Run style) ═══ */
 .breadcrumb-bar.breadcrumb-home {
-    background: var(--addressbar-bg);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border-subtle);
-    padding: 0 var(--space-4);
+    position: absolute;
+    top: calc(50% - 200px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 440px;
+    height: 52px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        0 8px 32px rgba(0, 0, 0, 0.07),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    z-index: 10;
+    padding: 0 18px;
     gap: var(--space-3);
+    overflow: visible;
+    flex: none;
+    min-width: unset;
 }
 
 .breadcrumb-bar.breadcrumb-home::before {
@@ -584,7 +600,7 @@ input:focus {
     border: none;
     background: transparent;
     padding: 0;
-    font-size: var(--font-size-caption);
+    font-size: 15px;
     font-weight: 400;
     color: var(--color-text-primary);
     outline: none;
@@ -668,17 +684,16 @@ input:focus {
 
 .breadcrumb-input {
     flex: 1;
-    height: calc(var(--breadcrumb-height) - 6px);
-    border: 1px solid var(--color-accent);
-    background: rgba(255, 255, 255, 0.9);
-    padding: var(--space-1) var(--space-5);
+    height: 100%;
+    border: none;
+    background: transparent;
+    padding: 0 var(--space-3);
     font-size: var(--font-size-body);
     font-family: var(--font-mono);
     color: var(--color-text-primary);
     border-radius: var(--radius-sm);
     outline: none;
     width: 100%;
-    box-shadow: 0 0 0 2px var(--color-accent-light);
     position: relative;
     z-index: 1;
 }
@@ -932,9 +947,7 @@ input:focus {
 
 .search-bar:focus-within,
 .search-bar.active {
-    border-color: var(--color-accent);
     background: var(--addressbar-bg-focus);
-    box-shadow: 0 0 0 1.5px var(--color-accent-light);
     min-width: 220px;
 }
 
@@ -1760,4 +1773,353 @@ input:focus {
     font-size: var(--font-size-caption);
     outline: none;
     background: white;
+}
+
+/* ═══════════════════════════════════════
+   Compress Dialog
+   ═══════════════════════════════════════ */
+
+.compress-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 380px;
+    padding: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    z-index: var(--z-panel);
+    animation: compressDialogIn 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+@keyframes compressDialogIn {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.compress-dialog-title {
+    font-size: var(--font-size-subtitle);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.compress-dialog-summary {
+    font-size: var(--font-size-caption);
+    color: var(--color-text-tertiary);
+    margin-top: calc(var(--space-2) * -1);
+}
+
+.compress-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.compress-dialog-label {
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+}
+
+.compress-dialog-input {
+    height: 34px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-body);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-primary);
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.compress-dialog-input:focus {
+    border-color: var(--color-accent);
+}
+
+.compress-dialog-segment {
+    display: flex;
+    gap: var(--space-1);
+    background: var(--color-bg-hover);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    border: 0.5px solid var(--color-border-subtle);
+}
+
+.segment-btn {
+    flex: 1;
+    height: 30px;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.segment-btn:hover {
+    background: var(--color-bg-hover-strong);
+    color: var(--color-text-primary);
+}
+
+.segment-btn.active {
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.compress-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+}
+
+.compress-dialog-btn {
+    height: 34px;
+    padding: 0 var(--space-8);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    border: none;
+}
+
+.compress-dialog-btn.cancel {
+    background: var(--color-bg-hover);
+    color: var(--color-text-secondary);
+    border: 0.5px solid var(--color-border-subtle);
+}
+
+.compress-dialog-btn.cancel:hover {
+    background: var(--color-bg-hover-strong);
+    color: var(--color-text-primary);
+}
+
+.compress-dialog-btn.confirm {
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+}
+
+.compress-dialog-btn.confirm:hover {
+    filter: brightness(1.05);
+}
+
+.compress-dialog-btn.confirm:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* ═══════════════════════════════════════
+   Center Progress Card
+   ═══════════════════════════════════════ */
+
+.center-progress-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 380px;
+    padding: var(--space-6);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-md);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.1),
+        0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: var(--z-panel);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    animation: centerCardIn 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+@keyframes centerCardIn {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.center-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.center-progress-label {
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.center-progress-minimize {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-xs);
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.center-progress-minimize:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.center-progress-track {
+    height: 4px;
+    background: var(--color-bg-hover);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.center-progress-bar {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 2px;
+    transition: width 200ms ease;
+}
+
+.center-progress-bar.completed {
+    background: #34c759;
+}
+
+.center-progress-bar.failed {
+    background: #ff3b30;
+}
+
+.center-progress-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.center-progress-file {
+    font-size: var(--font-size-micro);
+    color: var(--color-text-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.center-progress-pct {
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-accent);
+    font-variant-numeric: tabular-nums;
+    margin-left: var(--space-3);
+}
+
+.center-progress-error {
+    font-size: var(--font-size-micro);
+    color: #ff3b30;
+    margin-top: var(--space-1);
+}
+
+/* ═══════════════════════════════════════
+   Task Panel (right-bottom)
+   ═══════════════════════════════════════ */
+
+.task-panel {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    width: 300px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: var(--space-4);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-md);
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        0 1px 4px rgba(0, 0, 0, 0.06);
+    z-index: var(--z-panel);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    animation: taskPanelIn 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+@keyframes taskPanelIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.task-panel-header {
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.task-panel-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2) 0;
+    border-top: 0.5px solid var(--color-border-subtle);
+}
+
+.task-panel-item:first-of-type {
+    border-top: none;
+}
+
+.task-panel-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.task-panel-item-label {
+    font-size: var(--font-size-micro);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+}
+
+.task-panel-item-pct {
+    font-size: var(--font-size-micro);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.task-panel-item-status {
+    font-size: var(--font-size-micro);
+    font-weight: var(--font-weight-medium);
+}
+
+.completed-text { color: #34c759; }
+.failed-text { color: #ff3b30; }
+
+.task-panel-progress-track {
+    height: 3px;
+    background: var(--color-bg-hover);
+    border-radius: 1.5px;
+    overflow: hidden;
+}
+
+.task-panel-progress-bar {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 1.5px;
+    transition: width 200ms ease;
+}
+
+.task-panel-error {
+    font-size: var(--font-size-micro);
+    color: #ff3b30;
 }

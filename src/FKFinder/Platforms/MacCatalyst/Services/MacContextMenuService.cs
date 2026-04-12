@@ -46,6 +46,18 @@ public class MacContextMenuService : IContextMenuService
 
         actions.Add(ContextMenuAction.Separator);
 
+        // Archive: extract for archive files, compress for others
+        if (entry.IconKey == "file-archive")
+        {
+            actions.Add(new() { Label = "解压到此处", IconSvg = Icons.Extract });
+        }
+        else
+        {
+            actions.Add(new() { Label = "压缩", IconSvg = Icons.Compress });
+        }
+
+        actions.Add(ContextMenuAction.Separator);
+
         actions.Add(new() { Label = "拷贝", IconSvg = Icons.Copy, ShortcutText = "⌘C" });
         actions.Add(new() { Label = "剪切", IconSvg = Icons.Cut, ShortcutText = "⌘X" });
         actions.Add(new() { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V" });

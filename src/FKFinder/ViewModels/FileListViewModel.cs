@@ -23,6 +23,8 @@ public partial class FileListViewModel : ObservableObject
     private readonly IRatingService? _ratingService;
     private readonly ISettingsService? _settingsService;
     private readonly IFrequentFolderService? _frequentFolderService;
+    private readonly IArchiveService? _archiveService;
+    private readonly IBackgroundTaskManager? _taskManager;
     private CancellationTokenSource? _searchCts;
 
     private IReadOnlyList<FileSystemEntry> _rawEntries = [];
@@ -137,6 +139,25 @@ public partial class FileListViewModel : ObservableObject
     // Last clicked entry for shift-range selection
     private FileSystemEntry? _lastClickedEntry;
 
+    // Archive browsing
+    [ObservableProperty]
+    private bool _isArchiveView;
+
+    [ObservableProperty]
+    private string? _currentArchivePath;
+
+    [ObservableProperty]
+    private string _currentArchiveInternalPath = "";
+
+    [ObservableProperty]
+    private bool _isCompressDialogVisible;
+
+    [ObservableProperty]
+    private CompressOptions? _pendingCompressOptions;
+
+    [ObservableProperty]
+    private string? _activeTaskId;
+
     public FileListViewModel(
         IFileService fileService,
         IFileIndex fileIndex,
@@ -151,7 +172,9 @@ public partial class FileListViewModel : ObservableObject
         ICollectionService? collectionService = null,
         IRatingService? ratingService = null,
         ISettingsService? settingsService = null,
-        IFrequentFolderService? frequentFolderService = null)
+        IFrequentFolderService? frequentFolderService = null,
+        IArchiveService? archiveService = null,
+        IBackgroundTaskManager? taskManager = null)
     {
         _fileService = fileService;
         _fileIndex = fileIndex;
@@ -167,6 +190,8 @@ public partial class FileListViewModel : ObservableObject
         _ratingService = ratingService;
         _settingsService = settingsService;
         _frequentFolderService = frequentFolderService;
+        _archiveService = archiveService;
+        _taskManager = taskManager;
 
         // Load persisted user preferences
         if (_settingsService != null)
@@ -188,6 +213,13 @@ public partial class FileListViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(path)) return;
         ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
 
+        // Intercept archive sentinel paths
+        if (ArchivePathHelper.IsArchivePath(path))
+        {
+            await NavigateToArchiveAsync(path);
+            return;
+        }
+
         // Validate that the path exists on the filesystem
         // Skip validation for trash directory (macOS SIP blocks .NET Directory.Exists)
         if (path != _fileService.TrashDirectory && !Directory.Exists(path))
@@ -207,6 +239,9 @@ public partial class FileListViewModel : ObservableObject
 
         IsHomePage = false;
         IsCollectionView = false;
+        IsArchiveView = false;
+        CurrentArchivePath = null;
+        CurrentArchiveInternalPath = "";
         CurrentCollectionId = null;
         CurrentCollectionName = null;
         try
@@ -248,6 +283,22 @@ public partial class FileListViewModel : ObservableObject
     public async Task NavigateUpAsync()
     {
         if (IsHomePage) return;
+
+        if (IsArchiveView && CurrentArchivePath != null)
+        {
+            if (!string.IsNullOrEmpty(CurrentArchiveInternalPath))
+            {
+                var parent = Path.GetDirectoryName(CurrentArchiveInternalPath.TrimEnd('/'))?.Replace('\\', '/') ?? "";
+                await NavigateToAsync(ArchivePathHelper.Build(CurrentArchivePath, parent));
+            }
+            else
+            {
+                var parentDir = Path.GetDirectoryName(CurrentArchivePath) ?? "/";
+                await NavigateToAsync(parentDir);
+            }
+            return;
+        }
+
         var parentPath = _fileService.GetParentPath(CurrentPath);
         if (parentPath != CurrentPath)
             await NavigateToAsync(parentPath);
@@ -257,10 +308,203 @@ public partial class FileListViewModel : ObservableObject
     public async Task RefreshAsync()
     {
         if (IsHomePage) return;
+
+        if (IsArchiveView && CurrentArchivePath != null)
+        {
+            IsLoading = true;
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            try
+            {
+                var entries = await _archiveService!.GetArchiveContentsAsync(CurrentArchivePath, CurrentArchiveInternalPath);
+                ApplyEntries(entries);
+            }
+            catch (Exception ex) { StatusText = $"刷新失败: {ex.Message}"; }
+            finally { IsLoading = false; }
+            return;
+        }
+
+        if (IsCollectionView && CurrentCollectionId != null)
+        {
+            await NavigateToCollectionAsync(CurrentCollectionId.Value);
+            return;
+        }
+
         IsLoading = true;
         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         try { await LoadDirectoryContentsAsync(forceRefresh: true); }
         finally { IsLoading = false; }
+    }
+
+    // ── Archive Browsing ──
+
+    private async Task NavigateToArchiveAsync(string sentinelPath)
+    {
+        if (_archiveService == null) return;
+        var (archivePath, internalPath) = ArchivePathHelper.Parse(sentinelPath);
+
+        if (IsMetadataPanelVisible)
+            CloseMetadata();
+
+        IsHomePage = false;
+        IsCollectionView = false;
+        IsArchiveView = true;
+        CurrentArchivePath = archivePath;
+        CurrentArchiveInternalPath = internalPath;
+        IsLoading = true;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(CurrentPath) && SelectedEntries.Count > 0)
+                _pathSelectedEntries[CurrentPath] = SelectedEntries.First().Name;
+
+            if (!_isNavigatingHistory)
+            {
+                if (_historyIndex < _historyStack.Count - 1)
+                    _historyStack.RemoveRange(_historyIndex + 1, _historyStack.Count - _historyIndex - 1);
+                _historyStack.Add(sentinelPath);
+                _historyIndex = _historyStack.Count - 1;
+                OnPropertyChanged(nameof(CanGoBack));
+                OnPropertyChanged(nameof(CanGoForward));
+            }
+
+            CurrentPath = sentinelPath;
+            UpdateBreadcrumbs();
+
+            var entries = await _archiveService.GetArchiveContentsAsync(archivePath, internalPath);
+            ApplyEntries(entries);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"无法打开归档: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    // ── Archive Extract / Compress ──
+
+    public void ExtractHere(FileSystemEntry entry)
+    {
+        if (_archiveService == null || _taskManager == null) return;
+        var destDir = Path.GetDirectoryName(entry.FullPath) ?? CurrentPath;
+
+        var taskInfo = _taskManager.AddTask("正在解压...", async () =>
+        {
+            await RefreshAsync();
+        });
+        ActiveTaskId = taskInfo.Id;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var progress = new Progress<ArchiveProgress>(p =>
+                {
+                    _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile);
+                });
+                await _archiveService.ExtractAsync(entry.FullPath, destDir, progress, taskInfo.Cts.Token);
+                _taskManager.CompleteTask(taskInfo.Id);
+            }
+            catch (OperationCanceledException)
+            {
+                _taskManager.RemoveTask(taskInfo.Id);
+            }
+            catch (Exception ex)
+            {
+                _taskManager.FailTask(taskInfo.Id, ex.Message);
+            }
+        });
+    }
+
+    public void ShowCompressDialog()
+    {
+        var sources = SelectedEntries.Count > 0
+            ? SelectedEntries.Select(e => e.FullPath).ToList()
+            : ContextMenuEntry != null ? new List<string> { ContextMenuEntry.FullPath } : new List<string>();
+        if (sources.Count == 0) return;
+
+        // Sentinel paths (collection/archive) are not real dirs — use first file's parent
+        var outputDir = (IsCollectionView || IsArchiveView)
+            ? Path.GetDirectoryName(sources[0]) ?? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            : CurrentPath;
+
+        var defaultName = sources.Count == 1
+            ? Path.GetFileNameWithoutExtension(sources[0])
+            : Path.GetFileName(outputDir) ?? "archive";
+
+        PendingCompressOptions = new CompressOptions
+        {
+            ArchiveName = defaultName,
+            OutputDirectory = outputDir,
+            SourcePaths = sources,
+            CollectionId = IsCollectionView ? CurrentCollectionId : null
+        };
+        IsCompressDialogVisible = true;
+    }
+
+    public void ConfirmCompress(CompressOptions options)
+    {
+        IsCompressDialogVisible = false;
+        PendingCompressOptions = null;
+        if (_archiveService == null || _taskManager == null) return;
+
+        var collectionId = options.CollectionId;
+
+        var taskInfo = _taskManager.AddTask("正在压缩...", async () =>
+        {
+            if (collectionId != null && _collectionService != null)
+            {
+                var ext = options.Format switch
+                {
+                    ArchiveFormat.Zip => ".zip",
+                    ArchiveFormat.TarGz => ".tar.gz",
+                    ArchiveFormat.TarBz2 => ".tar.bz2",
+                    _ => ".zip"
+                };
+                var outputPath = Path.Combine(options.OutputDirectory, options.ArchiveName + ext);
+                await _collectionService.AddFileToCollectionAsync(collectionId.Value, outputPath);
+            }
+            await RefreshAsync();
+        });
+        ActiveTaskId = taskInfo.Id;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var progress = new Progress<ArchiveProgress>(p =>
+                {
+                    _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile);
+                });
+                await _archiveService.CompressAsync(options, progress, taskInfo.Cts.Token);
+                _taskManager.CompleteTask(taskInfo.Id);
+            }
+            catch (OperationCanceledException)
+            {
+                _taskManager.RemoveTask(taskInfo.Id);
+            }
+            catch (Exception ex)
+            {
+                _taskManager.FailTask(taskInfo.Id, ex.Message);
+            }
+        });
+    }
+
+    public void MinimizeActiveTask()
+    {
+        if (ActiveTaskId != null)
+        {
+            _taskManager?.MinimizeTask(ActiveTaskId);
+            ActiveTaskId = null;
+        }
+    }
+
+    public void CancelCompressDialog()
+    {
+        IsCompressDialogVisible = false;
+        PendingCompressOptions = null;
     }
 
     [RelayCommand]
@@ -316,6 +560,39 @@ public partial class FileListViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenEntryAsync(FileSystemEntry entry)
     {
+        // Archive view: directory -> navigate deeper
+        if (IsArchiveView && entry.IsDirectory)
+        {
+            var (archPath, _) = ArchivePathHelper.Parse(entry.FullPath);
+            var entryInternalPath = entry.FullPath[(entry.FullPath.IndexOf('#') + 1)..];
+            await NavigateToAsync(ArchivePathHelper.Build(archPath, entryInternalPath));
+            return;
+        }
+
+        // Archive view: file -> extract to temp and open
+        if (IsArchiveView && !entry.IsDirectory)
+        {
+            if (_archiveService == null || _launcherService == null) return;
+            try
+            {
+                var (archPath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
+                var tempFile = await _archiveService.ExtractEntryToTempAsync(archPath, entryKey);
+                await _launcherService.OpenFileAsync(tempFile);
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"打开文件失败: {ex.Message}";
+            }
+            return;
+        }
+
+        // Normal view: double-click archive file -> enter archive browsing
+        if (!entry.IsDirectory && _archiveService?.IsArchiveFile(entry.FullPath) == true)
+        {
+            await NavigateToAsync(ArchivePathHelper.Build(entry.FullPath, ""));
+            return;
+        }
+
         if (entry.IsDirectory)
         {
             // .app bundles should be launched as applications, not navigated into
@@ -419,7 +696,19 @@ public partial class FileListViewModel : ObservableObject
 
         if (_contextMenuService != null)
         {
-            if (IsInTrash)
+            if (IsArchiveView)
+            {
+                ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
+                {
+                    new ContextMenuAction
+                    {
+                        Label = "打开",
+                        IconSvg = Icons.Open,
+                        Execute = () => OpenEntryCommand.ExecuteAsync(entry)
+                    }
+                });
+            }
+            else if (IsInTrash)
             {
                 var actions = await _contextMenuService.GetTrashFileContextMenuActionsAsync(entry);
                 actions = WireUpTrashFileContextMenuActions(actions, entry);
@@ -444,7 +733,21 @@ public partial class FileListViewModel : ObservableObject
 
         if (_contextMenuService != null)
         {
-            if (IsCollectionView)
+            if (IsArchiveView)
+            {
+                ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
+                {
+                    new ContextMenuAction
+                    {
+                        Label = "刷新",
+                        IconSvg = Icons.Refresh,
+                        Execute = () => CurrentArchivePath != null
+                            ? NavigateToAsync(ArchivePathHelper.Build(CurrentArchivePath, CurrentArchiveInternalPath))
+                            : Task.CompletedTask
+                    }
+                });
+            }
+            else if (IsCollectionView)
             {
                 // Collection view: only show refresh, no new file/folder/paste
                 ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
@@ -580,6 +883,24 @@ public partial class FileListViewModel : ObservableObject
                         RequestRename(entry);
                         return Task.CompletedTask;
                     }
+                });
+            }
+            else if (action.Label == "解压到此处")
+            {
+                result.Add(new ContextMenuAction
+                {
+                    Label = action.Label,
+                    IconSvg = action.IconSvg,
+                    Execute = () => { ExtractHere(entry); return Task.CompletedTask; }
+                });
+            }
+            else if (action.Label == "压缩")
+            {
+                result.Add(new ContextMenuAction
+                {
+                    Label = action.Label,
+                    IconSvg = action.IconSvg,
+                    Execute = () => { ShowCompressDialog(); return Task.CompletedTask; }
                 });
             }
             else
@@ -805,7 +1126,10 @@ public partial class FileListViewModel : ObservableObject
             foreach (var entry in SelectedEntries.ToList())
                 await _fileService.DeleteAsync(entry.FullPath, moveToTrash: true);
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await LoadDirectoryContentsAsync(forceRefresh: true);
+            if (IsCollectionView && CurrentCollectionId != null)
+                await NavigateToCollectionAsync(CurrentCollectionId.Value);
+            else
+                await LoadDirectoryContentsAsync(forceRefresh: true);
         }
         catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
     }
@@ -1077,10 +1401,11 @@ public partial class FileListViewModel : ObservableObject
     private void ApplySortAndGroup()
     {
         if (_rawEntries.Count == 0) { Entries = []; Groups = []; return; }
-        var filtered = HideSystemFiles
-            ? _rawEntries.Where(e => !SystemFileNames.Contains(e.Name)).ToList()
-            : (IReadOnlyList<FileSystemEntry>)_rawEntries;
-        var sorted = SortEntries(filtered).ToList();
+        var filtered = _rawEntries.Where(e => !e.Name.EndsWith(".fkfinder-tmp"));
+        if (HideSystemFiles)
+            filtered = filtered.Where(e => !SystemFileNames.Contains(e.Name));
+        var list = filtered.ToList();
+        var sorted = SortEntries(list).ToList();
         Entries = new ObservableCollection<FileSystemEntry>(sorted);
         Groups = GroupField == GroupField.None ? [] : new ObservableCollection<FileGroup>(BuildGroups(sorted));
         StatusText = $"{Entries.Count} 项";
@@ -1163,6 +1488,40 @@ public partial class FileListViewModel : ObservableObject
         {
             segments.Add(new BreadcrumbSegment { Name = "收藏夹", FullPath = "", HasDropdown = false });
             segments.Add(new BreadcrumbSegment { Name = CurrentCollectionName, FullPath = "", HasDropdown = false });
+        }
+        else if (IsArchiveView && CurrentArchivePath != null)
+        {
+            var archiveDir = Path.GetDirectoryName(CurrentArchivePath) ?? "/";
+            segments.Add(new BreadcrumbSegment { Name = "/", FullPath = "/", HasDropdown = true });
+            var dirParts = archiveDir.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var buildPath = "";
+            foreach (var part in dirParts)
+            {
+                buildPath += "/" + part;
+                segments.Add(new BreadcrumbSegment { Name = part, FullPath = buildPath, HasDropdown = true });
+            }
+            var archiveName = Path.GetFileName(CurrentArchivePath);
+            segments.Add(new BreadcrumbSegment
+            {
+                Name = archiveName,
+                FullPath = ArchivePathHelper.Build(CurrentArchivePath, ""),
+                HasDropdown = !string.IsNullOrEmpty(CurrentArchiveInternalPath)
+            });
+            if (!string.IsNullOrEmpty(CurrentArchiveInternalPath))
+            {
+                var internalParts = CurrentArchiveInternalPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                var internalBuild = "";
+                for (int i = 0; i < internalParts.Length; i++)
+                {
+                    internalBuild += (internalBuild.Length > 0 ? "/" : "") + internalParts[i];
+                    segments.Add(new BreadcrumbSegment
+                    {
+                        Name = internalParts[i],
+                        FullPath = ArchivePathHelper.Build(CurrentArchivePath, internalBuild + "/"),
+                        HasDropdown = i < internalParts.Length - 1
+                    });
+                }
+            }
         }
         else if (CurrentPath == _fileService.TrashDirectory)
         {

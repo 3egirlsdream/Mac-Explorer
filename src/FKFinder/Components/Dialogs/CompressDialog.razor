@@ -1,0 +1,74 @@
+@using FKFinder.Models
+
+<div class="compress-dialog glass-effect">
+    <div class="compress-dialog-title">压缩文件</div>
+    <div class="compress-dialog-summary">已选 @Options.SourcePaths.Count 项</div>
+
+    <div class="compress-dialog-field">
+        <label class="compress-dialog-label">文件名</label>
+        <input class="compress-dialog-input" type="text" @bind="_archiveName" @bind:event="oninput" />
+    </div>
+
+    <div class="compress-dialog-field">
+        <label class="compress-dialog-label">格式</label>
+        <div class="compress-dialog-segment">
+            <button class="segment-btn @(_format == ArchiveFormat.Zip ? "active" : "")"
+                    @onclick="@(() => _format = ArchiveFormat.Zip)">ZIP</button>
+            <button class="segment-btn @(_format == ArchiveFormat.TarGz ? "active" : "")"
+                    @onclick="@(() => _format = ArchiveFormat.TarGz)">tar.gz</button>
+            <button class="segment-btn @(_format == ArchiveFormat.TarBz2 ? "active" : "")"
+                    @onclick="@(() => _format = ArchiveFormat.TarBz2)">tar.bz2</button>
+        </div>
+    </div>
+
+    <div class="compress-dialog-field">
+        <label class="compress-dialog-label">压缩级别</label>
+        <div class="compress-dialog-segment">
+            <button class="segment-btn @(_level == CompressionLevel.Fast ? "active" : "")"
+                    @onclick="@(() => _level = CompressionLevel.Fast)">快速</button>
+            <button class="segment-btn @(_level == CompressionLevel.Standard ? "active" : "")"
+                    @onclick="@(() => _level = CompressionLevel.Standard)">标准</button>
+            <button class="segment-btn @(_level == CompressionLevel.Maximum ? "active" : "")"
+                    @onclick="@(() => _level = CompressionLevel.Maximum)">最大</button>
+        </div>
+    </div>
+
+    <div class="compress-dialog-actions">
+        <button class="compress-dialog-btn cancel" @onclick="Cancel">取消</button>
+        <button class="compress-dialog-btn confirm" @onclick="Confirm"
+                disabled="@string.IsNullOrWhiteSpace(_archiveName)">压缩</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public CompressOptions Options { get; set; } = null!;
+    [Parameter] public EventCallback<CompressOptions> OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _archiveName = "";
+    private ArchiveFormat _format = ArchiveFormat.Zip;
+    private CompressionLevel _level = CompressionLevel.Standard;
+
+    protected override void OnParametersSet()
+    {
+        _archiveName = Options.ArchiveName;
+        _format = Options.Format;
+        _level = Options.Level;
+    }
+
+    private async Task Confirm()
+    {
+        var options = new CompressOptions
+        {
+            ArchiveName = _archiveName.Trim(),
+            Format = _format,
+            Level = _level,
+            OutputDirectory = Options.OutputDirectory,
+            SourcePaths = Options.SourcePaths,
+            CollectionId = Options.CollectionId
+        };
+        await OnConfirm.InvokeAsync(options);
+    }
+
+    private async Task Cancel() => await OnCancel.InvokeAsync();
+}

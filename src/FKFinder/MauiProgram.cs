@@ -124,6 +124,8 @@ public static class MauiProgram
             new Services.Impl.FrequentFolderService(
                 sp.GetRequiredService<IndexConfiguration>().DatabasePath,
                 sp.GetRequiredService<IFileService>().HomeDirectory));
+        builder.Services.AddSingleton<IArchiveService, Services.Impl.ArchiveService>();
+        builder.Services.AddSingleton<IBackgroundTaskManager, Services.Impl.BackgroundTaskManager>();
         builder.Services.AddSingleton<NavigationBridge>();
 
         // Register ViewModels (Scoped so each window gets its own instance)
@@ -141,7 +143,9 @@ public static class MauiProgram
             sp.GetService<ICollectionService>(),
             sp.GetService<IRatingService>(),
             sp.GetService<ISettingsService>(),
-            sp.GetService<IFrequentFolderService>()
+            sp.GetService<IFrequentFolderService>(),
+            sp.GetService<IArchiveService>(),
+            sp.GetService<IBackgroundTaskManager>()
         ));
 
         builder.Services.AddMauiBlazorWebView();
