@@ -2,156 +2,111 @@
 @inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
+@if (!ViewModel.IsHomePage)
+{
 <div class="finder-toolbar">
-    @if (!ViewModel.IsHomePage)
-    {
-        <!-- Action Bar: New + Refresh -->
-        <div class="action-bar">
-            <div class="new-btn-wrapper">
-                <button class="action-btn new-btn @(ViewModel.IsCollectionView ? "disabled" : "")" @onclick="ToggleNewDropdown" title="新建" disabled="@ViewModel.IsCollectionView">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Plus"/></svg>
-                    <span>新建</span>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-                </button>
-                @if (_showNewDropdown)
+    <!-- New button -->
+    <div class="new-btn-wrapper">
+        <button class="action-btn new-btn @(ViewModel.IsCollectionView ? "disabled" : "")" @onclick="ToggleNewDropdown" title="新建" disabled="@ViewModel.IsCollectionView">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Plus"/></svg>
+            <span>新建</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        @if (_showNewDropdown)
+        {
+            <div class="new-dropdown glass-effect" @onclick:stopPropagation>
+                <div class="new-dropdown-item" @onclick="NewFolder">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFolder"/></svg>
+                    <span>新建文件夹</span>
+                    <span class="new-dropdown-shortcut">⇧⌘N</span>
+                </div>
+                <div class="new-dropdown-item" @onclick="@(() => NewFile(".txt"))">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFile"/></svg>
+                    <span>新建文本文件</span>
+                </div>
+                <div class="new-dropdown-item" @onclick="@(() => NewFile(".md"))">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFile"/></svg>
+                    <span>新建 Markdown</span>
+                </div>
+                <div class="new-dropdown-item" @onclick="@(() => NewFile(".json"))">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFile"/></svg>
+                    <span>新建 JSON 文件</span>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="toolbar-separator"></div>
+
+    <!-- Clipboard buttons: Cut, Copy, Paste, Delete -->
+    <div class="toolbar-btn-group">
+        <button class="toolbar-btn" @onclick="CutSelected" title="剪切 (⌘X)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></svg>
+        </button>
+        <button class="toolbar-btn" @onclick="CopySelected" title="复制 (⌘C)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+        <button class="toolbar-btn" @onclick="PasteItems" title="粘贴 (⌘V)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+        </button>
+        <button class="toolbar-btn" @onclick="DeleteSelected" title="删除 (⌘⌫)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </button>
+    </div>
+
+    <div class="toolbar-separator"></div>
+
+    <!-- Sort -->
+    <div class="sort-dropdown-wrapper">
+        <button class="sort-btn" @onclick="ToggleSortDropdown" title="排序和分组">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@(ViewModel.SortAscending ? Icons.SortAsc : Icons.SortDesc)"/></svg>
+            <span>排序</span>
+        </button>
+        @if (_showSortDropdown)
+        {
+            <div class="sort-dropdown glass-effect" @onclick:stopPropagation>
+                <div class="sort-dropdown-header">排序方式</div>
+                @foreach (var field in System.Enum.GetValues<SortField>())
                 {
-                    <div class="new-dropdown glass-effect" @onclick:stopPropagation>
-                        <div class="new-dropdown-item" @onclick="NewFolder">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFolder"/></svg>
-                            <span>新建文件夹</span>
-                            <span class="new-dropdown-shortcut">⇧⌘N</span>
-                        </div>
-                        <div class="new-dropdown-item" @onclick="@(() => NewFile(".txt"))">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFile"/></svg>
-                            <span>新建文本文件</span>
-                        </div>
-                        <div class="new-dropdown-item" @onclick="@(() => NewFile(".md"))">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFile"/></svg>
-                            <span>新建 Markdown</span>
-                        </div>
-                        <div class="new-dropdown-item" @onclick="@(() => NewFile(".json"))">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.NewFile"/></svg>
-                            <span>新建 JSON 文件</span>
-                        </div>
+                    <div class="sort-dropdown-item @(ViewModel.SortField == field ? "active" : "")"
+                         @onclick="@(() => SelectSortField(field))">
+                        <span>@GetSortFieldLabel(field)</span>
+                        @if (ViewModel.SortField == field)
+                        {<span class="sort-dropdown-check">✓</span>}
+                    </div>
+                }
+                <div class="sort-dropdown-divider"></div>
+                <div class="sort-dropdown-item" @onclick="ToggleSortDirection">
+                    <span>@(ViewModel.SortAscending ? "升序" : "降序")</span>
+                    <span class="sort-dropdown-check">@(ViewModel.SortAscending ? "↑" : "↓")</span>
+                </div>
+                <div class="sort-dropdown-divider"></div>
+                <div class="sort-dropdown-header">分组方式</div>
+                @foreach (var group in System.Enum.GetValues<GroupField>())
+                {
+                    <div class="sort-dropdown-item @(ViewModel.GroupField == group ? "active" : "")"
+                         @onclick="@(() => SelectGroupField(group))">
+                        <span>@GetGroupFieldLabel(group)</span>
+                        @if (ViewModel.GroupField == group)
+                        {<span class="sort-dropdown-check">✓</span>}
                     </div>
                 }
             </div>
-
-            <div class="toolbar-separator"></div>
-
-            <button class="action-btn" @onclick="Refresh" title="刷新 (⌘R)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Refresh"/></svg>
-                <span>刷新</span>
-            </button>
-        </div>
-
-        <div class="toolbar-separator"></div>
-    }
-
-    <!-- Navigation -->
-    <button class="toolbar-btn @(!ViewModel.CanGoBack ? "disabled" : "")" @onclick="NavigateBack" title="后退" disabled="@(!ViewModel.CanGoBack)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Back"/></svg>
-    </button>
-    <button class="toolbar-btn @(!ViewModel.CanGoForward ? "disabled" : "")" @onclick="NavigateForward" title="前进" disabled="@(!ViewModel.CanGoForward)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Forward"/></svg>
-    </button>
-    @if (!ViewModel.IsHomePage)
-    {
-        <button class="toolbar-btn" @onclick="NavigateUp" title="上级目录">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Up"/></svg>
-        </button>
-    }
-    <button class="toolbar-btn @(ViewModel.IsHomePage ? "active" : "")" @onclick="GoHome" title="主页">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
-    </button>
-
-    @if (!ViewModel.IsHomePage)
-    {
-        <div class="toolbar-separator"></div>
-
-        <!-- View toggle -->
-        <div class="view-toggle">
-            <button class="view-toggle-btn @(ViewModel.ViewMode == ViewMode.List ? "active" : "")"
-                    @onclick="@(() => ViewModel.ViewMode = ViewMode.List)" title="列表视图">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.List"/></svg>
-            </button>
-            <button class="view-toggle-btn @(ViewModel.ViewMode == ViewMode.Grid ? "active" : "")"
-                    @onclick="@(() => ViewModel.ViewMode = ViewMode.Grid)" title="图标视图">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Grid"/></svg>
-            </button>
-        </div>
-
-        <!-- Sort -->
-        <div class="sort-dropdown-wrapper">
-            <button class="sort-btn" @onclick="ToggleSortDropdown" title="排序和分组">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@(ViewModel.SortAscending ? Icons.SortAsc : Icons.SortDesc)"/></svg>
-                <span>排序</span>
-            </button>
-            @if (_showSortDropdown)
-            {
-                <div class="sort-dropdown glass-effect" @onclick:stopPropagation>
-                    <div class="sort-dropdown-header">排序方式</div>
-                    @foreach (var field in System.Enum.GetValues<SortField>())
-                    {
-                        <div class="sort-dropdown-item @(ViewModel.SortField == field ? "active" : "")"
-                             @onclick="@(() => SelectSortField(field))">
-                            <span>@GetSortFieldLabel(field)</span>
-                            @if (ViewModel.SortField == field)
-                            {<span class="sort-dropdown-check">✓</span>}
-                        </div>
-                    }
-                    <div class="sort-dropdown-divider"></div>
-                    <div class="sort-dropdown-item" @onclick="ToggleSortDirection">
-                        <span>@(ViewModel.SortAscending ? "升序" : "降序")</span>
-                        <span class="sort-dropdown-check">@(ViewModel.SortAscending ? "↑" : "↓")</span>
-                    </div>
-                    <div class="sort-dropdown-divider"></div>
-                    <div class="sort-dropdown-header">分组方式</div>
-                    @foreach (var group in System.Enum.GetValues<GroupField>())
-                    {
-                        <div class="sort-dropdown-item @(ViewModel.GroupField == group ? "active" : "")"
-                             @onclick="@(() => SelectGroupField(group))">
-                            <span>@GetGroupFieldLabel(group)</span>
-                            @if (ViewModel.GroupField == group)
-                            {<span class="sort-dropdown-check">✓</span>}
-                        </div>
-                    }
-                </div>
-            }
-        </div>
-    }
+        }
+    </div>
 
     <div style="flex:1"></div>
 
-    @if (!ViewModel.IsHomePage)
-    {
-        <!-- Preview pane toggle -->
-        <button class="toolbar-btn @(ViewModel.IsPreviewPaneVisible ? "active" : "")"
-                @onclick="TogglePreview" title="预览窗格 (⇧⌘P)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Preview"/></svg>
-        </button>
-
-        <div class="toolbar-separator"></div>
-    }
-
-    <!-- Search -->
-    <div class="search-bar @(ViewModel.IsSearchMode ? "active" : "")">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Search"/></svg>
-        <input type="text" placeholder="搜索..."
-               @bind="searchQuery"
-               @bind:event="oninput"
-               @onkeydown="OnSearchKeyDown"
-               @onkeydown:stopPropagation />
-        @if (ViewModel.IsSearchMode || !string.IsNullOrEmpty(searchQuery))
-        {
-            <button class="search-clear" @onclick="ClearSearch">✕</button>
-        }
-    </div>
+    <!-- Preview pane toggle -->
+    <button class="toolbar-btn @(ViewModel.IsPreviewPaneVisible ? "active" : "")"
+            @onclick="TogglePreview" title="预览窗格 (⇧⌘P)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Preview"/></svg>
+    </button>
 </div>
+}
 
 @code {
     [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
-    private string searchQuery = "";
     private bool _showSortDropdown;
     private bool _showNewDropdown;
     private DotNetObjectReference<FinderToolbar>? _dropdownRef;
@@ -180,39 +135,10 @@
         }
     }
 
-    private async Task NavigateUp() => await ViewModel.NavigateUpCommand.ExecuteAsync(null);
-    private async Task NavigateBack() => await ViewModel.NavigateBackCommand.ExecuteAsync(null);
-    private async Task NavigateForward() => await ViewModel.NavigateForwardCommand.ExecuteAsync(null);
-    private void GoHome() => ViewModel.GoHomeCommand.Execute(null);
-
-    private async Task Refresh()
-    {
-        if (ViewModel.IsSearchMode)
-            await ViewModel.SearchCommand.ExecuteAsync(searchQuery);
-        else if (ViewModel.IsCollectionView && ViewModel.CurrentCollectionId != null)
-            await ViewModel.NavigateToCollectionAsync(ViewModel.CurrentCollectionId.Value);
-        else
-            await ViewModel.RefreshCommand.ExecuteAsync(null);
-    }
-
-    private async Task OnSearchKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery))
-        {
-            await ViewModel.SearchCommand.ExecuteAsync(searchQuery);
-        }
-        else if (e.Key == "Escape")
-        {
-            await ClearSearch();
-        }
-    }
-
-    private async Task ClearSearch()
-    {
-        searchQuery = "";
-        ViewModel.ExitSearch();
-        await ViewModel.RefreshCommand.ExecuteAsync(null);
-    }
+    private void CutSelected() => ViewModel.CutSelectedCommand.Execute(null);
+    private void CopySelected() => ViewModel.CopySelectedCommand.Execute(null);
+    private async Task PasteItems() => await ViewModel.PasteCommand.ExecuteAsync(null);
+    private async Task DeleteSelected() => await ViewModel.DeleteSelectedCommand.ExecuteAsync(null);
 
     private void ToggleSortDropdown() { _showSortDropdown = !_showSortDropdown; _showNewDropdown = false; }
     private void ToggleNewDropdown() { _showNewDropdown = !_showNewDropdown; _showSortDropdown = false; }

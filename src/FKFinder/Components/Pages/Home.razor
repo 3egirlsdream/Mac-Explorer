@@ -9,12 +9,12 @@
 
 <CascadingValue Value="ViewModel">
     <div class="finder-layout">
-        <FinderSidebar />
-        <div class="finder-main">
-            <FinderToolbar />
+        <FinderNavBar />
+        <FinderToolbar />
+        <div class="finder-body">
+            <FinderSidebar />
             <div class="finder-content-split">
                 <div class="finder-content-main">
-                    <BreadcrumbBar />
                     <div class="loading-indicator @(ViewModel.IsLoading ? "active" : "")"></div>
                     @if (ViewModel.IsHomePage)
                     {

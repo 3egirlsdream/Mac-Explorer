@@ -111,9 +111,17 @@ input:focus {
 
 .finder-layout {
     display: flex;
+    flex-direction: column;
     height: 100%;
     width: 100%;
     position: relative;
+}
+
+.finder-body {
+    flex: 1;
+    display: flex;
+    height: 0;
+    min-height: 0;
 }
 
 /* ═══ Title Bar ═══ */
@@ -238,7 +246,6 @@ input:focus {
     flex-direction: column;
     height: 100%;
     overflow: visible;
-    padding-top: var(--titlebar-height);
     min-width: 0;
 }
 
@@ -251,9 +258,35 @@ input:focus {
     overflow: hidden;
 }
 
+/* ═══ Navbar — Navigation + Breadcrumb + Search Row ═══ */
+.finder-navbar {
+    height: var(--breadcrumb-height);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 var(--space-8);
+    border-bottom: 1px solid var(--color-border-subtle);
+    position: relative;
+    z-index: var(--z-toolbar);
+    flex-shrink: 0;
+}
+
+.navbar-btn-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+}
+
+.toolbar-btn-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
 /* ═══ Toolbar — Win11 Command Bar ═══ */
 .finder-toolbar {
-    height: var(--toolbar-height);
+    height: 42px;
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -261,6 +294,7 @@ input:focus {
     border-bottom: 1px solid var(--color-border-subtle);
     position: relative;
     z-index: var(--z-dropdown);
+    flex-shrink: 0;
 }
 
 /* ═══ Action Bar (New + Refresh) ═══ */
@@ -514,39 +548,25 @@ input:focus {
 
 /* ═══ Breadcrumb Bar — Win11 Address Bar ═══ */
 .breadcrumb-bar {
-    height: var(--breadcrumb-height);
+    flex: 1;
+    height: 32px;
     display: flex;
     align-items: center;
-    padding: 0 var(--space-8);
+    padding: 0 var(--space-4);
     gap: var(--space-1);
-    border-bottom: 1px solid var(--color-border-subtle);
     overflow: hidden;
     position: relative;
-    flex-shrink: 0;
+    min-width: 0;
+    border-radius: var(--radius-sm);
 }
 
-/* ═══ Breadcrumb — Home Centered Mode (PowerToys Run style) ═══ */
+/* ═══ Breadcrumb — Home Mode (inline in navbar) ═══ */
 .breadcrumb-bar.breadcrumb-home {
-    position: absolute;
-    top: calc(50% - 200px);
-    left: 50%;
-    transform: translateX(-50%);
-    width: 440px;
-    height: 52px;
-    border-bottom: none;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.04),
-        0 8px 32px rgba(0, 0, 0, 0.07),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    z-index: 10;
-    padding: 0 18px;
+    background: var(--addressbar-bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
+    padding: 0 var(--space-4);
     gap: var(--space-3);
-    overflow: visible;
 }
 
 .breadcrumb-bar.breadcrumb-home::before {
@@ -564,7 +584,7 @@ input:focus {
     border: none;
     background: transparent;
     padding: 0;
-    font-size: 15px;
+    font-size: var(--font-size-caption);
     font-weight: 400;
     color: var(--color-text-primary);
     outline: none;
@@ -582,10 +602,10 @@ input:focus {
 .breadcrumb-bar::before {
     content: "";
     position: absolute;
-    top: 4px;
-    bottom: 4px;
-    left: var(--space-4);
-    right: var(--space-4);
+    top: 2px;
+    bottom: 2px;
+    left: var(--space-2);
+    right: var(--space-2);
     background: var(--addressbar-bg);
     border-radius: var(--radius-sm);
     border: 1px solid transparent;
@@ -903,8 +923,10 @@ input:focus {
     border-radius: var(--radius-sm);
     padding: 0 var(--space-8) 0 var(--space-6);
     border: 1px solid var(--color-border-subtle);
-    height: 36px;
-    min-width: 220px;
+    height: 30px;
+    min-width: 180px;
+    max-width: 260px;
+    flex-shrink: 0;
     transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast), min-width var(--transition-smooth);
 }
 
@@ -913,7 +935,7 @@ input:focus {
     border-color: var(--color-accent);
     background: var(--addressbar-bg-focus);
     box-shadow: 0 0 0 1.5px var(--color-accent-light);
-    min-width: 260px;
+    min-width: 220px;
 }
 
 .search-bar input {
