@@ -70,11 +70,11 @@ public class MacContextMenuService : IContextMenuService
 
         actions.Add(new() { Label = "在 Finder 中显示", IconSvg = Icons.Finder, Execute = () => _launcher.RevealInFinderAsync(entry.FullPath) });
 
-        // Terminal / VS Code: for directories use the path directly, for files use parent directory
+        // Terminal: for directories use the path directly, for files use parent directory
         var terminalPath = entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(terminalPath) });
         if (IsAppInstalled("com.microsoft.VSCode"))
-            actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(terminalPath) });
+            actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(entry.FullPath) });
 
         actions.Add(ContextMenuAction.Separator);
         actions.Add(new() { Label = "查看文件信息", IconSvg = Icons.Info, ShortcutText = "⌘I" });
