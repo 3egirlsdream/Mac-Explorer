@@ -3,6 +3,7 @@ using FKFinder.Indexing;
 using FKFinder.Services;
 using FKFinder.ViewModels;
 using Microsoft.Extensions.Logging;
+using Masa.Blazor;
 using Xe.AcrylicView;
 
 #if MACCATALYST
@@ -149,6 +150,7 @@ public static class MauiProgram
         ));
 
         builder.Services.AddMauiBlazorWebView();
+        builder.Services.AddMasaBlazor();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

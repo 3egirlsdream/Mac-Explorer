@@ -1780,22 +1780,11 @@ input:focus {
    ═══════════════════════════════════════ */
 
 .compress-dialog {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     width: 380px;
     padding: var(--space-8);
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-    z-index: var(--z-panel);
-    animation: compressDialogIn 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
-}
-
-@keyframes compressDialogIn {
-    from { opacity: 0; transform: scale(0.95) translateY(8px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .compress-dialog-title {
@@ -1919,30 +1908,11 @@ input:focus {
    ═══════════════════════════════════════ */
 
 .center-progress-card {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     width: 380px;
     padding: var(--space-6);
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: var(--radius-md);
-    box-shadow:
-        0 8px 24px rgba(0, 0, 0, 0.1),
-        0 2px 8px rgba(0, 0, 0, 0.06);
-    z-index: var(--z-panel);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    animation: centerCardIn 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
-}
-
-@keyframes centerCardIn {
-    from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
-    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 .center-progress-header {
@@ -2122,4 +2092,63 @@ input:focus {
 .task-panel-error {
     font-size: var(--font-size-micro);
     color: #ff3b30;
+}
+
+/* ═══════════════════════════════════════
+   MASA Blazor Overrides
+   ═══════════════════════════════════════ */
+
+/* Revert MASA Blazor html overflow change to preserve native macOS overlay scrollbar */
+html {
+    overflow-y: hidden !important;
+}
+
+.m-application {
+    background: transparent !important;
+    color: inherit !important;
+    font-family: inherit !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.m-application--wrap {
+    min-height: 0 !important;
+    background: transparent !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+
+.m-overlay {
+    z-index: var(--z-panel) !important;
+}
+
+/* MDialog glass effect — CompressDialog */
+.fk-dialog-glass {
+    background-color: var(--glass-effect-bg) !important;
+    backdrop-filter: blur(var(--glass-effect-blur)) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(var(--glass-effect-blur)) saturate(180%) !important;
+    border: 1px solid var(--glass-effect-border) !important;
+    box-shadow: var(--glass-effect-shadow) !important;
+    border-radius: var(--glass-effect-radius) !important;
+    overflow: visible !important;
+}
+
+/* MDialog glass effect — CenterProgressCard (denser) */
+.fk-dialog-glass-dense {
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+    border-radius: var(--radius-md) !important;
+    overflow: visible !important;
+}
+
+.dark-mode .fk-dialog-glass-dense {
+    background: rgba(40, 40, 40, 0.88) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }

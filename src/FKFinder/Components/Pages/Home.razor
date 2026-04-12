@@ -1,5 +1,6 @@
 @page "/"
 
+@using Masa.Blazor
 @inject FileListViewModel ViewModel
 @inject IJSRuntime JSRuntime
 @inject FKFinder.Services.IQuickLookService QuickLookService
@@ -8,6 +9,7 @@
 @inject FKFinder.Services.IBackgroundTaskManager TaskManager
 @implements IAsyncDisposable
 
+<MApp Style="background:transparent">
 <CascadingValue Value="ViewModel">
     <div class="finder-layout">
         @if (!ViewModel.IsHomePage)
@@ -51,26 +53,38 @@
     <MetadataPanel Metadata="ViewModel.CurrentMetadata" OnClose="CloseMetadata" />
 }
 
-@if (ViewModel.ActiveTaskId != null)
-{
-    var task = TaskManager.Tasks.FirstOrDefault(t => t.Id == ViewModel.ActiveTaskId);
-    if (task != null)
+<MDialog @bind-Value="_progressDialogVisible"
+         MaxWidth="380"
+         ContentClass="fk-dialog-glass-dense"
+         HideOverlay="true"
+         Persistent="true">
+    @if (_activeTask != null)
     {
-        <CenterProgressCard Task="task" OnMinimize="OnMinimizeTask" />
+        <CenterProgressCard Task="_activeTask" OnMinimize="OnMinimizeTask" />
     }
-}
+</MDialog>
 
-@if (ViewModel.IsCompressDialogVisible && ViewModel.PendingCompressOptions != null)
-{
-    <CompressDialog Options="ViewModel.PendingCompressOptions"
-                    OnConfirm="OnCompressConfirm"
-                    OnCancel="OnCompressCancel" />
-}
+<MDialog @bind-Value="_compressDialogVisible"
+         MaxWidth="380"
+         ContentClass="fk-dialog-glass"
+         HideOverlay="true"
+         Persistent="true">
+    @if (ViewModel.PendingCompressOptions != null)
+    {
+        <CompressDialog Options="ViewModel.PendingCompressOptions"
+                        OnConfirm="OnCompressConfirm"
+                        OnCancel="OnCompressCancel" />
+    }
+</MDialog>
 
 <TaskPanel />
+</MApp>
 
 @code {
     private DotNetObjectReference<Home>? _dotNetRef;
+    private bool _compressDialogVisible;
+    private bool _progressDialogVisible;
+    private BackgroundTaskInfo? _activeTask;
 
     protected override void OnInitialized()
     {
@@ -120,6 +134,7 @@
             or nameof(ViewModel.ActiveTaskId)
             or nameof(ViewModel.IsArchiveView))
         {
+            SyncDialogState();
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -239,7 +254,20 @@
 
     private async void OnTasksChanged()
     {
+        SyncDialogState();
         await InvokeAsync(StateHasChanged);
+    }
+
+    private void SyncDialogState()
+    {
+        _compressDialogVisible = ViewModel.IsCompressDialogVisible
+                                 && ViewModel.PendingCompressOptions != null;
+
+        var activeTask = ViewModel.ActiveTaskId != null
+            ? TaskManager.Tasks.FirstOrDefault(t => t.Id == ViewModel.ActiveTaskId)
+            : null;
+        _activeTask = activeTask;
+        _progressDialogVisible = activeTask != null;
     }
 
     public async ValueTask DisposeAsync()
