@@ -1,6 +1,7 @@
 @using FKFinder.Models
 @using System.IO
 @inject FKFinder.Services.NavigationBridge NavigationBridge
+@inject IJSRuntime JSRuntime
 
 <div class="breadcrumb-bar @GetCssClass()" @onclick="ActivatePathInput" @onclick:stopPropagation>
     @if (ViewModel.IsHomePage)
@@ -54,6 +55,7 @@
     [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
 
     private bool _isEditingPath;
+    private bool _needsFocus;
     private string _pathInput = "";
     private string? _pathError;
     private ElementReference _pathInputRef;
@@ -78,9 +80,11 @@
     private void ActivatePathInput()
     {
         if (ViewModel.IsHomePage) return;
-        // 虚拟文件夹（收藏夹）不允许编辑路径
         if (ViewModel.IsCollectionView) return;
+        if (ViewModel.IsArchiveView) return;
+        if (_isEditingPath) return;
         _isEditingPath = true;
+        _needsFocus = true;
         _pathInput = ViewModel.CurrentPath;
     }
 
@@ -128,9 +132,15 @@
             NavigationBridge.PendingQuickAccessFocus = false;
             try { await _pathInputRef.FocusAsync(); } catch { }
         }
-        else if (_isEditingPath)
+        else if (_needsFocus)
         {
-            try { await _pathInputRef.FocusAsync(); } catch { }
+            _needsFocus = false;
+            try
+            {
+                await _pathInputRef.FocusAsync();
+                await JSRuntime.InvokeVoidAsync("eval", "document.activeElement && (document.activeElement.selectionStart = document.activeElement.selectionEnd = document.activeElement.value.length)");
+            }
+            catch { }
         }
     }
 }

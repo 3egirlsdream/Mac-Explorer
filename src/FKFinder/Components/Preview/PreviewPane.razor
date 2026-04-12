@@ -152,8 +152,7 @@
             return FileIconRenderer.RenderFolder(80);
 
         var ext = entry.Extension.TrimStart('.').ToUpperInvariant();
-        var color = GetExtColor(ext);
-        return $@"<svg width=""80"" height=""80"" viewBox=""0 0 24 24"" fill=""none"" stroke=""{color}"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""><path d=""{Icons.File}""/></svg>
+        return $@"<svg width=""80"" height=""80"" viewBox=""0 0 24 24"" fill=""none"">{Icons.File}</svg>
                   <div style=""margin-top:8px;font-size:13px;color:var(--color-text-tertiary);font-weight:500;"">.{ext}</div>";
     }
 

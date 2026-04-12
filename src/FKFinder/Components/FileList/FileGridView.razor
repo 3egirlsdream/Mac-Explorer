@@ -711,6 +711,24 @@
 
     private async Task CreateBlobUrlsForEntriesAsync()
     {
+        // Collect current entry IconUrls to detect stale cache entries
+        var currentIconUrls = new HashSet<string>(
+            ViewModel.Entries
+                .Where(e => !string.IsNullOrEmpty(e.IconUrl))
+                .Select(e => e.IconUrl!));
+
+        // Revoke blob URLs that are no longer needed (from previous directory)
+        var staleKeys = _blobUrlCache.Keys.Where(k => !currentIconUrls.Contains(k)).ToList();
+        if (staleKeys.Count > 0)
+        {
+            var staleUrls = staleKeys.Select(k => _blobUrlCache[k]).ToList();
+            try { await JSRuntime.InvokeVoidAsync("revokeBlobUrls", staleUrls.ToArray()); }
+            catch { }
+            foreach (var key in staleKeys)
+                _blobUrlCache.Remove(key);
+            _activeBlobUrls.RemoveAll(u => staleUrls.Contains(u));
+        }
+
         var entriesNeedingBlob = ViewModel.Entries
             .Where(e => !string.IsNullOrEmpty(e.IconUrl) && !_blobUrlCache.ContainsKey(e.IconUrl))
             .ToList();
@@ -720,7 +738,11 @@
         {
             try
             {
+                if (!System.IO.File.Exists(entry.IconUrl!))
+                    continue;
                 var bytes = await System.IO.File.ReadAllBytesAsync(entry.IconUrl!);
+                if (bytes.Length == 0)
+                    continue;
                 var blobUrl = await JSRuntime.InvokeAsync<string>("createBlobUrl", bytes, "image/png");
                 _blobUrlCache[entry.IconUrl!] = blobUrl;
                 _activeBlobUrls.Add(blobUrl);
