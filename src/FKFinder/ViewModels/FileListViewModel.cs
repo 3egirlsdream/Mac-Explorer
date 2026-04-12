@@ -752,19 +752,8 @@ public partial class FileListViewModel : ObservableObject
             }
             else if (IsCollectionView)
             {
-                // Collection view: only show refresh, no new file/folder/paste
-                ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
-                {
-                    new ContextMenuAction
-                    {
-                        Label = "刷新",
-                        IconSvg = Icons.Refresh,
-                        ShortcutText = "⌘R",
-                        Execute = () => CurrentCollectionId != null
-                            ? NavigateToCollectionAsync(CurrentCollectionId.Value)
-                            : Task.CompletedTask
-                    }
-                });
+                // Collection view: no background context menu
+                return;
             }
             else if (IsInTrash)
             {
@@ -835,6 +824,7 @@ public partial class FileListViewModel : ObservableObject
                     Label = action.Label,
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
+                    IsQuickAction = action.IsQuickAction,
                     Execute = () => { CopySelected(); return Task.CompletedTask; }
                 });
             }
@@ -845,6 +835,7 @@ public partial class FileListViewModel : ObservableObject
                     Label = action.Label,
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
+                    IsQuickAction = action.IsQuickAction,
                     Execute = () => { CutSelected(); return Task.CompletedTask; }
                 });
             }
@@ -855,17 +846,19 @@ public partial class FileListViewModel : ObservableObject
                     Label = action.Label,
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
+                    IsQuickAction = action.IsQuickAction,
                     IsEnabled = _clipboardService?.HasClipboardFiles ?? false,
                     Execute = () => PasteCommand.ExecuteAsync(null)
                 });
             }
-            else if (action.Label == "移到废纸篓")
+            else if (action.Label == "删除")
             {
                 result.Add(new ContextMenuAction
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
+                    IsQuickAction = action.IsQuickAction,
                     Execute = async () =>
                     {
                         SelectedEntries.Clear();
@@ -881,6 +874,7 @@ public partial class FileListViewModel : ObservableObject
                     Label = action.Label,
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
+                    IsQuickAction = action.IsQuickAction,
                     Execute = () =>
                     {
                         RequestRename(entry);
@@ -978,6 +972,7 @@ public partial class FileListViewModel : ObservableObject
                     Label = action.Label,
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
+                    IsQuickAction = action.IsQuickAction,
                     IsEnabled = _clipboardService?.HasClipboardFiles ?? false,
                     Execute = () => PasteCommand.ExecuteAsync(null)
                 });

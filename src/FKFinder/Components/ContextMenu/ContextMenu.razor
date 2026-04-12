@@ -3,7 +3,23 @@
 @implements IAsyncDisposable
 
 <div class="context-menu glass-effect" @ref="_menuRef" style="@MenuPosition" @oncontextmenu:preventDefault>
-    @foreach (var action in Actions)
+    @{ var quickActions = Actions.Where(a => a.IsQuickAction).ToList(); }
+    @if (quickActions.Count > 0)
+    {
+        <div class="context-menu-quick-bar">
+            @foreach (var qa in quickActions)
+            {
+                <div class="context-menu-quick-item @(!qa.IsEnabled ? "disabled" : "")" @onclick="() => ExecuteAction(qa)" title="@qa.Label">
+                    <span class="context-menu-quick-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@qa.IconSvg"/></svg>
+                    </span>
+                    <span class="context-menu-quick-label">@qa.Label</span>
+                </div>
+            }
+        </div>
+        <div class="context-menu-separator"></div>
+    }
+    @foreach (var action in Actions.Where(a => !a.IsQuickAction))
     {
         @if (action.IsSeparator)
         {

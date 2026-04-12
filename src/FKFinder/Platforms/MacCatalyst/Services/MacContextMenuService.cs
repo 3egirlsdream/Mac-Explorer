@@ -44,6 +44,12 @@ public class MacContextMenuService : IContextMenuService
             });
         }
 
+        // Quick actions: Cut, Copy, Rename, Delete (shown as icon bar at top of menu)
+        actions.Add(new() { Label = "剪切", IconSvg = Icons.Cut, ShortcutText = "⌘X", IsQuickAction = true });
+        actions.Add(new() { Label = "拷贝", IconSvg = Icons.Copy, ShortcutText = "⌘C", IsQuickAction = true });
+        actions.Add(new() { Label = "重命名", IconSvg = Icons.Rename, ShortcutText = "↵", IsQuickAction = true });
+        actions.Add(new() { Label = "删除", IconSvg = Icons.Delete, ShortcutText = "⌘⌫", IsQuickAction = true });
+
         actions.Add(ContextMenuAction.Separator);
 
         // Archive: extract for archive files, compress for others
@@ -58,15 +64,7 @@ public class MacContextMenuService : IContextMenuService
 
         actions.Add(ContextMenuAction.Separator);
 
-        actions.Add(new() { Label = "拷贝", IconSvg = Icons.Copy, ShortcutText = "⌘C" });
-        actions.Add(new() { Label = "剪切", IconSvg = Icons.Cut, ShortcutText = "⌘X" });
-        actions.Add(new() { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V" });
         actions.Add(new() { Label = "复制路径", IconSvg = Icons.CopyPath, ShortcutText = "⌥⌘C", Execute = () => CopyToClipboard(entry.FullPath) });
-
-        actions.Add(ContextMenuAction.Separator);
-
-        actions.Add(new() { Label = "重命名", IconSvg = Icons.Rename, ShortcutText = "↵" });
-        actions.Add(new() { Label = "移到废纸篓", IconSvg = Icons.Delete, ShortcutText = "⌘⌫" });
 
         actions.Add(ContextMenuAction.Separator);
 
@@ -86,11 +84,12 @@ public class MacContextMenuService : IContextMenuService
 
     public async Task<IReadOnlyList<ContextMenuAction>> GetBackgroundContextMenuActionsAsync(string currentDirectory)
     {
-        var actions = new List<ContextMenuAction>
-        {
-            new() { Label = "新建文件夹", IconSvg = Icons.NewFolder, ShortcutText = "⇧⌘N" },
-            new() { Label = "新建文件", IconSvg = Icons.NewFile },
-        };
+        var actions = new List<ContextMenuAction>();
+
+        actions.Add(new() { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V", IsQuickAction = true });
+
+        actions.Add(new() { Label = "新建文件夹", IconSvg = Icons.NewFolder, ShortcutText = "⇧⌘N" });
+        actions.Add(new() { Label = "新建文件", IconSvg = Icons.NewFile });
 
         actions.Add(ContextMenuAction.Separator);
 
@@ -101,11 +100,6 @@ public class MacContextMenuService : IContextMenuService
         actions.Add(ContextMenuAction.Separator);
 
         actions.Add(new() { Label = "复制路径", IconSvg = Icons.CopyPath, Execute = () => CopyToClipboard(currentDirectory) });
-        actions.Add(new() { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V" });
-
-        actions.Add(ContextMenuAction.Separator);
-
-        actions.Add(new() { Label = "刷新", IconSvg = Icons.Refresh, ShortcutText = "⌘R" });
 
         return await Task.FromResult(actions.AsReadOnly());
     }

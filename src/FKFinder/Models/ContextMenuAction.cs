@@ -10,6 +10,7 @@ public class ContextMenuAction
     public Func<Task>? Execute { get; init; }
     public IReadOnlyList<ContextMenuAction>? SubItems { get; init; }
     public string? Tag { get; init; }
+    public bool IsQuickAction { get; init; }
 
     public static ContextMenuAction Separator => new() { IsSeparator = true };
 }
