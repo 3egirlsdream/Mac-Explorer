@@ -774,6 +774,10 @@ input:focus {
     opacity: 0.45;
 }
 
+.file-grid-item.dragging {
+    opacity: 0.55;
+}
+
 .file-grid-icon {
     width: 48px;
     height: 48px;
@@ -875,6 +879,7 @@ input:focus {
     transition: background var(--transition-fast);
     border-radius: var(--radius-sm);
     min-height: 34px;
+    position: relative;
 }
 
 .file-list-row:hover {
@@ -897,6 +902,36 @@ input:focus {
 
 .file-list-row.cut {
     opacity: 0.45;
+}
+
+.file-list-row.dragging {
+    opacity: 0.55;
+}
+
+/* Drag count badge for multi-file drag */
+.drag-count-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: var(--color-accent, #007aff);
+    color: #fff;
+    font: bold 13px/22px -apple-system, BlinkMacSystemFont, sans-serif;
+    text-align: center;
+    pointer-events: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    z-index: 9999;
+    /* Counteract parent .dragging opacity so badge stays fully visible */
+}
+
+/* When inside a dragging item, boost badge visibility */
+.file-list-row.dragging .drag-count-badge,
+.file-grid-item.dragging .drag-count-badge {
+    /* Force badge to stand out on semi-transparent parent */
+    filter: brightness(1.1);
 }
 
 .file-list-name {

@@ -34,6 +34,34 @@
     <script src="js/preview-resize.js"></script>
     <script src="js/scroll-memory.js"></script>
     <script>
+        // Enable HTML5 drag ghost for all draggable elements (Blazor doesn't set dataTransfer)
+        document.addEventListener('dragstart', function(e) {
+            var el = e.target.closest('[draggable="true"]');
+            if (el && e.dataTransfer) {
+                e.dataTransfer.setData('text/plain', '');
+                e.dataTransfer.effectAllowed = 'move';
+
+                // Inject drag count badge synchronously so WKWebView captures it in the ghost.
+                // Read count from data attribute (set at render time) to avoid timing issues
+                // where WKWebView's mouseup clears .selected before dragstart fires.
+                var countAttr = el.getAttribute('data-selected-count');
+                var count = countAttr ? parseInt(countAttr, 10) : 0;
+                if (count <= 1) {
+                    count = document.querySelectorAll('.file-list-row.selected, .file-grid-item.selected').length;
+                }
+                if (count > 1 && (countAttr || el.matches('.selected'))) {
+                    var badge = document.createElement('div');
+                    badge.className = 'drag-count-badge';
+                    badge.textContent = count;
+                    el.appendChild(badge);
+                    // Remove after ghost is captured
+                    requestAnimationFrame(function() {
+                        if (badge.parentNode) badge.parentNode.removeChild(badge);
+                    });
+                }
+            }
+        });
+
         // Create a Blob URL from a byte array for efficient local image display
         function createBlobUrl(byteArray, mimeType) {
             var blob = new Blob([byteArray], { type: mimeType || 'image/png' });

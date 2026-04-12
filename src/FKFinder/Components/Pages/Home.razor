@@ -177,6 +177,7 @@
                     break;
                 case "selectAll":
                     ViewModel.SelectAll();
+                    StateHasChanged();
                     break;
                 case "navigateUp":
                     await ViewModel.NavigateUpCommand.ExecuteAsync(null);
