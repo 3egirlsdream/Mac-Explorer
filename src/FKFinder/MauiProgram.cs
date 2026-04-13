@@ -109,6 +109,7 @@ public static class MauiProgram
             new Platforms.MacCatalyst.Services.MacFileService(sp.GetRequiredService<SqliteFileIndex>()));
         builder.Services.AddSingleton<IApplicationLauncherService, Platforms.MacCatalyst.Services.MacApplicationLauncherService>();
         builder.Services.AddSingleton<IContextMenuService, Platforms.MacCatalyst.Services.MacContextMenuService>();
+        builder.Services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
         builder.Services.AddSingleton<IMetadataService, Platforms.MacCatalyst.Services.MacMetadataService>();
         builder.Services.AddSingleton<IClipboardService, Platforms.MacCatalyst.Services.MacClipboardService>();
         builder.Services.AddSingleton<ISearchService, Platforms.MacCatalyst.Services.MacSearchService>();
@@ -125,9 +126,16 @@ public static class MauiProgram
             new Services.Impl.FrequentFolderService(
                 sp.GetRequiredService<IndexConfiguration>().DatabasePath,
                 sp.GetRequiredService<IFileService>().HomeDirectory));
+        builder.Services.AddSingleton<IPinnedFolderService>(sp =>
+            new Services.Impl.PinnedFolderService(sp.GetRequiredService<IndexConfiguration>().DatabasePath));
         builder.Services.AddSingleton<IArchiveService, Services.Impl.ArchiveService>();
         builder.Services.AddSingleton<IBackgroundTaskManager, Services.Impl.BackgroundTaskManager>();
         builder.Services.AddSingleton<NavigationBridge>();
+        builder.Services.AddSingleton<IAiTagService>(sp =>
+            new Services.Impl.AiTagService(sp.GetRequiredService<IndexConfiguration>().DatabasePath));
+        builder.Services.AddSingleton<IImageAnalysisService,
+            Platforms.MacCatalyst.Services.MacImageAnalysisService>();
+        builder.Services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
 
         // Register ViewModels (Scoped so each window gets its own instance)
         builder.Services.AddScoped<FileListViewModel>(sp => new FileListViewModel(
@@ -146,7 +154,11 @@ public static class MauiProgram
             sp.GetService<ISettingsService>(),
             sp.GetService<IFrequentFolderService>(),
             sp.GetService<IArchiveService>(),
-            sp.GetService<IBackgroundTaskManager>()
+            sp.GetService<IBackgroundTaskManager>(),
+            sp.GetService<INativeContextMenuService>(),
+            sp.GetService<IPinnedFolderService>(),
+            sp.GetService<IImageAnalysisService>(),
+            sp.GetService<IAiTagService>()
         ));
 
         builder.Services.AddMauiBlazorWebView();

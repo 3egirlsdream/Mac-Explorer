@@ -25,6 +25,10 @@ public partial class FileListViewModel : ObservableObject
     private readonly IFrequentFolderService? _frequentFolderService;
     private readonly IArchiveService? _archiveService;
     private readonly IBackgroundTaskManager? _taskManager;
+    private readonly INativeContextMenuService? _nativeContextMenuService;
+    private readonly IPinnedFolderService? _pinnedFolderService;
+    private readonly IImageAnalysisService? _imageAnalysisService;
+    private readonly IAiTagService? _aiTagService;
     private CancellationTokenSource? _searchCts;
 
     private IReadOnlyList<FileSystemEntry> _rawEntries = [];
@@ -40,7 +44,12 @@ public partial class FileListViewModel : ObservableObject
 
     // Scroll behavior after Entries change
     public enum ScrollMode { ResetToTop, RestoreNavigation, ScrollToSelected, PreservePosition }
-    public ScrollMode ScrollBehaviorAfterLoad { get; private set; } = ScrollMode.ResetToTop;
+    public ScrollMode ScrollBehaviorAfterLoad { get; set; } = ScrollMode.ResetToTop;
+
+    /// <summary>
+    /// When set, ApplyEntries will auto-select and scroll to the file with this name after loading.
+    /// </summary>
+    public string? PendingSelectFileName { get; set; }
 
     // Keep backward-compat alias
     public bool IsRestoringNavigation => ScrollBehaviorAfterLoad == ScrollMode.RestoreNavigation;
@@ -139,6 +148,10 @@ public partial class FileListViewModel : ObservableObject
     [ObservableProperty]
     private string? _currentCollectionName;
 
+    // Pinned folders
+    [ObservableProperty]
+    private ObservableCollection<PinnedFolder> _pinnedFolders = [];
+
     // Last clicked entry for shift-range selection
     private FileSystemEntry? _lastClickedEntry;
 
@@ -161,6 +174,26 @@ public partial class FileListViewModel : ObservableObject
     [ObservableProperty]
     private string? _activeTaskId;
 
+    // AI view
+    [ObservableProperty]
+    private bool _isAiView;
+
+    [ObservableProperty]
+    private AiViewMode _aiViewMode;
+
+    [ObservableProperty]
+    private int? _currentFaceClusterId;
+
+    [ObservableProperty]
+    private string? _currentAiContextLabel;
+
+    [ObservableProperty]
+    private bool _isAiAnalysisEnabled = true;
+
+    public ObservableCollection<FaceCluster> FaceClusters { get; } = [];
+    public ObservableCollection<AiCategory> AiCategories { get; } = [];
+    public ObservableCollection<AiCategory> TextTokens { get; } = [];
+
     public FileListViewModel(
         IFileService fileService,
         IFileIndex fileIndex,
@@ -177,7 +210,11 @@ public partial class FileListViewModel : ObservableObject
         ISettingsService? settingsService = null,
         IFrequentFolderService? frequentFolderService = null,
         IArchiveService? archiveService = null,
-        IBackgroundTaskManager? taskManager = null)
+        IBackgroundTaskManager? taskManager = null,
+        INativeContextMenuService? nativeContextMenuService = null,
+        IPinnedFolderService? pinnedFolderService = null,
+        IImageAnalysisService? imageAnalysisService = null,
+        IAiTagService? aiTagService = null)
     {
         _fileService = fileService;
         _fileIndex = fileIndex;
@@ -195,6 +232,10 @@ public partial class FileListViewModel : ObservableObject
         _frequentFolderService = frequentFolderService;
         _archiveService = archiveService;
         _taskManager = taskManager;
+        _nativeContextMenuService = nativeContextMenuService;
+        _pinnedFolderService = pinnedFolderService;
+        _imageAnalysisService = imageAnalysisService;
+        _aiTagService = aiTagService;
 
         // Load persisted user preferences
         if (_settingsService != null)
@@ -205,16 +246,21 @@ public partial class FileListViewModel : ObservableObject
             GroupField = _settingsService.Get<GroupField>("GroupField", GroupField.None);
             IsPreviewPaneVisible = _settingsService.Get<bool>("IsPreviewPaneVisible", false);
             HideSystemFiles = _settingsService.Get<bool>("HideSystemFiles", true);
+            IsAiAnalysisEnabled = _settingsService.Get<bool>("IsAiAnalysisEnabled", true);
         }
 
         _ = LoadCollectionsAsync();
+        _ = LoadPinnedFoldersAsync();
     }
 
     [RelayCommand]
     public async Task NavigateToAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
-        ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+        if (string.IsNullOrEmpty(PendingSelectFileName))
+        {
+            ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+        }
 
         // Intercept archive sentinel paths
         if (ArchivePathHelper.IsArchivePath(path))
@@ -222,6 +268,19 @@ public partial class FileListViewModel : ObservableObject
             await NavigateToArchiveAsync(path);
             return;
         }
+
+        // Intercept AI sentinel paths
+        if (AiPathHelper.IsAiPath(path))
+        {
+            await HandleAiNavigationAsync(path);
+            return;
+        }
+
+        // Leaving AI view when navigating to a filesystem path
+        IsAiView = false;
+        CurrentFaceClusterId = null;
+        CurrentAiContextLabel = null;
+        TextTokens.Clear();
 
         // Validate that the path exists on the filesystem
         // Skip validation for trash directory (macOS SIP blocks .NET Directory.Exists)
@@ -287,6 +346,16 @@ public partial class FileListViewModel : ObservableObject
     {
         if (IsHomePage) return;
 
+        if (IsAiView)
+        {
+            var aiParent = AiPathHelper.GetParentPath(CurrentPath);
+            if (string.IsNullOrEmpty(aiParent))
+                GoHome();
+            else
+                await NavigateToAsync(aiParent);
+            return;
+        }
+
         if (IsArchiveView && CurrentArchivePath != null)
         {
             if (!string.IsNullOrEmpty(CurrentArchiveInternalPath))
@@ -326,6 +395,25 @@ public partial class FileListViewModel : ObservableObject
             return;
         }
 
+        if (IsAiView)
+        {
+            IsLoading = true;
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            try
+            {
+                var info = AiPathHelper.Parse(CurrentPath);
+                if (info.IsTopLevel)
+                    await LoadAiTopLevelAsync(info.Mode);
+                else if (info.IsFaceDetail)
+                    await LoadFaceClusterEntriesAsync(info.FaceClusterId!.Value);
+                else
+                    await LoadAiCategoryEntriesAsync(info.TagType!, info.TagValue!);
+            }
+            catch (Exception ex) { StatusText = $"刷新失败: {ex.Message}"; }
+            finally { IsLoading = false; }
+            return;
+        }
+
         if (IsCollectionView && CurrentCollectionId != null)
         {
             await NavigateToCollectionAsync(CurrentCollectionId.Value);
@@ -350,9 +438,14 @@ public partial class FileListViewModel : ObservableObject
 
         IsHomePage = false;
         IsCollectionView = false;
+        IsAiView = false;
+        CurrentFaceClusterId = null;
+        CurrentAiContextLabel = null;
+        TextTokens.Clear();
         IsArchiveView = true;
         CurrentArchivePath = archivePath;
         CurrentArchiveInternalPath = internalPath;
+        IsSearchMode = false;
         IsLoading = true;
 
         try
@@ -563,6 +656,13 @@ public partial class FileListViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenEntryAsync(FileSystemEntry entry)
     {
+        // Virtual AI folder: navigate into AI detail
+        if (entry.IsVirtual)
+        {
+            await NavigateToAsync(entry.FullPath);
+            return;
+        }
+
         // Archive view: directory -> navigate deeper
         if (IsArchiveView && entry.IsDirectory)
         {
@@ -699,7 +799,29 @@ public partial class FileListViewModel : ObservableObject
 
         if (_contextMenuService != null)
         {
-            if (IsArchiveView)
+            if (entry.IsVirtual)
+            {
+                var actions = new List<ContextMenuAction>
+                {
+                    new()
+                    {
+                        Label = "打开",
+                        IconSvg = Icons.Open,
+                        Execute = () => OpenEntryCommand.ExecuteAsync(entry)
+                    }
+                };
+                if (entry.VirtualFolderType == "face")
+                {
+                    actions.Add(new ContextMenuAction
+                    {
+                        Label = "重命名",
+                        IconSvg = Icons.Rename,
+                        Execute = () => { RequestRename(entry); return Task.CompletedTask; }
+                    });
+                }
+                ContextMenuActions = new ObservableCollection<ContextMenuAction>(actions);
+            }
+            else if (IsArchiveView)
             {
                 ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
                 {
@@ -720,9 +842,22 @@ public partial class FileListViewModel : ObservableObject
             else
             {
                 var actions = await _contextMenuService.GetFileContextMenuActionsAsync(entry);
-                actions = WireUpContextMenuActions(actions, entry);
+                actions = await WireUpContextMenuActionsAsync(actions, entry);
                 ContextMenuActions = new ObservableCollection<ContextMenuAction>(actions);
             }
+        }
+
+        if (_nativeContextMenuService != null)
+        {
+            // Yield to allow Blazor to render selection highlight before the blocking native menu
+            await Task.Delay(50);
+            // Must dispatch to main thread — popUpMenu is modal and must run on the UI thread
+            var actions = ContextMenuActions;
+            var menuX = x;
+            var menuY = y;
+            MainThread.BeginInvokeOnMainThread(() =>
+                _nativeContextMenuService.ShowContextMenu(actions, menuX, menuY));
+            return;
         }
 
         IsContextMenuVisible = true;
@@ -750,9 +885,9 @@ public partial class FileListViewModel : ObservableObject
                     }
                 });
             }
-            else if (IsCollectionView)
+            else if (IsCollectionView || IsAiView)
             {
-                // Collection view: no background context menu
+                // Collection/AI view: no background context menu
                 return;
             }
             else if (IsInTrash)
@@ -769,10 +904,21 @@ public partial class FileListViewModel : ObservableObject
             }
         }
 
+        if (_nativeContextMenuService != null)
+        {
+            await Task.Delay(50);
+            var actions = ContextMenuActions;
+            var menuX = x;
+            var menuY = y;
+            MainThread.BeginInvokeOnMainThread(() =>
+                _nativeContextMenuService.ShowContextMenu(actions, menuX, menuY));
+            return;
+        }
+
         IsContextMenuVisible = true;
     }
 
-    private List<ContextMenuAction> WireUpContextMenuActions(IReadOnlyList<ContextMenuAction> actions, FileSystemEntry entry)
+    private async Task<List<ContextMenuAction>> WireUpContextMenuActionsAsync(IReadOnlyList<ContextMenuAction> actions, FileSystemEntry entry)
     {
         var result = new List<ContextMenuAction>();
         foreach (var action in actions)
@@ -898,6 +1044,19 @@ public partial class FileListViewModel : ObservableObject
                     Label = action.Label,
                     IconSvg = action.IconSvg,
                     Execute = () => { ShowCompressDialog(); return Task.CompletedTask; }
+                });
+            }
+            else if (action.Label == "Pin到收藏" || action.Label == "取消Pin")
+            {
+                // 动态判断当前文件夹是否已Pin
+                var isPinned = _pinnedFolderService != null && await _pinnedFolderService.IsPinnedAsync(entry.FullPath);
+                result.Add(new ContextMenuAction
+                {
+                    Label = isPinned ? "取消Pin" : "Pin到收藏",
+                    IconSvg = Icons.Pin,
+                    Execute = isPinned
+                        ? () => UnpinFolderAsync(entry.FullPath)
+                        : () => PinFolderAsync(entry.FullPath, entry.Name)
                 });
             }
             else
@@ -1125,8 +1284,17 @@ public partial class FileListViewModel : ObservableObject
         if (SelectedEntries.Count == 0) return;
         try
         {
+            var deletedPaths = SelectedEntries.Select(e => e.FullPath).ToList();
             foreach (var entry in SelectedEntries.ToList())
                 await _fileService.DeleteAsync(entry.FullPath, moveToTrash: true);
+
+            // Clean up AI analysis data for deleted files
+            if (_aiTagService != null)
+            {
+                try { await _aiTagService.DeleteAnalysisForFilesAsync(deletedPaths); }
+                catch { }
+            }
+
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             if (IsCollectionView && CurrentCollectionId != null)
                 await NavigateToCollectionAsync(CurrentCollectionId.Value);
@@ -1234,9 +1402,24 @@ public partial class FileListViewModel : ObservableObject
         try
         {
             var ext = extension ?? ".txt";
-            var baseName = ext == ".txt" ? "未命名.txt" : $"未命名{ext}";
+            var baseName = ext.ToLowerInvariant() switch
+            {
+                ".docx" => "未命名文稿.docx",
+                ".xlsx" => "未命名表格.xlsx",
+                ".pptx" => "未命名演示文稿.pptx",
+                ".pages" => "未命名文稿.pages",
+                ".numbers" => "未命名表格.numbers",
+                ".key" => "未命名演示文稿.key",
+                ".txt" => "未命名.txt",
+                _ => $"未命名{ext}"
+            };
             var name = GetUniqueNameInCurrentDir(baseName, isDirectory: false);
-            var fullPath = await _fileService.CreateFileAsync(CurrentPath, name);
+
+            var template = FileTemplateProvider.GetTemplate(ext);
+            var fullPath = template != null
+                ? await _fileService.CreateFileWithContentAsync(CurrentPath, name, template)
+                : await _fileService.CreateFileAsync(CurrentPath, name);
+
             ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             var newEntry = Entries.FirstOrDefault(e => e.FullPath == fullPath);
@@ -1244,7 +1427,6 @@ public partial class FileListViewModel : ObservableObject
             {
                 SelectedEntries.Clear();
                 SelectedEntries.Add(newEntry);
-                // 自动进入重命名编辑模式
                 RequestRename(newEntry);
             }
         }
@@ -1328,9 +1510,62 @@ public partial class FileListViewModel : ObservableObject
 
     public async Task RenameEntryAsync(FileSystemEntry entry, string newName)
     {
+        // Virtual face cluster rename
+        if (entry.IsVirtual && entry.VirtualFolderType == "face")
+        {
+            var clusterId = int.Parse(entry.VirtualFolderKey!);
+            await RenameFaceClusterAsync(clusterId, newName);
+            return;
+        }
+
+        // Other virtual entries cannot be renamed
+        if (entry.IsVirtual)
+            return;
+
         try
         {
-            await _fileService.RenameAsync(entry.FullPath, newName);
+            var oldPath = entry.FullPath;
+            await _fileService.RenameAsync(oldPath, newName);
+
+            if (IsAiView)
+            {
+                // In AI detail view: update entry in-memory + update AI database paths
+                var dir = Path.GetDirectoryName(oldPath) ?? "";
+                var newPath = Path.Combine(dir, newName);
+
+                if (_aiTagService != null)
+                    await _aiTagService.UpdateFilePathAsync(oldPath, newPath);
+
+                for (int i = 0; i < Entries.Count; i++)
+                {
+                    if (Entries[i].FullPath == oldPath)
+                    {
+                        var old = Entries[i];
+                        Entries[i] = new FileSystemEntry
+                        {
+                            FullPath = newPath,
+                            Name = newName,
+                            IsDirectory = old.IsDirectory,
+                            Size = old.Size,
+                            LastModified = DateTime.Now,
+                            Created = old.Created,
+                            Extension = Path.GetExtension(newName),
+                            IsHidden = old.IsHidden,
+                            IsSymbolicLink = old.IsSymbolicLink,
+                            IsReadable = old.IsReadable,
+                            IsWritable = old.IsWritable,
+                            IconKey = old.IconKey,
+                            IconUrl = old.IconUrl,
+                            ThumbnailUrl = old.ThumbnailUrl,
+                        };
+                        SelectedEntries.Clear();
+                        SelectedEntries.Add(Entries[i]);
+                        break;
+                    }
+                }
+                return;
+            }
+
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             // Re-select the renamed entry
@@ -1375,6 +1610,7 @@ public partial class FileListViewModel : ObservableObject
         // Resolve app icons lazily in background (don't block the list display)
         _ = ResolveIconsInBackgroundAsync(entries);
         _ = ResolveThumbnailsInBackgroundAsync(entries);
+        _ = TriggerImageAnalysisAsync(entries);
 
         // Batch load ratings for current directory
         if (_ratingService != null)
@@ -1443,8 +1679,27 @@ public partial class FileListViewModel : ObservableObject
             }
         }
 
+        // Auto-select a specific file (e.g. from breadcrumb search suggestion)
+        bool didSelectPending = false;
+        if (PendingSelectFileName != null)
+        {
+            var target = Entries.FirstOrDefault(e => e.Name == PendingSelectFileName);
+            if (target != null)
+            {
+                SelectedEntries.Clear();
+                SelectedEntries.Add(target);
+                _lastClickedEntry = target;
+                didSelectPending = true;
+            }
+            PendingSelectFileName = null;
+        }
+
         // Reset to PreservePosition so background icon/thumbnail updates don't affect scroll
-        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+        // But keep ScrollToSelected when a pending file was just selected, so the frontend can read the signal
+        if (!didSelectPending)
+        {
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+        }
 
         StatusText = $"{Entries.Count} 项";
     }
@@ -1453,6 +1708,11 @@ public partial class FileListViewModel : ObservableObject
     {
         _settingsService?.Set("HideSystemFiles", value);
         ApplySortAndGroup();
+    }
+
+    partial void OnIsAiAnalysisEnabledChanged(bool value)
+    {
+        _settingsService?.Set("IsAiAnalysisEnabled", value);
     }
 
     private void ApplySortAndGroup()
@@ -1490,7 +1750,9 @@ public partial class FileListViewModel : ObservableObject
 
     private List<FileGroup> BuildGroups(List<FileSystemEntry> sorted) => GroupField switch
     {
-        GroupField.Type => sorted.GroupBy(e => e.IsDirectory ? "文件夹" : GetCategoryName(e.Extension))
+        GroupField.Type => sorted.GroupBy(e =>
+                e.IsVirtual ? GetAiTypeLabel(e.VirtualFolderType!)
+                : (e.IsDirectory ? "文件夹" : GetCategoryName(e.Extension)))
             .OrderBy(g => g.Key == "文件夹" ? 1 : 0)
             .Select(g => new FileGroup { Name = g.Key, Entries = g.ToList() }).ToList(),
         GroupField.Modified => sorted.GroupBy(e => GetDateGroup(e.LastModified))
@@ -1580,6 +1842,18 @@ public partial class FileListViewModel : ObservableObject
                 }
             }
         }
+        else if (IsAiView)
+        {
+            segments.Add(new BreadcrumbSegment { Name = "AI 智能", FullPath = "", HasDropdown = false });
+            var modeName = AiPathHelper.GetModeName(AiViewMode);
+            var modePath = AiPathHelper.GetTopLevelPath(AiViewMode);
+            var isDetail = CurrentAiContextLabel != null;
+            segments.Add(new BreadcrumbSegment { Name = modeName, FullPath = modePath, HasDropdown = isDetail });
+            if (isDetail)
+            {
+                segments.Add(new BreadcrumbSegment { Name = CurrentAiContextLabel!, FullPath = CurrentPath, HasDropdown = false });
+            }
+        }
         else if (CurrentPath == _fileService.TrashDirectory)
         {
             segments.Add(new BreadcrumbSegment { Name = "废纸篓", FullPath = CurrentPath, HasDropdown = false });
@@ -1647,6 +1921,14 @@ public partial class FileListViewModel : ObservableObject
 
         IsHomePage = false;
         IsCollectionView = true;
+        IsAiView = false;
+        CurrentFaceClusterId = null;
+        CurrentAiContextLabel = null;
+        TextTokens.Clear();
+        IsArchiveView = false;
+        CurrentArchivePath = null;
+        CurrentArchiveInternalPath = "";
+        IsSearchMode = false;
         CurrentCollectionId = collectionId;
         IsLoading = true;
 
@@ -1754,6 +2036,35 @@ public partial class FileListViewModel : ObservableObject
         await NavigateToCollectionAsync(CurrentCollectionId.Value);
     }
 
+    // ── Pinned Folders ──────────────────────────────────────────────
+
+    private async Task LoadPinnedFoldersAsync()
+    {
+        if (_pinnedFolderService == null) return;
+        var pins = await _pinnedFolderService.GetAllAsync();
+        PinnedFolders = new ObservableCollection<PinnedFolder>(pins);
+    }
+
+    public async Task PinFolderAsync(string path, string displayName)
+    {
+        if (_pinnedFolderService == null) return;
+        await _pinnedFolderService.PinAsync(path, displayName);
+        await LoadPinnedFoldersAsync();
+    }
+
+    public async Task UnpinFolderAsync(string path)
+    {
+        if (_pinnedFolderService == null) return;
+        await _pinnedFolderService.UnpinAsync(path);
+        await LoadPinnedFoldersAsync();
+    }
+
+    public async Task<bool> IsFolderPinnedAsync(string path)
+    {
+        if (_pinnedFolderService == null) return false;
+        return await _pinnedFolderService.IsPinnedAsync(path);
+    }
+
     public bool IsCollectionNameDuplicate(string name, int? excludeId = null)
     {
         return Collections.Any(c =>
@@ -1794,6 +2105,425 @@ public partial class FileListViewModel : ObservableObject
         await LoadCollectionsAsync();
         if (IsCollectionView && CurrentCollectionId == id)
             GoHome();
+    }
+
+    // ── AI Image Analysis ──
+
+    private static readonly HashSet<string> ImageExtensionsForAi = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif",
+        ".webp", ".heic", ".heif", ".dng", ".cr2", ".cr3", ".nef", ".arw"
+    };
+
+    private async Task TriggerImageAnalysisAsync(IReadOnlyList<FileSystemEntry> entries)
+    {
+        if (_aiTagService == null || _imageAnalysisService == null || _taskManager == null) return;
+        if (!IsAiAnalysisEnabled) return;
+
+        try
+        {
+            // 1. Filter image files
+            var imageEntries = entries
+                .Where(e => !e.IsDirectory && ImageExtensionsForAi.Contains(e.Extension))
+                .ToList();
+            if (imageEntries.Count == 0) return;
+
+            // 2. Batch check analysis status — find unanalyzed/outdated files
+            var toAnalyze = await _aiTagService.GetUnanalyzedFilesAsync(
+                imageEntries.Select(e => e.FullPath).ToList(),
+                imageEntries.Select(e => e.LastModified.Ticks).ToList());
+
+            // 3. Detect deleted files — clean up orphan AI data
+            var currentPaths = new HashSet<string>(imageEntries.Select(e => e.FullPath));
+            var analyzedPaths = await _aiTagService.GetAnalyzedPathsInDirectoryAsync(CurrentPath);
+            var deletedPaths = analyzedPaths.Where(p => !currentPaths.Contains(p)).ToList();
+            if (deletedPaths.Count > 0)
+            {
+                try { await _aiTagService.DeleteAnalysisForFilesAsync(deletedPaths); }
+                catch { }
+            }
+
+            // 4. Nothing to analyze
+            if (toAnalyze.Count == 0) return;
+
+            // 5. Run analysis in background
+            var taskInfo = _taskManager.AddTask($"AI 图像分析 0/{toAnalyze.Count}");
+            var semaphore = new SemaphoreSlim(3);
+            var completed = 0;
+
+            try
+            {
+                var tasks = toAnalyze.Select(async file =>
+                {
+                    await semaphore.WaitAsync(taskInfo.Cts.Token);
+                    try
+                    {
+                        taskInfo.Cts.Token.ThrowIfCancellationRequested();
+                        var result = await _imageAnalysisService.AnalyzeImageAsync(file.Path, taskInfo.Cts.Token);
+                        await _aiTagService.SaveAnalysisResultAsync(file.Path, file.ModifiedTicks, result);
+                        var count = Interlocked.Increment(ref completed);
+                        _taskManager.UpdateProgress(taskInfo.Id, (double)count / toAnalyze.Count,
+                            $"AI 图像分析 {count}/{toAnalyze.Count}");
+                    }
+                    finally { semaphore.Release(); }
+                });
+
+                await Task.WhenAll(tasks);
+
+                // 6. Run face clustering
+                await _aiTagService.RunClusteringAsync();
+            }
+            catch (OperationCanceledException) { }
+            finally
+            {
+                _taskManager.CompleteTask(taskInfo.Id);
+                semaphore.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AI analysis trigger failed: {ex.Message}");
+        }
+    }
+
+    // ── AI View Navigation ──
+
+    private static FileSystemEntry CreateVirtualEntry(FaceCluster cluster) => new()
+    {
+        FullPath = $"__ai:face:{cluster.Id}",
+        Name = cluster.DisplayName ?? "未命名",
+        IsDirectory = true,
+        IconKey = "ai-face",
+        ThumbnailUrl = cluster.FaceThumbnailUrl,
+        Size = cluster.FaceCount,
+        LastModified = cluster.UpdatedAt,
+        Created = cluster.CreatedAt,
+        IsVirtual = true,
+        VirtualFolderType = "face",
+        VirtualFolderKey = cluster.Id.ToString(),
+        VirtualItemCount = cluster.FaceCount,
+    };
+
+    private static FileSystemEntry CreateVirtualEntry(AiCategory category) => new()
+    {
+        FullPath = $"__ai:{category.TagType}:{category.TagValue}",
+        Name = category.TagValue,
+        IsDirectory = true,
+        IconKey = $"ai-{category.TagType}",
+        Size = category.FileCount,
+        IsVirtual = true,
+        VirtualFolderType = category.TagType,
+        VirtualFolderKey = $"{category.TagType}:{category.TagValue}",
+        VirtualItemCount = category.FileCount,
+    };
+
+    private static string GetAiTypeLabel(string virtualFolderType) => virtualFolderType switch
+    {
+        "face" => "人物",
+        "scene" => "场景",
+        "object" => "物品",
+        "animal" => "动物",
+        "location" => "地点",
+        "date" => "日期",
+        _ => virtualFolderType
+    };
+
+    [RelayCommand]
+    public async Task NavigateToAiViewAsync(AiViewMode mode)
+        => await NavigateToAsync(AiPathHelper.GetTopLevelPath(mode));
+
+    [RelayCommand]
+    public async Task NavigateToFaceClusterAsync(int clusterId)
+        => await NavigateToAsync($"__ai:face:{clusterId}");
+
+    public async Task NavigateToAiCategoryAsync(string tagType, string tagValue)
+        => await NavigateToAsync($"__ai:{tagType}:{tagValue}");
+
+    private async Task HandleAiNavigationAsync(string sentinelPath)
+    {
+        if (_aiTagService == null) return;
+        var info = AiPathHelper.Parse(sentinelPath);
+
+        if (info.Mode == AiViewMode.TextSearch && info.IsTopLevel)
+        {
+            // TextSearch: skip duplicate guard, allow re-entry
+        }
+        else if (CurrentPath == sentinelPath && Entries.Count > 0)
+        {
+            return;
+        }
+
+        if (IsMetadataPanelVisible)
+            CloseMetadata();
+
+        IsHomePage = false;
+        IsCollectionView = false;
+        IsArchiveView = false;
+        CurrentArchivePath = null;
+        CurrentArchiveInternalPath = "";
+        IsSearchMode = false;
+        IsAiView = true;
+        AiViewMode = info.Mode;
+        IsLoading = true;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(CurrentPath) && SelectedEntries.Count > 0)
+                _pathSelectedEntries[CurrentPath] = SelectedEntries.First().Name;
+
+            if (!_isNavigatingHistory)
+            {
+                if (_historyIndex < _historyStack.Count - 1)
+                    _historyStack.RemoveRange(_historyIndex + 1, _historyStack.Count - _historyIndex - 1);
+                _historyStack.Add(sentinelPath);
+                _historyIndex = _historyStack.Count - 1;
+                OnPropertyChanged(nameof(CanGoBack));
+                OnPropertyChanged(nameof(CanGoForward));
+            }
+
+            CurrentPath = sentinelPath;
+
+            if (info.IsTopLevel)
+            {
+                CurrentFaceClusterId = null;
+                CurrentAiContextLabel = null;
+                await LoadAiTopLevelAsync(info.Mode);
+            }
+            else if (info.IsFaceDetail)
+            {
+                await LoadFaceClusterEntriesAsync(info.FaceClusterId!.Value);
+            }
+            else
+            {
+                CurrentFaceClusterId = null;
+                CurrentAiContextLabel = info.TagValue;
+                await LoadAiCategoryEntriesAsync(info.TagType!, info.TagValue!);
+            }
+
+            UpdateBreadcrumbs();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"加载 AI 视图失败: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task LoadAiTopLevelAsync(AiViewMode mode)
+    {
+        switch (mode)
+        {
+            case AiViewMode.People:
+                var clusters = await _aiTagService!.GetAllFaceClustersAsync();
+                FaceClusters.Clear();
+                foreach (var c in clusters) FaceClusters.Add(c);
+                var peopleEntries = clusters.Select(CreateVirtualEntry).ToList();
+                _rawEntries = peopleEntries;
+                GroupField = GroupField.None;
+                Entries = new ObservableCollection<FileSystemEntry>(peopleEntries);
+                SelectedEntries.Clear();
+                StatusText = $"{clusters.Count} 个人物";
+                _ = ResolveFaceThumbnailsAsync(clusters);
+                break;
+
+            case AiViewMode.Categories:
+                AiCategories.Clear();
+                var allCats = new List<AiCategory>();
+                foreach (var type in new[] { "scene", "object", "animal" })
+                {
+                    var cats = await _aiTagService!.GetCategoriesByTypeAsync(type);
+                    foreach (var c in cats)
+                    {
+                        AiCategories.Add(c);
+                        allCats.Add(c);
+                    }
+                }
+                var catEntries = allCats.Select(CreateVirtualEntry).ToList();
+                _rawEntries = catEntries;
+                GroupField = GroupField.Type;
+                Entries = new ObservableCollection<FileSystemEntry>(catEntries);
+                Groups = new ObservableCollection<FileGroup>(BuildGroups(catEntries));
+                SelectedEntries.Clear();
+                StatusText = $"{allCats.Count} 个分类";
+                break;
+
+            case AiViewMode.Locations:
+                AiCategories.Clear();
+                var locations = await _aiTagService!.GetCategoriesByTypeAsync("location");
+                foreach (var l in locations) AiCategories.Add(l);
+                var locEntries = locations
+                    .OrderByDescending(l => l.FileCount)
+                    .Select(CreateVirtualEntry).ToList();
+                _rawEntries = locEntries;
+                GroupField = GroupField.None;
+                Entries = new ObservableCollection<FileSystemEntry>(locEntries);
+                SelectedEntries.Clear();
+                StatusText = $"{locations.Count} 个地点";
+                break;
+
+            case AiViewMode.Dates:
+                AiCategories.Clear();
+                var dates = await _aiTagService!.GetCategoriesByTypeAsync("date");
+                foreach (var d in dates) AiCategories.Add(d);
+                var dateEntries = dates
+                    .OrderByDescending(d => d.TagValue)
+                    .Select(CreateVirtualEntry).ToList();
+                _rawEntries = dateEntries;
+                GroupField = GroupField.None;
+                Entries = new ObservableCollection<FileSystemEntry>(dateEntries);
+                SelectedEntries.Clear();
+                StatusText = $"{dates.Count} 个日期";
+                break;
+
+            case AiViewMode.TextSearch:
+                _rawEntries = [];
+                Entries.Clear();
+                SelectedEntries.Clear();
+                Groups.Clear();
+                TextTokens.Clear();
+                if (_aiTagService != null)
+                {
+                    var tokens = await _aiTagService.GetPopularTextTagsAsync();
+                    foreach (var t in tokens) TextTokens.Add(t);
+                }
+                StatusText = TextTokens.Count > 0 ? $"{TextTokens.Count} 个热门文字标签" : "";
+                break;
+        }
+    }
+
+    private async Task LoadFaceClusterEntriesAsync(int clusterId)
+    {
+        var filePaths = await _aiTagService!.GetFilePathsForClusterAsync(clusterId);
+        var entries = new List<FileSystemEntry>();
+        foreach (var p in filePaths)
+        {
+            var entry = await _fileIndex.GetEntryAsync(p);
+            if (entry != null) entries.Add(entry);
+        }
+
+        CurrentFaceClusterId = clusterId;
+        var cluster = FaceClusters.FirstOrDefault(c => c.Id == clusterId);
+        CurrentAiContextLabel = cluster?.DisplayName ?? "未命名";
+        _rawEntries = entries;
+        GroupField = GroupField.None;
+        Entries = new ObservableCollection<FileSystemEntry>(entries);
+        SelectedEntries.Clear();
+        _ = ResolveThumbnailsInBackgroundAsync(entries);
+    }
+
+    private async Task LoadAiCategoryEntriesAsync(string tagType, string tagValue)
+    {
+        var filePaths = await _aiTagService!.GetFilePathsForCategoryAsync(tagType, tagValue);
+        var entries = new List<FileSystemEntry>();
+        foreach (var p in filePaths)
+        {
+            var entry = await _fileIndex.GetEntryAsync(p);
+            if (entry != null) entries.Add(entry);
+        }
+
+        CurrentAiContextLabel = tagValue;
+        _rawEntries = entries;
+        GroupField = GroupField.None;
+        Entries = new ObservableCollection<FileSystemEntry>(entries);
+        SelectedEntries.Clear();
+        _ = ResolveThumbnailsInBackgroundAsync(entries);
+    }
+
+    public async Task RenameFaceClusterAsync(int clusterId, string name)
+    {
+        if (_aiTagService == null) return;
+        try
+        {
+            await _aiTagService.SetClusterNameAsync(clusterId, name);
+
+            // Update in-memory FaceClusters
+            var cluster = FaceClusters.FirstOrDefault(c => c.Id == clusterId);
+            if (cluster != null)
+                cluster.DisplayName = name;
+
+            // Replace virtual entry in Entries (Name is init-only)
+            var path = $"__ai:face:{clusterId}";
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                if (Entries[i].FullPath == path)
+                {
+                    var old = Entries[i];
+                    Entries[i] = new FileSystemEntry
+                    {
+                        FullPath = old.FullPath,
+                        Name = name,
+                        IsDirectory = old.IsDirectory,
+                        IconKey = old.IconKey,
+                        ThumbnailUrl = old.ThumbnailUrl,
+                        Size = old.Size,
+                        LastModified = old.LastModified,
+                        Created = old.Created,
+                        IsVirtual = old.IsVirtual,
+                        VirtualFolderType = old.VirtualFolderType,
+                        VirtualFolderKey = old.VirtualFolderKey,
+                        VirtualItemCount = old.VirtualItemCount,
+                    };
+                    break;
+                }
+            }
+        }
+        catch (Exception ex) { StatusText = $"重命名失败: {ex.Message}"; }
+    }
+
+    private async Task ResolveFaceThumbnailsAsync(IReadOnlyList<FaceCluster> clusters)
+    {
+        if (_thumbnailService == null) return;
+        foreach (var cluster in clusters)
+        {
+            if (string.IsNullOrEmpty(cluster.RepresentativeFacePath) || cluster.BoundingBoxW <= 0)
+                continue;
+            try
+            {
+                var bytes = await _thumbnailService.GetFaceCropAsync(
+                    cluster.RepresentativeFacePath,
+                    cluster.BoundingBoxX, cluster.BoundingBoxY,
+                    cluster.BoundingBoxW, cluster.BoundingBoxH);
+                if (bytes != null)
+                {
+                    var url = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+                    cluster.FaceThumbnailUrl = url;
+                    // Propagate thumbnail to virtual entry in Entries
+                    var virtualKey = cluster.Id.ToString();
+                    var entry = Entries.FirstOrDefault(e => e.IsVirtual && e.VirtualFolderKey == virtualKey);
+                    if (entry != null)
+                        entry.ThumbnailUrl = url;
+                    OnPropertyChanged(nameof(FaceClusters));
+                    OnPropertyChanged(nameof(Entries));
+                }
+            }
+            catch { }
+        }
+    }
+
+    [RelayCommand]
+    public async Task SearchAiTagsAsync(string query)
+    {
+        if (_aiTagService == null || string.IsNullOrWhiteSpace(query)) return;
+        try
+        {
+            var paths = await _aiTagService.SearchByTagAsync(query);
+            var entries = new List<FileSystemEntry>();
+            foreach (var path in paths)
+            {
+                var entry = await _fileIndex.GetEntryAsync(path);
+                if (entry != null) entries.Add(entry);
+            }
+
+            CurrentAiContextLabel = $"搜索: {query}";
+            Entries = new ObservableCollection<FileSystemEntry>(entries);
+            SelectedEntries.Clear();
+            StatusText = $"AI 搜索 \"{query}\" — 找到 {entries.Count} 项";
+            _ = ResolveThumbnailsInBackgroundAsync(entries);
+        }
+        catch (Exception ex) { StatusText = $"AI 搜索失败: {ex.Message}"; }
     }
 }
 
