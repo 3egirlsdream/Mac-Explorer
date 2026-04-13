@@ -76,6 +76,12 @@ public class MacContextMenuService : IContextMenuService
         if (IsAppInstalled("com.microsoft.VSCode"))
             actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(entry.FullPath) });
 
+        // Pin到收藏（仅文件夹）
+        if (entry.IsDirectory)
+        {
+            actions.Add(new() { Label = "Pin到收藏", IconSvg = Icons.Pin });
+        }
+
         actions.Add(ContextMenuAction.Separator);
         actions.Add(new() { Label = "查看文件信息", IconSvg = Icons.Info, ShortcutText = "⌘I" });
 
@@ -173,16 +179,10 @@ public class MacContextMenuService : IContextMenuService
     {
         try
         {
-            var content = File.ReadAllText(plistPath);
-            var marker = "<key>CFBundleIdentifier</key>";
-            var idx = content.IndexOf(marker, StringComparison.Ordinal);
-            if (idx < 0) return null;
-            var afterMarker = content.AsSpan(idx + marker.Length).TrimStart();
-            if (!afterMarker.StartsWith("<string>")) return null;
-            var start = "<string>".Length;
-            var endIdx = afterMarker.IndexOf("</string>");
-            if (endIdx < start) return null;
-            return afterMarker.Slice(start, endIdx - start).ToString();
+            var dict = Foundation.NSMutableDictionary.FromFile(plistPath);
+            if (dict == null) return null;
+            var value = dict["CFBundleIdentifier"];
+            return value?.ToString();
         }
         catch { return null; }
     }

@@ -59,7 +59,7 @@ public static class Icons
     /// <summary>
     /// Returns true if the icon should be rendered with fill instead of stroke.
     /// </summary>
-    public static bool IsFillIcon(string? iconSvg) => iconSvg == VSCode || iconSvg == StarFilled;
+    public static bool IsFillIcon(string? iconSvg) => iconSvg == VSCode || iconSvg == StarFilled || iconSvg == Pin;
 
     // Add
     public const string Plus = "M12 5v14M5 12h14";
@@ -92,8 +92,14 @@ public static class Icons
     public const string FileMarkdown = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M7 13v5l2.5-2.5L12 18v-5M15 13v5";
     public const string FileConfig = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M12 18a2 2 0 100-4 2 2 0 000 4zM12 12v2";
 
+    // Pin
+    public const string Pin = "M12 2a2 2 0 00-2 2v5.07A5.98 5.98 0 006 14v1h5v7l1 1 1-1v-7h5v-1a5.98 5.98 0 00-4-5.07V4a2 2 0 00-2-2z";
+
     // Quick access / Frequent
     public const string QuickAccess = "M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7zM13 2v7h7M9 13l2 2 4-4";
     public const string FrequentFolder = "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2zM12 11v4M10 13h4";
     public const string NewWindow = "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7";
+
+    // Settings
+    public const string Settings = "M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2zM12 15a3 3 0 100-6 3 3 0 000 6z";
 }
