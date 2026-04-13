@@ -299,6 +299,7 @@ public class MacMetadataService : IMetadataService
             Latitude = GetDouble(props, "kMDItemLatitude"),
             Longitude = GetDouble(props, "kMDItemLongitude"),
             Altitude = FormatAltitude(GetDouble(props, "kMDItemAltitude")),
+            PhotoTakenDate = GetDateTime(props, "kMDItemContentCreationDate"),
             AllProperties = props
         };
     }
@@ -318,6 +319,14 @@ public class MacMetadataService : IMetadataService
         if (props.TryGetValue(key, out var v) && double.TryParse(v, CultureInfo.InvariantCulture, out var d))
             return d;
         return 0;
+    }
+
+    private static DateTime? GetDateTime(Dictionary<string, string> props, string key)
+    {
+        if (props.TryGetValue(key, out var v) &&
+            DateTime.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            return dt;
+        return null;
     }
 
     private static string FormatFocalLength(double mm)

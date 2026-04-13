@@ -13,12 +13,14 @@ public class MacSearchService : ISearchService
     private readonly IFileIndex _fileIndex;
     private readonly IFileService _fileService;
     private readonly IndexConfiguration _indexConfig;
+    private readonly IAiTagService _aiTagService;
 
-    public MacSearchService(IFileIndex fileIndex, IFileService fileService, IndexConfiguration indexConfig)
+    public MacSearchService(IFileIndex fileIndex, IFileService fileService, IndexConfiguration indexConfig, IAiTagService aiTagService)
     {
         _fileIndex = fileIndex;
         _fileService = fileService;
         _indexConfig = indexConfig;
+        _aiTagService = aiTagService;
     }
 
     public async IAsyncEnumerable<FileSystemEntry> SearchAsync(
@@ -46,14 +48,23 @@ public class MacSearchService : ISearchService
 
             if (indexResults != null)
             {
+                var yieldedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var entry in indexResults)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (entry.FullPath.StartsWith(directory, StringComparison.OrdinalIgnoreCase))
                     {
                         hasIndexResults = true;
+                        yieldedPaths.Add(entry.FullPath);
                         yield return entry;
                     }
+                }
+
+                // Also search AI tags for additional matches
+                await foreach (var aiEntry in SearchAiTagsAsync(pattern, directory, yieldedPaths, cancellationToken))
+                {
+                    hasIndexResults = true;
+                    yield return aiEntry;
                 }
 
                 if (hasIndexResults)
@@ -117,6 +128,44 @@ public class MacSearchService : ISearchService
                     // Skip inaccessible directories
                 }
             }
+        }
+    }
+
+    private async IAsyncEnumerable<FileSystemEntry> SearchAiTagsAsync(
+        string pattern,
+        string directory,
+        HashSet<string> excludePaths,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> aiPaths;
+        try
+        {
+            aiPaths = await _aiTagService.SearchByTagAsync(pattern, null, 100);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var path in aiPaths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!path.StartsWith(directory, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!excludePaths.Add(path))
+                continue;
+            if (!File.Exists(path))
+                continue;
+
+            var ext = Path.GetExtension(path);
+            yield return new FileSystemEntry
+            {
+                FullPath = path,
+                Name = Path.GetFileName(path),
+                IsDirectory = false,
+                Extension = ext,
+                IconKey = SqliteFileIndex.ResolveIconKey(ext)
+            };
         }
     }
 }
