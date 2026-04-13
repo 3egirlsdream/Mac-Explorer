@@ -257,6 +257,16 @@ end tell");
         });
     }
 
+    public async Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
+    {
+        return await Task.Run(() =>
+        {
+            var fullPath = Path.Combine(parentPath, name);
+            File.WriteAllBytes(fullPath, content);
+            return fullPath;
+        });
+    }
+
     public async Task DeleteAsync(string path, bool moveToTrash = true)
     {
         await Task.Run(() =>
@@ -643,6 +653,10 @@ end tell");
             ".obj" or ".fbx" or ".stl" or ".blend" or ".3ds" or ".dae" or ".gltf" or ".glb" or ".usdz" or ".step" or ".stp" => "file-3d",
             // Subtitle files
             ".srt" or ".ass" or ".ssa" or ".sub" or ".vtt" or ".idx" or ".lrc" => "file-subtitle",
+            // Visual Studio / C# project files
+            ".sln" => "file-vs-solution",
+            ".csproj" or ".vbproj" or ".fsproj" => "file-vs-project",
+            ".razor" => "file-razor",
             // App bundle
             ".app" => "app-bundle",
             _ => "file-generic"

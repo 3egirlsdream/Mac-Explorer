@@ -9,6 +9,7 @@ public interface IFileService
     Task<bool> ExistsAsync(string path);
     Task<string> CreateFolderAsync(string parentPath, string name);
     Task<string> CreateFileAsync(string parentPath, string name);
+    Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content);
     Task DeleteAsync(string path, bool moveToTrash = true);
     Task RenameAsync(string path, string newName);
     Task MoveAsync(string sourcePath, string destinationDirectory);

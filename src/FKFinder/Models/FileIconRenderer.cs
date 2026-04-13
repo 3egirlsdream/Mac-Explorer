@@ -37,6 +37,9 @@ public static class FileIconRenderer
             "file-subtitle" => SubtitleFile(ext),
             "file-executable" => ExecutableFile(ext),
             "file-vm" => VirtualMachineFile(ext),
+            "file-vs-solution" => VsSolutionFile(),
+            "file-vs-project" => VsProjectFile(ext),
+            "file-razor" => RazorFile(),
             _ => GenericFile()
         };
         return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 32 32"" xmlns=""http://www.w3.org/2000/svg"">{inner}</svg>";
@@ -351,6 +354,38 @@ public static class FileIconRenderer
         @"<rect x=""16"" y=""19"" width=""8"" height=""1.6"" rx=""0.8"" fill=""#475569"" opacity=""0.4""/>" +
         Badge(ext, "#475569");
 
+    // Scaled VS ribbon logo (from official Visual Studio icon, mapped to 32×32)
+    static string VsLogo() =>
+        @"<g transform=""translate(6,4) scale(0.019)"">" +
+        @"<path d=""M166 791l-18 15a43 43 0 01-44 6l-78-32A43 43 0 010 741V283a43 43 0 0126-39l78-32a43 43 0 0144 7l18 15a24 24 0 00-33 6 21 21 0 00-5 13v519a24 24 0 0024 24 24 24 0 0014-5z"" fill=""#52218A""/>" +
+        @"<path d=""M1029 167v2a41 41 0 00-66-31L166 791l-18 15a43 43 0 01-44 6l-78-32A43 43 0 010 741v-4a25 25 0 0025 25 24 24 0 0018-8L708 19a64 64 0 0173-13l212 102a64 64 0 0136 58z"" fill=""#6C33AF""/>" +
+        @"<path d=""M1029 855v3a64 64 0 01-36 58l-212 102a64 64 0 01-73-12L43 270a25 25 0 00-35-2 25 25 0 00-8 18v-4a43 43 0 0126-39l78-32a43 43 0 0144 7l18 15 797 653a41 41 0 0066-31z"" fill=""#854CC7""/>" +
+        @"<path d=""M993 108L781 6a64 64 0 00-68 8 38 38 0 0153 9 37 37 0 017 21v934a38 38 0 01-60 31 64 64 0 0068 8l212-102a64 64 0 0036-58V166a64 64 0 00-36-58z"" fill=""#B179F1""/>" +
+        @"</g>";
+
+    // ━━ Visual Studio Solution (.sln) ━━
+    static string VsSolutionFile() =>
+        Card("#F3E8FF", "#E9D5FF") + VsLogo() + Badge("SLN", "#6D28D9");
+
+    // ━━ Visual Studio Project (.csproj, etc.) ━━
+    static string VsProjectFile(string ext) =>
+        Card("#F3E8FF", "#E9D5FF") + VsLogo() + Badge(ext, "#6D28D9");
+
+    // ━━ Razor component files (.razor) ━━
+    static string RazorFile() =>
+        // Blazor-inspired card with purple-blue tones
+        $@"<rect x=""3"" y=""3"" width=""28"" height=""28"" rx=""6"" fill=""#000"" opacity=""0.04""/>" +
+        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""6"" fill=""#EDE9FE""/>" +
+        @"<rect x=""2"" y=""2"" width=""28"" height=""14"" rx=""6"" fill=""#DDD6FE"" opacity=""0.5""/>" +
+        // Blazor flame/razor shape
+        @"<path d=""M16 6c-1.5 4 1 6 1 6s-3.5-1-4.5 3c-.7 2.8 1.5 5 4 5.5"" fill=""none"" stroke=""#7C3AED"" stroke-width=""1.3"" stroke-linecap=""round""/>" +
+        @"<path d=""M16 6c1.5 4-1 6-1 6s3.5-1 4.5 3c.7 2.8-1.5 5-4 5.5"" fill=""none"" stroke=""#7C3AED"" stroke-width=""1.3"" stroke-linecap=""round""/>" +
+        @"<circle cx=""16"" cy=""15"" r=""3"" fill=""#7C3AED"" opacity=""0.2""/>" +
+        @"<circle cx=""16"" cy=""15"" r=""1.8"" fill=""#7C3AED"" opacity=""0.4""/>" +
+        // @ symbol (Razor identifier)
+        @"<text x=""16"" y=""15.5"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""5"" font-weight=""700"" fill=""#fff"">@</text>" +
+        Badge("RAZOR", "#6D28D9");
+
     // ━━ Virtual machine files (Parallels, VMware, VirtualBox, etc.) ━━
     static string VirtualMachineFile(string ext) =>
         Card("#EFF6FF", "#DBEAFE") +
@@ -369,4 +404,61 @@ public static class FileIconRenderer
         @"<rect x=""13"" y=""21"" width=""6"" height=""1.2"" rx=""0.6"" fill=""#3B82F6"" opacity=""0.15""/>" +
         @"<rect x=""11"" y=""23"" width=""10"" height=""1.2"" rx=""0.6"" fill=""#3B82F6"" opacity=""0.1""/>" +
         Badge(ext, "#2563EB");
+
+    // ── AI Virtual Folder Icons ──
+
+    public static string RenderAiIcon(string iconKey, int size)
+    {
+        var svg = iconKey switch
+        {
+            "ai-face" => AiFaceIcon(),
+            "ai-scene" => AiSceneIcon(),
+            "ai-object" => AiObjectIcon(),
+            "ai-animal" => AiAnimalIcon(),
+            "ai-location" => AiLocationIcon(),
+            "ai-date" => AiDateIcon(),
+            _ => AiFaceIcon()
+        };
+        return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 32 32"" xmlns=""http://www.w3.org/2000/svg"">{svg}</svg>";
+    }
+
+    static string AiFaceIcon() =>
+        @"<circle cx=""16"" cy=""16"" r=""14"" fill=""#FDF2F8""/>" +
+        @"<circle cx=""16"" cy=""12"" r=""4.5"" fill=""#EC4899""/>" +
+        @"<path d=""M8 24c0-4.42 3.58-7 8-7s8 2.58 8 7"" fill=""#EC4899"" opacity=""0.6""/>";
+
+    static string AiSceneIcon() =>
+        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""6"" fill=""#EFF6FF""/>" +
+        @"<path d=""M2 22l8-8 6 6 4-4 10 10H6a4 4 0 01-4-4z"" fill=""#3B82F6"" opacity=""0.5""/>" +
+        @"<circle cx=""10"" cy=""10"" r=""3"" fill=""#3B82F6"" opacity=""0.7""/>";
+
+    static string AiObjectIcon() =>
+        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""6"" fill=""#FFFBEB""/>" +
+        @"<path d=""M16 4l10 5.5v13L16 28 6 22.5v-13z"" fill=""#F59E0B"" opacity=""0.3""/>" +
+        @"<path d=""M16 4l10 5.5L16 15 6 9.5z"" fill=""#F59E0B"" opacity=""0.6""/>" +
+        @"<path d=""M16 15v13l10-5.5v-13z"" fill=""#F59E0B"" opacity=""0.45""/>";
+
+    static string AiAnimalIcon() =>
+        @"<circle cx=""16"" cy=""16"" r=""14"" fill=""#ECFDF5""/>" +
+        @"<circle cx=""16"" cy=""16"" r=""10"" fill=""#10B981"" opacity=""0.2""/>" +
+        @"<circle cx=""12"" cy=""13"" r=""1.5"" fill=""#10B981""/>" +
+        @"<circle cx=""20"" cy=""13"" r=""1.5"" fill=""#10B981""/>" +
+        @"<path d=""M12 19s1.5 2.5 4 2.5 4-2.5 4-2.5"" stroke=""#10B981"" stroke-width=""1.5"" fill=""none"" stroke-linecap=""round""/>";
+
+    static string AiLocationIcon() =>
+        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""6"" fill=""#FEF2F2""/>" +
+        @"<path d=""M16 4a8 8 0 018 8c0 6-8 16-8 16S8 18 8 12a8 8 0 018-8z"" fill=""#EF4444"" opacity=""0.6""/>" +
+        @"<circle cx=""16"" cy=""12"" r=""3"" fill=""#FEF2F2""/>";
+
+    static string AiDateIcon() =>
+        @"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""6"" fill=""#F5F3FF""/>" +
+        @"<rect x=""5"" y=""6"" width=""22"" height=""20"" rx=""3"" fill=""#8B5CF6"" opacity=""0.2""/>" +
+        @"<rect x=""5"" y=""6"" width=""22"" height=""6"" rx=""3"" fill=""#8B5CF6"" opacity=""0.5""/>" +
+        @"<rect x=""11"" y=""4"" width=""2"" height=""4"" rx=""1"" fill=""#8B5CF6""/>" +
+        @"<rect x=""19"" y=""4"" width=""2"" height=""4"" rx=""1"" fill=""#8B5CF6""/>" +
+        @"<circle cx=""11"" cy=""17"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.5""/>" +
+        @"<circle cx=""16"" cy=""17"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.5""/>" +
+        @"<circle cx=""21"" cy=""17"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.5""/>" +
+        @"<circle cx=""11"" cy=""22"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.3""/>" +
+        @"<circle cx=""16"" cy=""22"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.3""/>";
 }
