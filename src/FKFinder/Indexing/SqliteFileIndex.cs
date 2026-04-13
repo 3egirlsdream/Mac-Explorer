@@ -141,6 +141,21 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             return await SearchByNameLikeAsync(pattern, limit);
         }
 
+        // FTS5 only supports prefix matching; supplement with LIKE for contains matching
+        if (entries.Count < limit)
+        {
+            var existingPaths = new HashSet<string>(entries.Select(e => e.FullPath));
+            var likeResults = await SearchByNameLikeAsync(pattern, limit - entries.Count + existingPaths.Count);
+            foreach (var entry in likeResults)
+            {
+                if (existingPaths.Add(entry.FullPath))
+                {
+                    entries.Add(entry);
+                    if (entries.Count >= limit) break;
+                }
+            }
+        }
+
         return entries;
     }
 
@@ -300,6 +315,10 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             ".pvm" or ".pvs" or ".hdd" or ".vdi" or ".vmx" or ".vmwarevm" or ".ova" or ".ovf" or ".vbox" => "file-vm",
             ".obj" or ".fbx" or ".stl" or ".blend" or ".3ds" or ".dae" or ".gltf" or ".glb" or ".usdz" or ".step" or ".stp" => "file-3d",
             ".srt" or ".ass" or ".ssa" or ".sub" or ".vtt" or ".idx" or ".lrc" => "file-subtitle",
+            // Visual Studio / C# project files
+            ".sln" => "file-vs-solution",
+            ".csproj" or ".vbproj" or ".fsproj" => "file-vs-project",
+            ".razor" => "file-razor",
             _ => "file-generic"
         };
     }
