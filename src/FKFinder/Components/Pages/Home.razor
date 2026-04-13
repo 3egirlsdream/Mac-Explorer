@@ -15,7 +15,7 @@
         @if (!ViewModel.IsHomePage)
         {
             <FinderNavBar />
-            <FinderToolbar />
+            <FinderToolbar OnOpenSettings="@(() => _settingsDialogVisible = true)" />
         }
         <div class="finder-body">
             <FinderSidebar />
@@ -26,6 +26,10 @@
                     {
                         <BreadcrumbBar />
                         <HomeView />
+                    }
+                    else if (ViewModel.IsAiView)
+                    {
+                        <AiViewHost />
                     }
                     else
                     {
@@ -41,12 +45,14 @@
     </div>
 </CascadingValue>
 
+@* Native NSMenu replaces Blazor context menu — Blazor fallback preserved below:
 @if (ViewModel.IsContextMenuVisible)
 {
     <ContextMenu X="ViewModel.ContextMenuX" Y="ViewModel.ContextMenuY"
                  Actions="ViewModel.ContextMenuActions"
                  OnClose="CloseContextMenu" />
 }
+*@
 
 @if (ViewModel.IsMetadataPanelVisible)
 {
@@ -77,6 +83,13 @@
     }
 </MDialog>
 
+<MDialog @bind-Value="_settingsDialogVisible"
+         MaxWidth="420"
+         ContentClass="fk-dialog-glass"
+         HideOverlay="true">
+    <SettingsDialog OnClose="@(() => _settingsDialogVisible = false)" />
+</MDialog>
+
 <TaskPanel />
 </MApp>
 
@@ -84,6 +97,7 @@
     private DotNetObjectReference<Home>? _dotNetRef;
     private bool _compressDialogVisible;
     private bool _progressDialogVisible;
+    private bool _settingsDialogVisible;
     private BackgroundTaskInfo? _activeTask;
 
     protected override void OnInitialized()
@@ -132,7 +146,9 @@
             or nameof(ViewModel.SortAscending)
             or nameof(ViewModel.IsCompressDialogVisible)
             or nameof(ViewModel.ActiveTaskId)
-            or nameof(ViewModel.IsArchiveView))
+            or nameof(ViewModel.IsArchiveView)
+            or nameof(ViewModel.IsAiView)
+            or nameof(ViewModel.PinnedFolders))
         {
             SyncDialogState();
             await InvokeAsync(StateHasChanged);

@@ -54,7 +54,7 @@
                 <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="@Icons.Folder" />
                 </svg>
-                <div class="empty-state-text">此文件夹为空</div>
+                <div class="empty-state-text">@GetEmptyStateText()</div>
             </div>
         }
         else if (ViewModel.ViewMode == ViewMode.List)
@@ -129,6 +129,7 @@
 
     private async void OnSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
+        if (_renamingEntry != null) return;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -151,10 +152,16 @@
         if (e.PropertyName is nameof(ViewModel.IsLoading) or nameof(ViewModel.CurrentPath) or nameof(ViewModel.ViewMode)
             or nameof(ViewModel.Groups) or nameof(ViewModel.GroupField) or nameof(ViewModel.CutPaths))
         {
+            if (_renamingEntry != null) return;
             InvokeAsync(StateHasChanged);
         }
         else if (e.PropertyName == nameof(ViewModel.Entries))
         {
+            // Skip re-render during active rename to prevent focus loss from
+            // background thumbnail updates (ResolveFaceThumbnailsAsync etc.)
+            if (_renamingEntry != null)
+                return;
+
             // When CommitRename already saved scroll, skip the normal scroll handling
             // to avoid overwriting the saved position. Just render and create blob URLs.
             if (_skipScrollHandlingOnNextEntriesChange)
@@ -217,13 +224,9 @@
 
     private void OnRenameRequested(FileSystemEntry entry)
     {
-        InvokeAsync(async () =>
+        InvokeAsync(() =>
         {
             StartRename(entry);
-            StateHasChanged();
-            // 滚动定位到新建的条目
-            try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.scrollToSelected"); }
-            catch { }
         });
     }
 
@@ -268,7 +271,7 @@
         builder.AddAttribute(1, "class", $"file-list-row {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")} {(isDragSrc ? "dragging" : "")}");
         if (isSelected && ViewModel.SelectedEntries.Count > 1)
             builder.AddAttribute(2, "data-selected-count", ViewModel.SelectedEntries.Count.ToString());
-        builder.AddAttribute(3, "draggable", _renamingEntry != entry ? "true" : "false");
+        builder.AddAttribute(3, "draggable", (_renamingEntry != entry && !entry.IsVirtual) ? "true" : "false");
         builder.AddAttribute(4, "ondragstart", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragStart(entry)));
         builder.AddAttribute(5, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
         builder.AddAttribute(6, "ondragover:preventDefault", true);
@@ -377,7 +380,7 @@
         builder.AddAttribute(1, "class", $"file-grid-item {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")} {(isDragSrc ? "dragging" : "")}");
         if (isSelected && ViewModel.SelectedEntries.Count > 1)
             builder.AddAttribute(2, "data-selected-count", ViewModel.SelectedEntries.Count.ToString());
-        builder.AddAttribute(3, "draggable", _renamingEntry != entry ? "true" : "false");
+        builder.AddAttribute(3, "draggable", (_renamingEntry != entry && !entry.IsVirtual) ? "true" : "false");
         builder.AddAttribute(4, "ondragstart", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragStart(entry)));
         builder.AddAttribute(5, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
         builder.AddAttribute(6, "ondragover:preventDefault", true);
@@ -419,6 +422,15 @@
             builder.AddAttribute(26, "class", "file-grid-name");
             builder.AddContent(27, entry.DisplayName);
             builder.CloseElement();
+
+            // Virtual folder: show item count below name
+            if (entry.IsVirtual)
+            {
+                builder.OpenElement(35, "div");
+                builder.AddAttribute(36, "class", "file-grid-virtual-count");
+                builder.AddContent(37, $"{entry.VirtualItemCount} 张照片");
+                builder.CloseElement();
+            }
         }
 
         builder.CloseElement();
@@ -545,6 +557,7 @@
 
     private void OnDragStart(FileSystemEntry entry)
     {
+        if (entry.IsVirtual) return;
         _isDragging = true;
         _pendingOpenEntry = null;
         _dblClickTimer?.Dispose();
@@ -573,7 +586,7 @@
 
     private void OnDragOver(FileSystemEntry entry)
     {
-        if (_draggedEntry != null && entry.IsDirectory && entry != _draggedEntry)
+        if (_draggedEntry != null && entry.IsDirectory && entry != _draggedEntry && !entry.IsVirtual)
             _dragOverEntry = entry;
     }
 
@@ -749,9 +762,32 @@
 
     private static string GetKindText(FileSystemEntry entry)
     {
+        if (entry.IsVirtual) return entry.VirtualFolderType switch
+        {
+            "face" => "人物",
+            "scene" => "场景",
+            "object" => "物品",
+            "animal" => "动物",
+            "location" => "地点",
+            "date" => "日期",
+            _ => "AI 分类"
+        };
         if (entry.IconKey == "app-bundle") return "应用程序";
         if (entry.IsDirectory) return "文件夹";
         return entry.Extension.TrimStart('.').ToUpperInvariant();
+    }
+
+    private string GetEmptyStateText()
+    {
+        if (!ViewModel.IsAiView) return "此文件夹为空";
+        return ViewModel.AiViewMode switch
+        {
+            AiViewMode.People => "尚未识别到人物",
+            AiViewMode.Categories => "尚未识别到分类",
+            AiViewMode.Locations => "尚未识别到地点信息",
+            AiViewMode.Dates => "尚未识别到日期信息",
+            _ => "未找到匹配结果"
+        };
     }
 
     // ── SVG Icon helper ──
@@ -773,6 +809,17 @@
 
     private string GetIconSvg(FileSystemEntry entry, int size)
     {
+        // Virtual AI entry with face thumbnail: circular image
+        if (entry.IsVirtual && !string.IsNullOrEmpty(entry.ThumbnailUrl))
+        {
+            var displaySize = size <= 20 ? 20 : 64;
+            return $@"<img src=""{entry.ThumbnailUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""ai-face-thumbnail"" />";
+        }
+
+        // Virtual AI entry without thumbnail: colored AI icon
+        if (entry.IsVirtual)
+            return FileIconRenderer.RenderAiIcon(entry.IconKey, size <= 20 ? 20 : 36);
+
         // Use thumbnail if available (image files resolved by ViewModel)
         if (!string.IsNullOrEmpty(entry.ThumbnailUrl))
         {

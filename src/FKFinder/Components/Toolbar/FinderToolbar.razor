@@ -1,5 +1,7 @@
 @using FKFinder.Models
+@using FKFinder.Services
 @inject IJSRuntime JSRuntime
+@inject IContextMenuService ContextMenuService
 @implements IAsyncDisposable
 
 @if (!ViewModel.IsHomePage)
@@ -32,6 +34,48 @@
                     @((MarkupString)FileIconRenderer.Render("file-config", ".json", 14))
                     <span>新建 JSON 文件</span>
                 </div>
+                @if (_appDetectionDone && _hasWord)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".docx"))">
+                        @((MarkupString)FileIconRenderer.Render("file-word", ".docx", 14))
+                        <span>新建 Word 文稿</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasExcel)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".xlsx"))">
+                        @((MarkupString)FileIconRenderer.Render("file-excel", ".xlsx", 14))
+                        <span>新建 Excel 表格</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasPowerPoint)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".pptx"))">
+                        @((MarkupString)FileIconRenderer.Render("file-powerpoint", ".pptx", 14))
+                        <span>新建 PPT 幻灯片</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasPages)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".pages"))">
+                        @((MarkupString)FileIconRenderer.Render("file-document", ".pages", 14))
+                        <span>新建 Pages 文稿</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasNumbers)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".numbers"))">
+                        @((MarkupString)FileIconRenderer.Render("file-spreadsheet", ".numbers", 14))
+                        <span>新建 Numbers 表格</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasKeynote)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".key"))">
+                        @((MarkupString)FileIconRenderer.Render("file-presentation", ".key", 14))
+                        <span>新建 Keynote 演示文稿</span>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -133,6 +177,11 @@
 
     <div style="flex:1"></div>
 
+    <!-- Settings button -->
+    <button class="toolbar-btn" @onclick="OpenSettings" title="设置">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Settings"/></svg>
+    </button>
+
     @if (ViewModel.IsPreviewPaneVisible)
     {
     <!-- Preview pane toggle -->
@@ -146,9 +195,17 @@
 
 @code {
     [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+    [Parameter] public EventCallback OnOpenSettings { get; set; }
     private bool _showSortDropdown;
     private bool _showNewDropdown;
     private bool _showViewDropdown;
+    private bool _hasWord;
+    private bool _hasExcel;
+    private bool _hasPowerPoint;
+    private bool _hasPages;
+    private bool _hasNumbers;
+    private bool _hasKeynote;
+    private bool _appDetectionDone;
     private DotNetObjectReference<FinderToolbar>? _dropdownRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -159,6 +216,16 @@
             {
                 _dropdownRef = DotNetObjectReference.Create(this);
                 await JSRuntime.InvokeVoidAsync("fkfinderDropdown.register", _dropdownRef);
+
+                // 检测已安装的办公应用
+                _hasWord = ContextMenuService.IsAppInstalled("com.microsoft.Word") || ContextMenuService.IsAppInstalled("com.kingsoft.wpsoffice.mac");
+                _hasExcel = ContextMenuService.IsAppInstalled("com.microsoft.Excel") || ContextMenuService.IsAppInstalled("com.kingsoft.wpsoffice.mac");
+                _hasPowerPoint = ContextMenuService.IsAppInstalled("com.microsoft.Powerpoint") || ContextMenuService.IsAppInstalled("com.kingsoft.wpsoffice.mac");
+                _hasPages = ContextMenuService.IsAppInstalled("com.apple.iWork.Pages");
+                _hasNumbers = ContextMenuService.IsAppInstalled("com.apple.iWork.Numbers");
+                _hasKeynote = ContextMenuService.IsAppInstalled("com.apple.iWork.Keynote");
+                _appDetectionDone = true;
+                StateHasChanged();
             }
             catch { }
         }
@@ -194,6 +261,7 @@
     private async Task NewFile(string ext) { _showNewDropdown = false; await ViewModel.CreateNewFileCommand.ExecuteAsync(ext); }
     private void TogglePreview() => ViewModel.TogglePreviewPane();
     private void SetViewMode(ViewMode mode) { if (ViewModel.ViewMode != mode) ViewModel.ToggleViewMode(); }
+    private async Task OpenSettings() => await OnOpenSettings.InvokeAsync();
 
     private string GetSortFieldLabel(SortField field) => field switch
     {
