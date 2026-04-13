@@ -1,0 +1,50 @@
+@using FKFinder.Models
+@inject FKFinder.Services.IDefaultAppService DefaultAppService
+
+<div class="settings-dialog">
+    <div class="settings-dialog-title">设置</div>
+
+    <div class="settings-list">
+        <div class="settings-item">
+            <div class="settings-item-info">
+                <div class="settings-item-label">设为默认文件管理器</div>
+                <div class="settings-item-description">
+                    启用后，通过 open 命令或双击文件夹将使用 FKFinder 打开
+                </div>
+            </div>
+            <label class="settings-toggle" @onclick:stopPropagation>
+                <input type="checkbox" checked="@_isDefaultHandler"
+                       @onchange="OnDefaultHandlerToggle" />
+                <span class="settings-toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="settings-dialog-actions">
+        <button class="settings-dialog-btn" @onclick="Close">关闭</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool _isDefaultHandler;
+
+    protected override void OnInitialized()
+    {
+        _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
+    }
+
+    private void OnDefaultHandlerToggle(ChangeEventArgs e)
+    {
+        var enabled = (bool)(e.Value ?? false);
+        if (enabled)
+            DefaultAppService.SetAsDefaultFolderHandler();
+        else
+            DefaultAppService.ResetDefaultFolderHandler();
+
+        _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}
