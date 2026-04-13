@@ -25,6 +25,9 @@ public class ImageMetadata
     public string ExposureProgram { get; init; } = string.Empty;
     public string MeteringMode { get; init; } = string.Empty;
 
+    // Date
+    public DateTime? PhotoTakenDate { get; init; }
+
     // GPS
     public double Latitude { get; init; }
     public double Longitude { get; init; }

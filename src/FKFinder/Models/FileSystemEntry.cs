@@ -17,8 +17,14 @@ public class FileSystemEntry
     public string? IconUrl { get; set; }
     public string? ThumbnailUrl { get; set; }
 
+    // Virtual folder properties for AI view entries
+    public bool IsVirtual { get; init; }
+    public string? VirtualFolderType { get; init; }
+    public string? VirtualFolderKey { get; init; }
+    public int VirtualItemCount { get; init; }
+
     public string DisplayName => IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
-    public string FormattedSize => FormatSize(Size, IsDirectory);
+    public string FormattedSize => IsVirtual ? $"{VirtualItemCount} 项" : FormatSize(Size, IsDirectory);
 
     private static string FormatSize(long bytes, bool isDirectory)
     {
