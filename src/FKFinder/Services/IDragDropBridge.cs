@@ -30,13 +30,14 @@ public interface IDragDropBridge
     string GetCurrentDirectory();
 
     /// <summary>
-    /// Fired when files are dropped from an external source (Finder, another app, another FKFinder window).
-    /// Parameters: source file paths, target directory path.
+    /// Called by native drop delegate to get the current directory path for a specific window.
+    /// The windowId is the NSWindow pointer value (as string) on Mac Catalyst.
     /// </summary>
-    event Action<string[], string>? ExternalDropReceived;
+    string GetCurrentDirectoryForWindow(string windowId);
 
     /// <summary>
-    /// Called by native drop delegate to notify the ViewModel about an external drop.
+    /// Called by native drop delegate to execute the file move and notify affected directories.
+    /// The nsWindow identifies which window received the drop for targeted refresh.
     /// </summary>
-    void NotifyExternalDrop(string[] sourcePaths, string targetDirectory);
+    void HandleExternalDrop(string[] sourcePaths, string targetDirectory, IntPtr nsWindow);
 }

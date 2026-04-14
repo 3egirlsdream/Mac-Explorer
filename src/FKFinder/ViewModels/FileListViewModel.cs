@@ -30,7 +30,11 @@ public partial class FileListViewModel : ObservableObject
     private readonly IImageAnalysisService? _imageAnalysisService;
     private readonly IAiTagService? _aiTagService;
     private readonly IDragDropBridge? _dragDropBridge;
+    private readonly IDirectoryChangeNotifier? _directoryChangeNotifier;
+    private readonly IFSEventsWatcher? _fsEventsWatcher;
+    private bool _isRefreshingFromNotification;
     private CancellationTokenSource? _searchCts;
+    private string? _currentTextSearchQuery;
 
     private IReadOnlyList<FileSystemEntry> _rawEntries = [];
 
@@ -216,7 +220,9 @@ public partial class FileListViewModel : ObservableObject
         IPinnedFolderService? pinnedFolderService = null,
         IImageAnalysisService? imageAnalysisService = null,
         IAiTagService? aiTagService = null,
-        IDragDropBridge? dragDropBridge = null)
+        IDragDropBridge? dragDropBridge = null,
+        IDirectoryChangeNotifier? directoryChangeNotifier = null,
+        IFSEventsWatcher? fsEventsWatcher = null)
     {
         _fileService = fileService;
         _fileIndex = fileIndex;
@@ -239,9 +245,8 @@ public partial class FileListViewModel : ObservableObject
         _imageAnalysisService = imageAnalysisService;
         _aiTagService = aiTagService;
         _dragDropBridge = dragDropBridge;
-
-        if (_dragDropBridge != null)
-            _dragDropBridge.ExternalDropReceived += HandleExternalDrop;
+        _directoryChangeNotifier = directoryChangeNotifier;
+        _fsEventsWatcher = fsEventsWatcher;
 
         // Load persisted user preferences
         if (_settingsService != null)
@@ -257,6 +262,23 @@ public partial class FileListViewModel : ObservableObject
 
         _ = LoadCollectionsAsync();
         _ = LoadPinnedFoldersAsync();
+    }
+
+    /// <summary>
+    /// Called by DirectoryChangeNotifier when another source changed our current directory.
+    /// </summary>
+    public async Task RefreshFromNotification()
+    {
+        if (_isRefreshingFromNotification) return;
+        if (string.IsNullOrEmpty(CurrentPath)) return;
+        if (IsHomePage || IsArchiveView || IsAiView || IsCollectionView) return;
+        _isRefreshingFromNotification = true;
+        try
+        {
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            await LoadDirectoryContentsAsync(forceRefresh: true);
+        }
+        finally { _isRefreshingFromNotification = false; }
     }
 
     [RelayCommand]
@@ -318,6 +340,9 @@ public partial class FileListViewModel : ObservableObject
             if (!string.IsNullOrEmpty(CurrentPath) && SelectedEntries.Count > 0)
                 _pathSelectedEntries[CurrentPath] = SelectedEntries.First().Name;
 
+            // Unwatch old directory from FSEvents
+            var oldPath = CurrentPath;
+
             // Record history for back/forward navigation
             if (!_isNavigatingHistory)
             {
@@ -333,6 +358,11 @@ public partial class FileListViewModel : ObservableObject
             CurrentPath = path;
             UpdateBreadcrumbs();
             await LoadDirectoryContentsAsync();
+
+            // Update FSEvents watch
+            if (!string.IsNullOrEmpty(oldPath) && oldPath != path)
+                _fsEventsWatcher?.UnwatchDirectory(oldPath);
+            _fsEventsWatcher?.WatchDirectory(path);
 
             // Record folder visit for frequent folders ranking
             _ = _frequentFolderService?.RecordVisitAsync(path);
@@ -409,7 +439,12 @@ public partial class FileListViewModel : ObservableObject
             {
                 var info = AiPathHelper.Parse(CurrentPath);
                 if (info.IsTopLevel)
-                    await LoadAiTopLevelAsync(info.Mode);
+                {
+                    if (info.Mode == AiViewMode.TextSearch && !string.IsNullOrEmpty(_currentTextSearchQuery))
+                        await SearchAiTagsAsync(_currentTextSearchQuery);
+                    else
+                        await LoadAiTopLevelAsync(info.Mode);
+                }
                 else if (info.IsFaceDetail)
                     await LoadFaceClusterEntriesAsync(info.FaceClusterId!.Value);
                 else
@@ -650,6 +685,10 @@ public partial class FileListViewModel : ObservableObject
     [RelayCommand]
     public void GoHome()
     {
+        // Unwatch FSEvents when leaving normal directory view
+        if (!string.IsNullOrEmpty(CurrentPath))
+            _fsEventsWatcher?.UnwatchDirectory(CurrentPath);
+
         IsHomePage = true;
         CurrentPath = "";
         Entries.Clear();
@@ -1279,6 +1318,16 @@ public partial class FileListViewModel : ObservableObject
             if (entry.Operation == ClipboardOperation.Cut) { _clipboardService.Clear(); CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
+
+            // Notify other windows: current dir + source directories
+            var affectedDirs = new HashSet<string> { CurrentPath };
+            foreach (var sp in entry.SourcePaths)
+            {
+                var dir = Path.GetDirectoryName(sp);
+                if (!string.IsNullOrEmpty(dir)) affectedDirs.Add(dir);
+            }
+            _directoryChangeNotifier?.NotifyChanged(affectedDirs.ToArray(), this);
+
             StatusText = $"已粘贴 {entry.SourcePaths.Count} 项";
         }
         catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
@@ -1306,6 +1355,8 @@ public partial class FileListViewModel : ObservableObject
                 await NavigateToCollectionAsync(CurrentCollectionId.Value);
             else
                 await LoadDirectoryContentsAsync(forceRefresh: true);
+
+            _directoryChangeNotifier?.NotifyChanged([CurrentPath], this);
         }
         catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
     }
@@ -1398,6 +1449,7 @@ public partial class FileListViewModel : ObservableObject
                 // 自动进入重命名编辑模式
                 RequestRename(newEntry);
             }
+            _directoryChangeNotifier?.NotifyChanged([CurrentPath], this);
         }
         catch (Exception ex) { StatusText = $"创建文件夹失败: {ex.Message}"; }
     }
@@ -1435,6 +1487,7 @@ public partial class FileListViewModel : ObservableObject
                 SelectedEntries.Add(newEntry);
                 RequestRename(newEntry);
             }
+            _directoryChangeNotifier?.NotifyChanged([CurrentPath], this);
         }
         catch (Exception ex) { StatusText = $"创建文件失败: {ex.Message}"; }
     }
@@ -1447,6 +1500,7 @@ public partial class FileListViewModel : ObservableObject
             await _fileService.MoveAsync(source.FullPath, targetFolder.FullPath);
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
+            _directoryChangeNotifier?.NotifyChanged([CurrentPath, targetFolder.FullPath], this);
         }
         catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
     }
@@ -1469,6 +1523,7 @@ public partial class FileListViewModel : ObservableObject
                     await _fileService.MoveAsync(path, targetFolder.FullPath);
                 ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
                 await LoadDirectoryContentsAsync(forceRefresh: true);
+                _directoryChangeNotifier?.NotifyChanged([CurrentPath, targetFolder.FullPath], this);
             }
             catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
             return;
@@ -1502,41 +1557,6 @@ public partial class FileListViewModel : ObservableObject
             catch (Exception ex)
             {
                 _taskManager.FailTask(taskInfo.Id, ex.Message);
-            }
-        });
-    }
-
-    /// <summary>
-    /// Handles files dropped from external sources (Finder, other apps, other FKFinder windows).
-    /// Called via IDragDropBridge.ExternalDropReceived event.
-    /// </summary>
-    private async void HandleExternalDrop(string[] sourcePaths, string targetDirectory)
-    {
-        await MainThread.InvokeOnMainThreadAsync(async () =>
-        {
-            int moved = 0;
-            foreach (var sourcePath in sourcePaths)
-            {
-                // Skip files already in the target directory (same-window drag to content area)
-                if (Path.GetDirectoryName(sourcePath) == targetDirectory)
-                    continue;
-
-                try
-                {
-                    await _fileService.MoveAsync(sourcePath, targetDirectory);
-                    moved++;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[FKFinder] Move failed: {sourcePath} → {ex.Message}");
-                }
-            }
-
-            if (moved > 0)
-            {
-                ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-                await LoadDirectoryContentsAsync(forceRefresh: true);
-                StatusText = $"已移动 {moved} 项";
             }
         });
     }
@@ -1634,6 +1654,7 @@ public partial class FileListViewModel : ObservableObject
                 SelectedEntries.Clear();
                 SelectedEntries.Add(renamed);
             }
+            _directoryChangeNotifier?.NotifyChanged([CurrentPath], this);
         }
         catch (Exception ex) { StatusText = $"重命名失败: {ex.Message}"; }
     }
@@ -2305,7 +2326,8 @@ public partial class FileListViewModel : ObservableObject
 
         if (info.Mode == AiViewMode.TextSearch && info.IsTopLevel)
         {
-            // TextSearch: skip duplicate guard, allow re-entry
+            // TextSearch: clear saved query so we return to hot-words view
+            _currentTextSearchQuery = null;
         }
         else if (CurrentPath == sentinelPath && Entries.Count > 0)
         {
@@ -2445,6 +2467,7 @@ public partial class FileListViewModel : ObservableObject
                 break;
 
             case AiViewMode.TextSearch:
+                _currentTextSearchQuery = null;
                 _rawEntries = [];
                 Entries.Clear();
                 SelectedEntries.Clear();
@@ -2570,6 +2593,8 @@ public partial class FileListViewModel : ObservableObject
         }
     }
 
+    public void ClearTextSearchQuery() => _currentTextSearchQuery = null;
+
     [RelayCommand]
     public async Task SearchAiTagsAsync(string query)
     {
@@ -2584,6 +2609,7 @@ public partial class FileListViewModel : ObservableObject
                 if (entry != null) entries.Add(entry);
             }
 
+            _currentTextSearchQuery = query;
             CurrentAiContextLabel = $"搜索: {query}";
             Entries = new ObservableCollection<FileSystemEntry>(entries);
             SelectedEntries.Clear();

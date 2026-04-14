@@ -1,6 +1,7 @@
 @page "/"
 
 @using Masa.Blazor
+@using FKFinder.Platforms.MacCatalyst.Services
 @inject FileListViewModel ViewModel
 @inject IJSRuntime JSRuntime
 @inject FKFinder.Services.IQuickLookService QuickLookService
@@ -8,6 +9,8 @@
 @inject FKFinder.Services.NavigationBridge NavigationBridge
 @inject FKFinder.Services.IBackgroundTaskManager TaskManager
 @inject FKFinder.Services.IDragDropBridge DragDropBridge
+@inject FKFinder.Services.IDirectoryChangeNotifier DirectoryChangeNotifier
+@inject FKFinder.Services.IFSEventsWatcher FSEventsWatcher
 @implements IAsyncDisposable
 
 <MApp Style="background:transparent">
@@ -106,6 +109,9 @@
         // Register this window's ViewModel with bridges
         NavigationBridge.Register(ViewModel);
         DragDropBridge.Register(ViewModel);
+        DirectoryChangeNotifier.Subscribe(ViewModel);
+        // Note: MacDragDropBridge.Register() now also calls RegisterViewModelForCurrentWindow()
+        // to establish the NSWindow -> ViewModel mapping for cross-window drag-drop
 
         // Check if this new window should navigate to a pending folder path
         var pendingPath = NavigationBridge.PendingNavigationPath;
@@ -187,6 +193,7 @@
         }
     }
 
+
     [Microsoft.JSInterop.JSInvokable]
     public async Task OnKeyboardShortcut(string action)
     {
@@ -212,7 +219,7 @@
                     break;
                 case "selectAll":
                     ViewModel.SelectAll();
-                    StateHasChanged();
+                    await InvokeAsync(StateHasChanged);
                     break;
                 case "navigateUp":
                     await ViewModel.NavigateUpCommand.ExecuteAsync(null);
@@ -308,6 +315,10 @@
 
     public async ValueTask DisposeAsync()
     {
+        DirectoryChangeNotifier.Unsubscribe(ViewModel);
+        if (!string.IsNullOrEmpty(ViewModel.CurrentPath))
+            FSEventsWatcher.UnwatchDirectory(ViewModel.CurrentPath);
+
         NavigationBridge.Unregister(ViewModel);
         DragDropBridge.Unregister(ViewModel);
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;

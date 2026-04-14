@@ -136,7 +136,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<IImageAnalysisService,
             Platforms.MacCatalyst.Services.MacImageAnalysisService>();
         builder.Services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
-        builder.Services.AddSingleton<IDragDropBridge, Platforms.MacCatalyst.Services.MacDragDropBridge>();
+
+        // Unified refresh pipeline
+        builder.Services.AddSingleton<IDirectoryChangeNotifier, Services.Impl.DirectoryChangeNotifier>();
+        builder.Services.AddSingleton<IFSEventsWatcher>(sp =>
+            new Platforms.MacCatalyst.Services.MacFSEventsWatcher(
+                sp.GetRequiredService<IDirectoryChangeNotifier>()));
+        builder.Services.AddSingleton<IDragDropBridge>(sp =>
+            new Platforms.MacCatalyst.Services.MacDragDropBridge(
+                sp.GetRequiredService<IFileService>(),
+                sp.GetRequiredService<IDirectoryChangeNotifier>()));
 
         // Register ViewModels (Scoped so each window gets its own instance)
         builder.Services.AddScoped<FileListViewModel>(sp => new FileListViewModel(
@@ -160,7 +169,9 @@ public static class MauiProgram
             sp.GetService<IPinnedFolderService>(),
             sp.GetService<IImageAnalysisService>(),
             sp.GetService<IAiTagService>(),
-            sp.GetService<IDragDropBridge>()
+            sp.GetService<IDragDropBridge>(),
+            sp.GetService<IDirectoryChangeNotifier>(),
+            sp.GetService<IFSEventsWatcher>()
         ));
 
         builder.Services.AddMauiBlazorWebView();

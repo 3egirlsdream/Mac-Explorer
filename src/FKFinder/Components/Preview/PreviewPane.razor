@@ -80,6 +80,21 @@
         }
         else if (e.PropertyName == nameof(ViewModel.Entries))
         {
+            // Validate that the previewed file still exists in the new Entries
+            if (_selectedEntry != null)
+            {
+                var stillExists = ViewModel.Entries.Any(entry => entry.FullPath == _selectedEntry.FullPath);
+                if (!stillExists)
+                {
+                    _selectedEntry = null;
+                    _previewImageUrl = null;
+                    _currentRating = 0;
+                    _hasHighResPreview = false;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+            }
+
             // Thumbnails resolved asynchronously — refresh preview if the selected entry got a thumbnail
             // But don't downgrade if we already have a high-res preview
             if (_selectedEntry != null && !_hasHighResPreview && _previewImageUrl == null && !string.IsNullOrEmpty(_selectedEntry.ThumbnailUrl))
