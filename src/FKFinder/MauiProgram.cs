@@ -99,10 +99,16 @@ public static class MauiProgram
         var indexConfig = new IndexConfiguration();
         builder.Services.AddSingleton(indexConfig);
 
-        var sqliteIndex = new SqliteFileIndex(indexConfig.DatabasePath);
-        builder.Services.AddSingleton(sqliteIndex);
-        builder.Services.AddSingleton<IFileIndex>(sqliteIndex);
-        builder.Services.AddSingleton<IFileIndexWriter>(sqliteIndex);
+        // Register shared database connection factory
+        builder.Services.AddSingleton(sp =>
+            new Services.Impl.DatabaseConnectionFactory(indexConfig.DatabasePath));
+
+        builder.Services.AddSingleton<SqliteFileIndex>(sp =>
+            new SqliteFileIndex(
+                indexConfig.DatabasePath,
+                sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>()));
+        builder.Services.AddSingleton<IFileIndex>(sp => sp.GetRequiredService<SqliteFileIndex>());
+        builder.Services.AddSingleton<IFileIndexWriter>(sp => sp.GetRequiredService<SqliteFileIndex>());
 
         // Register services (platform implementations resolved via MAUI multi-targeting)
         builder.Services.AddSingleton<IFileService>(sp =>
@@ -117,22 +123,30 @@ public static class MauiProgram
         builder.Services.AddSingleton<IMouseNavigationService, Platforms.MacCatalyst.Services.MacMouseNavigationService>();
         builder.Services.AddSingleton<IThumbnailService, Platforms.MacCatalyst.Services.MacThumbnailService>();
         builder.Services.AddSingleton<ICollectionService>(sp =>
-            new Services.Impl.CollectionService(sp.GetRequiredService<IndexConfiguration>().DatabasePath));
+            new Services.Impl.CollectionService(
+                sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>(),
+                sp.GetService<ILoggerFactory>()));
         builder.Services.AddSingleton<IRatingService>(sp =>
-            new Services.Impl.RatingService(sp.GetRequiredService<IndexConfiguration>().DatabasePath));
+            new Services.Impl.RatingService(sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>()));
         builder.Services.AddSingleton<ISettingsService>(sp =>
-            new Services.Impl.SettingsService(sp.GetRequiredService<IndexConfiguration>().DatabasePath));
+            new Services.Impl.SettingsService(
+                sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>(),
+                sp.GetService<ILoggerFactory>()?.CreateLogger<Services.Impl.SettingsService>()));
         builder.Services.AddSingleton<IFrequentFolderService>(sp =>
             new Services.Impl.FrequentFolderService(
-                sp.GetRequiredService<IndexConfiguration>().DatabasePath,
-                sp.GetRequiredService<IFileService>().HomeDirectory));
+                sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>(),
+                sp.GetRequiredService<IFileService>().HomeDirectory,
+                sp.GetService<ILoggerFactory>()));
         builder.Services.AddSingleton<IPinnedFolderService>(sp =>
-            new Services.Impl.PinnedFolderService(sp.GetRequiredService<IndexConfiguration>().DatabasePath));
+            new Services.Impl.PinnedFolderService(sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>()));
         builder.Services.AddSingleton<IArchiveService, Services.Impl.ArchiveService>();
-        builder.Services.AddSingleton<IBackgroundTaskManager, Services.Impl.BackgroundTaskManager>();
+        builder.Services.AddSingleton<IBackgroundTaskManager>(sp =>
+            new Services.Impl.BackgroundTaskManager(sp.GetService<ILoggerFactory>()));
         builder.Services.AddSingleton<NavigationBridge>();
         builder.Services.AddSingleton<IAiTagService>(sp =>
-            new Services.Impl.AiTagService(sp.GetRequiredService<IndexConfiguration>().DatabasePath));
+            new Services.Impl.AiTagService(
+                sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>(),
+                sp.GetService<ILoggerFactory>()));
         builder.Services.AddSingleton<IImageAnalysisService,
             Platforms.MacCatalyst.Services.MacImageAnalysisService>();
         builder.Services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
@@ -147,39 +161,47 @@ public static class MauiProgram
                 sp.GetRequiredService<IFileService>(),
                 sp.GetRequiredService<IDirectoryChangeNotifier>()));
 
-        // Register ViewModels (Scoped so each window gets its own instance)
+        // Register sub-viewmodels (Scoped so each window gets its own instance)
+        builder.Services.AddScoped<NavigationViewModel>();
+        builder.Services.AddScoped<FileOpsViewModel>();
+        builder.Services.AddScoped<SearchViewModel>();
+        builder.Services.AddScoped<ArchiveViewModel>();
+        builder.Services.AddScoped<AiViewModel>();
+        builder.Services.AddScoped<CollectionViewModel>();
+        builder.Services.AddScoped<SortFilterViewModel>();
+
+        // FileListViewModel factory - receives all sub-viewmodels and core services
         builder.Services.AddScoped<FileListViewModel>(sp => new FileListViewModel(
+            sp.GetRequiredService<NavigationViewModel>(),
+            sp.GetRequiredService<FileOpsViewModel>(),
+            sp.GetRequiredService<SearchViewModel>(),
+            sp.GetRequiredService<ArchiveViewModel>(),
+            sp.GetRequiredService<AiViewModel>(),
+            sp.GetRequiredService<CollectionViewModel>(),
+            sp.GetRequiredService<SortFilterViewModel>(),
             sp.GetRequiredService<IFileService>(),
             sp.GetRequiredService<IFileIndex>(),
             sp.GetRequiredService<IFileIndexWriter>(),
             sp.GetRequiredService<IndexConfiguration>(),
             sp.GetService<IContextMenuService>(),
             sp.GetService<IMetadataService>(),
-            sp.GetService<IClipboardService>(),
-            sp.GetService<ISearchService>(),
-            sp.GetService<IApplicationLauncherService>(),
             sp.GetService<IThumbnailService>(),
-            sp.GetService<ICollectionService>(),
-            sp.GetService<IRatingService>(),
-            sp.GetService<ISettingsService>(),
-            sp.GetService<IFrequentFolderService>(),
-            sp.GetService<IArchiveService>(),
-            sp.GetService<IBackgroundTaskManager>(),
             sp.GetService<INativeContextMenuService>(),
-            sp.GetService<IPinnedFolderService>(),
-            sp.GetService<IImageAnalysisService>(),
-            sp.GetService<IAiTagService>(),
+            sp.GetService<IClipboardService>(),
+            sp.GetService<IApplicationLauncherService>(),
+            sp.GetService<ISettingsService>(),
+            sp.GetService<IArchiveService>(),
             sp.GetService<IDragDropBridge>(),
-            sp.GetService<IDirectoryChangeNotifier>(),
-            sp.GetService<IFSEventsWatcher>()
+            sp.GetRequiredService<IDirectoryChangeNotifier>(),
+            sp.GetService<ILoggerFactory>()
         ));
 
         builder.Services.AddMauiBlazorWebView();
         builder.Services.AddMasaBlazor();
 
+        builder.Logging.AddDebug();
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
-        builder.Logging.AddDebug();
 #endif
 
         return builder.Build();

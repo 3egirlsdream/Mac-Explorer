@@ -1,15 +1,19 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 
 namespace FKFinder.Services.Impl;
 
-public class SettingsService : ISettingsService
+public class SettingsService : ISettingsService, IDisposable
 {
-    private readonly string _connectionString;
+    private bool _disposed;
+    private readonly SqliteConnection _connection;
     private readonly Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ILogger<SettingsService>? _logger;
 
-    public SettingsService(string dbPath)
+    public SettingsService(DatabaseConnectionFactory connectionFactory, ILogger<SettingsService>? logger = null)
     {
-        _connectionString = $"Data Source={dbPath};Mode=ReadWriteCreate";
+        _connection = connectionFactory.GetConnection();
+        _logger = logger;
         LoadAll();
     }
 
@@ -17,9 +21,7 @@ public class SettingsService : ISettingsService
     {
         try
         {
-            using var conn = new SqliteConnection(_connectionString);
-            conn.Open();
-            using var cmd = conn.CreateCommand();
+            using var cmd = _connection.CreateCommand();
             cmd.CommandText = "SELECT key, value FROM app_settings";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -27,7 +29,10 @@ public class SettingsService : ISettingsService
                 _cache[reader.GetString(0)] = reader.GetString(1);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to load settings in {Method}", nameof(LoadAll));
+        }
     }
 
     public string? Get(string key)
@@ -58,8 +63,9 @@ public class SettingsService : ISettingsService
 
             return (T)(object)raw;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogError(ex, "Failed to parse setting {Key} to type {Type}, returning default", key, typeof(T).Name);
             return defaultValue;
         }
     }
@@ -86,14 +92,25 @@ public class SettingsService : ISettingsService
     {
         try
         {
-            using var conn = new SqliteConnection(_connectionString);
-            conn.Open();
-            using var cmd = conn.CreateCommand();
+            using var cmd = _connection.CreateCommand();
             cmd.CommandText = "INSERT OR REPLACE INTO app_settings (key, value) VALUES (@key, @value)";
             cmd.Parameters.AddWithValue("@key", key);
             cmd.Parameters.AddWithValue("@value", value);
             cmd.ExecuteNonQuery();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to persist setting {Key} in {Method}", key, nameof(Persist));
+        }
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _connection.Close();
+            _connection.Dispose();
+            _disposed = true;
+        }
     }
 }

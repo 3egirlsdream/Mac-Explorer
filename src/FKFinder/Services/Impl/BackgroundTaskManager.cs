@@ -1,4 +1,5 @@
 using FKFinder.Models;
+using Microsoft.Extensions.Logging;
 
 namespace FKFinder.Services.Impl;
 
@@ -6,6 +7,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
 {
     private readonly List<BackgroundTaskInfo> _tasks = [];
     private readonly object _lock = new();
+    private readonly ILogger<BackgroundTaskManager>? _logger;
 
     public IReadOnlyList<BackgroundTaskInfo> Tasks
     {
@@ -13,6 +15,11 @@ public class BackgroundTaskManager : IBackgroundTaskManager
     }
 
     public event Action? TasksChanged;
+
+    public BackgroundTaskManager(ILoggerFactory? loggerFactory = null)
+    {
+        _logger = loggerFactory?.CreateLogger<BackgroundTaskManager>();
+    }
 
     public BackgroundTaskInfo AddTask(string label, Func<Task>? onCompleted = null)
     {
@@ -49,7 +56,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
 
         // 执行完成回调
         if (callback != null)
-            _ = Task.Run(async () => { try { await callback(); } catch { /* swallow */ } });
+            _ = Task.Run(async () => { try { await callback(); } catch (Exception ex) { _logger?.LogWarning(ex, "Background task callback failed for task {TaskId}", taskId); } });
 
         // 3 秒后自动移除
         _ = Task.Delay(3000).ContinueWith(_ => RemoveTask(taskId));

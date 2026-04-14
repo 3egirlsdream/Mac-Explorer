@@ -4,19 +4,19 @@ namespace FKFinder.Services;
 
 public static class AiPathHelper
 {
-    private const string Prefix = "__ai:";
+    private const string Prefix = VirtualPath.AiPrefix;
 
     public static bool IsAiPath(string path) =>
         path.StartsWith(Prefix, StringComparison.Ordinal);
 
     public static string GetTopLevelPath(AiViewMode mode) => mode switch
     {
-        AiViewMode.People => $"{Prefix}people",
-        AiViewMode.Categories => $"{Prefix}categories",
-        AiViewMode.Locations => $"{Prefix}locations",
-        AiViewMode.Dates => $"{Prefix}dates",
-        AiViewMode.TextSearch => $"{Prefix}textsearch",
-        _ => $"{Prefix}people"
+        AiViewMode.People => VirtualPath.AiPeople,
+        AiViewMode.Categories => VirtualPath.AiCategories,
+        AiViewMode.Locations => VirtualPath.AiLocations,
+        AiViewMode.Dates => VirtualPath.AiDates,
+        AiViewMode.TextSearch => VirtualPath.AiTextSearch,
+        _ => VirtualPath.AiPeople
     };
 
     public static AiPathInfo Parse(string sentinelPath)

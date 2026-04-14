@@ -1,5 +1,6 @@
 using FKFinder.Models;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 
 namespace FKFinder.Services.Impl;
 
@@ -7,15 +8,13 @@ public class AiTagService : IAiTagService
 {
     private const int CurrentAnalysisVersion = 1;
     private readonly SqliteConnection _connection;
+    private readonly ILogger<AiTagService>? _logger;
     private bool _disposed;
 
-    public AiTagService(string databasePath)
+    public AiTagService(DatabaseConnectionFactory connectionFactory, ILoggerFactory? loggerFactory = null)
     {
-        _connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadWriteCreate");
-        _connection.Open();
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;";
-        cmd.ExecuteNonQuery();
+        _connection = connectionFactory.GetConnection();
+        _logger = loggerFactory?.CreateLogger<AiTagService>();
     }
 
     // ── Analysis status ──
@@ -362,7 +361,10 @@ public class AiTagService : IAiTagService
                 });
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to search categories with query {Query} in {Method}", query, nameof(SearchCategoriesAsync));
+        }
 
         return categories;
     }

@@ -1,20 +1,19 @@
 using FKFinder.Models;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 
 namespace FKFinder.Services.Impl;
 
 public class CollectionService : ICollectionService, IDisposable
 {
     private readonly SqliteConnection _connection;
+    private readonly ILogger<CollectionService>? _logger;
     private bool _disposed;
 
-    public CollectionService(string databasePath)
+    public CollectionService(DatabaseConnectionFactory connectionFactory, ILoggerFactory? loggerFactory = null)
     {
-        _connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadWriteCreate");
-        _connection.Open();
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;";
-        cmd.ExecuteNonQuery();
+        _connection = connectionFactory.GetConnection();
+        _logger = loggerFactory?.CreateLogger<CollectionService>();
     }
 
     public async Task<IReadOnlyList<Collection>> GetAllCollectionsAsync()
@@ -91,8 +90,9 @@ public class CollectionService : ICollectionService, IDisposable
             }
             transaction.Commit();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogError(ex, "Failed to delete collection {CollectionId} in {Method}, rolling back transaction", collectionId, nameof(DeleteCollectionAsync));
             transaction.Rollback();
             throw;
         }

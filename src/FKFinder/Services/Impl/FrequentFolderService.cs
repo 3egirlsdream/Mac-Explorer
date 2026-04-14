@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 
 namespace FKFinder.Services.Impl;
 
@@ -7,6 +8,7 @@ public class FrequentFolderService : IFrequentFolderService, IDisposable
     private readonly SqliteConnection _connection;
     private readonly HashSet<string> _excludedPaths;
     private readonly string _homeDirectory;
+    private readonly ILogger<FrequentFolderService>? _logger;
     private bool _disposed;
 
     // System folders that should not be tracked
@@ -17,14 +19,11 @@ public class FrequentFolderService : IFrequentFolderService, IDisposable
         "/System/Applications", "/Volumes", "/.vol"
     };
 
-    public FrequentFolderService(string databasePath, string homeDirectory)
+    public FrequentFolderService(DatabaseConnectionFactory connectionFactory, string homeDirectory, ILoggerFactory? loggerFactory = null)
     {
         _homeDirectory = homeDirectory;
-        _connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadWriteCreate");
-        _connection.Open();
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;";
-        cmd.ExecuteNonQuery();
+        _connection = connectionFactory.GetConnection();
+        _logger = loggerFactory?.CreateLogger<FrequentFolderService>();
 
         // Build excluded paths: system folders + standard sidebar folders
         _excludedPaths = new HashSet<string>(DefaultExcludedFolders, StringComparer.OrdinalIgnoreCase);
@@ -76,7 +75,10 @@ public class FrequentFolderService : IFrequentFolderService, IDisposable
             cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.Ticks);
             await cmd.ExecuteNonQueryAsync();
         }
-        catch { /* best effort */ }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to record visit for folder {FolderPath} in {Method}", folderPath, nameof(RecordVisitAsync));
+        }
     }
 
     public async Task<IReadOnlyList<FrequentFolder>> GetTopFoldersAsync(int count = 10)
@@ -108,15 +110,18 @@ public class FrequentFolderService : IFrequentFolderService, IDisposable
                 ));
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to get top folders in {Method}", nameof(GetTopFoldersAsync));
+        }
         return folders;
     }
 
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;
         _connection.Close();
         _connection.Dispose();
+        _disposed = true;
     }
 }

@@ -2,7 +2,7 @@ namespace FKFinder.Services;
 
 public static class ArchivePathHelper
 {
-    private const string Prefix = "__archive:";
+    private const string Prefix = VirtualPath.ArchivePrefix;
 
     public static bool IsArchivePath(string path) =>
         path.StartsWith(Prefix, StringComparison.Ordinal);

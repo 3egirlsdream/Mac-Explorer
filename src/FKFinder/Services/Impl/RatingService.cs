@@ -9,13 +9,9 @@ public class RatingService : IRatingService, IDisposable
     private readonly ConcurrentDictionary<string, int> _cache = new();
     private bool _disposed;
 
-    public RatingService(string databasePath)
+    public RatingService(DatabaseConnectionFactory connectionFactory)
     {
-        _connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadWriteCreate");
-        _connection.Open();
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;";
-        cmd.ExecuteNonQuery();
+        _connection = connectionFactory.GetConnection();
     }
 
     public int GetRatingCached(string filePath)

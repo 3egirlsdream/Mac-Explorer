@@ -1,4 +1,5 @@
 using FKFinder.Models;
+using FKFinder.Services.Impl;
 using Microsoft.Data.Sqlite;
 
 namespace FKFinder.Indexing;
@@ -18,6 +19,50 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 
         // Try to open existing DB; if schema init fails, delete and recreate
         _connection = OpenAndInitialize(databasePath, allowRecreate: true);
+    }
+
+    public SqliteFileIndex(string databasePath, DatabaseConnectionFactory connectionFactory)
+    {
+        _databasePath = databasePath;
+        var directory = Path.GetDirectoryName(databasePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+
+        // Try to open existing DB; if schema init fails, delete and recreate
+        _connection = OpenAndInitialize(databasePath, connectionFactory, allowRecreate: true);
+    }
+
+    private static SqliteConnection OpenAndInitialize(string dbPath, DatabaseConnectionFactory connectionFactory, bool allowRecreate)
+    {
+        var conn = connectionFactory.GetConnection();
+        try
+        {
+            SqliteSchema.Initialize(conn);
+            return conn;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"SQLite init failed: {ex.Message}");
+            conn.Close();
+            conn.Dispose();
+
+            if (!allowRecreate)
+                throw;
+
+            // Delete corrupted/incompatible DB and recreate from scratch
+            try
+            {
+                foreach (var suffix in new[] { "", "-shm", "-wal", "-journal" })
+                {
+                    var f = dbPath + suffix;
+                    if (File.Exists(f)) File.Delete(f);
+                }
+                System.Diagnostics.Debug.WriteLine("Deleted old DB, recreating...");
+            }
+            catch { /* best effort cleanup */ }
+
+            return OpenAndInitialize(dbPath, connectionFactory, allowRecreate: false);
+        }
     }
 
     private static SqliteConnection OpenAndInitialize(string dbPath, bool allowRecreate)
@@ -300,43 +345,7 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 
     internal static string ResolveIconKey(string extension)
     {
-        return extension.ToLowerInvariant() switch
-        {
-            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".tiff" or ".tif" or ".svg" or ".webp" or ".heic" or ".ico"
-                or ".raw" or ".dng" or ".cr2" or ".cr3" or ".nef" or ".arw" or ".orf" or ".rw2" or ".pef" => "file-image",
-            ".mp4" or ".mov" or ".avi" or ".mkv" or ".wmv" or ".flv" or ".webm" => "file-video",
-            ".mp3" or ".wav" or ".flac" or ".aac" or ".m4a" or ".ogg" or ".wma" => "file-audio",
-            ".pdf" => "file-pdf",
-            ".doc" or ".docx" or ".odt" or ".pages" => "file-word",
-            ".xls" or ".xlsx" or ".csv" or ".numbers" => "file-excel",
-            ".ppt" or ".pptx" or ".key" => "file-powerpoint",
-            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" or ".bz2" or ".xz" or ".tgz" or ".zst" => "file-archive",
-            ".md" or ".mdx" or ".markdown" => "file-markdown",
-            ".txt" or ".rtf" or ".log" or ".nfo" or ".ini" or ".cfg" or ".conf" or ".env" => "file-text",
-            ".json" or ".yaml" or ".yml" or ".toml" or ".plist" or ".xml" => "file-config",
-            ".html" or ".htm" => "file-web",
-            ".cs" or ".js" or ".ts" or ".tsx" or ".jsx" or ".py" or ".java" or ".cpp" or ".c" or ".h" or ".hpp"
-                or ".go" or ".rs" or ".swift" or ".kt" or ".rb" or ".php" or ".lua" or ".r" or ".m" or ".mm"
-                or ".scala" or ".clj" or ".ex" or ".erl" or ".hs" or ".dart" or ".v" or ".zig"
-                or ".css" or ".scss" or ".sass" or ".less" or ".vue" or ".svelte"
-                or ".sh" or ".bash" or ".zsh" or ".fish" or ".bat" or ".cmd" or ".ps1"
-                or ".sql" or ".graphql" or ".gql" => "file-code",
-            ".cer" or ".crt" or ".pem" or ".p12" or ".pfx" or ".der" or ".cert" or ".ca-bundle" => "file-certificate",
-            ".pkg" or ".dmg" or ".msi" or ".exe" or ".deb" or ".rpm" or ".appimage" or ".snap" => "file-installer",
-            ".ttf" or ".otf" or ".woff" or ".woff2" or ".eot" or ".fon" or ".ttc" => "file-font",
-            ".db" or ".sqlite" or ".sqlite3" or ".mdb" or ".accdb" or ".dbf" or ".realm" => "file-database",
-            ".epub" or ".mobi" or ".azw" or ".azw3" or ".fb2" or ".djvu" or ".cbz" or ".cbr" => "file-ebook",
-            ".psd" or ".psb" or ".ai" or ".eps" or ".sketch" or ".fig" or ".xd" or ".indd" or ".afdesign" or ".afphoto" => "file-design",
-            ".iso" or ".img" or ".vhd" or ".vhdx" or ".vmdk" or ".qcow2" => "file-disk-image",
-            ".pvm" or ".pvs" or ".hdd" or ".vdi" or ".vmx" or ".vmwarevm" or ".ova" or ".ovf" or ".vbox" => "file-vm",
-            ".obj" or ".fbx" or ".stl" or ".blend" or ".3ds" or ".dae" or ".gltf" or ".glb" or ".usdz" or ".step" or ".stp" => "file-3d",
-            ".srt" or ".ass" or ".ssa" or ".sub" or ".vtt" or ".idx" or ".lrc" => "file-subtitle",
-            // Visual Studio / C# project files
-            ".sln" => "file-vs-solution",
-            ".csproj" or ".vbproj" or ".fsproj" => "file-vs-project",
-            ".razor" => "file-razor",
-            _ => "file-generic"
-        };
+        return FileIconResolver.ResolveIconKey(extension);
     }
 
     private static void AddEntryParameters(SqliteCommand cmd, FileSystemEntry entry)

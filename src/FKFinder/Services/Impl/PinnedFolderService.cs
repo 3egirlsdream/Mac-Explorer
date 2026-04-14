@@ -8,13 +8,9 @@ public class PinnedFolderService : IPinnedFolderService, IDisposable
     private readonly SqliteConnection _connection;
     private bool _disposed;
 
-    public PinnedFolderService(string databasePath)
+    public PinnedFolderService(DatabaseConnectionFactory connectionFactory)
     {
-        _connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadWriteCreate");
-        _connection.Open();
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;";
-        cmd.ExecuteNonQuery();
+        _connection = connectionFactory.GetConnection();
     }
 
     public async Task<IReadOnlyList<PinnedFolder>> GetAllAsync()
