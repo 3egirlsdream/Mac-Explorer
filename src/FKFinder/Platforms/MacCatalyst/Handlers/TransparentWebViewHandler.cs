@@ -50,6 +50,7 @@ public class TransparentWebViewHandler : Microsoft.AspNetCore.Components.WebView
         if (bridge != null)
         {
             NativeDragDropHelper.AttachToWebView(platformView, bridge);
+            NativeDragDropHelper.RegisterWebViewForWindow(platformView);
         }
     }
 }

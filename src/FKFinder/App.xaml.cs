@@ -3,6 +3,7 @@
 public partial class App : Application
 {
     private bool _dockMenuRegistered;
+    private bool _dropOverlayRegistered;
     private readonly HashSet<Window> _initializedWindows = new();
 
 	public App()
@@ -12,6 +13,7 @@ public partial class App : Application
 #if MACCATALYST
         // Register for the NSWindow creation notification as early as possible
         Platforms.MacCatalyst.Handlers.VibrancyHelper.Register();
+        Platforms.MacCatalyst.Handlers.DropOverlayHelper.Register(null!);
 #endif
 	}
 
@@ -66,6 +68,17 @@ public partial class App : Application
             {
                 // Make UIKit layers transparent so the AppKit NSVisualEffectView shows through
                 Platforms.MacCatalyst.Handlers.VibrancyHelper.MakeUIKitLayerTransparent(platformWindow);
+            }
+
+            // Register drop overlay bridge once services are available
+            if (!_dropOverlayRegistered)
+            {
+                var dragDropBridge = window?.Page?.Handler?.MauiContext?.Services?.GetService<Services.IDragDropBridge>();
+                if (dragDropBridge != null)
+                {
+                    Platforms.MacCatalyst.Handlers.DropOverlayHelper.SetBridge(dragDropBridge);
+                    _dropOverlayRegistered = true;
+                }
             }
         }
 

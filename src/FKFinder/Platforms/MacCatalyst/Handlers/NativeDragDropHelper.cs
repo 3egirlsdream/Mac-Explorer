@@ -1,118 +1,319 @@
+using System.Runtime.InteropServices;
+using CoreFoundation;
 using FKFinder.Services;
 using Foundation;
 using ObjCRuntime;
 using UIKit;
-using UniformTypeIdentifiers;
 using WebKit;
 
 namespace FKFinder.Platforms.MacCatalyst.Handlers;
 
 /// <summary>
-/// Attaches a native UIDropInteraction to the WKWebView for receiving file drops
-/// from Finder, other apps, and other FKFinder windows.
-/// Drag OUT is handled via HTML5 dragstart + text/uri-list in native-drag.js.
+/// Handles native drag-and-drop for FKFinder.
+/// - Drag OUT: HTML5 drag + file:// URLs (injected in native-drag.js)
+/// - Drop IN (external / cross-window): DropOverlayHelper handles at AppKit level
+/// - Drop IN (same-window): JS drop event → WKScriptMessageHandler → IDragDropBridge
+/// - Drag State: tracks internal drag state to hide/show overlay
 /// </summary>
 public static class NativeDragDropHelper
 {
+    // ── ObjC runtime P/Invoke ──
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern nint objc_msgSend_count(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_objectAtIndex(IntPtr receiver, IntPtr selector, nuint index);
+
+    // ── Static state ──
+    private static IDragDropBridge? _bridge;
+    private static readonly List<FileDropMessageHandler> _jsHandlers = new();
+    private static readonly List<DragStateMessageHandler> _stateHandlers = new();
+    private static readonly Dictionary<WKWebView, IntPtr> _webViewNSWindowMap = new();
+    private static IntPtr _lastDragWindow;
+
+    /// <summary>
+    /// Attach to a WKWebView for both JS-based drops and drag state tracking.
+    /// Called from TransparentWebViewHandler.ConnectHandler for each new WKWebView.
+    /// </summary>
     public static void AttachToWebView(WKWebView webView, IDragDropBridge bridge)
     {
-        // Only add UIDropInteraction for receiving external drops.
-        // Do NOT add UIDragInteraction — WKWebView's internal event handling
-        // prevents UIKit gesture recognizers from triggering on Mac Catalyst.
-        // Drag OUT is handled by HTML5 drag + file:// URLs set in JS dragstart.
-        var dropDelegate = new FileDropDelegate(webView, bridge);
-        var dropInteraction = new UIDropInteraction(dropDelegate);
-        webView.AddInteraction(dropInteraction);
+        _bridge = bridge;
 
-        Console.WriteLine("[FKFinder/Drag] Attached UIDropInteraction for receiving drops");
+        // JS message handler for same-window HTML5 DnD (internal drag → subfolder)
+        var handler = new FileDropMessageHandler(bridge);
+        _jsHandlers.Add(handler);
+        webView.Configuration.UserContentController.AddScriptMessageHandler(handler, "fkfinderDrop");
+
+        // JS message handler for drag state tracking (hide/show overlay)
+        var stateHandler = new DragStateMessageHandler();
+        _stateHandlers.Add(stateHandler);
+        webView.Configuration.UserContentController.AddScriptMessageHandler(stateHandler, "fkfinderDragState");
+
+        Log("AttachToWebView: native drop handled by DropOverlayHelper at AppKit level");
     }
 
-    private class FileDropDelegate : NSObject, IUIDropInteractionDelegate
+    /// <summary>
+    /// Register a WKWebView and discover its NSWindow (delayed since window may not be ready).
+    /// Called from TransparentWebViewHandler.ConnectHandler.
+    /// </summary>
+    public static void RegisterWebViewForWindow(WKWebView webView)
     {
-        private readonly WKWebView _webView;
+        // Delayed discovery: UIWindow → NSWindow mapping
+        // The UIWindow may not be available immediately during ConnectHandler
+        DiscoverNSWindowForWebView(webView, 0);
+    }
+
+    private static void DiscoverNSWindowForWebView(WKWebView webView, int attempt)
+    {
+        if (attempt > 20)
+        {
+            Log("Gave up finding NSWindow for WKWebView");
+            return;
+        }
+
+        var uiWindow = webView.Window;
+        if (uiWindow == null)
+        {
+            DispatchQueue.MainQueue.DispatchAfter(
+                new DispatchTime(DispatchTime.Now, (long)(0.3 * 1_000_000_000)),
+                () => DiscoverNSWindowForWebView(webView, attempt + 1));
+            return;
+        }
+
+        // Find NSWindow via NSApplication
+        var nsWindow = FindNSWindowForUIWindow(uiWindow);
+        if (nsWindow != IntPtr.Zero)
+        {
+            _webViewNSWindowMap[webView] = nsWindow;
+            DropOverlayHelper.RegisterWebView(nsWindow, webView);
+            Log($"Mapped WKWebView to NSWindow {nsWindow}");
+        }
+        else if (attempt < 20)
+        {
+            DispatchQueue.MainQueue.DispatchAfter(
+                new DispatchTime(DispatchTime.Now, (long)(0.3 * 1_000_000_000)),
+                () => DiscoverNSWindowForWebView(webView, attempt + 1));
+        }
+    }
+
+    private static IntPtr FindNSWindowForUIWindow(UIKit.UIWindow uiWindow)
+    {
+        try
+        {
+            // Get the scene from the UIWindow
+            var windowScene = uiWindow.WindowScene;
+            if (windowScene == null)
+            {
+                Log("FindNSWindowForUIWindow: windowScene is null, falling back to keyWindow");
+                return GetKeyWindow();
+            }
+
+            // Get the UIWindow's underlying view's layer host pointer
+            // On Mac Catalyst, each UIWindow is backed by an NSWindow
+            // We can find it by matching the UIWindow's scene with NSWindow's scene
+            
+            var nsAppClass = ObjCRuntime.Class.GetHandle("NSApplication");
+            var sharedApp = objc_msgSend(nsAppClass, Selector.GetHandle("sharedApplication"));
+            if (sharedApp == IntPtr.Zero)
+            {
+                Log("FindNSWindowForUIWindow: sharedApplication is null");
+                return IntPtr.Zero;
+            }
+
+            // Get all windows from NSApplication
+            var windows = objc_msgSend(sharedApp, Selector.GetHandle("windows"));
+            if (windows == IntPtr.Zero)
+            {
+                Log("FindNSWindowForUIWindow: windows array is null");
+                return GetKeyWindow();
+            }
+
+            var windowCount = objc_msgSend_count(windows, Selector.GetHandle("count"));
+            Log($"FindNSWindowForUIWindow: checking {windowCount} NSWindows...");
+
+            // Get the UIScene's persistent identifier for comparison
+            var session = windowScene.Session;
+            var scenePersistentId = session?.PersistentIdentifier ?? "";
+
+            // Iterate through all NSWindows to find the one matching our UIWindow
+            for (nuint i = 0; i < (nuint)windowCount; i++)
+            {
+                var nsWindow = objc_msgSend_objectAtIndex(windows, Selector.GetHandle("objectAtIndex:"), i);
+                if (nsWindow == IntPtr.Zero) continue;
+
+                // Get the window's scene identifier
+                var windowSceneId = GetWindowSceneIdentifier(nsWindow);
+                if (string.IsNullOrEmpty(windowSceneId)) continue;
+
+                // Check if this NSWindow's scene identifier contains our scene's persistent ID
+                if (!string.IsNullOrEmpty(scenePersistentId) && 
+                    windowSceneId.Contains(scenePersistentId))
+                {
+                    Log($"FindNSWindowForUIWindow: matched NSWindow {nsWindow} by scene ID");
+                    return nsWindow;
+                }
+            }
+
+            // Fallback: use keyWindow if no match found
+            Log($"FindNSWindowForUIWindow: no matching NSWindow found for scene {scenePersistentId}, falling back to keyWindow");
+            return GetKeyWindow();
+        }
+        catch (Exception ex)
+        {
+            Log($"FindNSWindowForUIWindow error: {ex.Message}");
+            return GetKeyWindow();
+        }
+    }
+
+    private static string? GetWindowSceneIdentifier(IntPtr nsWindow)
+    {
+        try
+        {
+            // Get the window's windowScene
+            var windowScene = objc_msgSend(nsWindow, Selector.GetHandle("windowScene"));
+            if (windowScene == IntPtr.Zero) return null;
+
+            // Get the session
+            var session = objc_msgSend(windowScene, Selector.GetHandle("session"));
+            if (session == IntPtr.Zero) return null;
+
+            // Get the persistentIdentifier
+            var persistentId = objc_msgSend(session, Selector.GetHandle("persistentIdentifier"));
+            if (persistentId == IntPtr.Zero) return null;
+
+            // Convert to string
+            var nsStr = Runtime.GetNSObject<Foundation.NSString>(persistentId);
+            return nsStr?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static IntPtr GetKeyWindow()
+    {
+        try
+        {
+            var nsAppClass = ObjCRuntime.Class.GetHandle("NSApplication");
+            var sharedApp = objc_msgSend(nsAppClass, Selector.GetHandle("sharedApplication"));
+            if (sharedApp == IntPtr.Zero) return IntPtr.Zero;
+
+            return objc_msgSend(sharedApp, Selector.GetHandle("keyWindow"));
+        }
+        catch
+        {
+            return IntPtr.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Find the NSWindow associated with a WKWebView.
+    /// </summary>
+    public static IntPtr FindNSWindowForWebView(WKWebView webView)
+    {
+        if (_webViewNSWindowMap.TryGetValue(webView, out var nsWindow))
+            return nsWindow;
+        return IntPtr.Zero;
+    }
+
+    // ── Helpers ──
+
+    private static readonly string LogPath = "/tmp/fkfinder-drag.log";
+
+    private static void Log(string msg)
+    {
+        try
+        {
+            var line = $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\n";
+            File.AppendAllText(LogPath, line);
+        }
+        catch { /* ignore */ }
+    }
+
+    // ── WKScriptMessageHandler for JS drops (same-window HTML5 DnD) ──
+
+    private class FileDropMessageHandler : NSObject, IWKScriptMessageHandler
+    {
         private readonly IDragDropBridge _bridge;
 
-        public FileDropDelegate(WKWebView webView, IDragDropBridge bridge)
+        public FileDropMessageHandler(IDragDropBridge bridge) => _bridge = bridge;
+
+        public void DidReceiveScriptMessage(
+            WKUserContentController userContentController, WKScriptMessage message)
         {
-            _webView = webView;
-            _bridge = bridge;
+            if (message.Body is not NSDictionary dict)
+                return;
+
+            var pathsArray = dict["paths"] as NSArray;
+            if (pathsArray == null || pathsArray.Count == 0)
+                return;
+
+            string? targetDir = null;
+            if (dict["target"] is NSString targetStr)
+                targetDir = targetStr.ToString();
+
+            if (string.IsNullOrEmpty(targetDir))
+                targetDir = _bridge.GetCurrentDirectory();
+
+            var paths = new string[(int)pathsArray.Count];
+            for (nuint i = 0; i < pathsArray.Count; i++)
+                paths[i] = pathsArray.GetItem<NSString>(i).ToString();
+
+            Log($"JS drop: {paths.Length} path(s) -> {targetDir}");
+            var nsWindow = message.WebView != null ? FindNSWindowForWebView(message.WebView) : IntPtr.Zero;
+            _bridge.HandleExternalDrop(paths, targetDir, nsWindow);
         }
+    }
 
-        [Export("dropInteraction:canHandleSession:")]
-        public bool CanHandleSession(UIDropInteraction interaction, IUIDropSession session)
+    // ── WKScriptMessageHandler for drag state tracking ──
+
+    private class DragStateMessageHandler : NSObject, IWKScriptMessageHandler
+    {
+        public void DidReceiveScriptMessage(
+            WKUserContentController userContentController, WKScriptMessage message)
         {
-            bool canHandle = session.CanLoadObjects(new Class(typeof(NSUrl)));
-            Console.WriteLine($"[FKFinder/Drop] CanHandle: {canHandle}");
-            return canHandle;
-        }
+            if (message.Body is not NSDictionary dict) return;
 
-        [Export("dropInteraction:sessionDidUpdate:")]
-        public UIDropProposal SessionDidUpdate(UIDropInteraction interaction, IUIDropSession session)
-        {
-            var point = session.LocationInView(_webView);
-            var js = FormattableString.Invariant(
-                $"window.fkfinderNativeDrag && window.fkfinderNativeDrag.setDropHighlight({point.X}, {point.Y})");
-            _webView.EvaluateJavaScript(js, null!);
+            var started = dict["started"] as NSNumber;
+            if (started == null) return;
 
-            return new UIDropProposal(UIDropOperation.Move);
-        }
+            var isDragStarted = started.BoolValue;
+            Log($"DragState: internal drag {(isDragStarted ? "STARTED" : "ENDED")}");
 
-        [Export("dropInteraction:performDrop:")]
-        public void PerformDrop(UIDropInteraction interaction, IUIDropSession session)
-        {
-            Console.WriteLine("[FKFinder/Drop] PerformDrop");
-            var point = session.LocationInView(_webView);
-
-            var js = FormattableString.Invariant(
-                $"window.fkfinderNativeDrag ? window.fkfinderNativeDrag.getDropTargetAtPoint({point.X}, {point.Y}) : null");
-
-            _webView.EvaluateJavaScript(js, (result, error) =>
+            if (isDragStarted)
             {
-                string? targetDir = null;
-                if (result is NSString nsStr)
-                    targetDir = nsStr.ToString();
-
-                if (string.IsNullOrEmpty(targetDir))
-                    targetDir = _bridge.GetCurrentDirectory();
-
-                Console.WriteLine($"[FKFinder/Drop] Target: {targetDir}");
-
-                var dir = targetDir;
-                session.LoadObjects(new Class(typeof(NSUrl)), (items) =>
+                // Hide only the overlay for the window that started the drag
+                // Use the webView that sent the message to find the correct window
+                var webView = message.WebView;
+                if (webView != null)
                 {
-                    var paths = items
-                        .OfType<NSUrl>()
-                        .Where(u => u.IsFileUrl)
-                        .Select(u => u.Path!)
-                        .Where(p => !string.IsNullOrEmpty(p))
-                        .ToArray();
-
-                    Console.WriteLine($"[FKFinder/Drop] Loaded {paths.Length} file URL(s)");
-
-                    if (paths.Length > 0)
+                    var nsWindow = FindNSWindowForWebView(webView);
+                    if (nsWindow != IntPtr.Zero)
                     {
-                        MainThread.BeginInvokeOnMainThread(() =>
-                            _bridge.NotifyExternalDrop(paths, dir));
+                        DropOverlayHelper.SetOverlayHidden(nsWindow, true);
+                        _lastDragWindow = nsWindow;
                     }
-                });
-            });
-
-            _webView.EvaluateJavaScript(
-                "window.fkfinderNativeDrag && window.fkfinderNativeDrag.clearDropHighlight()", null!);
-        }
-
-        [Export("dropInteraction:sessionDidExit:")]
-        public void SessionDidExit(UIDropInteraction interaction, IUIDropSession session)
-        {
-            _webView.EvaluateJavaScript(
-                "window.fkfinderNativeDrag && window.fkfinderNativeDrag.clearDropHighlight()", null!);
-        }
-
-        [Export("dropInteraction:sessionDidEnd:withOperation:")]
-        public void SessionDidEnd(UIDropInteraction interaction, IUIDropSession session, UIDropOperation operation)
-        {
-            _webView.EvaluateJavaScript(
-                "window.fkfinderNativeDrag && window.fkfinderNativeDrag.clearDropHighlight()", null!);
+                    else
+                    {
+                        // Fallback: hide all
+                        DropOverlayHelper.SetOverlayHiddenForAllWindows(true);
+                    }
+                }
+                else
+                {
+                    DropOverlayHelper.SetOverlayHiddenForAllWindows(true);
+                }
+            }
+            else
+            {
+                // Show all overlays when drag ends
+                DropOverlayHelper.SetOverlayHiddenForAllWindows(false);
+            }
         }
     }
 }
