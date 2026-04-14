@@ -29,6 +29,7 @@ public partial class FileListViewModel : ObservableObject
     private readonly IPinnedFolderService? _pinnedFolderService;
     private readonly IImageAnalysisService? _imageAnalysisService;
     private readonly IAiTagService? _aiTagService;
+    private readonly IDragDropBridge? _dragDropBridge;
     private CancellationTokenSource? _searchCts;
 
     private IReadOnlyList<FileSystemEntry> _rawEntries = [];
@@ -214,7 +215,8 @@ public partial class FileListViewModel : ObservableObject
         INativeContextMenuService? nativeContextMenuService = null,
         IPinnedFolderService? pinnedFolderService = null,
         IImageAnalysisService? imageAnalysisService = null,
-        IAiTagService? aiTagService = null)
+        IAiTagService? aiTagService = null,
+        IDragDropBridge? dragDropBridge = null)
     {
         _fileService = fileService;
         _fileIndex = fileIndex;
@@ -236,6 +238,10 @@ public partial class FileListViewModel : ObservableObject
         _pinnedFolderService = pinnedFolderService;
         _imageAnalysisService = imageAnalysisService;
         _aiTagService = aiTagService;
+        _dragDropBridge = dragDropBridge;
+
+        if (_dragDropBridge != null)
+            _dragDropBridge.ExternalDropReceived += HandleExternalDrop;
 
         // Load persisted user preferences
         if (_settingsService != null)
@@ -1500,6 +1506,41 @@ public partial class FileListViewModel : ObservableObject
         });
     }
 
+    /// <summary>
+    /// Handles files dropped from external sources (Finder, other apps, other FKFinder windows).
+    /// Called via IDragDropBridge.ExternalDropReceived event.
+    /// </summary>
+    private async void HandleExternalDrop(string[] sourcePaths, string targetDirectory)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            int moved = 0;
+            foreach (var sourcePath in sourcePaths)
+            {
+                // Skip files already in the target directory (same-window drag to content area)
+                if (Path.GetDirectoryName(sourcePath) == targetDirectory)
+                    continue;
+
+                try
+                {
+                    await _fileService.MoveAsync(sourcePath, targetDirectory);
+                    moved++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[FKFinder] Move failed: {sourcePath} → {ex.Message}");
+                }
+            }
+
+            if (moved > 0)
+            {
+                ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+                await LoadDirectoryContentsAsync(forceRefresh: true);
+                StatusText = $"已移动 {moved} 项";
+            }
+        });
+    }
+
     // Rename support: event to notify the view to start inline rename
     public event Action<FileSystemEntry>? RenameRequested;
 
@@ -1527,14 +1568,24 @@ public partial class FileListViewModel : ObservableObject
             var oldPath = entry.FullPath;
             await _fileService.RenameAsync(oldPath, newName);
 
+            var dir = Path.GetDirectoryName(oldPath) ?? "";
+            var newPath = Path.Combine(dir, newName);
+
             if (IsAiView)
             {
-                // In AI detail view: update entry in-memory + update AI database paths
-                var dir = Path.GetDirectoryName(oldPath) ?? "";
-                var newPath = Path.Combine(dir, newName);
 
                 if (_aiTagService != null)
                     await _aiTagService.UpdateFilePathAsync(oldPath, newPath);
+
+                // Update file index so FTS5 search reflects the new name
+                await _fileIndexWriter.RenameEntryAsync(oldPath, newPath, newName);
+
+                // 同步更新 PIN 文件夹路径
+                if (_pinnedFolderService != null && entry.IsDirectory)
+                {
+                    await _pinnedFolderService.UpdateFolderPathAsync(oldPath, newPath, newName);
+                    await LoadPinnedFoldersAsync();
+                }
 
                 for (int i = 0; i < Entries.Count; i++)
                 {
@@ -1563,7 +1614,15 @@ public partial class FileListViewModel : ObservableObject
                         break;
                     }
                 }
+                OnPropertyChanged(nameof(Entries));
                 return;
+            }
+
+            // 同步更新 PIN 文件夹路径
+            if (_pinnedFolderService != null && entry.IsDirectory)
+            {
+                await _pinnedFolderService.UpdateFolderPathAsync(oldPath, newPath, newName);
+                await LoadPinnedFoldersAsync();
             }
 
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
@@ -2291,6 +2350,13 @@ public partial class FileListViewModel : ObservableObject
             }
             else if (info.IsFaceDetail)
             {
+                // Ensure FaceClusters is populated (e.g. when navigating directly from search)
+                if (FaceClusters.Count == 0 && _aiTagService != null)
+                {
+                    var clusters = await _aiTagService.GetAllFaceClustersAsync();
+                    FaceClusters.Clear();
+                    foreach (var c in clusters) FaceClusters.Add(c);
+                }
                 await LoadFaceClusterEntriesAsync(info.FaceClusterId!.Value);
             }
             else
@@ -2469,6 +2535,7 @@ public partial class FileListViewModel : ObservableObject
                     break;
                 }
             }
+            OnPropertyChanged(nameof(Entries));
         }
         catch (Exception ex) { StatusText = $"重命名失败: {ex.Message}"; }
     }

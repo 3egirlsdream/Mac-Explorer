@@ -25,6 +25,8 @@ public class NavigationBridge
 
     /// <summary>
     /// Register a ViewModel instance (call on creation / page init).
+    /// Note: Does NOT auto-navigate on pending path — that is handled
+    /// exclusively by Home.razor.OnInitialized to avoid race conditions.
     /// </summary>
     public void Register(ViewModels.FileListViewModel vm)
     {
@@ -39,6 +41,8 @@ public class NavigationBridge
             }
             _activeVm = new WeakReference<ViewModels.FileListViewModel>(vm);
         }
+
+        Console.WriteLine($"[FKFinder] NavigationBridge.Register: PendingNavigationPath='{PendingNavigationPath}' (not consuming here, OnInitialized will handle)");
     }
 
     /// <summary>
@@ -69,12 +73,17 @@ public class NavigationBridge
 
     /// <summary>
     /// Navigate to a folder in the active ViewModel (or the first available one).
+    /// If no ViewModel is registered yet, stores the path for later consumption.
     /// </summary>
     public async Task NavigateAsync(string path)
     {
+        Console.WriteLine($"[FKFinder] NavigationBridge.NavigateAsync: path='{path}'");
+
         ViewModels.FileListViewModel? target = null;
         lock (_viewModels)
         {
+            Console.WriteLine($"[FKFinder] NavigationBridge.NavigateAsync: registered VMs={_viewModels.Count}, hasActiveVm={_activeVm != null}");
+
             // Prefer the active VM
             if (_activeVm?.TryGetTarget(out var active) == true)
             {
@@ -96,7 +105,16 @@ public class NavigationBridge
 
         if (target != null)
         {
+            Console.WriteLine($"[FKFinder] NavigationBridge.NavigateAsync: found target VM, navigating to '{path}'");
+            // 成功导航后清除 PendingNavigationPath，避免 Home.razor.OnInitialized 重复导航
+            PendingNavigationPath = null;
             await target.NavigateToCommand.ExecuteAsync(path);
+        }
+        else
+        {
+            Console.WriteLine($"[FKFinder] NavigationBridge.NavigateAsync: no VM registered, queuing path='{path}'");
+            // No ViewModel registered yet — queue the path for later
+            PendingNavigationPath = path;
         }
     }
 }

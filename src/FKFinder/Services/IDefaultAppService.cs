@@ -3,6 +3,6 @@ namespace FKFinder.Services;
 public interface IDefaultAppService
 {
     bool IsDefaultFolderHandler();
-    void SetAsDefaultFolderHandler();
-    void ResetDefaultFolderHandler();
+    (bool Success, string Message) SetAsDefaultFolderHandler();
+    (bool Success, string Message) ResetDefaultFolderHandler();
 }

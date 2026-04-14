@@ -68,6 +68,20 @@ public class PinnedFolderService : IPinnedFolderService, IDisposable
         return Convert.ToInt64(result) > 0;
     }
 
+    public async Task UpdateFolderPathAsync(string oldPath, string newPath, string newDisplayName)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            UPDATE pinned_folders 
+            SET folder_path = @newPath, display_name = @newDisplayName
+            WHERE folder_path = @oldPath
+            """;
+        cmd.Parameters.AddWithValue("@oldPath", oldPath);
+        cmd.Parameters.AddWithValue("@newPath", newPath);
+        cmd.Parameters.AddWithValue("@newDisplayName", newDisplayName);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     public void Dispose()
     {
         if (!_disposed)

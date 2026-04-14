@@ -7,6 +7,7 @@
 @inject FKFinder.Services.IMouseNavigationService MouseNavService
 @inject FKFinder.Services.NavigationBridge NavigationBridge
 @inject FKFinder.Services.IBackgroundTaskManager TaskManager
+@inject FKFinder.Services.IDragDropBridge DragDropBridge
 @implements IAsyncDisposable
 
 <MApp Style="background:transparent">
@@ -102,15 +103,33 @@
 
     protected override void OnInitialized()
     {
-        // Register this window's ViewModel with the navigation bridge
+        // Register this window's ViewModel with bridges
         NavigationBridge.Register(ViewModel);
+        DragDropBridge.Register(ViewModel);
 
         // Check if this new window should navigate to a pending folder path
         var pendingPath = NavigationBridge.PendingNavigationPath;
+        Console.WriteLine($"[FKFinder] Home.OnInitialized: PendingNavigationPath='{pendingPath}'");
+
+        // Also check the static cold-start fallback from SceneDelegate
+#if MACCATALYST
+        if (string.IsNullOrEmpty(pendingPath))
+        {
+            pendingPath = FKFinder.SceneDelegate._coldStartPath;
+            Console.WriteLine($"[FKFinder] Home.OnInitialized: _coldStartPath='{pendingPath}'");
+            FKFinder.SceneDelegate._coldStartPath = null;
+        }
+#endif
+
         if (!string.IsNullOrEmpty(pendingPath))
         {
+            Console.WriteLine($"[FKFinder] Home.OnInitialized: navigating to pending path '{pendingPath}'");
             NavigationBridge.PendingNavigationPath = null;
             _ = ViewModel.NavigateToCommand.ExecuteAsync(pendingPath);
+        }
+        else
+        {
+            Console.WriteLine("[FKFinder] Home.OnInitialized: no pending path");
         }
 
         // Subscribe to ViewModel property changes to trigger re-render
@@ -290,6 +309,7 @@
     public async ValueTask DisposeAsync()
     {
         NavigationBridge.Unregister(ViewModel);
+        DragDropBridge.Unregister(ViewModel);
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         TaskManager.TasksChanged -= OnTasksChanged;
         MouseNavService.BackButtonPressed -= OnMouseBack;

@@ -9,7 +9,9 @@
             <div class="settings-item-info">
                 <div class="settings-item-label">设为默认文件管理器</div>
                 <div class="settings-item-description">
-                    启用后，通过 open 命令或双击文件夹将使用 FKFinder 打开
+                    设置后，通过终端 open 命令、系统文件对话框等方式打开文件夹时将使用 FKFinder。
+                    <br />
+                    <span style="opacity: 0.7; font-size: 0.85em;">桌面双击文件夹不受影响（macOS 系统限制）</span>
                 </div>
             </div>
             <label class="settings-toggle" @onclick:stopPropagation>
@@ -20,6 +22,13 @@
         </div>
     </div>
 
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="settings-status @(_statusSuccess ? "settings-status-success" : "settings-status-error")">
+            @_statusMessage
+        </div>
+    }
+
     <div class="settings-dialog-actions">
         <button class="settings-dialog-btn" @onclick="Close">关闭</button>
     </div>
@@ -29,6 +38,8 @@
     [Parameter] public EventCallback OnClose { get; set; }
 
     private bool _isDefaultHandler;
+    private string _statusMessage = "";
+    private bool _statusSuccess;
 
     protected override void OnInitialized()
     {
@@ -38,11 +49,13 @@
     private void OnDefaultHandlerToggle(ChangeEventArgs e)
     {
         var enabled = (bool)(e.Value ?? false);
-        if (enabled)
-            DefaultAppService.SetAsDefaultFolderHandler();
-        else
-            DefaultAppService.ResetDefaultFolderHandler();
 
+        var (success, message) = enabled
+            ? DefaultAppService.SetAsDefaultFolderHandler()
+            : DefaultAppService.ResetDefaultFolderHandler();
+
+        _statusSuccess = success;
+        _statusMessage = message;
         _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
     }
 

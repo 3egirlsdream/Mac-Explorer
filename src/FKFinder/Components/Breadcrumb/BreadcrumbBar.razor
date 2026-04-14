@@ -506,7 +506,10 @@
         _pathInput = "";
         _isEditingPath = false;
 
-        await ViewModel.NavigateToAiCategoryAsync(category.TagType, category.TagValue);
+        if (category.TagType == "face" && category.FaceClusterId.HasValue)
+            await ViewModel.NavigateToFaceClusterAsync(category.FaceClusterId.Value);
+        else
+            await ViewModel.NavigateToAiCategoryAsync(category.TagType, category.TagValue);
         _isSelectingSuggestion = false;
     }
 

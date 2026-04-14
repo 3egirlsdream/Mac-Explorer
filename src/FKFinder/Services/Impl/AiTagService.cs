@@ -336,10 +336,12 @@ public class AiTagService : IAiTagService
 
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
-            SELECT tag_type, tag_value, COUNT(DISTINCT file_path) as file_count
-            FROM ai_tags
-            WHERE tag_value LIKE @query
-            GROUP BY tag_type, tag_value
+            SELECT at.tag_type, at.tag_value, COUNT(DISTINCT at.file_path) as file_count,
+                   fc.id as cluster_id
+            FROM ai_tags at
+            LEFT JOIN face_clusters fc ON at.tag_type = 'face' AND fc.display_name = at.tag_value
+            WHERE at.tag_value LIKE @query
+            GROUP BY at.tag_type, at.tag_value
             ORDER BY file_count DESC
             LIMIT @limit
             """;
@@ -355,7 +357,8 @@ public class AiTagService : IAiTagService
                 {
                     TagType = reader.GetString(0),
                     TagValue = reader.GetString(1),
-                    FileCount = reader.GetInt32(2)
+                    FileCount = reader.GetInt32(2),
+                    FaceClusterId = reader.IsDBNull(3) ? null : reader.GetInt32(3)
                 });
             }
         }

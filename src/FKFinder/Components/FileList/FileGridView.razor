@@ -255,6 +255,7 @@
     private FileSystemEntry? _renamingEntry;
     private string _renameText = "";
     private bool _skipScrollHandlingOnNextEntriesChange;
+    private bool _renameInputMouseDown;
 
     // ── Render helpers using inline templates ──
 
@@ -287,6 +288,8 @@
         builder.AddAttribute(16, "oncontextmenu:preventDefault", true);
         builder.AddAttribute(17, "oncontextmenu:stopPropagation", true);
         builder.AddAttribute(18, "ondragend", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragEnd()));
+        builder.AddAttribute(19, "data-path", entry.FullPath);
+        builder.AddAttribute(90, "data-is-directory", entry.IsDirectory ? "true" : "false");
 
         // Name column
         builder.OpenElement(20, "div");
@@ -306,8 +309,9 @@
             builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
             builder.AddAttribute(31, "onclick:stopPropagation", true);
             builder.AddAttribute(32, "ondblclick:stopPropagation", true);
-            builder.AddAttribute(33, "onmousedown:stopPropagation", true);
-            builder.AddElementReferenceCapture(34, async el => await FocusRenameInput(el));
+            builder.AddAttribute(33, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
+            builder.AddAttribute(34, "onmousedown:stopPropagation", true);
+            builder.AddElementReferenceCapture(35, async el => await FocusRenameInput(el));
             builder.CloseElement();
         }
         else
@@ -396,6 +400,8 @@
         builder.AddAttribute(16, "oncontextmenu:preventDefault", true);
         builder.AddAttribute(17, "oncontextmenu:stopPropagation", true);
         builder.AddAttribute(18, "ondragend", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragEnd()));
+        builder.AddAttribute(19, "data-path", entry.FullPath);
+        builder.AddAttribute(90, "data-is-directory", entry.IsDirectory ? "true" : "false");
 
         builder.OpenElement(20, "div");
         builder.AddAttribute(21, "class", "file-grid-icon");
@@ -412,8 +418,9 @@
             builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
             builder.AddAttribute(31, "onclick:stopPropagation", true);
             builder.AddAttribute(32, "ondblclick:stopPropagation", true);
-            builder.AddAttribute(33, "onmousedown:stopPropagation", true);
-            builder.AddElementReferenceCapture(34, async el => await FocusRenameInput(el));
+            builder.AddAttribute(33, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
+            builder.AddAttribute(34, "onmousedown:stopPropagation", true);
+            builder.AddElementReferenceCapture(35, async el => await FocusRenameInput(el));
             builder.CloseElement();
         }
         else
@@ -526,15 +533,24 @@
         }
     }
 
-    private void OnContentMouseDown(MouseEventArgs e)
+    private async void OnContentMouseDown(MouseEventArgs e)
     {
+        // Defensive guard: if the mousedown originated from the rename input
+        // (stopPropagation may not work reliably on all WebView platforms),
+        // ignore the event to keep the rename input active.
+        if (_renameInputMouseDown)
+        {
+            _renameInputMouseDown = false;
+            return;
+        }
+
         if (e.Button == 0 && e.Detail == 1)
         {
-            // Cancel rename if active
+            // Commit rename if active (instead of canceling)
             if (_renamingEntry != null)
             {
-                _renamingEntry = null;
-                _renameText = "";
+                await CommitRename();
+                return;
             }
 
             // Click on blank area clears selection

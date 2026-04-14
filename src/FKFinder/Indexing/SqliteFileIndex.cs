@@ -238,6 +238,22 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
         await cmd.ExecuteNonQueryAsync();
     }
 
+    public async Task RenameEntryAsync(string oldPath, string newPath, string newName)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            UPDATE files
+            SET path = @newPath, name = @newName, extension = @ext, modified_at = @now
+            WHERE path = @oldPath
+            """;
+        cmd.Parameters.AddWithValue("@newPath", newPath);
+        cmd.Parameters.AddWithValue("@newName", newName);
+        cmd.Parameters.AddWithValue("@ext", string.IsNullOrEmpty(Path.GetExtension(newName)) ? DBNull.Value : Path.GetExtension(newName));
+        cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.Ticks);
+        cmd.Parameters.AddWithValue("@oldPath", oldPath);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     public async Task AddEntryAsync(FileSystemEntry entry)
     {
         using var cmd = _connection.CreateCommand();
@@ -411,6 +427,7 @@ public interface IFileIndex
 public interface IFileIndexWriter
 {
     Task UpdateDirectoryAsync(string directoryPath, IReadOnlyList<FileSystemEntry> entries);
+    Task RenameEntryAsync(string oldPath, string newPath, string newName);
     Task RemoveEntryAsync(string path);
     Task AddEntryAsync(FileSystemEntry entry);
 }

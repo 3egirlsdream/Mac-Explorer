@@ -136,6 +136,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IImageAnalysisService,
             Platforms.MacCatalyst.Services.MacImageAnalysisService>();
         builder.Services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
+        builder.Services.AddSingleton<IDragDropBridge, Platforms.MacCatalyst.Services.MacDragDropBridge>();
 
         // Register ViewModels (Scoped so each window gets its own instance)
         builder.Services.AddScoped<FileListViewModel>(sp => new FileListViewModel(
@@ -158,7 +159,8 @@ public static class MauiProgram
             sp.GetService<INativeContextMenuService>(),
             sp.GetService<IPinnedFolderService>(),
             sp.GetService<IImageAnalysisService>(),
-            sp.GetService<IAiTagService>()
+            sp.GetService<IAiTagService>(),
+            sp.GetService<IDragDropBridge>()
         ));
 
         builder.Services.AddMauiBlazorWebView();

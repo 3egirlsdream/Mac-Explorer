@@ -1,3 +1,4 @@
+using FKFinder.Services;
 using UIKit;
 using WebKit;
 
@@ -42,6 +43,13 @@ public class TransparentWebViewHandler : Microsoft.AspNetCore.Components.WebView
         {
             platformView.ScrollView.BackgroundColor = UIColor.Clear;
             platformView.ScrollView.Opaque = false;
+        }
+
+        // Attach native drag-and-drop interactions for external file transfer
+        var bridge = IPlatformApplication.Current?.Services?.GetService<IDragDropBridge>();
+        if (bridge != null)
+        {
+            NativeDragDropHelper.AttachToWebView(platformView, bridge);
         }
     }
 }

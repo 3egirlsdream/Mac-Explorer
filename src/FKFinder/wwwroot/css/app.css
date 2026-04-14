@@ -2395,6 +2395,25 @@ input:focus {
     opacity: 0.85;
 }
 
+.settings-status {
+    margin: 0 var(--space-4) var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.settings-status-success {
+    background: rgba(52, 199, 89, 0.12);
+    color: #2d8a4e;
+}
+
+.settings-status-error {
+    background: rgba(255, 59, 48, 0.10);
+    color: #d63030;
+}
+
 /* ═══════════════════════════════════════
    Center Progress Card
    ═══════════════════════════════════════ */
@@ -2816,4 +2835,19 @@ html {
 .ai-text-token:hover .ai-text-token-count {
     color: var(--color-accent);
     opacity: 0.8;
+}
+
+/* ═══ External Drag-and-Drop Feedback ═══ */
+.file-list-row.external-drag-over,
+.file-grid-item.external-drag-over {
+    background: rgba(0, 122, 255, 0.15);
+    outline: 2px dashed var(--color-accent);
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+
+.file-content-area.external-drag-active {
+    outline: 2px dashed rgba(0, 122, 255, 0.4);
+    outline-offset: -2px;
+    border-radius: 8px;
 }

@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FKFinder — 智能文件管理器</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --accent: #6366F1;
+    --accent-light: #818CF8;
+    --glass-bg: rgba(255,255,255,0.08);
+    --glass-border: rgba(255,255,255,0.12);
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --slide-transition: 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Inter', -apple-system, 'SF Pro Display', sans-serif;
+    background: #0B0F1A;
+    color: var(--text-primary);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Slides Container ── */
+  .slides-wrapper {
+    position: relative;
+    width: 100%; height: 100%;
+  }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transform: translateY(40px) scale(0.97);
+    transition: opacity var(--slide-transition), transform var(--slide-transition);
+    pointer-events: none;
+    padding: 60px 80px;
+  }
+  .slide.active {
+    opacity: 1; transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  /* ── Background Blobs ── */
+  .bg-blob {
+    position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.25; pointer-events: none; z-index: 0;
+  }
+  .bg-blob-1 { width: 600px; height: 600px; background: #6366F1; top: -200px; left: -100px; }
+  .bg-blob-2 { width: 500px; height: 500px; background: #EC4899; bottom: -200px; right: -100px; }
+  .bg-blob-3 { width: 400px; height: 400px; background: #3B82F6; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.1; }
+
+  /* ── Slide Layouts ── */
+  .slide-inner {
+    position: relative; z-index: 1;
+    max-width: 1200px; width: 100%;
+  }
+
+  .slide-title {
+    font-size: clamp(36px, 5vw, 64px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    margin-bottom: 24px;
+  }
+  .slide-title .gradient {
+    background: linear-gradient(135deg, #818CF8, #EC4899, #F59E0B);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-subtitle {
+    font-size: clamp(18px, 2vw, 24px);
+    font-weight: 400;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 700px;
+    margin-bottom: 40px;
+  }
+
+  /* ── Hero Slide ── */
+  .hero-center {
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .hero-center .slide-subtitle { max-width: 600px; }
+  .hero-logo {
+    width: 120px; height: 120px;
+    border-radius: 28px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    margin-bottom: 32px;
+    box-shadow: 0 20px 60px rgba(192,77,214,0.4);
+    position: relative;
+  }
+  .hero-logo::after {
+    content: ''; position: absolute; inset: -3px;
+    border-radius: 30px;
+    background: linear-gradient(135deg, rgba(240,78,140,0.5), rgba(123,95,238,0.3));
+    z-index: -1; filter: blur(12px);
+  }
+
+  .hero-badges {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px;
+  }
+  .hero-badge {
+    padding: 8px 20px;
+    border-radius: 100px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    font-size: 14px; font-weight: 500;
+    color: var(--text-secondary);
+    backdrop-filter: blur(12px);
+  }
+
+  /* ── Feature Grid ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 12px;
+  }
+  .feature-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 32px 28px;
+    backdrop-filter: blur(20px);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .feature-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    margin-bottom: 18px;
+  }
+  .feature-card h3 {
+    font-size: 18px; font-weight: 700; margin-bottom: 10px;
+  }
+  .feature-card p {
+    font-size: 14px; color: var(--text-secondary); line-height: 1.65;
+  }
+
+  /* ── Split Layout ── */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+  }
+  .split-visual {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Glass Panel Mock ── */
+  .glass-panel {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 32px;
+    backdrop-filter: blur(24px);
+    width: 100%;
+    max-width: 460px;
+  }
+  .glass-panel-title {
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 20px;
+  }
+
+  /* ── Mock List Items ── */
+  .mock-list { display: flex; flex-direction: column; gap: 12px; }
+  .mock-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .mock-dot {
+    width: 36px; height: 36px; border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .mock-text { display: flex; flex-direction: column; gap: 4px; }
+  .mock-text span:first-child { font-size: 14px; font-weight: 600; }
+  .mock-text span:last-child { font-size: 12px; color: var(--text-secondary); }
+
+  /* ── Tag Chips ── */
+  .tag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .tag-chip {
+    padding: 6px 14px; border-radius: 100px;
+    font-size: 12px; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* ── Architecture Diagram ── */
+  .arch-layers {
+    display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 460px;
+  }
+  .arch-layer {
+    padding: 16px 24px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 14px; font-weight: 600;
+  }
+  .arch-layer span:last-child {
+    font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.6);
+  }
+  .arch-arrow {
+    text-align: center; color: var(--text-secondary); font-size: 18px; padding: 2px 0;
+  }
+
+  /* ── Progress Mock ── */
+  .progress-mock {
+    width: 100%; max-width: 420px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 28px;
+    backdrop-filter: blur(24px);
+  }
+  .progress-bar-bg {
+    width: 100%; height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 100px;
+    overflow: hidden;
+    margin: 16px 0 12px;
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 100px;
+    background: linear-gradient(90deg, #6366F1, #8B5CF6);
+    width: 72%;
+    animation: progress-pulse 2s ease-in-out infinite;
+  }
+  @keyframes progress-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  /* ── Icon Grid ── */
+  .icon-showcase {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    max-width: 380px;
+  }
+  .icon-cell {
+    aspect-ratio: 1;
+    border-radius: 16px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px; color: var(--text-secondary); font-weight: 500;
+    padding: 12px 4px;
+  }
+  .icon-cell svg { width: 36px; height: 36px; }
+
+  /* ── Stat Row ── */
+  .stat-row {
+    display: flex; gap: 40px; margin-top: 40px;
+  }
+  .stat-item { text-align: center; }
+  .stat-value {
+    font-size: 40px; font-weight: 800;
+    background: linear-gradient(135deg, #818CF8, #EC4899);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-label { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ── Navigation ── */
+  .nav-bar {
+    position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 16px;
+    background: rgba(15,20,35,0.85);
+    border: 1px solid var(--glass-border);
+    border-radius: 100px;
+    padding: 10px 24px;
+    backdrop-filter: blur(20px);
+    z-index: 100;
+  }
+  .nav-dots { display: flex; gap: 8px; }
+  .nav-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .nav-dot.active {
+    background: var(--accent-light);
+    box-shadow: 0 0 12px rgba(129,140,248,0.5);
+    transform: scale(1.2);
+  }
+  .nav-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.12); }
+
+  .slide-number {
+    position: fixed; top: 28px; right: 36px;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+    z-index: 100;
+  }
+
+  /* ── Keynote-style list ── */
+  .feature-list { display: flex; flex-direction: column; gap: 20px; margin-top: 8px; }
+  .feature-list-item {
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .fl-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .fl-text h4 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .fl-text p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+  /* ── CTA Slide ── */
+  .cta-title {
+    font-size: clamp(42px, 5.5vw, 72px);
+    font-weight: 900;
+    text-align: center;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+  }
+  .cta-sub {
+    font-size: 20px; color: var(--text-secondary);
+    text-align: center; margin: 24px 0 40px;
+  }
+  .cta-badges {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+  }
+  .cta-badge {
+    padding: 14px 32px;
+    border-radius: 14px;
+    font-size: 15px; font-weight: 600;
+  }
+  .cta-badge.primary {
+    background: linear-gradient(135deg, #6366F1, #8B5CF6);
+    color: #fff;
+    box-shadow: 0 8px 30px rgba(99,102,241,0.4);
+  }
+  .cta-badge.secondary {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Helper */
+  .mb-8 { margin-bottom: 8px; }
+  .text-sm { font-size: 13px; }
+  .text-accent { color: var(--accent-light); }
+  .tag-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; display: block; }
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg-blob bg-blob-1"></div>
+<div class="bg-blob bg-blob-2"></div>
+<div class="bg-blob bg-blob-3"></div>
+
+<div class="slide-number"><span id="slideNum">01</span> / 07</div>
+
+<div class="slides-wrapper" id="slidesWrapper">
+
+  <!-- ═══════ Slide 1: Hero ═══════ -->
+  <div class="slide active" data-index="0">
+    <div class="slide-inner hero-center">
+      <div class="hero-logo"><svg width="120" height="120" viewBox="0 0 456 456" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="bg1" x1="456" y1="0" x2="0" y2="456" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FF7A52"/><stop offset="0.35" stop-color="#F04E8C"/><stop offset="0.65" stop-color="#C24DD6"/><stop offset="1" stop-color="#7B5FEE"/></linearGradient><mask id="fm1"><rect width="456" height="456" fill="white"/><circle cx="320" cy="312" r="53" fill="black"/><line x1="350" y1="342" x2="384" y2="376" stroke="black" stroke-width="22" stroke-linecap="round"/></mask></defs><rect width="456" height="456" rx="90" fill="url(#bg1)"/><path d="M104,175 L104,148 C104,136.95 112.95,128 124,128 L184,128 C192.2,128 199.8,132.6 203.6,139.6 L212.4,155.4 C216.2,162.4 223.8,167 232,167 L332,167 C343.05,167 352,175.95 352,187 L352,322 C352,333.05 343.05,342 332,342 L124,342 C112.95,342 104,333.05 104,322 Z" fill="white" mask="url(#fm1)"/><circle cx="320" cy="312" r="42" fill="none" stroke="white" stroke-width="14"/><line x1="350" y1="342" x2="384" y2="376" stroke="white" stroke-width="14" stroke-linecap="round"/></svg></div>
+      <div class="slide-title">
+        <span class="gradient">FKFinder</span>
+      </div>
+      <div class="slide-subtitle">
+        为 macOS 打造的下一代智能文件管理器<br>
+        融合 AI 视觉分析 · 毛玻璃美学 · Fluent Design 图标体系
+      </div>
+      <div class="hero-badges">
+        <span class="hero-badge">🍎 Mac Catalyst</span>
+        <span class="hero-badge">🧠 Apple Vision AI</span>
+        <span class="hero-badge">🎨 Fluent Design</span>
+        <span class="hero-badge">⚡ .NET MAUI + Blazor</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Slide 2: Feature Overview ═══════ -->
+  <div class="slide" data-index="1">
+    <div class="slide-inner">
+      <span class="tag-label text-accent">核心能力</span>
+      <div class="slide-title" style="font-size:clamp(28px,3.5vw,48px)">四大核心特性</div>
+      <div class="slide-subtitle" style="margin-bottom:32px">每一项都精心打磨，只为极致的文件管理体验</div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(139,92,246,0.15);color:#A78BFA">🧠</div>
+          <h3>AI 智能分析</h3>
+          <p>自动识别人脸、场景、文字和位置信息，智能分类浏览图片，让每张照片都可被搜索</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(59,130,246,0.15);color:#60A5FA">🪟</div>
+          <h3>毛玻璃窗口</h3>
+          <p>通过 AppKit 层 NSVisualEffectView 实现真正的系统级窗口透明效果，与 macOS 原生体验无缝融合</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(245,158,11,0.15);color:#FBBF24">📦</div>
+          <h3>归档管理</h3>
+          <p>支持 ZIP / TAR / RAR / 7z 等格式的浏览、压缩与解压，配合后台任务面板，操作流畅不阻塞</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(236,72,153,0.15);color:#F472B6">🎨</div>
+          <h3>Fluent 图标</h3>
+          <p>基于 Fluent Design 的 SVG 矢量图标体系，覆盖 50+ 文件类型，扁平圆角风格精致美观</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Slide 3: AI Analysis ═══════ -->
+  <div class="slide" data-index="2">
+    <div class="slide-inner split">
+      <div>
+        <span class="tag-label" style="color:#A78BFA">AI 图像分析</span>
+        <div class="slide-title" style="font-size:clamp(28px,3.5vw,44px)">
+          <span class="gradient">智能理解</span><br>每一张图片
+        </div>
+        <div class="slide-subtitle">基于 Apple Vision Framework，后台自动分析，结果持久化至 SQLite 数据库，支持断点续传</div>
+        <div class="feature-list">
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(236,72,153,0.15);color:#EC4899">👤</div>
+            <div class="fl-text">
+              <h4>人脸聚类</h4>
+              <p>128D 特征向量 + 欧氏距离聚类，自动归组相同人物</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(59,130,246,0.15);color:#3B82F6">📝</div>
+            <div class="fl-text">
+              <h4>OCR 文字识别</h4>
+              <p>图中文字全部提取，支持关键词分词和全文搜索</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(16,163,65,0.15);color:#22C55E">🏷️</div>
+            <div class="fl-text">
+              <h4>场景分类</h4>
+              <p>物品、场景、动物多维标签，按分类维度浏览图片</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(245,158,11,0.15);color:#F59E0B">📍</div>
+            <div class="fl-text">
+              <h4>EXIF 地理编码</h4>
+              <p>GPS 反向解析地名，按地点、日期、相机分组</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="split-visual">
+        <div class="glass-panel">
+          <div class="glass-panel-title">AI 分析结果</div>
+          <div class="mock-list">
+            <div class="mock-item">
+              <div class="mock-dot" style="background:linear-gradient(135deg,#EC4899,#F472B6)"></div>
+              <div class="mock-text">
+                <span>👤 人物识别</span>
+                <span>检测到 3 张人脸，已聚类到 2 组</span>
+              </div>
+            </div>
+            <div class="mock-item">
+              <div class="mock-dot" style="background:linear-gradient(135deg,#3B82F6,#60A5FA)"></div>
+              <div class="mock-text">
+                <span>🏖️ 场景: beach</span>
+                <span>置信度 0.92</span>
+              </div>
+            </div>
+            <div class="mock-item">
+              <div class="mock-dot" style="background:linear-gradient(135deg,#F59E0B,#FBBF24)"></div>
+              <div class="mock-text">
+                <span>📍 北京市朝阳区</span>
+                <span>GPS 39.92°N, 116.46°E</span>
+              </div>
+            </div>
+            <div class="mock-item">
+              <div class="mock-dot" style="background:linear-gradient(135deg,#22C55E,#4ADE80)"></div>
+              <div class="mock-text">
+                <span>📝 OCR 文字</span>
+                <span>"Welcome to Beijing"</span>
+              </div>
+            </div>
+          </div>
+          <div class="tag-chips">
+            <span class="tag-chip" style="background:rgba(139,92,246,0.15);color:#A78BFA">laptop</span>
+            <span class="tag-chip" style="background:rgba(236,72,153,0.15);color:#F472B6">人物</span>
+            <span class="tag-chip" style="background:rgba(59,130,246,0.15);color:#60A5FA">2024-03</span>
+            <span class="tag-chip" style="background:rgba(245,158,11,0.15);color:#FBBF24">iPhone 15 Pro</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Slide 4: Transparent Window ═══════ -->
+  <div class="slide" data-index="3">
+    <div class="slide-inner split">
+      <div class="split-visual">
+        <div class="arch-layers">
+          <div class="arch-layer" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.3)">
+            <span>🪟 AppKit 层</span>
+            <span>NSVisualEffectView</span>
+          </div>
+          <div class="arch-arrow">↕</div>
+          <div class="arch-layer" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.25)">
+            <span>🔗 Catalyst 桥接层</span>
+            <span>Apple Bridge</span>
+          </div>
+          <div class="arch-arrow">↕</div>
+          <div class="arch-layer" style="background:rgba(236,72,153,0.15);border:1px solid rgba(236,72,153,0.25)">
+            <span>📱 UIKit 层</span>
+            <span>MAUI 控制范围</span>
+          </div>
+          <div class="arch-arrow">↕</div>
+          <div class="arch-layer" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.25)">
+            <span>🌐 Blazor WebView</span>
+            <span>UI 渲染</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="tag-label" style="color:#60A5FA">窗口透明</span>
+        <div class="slide-title" style="font-size:clamp(28px,3.5vw,44px)">
+          真正的<br><span class="gradient">毛玻璃效果</span>
+        </div>
+        <div class="slide-subtitle">在 Mac Catalyst 中实现稳定的窗口透明，经过 8 种方案的迭代验证</div>
+        <div class="feature-list">
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(99,102,241,0.15);color:#818CF8">✅</div>
+            <div class="fl-text">
+              <h4>AppKit 层注入</h4>
+              <p>绕过 MAUI 布局引擎，在 NSWindow.contentView 底层插入 NSVisualEffectView</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(99,102,241,0.15);color:#818CF8">🔒</div>
+            <div class="fl-text">
+              <h4>永不被重置</h4>
+              <p>MAUI 只能操作 UIKit 层，完全无法触及 AppKit 层，毛玻璃效果保持稳定</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(99,102,241,0.15);color:#818CF8">🎛️</div>
+            <div class="fl-text">
+              <h4>可调节材质</h4>
+              <p>支持 hudWindow、sidebar 等 5 种材质，alphaValue 精调透明度</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Slide 5: Archive & Tasks ═══════ -->
+  <div class="slide" data-index="4">
+    <div class="slide-inner split">
+      <div>
+        <span class="tag-label" style="color:#FBBF24">归档 & 任务</span>
+        <div class="slide-title" style="font-size:clamp(28px,3.5vw,44px)">
+          非阻塞式<br><span class="gradient">后台任务</span>
+        </div>
+        <div class="slide-subtitle">压缩、解压在后台异步执行，全局任务面板实时追踪进度</div>
+        <div class="feature-list">
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(139,92,246,0.15);color:#8B5CF6">📁</div>
+            <div class="fl-text">
+              <h4>归档浏览</h4>
+              <p>双击归档文件进入虚拟目录模式，只读浏览内部结构</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(139,92,246,0.15);color:#8B5CF6">⚡</div>
+            <div class="fl-text">
+              <h4>Fire-and-Forget</h4>
+              <p>操作即刻返回，后台线程执行，进度卡片可收起至任务面板</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(139,92,246,0.15);color:#8B5CF6">🔄</div>
+            <div class="fl-text">
+              <h4>智能重名处理</h4>
+              <p>解压/压缩自动加序号后缀，临时文件 .fkfinder-tmp 对用户不可见</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="split-visual">
+        <div style="display:flex;flex-direction:column;gap:20px;width:100%;max-width:420px">
+          <div class="progress-mock">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:700">压缩文件中...</span>
+              <span style="font-size:13px;color:var(--text-secondary)">72%</span>
+            </div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+            <div style="font-size:12px;color:var(--text-secondary)">documents/report.pdf</div>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <span class="hero-badge">ZIP</span>
+            <span class="hero-badge">TAR.GZ</span>
+            <span class="hero-badge">TAR.BZ2</span>
+            <span class="hero-badge">RAR ⓡ</span>
+            <span class="hero-badge">7Z ⓡ</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Slide 6: Icon Design ═══════ -->
+  <div class="slide" data-index="5">
+    <div class="slide-inner split">
+      <div class="split-visual">
+        <div class="icon-showcase">
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><rect x="3" y="3" width="28" height="28" rx="5" fill="#000" opacity="0.04"/><rect x="2" y="2" width="28" height="28" rx="5" fill="#FAFBFC"/><path d="M22 2h3c2.76 0 5 2.24 5 5v0h-5c-1.66 0-3-1.34-3-3V2z" fill="#FECACA"/><text x="16" y="20" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" font-weight="700" fill="#DC2626">PDF</text></svg>
+            <span>PDF</span>
+          </div>
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><rect x="3" y="3" width="28" height="28" rx="6" fill="#000" opacity="0.04"/><rect x="2" y="2" width="28" height="28" rx="6" fill="#FFEDD5"/><rect x="2" y="2" width="28" height="14" rx="6" fill="#FB923C" opacity="0.35"/><circle cx="12" cy="14" r="3" fill="#EA580C" opacity="0.3"/><path d="M2 22l8-6 5 4 6-5 9 7v4c0 2.2-1.8 4-4 4H6c-2.2 0-4-1.8-4-4z" fill="#EA580C" opacity="0.2"/></svg>
+            <span>图片</span>
+          </div>
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><rect x="3" y="3" width="28" height="28" rx="6" fill="#000" opacity="0.04"/><rect x="2" y="2" width="28" height="28" rx="6" fill="#1E1B4B"/><text x="7" y="14" font-family="monospace" font-size="6" fill="#818CF8" opacity="0.8">&lt;/&gt;</text><rect x="6" y="18" width="16" height="1.6" rx="0.8" fill="#818CF8" opacity="0.3"/><rect x="6" y="22" width="12" height="1.6" rx="0.8" fill="#818CF8" opacity="0.2"/></svg>
+            <span>代码</span>
+          </div>
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><rect x="3" y="3" width="28" height="28" rx="6" fill="#000" opacity="0.04"/><rect x="2" y="2" width="28" height="28" rx="6" fill="#EDE9FE"/><rect x="2" y="2" width="28" height="14" rx="6" fill="#8B5CF6" opacity="0.35"/><polygon points="13,11 13,23 23,17" fill="#7C3AED" opacity="0.6"/></svg>
+            <span>视频</span>
+          </div>
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><rect x="3" y="3" width="28" height="28" rx="5" fill="#000" opacity="0.04"/><rect x="2" y="2" width="28" height="28" rx="5" fill="#FAFBFC"/><path d="M22 2h3c2.76 0 5 2.24 5 5v0h-5c-1.66 0-3-1.34-3-3V2z" fill="#C7D2FE"/><text x="16" y="20" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="#4338CA">MD</text></svg>
+            <span>Markdown</span>
+          </div>
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><rect x="3" y="3" width="28" height="28" rx="6" fill="#000" opacity="0.04"/><rect x="2" y="2" width="28" height="28" rx="6" fill="#D1FAE5"/><rect x="2" y="2" width="28" height="14" rx="6" fill="#34D399" opacity="0.35"/><rect x="8" y="12" width="6" height="5" rx="1" fill="#059669" opacity="0.3"/><rect x="16" y="12" width="6" height="5" rx="1" fill="#059669" opacity="0.2"/><rect x="8" y="19" width="6" height="5" rx="1" fill="#059669" opacity="0.2"/></svg>
+            <span>数据库</span>
+          </div>
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><rect x="3" y="3" width="28" height="28" rx="5" fill="#000" opacity="0.04"/><rect x="2" y="2" width="28" height="28" rx="5" fill="#FAFBFC"/><path d="M22 2h3c2.76 0 5 2.24 5 5v0h-5c-1.66 0-3-1.34-3-3V2z" fill="#DDD6FE"/><text x="16" y="20" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" font-weight="700" fill="#6D28D9">ZIP</text></svg>
+            <span>压缩</span>
+          </div>
+          <div class="icon-cell">
+            <svg viewBox="0 0 32 32"><path d="M3 13.5l8.5-7.5h6l-3.5 3h8.5c3.3 0 6 2.7 6 6v9c0 2.2-1.8 4-4 4h-18c-2.2 0-4-1.8-4-4v-3z" fill="#000" opacity="0.04"/><path d="M2 12.5l8.5-7.5h6l-3.5 3h8.5c3.3 0 6 2.7 6 6v9c0 2.2-1.8 4-4 4h-18c-2.2 0-4-1.8-4-4z" fill="#F5C731"/><path d="M2 12.5l8.5-7.5h6l-3.5 3h-7z" fill="#D4A017"/></svg>
+            <span>文件夹</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="tag-label" style="color:#F472B6">设计体系</span>
+        <div class="slide-title" style="font-size:clamp(28px,3.5vw,44px)">
+          Fluent Design<br><span class="gradient">图标体系</span>
+        </div>
+        <div class="slide-subtitle">基于 Microsoft Fluent Design 语言，50+ 文件类型的精致 SVG 矢量图标</div>
+        <div class="feature-list">
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(236,72,153,0.15);color:#EC4899">📐</div>
+            <div class="fl-text">
+              <h4>32×32 标准画布</h4>
+              <p>统一 ViewBox，支持 36px/20px/80px 多尺寸输出</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(236,72,153,0.15);color:#EC4899">🎭</div>
+            <div class="fl-text">
+              <h4>三种基底模板</h4>
+              <p>Doc 文档、Card 卡片、Folder 文件夹，覆盖全场景</p>
+            </div>
+          </div>
+          <div class="feature-list-item">
+            <div class="fl-icon" style="background:rgba(236,72,153,0.15);color:#EC4899">✨</div>
+            <div class="fl-text">
+              <h4>扁平层次感</h4>
+              <p>无渐变，仅纯色+透明度叠加营造微妙深度</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Slide 7: CTA ═══════ -->
+  <div class="slide" data-index="6">
+    <div class="slide-inner hero-center">
+      <div class="cta-title">
+        <span class="gradient">重新定义</span><br>文件管理体验
+      </div>
+      <div class="cta-sub">FKFinder — 用 AI 和设计的力量，让文件管理变得优雅而智能</div>
+      <div class="stat-row" style="margin-top:20px;margin-bottom:40px">
+        <div class="stat-item">
+          <div class="stat-value">50+</div>
+          <div class="stat-label">文件图标类型</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">10</div>
+          <div class="stat-label">AI 标签维度</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">6</div>
+          <div class="stat-label">归档格式支持</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">128D</div>
+          <div class="stat-label">人脸特征向量</div>
+        </div>
+      </div>
+      <div class="cta-badges">
+        <span class="cta-badge primary">✨ .NET MAUI + Blazor</span>
+        <span class="cta-badge secondary">🍎 Mac Catalyst 原生</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav-bar">
+  <button class="nav-btn" onclick="navigate(-1)">‹</button>
+  <div class="nav-dots" id="navDots"></div>
+  <button class="nav-btn" onclick="navigate(1)">›</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  // Build dots
+  const dotsContainer = document.getElementById('navDots');
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goTo(i);
+    dotsContainer.appendChild(dot);
+  }
+
+  function goTo(index) {
+    if (index < 0 || index >= total || index === current) return;
+    slides[current].classList.remove('active');
+    dotsContainer.children[current].classList.remove('active');
+    current = index;
+    slides[current].classList.add('active');
+    dotsContainer.children[current].classList.add('active');
+    document.getElementById('slideNum').textContent = String(current + 1).padStart(2, '0');
+  }
+
+  function navigate(dir) { goTo(current + dir); }
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); navigate(1); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); navigate(-1); }
+  });
+
+  // Touch / Scroll
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 60) navigate(diff > 0 ? 1 : -1);
+  });
+
+  // Wheel
+  let wheelLock = false;
+  document.addEventListener('wheel', e => {
+    if (wheelLock) return;
+    wheelLock = true;
+    if (Math.abs(e.deltaY) > 30) navigate(e.deltaY > 0 ? 1 : -1);
+    setTimeout(() => { wheelLock = false; }, 800);
+  }, { passive: true });
+</script>
+
+</body>
+</html>
