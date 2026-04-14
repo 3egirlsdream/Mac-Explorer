@@ -72,6 +72,7 @@
     protected override void OnInitialized()
     {
         ViewModel.TextTokens.CollectionChanged += OnTextTokensChanged;
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
@@ -90,10 +91,12 @@
         _hasSearched = true;
     }
 
-    private void ClearSearch()
+    private async Task ClearSearch()
     {
         _searchQuery = "";
         _hasSearched = false;
+        ViewModel.ClearTextSearchQuery();
+        await ViewModel.RefreshCommand.ExecuteAsync(null);
     }
 
     private void OnTextTokensChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -101,8 +104,19 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if ((e.PropertyName == "Entries" || e.PropertyName == "TextTokens") &&
+            ViewModel.Entries.Count == 0 && ViewModel.TextTokens.Count > 0 && _hasSearched)
+        {
+            _hasSearched = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     public void Dispose()
     {
         ViewModel.TextTokens.CollectionChanged -= OnTextTokensChanged;
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
     }
 }
