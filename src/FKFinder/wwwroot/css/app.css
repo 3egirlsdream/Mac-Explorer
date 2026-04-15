@@ -379,6 +379,36 @@ input:focus {
 }
 
 /* ═══════════════════════════════════════
+   Delete Confirm Dialog
+   ═══════════════════════════════════════ */
+
+.delete-confirm-dialog {
+    padding: 20px 24px;
+    min-width: 320px;
+    max-width: 400px;
+}
+
+.delete-confirm-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 8px;
+}
+
+.delete-confirm-message {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.delete-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* ═══════════════════════════════════════
    Main Content Area
    ═══════════════════════════════════════ */
 
@@ -810,6 +840,11 @@ input:focus {
 .breadcrumb-link.current {
     color: var(--color-text-primary);
     font-weight: var(--font-weight-regular);
+}
+
+.breadcrumb-link.disabled {
+    cursor: default;
+    opacity: 0.7;
 }
 
 .breadcrumb-chevron {
@@ -1484,25 +1519,38 @@ input:focus {
    ═══════════════════════════════════════ */
 
 .metadata-panel {
-    position: fixed;
-    right: 0;
-    top: 0;
-    bottom: 0;
+    position: relative;
     width: var(--metadata-panel-width);
-    border-left: 1px solid var(--acrylic-border);
-    z-index: var(--z-panel);
+    min-width: 280px;
+    max-width: 400px;
+    border-left: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     overflow-y: auto;
-    padding: var(--space-10) var(--space-8);
-    padding-top: var(--space-12, 48px);
+    padding: var(--space-6) var(--space-5);
     display: flex;
     flex-direction: column;
-    gap: var(--space-6);
-    animation: panelSlideIn 250ms cubic-bezier(0.1, 0.9, 0.2, 1);
+    gap: var(--space-5);
+    flex-shrink: 0;
 }
 
 @keyframes panelSlideIn {
     from { opacity: 0; transform: translateX(12px); }
     to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes panelSlideOut {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(12px); }
+}
+
+.panel-slide-in {
+    animation: panelSlideIn 200ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.panel-slide-out {
+    animation: panelSlideOut 200ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
 }
 
 .metadata-header {
@@ -1917,6 +1965,7 @@ input:focus {
     flex-direction: column;
     overflow: hidden;
     position: relative;
+    flex-shrink: 0;
 }
 
 .preview-resize-handle {
@@ -2634,6 +2683,16 @@ html {
 
 .m-overlay {
     z-index: var(--z-panel) !important;
+}
+
+/* MDialog overlay - fully transparent mask to block clicks behind dialog */
+.m-overlay__scrim {
+    background: transparent !important;
+}
+
+/* Ensure dialog is on top layer */
+.m-dialog__content {
+    z-index: 10001 !important;
 }
 
 /* MDialog glass effect — CompressDialog */

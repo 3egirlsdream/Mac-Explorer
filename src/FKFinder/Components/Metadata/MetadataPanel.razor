@@ -2,7 +2,7 @@
 
 @if (Metadata != null)
 {
-    <div class="metadata-panel glass-effect-without-border">
+    <div class="metadata-panel glass-effect-without-border @(_isClosing ? "panel-slide-out" : "panel-slide-in")">
         <button class="metadata-close-btn" @onclick="Close" title="关闭">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="@Icons.Close"/>
@@ -281,6 +281,7 @@
     [Parameter] public EventCallback OnClose { get; set; }
 
     private bool _showAllProperties;
+    private bool _isClosing;
 
     private string GetParentPath()
     {
@@ -338,6 +339,10 @@
 
     private async Task Close()
     {
+        _isClosing = true;
+        await InvokeAsync(StateHasChanged);
+        // Wait for animation to complete (200ms)
+        await Task.Delay(200);
         await OnClose.InvokeAsync();
     }
 }
