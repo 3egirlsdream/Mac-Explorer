@@ -199,6 +199,13 @@ public partial class FileListViewModel : ObservableObject
         // Wire up RenameRequested event from FileOps
         _fileOps.RequestRename += OnFileOpsRenameRequested;
 
+        // Wire up PropertyChanged events from sub-viewmodels to forward notifications
+        _navigation.PropertyChanged += OnNavigationPropertyChanged;
+        _ai.PropertyChanged += OnAiPropertyChanged;
+        _archive.PropertyChanged += OnArchivePropertyChanged;
+        _collection.PropertyChanged += OnCollectionPropertyChanged;
+        _sortFilter.PropertyChanged += OnSortFilterPropertyChanged;
+
         // Load persisted user preferences
         if (_settingsService != null)
         {
@@ -212,6 +219,69 @@ public partial class FileListViewModel : ObservableObject
     private void OnFileOpsRenameRequested(FileSystemEntry entry)
     {
         RenameRequested?.Invoke(entry);
+    }
+
+    private void OnNavigationPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // Forward property change notifications for properties that are delegated to _navigation
+        if (e.PropertyName is nameof(NavigationViewModel.IsHomePage)
+            or nameof(NavigationViewModel.CurrentPath)
+            or nameof(NavigationViewModel.CanGoBack)
+            or nameof(NavigationViewModel.CanGoForward)
+            or nameof(NavigationViewModel.IsArchiveView)
+            or nameof(NavigationViewModel.IsCollectionView)
+            or nameof(NavigationViewModel.IsAiView)
+            or nameof(NavigationViewModel.IsSearchMode)
+            or nameof(NavigationViewModel.Breadcrumbs))
+        {
+            OnPropertyChanged(e.PropertyName);
+        }
+    }
+
+    private void OnAiPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AiViewModel.AiViewMode)
+            or nameof(AiViewModel.CurrentFaceClusterId)
+            or nameof(AiViewModel.CurrentAiContextLabel)
+            or nameof(AiViewModel.IsAiAnalysisEnabled)
+            or nameof(AiViewModel.FaceClusters)
+            or nameof(AiViewModel.AiCategories)
+            or nameof(AiViewModel.TextTokens))
+        {
+            OnPropertyChanged(e.PropertyName);
+        }
+    }
+
+    private void OnArchivePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ArchiveViewModel.IsCompressDialogVisible)
+            or nameof(ArchiveViewModel.PendingCompressOptions)
+            or nameof(ArchiveViewModel.ActiveTaskId))
+        {
+            OnPropertyChanged(e.PropertyName);
+        }
+    }
+
+    private void OnCollectionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(CollectionViewModel.Collections)
+            or nameof(CollectionViewModel.PinnedFolders))
+        {
+            OnPropertyChanged(e.PropertyName);
+        }
+    }
+
+    private void OnSortFilterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SortFilterViewModel.ViewMode)
+            or nameof(SortFilterViewModel.SortField)
+            or nameof(SortFilterViewModel.SortAscending)
+            or nameof(SortFilterViewModel.GroupField)
+            or nameof(SortFilterViewModel.Groups)
+            or nameof(SortFilterViewModel.HideSystemFiles))
+        {
+            OnPropertyChanged(e.PropertyName);
+        }
     }
 
     // ── Refresh from notification ──
@@ -250,11 +320,8 @@ public partial class FileListViewModel : ObservableObject
             return;
         }
 
-        // Leaving AI view when navigating to a filesystem path
+        // Reset AI runtime state (NavigationViewModel.NavigateToAsync handles flag reset)
         _ai.Reset();
-        _navigation.IsAiView = false;
-        _navigation.IsArchiveView = false;
-        _navigation.IsCollectionView = false;
         _navigation.IsSearchMode = false;
 
         if (string.IsNullOrEmpty(PendingSelectFileName))
@@ -281,13 +348,16 @@ public partial class FileListViewModel : ObservableObject
         var oldPath = _navigation.CurrentPath;
         await _navigation.NavigateToAsync(path);
 
-        _ = LoadDirectoryContentsAsync();
+        try
+        {
+            await LoadDirectoryContentsAsync();
+        }
+        catch (Exception ex) { StatusText = $"无法访问: {ex.Message}"; }
+        finally { IsLoading = false; }
 
         // Update FSEvents watch
         _navigation.UnwatchCurrentDirectory(oldPath);
         _navigation.WatchCurrentDirectory();
-
-        IsLoading = false;
     }
 
     [RelayCommand]
@@ -331,18 +401,7 @@ public partial class FileListViewModel : ObservableObject
         if (!_navigation.CanGoBack) return;
         ScrollBehaviorAfterLoad = ScrollMode.RestoreNavigation;
         await _navigation.NavigateBackAsync();
-        if (ArchivePathHelper.IsArchivePath(_navigation.CurrentPath))
-        {
-            await NavigateToArchiveAsync(_navigation.CurrentPath);
-        }
-        else if (AiPathHelper.IsAiPath(_navigation.CurrentPath))
-        {
-            await HandleAiNavigationAsync(_navigation.CurrentPath);
-        }
-        else
-        {
-            await LoadDirectoryContentsAsync();
-        }
+        await ReloadAfterHistoryNavigation();
     }
 
     [RelayCommand]
@@ -351,17 +410,48 @@ public partial class FileListViewModel : ObservableObject
         if (!_navigation.CanGoForward) return;
         ScrollBehaviorAfterLoad = ScrollMode.RestoreNavigation;
         await _navigation.NavigateForwardAsync();
-        if (ArchivePathHelper.IsArchivePath(_navigation.CurrentPath))
+        await ReloadAfterHistoryNavigation();
+    }
+
+    private async Task ReloadAfterHistoryNavigation()
+    {
+        try
         {
-            await NavigateToArchiveAsync(_navigation.CurrentPath);
+            var path = _navigation.CurrentPath;
+            if (ArchivePathHelper.IsArchivePath(path))
+            {
+                await NavigateToArchiveAsync(path);
+            }
+            else if (AiPathHelper.IsAiPath(path))
+            {
+                await HandleAiNavigationAsync(path);
+            }
+            else
+            {
+                // Returning to a normal directory — reset special view flags
+                _navigation.IsArchiveView = false;
+                _navigation.IsAiView = false;
+                _navigation.IsCollectionView = false;
+                _navigation.CurrentArchivePath = null;
+                _navigation.CurrentArchiveInternalPath = "";
+                _navigation.CurrentCollectionId = null;
+                _navigation.CurrentCollectionName = null;
+                _navigation.CurrentFaceClusterId = null;
+                _navigation.CurrentAiContextLabel = null;
+                _ai.Reset();
+                _navigation.UpdateBreadcrumbs();
+                IsLoading = true;
+                try
+                {
+                    await LoadDirectoryContentsAsync();
+                }
+                catch (Exception ex) { StatusText = $"无法访问: {ex.Message}"; }
+                finally { IsLoading = false; }
+            }
         }
-        else if (AiPathHelper.IsAiPath(_navigation.CurrentPath))
+        finally
         {
-            await HandleAiNavigationAsync(_navigation.CurrentPath);
-        }
-        else
-        {
-            await LoadDirectoryContentsAsync();
+            _navigation.EndHistoryNavigation();
         }
     }
 
@@ -374,7 +464,6 @@ public partial class FileListViewModel : ObservableObject
         _navigation.GoHome();
         _ai.Reset();
         Entries.Clear();
-        _navigation.ClearBreadcrumbs();
         StatusText = "";
         SelectedEntries.Clear();
     }
@@ -441,10 +530,14 @@ public partial class FileListViewModel : ObservableObject
     {
         _navigation.IsHomePage = false;
         _navigation.IsCollectionView = false;
+        _navigation.IsArchiveView = true;
+        _navigation.IsAiView = false;
         _ai.Reset();
         _navigation.IsSearchMode = false;
 
         var (archivePath, internalPath) = ArchivePathHelper.Parse(sentinelPath);
+        _navigation.CurrentArchivePath = archivePath;
+        _navigation.CurrentArchiveInternalPath = internalPath;
 
         await _archive.NavigateToArchiveAsync(
             archivePath,
@@ -467,6 +560,7 @@ public partial class FileListViewModel : ObservableObject
         _navigation.IsHomePage = false;
         _navigation.IsCollectionView = false;
         _navigation.IsArchiveView = false;
+        _navigation.IsAiView = true;
         _navigation.IsSearchMode = false;
 
         await _ai.HandleAiNavigationAsync(
@@ -826,11 +920,12 @@ public partial class FileListViewModel : ObservableObject
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
-                    Execute = async () =>
+                    Execute = () =>
                     {
                         SelectedEntries.Clear();
                         SelectedEntries.Add(entry);
-                        await DeleteSelectedCommand.ExecuteAsync(null);
+                        ShowDeleteConfirmDialogCommand.Execute(null);
+                        return Task.CompletedTask;
                     }
                 });
             }
@@ -1085,8 +1180,69 @@ public partial class FileListViewModel : ObservableObject
         catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
     }
 
+    // Delete confirmation dialog state
+    [ObservableProperty]
+    private bool _isDeleteConfirmDialogVisible;
+
+    [ObservableProperty]
+    private bool _isCollectionDeleteConfirmDialogVisible;
+
+    public int DeleteConfirmItemCount => SelectedEntries.Count;
+    public string DeleteConfirmFirstItemName => SelectedEntries.FirstOrDefault()?.Name ?? "";
+    public int? PendingDeleteCollectionId { get; private set; }
+    public string PendingDeleteCollectionName { get; private set; } = "";
+
     [RelayCommand]
-    public async Task DeleteSelectedAsync()
+    public void ShowDeleteConfirmDialog()
+    {
+        if (SelectedEntries.Count == 0) return;
+        IsContextMenuVisible = false; // Close context menu if open
+        IsDeleteConfirmDialogVisible = true;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmDeleteSelectedAsync()
+    {
+        IsDeleteConfirmDialogVisible = false;
+        await ExecuteDeleteSelectedAsync();
+    }
+
+    [RelayCommand]
+    public void CancelDeleteConfirmDialog()
+    {
+        IsDeleteConfirmDialogVisible = false;
+    }
+
+    public void ShowCollectionDeleteConfirmDialog(int collectionId, string collectionName)
+    {
+        IsContextMenuVisible = false; // Close context menu if open
+        PendingDeleteCollectionId = collectionId;
+        PendingDeleteCollectionName = collectionName;
+        IsCollectionDeleteConfirmDialogVisible = true;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmDeleteCollectionAsync()
+    {
+        IsCollectionDeleteConfirmDialogVisible = false;
+        if (PendingDeleteCollectionId.HasValue)
+        {
+            var collectionId = PendingDeleteCollectionId.Value;
+            PendingDeleteCollectionId = null;
+            PendingDeleteCollectionName = "";
+            await DeleteCollectionAsync(collectionId);
+        }
+    }
+
+    [RelayCommand]
+    public void CancelCollectionDeleteConfirmDialog()
+    {
+        IsCollectionDeleteConfirmDialogVisible = false;
+        PendingDeleteCollectionId = null;
+        PendingDeleteCollectionName = "";
+    }
+
+    private async Task ExecuteDeleteSelectedAsync()
     {
         if (SelectedEntries.Count == 0) return;
         try
@@ -1306,6 +1462,7 @@ public partial class FileListViewModel : ObservableObject
             ContextMenuEntry,
             _navigation.CurrentPath,
             IsCollectionView,
+            IsArchiveView,
             _navigation.CurrentCollectionId
         );
     }
@@ -1573,13 +1730,22 @@ public partial class FileListViewModel : ObservableObject
         IReadOnlyList<FileSystemEntry> entries;
         try
         {
-            if (!forceRefresh && _fileIndex != null && _indexConfig.ShouldIndex(_navigation.CurrentPath))
+            // Skip index for /Applications paths because they need to merge /System/Applications counterpart
+            // This ensures Utilities and other folders show both user and system applications
+            var shouldUseIndex = !IsApplicationsPath(_navigation.CurrentPath);
+            if (!forceRefresh && shouldUseIndex && _fileIndex != null && _indexConfig.ShouldIndex(_navigation.CurrentPath))
             {
                 var isFresh = await _fileIndex.IsDirectoryFreshAsync(_navigation.CurrentPath, _indexConfig.FreshnessThreshold);
                 if (isFresh)
                 {
                     entries = await _fileIndex.GetDirectoryContentsAsync(_navigation.CurrentPath);
-                    if (entries.Count > 0) { ApplyEntries(entries); return; }
+                    if (entries.Count > 0)
+                    {
+                        ApplyEntries(entries);
+                        // Resolve app icons even when loading from index (IconUrl is not persisted in index)
+                        _ = ResolveIconsInBackgroundAsync(entries);
+                        return;
+                    }
                 }
             }
         }
@@ -1697,6 +1863,15 @@ public partial class FileListViewModel : ObservableObject
         {
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         }
+    }
+
+    /// <summary>
+    /// Check if a path is under /Applications and needs to merge /System/Applications counterpart.
+    /// These paths should not use the index because the merge logic is in GetDirectoryContentsAsync.
+    /// </summary>
+    private static bool IsApplicationsPath(string path)
+    {
+        return path == "/Applications" || path.StartsWith("/Applications/", StringComparison.OrdinalIgnoreCase);
     }
 }
 
