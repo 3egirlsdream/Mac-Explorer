@@ -1,4 +1,4 @@
-# FKFinder 重命名功能 BUG 修复总结
+# MacExplorer 重命名功能 BUG 修复总结
 
 ## 概述
 
@@ -46,7 +46,7 @@ if (_renamingEntry != null)
 
 ### 涉及文件
 
-- `src/FKFinder/Components/FileList/FileGridView.razor` — `OnContentMouseDown` 方法
+- `src/MacExplorer/Components/FileList/FileGridView.razor` — `OnContentMouseDown` 方法
 
 ---
 
@@ -92,7 +92,7 @@ builder.AddAttribute(33, "onmousedown:stopPropagation", true);
 
 ### 涉及文件
 
-- `src/FKFinder/Components/FileList/FileGridView.razor` — rename input 渲染代码 + `OnContentMouseDown` 方法
+- `src/MacExplorer/Components/FileList/FileGridView.razor` — rename input 渲染代码 + `OnContentMouseDown` 方法
 
 ---
 
@@ -134,7 +134,7 @@ OnPropertyChanged(nameof(Entries));
 
 ### 涉及文件
 
-- `src/FKFinder/ViewModels/FileListViewModel.cs` — `RenameEntryAsync` 和 `RenameFaceClusterAsync` 方法
+- `src/MacExplorer/ViewModels/FileListViewModel.cs` — `RenameEntryAsync` 和 `RenameFaceClusterAsync` 方法
 
 ---
 
@@ -158,5 +158,5 @@ if (_pinnedFolderService != null && entry.IsDirectory)
 
 | 文件 | 修改内容 |
 |------|---------|
-| `src/FKFinder/Components/FileList/FileGridView.razor` | Bug 1: `OnContentMouseDown` 改为 commit 而非 cancel；Bug 2: rename input 添加显式 mousedown handler + 标志位防御 |
-| `src/FKFinder/ViewModels/FileListViewModel.cs` | Bug 3: 添加 `OnPropertyChanged(nameof(Entries))`；附加: PIN 文件夹路径同步 |
+| `src/MacExplorer/Components/FileList/FileGridView.razor` | Bug 1: `OnContentMouseDown` 改为 commit 而非 cancel；Bug 2: rename input 添加显式 mousedown handler + 标志位防御 |
+| `src/MacExplorer/ViewModels/FileListViewModel.cs` | Bug 3: 添加 `OnPropertyChanged(nameof(Entries))`；附加: PIN 文件夹路径同步 |

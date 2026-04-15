@@ -1,0 +1,293 @@
+@using MacExplorer.Models
+@using MacExplorer.Services
+@inject IJSRuntime JSRuntime
+@inject IContextMenuService ContextMenuService
+@implements IAsyncDisposable
+
+@if (!ViewModel.IsHomePage)
+{
+<div class="finder-toolbar">
+    <!-- New button -->
+    <div class="new-btn-wrapper">
+        <button class="action-btn new-btn @(ViewModel.IsCollectionView || ViewModel.IsArchiveView ? "disabled" : "")" @onclick="ToggleNewDropdown" title="新建" disabled="@(ViewModel.IsCollectionView || ViewModel.IsArchiveView)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Plus"/></svg>
+            <span>新建</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        @if (_showNewDropdown)
+        {
+            <div class="new-dropdown glass-effect" @onclick:stopPropagation>
+                <div class="new-dropdown-item" @onclick="NewFolder">
+                    @((MarkupString)FileIconRenderer.RenderFolder(14))
+                    <span>新建文件夹</span>
+                    <span class="new-dropdown-shortcut">⇧⌘N</span>
+                </div>
+                <div class="new-dropdown-item" @onclick="@(() => NewFile(".txt"))">
+                    @((MarkupString)FileIconRenderer.Render("file-text", ".txt", 14))
+                    <span>新建文本文件</span>
+                </div>
+                <div class="new-dropdown-item" @onclick="@(() => NewFile(".md"))">
+                    @((MarkupString)FileIconRenderer.Render("file-markdown", ".md", 14))
+                    <span>新建 Markdown</span>
+                </div>
+                <div class="new-dropdown-item" @onclick="@(() => NewFile(".json"))">
+                    @((MarkupString)FileIconRenderer.Render("file-config", ".json", 14))
+                    <span>新建 JSON 文件</span>
+                </div>
+                @if (_appDetectionDone && _hasWord)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".docx"))">
+                        @((MarkupString)FileIconRenderer.Render("file-word", ".docx", 14))
+                        <span>新建 Word 文稿</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasExcel)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".xlsx"))">
+                        @((MarkupString)FileIconRenderer.Render("file-excel", ".xlsx", 14))
+                        <span>新建 Excel 表格</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasPowerPoint)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".pptx"))">
+                        @((MarkupString)FileIconRenderer.Render("file-powerpoint", ".pptx", 14))
+                        <span>新建 PPT 幻灯片</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasPages)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".pages"))">
+                        @((MarkupString)FileIconRenderer.Render("file-document", ".pages", 14))
+                        <span>新建 Pages 文稿</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasNumbers)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".numbers"))">
+                        @((MarkupString)FileIconRenderer.Render("file-spreadsheet", ".numbers", 14))
+                        <span>新建 Numbers 表格</span>
+                    </div>
+                }
+                @if (_appDetectionDone && _hasKeynote)
+                {
+                    <div class="new-dropdown-item" @onclick="@(() => NewFile(".key"))">
+                        @((MarkupString)FileIconRenderer.Render("file-presentation", ".key", 14))
+                        <span>新建 Keynote 演示文稿</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="toolbar-separator"></div>
+
+    <!-- Clipboard buttons: Cut, Copy, Paste, Delete -->
+    <div class="toolbar-btn-group">
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="CutSelected" title="剪切 (⌘X)" disabled="@ViewModel.IsArchiveView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Cut"/></svg>
+        </button>
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="CopySelected" title="复制 (⌘C)" disabled="@ViewModel.IsArchiveView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Copy"/></svg>
+        </button>
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="PasteItems" title="粘贴 (⌘V)" disabled="@ViewModel.IsArchiveView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Paste"/></svg>
+        </button>
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="DeleteSelected" title="删除 (⌘⌫)" disabled="@ViewModel.IsArchiveView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Delete"/></svg>
+        </button>
+        <button class="toolbar-btn" @onclick="GoHome" title="主页">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Home"/></svg>
+        </button>
+    </div>
+
+    <div class="toolbar-separator"></div>
+
+    <!-- Sort -->
+    <div class="sort-dropdown-wrapper">
+        <button class="sort-btn" @onclick="ToggleSortDropdown" title="排序和分组">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.SortUpDown"/></svg>
+            <span>排序</span>
+        </button>
+        @if (_showSortDropdown)
+        {
+            <div class="sort-dropdown glass-effect" @onclick:stopPropagation>
+                <div class="sort-dropdown-header">排序方式</div>
+                @foreach (var field in System.Enum.GetValues<SortField>())
+                {
+                    <div class="sort-dropdown-item @(ViewModel.SortField == field ? "active" : "")"
+                         @onclick="@(() => SelectSortField(field))">
+                        <span>@GetSortFieldLabel(field)</span>
+                        @if (ViewModel.SortField == field)
+                        {<span class="sort-dropdown-check">✓</span>}
+                    </div>
+                }
+                <div class="sort-dropdown-divider"></div>
+                <div class="sort-dropdown-item" @onclick="ToggleSortDirection">
+                    <span>@(ViewModel.SortAscending ? "升序" : "降序")</span>
+                    <span class="sort-dropdown-check">@(ViewModel.SortAscending ? "↑" : "↓")</span>
+                </div>
+                <div class="sort-dropdown-divider"></div>
+                <div class="sort-dropdown-header">分组方式</div>
+                @foreach (var group in System.Enum.GetValues<GroupField>())
+                {
+                    <div class="sort-dropdown-item @(ViewModel.GroupField == group ? "active" : "")"
+                         @onclick="@(() => SelectGroupField(group))">
+                        <span>@GetGroupFieldLabel(group)</span>
+                        @if (ViewModel.GroupField == group)
+                        {<span class="sort-dropdown-check">✓</span>}
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- View dropdown -->
+    <div class="sort-dropdown-wrapper">
+        <button class="sort-btn" @onclick="ToggleViewDropdown" title="查看">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>查看</span>
+        </button>
+        @if (_showViewDropdown)
+        {
+            <div class="sort-dropdown glass-effect" @onclick:stopPropagation>
+                <div class="sort-dropdown-header">视图模式</div>
+                <div class="sort-dropdown-item @(ViewModel.ViewMode == ViewMode.List ? "active" : "")"
+                     @onclick="@(() => SetViewMode(ViewMode.List))">
+                    <span>列表</span>
+                    @if (ViewModel.ViewMode == ViewMode.List)
+                    {<span class="sort-dropdown-check">✓</span>}
+                </div>
+                <div class="sort-dropdown-item @(ViewModel.ViewMode == ViewMode.Grid ? "active" : "")"
+                     @onclick="@(() => SetViewMode(ViewMode.Grid))">
+                    <span>平铺</span>
+                    @if (ViewModel.ViewMode == ViewMode.Grid)
+                    {<span class="sort-dropdown-check">✓</span>}
+                </div>
+                <div class="sort-dropdown-divider"></div>
+                <div class="sort-dropdown-item @(ViewModel.IsPreviewPaneVisible ? "active" : "")"
+                     @onclick="TogglePreview">
+                    <span>预览窗格</span>
+                    @if (ViewModel.IsPreviewPaneVisible)
+                    {<span class="sort-dropdown-check">✓</span>}
+                </div>
+            </div>
+        }
+    </div>
+
+    <div style="flex:1"></div>
+
+    <!-- Settings button -->
+    <button class="toolbar-btn" @onclick="OpenSettings" title="设置">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Settings"/></svg>
+    </button>
+
+    @if (ViewModel.IsPreviewPaneVisible)
+    {
+    <!-- Preview pane toggle -->
+    <button class="toolbar-btn active"
+            @onclick="TogglePreview" title="预览窗格 (⇧⌘P)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Preview"/></svg>
+    </button>
+    }
+</div>
+}
+
+@code {
+    [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+    [Parameter] public EventCallback OnOpenSettings { get; set; }
+    private bool _showSortDropdown;
+    private bool _showNewDropdown;
+    private bool _showViewDropdown;
+    private bool _hasWord;
+    private bool _hasExcel;
+    private bool _hasPowerPoint;
+    private bool _hasPages;
+    private bool _hasNumbers;
+    private bool _hasKeynote;
+    private bool _appDetectionDone;
+    private DotNetObjectReference<FinderToolbar>? _dropdownRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _dropdownRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("fkfinderDropdown.register", _dropdownRef);
+
+                // 检测已安装的办公应用
+                _hasWord = ContextMenuService.IsAppInstalled("com.microsoft.Word") || ContextMenuService.IsAppInstalled("com.kingsoft.wpsoffice.mac");
+                _hasExcel = ContextMenuService.IsAppInstalled("com.microsoft.Excel") || ContextMenuService.IsAppInstalled("com.kingsoft.wpsoffice.mac");
+                _hasPowerPoint = ContextMenuService.IsAppInstalled("com.microsoft.Powerpoint") || ContextMenuService.IsAppInstalled("com.kingsoft.wpsoffice.mac");
+                _hasPages = ContextMenuService.IsAppInstalled("com.apple.iWork.Pages");
+                _hasNumbers = ContextMenuService.IsAppInstalled("com.apple.iWork.Numbers");
+                _hasKeynote = ContextMenuService.IsAppInstalled("com.apple.iWork.Keynote");
+                _appDetectionDone = true;
+                StateHasChanged();
+            }
+            catch { }
+        }
+    }
+
+    [Microsoft.JSInterop.JSInvokable]
+    public void CloseDropdowns()
+    {
+        if (_showNewDropdown || _showSortDropdown || _showViewDropdown)
+        {
+            _showNewDropdown = false;
+            _showSortDropdown = false;
+            _showViewDropdown = false;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void CutSelected() => ViewModel.CutSelectedCommand.Execute(null);
+    private void CopySelected() => ViewModel.CopySelectedCommand.Execute(null);
+    private async Task PasteItems() => await ViewModel.PasteCommand.ExecuteAsync(null);
+    private void DeleteSelected() => ViewModel.ShowDeleteConfirmDialogCommand.Execute(null);
+    private void GoHome() => ViewModel.GoHomeCommand.Execute(null);
+
+    private void ToggleSortDropdown() { _showSortDropdown = !_showSortDropdown; _showNewDropdown = false; _showViewDropdown = false; }
+    private void ToggleNewDropdown() { _showNewDropdown = !_showNewDropdown; _showSortDropdown = false; _showViewDropdown = false; }
+    private void ToggleViewDropdown() { _showViewDropdown = !_showViewDropdown; _showSortDropdown = false; _showNewDropdown = false; }
+
+    private void SelectSortField(SortField field) { ViewModel.SetSort(field); _showSortDropdown = false; }
+    private void ToggleSortDirection() { ViewModel.SetSort(ViewModel.SortField, !ViewModel.SortAscending); _showSortDropdown = false; }
+    private void SelectGroupField(GroupField field) { ViewModel.GroupField = field; _showSortDropdown = false; }
+
+    private async Task NewFolder() { _showNewDropdown = false; await ViewModel.CreateNewFolderCommand.ExecuteAsync(null); }
+    private async Task NewFile(string ext) { _showNewDropdown = false; await ViewModel.CreateNewFileCommand.ExecuteAsync(ext); }
+    private void TogglePreview() => ViewModel.TogglePreviewPane();
+    private void SetViewMode(ViewMode mode) { if (ViewModel.ViewMode != mode) ViewModel.ToggleViewMode(); }
+    private async Task OpenSettings() => await OnOpenSettings.InvokeAsync();
+
+    private string GetSortFieldLabel(SortField field) => field switch
+    {
+        SortField.Name => "名称",
+        SortField.Modified => "修改日期",
+        SortField.Size => "大小",
+        SortField.Type => "类型",
+        _ => field.ToString()
+    };
+
+    private string GetGroupFieldLabel(GroupField field) => field switch
+    {
+        GroupField.None => "无",
+        GroupField.Type => "类型",
+        GroupField.Modified => "修改日期",
+        GroupField.Size => "大小",
+        _ => field.ToString()
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("fkfinderDropdown.unregister");
+        }
+        catch { }
+        _dropdownRef?.Dispose();
+    }
+}

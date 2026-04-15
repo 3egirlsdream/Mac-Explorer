@@ -1,0 +1,939 @@
+@using MacExplorer.Models
+@implements IAsyncDisposable
+
+<div class="file-content-area"
+     @oncontextmenu:preventDefault
+     @oncontextmenu="@(async e => await OnBackgroundContextMenu(e))"
+     @onmousedown="OnContentMouseDown"
+     @ondragover="OnContentDragOver"
+     @ondragover:preventDefault
+     @ondrop="OnContentDrop"
+     @ondrop:preventDefault>
+
+    @if (ViewModel.ViewMode == ViewMode.List && ViewModel.Entries.Count > 0)
+    {
+        <div class="file-list-header" id="file-list-header">
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Name ? "active" : "")"
+                  @onclick="() => ViewModel.SetSort(SortField.Name)">
+                名称
+                @if (ViewModel.SortField == SortField.Name)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Modified ? "active" : "")" data-col="modified"
+                  @onclick="() => ViewModel.SetSort(SortField.Modified)">
+                <span class="col-resize-handle" data-resize="modified"></span>
+                修改日期
+                @if (ViewModel.SortField == SortField.Modified)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Size ? "active" : "")" data-col="size"
+                  @onclick="() => ViewModel.SetSort(SortField.Size)">
+                <span class="col-resize-handle" data-resize="size"></span>
+                大小
+                @if (ViewModel.SortField == SortField.Size)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col @(ViewModel.SortField == SortField.Type ? "active" : "")" data-col="type"
+                  @onclick="() => ViewModel.SetSort(SortField.Type)">
+                <span class="col-resize-handle" data-resize="type"></span>
+                类型
+                @if (ViewModel.SortField == SortField.Type)
+                {<span class="file-list-header-sort">@(ViewModel.SortAscending ? "▲" : "▼")</span>}
+            </span>
+            <span class="file-list-header-col" data-col="rating">
+                评分
+            </span>
+        </div>
+    }
+
+    <div class="file-content-scroll">
+
+        @if (ViewModel.Entries.Count == 0 && !ViewModel.IsLoading)
+        {
+            <div class="empty-state">
+                <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="@Icons.Folder" />
+                </svg>
+                <div class="empty-state-text">@GetEmptyStateText()</div>
+            </div>
+        }
+        else if (ViewModel.ViewMode == ViewMode.List)
+        {
+            <div class="file-list">
+                @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
+                {
+                    @foreach (var group in ViewModel.Groups)
+                    {
+                        <div class="file-group-header">@group.Name</div>
+                        @foreach (var entry in group.Entries)
+                        {
+                            @RenderListRow(entry);
+                        }
+                    }
+                }
+                else
+                {
+                    @foreach (var entry in ViewModel.Entries)
+                    {
+                        @RenderListRow(entry);
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
+            {
+                @foreach (var group in ViewModel.Groups)
+                {
+                    <div class="file-group-header">@group.Name</div>
+                    <div class="file-grid">
+                        @foreach (var entry in group.Entries)
+                        {
+                            @RenderGridItem(entry);
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="file-grid">
+                    @foreach (var entry in ViewModel.Entries)
+                    {
+                        @RenderGridItem(entry);
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<div class="status-bar">
+    @if (ViewModel.SelectedEntries.Count > 0)
+    {
+        <span>已选 @ViewModel.SelectedEntries.Count 项 / </span>
+    }
+    @ViewModel.StatusText
+</div>
+
+@code {
+    [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        ViewModel.RenameRequested += OnRenameRequested;
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        ViewModel.SelectedEntries.CollectionChanged += OnSelectionChanged;
+    }
+
+    private async void OnSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (_renamingEntry != null) return;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("fkfinderColumnResize.init");
+            // Ensure blob URLs are created for entries that were loaded before this component was created
+            // This handles the case where user navigates away and back to the same directory
+            await CreateBlobUrlsForEntriesAsync();
+        }
+        if (_needRestoreScrollAfterRename)
+        {
+            _needRestoreScrollAfterRename = false;
+            try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.restoreScroll"); }
+            catch { }
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ViewModel.IsLoading) or nameof(ViewModel.CurrentPath) or nameof(ViewModel.ViewMode)
+            or nameof(ViewModel.Groups) or nameof(ViewModel.GroupField) or nameof(ViewModel.CutPaths))
+        {
+            if (_renamingEntry != null) return;
+            InvokeAsync(StateHasChanged);
+        }
+        else if (e.PropertyName == nameof(ViewModel.Entries))
+        {
+            // Skip re-render during active rename to prevent focus loss from
+            // background thumbnail updates (ResolveFaceThumbnailsAsync etc.)
+            if (_renamingEntry != null)
+                return;
+
+            // When CommitRename already saved scroll, skip the normal scroll handling
+            // to avoid overwriting the saved position. Just render and create blob URLs.
+            if (_skipScrollHandlingOnNextEntriesChange)
+            {
+                _skipScrollHandlingOnNextEntriesChange = false;
+                InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+                return;
+            }
+            var scrollMode = ViewModel.ScrollBehaviorAfterLoad;
+            if (scrollMode == FileListViewModel.ScrollMode.RestoreNavigation)
+            {
+                InvokeAsync(async () =>
+                {
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.hideContent"); }
+                    catch { }
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.scrollToSelected"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+            else if (scrollMode == FileListViewModel.ScrollMode.ScrollToSelected)
+            {
+                InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.scrollToSelected"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+            else if (scrollMode == FileListViewModel.ScrollMode.PreservePosition)
+            {
+                InvokeAsync(async () =>
+                {
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.saveScroll"); }
+                    catch { }
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.restoreScroll"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+            else
+            {
+                InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.resetScroll"); }
+                    catch { }
+                    await CreateBlobUrlsForEntriesAsync();
+                });
+            }
+        }
+    }
+
+    private void OnRenameRequested(FileSystemEntry entry)
+    {
+        InvokeAsync(() =>
+        {
+            StartRename(entry);
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ViewModel.RenameRequested -= OnRenameRequested;
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
+        _dblClickTimer?.Dispose();
+        _pendingOpenTimer?.Dispose();
+        await RevokeAllBlobUrlsAsync();
+    }
+
+    // Drag-and-drop state
+    private FileSystemEntry? _draggedEntry;
+    private List<FileSystemEntry>? _draggedEntries;
+    private FileSystemEntry? _dragOverEntry;
+    private bool _isDragging;
+    private int _dragCount;
+
+    // Pending deselect: when mousedown on an already-selected entry in multi-selection,
+    // defer deselection to mouseup so dragstart can cancel it.
+    private FileSystemEntry? _pendingDeselectEntry;
+
+    // Inline rename state
+    private FileSystemEntry? _renamingEntry;
+    private string _renameText = "";
+    private bool _skipScrollHandlingOnNextEntriesChange;
+    private bool _renameInputMouseDown;
+
+    // ── Render helpers using inline templates ──
+
+    private bool IsDragSource(FileSystemEntry entry) =>
+        _isDragging && _draggedEntries != null && _draggedEntries.Contains(entry);
+
+    private RenderFragment<FileSystemEntry> RenderListRow => (entry) => builder =>
+    {
+        var isSelected = ViewModel.SelectedEntries.Contains(entry);
+        var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
+        var isCut = ViewModel.CutPaths.Contains(entry.FullPath);
+        var isDragSrc = IsDragSource(entry);
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", $"file-list-row {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")} {(isDragSrc ? "dragging" : "")}");
+        if (isSelected && ViewModel.SelectedEntries.Count > 1)
+            builder.AddAttribute(2, "data-selected-count", ViewModel.SelectedEntries.Count.ToString());
+        builder.AddAttribute(3, "draggable", (_renamingEntry != entry && !entry.IsVirtual) ? "true" : "false");
+        builder.AddAttribute(4, "ondragstart", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragStart(entry)));
+        builder.AddAttribute(5, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
+        builder.AddAttribute(6, "ondragover:preventDefault", true);
+        builder.AddAttribute(7, "ondragleave", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragLeave(entry)));
+        builder.AddAttribute(8, "ondrop", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDrop(entry)));
+        builder.AddAttribute(9, "ondrop:preventDefault", true);
+        builder.AddAttribute(10, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryClick(entry, e)));
+        builder.AddAttribute(11, "onclick:stopPropagation", true);
+        builder.AddAttribute(12, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryMouseDown(entry, e)));
+        builder.AddAttribute(13, "onmousedown:stopPropagation", true);
+        builder.AddAttribute(14, "onmouseup", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryMouseUp(entry, e)));
+        builder.AddAttribute(15, "oncontextmenu", EventCallback.Factory.Create<MouseEventArgs>(this, async e => await OnFileContextMenu(e, entry)));
+        builder.AddAttribute(16, "oncontextmenu:preventDefault", true);
+        builder.AddAttribute(17, "oncontextmenu:stopPropagation", true);
+        builder.AddAttribute(18, "ondragend", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragEnd()));
+        builder.AddAttribute(19, "data-path", entry.FullPath);
+        builder.AddAttribute(90, "data-is-directory", entry.IsDirectory ? "true" : "false");
+
+        // Name column
+        builder.OpenElement(20, "div");
+        builder.AddAttribute(21, "class", "file-list-name");
+        builder.OpenElement(22, "span");
+        builder.AddAttribute(23, "class", "file-list-icon");
+        builder.AddContent(24, (MarkupString)GetIconSvg(entry, 20));
+        builder.CloseElement();
+
+        if (_renamingEntry == entry)
+        {
+            builder.OpenElement(25, "input");
+            builder.AddAttribute(26, "class", "rename-input");
+            builder.AddAttribute(27, "value", _renameText);
+            builder.AddAttribute(28, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
+            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
+            builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
+            builder.AddAttribute(31, "onclick:stopPropagation", true);
+            builder.AddAttribute(32, "ondblclick:stopPropagation", true);
+            builder.AddAttribute(33, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
+            builder.AddAttribute(34, "onmousedown:stopPropagation", true);
+            builder.AddElementReferenceCapture(35, async el => await FocusRenameInput(el));
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(25, "span");
+            builder.AddContent(26, entry.DisplayName);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
+        builder.OpenElement(40, "div");
+        builder.AddAttribute(41, "class", "file-list-modified");
+        builder.AddContent(42, entry.LastModified.ToString("yyyy-MM-dd HH:mm"));
+        builder.CloseElement();
+
+        builder.OpenElement(50, "div");
+        builder.AddAttribute(51, "class", "file-list-size");
+        builder.AddContent(52, entry.FormattedSize);
+        builder.CloseElement();
+
+        builder.OpenElement(60, "div");
+        builder.AddAttribute(61, "class", "file-list-kind");
+        builder.AddContent(62, GetKindText(entry));
+        builder.CloseElement();
+
+        // Rating column
+        builder.OpenElement(70, "div");
+        builder.AddAttribute(71, "class", "file-list-rating");
+        if (!entry.IsDirectory)
+        {
+            var currentRating = ViewModel.GetRating(entry.FullPath);
+            for (int i = 1; i <= 5; i++)
+            {
+                var starVal = i;
+                var isFilled = starVal <= currentRating;
+                builder.OpenElement(72, "svg");
+                builder.AddAttribute(73, "class", isFilled ? "star-icon filled" : "star-icon");
+                builder.AddAttribute(74, "width", "12");
+                builder.AddAttribute(75, "height", "12");
+                builder.AddAttribute(76, "viewBox", "0 0 24 24");
+                builder.AddAttribute(77, "fill", isFilled ? "currentColor" : "none");
+                builder.AddAttribute(78, "stroke", "currentColor");
+                builder.AddAttribute(79, "stroke-width", "1.5");
+                Func<MouseEventArgs, Task> starHandler = async _ =>
+                {
+                    var newRating = starVal == currentRating ? 0 : starVal;
+                    await ViewModel.SetRatingAsync(entry.FullPath, newRating);
+                    StateHasChanged();
+                };
+                builder.AddAttribute(80, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, starHandler));
+                builder.AddAttribute(81, "onclick:stopPropagation", true);
+                builder.OpenElement(82, "path");
+                builder.AddAttribute(83, "d", Icons.StarOutline);
+                builder.CloseElement();
+                builder.CloseElement();
+            }
+        }
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+
+    private RenderFragment<FileSystemEntry> RenderGridItem => (entry) => builder =>
+    {
+        var isSelected = ViewModel.SelectedEntries.Contains(entry);
+        var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
+        var isCut = ViewModel.CutPaths.Contains(entry.FullPath);
+        var isDragSrc = IsDragSource(entry);
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", $"file-grid-item {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")} {(isDragSrc ? "dragging" : "")}");
+        if (isSelected && ViewModel.SelectedEntries.Count > 1)
+            builder.AddAttribute(2, "data-selected-count", ViewModel.SelectedEntries.Count.ToString());
+        builder.AddAttribute(3, "draggable", (_renamingEntry != entry && !entry.IsVirtual) ? "true" : "false");
+        builder.AddAttribute(4, "ondragstart", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragStart(entry)));
+        builder.AddAttribute(5, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
+        builder.AddAttribute(6, "ondragover:preventDefault", true);
+        builder.AddAttribute(7, "ondragleave", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragLeave(entry)));
+        builder.AddAttribute(8, "ondrop", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDrop(entry)));
+        builder.AddAttribute(9, "ondrop:preventDefault", true);
+        builder.AddAttribute(10, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryClick(entry, e)));
+        builder.AddAttribute(11, "onclick:stopPropagation", true);
+        builder.AddAttribute(12, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryMouseDown(entry, e)));
+        builder.AddAttribute(13, "onmousedown:stopPropagation", true);
+        builder.AddAttribute(14, "onmouseup", EventCallback.Factory.Create<MouseEventArgs>(this, e => OnEntryMouseUp(entry, e)));
+        builder.AddAttribute(15, "oncontextmenu", EventCallback.Factory.Create<MouseEventArgs>(this, async e => await OnFileContextMenu(e, entry)));
+        builder.AddAttribute(16, "oncontextmenu:preventDefault", true);
+        builder.AddAttribute(17, "oncontextmenu:stopPropagation", true);
+        builder.AddAttribute(18, "ondragend", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragEnd()));
+        builder.AddAttribute(19, "data-path", entry.FullPath);
+        builder.AddAttribute(90, "data-is-directory", entry.IsDirectory ? "true" : "false");
+
+        builder.OpenElement(20, "div");
+        builder.AddAttribute(21, "class", "file-grid-icon");
+        builder.AddContent(22, (MarkupString)GetIconSvg(entry, 36));
+        builder.CloseElement();
+
+        if (_renamingEntry == entry)
+        {
+            builder.OpenElement(25, "input");
+            builder.AddAttribute(26, "class", "rename-input rename-input-grid");
+            builder.AddAttribute(27, "value", _renameText);
+            builder.AddAttribute(28, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
+            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
+            builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
+            builder.AddAttribute(31, "onclick:stopPropagation", true);
+            builder.AddAttribute(32, "ondblclick:stopPropagation", true);
+            builder.AddAttribute(33, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
+            builder.AddAttribute(34, "onmousedown:stopPropagation", true);
+            builder.AddElementReferenceCapture(35, async el => await FocusRenameInput(el));
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(25, "div");
+            builder.AddAttribute(26, "class", "file-grid-name");
+            builder.AddContent(27, entry.DisplayName);
+            builder.CloseElement();
+
+            // Virtual folder: show item count below name
+            if (entry.IsVirtual)
+            {
+                builder.OpenElement(35, "div");
+                builder.AddAttribute(36, "class", "file-grid-virtual-count");
+                builder.AddContent(37, $"{entry.VirtualItemCount} 张照片");
+                builder.CloseElement();
+            }
+        }
+
+        builder.CloseElement();
+    };
+
+    // ── Selection logic ──
+
+    private void OnEntryClick(FileSystemEntry entry, MouseEventArgs e)
+    {
+        if (_renamingEntry != null || _isDragging) return;
+
+        // If a pending deselect was set by mousedown (multi-selection, no modifiers),
+        // skip click handling — mouseup handles deselection, or dragstart cancels it.
+        // This prevents WKWebView's click-before-dragstart from clearing multi-selection.
+        if (_pendingDeselectEntry == entry && !e.CtrlKey && !e.MetaKey && !e.ShiftKey)
+            return;
+
+        ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
+
+        // Auto-close metadata panel when clicking a file
+        if (ViewModel.IsMetadataPanelVisible)
+            ViewModel.CloseMetadataCommand.Execute(null);
+    }
+
+    // Custom double-click via timer (only fast double-clicks open, not slow clicks)
+    private FileSystemEntry? _pendingOpenEntry;
+    private System.Threading.Timer? _dblClickTimer;
+    private System.Threading.Timer? _pendingOpenTimer;
+
+    private void OnEntryMouseDown(FileSystemEntry entry, MouseEventArgs e)
+    {
+        if (e.Button != 0 || _renamingEntry != null || _isDragging) return;
+
+        if (_pendingOpenEntry == entry)
+        {
+            // Second fast click on same entry — schedule open after short delay
+            // so that dragstart has a chance to cancel it if user is dragging
+            _dblClickTimer?.Dispose();
+            _dblClickTimer = null;
+            _pendingOpenEntry = null;
+            _pendingDeselectEntry = null;
+            _pendingOpenTimer?.Dispose();
+            var entryToOpen = entry;
+            _pendingOpenTimer = new System.Threading.Timer(_ =>
+            {
+                _pendingOpenTimer = null;
+                if (!_isDragging)
+                    InvokeAsync(() => OpenEntry(entryToOpen));
+            }, null, 100, Timeout.Infinite);
+        }
+        else
+        {
+            // First click — start timer
+            _pendingOpenEntry = entry;
+            _dblClickTimer?.Dispose();
+            _dblClickTimer = new System.Threading.Timer(_ =>
+            {
+                _pendingOpenEntry = null;
+            }, null, 350, Timeout.Infinite);
+        }
+
+        // Multi-selection drag support: when mousedown on an already-selected entry
+        // in a multi-selection (no modifiers), defer deselection to mouseup.
+        // This allows dragstart to cancel the deselect and preserve multi-selection for drag.
+        if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey
+            && ViewModel.SelectedEntries.Count > 1
+            && ViewModel.SelectedEntries.Contains(entry))
+        {
+            _pendingDeselectEntry = entry;
+            // Snapshot selected entries NOW, before mouseup/click can clear the selection.
+            // In WKWebView, mouseup fires before dragstart, which would clear multi-selection
+            // before OnDragStart can snapshot it.
+            _draggedEntries = ViewModel.SelectedEntries.ToList();
+        }
+        else
+        {
+            _pendingDeselectEntry = null;
+        }
+    }
+
+    private void OnEntryMouseUp(FileSystemEntry entry, MouseEventArgs e)
+    {
+        if (e.Button != 0) return;
+        var pending = _pendingDeselectEntry;
+        _pendingDeselectEntry = null;
+        if (pending == entry && !_isDragging)
+        {
+            // No drag happened — clear the pre-snapshot and deselect to single item.
+            _draggedEntries = null;
+            ViewModel.SelectEntry(entry, false, false);
+            if (ViewModel.IsMetadataPanelVisible)
+                ViewModel.CloseMetadataCommand.Execute(null);
+        }
+    }
+
+    private async void OnContentMouseDown(MouseEventArgs e)
+    {
+        // Defensive guard: if the mousedown originated from the rename input
+        // (stopPropagation may not work reliably on all WebView platforms),
+        // ignore the event to keep the rename input active.
+        if (_renameInputMouseDown)
+        {
+            _renameInputMouseDown = false;
+            return;
+        }
+
+        if (e.Button == 0 && e.Detail == 1)
+        {
+            // Commit rename if active (instead of canceling)
+            if (_renamingEntry != null)
+            {
+                await CommitRename();
+                return;
+            }
+
+            // Click on blank area clears selection
+            if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey)
+                ViewModel.ClearSelection();
+
+            // Auto-close metadata panel when clicking blank area
+            if (ViewModel.IsMetadataPanelVisible)
+                ViewModel.CloseMetadataCommand.Execute(null);
+        }
+    }
+
+    private async Task OpenEntry(FileSystemEntry entry)
+    {
+        if (_renamingEntry != null) return;
+        await ViewModel.OpenEntryCommand.ExecuteAsync(entry);
+    }
+
+    // ── Drag and drop ──
+
+    private void OnDragStart(FileSystemEntry entry)
+    {
+        if (entry.IsVirtual) return;
+        _isDragging = true;
+        _pendingOpenEntry = null;
+        _dblClickTimer?.Dispose();
+        _dblClickTimer = null;
+        _pendingOpenTimer?.Dispose();
+        _pendingOpenTimer = null;
+        _pendingDeselectEntry = null;
+        _draggedEntry = entry;
+
+        // Use pre-snapshot from mousedown if available (handles WKWebView timing where
+        // mouseup fires before dragstart and clears multi-selection).
+        // Otherwise snapshot from current selection.
+        if (_draggedEntries == null || !_draggedEntries.Contains(entry))
+        {
+            _draggedEntries = ViewModel.SelectedEntries.Contains(entry)
+                ? ViewModel.SelectedEntries.ToList()
+                : new List<FileSystemEntry> { entry };
+        }
+
+        if (!ViewModel.SelectedEntries.Contains(entry))
+            ViewModel.SelectEntry(entry, false, false);
+
+        _dragCount = _draggedEntries?.Count ?? 1;
+        StateHasChanged();
+    }
+
+    private void OnDragOver(FileSystemEntry entry)
+    {
+        if (_draggedEntry != null && entry.IsDirectory && entry != _draggedEntry && !entry.IsVirtual)
+            _dragOverEntry = entry;
+    }
+
+    private void OnDragLeave(FileSystemEntry entry)
+    {
+        if (_dragOverEntry == entry)
+            _dragOverEntry = null;
+    }
+
+    private async Task OnDrop(FileSystemEntry target)
+    {
+        _dragOverEntry = null;
+        _isDragging = false;
+        if (_draggedEntry == null || !target.IsDirectory || target == _draggedEntry)
+        {
+            _draggedEntry = null;
+            _draggedEntries = null;
+            return;
+        }
+
+        var entriesToMove = _draggedEntries ?? new List<FileSystemEntry> { _draggedEntry };
+        _draggedEntry = null;
+        _draggedEntries = null;
+
+        await ViewModel.MoveEntriesAsync(entriesToMove, target);
+    }
+
+    private void OnDragEnd()
+    {
+        _isDragging = false;
+        _draggedEntry = null;
+        _draggedEntries = null;
+        _dragOverEntry = null;
+        _dragCount = 0;
+    }
+
+    private void OnContentDragOver(DragEventArgs e)
+    {
+        // Allow drop on content area (prevents browser default)
+    }
+
+    private void OnContentDrop(DragEventArgs e)
+    {
+        // Dropped on blank area — just clean up drag state
+        _isDragging = false;
+        _draggedEntry = null;
+        _draggedEntries = null;
+        _dragOverEntry = null;
+        _dragCount = 0;
+    }
+
+    // ── Inline rename ──
+
+    public void StartRename(FileSystemEntry entry)
+    {
+        _renamingEntry = entry;
+        _renameInputFocused = false;
+        // Pre-select name without extension for files
+        if (entry.IsDirectory)
+            _renameText = entry.Name;
+        else
+        {
+            var ext = Path.GetExtension(entry.Name);
+            _renameText = string.IsNullOrEmpty(ext) ? entry.Name : entry.Name[..^ext.Length];
+        }
+        StateHasChanged();
+    }
+
+    private bool _renameInputFocused;
+    private bool _isCommitting;
+    private bool _needRestoreScrollAfterRename;
+
+    private async Task FocusRenameInput(ElementReference el)
+    {
+        if (_renameInputFocused) return;
+        _renameInputFocused = true;
+        try
+        {
+            await Task.Yield();
+            await JSRuntime.InvokeVoidAsync("fkfinderSelection.focusAndSelect", el);
+        }
+        catch { }
+    }
+
+    private async Task OnRenameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await CommitRename();
+        else if (e.Key == "Escape")
+            await CancelRename();
+    }
+
+    private async Task CommitRename()
+    {
+        if (_isCommitting || _renamingEntry == null) return;
+        _isCommitting = true;
+        try
+        {
+            // Save scroll BEFORE the input is removed from DOM.
+            // This is the single source of truth for scroll position during rename.
+            try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.saveScroll"); }
+            catch { }
+            _needRestoreScrollAfterRename = true;
+
+            // Blur the rename input while it's still in DOM to prevent
+            // browser scroll adjustment when the focused element is removed.
+            try { await JSRuntime.InvokeVoidAsync("fkfinderSelection.blurActive"); }
+            catch { }
+
+            var entry = _renamingEntry;
+            var newName = _renameText.Trim();
+            _renamingEntry = null;
+            _renameText = "";
+            StateHasChanged();
+
+            if (string.IsNullOrWhiteSpace(newName))
+                return;
+
+            // For files, preserve original extension if user didn't include one
+            if (!entry.IsDirectory && !string.IsNullOrEmpty(entry.Extension) && !newName.Contains('.'))
+                newName += entry.Extension;
+
+            // Skip rename if name didn't actually change
+            if (newName == entry.Name)
+                return;
+
+            // Tell the PropertyChanged handler to skip its own scroll management,
+            // since we already saved scroll and will restore in OnAfterRenderAsync.
+            _skipScrollHandlingOnNextEntriesChange = true;
+            await ViewModel.RenameEntryAsync(entry, newName);
+        }
+        finally { _isCommitting = false; }
+    }
+
+    private async Task CancelRename()
+    {
+        try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.saveScroll"); }
+        catch { }
+        _needRestoreScrollAfterRename = true;
+        // Blur the rename input while it's still in DOM to prevent
+        // browser scroll adjustment when the focused element is removed.
+        try { await JSRuntime.InvokeVoidAsync("fkfinderSelection.blurActive"); }
+        catch { }
+        _renamingEntry = null;
+        _renameText = "";
+        _renameInputFocused = false;
+        StateHasChanged();
+    }
+
+    // ── Context menu ──
+
+    private bool _fileContextMenuActive;
+
+    private async Task OnFileContextMenu(MouseEventArgs e, FileSystemEntry entry)
+    {
+        _fileContextMenuActive = true;
+        if (!ViewModel.SelectedEntries.Contains(entry))
+            ViewModel.SelectEntry(entry, false, false);
+        await ViewModel.ShowFileContextMenuAsync(entry, e.ClientX, e.ClientY);
+    }
+
+    private async Task OnBackgroundContextMenu(MouseEventArgs e)
+    {
+        // If a file context menu was just triggered, the event bubbled up here —
+        // skip to avoid overwriting the file menu with the background menu.
+        if (_fileContextMenuActive)
+        {
+            _fileContextMenuActive = false;
+            return;
+        }
+        await ViewModel.ShowBackgroundContextMenuAsync(e.ClientX, e.ClientY);
+    }
+
+    private static string GetKindText(FileSystemEntry entry)
+    {
+        if (entry.IsVirtual) return entry.VirtualFolderType switch
+        {
+            "face" => "人物",
+            "scene" => "场景",
+            "object" => "物品",
+            "animal" => "动物",
+            "location" => "地点",
+            "date" => "日期",
+            _ => "AI 分类"
+        };
+        if (entry.IconKey == "app-bundle") return "应用程序";
+        if (entry.IsDirectory) return "文件夹";
+        return entry.Extension.TrimStart('.').ToUpperInvariant();
+    }
+
+    private string GetEmptyStateText()
+    {
+        if (!ViewModel.IsAiView) return "此文件夹为空";
+        return ViewModel.AiViewMode switch
+        {
+            AiViewMode.People => "尚未识别到人物",
+            AiViewMode.Categories => "尚未识别到分类",
+            AiViewMode.Locations => "尚未识别到地点信息",
+            AiViewMode.Dates => "尚未识别到日期信息",
+            _ => "未找到匹配结果"
+        };
+    }
+
+    // ── SVG Icon helper ──
+
+    // Blob URL cache: file path → blob:http://... URL
+    private readonly Dictionary<string, string> _blobUrlCache = new();
+    private readonly List<string> _activeBlobUrls = new();
+
+    private static readonly HashSet<string> _bundleExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pvm", ".vmwarevm", ".vbox", ".app", ".xcodeproj", ".xcworkspace", ".playground",
+        ".bundle", ".framework", ".kext", ".plugin", ".appex",
+        ".photoslibrary", ".photobooth", ".miximages", ".musiclibrary", ".tvlibrary", ".aplibrary",
+        ".fcpbundle", ".fcpproject", ".garageband", ".band", ".logicx"
+    };
+
+    private static bool IsBundleFile(FileSystemEntry entry) =>
+        !string.IsNullOrEmpty(entry.Extension) && _bundleExtensions.Contains(entry.Extension);
+
+    private string GetIconSvg(FileSystemEntry entry, int size)
+    {
+        // Virtual AI entry with face thumbnail: circular image
+        if (entry.IsVirtual && !string.IsNullOrEmpty(entry.ThumbnailUrl))
+        {
+            var displaySize = size <= 20 ? 20 : 64;
+            return $@"<img src=""{entry.ThumbnailUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""ai-face-thumbnail"" />";
+        }
+
+        // Virtual AI entry without thumbnail: colored AI icon
+        if (entry.IsVirtual)
+            return FileIconRenderer.RenderAiIcon(entry.IconKey, size <= 20 ? 20 : 36);
+
+        // Use thumbnail if available (image files resolved by ViewModel)
+        if (!string.IsNullOrEmpty(entry.ThumbnailUrl))
+        {
+            var cssClass = size <= 20 ? "file-list-thumbnail" : "file-grid-thumbnail";
+            var displaySize = size <= 20 ? 20 : 64;
+            return $@"<img src=""{entry.ThumbnailUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""{cssClass}"" />";
+        }
+
+        // Use Blob URL if available for this entry
+        if (!string.IsNullOrEmpty(entry.IconUrl) && _blobUrlCache.TryGetValue(entry.IconUrl, out var blobUrl))
+        {
+            var displaySize = size <= 20 ? 20 : 64;
+            return $@"<img src=""{blobUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""app-icon-img"" />";
+        }
+
+        // Folder: Fluent design icon (skip for known bundle types like .pvm, .vmwarevm, .app)
+        if (entry.IsDirectory && !IsBundleFile(entry))
+            return FileIconRenderer.RenderFolder(size);
+
+        // File (or bundle): rich SVG icon with extension label
+        return FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
+    }
+
+    private string GetStarRatingMarkup(FileSystemEntry entry, int starSize)
+    {
+        var rating = ViewModel.GetRating(entry.FullPath);
+        var sb = new System.Text.StringBuilder();
+        sb.Append(@"<span class=""star-rating-inline"">");
+        for (int i = 1; i <= 5; i++)
+        {
+            var filled = i <= rating;
+            var fill = filled ? "currentColor" : "none";
+            var cls = filled ? "star-icon filled" : "star-icon";
+            sb.Append($@"<svg class=""{cls}"" width=""{starSize}"" height=""{starSize}"" viewBox=""0 0 24 24"" fill=""{fill}"" stroke=""currentColor"" stroke-width=""1.5""><path d=""{Icons.StarOutline}""/></svg>");
+        }
+        sb.Append("</span>");
+        return sb.ToString();
+    }
+
+    private async Task CreateBlobUrlsForEntriesAsync()
+    {
+        // Collect current entry IconUrls to detect stale cache entries
+        var currentIconUrls = new HashSet<string>(
+            ViewModel.Entries
+                .Where(e => !string.IsNullOrEmpty(e.IconUrl))
+                .Select(e => e.IconUrl!));
+
+        // Revoke blob URLs that are no longer needed (from previous directory)
+        var staleKeys = _blobUrlCache.Keys.Where(k => !currentIconUrls.Contains(k)).ToList();
+        if (staleKeys.Count > 0)
+        {
+            var staleUrls = staleKeys.Select(k => _blobUrlCache[k]).ToList();
+            try { await JSRuntime.InvokeVoidAsync("revokeBlobUrls", staleUrls.ToArray()); }
+            catch { }
+            foreach (var key in staleKeys)
+                _blobUrlCache.Remove(key);
+            _activeBlobUrls.RemoveAll(u => staleUrls.Contains(u));
+        }
+
+        var entriesNeedingBlob = ViewModel.Entries
+            .Where(e => !string.IsNullOrEmpty(e.IconUrl) && !_blobUrlCache.ContainsKey(e.IconUrl))
+            .ToList();
+        if (entriesNeedingBlob.Count == 0) return;
+
+        foreach (var entry in entriesNeedingBlob)
+        {
+            try
+            {
+                if (!System.IO.File.Exists(entry.IconUrl!))
+                    continue;
+                var bytes = await System.IO.File.ReadAllBytesAsync(entry.IconUrl!);
+                if (bytes.Length == 0)
+                    continue;
+                var blobUrl = await JSRuntime.InvokeAsync<string>("createBlobUrl", bytes, "image/png");
+                _blobUrlCache[entry.IconUrl!] = blobUrl;
+                _activeBlobUrls.Add(blobUrl);
+            }
+            catch { }
+        }
+        StateHasChanged();
+    }
+
+    private async Task RevokeAllBlobUrlsAsync()
+    {
+        if (_activeBlobUrls.Count > 0)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("revokeBlobUrls", _activeBlobUrls.ToArray());
+            }
+            catch { }
+            _activeBlobUrls.Clear();
+        }
+        _blobUrlCache.Clear();
+    }
+
+
+}

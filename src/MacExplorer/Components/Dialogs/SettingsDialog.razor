@@ -1,0 +1,82 @@
+@using MacExplorer.Models
+@inject MacExplorer.Services.IDefaultAppService DefaultAppService
+@inject FileListViewModel ViewModel
+
+<div class="settings-dialog">
+    <div class="settings-dialog-title">设置</div>
+
+    <div class="settings-list">
+        <div class="settings-item">
+            <div class="settings-item-info">
+                <div class="settings-item-label">设为默认文件管理器</div>
+                <div class="settings-item-description">
+                    设置后，通过终端 open 命令、系统文件对话框等方式打开文件夹时将使用 MacExplorer。
+                    <br />
+                    <span style="opacity: 0.7; font-size: 0.85em;">桌面双击文件夹不受影响（macOS 系统限制）</span>
+                </div>
+            </div>
+            <label class="settings-toggle" @onclick:stopPropagation>
+                <input type="checkbox" checked="@_isDefaultHandler"
+                       @onchange="OnDefaultHandlerToggle" />
+                <span class="settings-toggle-slider"></span>
+            </label>
+        </div>
+        <div class="settings-item">
+            <div class="settings-item-info">
+                <div class="settings-item-label">AI 智能分析</div>
+                <div class="settings-item-description">
+                    开启后，浏览文件夹时自动对图片进行 AI 分析（人物、分类、地点等）。
+                </div>
+            </div>
+            <label class="settings-toggle" @onclick:stopPropagation>
+                <input type="checkbox" checked="@ViewModel.IsAiAnalysisEnabled"
+                       @onchange="OnAiAnalysisToggle" />
+                <span class="settings-toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="settings-status @(_statusSuccess ? "settings-status-success" : "settings-status-error")">
+            @_statusMessage
+        </div>
+    }
+
+    <div class="settings-dialog-actions">
+        <button class="settings-dialog-btn" @onclick="Close">关闭</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool _isDefaultHandler;
+    private string _statusMessage = "";
+    private bool _statusSuccess;
+
+    protected override void OnInitialized()
+    {
+        _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
+    }
+
+    private void OnDefaultHandlerToggle(ChangeEventArgs e)
+    {
+        var enabled = (bool)(e.Value ?? false);
+
+        var (success, message) = enabled
+            ? DefaultAppService.SetAsDefaultFolderHandler()
+            : DefaultAppService.ResetDefaultFolderHandler();
+
+        _statusSuccess = success;
+        _statusMessage = message;
+        _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
+    }
+
+    private void OnAiAnalysisToggle(ChangeEventArgs e)
+    {
+        ViewModel.IsAiAnalysisEnabled = (bool)(e.Value ?? false);
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}

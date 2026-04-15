@@ -1,8 +1,8 @@
-# FKFinder AI 图像分析功能设计文档
+# MacExplorer AI 图像分析功能设计文档
 
 ## 概述
 
-FKFinder 的 AI 图像分析功能利用 Apple Vision Framework 对用户浏览的图片进行自动后台分析，提取人脸、场景分类、文字 (OCR)、EXIF 元数据（GPS 定位、拍摄日期、相机型号）等信息，并以标签形式持久化到 SQLite 数据库中。用户可以通过 AI 视图按人物、分类、地点、日期、文字等维度浏览和搜索图片。
+MacExplorer 的 AI 图像分析功能利用 Apple Vision Framework 对用户浏览的图片进行自动后台分析，提取人脸、场景分类、文字 (OCR)、EXIF 元数据（GPS 定位、拍摄日期、相机型号）等信息，并以标签形式持久化到 SQLite 数据库中。用户可以通过 AI 视图按人物、分类、地点、日期、文字等维度浏览和搜索图片。
 
 ---
 

@@ -1,4 +1,4 @@
-# FKFinder 图标设计规范
+# MacExplorer 图标设计规范
 
 基于 Microsoft Fluent Design 的文件类型图标设计体系，适用于 `FileIconRenderer.cs` 中所有 SVG 图标的生成。
 

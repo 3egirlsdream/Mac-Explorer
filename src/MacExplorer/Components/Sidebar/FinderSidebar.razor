@@ -1,0 +1,357 @@
+@using MacExplorer.Models
+@implements IDisposable
+
+<div class="finder-sidebar">
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">收藏</div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory ? "active" : "")"
+             @onclick="@(() => NavigateTo(ViewModel.HomeDirectory))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#54A3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
+            <span class="sidebar-item-name">主目录</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Desktop" ? "active" : "")"
+             @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Desktop"))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#54A3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            <span class="sidebar-item-name">桌面</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Documents" ? "active" : "")"
+             @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Documents"))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.FileText"/></svg>
+            <span class="sidebar-item-name">文稿</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Downloads" ? "active" : "")"
+             @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Downloads"))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            <span class="sidebar-item-name">下载</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Pictures" ? "active" : "")"
+             @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Pictures"))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8912D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span class="sidebar-item-name">图片</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Music" ? "active" : "")"
+             @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Music"))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <span class="sidebar-item-name">音乐</span>
+        </div>
+        @foreach (var pin in ViewModel.PinnedFolders)
+        {
+            <div class="sidebar-item @(ViewModel.CurrentPath == pin.FolderPath ? "active" : "")"
+                 @onclick="@(() => NavigateTo(pin.FolderPath))">
+                <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Folder"/></svg>
+                <span class="sidebar-item-name">@pin.DisplayName</span>
+                <button class="sidebar-item-delete-btn"
+                        @onclick="() => UnpinFolder(pin)"
+                        @onclick:stopPropagation
+                        title="取消Pin">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                        <path d="@Icons.Pin"/>
+                    </svg>
+                </button>
+            </div>
+        }
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">位置</div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == "/" ? "active" : "")"
+             @onclick="@(() => NavigateTo("/"))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1" width="18" height="15" rx="2.5"/><path d="M12 5.5v1.2" stroke-width="1"/><path d="M12.2 5.5c.5-.5 1.1-.4 1.4 0" stroke-width="1"/><path d="M10.5 6.8C9 7.2 9 9.5 9.5 10.8C10 12 11 11.8 12 11.5C13 11.8 14 12 14.5 10.8C15 9.5 15 7.2 13.5 6.8C13 6.5 12.5 7 12 7.2C11.5 7 11 6.5 10.5 6.8Z" stroke-width="1"/><path d="M12 16v3"/><path d="M8 19h8"/></svg>
+            <span class="sidebar-item-name">Macintosh HD</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.CurrentPath == "/Applications" ? "active" : "")"
+             @onclick="@(() => NavigateTo("/Applications"))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818CF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M8.5 17l3.5-10 3.5 10"/><path d="M9.8 14.5h4.4"/></svg>
+            <span class="sidebar-item-name">应用程序</span>
+        </div>
+        <div class="sidebar-item @(IsTrashActive ? "active" : "")"
+             @onclick="@(() => NavigateTo(TrashPath))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M5 5l1.5 16h11l1.5-16"/><path d="M10 8v10"/><path d="M14 8v10"/></svg>
+            <span class="sidebar-item-name">废纸篓</span>
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-title sidebar-section-title-collapsible" @onclick="ToggleAiCollapsed">
+            AI 智能
+            <svg class="sidebar-collapse-icon @(_isAiCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 6l6 6-6 6"/>
+            </svg>
+        </div>
+        @if (!_isAiCollapsed)
+        {
+        <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.People ? "active" : "")"
+             @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.People))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+            <span class="sidebar-item-name">人物</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.Categories ? "active" : "")"
+             @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.Categories))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+            </svg>
+            <span class="sidebar-item-name">分类</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.Locations ? "active" : "")"
+             @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.Locations))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            <span class="sidebar-item-name">地点</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.Dates ? "active" : "")"
+             @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.Dates))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+            </svg>
+            <span class="sidebar-item-name">日期</span>
+        </div>
+        <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.TextSearch ? "active" : "")"
+             @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.TextSearch))">
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <span class="sidebar-item-name">文字搜索</span>
+        </div>
+        }
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-title sidebar-section-title-collapsible" @onclick="ToggleCollectionsCollapsed">
+            收藏夹
+            <svg class="sidebar-collapse-icon @(_isCollectionsCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 6l6 6-6 6"/>
+            </svg>
+        </div>
+        @if (!_isCollectionsCollapsed)
+        {
+            @foreach (var collection in ViewModel.Collections)
+            {
+                @if (_renamingCollection?.Id == collection.Id)
+                {
+                    <div class="sidebar-item">
+                        <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.CollectionAdd"/></svg>
+                        <input class="sidebar-rename-input"
+                               @bind="_renameCollectionText"
+                               @bind:event="oninput"
+                               @onblur="CommitRenameCollection"
+                               @onkeydown="OnRenameCollectionKeyDown"
+                               @onclick:stopPropagation />
+                    </div>
+                }
+                else
+                {
+                    <div class="sidebar-item @(ViewModel.IsCollectionView && ViewModel.CurrentCollectionId == collection.Id ? "active" : "")"
+                         @onclick="() => NavigateToCollection(collection)"
+                         @oncontextmenu="e => ShowCollectionContextMenu(e, collection)"
+                         @oncontextmenu:preventDefault>
+                        <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.CollectionAdd"/></svg>
+                        <span class="sidebar-item-name">@collection.Name</span>
+                        <button class="sidebar-item-delete-btn"
+                                @onclick="() => RequestDeleteCollection(collection)"
+                                @onclick:stopPropagation
+                                title="删除收藏夹">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 6L6 18M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                }
+            }
+            @if (_showNewCollectionInput)
+            {
+                <div class="sidebar-item">
+                    <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.CollectionAdd"/></svg>
+                    <input class="sidebar-rename-input"
+                           @bind="_newCollectionName"
+                           @bind:event="oninput"
+                           @onblur="CommitNewCollection"
+                           @onkeydown="OnNewCollectionKeyDown"
+                           @onclick:stopPropagation />
+                </div>
+            }
+            <div class="sidebar-item" style="color: var(--color-text-quaternary);" @onclick="StartNewCollection">
+                <svg class="sidebar-item-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Plus"/></svg>
+                <span class="sidebar-item-name">新建收藏夹</span>
+            </div>
+        }
+    </div>
+</div>
+
+@if (_pendingDeleteCollection != null)
+{
+    <div class="modal-overlay" @onclick="CancelDeleteCollection">
+        <div class="modal-dialog" @onclick:stopPropagation>
+            <div class="modal-title">删除收藏夹</div>
+            <div class="modal-message">确定要删除收藏夹"@_pendingDeleteCollection.Name"吗？这不会删除实际文件。</div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" @onclick="CancelDeleteCollection">取消</button>
+                <button class="modal-btn modal-btn-danger" @onclick="ConfirmDeleteCollection">删除</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+    [Inject] private IFileService FileService { get; set; } = null!;
+    [Inject] private MacExplorer.Services.ISettingsService SettingsService { get; set; } = null!;
+
+    private const string SettingKeyAiCollapsed = "sidebar_ai_collapsed";
+    private const string SettingKeyCollectionsCollapsed = "sidebar_collections_collapsed";
+
+    private bool _isAiCollapsed;
+    private bool _isCollectionsCollapsed;
+
+    protected override void OnInitialized()
+    {
+        _isAiCollapsed = SettingsService.Get(SettingKeyAiCollapsed, false);
+        _isCollectionsCollapsed = SettingsService.Get(SettingKeyCollectionsCollapsed, false);
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void ToggleAiCollapsed()
+    {
+        _isAiCollapsed = !_isAiCollapsed;
+        SettingsService.Set(SettingKeyAiCollapsed, _isAiCollapsed);
+    }
+
+    private void ToggleCollectionsCollapsed()
+    {
+        _isCollectionsCollapsed = !_isCollectionsCollapsed;
+        SettingsService.Set(SettingKeyCollectionsCollapsed, _isCollectionsCollapsed);
+    }
+
+    private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ViewModel.PinnedFolders) or nameof(ViewModel.Collections)
+            or nameof(ViewModel.IsAiView) or nameof(ViewModel.AiViewMode))
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+    }
+
+    private string TrashPath => FileService.TrashDirectory;
+    private bool IsTrashActive => ViewModel.CurrentPath == TrashPath;
+
+    // New collection input
+    private bool _showNewCollectionInput;
+    private string _newCollectionName = "";
+
+    // Rename collection
+    private Collection? _renamingCollection;
+    private string _renameCollectionText = "";
+
+    // Delete collection confirmation
+    private Collection? _pendingDeleteCollection;
+
+    private async Task NavigateTo(string path)
+    {
+        await ViewModel.NavigateToCommand.ExecuteAsync(path);
+    }
+
+    private async Task NavigateToCollection(Collection collection)
+    {
+        await ViewModel.NavigateToCollectionAsync(collection.Id);
+    }
+
+    private async Task UnpinFolder(PinnedFolder pin)
+    {
+        await ViewModel.UnpinFolderAsync(pin.FolderPath);
+    }
+
+    private void StartNewCollection()
+    {
+        _showNewCollectionInput = true;
+        _newCollectionName = "新收藏夹";
+    }
+
+    private async Task CommitNewCollection()
+    {
+        _showNewCollectionInput = false;
+        if (!string.IsNullOrWhiteSpace(_newCollectionName))
+        {
+            await ViewModel.CreateCollectionAsync(_newCollectionName.Trim());
+        }
+        _newCollectionName = "";
+    }
+
+    private async Task OnNewCollectionKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await CommitNewCollection();
+        else if (e.Key == "Escape")
+        {
+            _showNewCollectionInput = false;
+            _newCollectionName = "";
+        }
+    }
+
+    private void RequestDeleteCollection(Collection collection)
+    {
+        _pendingDeleteCollection = collection;
+    }
+
+    private async Task ConfirmDeleteCollection()
+    {
+        if (_pendingDeleteCollection != null)
+        {
+            await ViewModel.DeleteCollectionAsync(_pendingDeleteCollection.Id);
+            _pendingDeleteCollection = null;
+        }
+    }
+
+    private void CancelDeleteCollection()
+    {
+        _pendingDeleteCollection = null;
+    }
+
+    private void ShowCollectionContextMenu(MouseEventArgs e, Collection collection)
+    {
+        var actions = new List<ContextMenuAction>
+        {
+            new() { Label = "重命名", IconSvg = Icons.Rename, Execute = () => { StartRenameCollection(collection); return Task.CompletedTask; } },
+            new() { Label = "删除收藏夹", IconSvg = Icons.Delete, Execute = () => { ViewModel.ShowCollectionDeleteConfirmDialog(collection.Id, collection.Name); return Task.CompletedTask; } },
+        };
+        ViewModel.ContextMenuX = e.ClientX;
+        ViewModel.ContextMenuY = e.ClientY;
+        ViewModel.ContextMenuActions = new System.Collections.ObjectModel.ObservableCollection<ContextMenuAction>(actions);
+        ViewModel.IsContextMenuVisible = true;
+    }
+
+    private void StartRenameCollection(Collection collection)
+    {
+        _renamingCollection = collection;
+        _renameCollectionText = collection.Name;
+    }
+
+    private async Task CommitRenameCollection()
+    {
+        if (_renamingCollection != null && !string.IsNullOrWhiteSpace(_renameCollectionText))
+        {
+            await ViewModel.RenameCollectionAsync(_renamingCollection.Id, _renameCollectionText.Trim());
+        }
+        _renamingCollection = null;
+        _renameCollectionText = "";
+    }
+
+    private async Task OnRenameCollectionKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await CommitRenameCollection();
+        else if (e.Key == "Escape")
+        {
+            _renamingCollection = null;
+            _renameCollectionText = "";
+        }
+    }
+}

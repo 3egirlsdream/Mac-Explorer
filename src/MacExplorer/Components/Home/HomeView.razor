@@ -1,0 +1,54 @@
+@using MacExplorer.Models
+
+<div class="home-view">
+    <div class="home-fab-container">
+        <div class="home-fab-group" @onclick="@(() => NavigateTo(ViewModel.HomeDirectory))">
+            <div class="home-fab">
+                <div class="home-fab-icon">
+                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#54A3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                        <path d="M9 22V12h6v10"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="home-fab-label">主目录</div>
+        </div>
+
+        <div class="home-fab-group" @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Desktop"))">
+            <div class="home-fab">
+                <div class="home-fab-icon">
+                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#54A3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <path d="M8 21h8M12 17v4"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="home-fab-label">桌面</div>
+        </div>
+
+        <div class="home-fab-group" @onclick="@(() => NavigateTo("/"))">
+            <div class="home-fab">
+                <div class="home-fab-icon">
+                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="1" width="18" height="15" rx="2.5"/>
+                        <path d="M12 5.5v1.2" stroke-width="1"/>
+                        <path d="M12.2 5.5c.5-.5 1.1-.4 1.4 0" stroke-width="1"/>
+                        <path d="M10.5 6.8C9 7.2 9 9.5 9.5 10.8C10 12 11 11.8 12 11.5C13 11.8 14 12 14.5 10.8C15 9.5 15 7.2 13.5 6.8C13 6.5 12.5 7 12 7.2C11.5 7 11 6.5 10.5 6.8Z" stroke-width="1"/>
+                        <path d="M12 16v3"/>
+                        <path d="M8 19h8"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="home-fab-label">Macintosh HD</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
+
+    private async Task NavigateTo(string path)
+    {
+        await ViewModel.NavigateToCommand.ExecuteAsync(path);
+    }
+}

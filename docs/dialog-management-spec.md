@@ -1,4 +1,4 @@
-# FKFinder 弹窗管理统一方案
+# MacExplorer 弹窗管理统一方案
 
 ## 1. 现状分析
 
@@ -54,7 +54,7 @@
 ### 3.1 新增文件结构
 
 ```
-src/FKFinder/
+src/MacExplorer/
 ├── Services/
 │   ├── IDialogService.cs         # 弹窗服务接口
 │   └── DialogService.cs          # 弹窗服务实现

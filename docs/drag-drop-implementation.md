@@ -1,13 +1,13 @@
-# FKFinder 拖拽功能实现记录
+# MacExplorer 拖拽功能实现记录
 
 ## 项目背景
 
-FKFinder 是一个 macOS Finder 替代品，使用 .NET MAUI Blazor 在 Mac Catalyst 上构建（net10.0-maccatalyst）。UI 通过 WKWebView 中的 Blazor 组件渲染。
+MacExplorer 是一个 macOS Finder 替代品，使用 .NET MAUI Blazor 在 Mac Catalyst 上构建（net10.0-maccatalyst）。UI 通过 WKWebView 中的 Blazor 组件渲染。
 
 拖拽需求：
-- **拖出**（FKFinder → Finder/其他应用）：将文件拖到外部
-- **拖入-外部**（Finder → FKFinder）：从 Finder 拖文件进来
-- **拖入-跨窗口**（FKFinder 窗口 A → 窗口 B）：在不同 FKFinder 窗口间移动文件
+- **拖出**（MacExplorer → Finder/其他应用）：将文件拖到外部
+- **拖入-外部**（Finder → MacExplorer）：从 Finder 拖文件进来
+- **拖入-跨窗口**（MacExplorer 窗口 A → 窗口 B）：在不同 MacExplorer 窗口间移动文件
 - **拖入-内部**（同窗口内文件 → 子文件夹）：在同一窗口内移动文件
 
 约束：仅在文件列表区域生效（不包括侧边栏），操作始终为移动（非拷贝）。
@@ -20,14 +20,14 @@ FKFinder 是一个 macOS Finder 替代品，使用 .NET MAUI Blazor 在 Mac Cata
 |------|------|----------|
 | 拖出（→ Finder/其他应用） | **已实现** | HTML5 `text/uri-list` + `text/plain`（`native-drag.js`） |
 | 拖入-内部（同窗口文件 → 子文件夹） | **已实现** | HTML5 DnD + Blazor 事件处理 |
-| 拖入-外部（Finder → FKFinder） | **已实现** | AppKit NSView 覆盖层 + NSDraggingDestination（`DropOverlayHelper.cs`） |
-| 拖入-跨窗口（FKFinder → FKFinder） | **已实现** | 覆盖层拦截 + NSWindow 场景匹配 + 源目录刷新 |
+| 拖入-外部（Finder → MacExplorer） | **已实现** | AppKit NSView 覆盖层 + NSDraggingDestination（`DropOverlayHelper.cs`） |
+| 拖入-跨窗口（MacExplorer → MacExplorer） | **已实现** | 覆盖层拦截 + NSWindow 场景匹配 + 源目录刷新 |
 
 ---
 
 ## Mac Catalyst 拖拽管线（核心发现）
 
-通过 `log stream --process FKFinder --level debug` 系统日志分析，确认了 Mac Catalyst 上拖拽的完整内部管线：
+通过 `log stream --process MacExplorer --level debug` 系统日志分析，确认了 Mac Catalyst 上拖拽的完整内部管线：
 
 ```
 AppKit NSDragging (鼠标拖拽事件)
@@ -86,7 +86,7 @@ HTML5 drop 事件 → 不会触发（因为 sandbox 失败）
 
 **实现**：`native-drag.js` 中注册了全面的 drop 监听器，尝试了 6 种数据源（`text/uri-list`, `text/plain`, `URL`, `public.file-url`, 遍历所有 types, `File.path`）。
 
-**结果**：对外部拖入（Finder → FKFinder），JS `drop` 事件**完全不会触发**。根因是 WebKit sandbox extension 失败，导致 WebKit 无法将外部拖拽数据转换为 HTML5 drop 事件。
+**结果**：对外部拖入（Finder → MacExplorer），JS `drop` 事件**完全不会触发**。根因是 WebKit sandbox extension 失败，导致 WebKit 无法将外部拖拽数据转换为 HTML5 drop 事件。
 
 ---
 

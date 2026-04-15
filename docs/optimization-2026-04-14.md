@@ -1,4 +1,4 @@
-# FKFinder 代码优化报告
+# MacExplorer 代码优化报告
 
 **日期**: 2026-04-14
 **优化范围**: P0 (必须修复) / P1 (强烈建议) / P2 (建议)
@@ -12,7 +12,7 @@
 **问题**: 多处 `catch { }` 空块吞噬异常，导致生产环境调试极度困难。
 
 **修复**:
-- 创建 [Services/Impl/AppLogger.cs](src/FKFinder/Services/Impl/AppLogger.cs)
+- 创建 [Services/Impl/AppLogger.cs](src/MacExplorer/Services/Impl/AppLogger.cs)
 - 在 `MauiProgram.cs` 注册 `ILoggerFactory`
 - 替换所有空 catch 块为结构化日志：
 
@@ -67,17 +67,17 @@
 ```
 
 **新增文件**:
-- [ViewModels/NavigationViewModel.cs](src/FKFinder/ViewModels/NavigationViewModel.cs)
-- [ViewModels/FileOpsViewModel.cs](src/FKFinder/ViewModels/FileOpsViewModel.cs)
-- [ViewModels/SearchViewModel.cs](src/FKFinder/ViewModels/SearchViewModel.cs)
-- [ViewModels/ArchiveViewModel.cs](src/FKFinder/ViewModels/ArchiveViewModel.cs)
-- [ViewModels/AiViewModel.cs](src/FKFinder/ViewModels/AiViewModel.cs)
-- [ViewModels/CollectionViewModel.cs](src/FKFinder/ViewModels/CollectionViewModel.cs)
-- [ViewModels/SortFilterViewModel.cs](src/FKFinder/ViewModels/SortFilterViewModel.cs)
+- [ViewModels/NavigationViewModel.cs](src/MacExplorer/ViewModels/NavigationViewModel.cs)
+- [ViewModels/FileOpsViewModel.cs](src/MacExplorer/ViewModels/FileOpsViewModel.cs)
+- [ViewModels/SearchViewModel.cs](src/MacExplorer/ViewModels/SearchViewModel.cs)
+- [ViewModels/ArchiveViewModel.cs](src/MacExplorer/ViewModels/ArchiveViewModel.cs)
+- [ViewModels/AiViewModel.cs](src/MacExplorer/ViewModels/AiViewModel.cs)
+- [ViewModels/CollectionViewModel.cs](src/MacExplorer/ViewModels/CollectionViewModel.cs)
+- [ViewModels/SortFilterViewModel.cs](src/MacExplorer/ViewModels/SortFilterViewModel.cs)
 
 **修改文件**:
-- [ViewModels/FileListViewModel.cs](src/FKFinder/ViewModels/FileListViewModel.cs) — 协调器化，~400 行
-- [MauiProgram.cs](src/FKFinder/MauiProgram.cs) — 更新 DI 注册
+- [ViewModels/FileListViewModel.cs](src/MacExplorer/ViewModels/FileListViewModel.cs) — 协调器化，~400 行
+- [MauiProgram.cs](src/MacExplorer/MauiProgram.cs) — 更新 DI 注册
 
 **Commit**: `e246049`
 
@@ -105,7 +105,7 @@
 ```
 
 **新增文件**:
-- [Services/Impl/DatabaseConnectionFactory.cs](src/FKFinder/Services/Impl/DatabaseConnectionFactory.cs)
+- [Services/Impl/DatabaseConnectionFactory.cs](src/MacExplorer/Services/Impl/DatabaseConnectionFactory.cs)
 
 **修改文件** (6 个服务 + MauiProgram):
 - `CollectionService.cs`
@@ -128,7 +128,7 @@
 **修复**: 提取为共享静态类
 
 **新增文件**:
-- [Services/Impl/FileIconResolver.cs](src/FKFinder/Services/Impl/FileIconResolver.cs) — 统一的 `ResolveIconKey(extension)` 方法，包含两个原始实现的所有扩展名
+- [Services/Impl/FileIconResolver.cs](src/MacExplorer/Services/Impl/FileIconResolver.cs) — 统一的 `ResolveIconKey(extension)` 方法，包含两个原始实现的所有扩展名
 
 **修改文件**:
 - `MacFileService.cs` — 委托给 `FileIconResolver.ResolveIconKey()`
@@ -149,7 +149,7 @@
 **修复**: 创建集中常量类
 
 **新增文件**:
-- [Services/VirtualPath.cs](src/FKFinder/Services/VirtualPath.cs)
+- [Services/VirtualPath.cs](src/MacExplorer/Services/VirtualPath.cs)
 
 ```csharp
 public static class VirtualPath
@@ -202,7 +202,7 @@ public static class VirtualPath
 ## 构建验证
 
 ```bash
-dotnet build src/FKFinder/FKFinder.csproj -f net10.0-maccatalyst
+dotnet build src/MacExplorer/MacExplorer.csproj -f net10.0-maccatalyst
 # 0 错误 (4 个预存警告与本次优化无关)
 ```
 
@@ -305,6 +305,6 @@ dotnet build src/FKFinder/FKFinder.csproj -f net10.0-maccatalyst
 ### 构建验证
 
 ```bash
-dotnet build src/FKFinder/FKFinder.csproj -f net10.0-maccatalyst
+dotnet build src/MacExplorer/MacExplorer.csproj -f net10.0-maccatalyst
 # 0 错误 (6 个预存警告与本次修正无关)
 ```

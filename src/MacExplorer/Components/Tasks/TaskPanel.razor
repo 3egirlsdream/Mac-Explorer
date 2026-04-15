@@ -1,0 +1,74 @@
+@using MacExplorer.Models
+@using MacExplorer.Services
+@inject IBackgroundTaskManager TaskManager
+@implements IDisposable
+
+@if (_visibleTasks.Count > 0)
+{
+    <div class="task-panel glass-effect">
+        <div class="task-panel-header">
+            <span>后台任务 (@_visibleTasks.Count)</span>
+        </div>
+        @foreach (var task in _visibleTasks)
+        {
+            <div class="task-panel-item @task.State.ToString().ToLowerInvariant()">
+                <div class="task-panel-item-header">
+                    <span class="task-panel-item-label">@task.Label</span>
+                    @if (task.State == BackgroundTaskState.Running)
+                    {
+                        <span class="task-panel-item-pct">@($"{task.Progress:F0}%")</span>
+                    }
+                    else if (task.State == BackgroundTaskState.Completed)
+                    {
+                        <span class="task-panel-item-status completed-text">已完成</span>
+                    }
+                    else if (task.State == BackgroundTaskState.Failed)
+                    {
+                        <span class="task-panel-item-status failed-text">失败</span>
+                    }
+                </div>
+                @if (task.State == BackgroundTaskState.Running)
+                {
+                    <div class="task-panel-progress-track">
+                        <div class="task-panel-progress-bar" style="width: @($"{task.Progress:F0}%")"></div>
+                    </div>
+                }
+                @if (task.State == BackgroundTaskState.Failed && !string.IsNullOrEmpty(task.ErrorMessage))
+                {
+                    <div class="task-panel-error">@task.ErrorMessage</div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<BackgroundTaskInfo> _visibleTasks = [];
+
+    protected override void OnInitialized()
+    {
+        TaskManager.TasksChanged += OnTasksChanged;
+        UpdateVisibleTasks();
+    }
+
+    private void OnTasksChanged()
+    {
+        InvokeAsync(() =>
+        {
+            UpdateVisibleTasks();
+            StateHasChanged();
+        });
+    }
+
+    private void UpdateVisibleTasks()
+    {
+        _visibleTasks = TaskManager.Tasks
+            .Where(t => t.IsMinimized || t.State != BackgroundTaskState.Running)
+            .ToList();
+    }
+
+    public void Dispose()
+    {
+        TaskManager.TasksChanged -= OnTasksChanged;
+    }
+}

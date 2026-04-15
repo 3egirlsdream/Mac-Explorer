@@ -584,8 +584,8 @@ BreadcrumbBar.razor 对应修改：
 ## 文件变更清单
 
 ### 已完成的修改
-- `src/FKFinder/ViewModels/NavigationViewModel.cs` - 新增，集中管理面包屑、视图状态、导航历史
-- `src/FKFinder/ViewModels/FileListViewModel.cs` - 重构为协调器，修复 NavigateToArchiveAsync 和 HandleAiNavigationAsync
+- `src/MacExplorer/ViewModels/NavigationViewModel.cs` - 新增，集中管理面包屑、视图状态、导航历史
+- `src/MacExplorer/ViewModels/FileListViewModel.cs` - 重构为协调器，修复 NavigateToArchiveAsync 和 HandleAiNavigationAsync
 
 ### 已实施的修复 (2026-04-15)
 

@@ -83,9 +83,9 @@ if (_pinnedFolderService != null && entry.IsDirectory)
 
 | 文件路径 | 改动说明 |
 |---|---|
-| `src/FKFinder/Services/IPinnedFolderService.cs` | 新增 `UpdateFolderPathAsync` 接口方法声明 |
-| `src/FKFinder/Services/Impl/PinnedFolderService.cs` | 实现 `UpdateFolderPathAsync`，使用参数化 SQL 更新 `folder_path` 和 `display_name` |
-| `src/FKFinder/ViewModels/FileListViewModel.cs` | 在 `RenameEntryAsync` 的 AI 视图分支和常规视图分支中调用 PIN 路径同步并刷新侧边栏 |
+| `src/MacExplorer/Services/IPinnedFolderService.cs` | 新增 `UpdateFolderPathAsync` 接口方法声明 |
+| `src/MacExplorer/Services/Impl/PinnedFolderService.cs` | 实现 `UpdateFolderPathAsync`，使用参数化 SQL 更新 `folder_path` 和 `display_name` |
+| `src/MacExplorer/ViewModels/FileListViewModel.cs` | 在 `RenameEntryAsync` 的 AI 视图分支和常规视图分支中调用 PIN 路径同步并刷新侧边栏 |
 
 ## 5. 验证要点
 
