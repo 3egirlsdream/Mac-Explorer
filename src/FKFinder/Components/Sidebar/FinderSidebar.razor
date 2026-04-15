@@ -72,14 +72,14 @@
     </div>
 
     <div class="sidebar-section">
-        <div class="sidebar-section-title">
+        <div class="sidebar-section-title sidebar-section-title-collapsible" @onclick="ToggleAiCollapsed">
             AI 智能
-            <label class="ai-toggle" @onclick:stopPropagation>
-                <input type="checkbox" checked="@ViewModel.IsAiAnalysisEnabled"
-                       @onchange="@(e => ViewModel.IsAiAnalysisEnabled = (bool)(e.Value ?? false))" />
-                <span class="ai-toggle-slider"></span>
-            </label>
+            <svg class="sidebar-collapse-icon @(_isAiCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 6l6 6-6 6"/>
+            </svg>
         </div>
+        @if (!_isAiCollapsed)
+        {
         <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.People ? "active" : "")"
              @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.People))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -117,12 +117,18 @@
             </svg>
             <span class="sidebar-item-name">文字搜索</span>
         </div>
+        }
     </div>
 
-    @if (ViewModel.Collections.Count > 0 || _showNewCollectionInput)
-    {
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">收藏夹</div>
+    <div class="sidebar-section">
+        <div class="sidebar-section-title sidebar-section-title-collapsible" @onclick="ToggleCollectionsCollapsed">
+            收藏夹
+            <svg class="sidebar-collapse-icon @(_isCollectionsCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 6l6 6-6 6"/>
+            </svg>
+        </div>
+        @if (!_isCollectionsCollapsed)
+        {
             @foreach (var collection in ViewModel.Collections)
             {
                 @if (_renamingCollection?.Id == collection.Id)
@@ -172,18 +178,8 @@
                 <svg class="sidebar-item-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Plus"/></svg>
                 <span class="sidebar-item-name">新建收藏夹</span>
             </div>
-        </div>
-    }
-    else
-    {
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">收藏夹</div>
-            <div class="sidebar-item" style="color: var(--color-text-quaternary);" @onclick="StartNewCollection">
-                <svg class="sidebar-item-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Plus"/></svg>
-                <span class="sidebar-item-name">新建收藏夹</span>
-            </div>
-        </div>
-    }
+        }
+    </div>
 </div>
 
 @if (_pendingDeleteCollection != null)
@@ -203,17 +199,37 @@
 @code {
     [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
     [Inject] private IFileService FileService { get; set; } = null!;
+    [Inject] private FKFinder.Services.ISettingsService SettingsService { get; set; } = null!;
+
+    private const string SettingKeyAiCollapsed = "sidebar_ai_collapsed";
+    private const string SettingKeyCollectionsCollapsed = "sidebar_collections_collapsed";
+
+    private bool _isAiCollapsed;
+    private bool _isCollectionsCollapsed;
 
     protected override void OnInitialized()
     {
+        _isAiCollapsed = SettingsService.Get(SettingKeyAiCollapsed, false);
+        _isCollectionsCollapsed = SettingsService.Get(SettingKeyCollectionsCollapsed, false);
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void ToggleAiCollapsed()
+    {
+        _isAiCollapsed = !_isAiCollapsed;
+        SettingsService.Set(SettingKeyAiCollapsed, _isAiCollapsed);
+    }
+
+    private void ToggleCollectionsCollapsed()
+    {
+        _isCollectionsCollapsed = !_isCollectionsCollapsed;
+        SettingsService.Set(SettingKeyCollectionsCollapsed, _isCollectionsCollapsed);
     }
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ViewModel.PinnedFolders) or nameof(ViewModel.Collections)
-            or nameof(ViewModel.IsAiView) or nameof(ViewModel.AiViewMode)
-            or nameof(ViewModel.IsAiAnalysisEnabled))
+            or nameof(ViewModel.IsAiView) or nameof(ViewModel.AiViewMode))
         {
             await InvokeAsync(StateHasChanged);
         }

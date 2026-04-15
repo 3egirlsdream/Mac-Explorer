@@ -15,7 +15,10 @@ public partial class AiViewModel : ObservableObject
     private readonly IFileIndex? _fileIndex;
     private readonly IImageAnalysisService? _imageAnalysisService;
     private readonly IBackgroundTaskManager? _taskManager;
+    private readonly ISettingsService? _settingsService;
     private readonly Microsoft.Extensions.Logging.ILogger<AiViewModel>? _logger;
+
+    private const string SettingKeyAiEnabled = "ai_analysis_enabled";
 
     private string? _currentTextSearchQuery;
 
@@ -50,6 +53,7 @@ public partial class AiViewModel : ObservableObject
         IFileIndex? fileIndex = null,
         IImageAnalysisService? imageAnalysisService = null,
         IBackgroundTaskManager? taskManager = null,
+        ISettingsService? settingsService = null,
         Microsoft.Extensions.Logging.ILogger<AiViewModel>? logger = null)
     {
         _aiTagService = aiTagService;
@@ -57,7 +61,16 @@ public partial class AiViewModel : ObservableObject
         _fileIndex = fileIndex;
         _imageAnalysisService = imageAnalysisService;
         _taskManager = taskManager;
+        _settingsService = settingsService;
         _logger = logger;
+
+        // Load persisted AI analysis enabled state (default: true)
+        _isAiAnalysisEnabled = _settingsService?.Get(SettingKeyAiEnabled, true) ?? true;
+    }
+
+    partial void OnIsAiAnalysisEnabledChanged(bool value)
+    {
+        _settingsService?.Set(SettingKeyAiEnabled, value);
     }
 
     [RelayCommand]
@@ -128,7 +141,8 @@ public partial class AiViewModel : ObservableObject
         Action updateBreadcrumbs,
         Action<ObservableCollection<FileSystemEntry>> applyEntries,
         Action<string> setStatus,
-        Action<bool> setLoading)
+        Action<bool> setLoading,
+        Action? onEntriesUpdated = null)
     {
         if (_aiTagService == null) return;
         var info = AiPathHelper.Parse(sentinelPath);
@@ -149,7 +163,7 @@ public partial class AiViewModel : ObservableObject
             {
                 CurrentFaceClusterId = null;
                 CurrentAiContextLabel = null;
-                await LoadAiTopLevelAsync(info.Mode, applyEntries, setStatus);
+                await LoadAiTopLevelAsync(info.Mode, applyEntries, setStatus, onEntriesUpdated);
             }
             else if (info.IsFaceDetail)
             {
@@ -180,7 +194,7 @@ public partial class AiViewModel : ObservableObject
         }
     }
 
-    public async Task LoadAiTopLevelAsync(AiViewMode mode, Action<ObservableCollection<FileSystemEntry>>? applyEntries = null, Action<string>? setStatus = null)
+    public async Task LoadAiTopLevelAsync(AiViewMode mode, Action<ObservableCollection<FileSystemEntry>>? applyEntries = null, Action<string>? setStatus = null, Action? onEntriesUpdated = null)
     {
         switch (mode)
         {
@@ -192,7 +206,7 @@ public partial class AiViewModel : ObservableObject
                 var peopleEntries = clusters.Select(CreateVirtualEntry).ToList();
                 applyEntries?.Invoke(new ObservableCollection<FileSystemEntry>(peopleEntries));
                 setStatus?.Invoke($"{clusters.Count} 个人物");
-                _ = ResolveFaceThumbnailsAsync(clusters);
+                _ = ResolveFaceThumbnailsAsync(clusters, peopleEntries, onEntriesUpdated);
                 break;
 
             case AiViewMode.Categories:
@@ -461,7 +475,7 @@ public partial class AiViewModel : ObservableObject
         VirtualItemCount = cluster.FaceCount,
     };
 
-    private async Task ResolveFaceThumbnailsAsync(IReadOnlyList<FaceCluster> clusters)
+    private async Task ResolveFaceThumbnailsAsync(IReadOnlyList<FaceCluster> clusters, IReadOnlyList<FileSystemEntry>? entries = null, Action? onUpdated = null)
     {
         if (_thumbnailService == null) return;
         foreach (var cluster in clusters)
@@ -478,7 +492,11 @@ public partial class AiViewModel : ObservableObject
                 {
                     var url = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
                     cluster.FaceThumbnailUrl = url;
-                    OnPropertyChanged(nameof(FaceClusters));
+                    // Sync thumbnail back to the corresponding FileSystemEntry
+                    var entry = entries?.FirstOrDefault(e => e.VirtualFolderKey == cluster.Id.ToString());
+                    if (entry != null)
+                        entry.ThumbnailUrl = url;
+                    onUpdated?.Invoke();
                 }
             }
             catch (Exception ex) { _logger?.LogError(ex, "Failed to resolve face thumbnails"); }

@@ -84,8 +84,8 @@
          MaxWidth="380"
          ContentClass="fk-dialog-glass"
          Persistent="true">
-    <DeleteConfirmDialog ItemCount="_deleteConfirmCount"
-                        FirstItemName="_deleteConfirmFirstName"
+    <DeleteConfirmDialog ItemCount="@_deleteConfirmCount"
+                        FirstItemName="@_deleteConfirmFirstName"
                         OnConfirm="OnDeleteConfirm"
                         OnCancel="OnDeleteCancel" />
 </MDialog>
@@ -94,7 +94,7 @@
          MaxWidth="380"
          ContentClass="fk-dialog-glass"
          Persistent="true">
-    <CollectionDeleteConfirmDialog CollectionName="_collectionDeleteName"
+    <CollectionDeleteConfirmDialog CollectionName="@_collectionDeleteName"
                                    OnConfirm="OnCollectionDeleteConfirm"
                                    OnCancel="OnCollectionDeleteCancel" />
 </MDialog>
@@ -124,6 +124,9 @@
     private bool _collectionDeleteConfirmVisible;
     private string _collectionDeleteName = "";
     private BackgroundTaskInfo? _activeTask;
+#if MACCATALYST
+    private IntPtr _nsWindowHandle;
+#endif
 
     protected override void OnInitialized()
     {
@@ -131,6 +134,12 @@
         NavigationBridge.Register(ViewModel);
         DragDropBridge.Register(ViewModel);
         DirectoryChangeNotifier.Subscribe(ViewModel);
+
+#if MACCATALYST
+        // Capture the NSWindow handle for this window (it's the key window during init).
+        // Used to update the window title in the Dock menu.
+        _nsWindowHandle = FKFinder.Platforms.MacCatalyst.Handlers.WindowTitleHelper.GetKeyNSWindow();
+#endif
         // Note: MacDragDropBridge.Register() now also calls RegisterViewModelForCurrentWindow()
         // to establish the NSWindow -> ViewModel mapping for cross-window drag-drop
 
@@ -201,6 +210,19 @@
             SyncDialogState();
             await InvokeAsync(StateHasChanged);
         }
+
+#if MACCATALYST
+        // Update NSWindow title so the Dock menu shows the current directory name
+        if (e.PropertyName is nameof(ViewModel.CurrentPath)
+            or nameof(ViewModel.IsHomePage)
+            or nameof(ViewModel.IsArchiveView)
+            or nameof(ViewModel.IsAiView)
+            or nameof(ViewModel.IsCollectionView)
+            or nameof(ViewModel.CurrentCollectionName))
+        {
+            UpdateNSWindowTitle();
+        }
+#endif
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -368,6 +390,29 @@
         _collectionDeleteConfirmVisible = ViewModel.IsCollectionDeleteConfirmDialogVisible;
         _collectionDeleteName = ViewModel.PendingDeleteCollectionName;
     }
+
+#if MACCATALYST
+    private void UpdateNSWindowTitle()
+    {
+        string title;
+        if (ViewModel.IsHomePage)
+            title = "FKFinder";
+        else if (ViewModel.IsAiView)
+            title = ViewModel.CurrentAiContextLabel ?? "AI 智能";
+        else if (ViewModel.IsArchiveView && ViewModel.CurrentArchivePath != null)
+            title = Path.GetFileName(ViewModel.CurrentArchivePath);
+        else if (ViewModel.IsCollectionView && ViewModel.CurrentCollectionName != null)
+            title = ViewModel.CurrentCollectionName;
+        else if (ViewModel.CurrentPath == FKFinder.Services.VirtualPath.SystemTrash)
+            title = "废纸篓";
+        else if (!string.IsNullOrEmpty(ViewModel.CurrentPath))
+            title = ViewModel.CurrentPath == "/" ? "Macintosh HD" : Path.GetFileName(ViewModel.CurrentPath);
+        else
+            title = "FKFinder";
+
+        FKFinder.Platforms.MacCatalyst.Handlers.WindowTitleHelper.SetTitle(_nsWindowHandle, title);
+    }
+#endif
 
     public async ValueTask DisposeAsync()
     {

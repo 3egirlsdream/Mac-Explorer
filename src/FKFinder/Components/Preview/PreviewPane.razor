@@ -1,6 +1,7 @@
 @using FKFinder.Models
 @using FKFinder.Services
 @inject IThumbnailService ThumbnailService
+@inject IMetadataService MetadataService
 @implements IDisposable
 
 <div class="preview-pane panel-slide-in">
@@ -25,25 +26,160 @@
             </div>
         }
 
-        @if (_selectedEntry != null && !_selectedEntry.IsDirectory)
-        {
-            <div class="preview-pane-actions">
-                <div class="preview-pane-rating">
-                    @for (int i = 1; i <= 5; i++)
-                    {
-                        var starIndex = i;
-                        var isFilled = starIndex <= _currentRating;
-                        <button class="star-btn @(isFilled ? "filled" : "")"
-                                @onclick="() => OnStarClick(starIndex)"
-                                title="@starIndex 星">
-                            <svg viewBox="0 0 24 24" fill="@(isFilled ? "currentColor" : "none")" stroke="currentColor" stroke-width="1.5">
-                                <path d="@Icons.StarOutline"/>
-                            </svg>
-                        </button>
-                    }
+        <div class="preview-pane-cards">
+            @if (_selectedEntry != null && !_selectedEntry.IsDirectory)
+            {
+                <div class="preview-card">
+                    <div class="preview-card-header">
+                        <span class="preview-card-title">评级</span>
+                    </div>
+                    <div class="preview-card-body">
+                        <div class="preview-pane-rating">
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                var starIndex = i;
+                                var isFilled = starIndex <= _currentRating;
+                                <button class="star-btn @(isFilled ? "filled" : "")"
+                                        @onclick="() => OnStarClick(starIndex)"
+                                        title="@starIndex 星">
+                                    <svg viewBox="0 0 24 24" fill="@(isFilled ? "currentColor" : "none")" stroke="currentColor" stroke-width="1.5">
+                                        <path d="@Icons.StarOutline"/>
+                                    </svg>
+                                </button>
+                            }
+                        </div>
+                    </div>
                 </div>
-            </div>
-        }
+            }
+
+            @if (_imageMetadata != null)
+            {
+                var img = _imageMetadata;
+                var hasExifInfo = !string.IsNullOrEmpty(img.CameraMake)
+                    || !string.IsNullOrEmpty(img.CameraModel)
+                    || !string.IsNullOrEmpty(img.LensModel)
+                    || !string.IsNullOrEmpty(img.FocalLength)
+                    || !string.IsNullOrEmpty(img.Aperture)
+                    || !string.IsNullOrEmpty(img.ExposureTime)
+                    || !string.IsNullOrEmpty(img.IsoSpeed)
+                    || img.PixelWidth > 0;
+
+                @if (hasExifInfo)
+                {
+                    <div class="preview-card">
+                        <div class="preview-card-header preview-card-collapsible" @onclick="ToggleExifCard">
+                            <span class="preview-card-title">基本信息</span>
+                            <svg class="preview-card-toggle @(_exifCardExpanded ? "expanded" : "")" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="@Icons.Forward"/>
+                            </svg>
+                        </div>
+                        @if (_exifCardExpanded)
+                        {
+                            <div class="preview-card-body preview-card-body-scroll">
+                                @if (img.PixelWidth > 0 && img.PixelHeight > 0)
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">尺寸</span>
+                                        <span class="preview-info-value">@(img.PixelWidth) x @(img.PixelHeight)</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.ColorSpace))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">色彩空间</span>
+                                        <span class="preview-info-value">@img.ColorSpace</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.CameraMake))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">制造商</span>
+                                        <span class="preview-info-value">@img.CameraMake</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.CameraModel))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">相机型号</span>
+                                        <span class="preview-info-value">@img.CameraModel</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.LensModel))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">镜头</span>
+                                        <span class="preview-info-value">@img.LensModel</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.FocalLength))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">焦距</span>
+                                        <span class="preview-info-value">@img.FocalLength</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.Aperture))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">光圈</span>
+                                        <span class="preview-info-value">@img.Aperture</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.ExposureTime))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">快门速度</span>
+                                        <span class="preview-info-value">@img.ExposureTime</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.IsoSpeed))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">ISO</span>
+                                        <span class="preview-info-value">@img.IsoSpeed</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.WhiteBalance))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">白平衡</span>
+                                        <span class="preview-info-value">@img.WhiteBalance</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.Flash))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">闪光灯</span>
+                                        <span class="preview-info-value">@img.Flash</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.ExposureProgram))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">曝光程序</span>
+                                        <span class="preview-info-value">@img.ExposureProgram</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(img.MeteringMode))
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">测光模式</span>
+                                        <span class="preview-info-value">@img.MeteringMode</span>
+                                    </div>
+                                }
+                                @if (img.PhotoTakenDate.HasValue)
+                                {
+                                    <div class="preview-info-row">
+                                        <span class="preview-info-label">拍摄时间</span>
+                                        <span class="preview-info-value">@img.PhotoTakenDate.Value.ToString("yyyy-MM-dd HH:mm")</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
     }
     else
     {
@@ -61,6 +197,9 @@
     private int _currentRating;
     private int _previewLoadGeneration;
     private bool _hasHighResPreview;
+    private ImageMetadata? _imageMetadata;
+    private bool _exifCardExpanded = true;
+    private int _metadataLoadGeneration;
 
     protected override void OnInitialized()
     {
@@ -90,6 +229,7 @@
                     _previewImageUrl = null;
                     _currentRating = 0;
                     _hasHighResPreview = false;
+                    _imageMetadata = null;
                     await InvokeAsync(StateHasChanged);
                     return;
                 }
@@ -114,6 +254,7 @@
     private void UpdateSelection()
     {
         _hasHighResPreview = false;
+        _imageMetadata = null;
         if (ViewModel.SelectedEntries.Count == 1)
         {
             var entry = ViewModel.SelectedEntries[0];
@@ -121,10 +262,10 @@
             _previewImageUrl = entry.ThumbnailUrl;
             _currentRating = ViewModel.GetRating(entry.FullPath);
 
-            // If it's an image file, asynchronously load a higher-resolution preview
             if (entry.IconKey == "file-image")
             {
                 _ = LoadHighResPreviewAsync(entry);
+                _ = LoadImageMetadataAsync(entry);
             }
         }
         else
@@ -149,8 +290,28 @@
         }
         catch
         {
-            // Silently fall back to the low-res thumbnail already displayed
         }
+    }
+
+    private async Task LoadImageMetadataAsync(FileSystemEntry entry)
+    {
+        var generation = ++_metadataLoadGeneration;
+        try
+        {
+            var metadata = await MetadataService.GetMetadataAsync(entry.FullPath);
+            if (generation != _metadataLoadGeneration) return;
+
+            _imageMetadata = metadata.ImageInfo;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+        }
+    }
+
+    private void ToggleExifCard()
+    {
+        _exifCardExpanded = !_exifCardExpanded;
     }
 
     private async Task OnStarClick(int rating)

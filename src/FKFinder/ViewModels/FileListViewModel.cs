@@ -570,9 +570,10 @@ public partial class FileListViewModel : ObservableObject
                 AiPathHelper.GetModeName(_ai.AiViewMode),
                 AiPathHelper.GetTopLevelPath(_ai.AiViewMode),
                 _ai.CurrentAiContextLabel),
-            entries => ApplyEntries(entries),
+            entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
             msg => StatusText = msg,
-            loading => IsLoading = loading
+            loading => IsLoading = loading,
+            () => OnPropertyChanged(nameof(Entries))
         );
 
         _navigation.UpdateHistoryForSentinelPath(sentinelPath);
@@ -616,14 +617,14 @@ public partial class FileListViewModel : ObservableObject
                 if (info.IsTopLevel)
                 {
                     if (info.Mode == AiViewMode.TextSearch && _search.SearchQuery != null)
-                        await _ai.SearchAiTagsAsync(_search.SearchQuery, entries => ApplyEntries(entries), msg => StatusText = msg);
+                        await _ai.SearchAiTagsAsync(_search.SearchQuery, entries => { ApplyEntries(entries); ResolveRealEntries(entries); }, msg => StatusText = msg);
                     else
-                        await _ai.LoadAiTopLevelAsync(info.Mode, entries => ApplyEntries(entries), msg => StatusText = msg);
+                        await _ai.LoadAiTopLevelAsync(info.Mode, entries => { ApplyEntries(entries); ResolveRealEntries(entries); }, msg => StatusText = msg, () => OnPropertyChanged(nameof(Entries)));
                 }
                 else if (info.IsFaceDetail)
-                    await _ai.LoadFaceClusterEntriesAsync(info.FaceClusterId!.Value, entries => ApplyEntries(entries), msg => StatusText = msg);
+                    await _ai.LoadFaceClusterEntriesAsync(info.FaceClusterId!.Value, entries => { ApplyEntries(entries); ResolveRealEntries(entries); }, msg => StatusText = msg);
                 else
-                    await _ai.LoadAiCategoryEntriesAsync(info.TagType!, info.TagValue!, entries => ApplyEntries(entries), msg => StatusText = msg);
+                    await _ai.LoadAiCategoryEntriesAsync(info.TagType!, info.TagValue!, entries => { ApplyEntries(entries); ResolveRealEntries(entries); }, msg => StatusText = msg);
             }
             catch (Exception ex) { StatusText = $"刷新失败: {ex.Message}"; }
             finally { IsLoading = false; }
@@ -645,7 +646,7 @@ public partial class FileListViewModel : ObservableObject
                 v => _navigation.CurrentCollectionId = v,
                 v => _navigation.CurrentCollectionName = v,
                 v => IsLoading = v,
-                entries => ApplyEntries(entries),
+                entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
                 msg => StatusText = msg,
                 () => _navigation.UpdateBreadcrumbs(),
                 folders => { }
@@ -1187,8 +1188,8 @@ public partial class FileListViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCollectionDeleteConfirmDialogVisible;
 
-    public int DeleteConfirmItemCount => SelectedEntries.Count;
-    public string DeleteConfirmFirstItemName => SelectedEntries.FirstOrDefault()?.Name ?? "";
+    public int DeleteConfirmItemCount { get; private set; }
+    public string DeleteConfirmFirstItemName { get; private set; } = "";
     public int? PendingDeleteCollectionId { get; private set; }
     public string PendingDeleteCollectionName { get; private set; } = "";
 
@@ -1196,7 +1197,9 @@ public partial class FileListViewModel : ObservableObject
     public void ShowDeleteConfirmDialog()
     {
         if (SelectedEntries.Count == 0) return;
-        IsContextMenuVisible = false; // Close context menu if open
+        IsContextMenuVisible = false;
+        DeleteConfirmItemCount = SelectedEntries.Count;
+        DeleteConfirmFirstItemName = SelectedEntries.First().Name;
         IsDeleteConfirmDialogVisible = true;
     }
 
@@ -1204,6 +1207,8 @@ public partial class FileListViewModel : ObservableObject
     public async Task ConfirmDeleteSelectedAsync()
     {
         IsDeleteConfirmDialogVisible = false;
+        DeleteConfirmItemCount = 0;
+        DeleteConfirmFirstItemName = "";
         await ExecuteDeleteSelectedAsync();
     }
 
@@ -1211,6 +1216,8 @@ public partial class FileListViewModel : ObservableObject
     public void CancelDeleteConfirmDialog()
     {
         IsDeleteConfirmDialogVisible = false;
+        DeleteConfirmItemCount = 0;
+        DeleteConfirmFirstItemName = "";
     }
 
     public void ShowCollectionDeleteConfirmDialog(int collectionId, string collectionName)
@@ -1270,7 +1277,7 @@ public partial class FileListViewModel : ObservableObject
                     v => _navigation.CurrentCollectionId = v,
                     v => _navigation.CurrentCollectionName = v,
                     v => IsLoading = v,
-                    entries => ApplyEntries(entries),
+                    entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
                     msg => StatusText = msg,
                     () => _navigation.UpdateBreadcrumbs(),
                     folders => { }
@@ -1547,7 +1554,7 @@ public partial class FileListViewModel : ObservableObject
                 v => _navigation.CurrentCollectionId = v,
                 v => _navigation.CurrentCollectionName = v,
                 v => IsLoading = v,
-                entries => ApplyEntries(entries),
+                entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
                 msg => StatusText = msg,
                 () => _navigation.UpdateBreadcrumbs(),
                 folders => { }
@@ -1575,7 +1582,7 @@ public partial class FileListViewModel : ObservableObject
                     v => _navigation.CurrentCollectionId = v,
                     v => _navigation.CurrentCollectionName = v,
                     v => IsLoading = v,
-                    entries => ApplyEntries(entries),
+                    entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
                     msg => StatusText = msg,
                     () => _navigation.UpdateBreadcrumbs(),
                     folders => { }
@@ -1604,7 +1611,7 @@ public partial class FileListViewModel : ObservableObject
             v => _navigation.CurrentCollectionId = v,
             v => _navigation.CurrentCollectionName = v,
             v => IsLoading = v,
-            entries => ApplyEntries(entries),
+            entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
             msg => StatusText = msg,
             () => _navigation.UpdateBreadcrumbs(),
             folders => { }
@@ -1660,7 +1667,7 @@ public partial class FileListViewModel : ObservableObject
     [RelayCommand]
     public async Task SearchAiTagsAsync(string query)
     {
-        await _ai.SearchAiTagsAsync(query, entries => ApplyEntries(entries), msg => StatusText = msg);
+        await _ai.SearchAiTagsAsync(query, entries => { ApplyEntries(entries); ResolveRealEntries(entries); }, msg => StatusText = msg);
     }
 
     public void ClearTextSearchQuery() => _ai.ClearTextSearchQuery();
@@ -1744,6 +1751,7 @@ public partial class FileListViewModel : ObservableObject
                         ApplyEntries(entries);
                         // Resolve app icons even when loading from index (IconUrl is not persisted in index)
                         _ = ResolveIconsInBackgroundAsync(entries);
+                        _ = ResolveThumbnailsInBackgroundAsync(entries);
                         return;
                     }
                 }
@@ -1818,6 +1826,13 @@ public partial class FileListViewModel : ObservableObject
             _navigation.CurrentPath,
             id => { } // active task id
         );
+    }
+
+    private void ResolveRealEntries(IReadOnlyList<FileSystemEntry> entries)
+    {
+        if (!entries.Any(e => !e.IsVirtual)) return;
+        _ = ResolveIconsInBackgroundAsync(entries);
+        _ = ResolveThumbnailsInBackgroundAsync(entries);
     }
 
     private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries)

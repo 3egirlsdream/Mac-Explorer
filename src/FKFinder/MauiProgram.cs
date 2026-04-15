@@ -167,7 +167,15 @@ public static class MauiProgram
         builder.Services.AddScoped<FileOpsViewModel>();
         builder.Services.AddScoped<SearchViewModel>();
         builder.Services.AddScoped<ArchiveViewModel>();
-        builder.Services.AddScoped<AiViewModel>();
+        builder.Services.AddScoped<AiViewModel>(sp => new AiViewModel(
+            sp.GetService<IAiTagService>(),
+            sp.GetService<IThumbnailService>(),
+            sp.GetService<IFileIndex>(),
+            sp.GetService<IImageAnalysisService>(),
+            sp.GetService<IBackgroundTaskManager>(),
+            sp.GetService<ISettingsService>(),
+            sp.GetService<ILogger<AiViewModel>>()
+        ));
         builder.Services.AddScoped<CollectionViewModel>();
         builder.Services.AddScoped<SortFilterViewModel>();
 

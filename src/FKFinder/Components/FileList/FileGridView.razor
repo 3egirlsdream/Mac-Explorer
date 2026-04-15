@@ -849,7 +849,10 @@
 
         // Use Blob URL if available for this entry
         if (!string.IsNullOrEmpty(entry.IconUrl) && _blobUrlCache.TryGetValue(entry.IconUrl, out var blobUrl))
-            return $@"<img src=""{blobUrl}"" width=""{size}"" height=""{size}"" class=""app-icon-img"" />";
+        {
+            var displaySize = size <= 20 ? 20 : 64;
+            return $@"<img src=""{blobUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""app-icon-img"" />";
+        }
 
         // Folder: Fluent design icon (skip for known bundle types like .pvm, .vmwarevm, .app)
         if (entry.IsDirectory && !IsBundleFile(entry))
