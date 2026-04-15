@@ -127,8 +127,8 @@
             @foreach (var segment in ViewModel.Breadcrumbs)
             {
                 <div class="breadcrumb-segment">
-                    <span class="breadcrumb-link @(segment == ViewModel.Breadcrumbs.Last() ? "current" : "")"
-                          @onclick="() => NavigateTo(segment.FullPath)" @onclick:stopPropagation>
+                    <span class="breadcrumb-link @(segment == ViewModel.Breadcrumbs.Last() ? "current" : "") @(string.IsNullOrEmpty(segment.FullPath) ? "disabled" : "")"
+                          @onclick="() => { if (!string.IsNullOrEmpty(segment.FullPath)) NavigateTo(segment.FullPath); }" @onclick:stopPropagation>
                         @segment.Name
                     </span>
                     @if (segment != ViewModel.Breadcrumbs.Last())

@@ -79,15 +79,6 @@ public partial class NavigationViewModel : ObservableObject
         _fsEventsWatcher = fsEventsWatcher;
     }
 
-    /// <summary>
-    /// Called by DirectoryChangeNotifier when another source changed our current directory.
-    /// </summary>
-    public async Task RefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
-    {
-        if (isArchiveView || isAiView || isCollectionView) return;
-        if (string.IsNullOrEmpty(CurrentPath)) return;
-    }
-
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
     {
         return !isArchiveView && !isAiView && !isCollectionView && !string.IsNullOrEmpty(CurrentPath);
@@ -98,6 +89,12 @@ public partial class NavigationViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(path)) return;
 
+        // Archive sentinel paths are handled by FileListViewModel.NavigateToArchiveAsync
+        if (ArchivePathHelper.IsArchivePath(path)) return;
+
+        // AI sentinel paths are handled by FileListViewModel.HandleAiNavigationAsync
+        if (AiPathHelper.IsAiPath(path)) return;
+
         // Validate that the path exists on the filesystem
         // Skip validation for trash directory (macOS SIP blocks .NET Directory.Exists)
         if (path != _fileService.TrashDirectory && !Directory.Exists(path))
@@ -106,6 +103,21 @@ public partial class NavigationViewModel : ObservableObject
         }
 
         if (CurrentPath == path) return;
+
+        // When navigating to a normal filesystem path from a special view,
+        // reset the special view flags and associated state
+        if (IsArchiveView || IsAiView || IsCollectionView)
+        {
+            IsArchiveView = false;
+            IsAiView = false;
+            IsCollectionView = false;
+            CurrentArchivePath = null;
+            CurrentArchiveInternalPath = "";
+            CurrentCollectionId = null;
+            CurrentCollectionName = null;
+            CurrentFaceClusterId = null;
+            CurrentAiContextLabel = null;
+        }
 
         // Save selected entry for current path before navigating away
         // Coordinated with ApplyEntries restore logic
@@ -140,39 +152,35 @@ public partial class NavigationViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task NavigateBackAsync()
+    public Task NavigateBackAsync()
     {
-        if (!CanGoBack) return;
+        if (!CanGoBack) return Task.CompletedTask;
         _historyIndex--;
         _isNavigatingHistory = true;
-        try
-        {
-            await NavigateToAsync(_historyStack[_historyIndex]);
-        }
-        finally
-        {
-            _isNavigatingHistory = false;
-            OnPropertyChanged(nameof(CanGoBack));
-            OnPropertyChanged(nameof(CanGoForward));
-        }
+        CurrentPath = _historyStack[_historyIndex];
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanGoForward));
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
-    public async Task NavigateForwardAsync()
+    public Task NavigateForwardAsync()
     {
-        if (!CanGoForward) return;
+        if (!CanGoForward) return Task.CompletedTask;
         _historyIndex++;
         _isNavigatingHistory = true;
-        try
-        {
-            await NavigateToAsync(_historyStack[_historyIndex]);
-        }
-        finally
-        {
-            _isNavigatingHistory = false;
-            OnPropertyChanged(nameof(CanGoBack));
-            OnPropertyChanged(nameof(CanGoForward));
-        }
+        CurrentPath = _historyStack[_historyIndex];
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanGoForward));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by coordinator after back/forward content reload is complete.
+    /// </summary>
+    public void EndHistoryNavigation()
+    {
+        _isNavigatingHistory = false;
     }
 
     [RelayCommand]
