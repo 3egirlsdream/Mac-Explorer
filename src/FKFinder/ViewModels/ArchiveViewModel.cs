@@ -14,15 +14,6 @@ public partial class ArchiveViewModel : ObservableObject
     private readonly IFileService? _fileService;
 
     [ObservableProperty]
-    private bool _isArchiveView;
-
-    [ObservableProperty]
-    private string? _currentArchivePath;
-
-    [ObservableProperty]
-    private string _currentArchiveInternalPath = "";
-
-    [ObservableProperty]
     private bool _isCompressDialogVisible;
 
     [ObservableProperty]
@@ -54,9 +45,6 @@ public partial class ArchiveViewModel : ObservableObject
     {
         if (_archiveService == null) return;
 
-        IsArchiveView = true;
-        CurrentArchivePath = archivePath;
-        CurrentArchiveInternalPath = internalPath;
         setCurrentPath(ArchivePathHelper.Build(archivePath, internalPath));
         updateBreadcrumbs();
         setLoading(true);
@@ -144,6 +132,7 @@ public partial class ArchiveViewModel : ObservableObject
         FileSystemEntry? contextMenuEntry,
         string currentPath,
         bool isCollectionView,
+        bool isArchiveView,
         int? currentCollectionId)
     {
         var sources = selectedEntries.Count > 0
@@ -152,7 +141,7 @@ public partial class ArchiveViewModel : ObservableObject
         if (sources.Count == 0) return;
 
         // Sentinel paths (collection/archive) are not real dirs — use first file's parent
-        var outputDir = (isCollectionView || IsArchiveView)
+        var outputDir = (isCollectionView || isArchiveView)
             ? Path.GetDirectoryName(sources[0]) ?? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
             : currentPath;
 
@@ -240,8 +229,7 @@ public partial class ArchiveViewModel : ObservableObject
 
     public void Reset()
     {
-        IsArchiveView = false;
-        CurrentArchivePath = null;
-        CurrentArchiveInternalPath = "";
+        // Archive view state (IsArchiveView, CurrentArchivePath, CurrentArchiveInternalPath)
+        // is now managed exclusively by NavigationViewModel
     }
 }
