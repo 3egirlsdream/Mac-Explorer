@@ -304,7 +304,7 @@
         var actions = new List<ContextMenuAction>
         {
             new() { Label = "重命名", IconSvg = Icons.Rename, Execute = () => { StartRenameCollection(collection); return Task.CompletedTask; } },
-            new() { Label = "删除收藏夹", IconSvg = Icons.Delete, Execute = () => ViewModel.DeleteCollectionAsync(collection.Id) },
+            new() { Label = "删除收藏夹", IconSvg = Icons.Delete, Execute = () => { ViewModel.ShowCollectionDeleteConfirmDialog(collection.Id, collection.Name); return Task.CompletedTask; } },
         };
         ViewModel.ContextMenuX = e.ClientX;
         ViewModel.ContextMenuY = e.ClientY;

@@ -14,59 +14,47 @@
 @implements IAsyncDisposable
 
 <MApp Style="background:transparent">
-<CascadingValue Value="ViewModel">
-    <div class="finder-layout">
-        @if (!ViewModel.IsHomePage)
-        {
-            <FinderNavBar />
-            <FinderToolbar OnOpenSettings="@(() => _settingsDialogVisible = true)" />
-        }
-        <div class="finder-body">
-            <FinderSidebar />
-            <div class="finder-content-split">
-                <div class="finder-content-main">
-                    <div class="loading-indicator @(ViewModel.IsLoading ? "active" : "")"></div>
-                    @if (ViewModel.IsHomePage)
+    <CascadingValue Value="ViewModel">
+        <div class="finder-layout">
+            @if (!ViewModel.IsHomePage)
+            {
+                <FinderNavBar />
+                <FinderToolbar OnOpenSettings="@(() => _settingsDialogVisible = true)" />
+            }
+            <div class="finder-body">
+                <FinderSidebar />
+                <div class="finder-content-split">
+                    <div class="finder-content-main">
+                        <div class="loading-indicator @(ViewModel.IsLoading ? "active" : "")"></div>
+                        @if (ViewModel.IsHomePage)
+                        {
+                            <BreadcrumbBar />
+                            <HomeView />
+                        }
+                        else if (ViewModel.IsAiView)
+                        {
+                            <AiViewHost />
+                        }
+                        else
+                        {
+                            <FileGridView />
+                        }
+                    </div>
+                    @if (ViewModel.IsPreviewPaneVisible && !ViewModel.IsHomePage)
                     {
-                        <BreadcrumbBar />
-                        <HomeView />
+                        <PreviewPane />
                     }
-                    else if (ViewModel.IsAiView)
+                    @if (ViewModel.IsMetadataPanelVisible)
                     {
-                        <AiViewHost />
-                    }
-                    else
-                    {
-                        <FileGridView />
+                        <MetadataPanel Metadata="ViewModel.CurrentMetadata" OnClose="CloseMetadata" />
                     }
                 </div>
-                @if (ViewModel.IsPreviewPaneVisible && !ViewModel.IsHomePage)
-                {
-                    <PreviewPane />
-                }
             </div>
         </div>
-    </div>
-</CascadingValue>
+    </CascadingValue>
 
-@* Native NSMenu replaces Blazor context menu — Blazor fallback preserved below:
-@if (ViewModel.IsContextMenuVisible)
-{
-    <ContextMenu X="ViewModel.ContextMenuX" Y="ViewModel.ContextMenuY"
-                 Actions="ViewModel.ContextMenuActions"
-                 OnClose="CloseContextMenu" />
-}
-*@
-
-@if (ViewModel.IsMetadataPanelVisible)
-{
-    <MetadataPanel Metadata="ViewModel.CurrentMetadata" OnClose="CloseMetadata" />
-}
-
-<MDialog @bind-Value="_progressDialogVisible"
-         MaxWidth="380"
+    <MDialog @bind-Value="_progressDialogVisible"
          ContentClass="fk-dialog-glass-dense"
-         HideOverlay="true"
          Persistent="true">
     @if (_activeTask != null)
     {
@@ -77,7 +65,6 @@
 <MDialog @bind-Value="_compressDialogVisible"
          MaxWidth="380"
          ContentClass="fk-dialog-glass"
-         HideOverlay="true"
          Persistent="true">
     @if (ViewModel.PendingCompressOptions != null)
     {
@@ -89,12 +76,41 @@
 
 <MDialog @bind-Value="_settingsDialogVisible"
          MaxWidth="420"
-         ContentClass="fk-dialog-glass"
-         HideOverlay="true">
+         ContentClass="fk-dialog-glass">
     <SettingsDialog OnClose="@(() => _settingsDialogVisible = false)" />
 </MDialog>
 
+<MDialog @bind-Value="_deleteConfirmVisible"
+         MaxWidth="380"
+         ContentClass="fk-dialog-glass"
+         Persistent="true">
+    <DeleteConfirmDialog ItemCount="_deleteConfirmCount"
+                        FirstItemName="_deleteConfirmFirstName"
+                        OnConfirm="OnDeleteConfirm"
+                        OnCancel="OnDeleteCancel" />
+</MDialog>
+
+<MDialog @bind-Value="_collectionDeleteConfirmVisible"
+         MaxWidth="380"
+         ContentClass="fk-dialog-glass"
+         Persistent="true">
+    <CollectionDeleteConfirmDialog CollectionName="_collectionDeleteName"
+                                   OnConfirm="OnCollectionDeleteConfirm"
+                                   OnCancel="OnCollectionDeleteCancel" />
+</MDialog>
+
 <TaskPanel />
+
+    @* Web Context Menu *@
+    @if (ViewModel.IsContextMenuVisible)
+    {
+        <div class="context-menu-overlay" @onclick="CloseContextMenu">
+            <ContextMenu X="ViewModel.ContextMenuX"
+                         Y="ViewModel.ContextMenuY"
+                         Actions="ViewModel.ContextMenuActions"
+                         OnClose="CloseContextMenu" />
+        </div>
+    }
 </MApp>
 
 @code {
@@ -102,6 +118,11 @@
     private bool _compressDialogVisible;
     private bool _progressDialogVisible;
     private bool _settingsDialogVisible;
+    private bool _deleteConfirmVisible;
+    private int _deleteConfirmCount;
+    private string _deleteConfirmFirstName = "";
+    private bool _collectionDeleteConfirmVisible;
+    private string _collectionDeleteName = "";
     private BackgroundTaskInfo? _activeTask;
 
     protected override void OnInitialized()
@@ -173,7 +194,9 @@
             or nameof(ViewModel.ActiveTaskId)
             or nameof(ViewModel.IsArchiveView)
             or nameof(ViewModel.IsAiView)
-            or nameof(ViewModel.PinnedFolders))
+            or nameof(ViewModel.PinnedFolders)
+            or nameof(ViewModel.IsDeleteConfirmDialogVisible)
+            or nameof(ViewModel.IsCollectionDeleteConfirmDialogVisible))
         {
             SyncDialogState();
             await InvokeAsync(StateHasChanged);
@@ -215,7 +238,7 @@
                     break;
                 case "delete":
                     if (ViewModel.IsArchiveView) break;
-                    await ViewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                    ViewModel.ShowDeleteConfirmDialogCommand.Execute(null);
                     break;
                 case "selectAll":
                     ViewModel.SelectAll();
@@ -290,6 +313,32 @@
         ViewModel.CancelCompressDialog();
     }
 
+    private async Task OnDeleteConfirm()
+    {
+        _deleteConfirmVisible = false;
+        await ViewModel.ConfirmDeleteSelectedAsync();
+    }
+
+    private void OnDeleteCancel()
+    {
+        _deleteConfirmVisible = false;
+        ViewModel.CancelDeleteConfirmDialog();
+    }
+
+    private async Task OnCollectionDeleteConfirm()
+    {
+        _collectionDeleteConfirmVisible = false;
+        _collectionDeleteName = "";
+        await ViewModel.ConfirmDeleteCollectionAsync();
+    }
+
+    private void OnCollectionDeleteCancel()
+    {
+        _collectionDeleteConfirmVisible = false;
+        _collectionDeleteName = "";
+        ViewModel.CancelCollectionDeleteConfirmDialog();
+    }
+
     private void OnMinimizeTask()
     {
         ViewModel.MinimizeActiveTask();
@@ -311,6 +360,13 @@
             : null;
         _activeTask = activeTask;
         _progressDialogVisible = activeTask != null;
+
+        _deleteConfirmVisible = ViewModel.IsDeleteConfirmDialogVisible;
+        _deleteConfirmCount = ViewModel.DeleteConfirmItemCount;
+        _deleteConfirmFirstName = ViewModel.DeleteConfirmFirstItemName;
+
+        _collectionDeleteConfirmVisible = ViewModel.IsCollectionDeleteConfirmDialogVisible;
+        _collectionDeleteName = ViewModel.PendingDeleteCollectionName;
     }
 
     public async ValueTask DisposeAsync()

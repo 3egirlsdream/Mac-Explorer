@@ -246,7 +246,7 @@
     private void CutSelected() => ViewModel.CutSelectedCommand.Execute(null);
     private void CopySelected() => ViewModel.CopySelectedCommand.Execute(null);
     private async Task PasteItems() => await ViewModel.PasteCommand.ExecuteAsync(null);
-    private async Task DeleteSelected() => await ViewModel.DeleteSelectedCommand.ExecuteAsync(null);
+    private void DeleteSelected() => ViewModel.ShowDeleteConfirmDialogCommand.Execute(null);
     private void GoHome() => ViewModel.GoHomeCommand.Execute(null);
 
     private void ToggleSortDropdown() { _showSortDropdown = !_showSortDropdown; _showNewDropdown = false; _showViewDropdown = false; }
