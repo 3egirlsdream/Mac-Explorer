@@ -138,6 +138,9 @@
         if (firstRender)
         {
             await JSRuntime.InvokeVoidAsync("fkfinderColumnResize.init");
+            // Ensure blob URLs are created for entries that were loaded before this component was created
+            // This handles the case where user navigates away and back to the same directory
+            await CreateBlobUrlsForEntriesAsync();
         }
         if (_needRestoreScrollAfterRename)
         {

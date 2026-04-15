@@ -115,7 +115,8 @@ public static class MauiProgram
             new Platforms.MacCatalyst.Services.MacFileService(sp.GetRequiredService<SqliteFileIndex>()));
         builder.Services.AddSingleton<IApplicationLauncherService, Platforms.MacCatalyst.Services.MacApplicationLauncherService>();
         builder.Services.AddSingleton<IContextMenuService, Platforms.MacCatalyst.Services.MacContextMenuService>();
-        builder.Services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
+        // [Web ContextMenu] Mac原生菜单已屏蔽，使用Web实现
+        // builder.Services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
         builder.Services.AddSingleton<IMetadataService, Platforms.MacCatalyst.Services.MacMetadataService>();
         builder.Services.AddSingleton<IClipboardService, Platforms.MacCatalyst.Services.MacClipboardService>();
         builder.Services.AddSingleton<ISearchService, Platforms.MacCatalyst.Services.MacSearchService>();
