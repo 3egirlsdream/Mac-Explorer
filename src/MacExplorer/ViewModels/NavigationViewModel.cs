@@ -11,6 +11,7 @@ public partial class NavigationViewModel : ObservableObject
     private readonly IFileService _fileService;
     private readonly IFrequentFolderService? _frequentFolderService;
     private readonly IFSEventsWatcher? _fsEventsWatcher;
+    private readonly IDisplayNameService? _displayNameService;
 
     // Navigation history
     private readonly List<string> _historyStack = [];
@@ -72,12 +73,17 @@ public partial class NavigationViewModel : ObservableObject
     public NavigationViewModel(
         IFileService fileService,
         IFrequentFolderService? frequentFolderService = null,
-        IFSEventsWatcher? fsEventsWatcher = null)
+        IFSEventsWatcher? fsEventsWatcher = null,
+        IDisplayNameService? displayNameService = null)
     {
         _fileService = fileService;
         _frequentFolderService = frequentFolderService;
         _fsEventsWatcher = fsEventsWatcher;
+        _displayNameService = displayNameService;
     }
+
+    private string Localize(string fullPath, string fallback)
+        => _displayNameService?.GetDisplayName(fullPath) ?? fallback;
 
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
     {
@@ -225,24 +231,25 @@ public partial class NavigationViewModel : ObservableObject
 
         if (IsCollectionView && CurrentCollectionName != null)
         {
-            segments.Add(new BreadcrumbSegment { Name = "收藏夹", FullPath = "", HasDropdown = false });
-            segments.Add(new BreadcrumbSegment { Name = CurrentCollectionName, FullPath = "", HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = "收藏夹", DisplayName = "收藏夹", FullPath = "", HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = CurrentCollectionName, DisplayName = CurrentCollectionName, FullPath = "", HasDropdown = false });
         }
         else if (IsArchiveView && CurrentArchivePath != null)
         {
             var archiveDir = Path.GetDirectoryName(CurrentArchivePath) ?? "/";
-            segments.Add(new BreadcrumbSegment { Name = "/", FullPath = "/", HasDropdown = true });
+            segments.Add(new BreadcrumbSegment { Name = "/", DisplayName = Localize("/", "/"), FullPath = "/", HasDropdown = true });
             var dirParts = archiveDir.Split('/', StringSplitOptions.RemoveEmptyEntries);
             var buildPath = "";
             foreach (var part in dirParts)
             {
                 buildPath += "/" + part;
-                segments.Add(new BreadcrumbSegment { Name = part, FullPath = buildPath, HasDropdown = true });
+                segments.Add(new BreadcrumbSegment { Name = part, DisplayName = Localize(buildPath, part), FullPath = buildPath, HasDropdown = true });
             }
             var archiveName = Path.GetFileName(CurrentArchivePath);
             segments.Add(new BreadcrumbSegment
             {
                 Name = archiveName,
+                DisplayName = archiveName,
                 FullPath = ArchivePathHelper.Build(CurrentArchivePath, ""),
                 HasDropdown = !string.IsNullOrEmpty(CurrentArchiveInternalPath)
             });
@@ -256,6 +263,7 @@ public partial class NavigationViewModel : ObservableObject
                     segments.Add(new BreadcrumbSegment
                     {
                         Name = internalParts[i],
+                        DisplayName = internalParts[i],
                         FullPath = ArchivePathHelper.Build(CurrentArchivePath, internalBuild + "/"),
                         HasDropdown = i < internalParts.Length - 1
                     });
@@ -269,21 +277,21 @@ public partial class NavigationViewModel : ObservableObject
         }
         else if (CurrentPath == _fileService.TrashDirectory)
         {
-            segments.Add(new BreadcrumbSegment { Name = "废纸篓", FullPath = CurrentPath, HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = "废纸篓", DisplayName = Localize(Path.Combine(_fileService.HomeDirectory, ".Trash"), "废纸篓"), FullPath = CurrentPath, HasDropdown = false });
         }
         else if (CurrentPath == "/")
         {
-            segments.Add(new BreadcrumbSegment { Name = "/", FullPath = "/", HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = "/", DisplayName = Localize("/", "/"), FullPath = "/", HasDropdown = false });
         }
         else
         {
-            segments.Add(new BreadcrumbSegment { Name = "/", FullPath = "/", HasDropdown = true });
+            segments.Add(new BreadcrumbSegment { Name = "/", DisplayName = Localize("/", "/"), FullPath = "/", HasDropdown = true });
             var parts = CurrentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
             var buildPath = "";
             for (int i = 0; i < parts.Length; i++)
             {
                 buildPath += "/" + parts[i];
-                segments.Add(new BreadcrumbSegment { Name = parts[i], FullPath = buildPath, HasDropdown = i < parts.Length - 1 });
+                segments.Add(new BreadcrumbSegment { Name = parts[i], DisplayName = Localize(buildPath, parts[i]), FullPath = buildPath, HasDropdown = i < parts.Length - 1 });
             }
         }
         Breadcrumbs = new ObservableCollection<BreadcrumbSegment>(segments);
@@ -293,12 +301,12 @@ public partial class NavigationViewModel : ObservableObject
     {
         var segments = new List<BreadcrumbSegment>
         {
-            new() { Name = "AI 智能", FullPath = "", HasDropdown = false },
-            new() { Name = modeName, FullPath = modePath, HasDropdown = contextLabel != null }
+            new() { Name = "AI 智能", DisplayName = "AI 智能", FullPath = "", HasDropdown = false },
+            new() { Name = modeName, DisplayName = modeName, FullPath = modePath, HasDropdown = contextLabel != null }
         };
         if (contextLabel != null)
         {
-            segments.Add(new BreadcrumbSegment { Name = contextLabel, FullPath = CurrentPath, HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = contextLabel, DisplayName = contextLabel, FullPath = CurrentPath, HasDropdown = false });
         }
         Breadcrumbs = new ObservableCollection<BreadcrumbSegment>(segments);
     }
