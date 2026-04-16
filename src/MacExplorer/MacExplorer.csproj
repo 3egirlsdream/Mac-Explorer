@@ -89,6 +89,10 @@
         <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0 dict' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
         <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneConfigurationName string __MAUI_DEFAULT_SCENE_CONFIGURATION__' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
         <Exec Command="/usr/libexec/PlistBuddy -c 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string SceneDelegate' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <!-- Inject CFBundleLocalizations so NSFileManager.DisplayName returns locale-aware folder names -->
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Delete :CFBundleLocalizations' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="/usr/libexec/PlistBuddy -c 'Add :CFBundleLocalizations array' '$(_AppBundlePath)/Contents/Info.plist'" IgnoreExitCode="true" />
+        <Exec Command="for lang in zh-Hans zh-Hant en ja ko fr de es pt it ru ar nl sv da nb fi pl tr uk th vi id ms hi he; do /usr/libexec/PlistBuddy -c &quot;Add :CFBundleLocalizations: string $lang&quot; '$(_AppBundlePath)/Contents/Info.plist'; done" IgnoreExitCode="true" />
         <!-- Re-sign after Info.plist modification to avoid -54 launch error -->
         <Exec Command="codesign --force --sign - '$(_AppBundlePath)'" />
     </Target>
