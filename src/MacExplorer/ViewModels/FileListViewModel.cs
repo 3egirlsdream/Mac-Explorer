@@ -136,6 +136,16 @@ public partial class FileListViewModel : ObservableObject
         get => _sortFilter.HideSystemFiles;
         set => _sortFilter.HideSystemFiles = value;
     }
+    public bool HideDotFiles
+    {
+        get => _sortFilter.HideDotFiles;
+        set => _sortFilter.HideDotFiles = value;
+    }
+    public bool HideDotFolders
+    {
+        get => _sortFilter.HideDotFolders;
+        set => _sortFilter.HideDotFolders = value;
+    }
 
     // Pending select for auto-selection after navigation
     public string? PendingSelectFileName
@@ -278,9 +288,22 @@ public partial class FileListViewModel : ObservableObject
             or nameof(SortFilterViewModel.SortAscending)
             or nameof(SortFilterViewModel.GroupField)
             or nameof(SortFilterViewModel.Groups)
-            or nameof(SortFilterViewModel.HideSystemFiles))
+            or nameof(SortFilterViewModel.HideSystemFiles)
+            or nameof(SortFilterViewModel.HideDotFiles)
+            or nameof(SortFilterViewModel.HideDotFolders))
         {
             OnPropertyChanged(e.PropertyName);
+        }
+
+        // Re-apply filter when hide settings change
+        if (e.PropertyName is nameof(SortFilterViewModel.HideSystemFiles)
+            or nameof(SortFilterViewModel.HideDotFiles)
+            or nameof(SortFilterViewModel.HideDotFolders))
+        {
+            _sortFilter.ApplySortAndGroup(
+                sortedEntries => Entries = sortedEntries,
+                msg => StatusText = msg
+            );
         }
     }
 
@@ -336,7 +359,8 @@ public partial class FileListViewModel : ObservableObject
             return;
         }
 
-        if (_navigation.CurrentPath == path && Entries.Count > 0) return;
+        if (_navigation.CurrentPath == path && Entries.Count > 0
+            && !_navigation.IsCollectionView && !_navigation.IsAiView && !_navigation.IsArchiveView) return;
 
         IsLoading = true;
 
@@ -1598,6 +1622,12 @@ public partial class FileListViewModel : ObservableObject
 
     public async Task NavigateToCollectionAsync(int collectionId)
     {
+        // Clear current path so sidebar folder items deselect properly
+        var oldPath = _navigation.CurrentPath;
+        if (!string.IsNullOrEmpty(oldPath))
+            _navigation.UnwatchCurrentDirectory(oldPath);
+        _navigation.CurrentPath = "";
+
         await _collection.NavigateToCollectionAsync(
             collectionId,
             v => _navigation.IsHomePage = v,
@@ -1673,6 +1703,8 @@ public partial class FileListViewModel : ObservableObject
     public void ClearTextSearchQuery() => _ai.ClearTextSearchQuery();
 
     // ── Sort/Filter ──
+
+    public void NotifySidebarVisibilityChanged() => OnPropertyChanged("SidebarVisibilityChanged");
 
     [RelayCommand]
     public void ToggleViewMode()

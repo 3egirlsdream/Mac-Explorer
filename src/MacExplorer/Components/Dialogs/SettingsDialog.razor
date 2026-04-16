@@ -1,47 +1,261 @@
 @using MacExplorer.Models
 @inject MacExplorer.Services.IDefaultAppService DefaultAppService
+@inject MacExplorer.Services.ISettingsService SettingsService
 @inject FileListViewModel ViewModel
 
 <div class="settings-dialog">
     <div class="settings-dialog-title">设置</div>
 
-    <div class="settings-list">
-        <div class="settings-item">
-            <div class="settings-item-info">
-                <div class="settings-item-label">设为默认文件管理器</div>
-                <div class="settings-item-description">
-                    设置后，通过终端 open 命令、系统文件对话框等方式打开文件夹时将使用 MacExplorer。
-                    <br />
-                    <span style="opacity: 0.7; font-size: 0.85em;">桌面双击文件夹不受影响（macOS 系统限制）</span>
-                </div>
-            </div>
-            <label class="settings-toggle" @onclick:stopPropagation>
-                <input type="checkbox" checked="@_isDefaultHandler"
-                       @onchange="OnDefaultHandlerToggle" />
-                <span class="settings-toggle-slider"></span>
-            </label>
-        </div>
-        <div class="settings-item">
-            <div class="settings-item-info">
-                <div class="settings-item-label">AI 智能分析</div>
-                <div class="settings-item-description">
-                    开启后，浏览文件夹时自动对图片进行 AI 分析（人物、分类、地点等）。
-                </div>
-            </div>
-            <label class="settings-toggle" @onclick:stopPropagation>
-                <input type="checkbox" checked="@ViewModel.IsAiAnalysisEnabled"
-                       @onchange="OnAiAnalysisToggle" />
-                <span class="settings-toggle-slider"></span>
-            </label>
-        </div>
+    <div class="settings-tabs">
+        <div class="settings-tab @(_activeTab == "general" ? "active" : "")" @onclick="@(() => _activeTab = "general")">通用</div>
+        <div class="settings-tab @(_activeTab == "files" ? "active" : "")" @onclick="@(() => _activeTab = "files")">文件显示</div>
+        <div class="settings-tab @(_activeTab == "sidebar" ? "active" : "")" @onclick="@(() => _activeTab = "sidebar")">侧边栏</div>
+        <div class="settings-tab @(_activeTab == "appearance" ? "active" : "")" @onclick="@(() => _activeTab = "appearance")">外观</div>
     </div>
 
-    @if (!string.IsNullOrEmpty(_statusMessage))
-    {
-        <div class="settings-status @(_statusSuccess ? "settings-status-success" : "settings-status-error")">
-            @_statusMessage
-        </div>
-    }
+    <div class="settings-tab-content">
+        @if (_activeTab == "general")
+        {
+            <div class="settings-list">
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-label">设为默认文件管理器</div>
+                        <div class="settings-item-description">
+                            设置后，通过终端 open 命令、系统文件对话框等方式打开文件夹时将使用 MacExplorer。
+                            <br />
+                            <span style="opacity: 0.7; font-size: 0.85em;">桌面双击文件夹不受影响（macOS 系统限制）</span>
+                        </div>
+                    </div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_isDefaultHandler"
+                               @onchange="OnDefaultHandlerToggle" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-label">AI 智能分析</div>
+                        <div class="settings-item-description">
+                            开启后，浏览文件夹时自动对图片进行 AI 分析（人物、分类、地点等）。
+                        </div>
+                    </div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@ViewModel.IsAiAnalysisEnabled"
+                               @onchange="OnAiAnalysisToggle" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <div class="settings-status @(_statusSuccess ? "settings-status-success" : "settings-status-error")">
+                    @_statusMessage
+                </div>
+            }
+        }
+        else if (_activeTab == "files")
+        {
+            <div class="settings-list">
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-label">隐藏系统文件</div>
+                        <div class="settings-item-description">
+                            隐藏 .DS_Store、Thumbs.db 等系统文件
+                        </div>
+                    </div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@ViewModel.HideSystemFiles"
+                               @onchange="OnHideSystemFilesToggle" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-label">隐藏以 . 开头的文件</div>
+                        <div class="settings-item-description">
+                            隐藏以点开头的隐藏文件（不含文件夹）
+                        </div>
+                    </div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@ViewModel.HideDotFiles"
+                               @onchange="OnHideDotFilesToggle" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-label">隐藏以 . 开头的文件夹</div>
+                        <div class="settings-item-description">
+                            隐藏以点开头的隐藏文件夹（如 .git）
+                        </div>
+                    </div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@ViewModel.HideDotFolders"
+                               @onchange="OnHideDotFoldersToggle" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        }
+        else if (_activeTab == "sidebar")
+        {
+            <div class="settings-list">
+                <div class="settings-group-title">收藏</div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">@_userName</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showUsername"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_username", v => _showUsername = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">桌面</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showDesktop"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_desktop", v => _showDesktop = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">文稿</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showDocuments"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_documents", v => _showDocuments = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">下载</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showDownloads"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_downloads", v => _showDownloads = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">图片</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showPictures"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_pictures", v => _showPictures = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">音乐</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showMusic"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_music", v => _showMusic = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-group-title">位置</div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">Macintosh HD</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showMacintoshHd"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_macintosh_hd", v => _showMacintoshHd = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">应用程序</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showApplications"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_applications", v => _showApplications = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">废纸篓</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showTrash"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_trash", v => _showTrash = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-group-title">AI 智能</div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">人物</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showAiPeople"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_ai_people", v => _showAiPeople = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">分类</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showAiCategories"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_ai_categories", v => _showAiCategories = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">地点</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showAiLocations"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_ai_locations", v => _showAiLocations = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">日期</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showAiDates"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_ai_dates", v => _showAiDates = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item-compact">
+                    <div class="settings-item-label">文字搜索</div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_showAiTextSearch"
+                               @onchange="@(e => OnSidebarToggle(e, "sidebar_show_ai_text_search", v => _showAiTextSearch = v))" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        }
+        else if (_activeTab == "appearance")
+        {
+            <div class="settings-list">
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-label">毛玻璃效果</div>
+                        <div class="settings-item-description">
+                            启用窗口背景毛玻璃透视效果
+                        </div>
+                    </div>
+                    <label class="settings-toggle" @onclick:stopPropagation>
+                        <input type="checkbox" checked="@_vibrancyEnabled"
+                               @onchange="OnVibrancyEnabledToggle" />
+                        <span class="settings-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-label">透明度</div>
+                        <div class="settings-item-description">
+                            调节毛玻璃效果的透明程度
+                        </div>
+                    </div>
+                    <div class="settings-slider-group">
+                        <input type="range" class="settings-slider"
+                               min="0.3" max="1.0" step="0.05"
+                               value="@_vibrancyAlpha"
+                               disabled="@(!_vibrancyEnabled)"
+                               @onchange="OnVibrancyAlphaChange" />
+                        <span class="settings-slider-value">@(((int)(_vibrancyAlpha * 100)))%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-restart-hint">修改后需重启应用生效</div>
+        }
+    </div>
 
     <div class="settings-dialog-actions">
         <button class="settings-dialog-btn" @onclick="Close">关闭</button>
@@ -51,15 +265,59 @@
 @code {
     [Parameter] public EventCallback OnClose { get; set; }
 
+    private string _activeTab = "general";
     private bool _isDefaultHandler;
     private string _statusMessage = "";
     private bool _statusSuccess;
+    private string _userName = "";
+
+    // Sidebar visibility state
+    private bool _showUsername = true;
+    private bool _showDesktop = true;
+    private bool _showDocuments = true;
+    private bool _showDownloads = true;
+    private bool _showPictures = true;
+    private bool _showMusic = true;
+    private bool _showMacintoshHd = true;
+    private bool _showApplications = true;
+    private bool _showTrash = true;
+    private bool _showAiPeople = true;
+    private bool _showAiCategories = true;
+    private bool _showAiLocations = true;
+    private bool _showAiDates = true;
+    private bool _showAiTextSearch = true;
+
+    // Appearance state
+    private bool _vibrancyEnabled = true;
+    private double _vibrancyAlpha = 0.85;
 
     protected override void OnInitialized()
     {
         _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
+        _userName = Path.GetFileName(ViewModel.HomeDirectory);
+
+        // Load sidebar visibility settings
+        _showUsername = SettingsService.Get("sidebar_show_username", true);
+        _showDesktop = SettingsService.Get("sidebar_show_desktop", true);
+        _showDocuments = SettingsService.Get("sidebar_show_documents", true);
+        _showDownloads = SettingsService.Get("sidebar_show_downloads", true);
+        _showPictures = SettingsService.Get("sidebar_show_pictures", true);
+        _showMusic = SettingsService.Get("sidebar_show_music", true);
+        _showMacintoshHd = SettingsService.Get("sidebar_show_macintosh_hd", true);
+        _showApplications = SettingsService.Get("sidebar_show_applications", true);
+        _showTrash = SettingsService.Get("sidebar_show_trash", true);
+        _showAiPeople = SettingsService.Get("sidebar_show_ai_people", true);
+        _showAiCategories = SettingsService.Get("sidebar_show_ai_categories", true);
+        _showAiLocations = SettingsService.Get("sidebar_show_ai_locations", true);
+        _showAiDates = SettingsService.Get("sidebar_show_ai_dates", true);
+        _showAiTextSearch = SettingsService.Get("sidebar_show_ai_text_search", true);
+
+        // Load appearance settings
+        _vibrancyEnabled = SettingsService.Get("vibrancy_enabled", true);
+        _vibrancyAlpha = SettingsService.Get("vibrancy_alpha", 0.85);
     }
 
+    // General tab handlers
     private void OnDefaultHandlerToggle(ChangeEventArgs e)
     {
         var enabled = (bool)(e.Value ?? false);
@@ -76,6 +334,47 @@
     private void OnAiAnalysisToggle(ChangeEventArgs e)
     {
         ViewModel.IsAiAnalysisEnabled = (bool)(e.Value ?? false);
+    }
+
+    // File display tab handlers
+    private void OnHideSystemFilesToggle(ChangeEventArgs e)
+    {
+        ViewModel.HideSystemFiles = (bool)(e.Value ?? false);
+    }
+
+    private void OnHideDotFilesToggle(ChangeEventArgs e)
+    {
+        ViewModel.HideDotFiles = (bool)(e.Value ?? false);
+    }
+
+    private void OnHideDotFoldersToggle(ChangeEventArgs e)
+    {
+        ViewModel.HideDotFolders = (bool)(e.Value ?? false);
+    }
+
+    // Sidebar tab handler
+    private void OnSidebarToggle(ChangeEventArgs e, string key, Action<bool> setter)
+    {
+        var value = (bool)(e.Value ?? false);
+        setter(value);
+        SettingsService.Set(key, value);
+        ViewModel.NotifySidebarVisibilityChanged();
+    }
+
+    // Appearance tab handlers
+    private void OnVibrancyEnabledToggle(ChangeEventArgs e)
+    {
+        _vibrancyEnabled = (bool)(e.Value ?? true);
+        SettingsService.Set("vibrancy_enabled", _vibrancyEnabled);
+    }
+
+    private void OnVibrancyAlphaChange(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var val))
+        {
+            _vibrancyAlpha = val;
+            SettingsService.Set("vibrancy_alpha", _vibrancyAlpha);
+        }
     }
 
     private async Task Close() => await OnClose.InvokeAsync();

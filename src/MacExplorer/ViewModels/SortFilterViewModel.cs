@@ -36,6 +36,12 @@ public partial class SortFilterViewModel : ObservableObject
     [ObservableProperty]
     private bool _hideSystemFiles = true;
 
+    [ObservableProperty]
+    private bool _hideDotFiles = true;
+
+    [ObservableProperty]
+    private bool _hideDotFolders = true;
+
     public SortFilterViewModel(
         ISettingsService? settingsService = null,
         Microsoft.Extensions.Logging.ILogger<SortFilterViewModel>? logger = null)
@@ -51,6 +57,8 @@ public partial class SortFilterViewModel : ObservableObject
             SortAscending = _settingsService.Get<bool>("SortAscending", true);
             GroupField = _settingsService.Get<GroupField>("GroupField", GroupField.None);
             HideSystemFiles = _settingsService.Get<bool>("HideSystemFiles", true);
+            HideDotFiles = _settingsService.Get<bool>("HideDotFiles", true);
+            HideDotFolders = _settingsService.Get<bool>("HideDotFolders", true);
         }
     }
 
@@ -70,6 +78,8 @@ public partial class SortFilterViewModel : ObservableObject
     partial void OnSortAscendingChanged(bool value) { _settingsService?.Set("SortAscending", value); }
     partial void OnGroupFieldChanged(GroupField value) { _settingsService?.Set("GroupField", value); }
     partial void OnHideSystemFilesChanged(bool value) => _settingsService?.Set("HideSystemFiles", value);
+    partial void OnHideDotFilesChanged(bool value) => _settingsService?.Set("HideDotFiles", value);
+    partial void OnHideDotFoldersChanged(bool value) => _settingsService?.Set("HideDotFolders", value);
 
     public void ApplySortAndGroup(Action<ObservableCollection<FileSystemEntry>> setEntries, Action<string> setStatus)
     {
@@ -77,6 +87,10 @@ public partial class SortFilterViewModel : ObservableObject
         var filtered = _rawEntries.Where(e => !e.Name.EndsWith(".fkfinder-tmp"));
         if (HideSystemFiles)
             filtered = filtered.Where(e => !SystemFileNames.Contains(e.Name));
+        if (HideDotFiles)
+            filtered = filtered.Where(e => !(!e.IsDirectory && e.Name.StartsWith('.')));
+        if (HideDotFolders)
+            filtered = filtered.Where(e => !(e.IsDirectory && e.Name.StartsWith('.')));
         var list = filtered.ToList();
         var sorted = SortEntries(list).ToList();
         setEntries(new ObservableCollection<FileSystemEntry>(sorted));
