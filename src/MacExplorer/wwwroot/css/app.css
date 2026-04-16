@@ -860,6 +860,11 @@ input:focus {
     letter-spacing: 0.1px;
 }
 
+.breadcrumb-home-input:focus {
+    background: transparent;
+    border: none;
+}
+
 .breadcrumb-home-input::placeholder {
     color: var(--color-text-tertiary);
     opacity: 0.7;
