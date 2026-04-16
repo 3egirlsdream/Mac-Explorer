@@ -236,3 +236,285 @@ MAUI 的布局引擎只能操作 UIKit 层，完全无法触及 AppKit 层的 NS
 - [CatalystTransparentChrome](https://github.com/steventroughtonsmith/CatalystTransparentChrome) — UISplitViewController sidebar 方案
 - [Apple UIKit Mac Catalyst 文档](https://developer.apple.com/documentation/uikit/mac-catalyst) — 无透明窗口 API
 - [MAUI PageHandler 源码](https://github.com/dotnet/maui/blob/main/src/Core/src/Handlers/Page/PageHandler.iOS.cs) — MapBackground 实现
+
+---
+
+## 深色模式主题系统
+
+### 概述
+
+深色模式当前仅支持**跟随系统**模式，自动跟随 macOS 系统外观切换。UI 中暂不开放手动选择浅色/深色。
+
+### 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      MacThemeService.cs                          │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐  │
+│  │ DetectSystem    │    │ ApplyTheme()    │    │ ThemeChanged│  │
+│  │ DarkMode()      │───→│ ("system")      │───→│ Event       │  │
+│  │                 │    │                 │    │             │  │
+│  └─────────────────┘    └─────────────────┘    └──────┬──────┘  │
+│           ▲                                           │          │
+│           │ NSSystemAppearanceChangedNotification     │          │
+│           │                                           ▼          │
+│  ┌────────┴────────┐                          ┌─────────────┐   │
+│  │ OnSystem        │                          │ Home.razor  │   │
+│  │ Appearance      │                          │ OnThemeChanged│  │
+│  │ Changed()       │                          │             │   │
+│  │ (DispatchQueue) │                          └──────┬──────┘   │
+│  └─────────────────┘                                 │          │
+└──────────────────────────────────────────────────────┼──────────┘
+                                                       │
+                                                       ▼
+                                              ┌─────────────────┐
+                                              │   theme.js      │
+                                              │  ┌─────────────┐│
+                                              │  │ setDarkMode ││
+                                              │  │ applyTheme  ││
+                                              │  │ matchMedia  ││
+                                              │  │  (监听系统)  ││
+                                              │  └─────────────┘│
+                                              └────────┬────────┘
+                                                       │
+                                                       ▼
+                                              ┌─────────────────┐
+                                              │ document.body   │
+                                              │ .dark-mode      │
+                                              └─────────────────┘
+```
+
+### 核心实现
+
+#### MacThemeService.cs（平台层）
+
+```csharp
+public class MacThemeService : IThemeService
+{
+    private readonly ISettingsService _settingsService;
+    private bool _isDarkMode;
+    private bool _systemDarkMode;
+
+    public bool IsDarkMode => _isDarkMode;
+    public event EventHandler<ThemeChangedEventArgs>? ThemeChanged;
+
+    public void Initialize()
+    {
+        _systemDarkMode = DetectSystemDarkMode();
+        var themeMode = _settingsService.Get("theme_mode", "system");
+        ApplyTheme(themeMode);
+
+        NSNotificationCenter.DefaultCenter.AddObserver(
+            new NSString("NSSystemAppearanceChangedNotification"),
+            OnSystemAppearanceChanged);
+    }
+
+    public void SetThemeMode(string mode)
+    {
+        _settingsService.Set("theme_mode", mode);
+        ApplyTheme(mode);
+    }
+
+    public string GetThemeMode()
+    {
+        return _settingsService.Get("theme_mode", "system");
+    }
+
+    private void OnSystemAppearanceChanged(NSNotification notification)
+    {
+        DispatchQueue.MainQueue.DispatchAsync(() =>
+        {
+            var newSystemDarkMode = DetectSystemDarkMode();
+            if (newSystemDarkMode != _systemDarkMode)
+            {
+                _systemDarkMode = newSystemDarkMode;
+                var themeMode = _settingsService.Get("theme_mode", "system");
+                if (themeMode == "system")
+                {
+                    ApplyTheme(themeMode);
+                }
+            }
+        });
+    }
+
+    private void ApplyTheme(string themeMode)
+    {
+        bool newDarkMode = themeMode switch
+        {
+            "dark" => true,
+            "light" => false,
+            _ => _systemDarkMode
+        };
+
+        if (newDarkMode != _isDarkMode)
+        {
+            _isDarkMode = newDarkMode;
+            ThemeChanged?.Invoke(this, new ThemeChangedEventArgs { IsDarkMode = _isDarkMode });
+        }
+    }
+
+    private bool DetectSystemDarkMode()
+    {
+        var currentTraitCollection = UITraitCollection.CurrentTraitCollection;
+        return currentTraitCollection.UserInterfaceStyle == UIUserInterfaceStyle.Dark;
+    }
+}
+```
+
+#### theme.js（Web 层）
+
+```javascript
+(function() {
+    'use strict';
+
+    function applyDarkMode(isDark) {
+        if (isDark) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    }
+
+    function getSystemDarkMode() {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    function initTheme(mode) {
+        if (mode === 'system') {
+            applyDarkMode(getSystemDarkMode());
+        } else {
+            applyDarkMode(mode === 'dark');
+        }
+    }
+
+    // 监听系统主题变化（双重保障）
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            if (window._themeMode === 'system') {
+                applyDarkMode(e.matches);
+            }
+        });
+    }
+
+    // .NET Interop 接口
+    window.applyTheme = function(mode) {
+        window._themeMode = mode;
+        initTheme(mode);
+    };
+
+    window.setDarkMode = function(isDark) {
+        applyDarkMode(isDark);
+    };
+
+    window.getSystemDarkMode = getSystemDarkMode;
+
+    // 注意：不自动初始化，由 Blazor OnAfterRenderAsync 统一调用 applyTheme()，
+    // 避免在用户偏好从 SQLite 加载前用错误模式初始化导致闪烁。
+})();
+```
+
+#### Home.razor（Blazor 层）
+
+```csharp
+protected override void OnInitialized()
+{
+    ThemeService.ThemeChanged += OnThemeChanged;
+}
+
+private async void OnThemeChanged(object? sender, ThemeChangedEventArgs e)
+{
+    try
+    {
+        await InvokeAsync(async () =>
+        {
+            await JSRuntime.InvokeVoidAsync("setDarkMode", e.IsDarkMode);
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Home] Error in OnThemeChanged: {ex}");
+    }
+}
+
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender)
+    {
+        var themeMode = ThemeService.GetThemeMode();
+        await JSRuntime.InvokeVoidAsync("applyTheme", themeMode);
+    }
+}
+
+public async ValueTask DisposeAsync()
+{
+    ThemeService.ThemeChanged -= OnThemeChanged;
+    // ...
+}
+```
+
+### CSS 变量方案
+
+深色模式通过 CSS 变量实现，所有组件使用变量而非硬编码颜色。
+
+**关键约束**：侧边栏、工具栏、文件列表等主要区域的 `background` 必须保持 `transparent`（或不设置），否则会遮挡 AppKit 层的毛玻璃效果。仅文字颜色、边框、阴影等通过 CSS 变量切换。
+
+```css
+:root {
+    --color-text-primary: #1b1b1b;
+    --color-text-secondary: #616161;
+    --color-text-tertiary: #8b8b8b;
+    --color-text-quaternary: #ababab;
+    --glass-effect-bg: rgba(255, 255, 255, 0.6);
+    --glass-effect-border: rgba(255, 255, 255, 0.18);
+    --glass-effect-shadow: rgba(142, 142, 142, 0.19) 0px 6px 15px 0px;
+    /* ... */
+}
+
+.dark-mode {
+    --color-text-primary: #f5f5f5;
+    --color-text-secondary: #9a9a9a;
+    --color-text-tertiary: #5c5c5c;
+    --color-text-quaternary: #4a4a4a;
+    --glass-effect-bg: rgba(40, 40, 40, 0.6);
+    --glass-effect-border: rgba(255, 255, 255, 0.12);
+    --glass-effect-shadow: rgba(0, 0, 0, 0.3) 0px 6px 15px 0px;
+    /* ... */
+}
+```
+
+### 关键设计约束
+
+1. **UIKit 层必须透明**：`.finder-sidebar`、`.finder-navbar`、`.finder-toolbar`、`.file-grid`、`.file-list`、`.finder-content-main` 等主要布局元素**不能**设置不透明的 `background`（如 `#ffffff`、`var(--color-bg-content)`），否则会遮挡 NSVisualEffectView 的毛玻璃效果。深色/浅色的背景色由 AppKit 层的毛玻璃自动处理。
+
+2. **UITraitCollection 延迟检测**：使用 `DispatchQueue.MainQueue.DispatchAsync` 确保系统主题变化后 trait collection 已更新。
+
+3. **双重保障机制**：
+   - 平台层：`NSSystemAppearanceChangedNotification` → `MacThemeService` → `ThemeChanged` 事件
+   - Web 层：`matchMedia('prefers-color-scheme: dark')` 直接监听，无需经过 .NET
+
+4. **保留模式设置**：使用 `setDarkMode` 而非 `applyTheme` 响应事件，避免覆盖 `"system"` 模式。
+
+5. **不自动初始化**：`theme.js` 不在加载时自动调用 `initTheme()`，由 Blazor `OnAfterRenderAsync(firstRender)` 统一用正确的用户偏好初始化，避免闪烁。
+
+6. **弹窗主题同步**：MDialog 使用 `fk-dialog-glass`/`fk-dialog-glass-dense` 类，通过 CSS 变量自动继承 `body.dark-mode` 的样式，无需单独的 `.dark-mode .fk-dialog-glass-dense` 覆盖规则。
+
+### 配置项
+
+| 设置项 | 设置键 | 类型 | 默认值 | UI 控件 |
+|--------|--------|------|--------|---------|
+| 主题模式 | `theme_mode` | string | `"system"` | 下拉选择（当前仅"跟随系统"） |
+
+> 注：`IThemeService` 接口保留了 `SetThemeMode("light"/"dark")` 能力，未来可在 UI 中开放手动选择。
+
+### 涉及文件
+
+| 文件 | 职责 |
+|------|------|
+| `Platforms/MacCatalyst/Services/MacThemeService.cs` | Mac Catalyst 平台主题检测与切换 |
+| `Services/IThemeService.cs` | 主题服务接口定义 |
+| `wwwroot/js/theme.js` | Web 端主题切换逻辑（不自动初始化） |
+| `wwwroot/css/variables.css` | CSS 变量定义（浅色/深色） |
+| `wwwroot/css/app.css` | 组件样式使用 CSS 变量（布局元素保持 transparent） |
+| `Components/Pages/Home.razor` | 订阅主题事件，调用 JS Interop，首次渲染初始化主题 |
+| `Components/Dialogs/SettingsDialog.razor` | 主题模式下拉选择 UI |
+| `App.xaml.cs` | 初始化 ThemeService |
