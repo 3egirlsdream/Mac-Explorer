@@ -1,4 +1,6 @@
-﻿namespace MacExplorer;
+﻿using MacExplorer.Services;
+
+namespace MacExplorer;
 
 public partial class App : Application
 {
@@ -6,11 +8,13 @@ public partial class App : Application
     private bool _dropOverlayRegistered;
     private readonly HashSet<Window> _initializedWindows = new();
 
-	public App()
+	public App(ISettingsService settingsService)
 	{
 		InitializeComponent();
 
 #if MACCATALYST
+        Platforms.MacCatalyst.Handlers.VibrancyHelper.Enabled = settingsService.Get("vibrancy_enabled", true);
+        Platforms.MacCatalyst.Handlers.VibrancyHelper.Alpha = settingsService.Get("vibrancy_alpha", 0.85);
         // Register for the NSWindow creation notification as early as possible
         Platforms.MacCatalyst.Handlers.VibrancyHelper.Register();
         Platforms.MacCatalyst.Handlers.DropOverlayHelper.Register(null!);

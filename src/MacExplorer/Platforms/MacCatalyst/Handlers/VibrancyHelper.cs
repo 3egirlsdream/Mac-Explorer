@@ -50,6 +50,9 @@ public static class VibrancyHelper
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_void_double(IntPtr receiver, IntPtr selector, double arg);
 
+    public static bool Enabled { get; set; } = true;
+    public static double Alpha { get; set; } = 0.85;
+
     private static bool _registered;
     private static readonly HashSet<IntPtr> _configuredWindows = new();
     private static NSObject? _notificationObserver;
@@ -188,86 +191,67 @@ public static class VibrancyHelper
 
         try
         {
-            // ── 1. Make NSWindow non-opaque ──
-            objc_msgSend_void_bool(nsWindow, Selector.GetHandle("setOpaque:"), false);
-            System.Diagnostics.Debug.WriteLine("VibrancyHelper: setOpaque:NO");
+            // ── 1. Make NSWindow non-opaque (only when vibrancy enabled) ──
+            if (Enabled)
+                objc_msgSend_void_bool(nsWindow, Selector.GetHandle("setOpaque:"), false);
+            System.Diagnostics.Debug.WriteLine($"VibrancyHelper: setOpaque:{!Enabled}");
 
-            // ── 2. Get the NSWindow's contentView (this is an NSView, not UIView) ──
-            var contentView = objc_msgSend(nsWindow, Selector.GetHandle("contentView"));
-            if (contentView == IntPtr.Zero)
+            // ── 2–5. Insert NSVisualEffectView (only when vibrancy enabled) ──
+            if (Enabled)
             {
-                System.Diagnostics.Debug.WriteLine("VibrancyHelper: contentView is null!");
-                return;
+                var contentView = objc_msgSend(nsWindow, Selector.GetHandle("contentView"));
+                if (contentView == IntPtr.Zero)
+                {
+                    System.Diagnostics.Debug.WriteLine("VibrancyHelper: contentView is null!");
+                }
+                else
+                {
+                    var nsVisualEffectViewClass = Class.GetHandle("NSVisualEffectView");
+                    if (nsVisualEffectViewClass != IntPtr.Zero)
+                    {
+                        var effectView = objc_msgSend(nsVisualEffectViewClass, Selector.GetHandle("alloc"));
+                        effectView = objc_msgSend(effectView, Selector.GetHandle("init"));
+
+                        objc_msgSend_void_nint(effectView, Selector.GetHandle("setMaterial:"), 13);
+                        objc_msgSend_void_nint(effectView, Selector.GetHandle("setBlendingMode:"), 0);
+                        objc_msgSend_void_nint(effectView, Selector.GetHandle("setState:"), 0);
+                        objc_msgSend_void_nuint(effectView, Selector.GetHandle("setAutoresizingMask:"), 18);
+
+                        var bounds = objc_msgSend_ret_CGRect(contentView, Selector.GetHandle("bounds"));
+                        objc_msgSend_CGRect(effectView, Selector.GetHandle("setFrame:"), bounds);
+                        objc_msgSend_void_double(effectView, Selector.GetHandle("setAlphaValue:"), Alpha);
+
+                        System.Diagnostics.Debug.WriteLine($"VibrancyHelper: contentView bounds = {bounds}");
+
+                        var subviews = objc_msgSend(contentView, Selector.GetHandle("subviews"));
+                        if (subviews != IntPtr.Zero)
+                        {
+                            objc_msgSend_addSubview_positioned(contentView,
+                                Selector.GetHandle("addSubview:positioned:relativeTo:"),
+                                effectView, -1, IntPtr.Zero);
+                        }
+                        else
+                        {
+                            objc_msgSend_void_IntPtr(contentView, Selector.GetHandle("addSubview:"), effectView);
+                        }
+
+                        System.Diagnostics.Debug.WriteLine($"VibrancyHelper: NSVisualEffectView inserted at AppKit layer for window {nsWindow}.");
+                    }
+                }
             }
 
-            // ── 3. Create NSVisualEffectView ──
-            var nsVisualEffectViewClass = Class.GetHandle("NSVisualEffectView");
-            if (nsVisualEffectViewClass == IntPtr.Zero)
-            {
-                System.Diagnostics.Debug.WriteLine("VibrancyHelper: NSVisualEffectView class not found!");
-                return;
-            }
-
-            // alloc + init
-            var effectView = objc_msgSend(nsVisualEffectViewClass, Selector.GetHandle("alloc"));
-            effectView = objc_msgSend(effectView, Selector.GetHandle("init"));
-
-            // ── 4. Configure NSVisualEffectView properties ──
-            // material = .hudWindow (NSVisualEffectMaterialHUDWindow = 13)
-            // More transparent than .underWindowBackground, lets more desktop show through
-            objc_msgSend_void_nint(effectView, Selector.GetHandle("setMaterial:"), 13);
-
-            // blendingMode = .behindWindow (NSVisualEffectBlendingModeBehindWindow = 0)
-            objc_msgSend_void_nint(effectView, Selector.GetHandle("setBlendingMode:"), 0);
-
-            // state = .followsWindowActiveState (NSVisualEffectStateFollowsWindowActiveState = 0)
-            objc_msgSend_void_nint(effectView, Selector.GetHandle("setState:"), 0);
-
-            // autoresizingMask = [.width, .height] (NSViewWidthSizable | NSViewHeightSizable = 18)
-            objc_msgSend_void_nuint(effectView, Selector.GetHandle("setAutoresizingMask:"), 18);
-
-            // Set frame to contentView.bounds
-            var bounds = objc_msgSend_ret_CGRect(contentView, Selector.GetHandle("bounds"));
-            objc_msgSend_CGRect(effectView, Selector.GetHandle("setFrame:"), bounds);
-
-            // Set alphaValue to increase transparency (0.85 = 15% more see-through)
-            objc_msgSend_void_double(effectView, Selector.GetHandle("setAlphaValue:"), 0.85);
-
-            System.Diagnostics.Debug.WriteLine($"VibrancyHelper: contentView bounds = {bounds}");
-
-            // ── 5. Insert NSVisualEffectView at index 0 of contentView's subviews ──
-            // [contentView addSubview:effectView positioned:NSWindowBelow relativeTo:nil]
-            // NSWindowBelow = -1, but we'll use a simpler approach:
-            // Get existing subviews, insert at index 0
-            var subviews = objc_msgSend(contentView, Selector.GetHandle("subviews"));
-            if (subviews != IntPtr.Zero)
-            {
-                // Use insertSubview-like approach: addSubview:positioned:relativeTo:
-                // positioned: NSWindowBelow = -1
-                objc_msgSend_addSubview_positioned(contentView,
-                    Selector.GetHandle("addSubview:positioned:relativeTo:"),
-                    effectView, -1, IntPtr.Zero);
-            }
-            else
-            {
-                // Fallback: just add it
-                objc_msgSend_void_IntPtr(contentView, Selector.GetHandle("addSubview:"), effectView);
-            }
-
-            // ── 6. Set shadow ──
+            // ── 6. Set shadow (always) ──
             objc_msgSend_void_bool(nsWindow, Selector.GetHandle("setHasShadow:"), true);
 
-            // ── 7. Set default window size (1372×849) at NSWindow level ──
-            // NSWindow uses flipped coordinates (origin at bottom-left)
-            // First get current frame to preserve origin, then resize with center
+            // ── 7. Set default window size (1372×849) at NSWindow level (always) ──
             var currentFrame = objc_msgSend_ret_CGRect(nsWindow, Selector.GetHandle("frame"));
             var newFrame = new CGRect(currentFrame.X, currentFrame.Y, 1372, 849);
             objc_msgSend_setFrame(nsWindow, Selector.GetHandle("setFrame:display:"), newFrame, true);
 
-            // ── 8. Center the new window on screen ──
+            // ── 8. Center the new window on screen (always) ──
             objc_msgSend(nsWindow, Selector.GetHandle("center"));
 
-            System.Diagnostics.Debug.WriteLine($"VibrancyHelper: NSVisualEffectView inserted at AppKit layer for window {nsWindow}. Total configured: {_configuredWindows.Count}");
+            System.Diagnostics.Debug.WriteLine($"VibrancyHelper: Window {nsWindow} configured. Vibrancy={Enabled}. Total: {_configuredWindows.Count}");
         }
         catch (Exception ex)
         {
