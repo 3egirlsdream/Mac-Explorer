@@ -11,6 +11,7 @@
 @inject MacExplorer.Services.IDragDropBridge DragDropBridge
 @inject MacExplorer.Services.IDirectoryChangeNotifier DirectoryChangeNotifier
 @inject MacExplorer.Services.IFSEventsWatcher FSEventsWatcher
+@inject MacExplorer.Services.IThemeService ThemeService
 @implements IAsyncDisposable
 
 <MApp Style="background:transparent">
@@ -176,6 +177,9 @@
         MouseNavService.BackButtonPressed += OnMouseBack;
         MouseNavService.ForwardButtonPressed += OnMouseForward;
         MouseNavService.Start();
+
+        // Subscribe to theme changes
+        ThemeService.ThemeChanged += OnThemeChanged;
     }
 
     private async void OnMouseBack()
@@ -186,6 +190,22 @@
     private async void OnMouseForward()
     {
         await InvokeAsync(async () => await ViewModel.NavigateForwardCommand.ExecuteAsync(null));
+    }
+
+    private async void OnThemeChanged(object? sender, MacExplorer.Services.ThemeChangedEventArgs e)
+    {
+        try
+        {
+            // Use setDarkMode instead of applyTheme to preserve the theme mode setting
+            await InvokeAsync(async () => 
+            {
+                await JSRuntime.InvokeVoidAsync("setDarkMode", e.IsDarkMode);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Home] Error in OnThemeChanged: {ex}");
+        }
     }
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -233,6 +253,10 @@
             {
                 _dotNetRef = DotNetObjectReference.Create(this);
                 await JSRuntime.InvokeVoidAsync("fkfinderKeyboard.init", _dotNetRef);
+
+                // Initialize theme
+                var themeMode = ThemeService.GetThemeMode();
+                await JSRuntime.InvokeVoidAsync("applyTheme", themeMode);
             }
             catch { }
         }
@@ -426,6 +450,7 @@
         TaskManager.TasksChanged -= OnTasksChanged;
         MouseNavService.BackButtonPressed -= OnMouseBack;
         MouseNavService.ForwardButtonPressed -= OnMouseForward;
+        ThemeService.ThemeChanged -= OnThemeChanged;
         _dotNetRef?.Dispose();
         await ValueTask.CompletedTask;
     }

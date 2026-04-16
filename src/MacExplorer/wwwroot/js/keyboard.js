@@ -120,7 +120,8 @@ window.fkfinderDropdown = {
         this.unregister();
         this._ref = dotNetRef;
         this._handler = function(e) {
-            if (!e.target.closest('.new-btn-wrapper') && !e.target.closest('.sort-dropdown-wrapper')) {
+            if (!e.target.closest('.new-btn-wrapper') && 
+                !e.target.closest('.sort-dropdown-wrapper')) {
                 dotNetRef.invokeMethodAsync('CloseDropdowns');
             }
         };

@@ -1,6 +1,7 @@
 @using MacExplorer.Models
 @inject MacExplorer.Services.IDefaultAppService DefaultAppService
 @inject MacExplorer.Services.ISettingsService SettingsService
+@inject MacExplorer.Services.IThemeService ThemeService
 @inject FileListViewModel ViewModel
 
 <div class="settings-dialog">
@@ -225,6 +226,31 @@
             <div class="settings-list">
                 <div class="settings-item">
                     <div class="settings-item-info">
+                        <div class="settings-item-label">深色模式</div>
+                        <div class="settings-item-description">
+                            选择应用的主题模式
+                        </div>
+                    </div>
+                    <div class="settings-dropdown-wrapper" @onclick:stopPropagation>
+                        <button class="settings-dropdown-trigger" @onclick="ToggleThemeDropdown">
+                            <span>@GetThemeModeLabel(_themeMode)</span>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                        </button>
+                        @if (_showThemeDropdown)
+                        {
+                            <div class="settings-dropdown-backdrop" @onclick="@(() => _showThemeDropdown = false)"></div>
+                            <div class="settings-dropdown glass-effect" @onclick:stopPropagation>
+                                <div class="settings-dropdown-item @(_themeMode == "system" ? "active" : "")" @onclick="@(() => SelectThemeMode("system"))">
+                                    <span>跟随系统</span>
+                                    @if (_themeMode == "system")
+                                    {<span class="settings-dropdown-check">✓</span>}
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="settings-item">
+                    <div class="settings-item-info">
                         <div class="settings-item-label">毛玻璃效果</div>
                         <div class="settings-item-description">
                             启用窗口背景毛玻璃透视效果
@@ -253,7 +279,7 @@
                     </div>
                 </div>
             </div>
-            <div class="settings-restart-hint">修改后需重启应用生效</div>
+            <div class="settings-restart-hint">毛玻璃设置修改后需重启应用生效</div>
         }
     </div>
 
@@ -288,6 +314,8 @@
     private bool _showAiTextSearch = true;
 
     // Appearance state
+    private string _themeMode = "system";
+    private bool _showThemeDropdown;
     private bool _vibrancyEnabled = true;
     private double _vibrancyAlpha = 0.85;
 
@@ -313,6 +341,7 @@
         _showAiTextSearch = SettingsService.Get("sidebar_show_ai_text_search", true);
 
         // Load appearance settings
+        _themeMode = SettingsService.Get("theme_mode", "system");
         _vibrancyEnabled = SettingsService.Get("vibrancy_enabled", true);
         _vibrancyAlpha = SettingsService.Get("vibrancy_alpha", 0.85);
     }
@@ -362,6 +391,26 @@
     }
 
     // Appearance tab handlers
+    private void ToggleThemeDropdown()
+    {
+        _showThemeDropdown = !_showThemeDropdown;
+    }
+
+    private void SelectThemeMode(string mode)
+    {
+        _themeMode = mode;
+        _showThemeDropdown = false;
+        SettingsService.Set("theme_mode", _themeMode);
+        ThemeService.SetThemeMode(_themeMode);
+    }
+
+    private string GetThemeModeLabel(string mode) => mode switch
+    {
+        "light" => "浅色",
+        "dark" => "深色",
+        _ => "跟随系统"
+    };
+
     private void OnVibrancyEnabledToggle(ChangeEventArgs e)
     {
         _vibrancyEnabled = (bool)(e.Value ?? true);
