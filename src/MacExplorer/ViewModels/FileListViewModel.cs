@@ -295,8 +295,11 @@ public partial class FileListViewModel : ObservableObject
             OnPropertyChanged(e.PropertyName);
         }
 
-        // Re-apply filter when hide settings change
-        if (e.PropertyName is nameof(SortFilterViewModel.HideSystemFiles)
+        // Re-apply sort/group/filter when sort, group, or hide settings change
+        if (e.PropertyName is nameof(SortFilterViewModel.SortField)
+            or nameof(SortFilterViewModel.SortAscending)
+            or nameof(SortFilterViewModel.GroupField)
+            or nameof(SortFilterViewModel.HideSystemFiles)
             or nameof(SortFilterViewModel.HideDotFiles)
             or nameof(SortFilterViewModel.HideDotFolders))
         {
