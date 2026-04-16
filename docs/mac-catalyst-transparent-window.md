@@ -81,6 +81,10 @@ Apple UIKit 文档中 Mac Catalyst 相关 API 仅有标题栏/工具栏配置，
 #### VibrancyHelper.cs（核心）
 
 ```csharp
+// 可通过设置 UI 配置的静态属性（重启生效）
+public static bool Enabled { get; set; } = true;
+public static double Alpha { get; set; } = 0.85;
+
 // 注册通知（在 App 构造函数中调用）
 public static void Register()
 {
@@ -99,36 +103,42 @@ private static void OnWindowCreatedForScene(NSNotification notification)
 // 核心配置
 private static void ConfigureNSWindow(IntPtr nsWindow)
 {
-    // 1. NSWindow 设为非不透明
-    objc_msgSend_void_bool(nsWindow, Selector.GetHandle("setOpaque:"), false);
+    // 1. 毛玻璃相关（仅 Enabled 时执行）
+    if (Enabled)
+    {
+        objc_msgSend_void_bool(nsWindow, Selector.GetHandle("setOpaque:"), false);
+        var contentView = objc_msgSend(nsWindow, Selector.GetHandle("contentView"));
 
-    // 2. 获取 contentView（NSView）
-    var contentView = objc_msgSend(nsWindow, Selector.GetHandle("contentView"));
+        var effectView = /* alloc + init NSVisualEffectView */;
+        objc_msgSend_void_nint(effectView, Selector.GetHandle("setMaterial:"), 13);
+        objc_msgSend_void_nint(effectView, Selector.GetHandle("setBlendingMode:"), 0);
+        objc_msgSend_void_double(effectView, Selector.GetHandle("setAlphaValue:"), Alpha);
 
-    // 3. 创建 NSVisualEffectView（AppKit 层！）
-    var effectView = /* alloc + init NSVisualEffectView */;
+        objc_msgSend_addSubview_positioned(contentView, ..., effectView, -1, IntPtr.Zero);
+    }
 
-    // 4. 配置毛玻璃
-    // material = .hudWindow (13) — 较透明的材质
-    objc_msgSend_void_nint(effectView, Selector.GetHandle("setMaterial:"), 13);
-    // blendingMode = .behindWindow (0)
-    objc_msgSend_void_nint(effectView, Selector.GetHandle("setBlendingMode:"), 0);
-    // alphaValue = 0.85 — 额外增加透明度
-    objc_msgSend_void_double(effectView, Selector.GetHandle("setAlphaValue:"), 0.85);
-
-    // 5. 插入到 contentView 最底层
-    objc_msgSend_addSubview_positioned(contentView, ..., effectView, -1, IntPtr.Zero);
+    // 2. 窗口通用配置（始终执行，不受 Enabled 影响）
+    objc_msgSend_void_bool(nsWindow, Selector.GetHandle("setHasShadow:"), true);
+    var currentFrame = objc_msgSend_ret_CGRect(nsWindow, Selector.GetHandle("frame"));
+    var newFrame = new CGRect(currentFrame.X, currentFrame.Y, 1372, 849);
+    objc_msgSend_setFrame(nsWindow, Selector.GetHandle("setFrame:display:"), newFrame, true);
+    objc_msgSend(nsWindow, Selector.GetHandle("center"));
 }
 ```
+
+> **注意**：窗口尺寸设置（步骤 2）必须始终执行，不能包含在 `if (Enabled)` 块内。
+> 否则关闭毛玻璃后窗口尺寸会异常（不再执行 NSWindow 级别的 setFrame）。
 
 #### App.xaml.cs
 
 ```csharp
-public App()
+public App(ISettingsService settingsService)
 {
     InitializeComponent();
 #if MACCATALYST
-    // 尽早注册通知
+    // 从 SQLite 读取毛玻璃配置（重启生效）
+    VibrancyHelper.Enabled = settingsService.Get("vibrancy_enabled", true);
+    VibrancyHelper.Alpha = settingsService.Get("vibrancy_alpha", 0.85);
     VibrancyHelper.Register();
 #endif
 }
@@ -160,7 +170,7 @@ PageHandler.Mapper.ModifyMapping("Background", (handler, view, action) => {
 | 13 | `.hudWindow` | 更透明（当前使用） |
 | 15 | `.fullScreenUI` | 最透明 |
 
-可通过 `setAlphaValue:` 进一步调节（0.0 = 完全透明，1.0 = 不透明）。
+可通过 `setAlphaValue:` 进一步调节（0.0 = 完全透明，1.0 = 不透明）。当前默认 0.85，可在设置 UI 中调整（0.3~1.0，重启生效）。
 
 ### NSWindow 获取策略（按可靠性排序）
 
@@ -177,6 +187,48 @@ PageHandler.Mapper.ModifyMapping("Background", (handler, view, action) => {
 | **UIKit 层**（UIWindow → UIView） | MAUI 框架 | MAUI 只能控制这里 |
 
 MAUI 的布局引擎只能操作 UIKit 层，完全无法触及 AppKit 层的 NSVisualEffectView，所以毛玻璃效果永远不会被重置。
+
+## 用户可配置化
+
+毛玻璃效果支持通过设置 UI（设置 → 外观 Tab）进行配置，修改后**重启生效**。
+
+### 配置项
+
+| 设置项 | 设置键 | 类型 | 默认值 | UI 控件 |
+|--------|--------|------|--------|---------|
+| 启用毛玻璃 | `vibrancy_enabled` | bool | `true` | 开关 |
+| 透明度 | `vibrancy_alpha` | double | `0.85` | 滑块 (0.3~1.0) |
+
+### 数据流
+
+```
+启动时：
+  App 构造函数 (ISettingsService 注入)
+  ├─ settingsService.Get("vibrancy_enabled", true) → VibrancyHelper.Enabled
+  ├─ settingsService.Get("vibrancy_alpha", 0.85)   → VibrancyHelper.Alpha
+  └─ VibrancyHelper.Register()
+       └─ 通知触发 → ConfigureNSWindow()
+            ├─ if (Enabled): 插入 NSVisualEffectView + setAlphaValue(Alpha)
+            └─ 始终执行: setHasShadow + setFrame(1372×849) + center
+
+用户修改时：
+  SettingsDialog 外观 Tab
+  └─ SettingsService.Set() → SQLite 持久化
+  └─ UI 显示"修改后需重启应用生效"
+```
+
+### 为什么需要重启
+
+`VibrancyHelper.Register()` 在 App 构造函数中执行，`ConfigureNSWindow` 在 NSWindow 创建的系统通知中触发，均在应用启动早期完成。NSVisualEffectView 一旦插入 AppKit 层后无法安全移除或重新配置，因此配置变更需要重启应用才能生效。
+
+### ConfigureNSWindow 分层注意事项
+
+`ConfigureNSWindow` 方法中的逻辑分为两层：
+
+- **毛玻璃层**（受 `Enabled` 控制）：setOpaque、NSVisualEffectView 创建/配置/插入
+- **窗口通用层**（始终执行）：setHasShadow、setFrame(1372×849)、center
+
+窗口尺寸和居中逻辑**不能**放在 `if (Enabled)` 块内，否则关闭毛玻璃后窗口尺寸会异常。
 
 ## 参考资源
 
