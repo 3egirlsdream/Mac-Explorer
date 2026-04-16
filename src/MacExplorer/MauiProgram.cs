@@ -151,6 +151,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IImageAnalysisService,
             Platforms.MacCatalyst.Services.MacImageAnalysisService>();
         builder.Services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
+        builder.Services.AddSingleton<IThemeService, Platforms.MacCatalyst.Services.MacThemeService>();
 
         // Unified refresh pipeline
         builder.Services.AddSingleton<IDirectoryChangeNotifier, Services.Impl.DirectoryChangeNotifier>();

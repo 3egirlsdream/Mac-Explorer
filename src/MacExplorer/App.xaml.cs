@@ -8,7 +8,7 @@ public partial class App : Application
     private bool _dropOverlayRegistered;
     private readonly HashSet<Window> _initializedWindows = new();
 
-	public App(ISettingsService settingsService)
+	public App(ISettingsService settingsService, MacExplorer.Services.IThemeService themeService)
 	{
 		InitializeComponent();
 
@@ -19,6 +19,9 @@ public partial class App : Application
         Platforms.MacCatalyst.Handlers.VibrancyHelper.Register();
         Platforms.MacCatalyst.Handlers.DropOverlayHelper.Register(null!);
 #endif
+
+        // Initialize theme service
+        themeService.Initialize();
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)
