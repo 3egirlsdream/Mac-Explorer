@@ -84,19 +84,19 @@
 
     <!-- Clipboard buttons: Cut, Copy, Paste, Delete -->
     <div class="toolbar-btn-group">
-        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="CutSelected" title="剪切 (⌘X)" disabled="@ViewModel.IsArchiveView">
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="CutSelected" data-tooltip="剪切 (⌘X)" disabled="@ViewModel.IsArchiveView">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Cut"/></svg>
         </button>
-        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="CopySelected" title="复制 (⌘C)" disabled="@ViewModel.IsArchiveView">
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="CopySelected" data-tooltip="复制 (⌘C)" disabled="@ViewModel.IsArchiveView">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Copy"/></svg>
         </button>
-        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="PasteItems" title="粘贴 (⌘V)" disabled="@ViewModel.IsArchiveView">
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="PasteItems" data-tooltip="粘贴 (⌘V)" disabled="@ViewModel.IsArchiveView">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Paste"/></svg>
         </button>
-        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="DeleteSelected" title="删除 (⌘⌫)" disabled="@ViewModel.IsArchiveView">
+        <button class="toolbar-btn @(ViewModel.IsArchiveView ? "disabled" : "")" @onclick="DeleteSelected" data-tooltip="删除 (⌘⌫)" disabled="@ViewModel.IsArchiveView">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Delete"/></svg>
         </button>
-        <button class="toolbar-btn" @onclick="GoHome" title="主页">
+        <button class="toolbar-btn" @onclick="GoHome" data-tooltip="主页 (⌘H)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Home"/></svg>
         </button>
     </div>

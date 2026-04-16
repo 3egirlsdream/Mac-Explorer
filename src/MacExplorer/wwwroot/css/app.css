@@ -606,6 +606,58 @@ input:focus {
     pointer-events: none;
 }
 
+/* Toolbar Button Tooltip - Glass Effect Style */
+.toolbar-btn {
+    position: relative;
+}
+
+.toolbar-btn::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 6px 12px;
+    background-color: var(--glass-menu-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--acrylic-border);
+    box-shadow: var(--shadow-flyout);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    border-radius: var(--radius-md);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+    pointer-events: none;
+    z-index: var(--z-tooltip);
+}
+
+.toolbar-btn::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 3px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--glass-menu-bg) transparent transparent transparent;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+    pointer-events: none;
+    z-index: var(--z-tooltip);
+}
+
+.toolbar-btn:hover::after,
+.toolbar-btn:hover::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
 .toolbar-separator {
     width: 1px;
     height: 20px;
@@ -2431,7 +2483,125 @@ input:focus {
     font-size: 15px;
     font-weight: 600;
     color: var(--color-text-primary);
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+}
+
+.settings-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    margin-bottom: 12px;
+}
+
+.settings-tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+    user-select: none;
+}
+
+.settings-tab:hover {
+    color: var(--color-text-primary);
+}
+
+.settings-tab.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
+.settings-tab-content {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.settings-group-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 12px 4px;
+}
+
+.settings-group-title:first-child {
+    padding-top: 0;
+}
+
+.settings-item-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: background var(--transition-fast);
+}
+
+.settings-item-compact:hover {
+    background: var(--color-bg-hover);
+}
+
+.settings-item-compact .settings-item-label {
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.settings-slider-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.settings-slider {
+    width: 120px;
+    height: 4px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--color-border-subtle);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+}
+
+.settings-slider::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.settings-slider:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.settings-slider:disabled::-webkit-slider-thumb {
+    cursor: not-allowed;
+}
+
+.settings-slider-value {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    min-width: 36px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.settings-restart-hint {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    padding: 10px 12px 2px;
+    text-align: center;
 }
 
 .settings-list {
