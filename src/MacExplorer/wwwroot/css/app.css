@@ -5,19 +5,19 @@
    Windows 11 Fluent Design × macOS Vibrancy
    ═══════════════════════════════════════ */
 .glass-effect-without-border {
-    background-color: rgba(255, 255, 255, 0.6);
+    background-color: var(--glass-effect-bg);
     backdrop-filter: blur(21.5px);
     -webkit-backdrop-filter: blur(21.5px);
 }
 
 /* ═══ Glass Effect — Shared Frosted Glass ═══ */
 .glass-effect {
-    background-color: rgba(255, 255, 255, 0.6);
+    background-color: var(--glass-effect-bg);
     backdrop-filter: blur(21.5px);
     -webkit-backdrop-filter: blur(21.5px);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: rgba(142, 142, 142, 0.19) 0px 6px 15px 0px;
-    -webkit-box-shadow: rgba(142, 142, 142, 0.19) 0px 6px 15px 0px;
+    border: 1px solid var(--glass-effect-border);
+    box-shadow: var(--glass-effect-shadow);
+    -webkit-box-shadow: var(--glass-effect-shadow);
     border-radius: 12px;
     -webkit-border-radius: 12px;
 }
@@ -84,13 +84,13 @@ input {
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);
     padding: var(--space-3) var(--space-5);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--color-bg-hover);
     transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 input:focus {
     border-color: var(--color-accent);
-    background: rgba(255, 255, 255, 0.10);
+    background: var(--color-bg-hover-strong);
 }
 
 /* ═══ Loading Screen ═══ */
@@ -538,9 +538,12 @@ input:focus {
     padding: var(--space-2) 0;
     z-index: var(--z-dropdown);
     animation: dropdownFadeIn 150ms cubic-bezier(0.1, 0.9, 0.2, 1);
-    background-color: rgba(255, 255, 255, 0.6);
+    background-color: var(--glass-effect-bg);
     backdrop-filter: blur(21.5px) saturate(180%);
     -webkit-backdrop-filter: blur(21.5px) saturate(180%);
+    border: 1px solid var(--glass-effect-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--glass-effect-shadow);
 }
 
 .new-dropdown-item {
@@ -567,7 +570,7 @@ input:focus {
 
 .new-dropdown-divider {
     height: 1px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-border-subtle);
     margin: 4px 8px;
 }
 
@@ -607,11 +610,11 @@ input:focus {
 }
 
 /* Toolbar Button Tooltip - Glass Effect Style */
-.toolbar-btn {
+.toolbar-btn[data-tooltip] {
     position: relative;
 }
 
-.toolbar-btn::after {
+.toolbar-btn[data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute;
     bottom: calc(100% + 8px);
@@ -635,7 +638,7 @@ input:focus {
     z-index: var(--z-tooltip);
 }
 
-.toolbar-btn::before {
+.toolbar-btn[data-tooltip]::before {
     content: '';
     position: absolute;
     bottom: calc(100% + 3px);
@@ -651,8 +654,8 @@ input:focus {
     z-index: var(--z-tooltip);
 }
 
-.toolbar-btn:hover::after,
-.toolbar-btn:hover::before {
+.toolbar-btn[data-tooltip]:hover::after,
+.toolbar-btn[data-tooltip]:hover::before {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
@@ -710,9 +713,12 @@ input:focus {
     padding: var(--space-2) 0;
     z-index: var(--z-dropdown);
     animation: dropdownFadeIn 150ms cubic-bezier(0.1, 0.9, 0.2, 1);
-    background-color: rgba(255, 255, 255, 0.6);
+    background-color: var(--glass-effect-bg);
     backdrop-filter: blur(21.5px) saturate(180%);
     -webkit-backdrop-filter: blur(21.5px) saturate(180%);
+    border: 1px solid var(--glass-effect-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--glass-effect-shadow);
 }
 
 @keyframes dropdownFadeIn {
@@ -818,14 +824,11 @@ input:focus {
     width: 440px;
     height: 52px;
     border-radius: 16px;
-    background: rgba(255, 255, 255, 0.72);
+    background: var(--glass-effect-bg);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.04),
-        0 8px 32px rgba(0, 0, 0, 0.07),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--glass-effect-border);
+    box-shadow: var(--glass-effect-shadow);
     z-index: 10;
     padding: 0 18px;
     gap: var(--space-3);
@@ -958,15 +961,12 @@ input:focus {
     top: calc(100% + 6px);
     left: 0;
     right: 0;
-    background: rgba(255, 255, 255, 0.92);
+    background: var(--glass-effect-bg);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--glass-effect-border);
     border-radius: 12px;
-    box-shadow:
-        0 4px 16px rgba(0, 0, 0, 0.08),
-        0 12px 40px rgba(0, 0, 0, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    box-shadow: var(--glass-effect-shadow);
     padding: 4px;
     z-index: 1000;
     max-height: 360px;
@@ -991,7 +991,7 @@ input:focus {
 
 .breadcrumb-suggestion-item:hover,
 .breadcrumb-suggestion-item.selected {
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--color-bg-hover-strong);
 }
 
 .breadcrumb-suggestion-item .suggestion-icon {
@@ -1085,6 +1085,9 @@ input:focus {
     grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
     gap: var(--space-3);
     align-content: start;
+    background: transparent;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .file-grid-item {
@@ -1176,6 +1179,9 @@ input:focus {
 .file-list {
     display: flex;
     flex-direction: column;
+    background: transparent;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .file-list-header {
@@ -1595,7 +1601,7 @@ input:focus {
     min-width: 280px;
     max-width: 400px;
     border-left: 1px solid var(--color-border);
-    background: rgba(255, 255, 255, 0.5);
+    background: var(--glass-effect-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     overflow-y: auto;
@@ -1662,7 +1668,7 @@ input:focus {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    background: rgba(255, 255, 255, 0.5);
+    background: var(--color-bg-hover);
     border-radius: var(--radius-md);
     padding: var(--space-4) var(--space-5);
     border: 1px solid var(--color-border-subtle);
@@ -1885,7 +1891,7 @@ input:focus {
     font-family: var(--font-family);
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-xs);
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--color-bg-content);
     color: var(--color-text-primary);
     outline: none;
     box-shadow: 0 0 0 2px var(--color-accent-light);
@@ -1934,14 +1940,11 @@ input:focus {
     width: 100px;
     height: 100px;
     border-radius: 24px;
-    background: rgba(255, 255, 255, 0.65);
+    background: var(--glass-effect-bg);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.04),
-        0 8px 24px rgba(0, 0, 0, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--glass-effect-border);
+    box-shadow: var(--glass-effect-shadow);
     transition:
         transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
         box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
@@ -1950,20 +1953,14 @@ input:focus {
 
 .home-fab-group:hover .home-fab {
     transform: translateY(-6px) scale(1.04);
-    background: rgba(255, 255, 255, 0.8);
-    box-shadow:
-        0 4px 12px rgba(0, 0, 0, 0.06),
-        0 16px 40px rgba(0, 0, 0, 0.10),
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    background: var(--glass-menu-bg);
+    box-shadow: var(--shadow-lg);
 }
 
 .home-fab-group:active .home-fab {
     transform: translateY(-1px) scale(0.98);
-    box-shadow:
-        0 1px 4px rgba(0, 0, 0, 0.05),
-        0 4px 12px rgba(0, 0, 0, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    background: rgba(255, 255, 255, 0.55);
+    box-shadow: var(--shadow-sm);
+    background: var(--glass-effect-bg);
     transition-duration: 0.1s;
 }
 
@@ -2022,6 +2019,7 @@ input:focus {
     display: flex;
     flex-direction: column;
     position: relative;
+    background: transparent;
 }
 
 .preview-pane {
@@ -2029,7 +2027,7 @@ input:focus {
     min-width: 200px;
     max-width: 50vw;
     border-left: 1px solid var(--color-border);
-    background: rgba(255, 255, 255, 0.45);
+    background: var(--glass-effect-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     display: flex;
@@ -2114,7 +2112,7 @@ input:focus {
 }
 
 .preview-card {
-    background: rgba(255, 255, 255, 0.35);
+    background: var(--color-bg-hover);
     border: 1px solid var(--color-border-subtle);
     border-radius: 8px;
     overflow: hidden;
@@ -2134,7 +2132,7 @@ input:focus {
 }
 
 .preview-card-header.preview-card-collapsible:hover {
-    background: rgba(0, 0, 0, 0.03);
+    background: var(--color-bg-hover);
 }
 
 .preview-card-title {
@@ -2277,7 +2275,7 @@ input:focus {
 }
 
 .sidebar-collection-item:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--color-bg-hover);
 }
 
 .sidebar-collection-item.active {
@@ -2327,7 +2325,7 @@ input:focus {
 
 .sidebar-add-collection:hover {
     color: var(--color-text-secondary);
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--color-bg-hover);
 }
 
 .sidebar-rename-input {
@@ -2339,7 +2337,7 @@ input:focus {
     border-radius: 4px;
     font-size: var(--font-size-caption);
     outline: none;
-    background: white;
+    background: var(--color-bg-content);
 }
 
 /* ═══════════════════════════════════════
@@ -2384,7 +2382,7 @@ input:focus {
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-body);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--color-bg-hover);
     color: var(--color-text-primary);
     outline: none;
     transition: border-color var(--transition-fast);
@@ -2602,6 +2600,87 @@ input:focus {
     color: var(--color-text-tertiary);
     padding: 10px 12px 2px;
     text-align: center;
+}
+
+/* Settings Dropdown - unified with toolbar dropdown style */
+.settings-dropdown-wrapper {
+    position: relative;
+}
+
+.settings-dropdown-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-dropdown) - 1);
+}
+
+.settings-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    height: 30px;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-strong);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    min-width: 100px;
+}
+
+.settings-dropdown-trigger:hover {
+    border-color: var(--color-accent);
+}
+
+.settings-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 120px;
+    padding: var(--space-2) 0;
+    z-index: var(--z-dropdown);
+    animation: dropdownFadeIn 150ms cubic-bezier(0.1, 0.9, 0.2, 1);
+    background-color: var(--glass-effect-bg);
+    backdrop-filter: blur(21.5px) saturate(180%);
+    -webkit-backdrop-filter: blur(21.5px) saturate(180%);
+    border: 1px solid var(--glass-effect-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--glass-effect-shadow);
+}
+
+.settings-dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-5);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    font-size: var(--font-size-body);
+    color: var(--color-text-primary);
+    border-radius: var(--radius-sm);
+    margin: 0 var(--space-2);
+}
+
+.settings-dropdown-item:hover {
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+}
+
+.settings-dropdown-item.active {
+    color: var(--color-accent);
+}
+
+.settings-dropdown-item.active:hover {
+    color: var(--color-text-on-accent);
+}
+
+.settings-dropdown-check {
+    font-size: var(--font-size-caption);
+    margin-left: var(--space-2);
 }
 
 .settings-list {
@@ -2835,14 +2914,12 @@ input:focus {
     max-height: 260px;
     overflow-y: auto;
     padding: var(--space-4);
-    background: rgba(255, 255, 255, 0.88);
+    background: var(--glass-menu-bg);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    border: 1px solid var(--glass-effect-border);
     border-radius: var(--radius-md);
-    box-shadow:
-        0 4px 16px rgba(0, 0, 0, 0.1),
-        0 1px 4px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--glass-effect-shadow);
     z-index: var(--z-panel);
     display: flex;
     flex-direction: column;
@@ -2969,23 +3046,19 @@ html {
     box-shadow: var(--glass-effect-shadow) !important;
     border-radius: var(--glass-effect-radius) !important;
     overflow: visible !important;
+    color: var(--color-text-primary) !important;
 }
 
 /* MDialog glass effect — CenterProgressCard (denser) */
 .fk-dialog-glass-dense {
-    background: rgba(255, 255, 255, 0.88) !important;
+    background: var(--glass-menu-bg) !important;
     backdrop-filter: blur(24px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.35) !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+    border: 1px solid var(--glass-effect-border) !important;
+    box-shadow: var(--glass-effect-shadow) !important;
     border-radius: var(--radius-md) !important;
     overflow: visible !important;
-}
-
-.dark-mode .fk-dialog-glass-dense {
-    background: rgba(40, 40, 40, 0.88) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    color: var(--color-text-primary) !important;
 }
 
 /* ═══════════════════════════════════════
