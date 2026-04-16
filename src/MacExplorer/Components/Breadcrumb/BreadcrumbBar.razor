@@ -129,7 +129,7 @@
                 <div class="breadcrumb-segment">
                     <span class="breadcrumb-link @(segment == ViewModel.Breadcrumbs.Last() ? "current" : "") @(string.IsNullOrEmpty(segment.FullPath) ? "disabled" : "")"
                           @onclick="() => { if (!string.IsNullOrEmpty(segment.FullPath)) NavigateTo(segment.FullPath); }" @onclick:stopPropagation>
-                        @segment.Name
+                        @(string.IsNullOrEmpty(segment.DisplayName) ? segment.Name : segment.DisplayName)
                     </span>
                     @if (segment != ViewModel.Breadcrumbs.Last())
                     {

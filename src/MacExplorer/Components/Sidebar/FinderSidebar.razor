@@ -1,4 +1,5 @@
 @using MacExplorer.Models
+@using MacExplorer.Services
 @implements IDisposable
 
 <div class="finder-sidebar">
@@ -17,7 +18,7 @@
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Desktop" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Desktop"))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#54A3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-            <span class="sidebar-item-name">桌面</span>
+            <span class="sidebar-item-name">@_desktopName</span>
         </div>
         }
         @if (_showDocuments)
@@ -25,7 +26,7 @@
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Documents" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Documents"))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.FileText"/></svg>
-            <span class="sidebar-item-name">文稿</span>
+            <span class="sidebar-item-name">@_documentsName</span>
         </div>
         }
         @if (_showDownloads)
@@ -33,7 +34,7 @@
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Downloads" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Downloads"))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            <span class="sidebar-item-name">下载</span>
+            <span class="sidebar-item-name">@_downloadsName</span>
         </div>
         }
         @if (_showPictures)
@@ -41,7 +42,7 @@
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Pictures" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Pictures"))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8912D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-            <span class="sidebar-item-name">图片</span>
+            <span class="sidebar-item-name">@_picturesName</span>
         </div>
         }
         @if (_showMusic)
@@ -49,7 +50,7 @@
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Music" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Music"))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            <span class="sidebar-item-name">音乐</span>
+            <span class="sidebar-item-name">@_musicName</span>
         </div>
         }
         @foreach (var pin in ViewModel.PinnedFolders)
@@ -77,7 +78,7 @@
         <div class="sidebar-item @(ViewModel.CurrentPath == "/" ? "active" : "")"
              @onclick="@(() => NavigateTo("/"))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1" width="18" height="15" rx="2.5"/><path d="M12 5.5v1.2" stroke-width="1"/><path d="M12.2 5.5c.5-.5 1.1-.4 1.4 0" stroke-width="1"/><path d="M10.5 6.8C9 7.2 9 9.5 9.5 10.8C10 12 11 11.8 12 11.5C13 11.8 14 12 14.5 10.8C15 9.5 15 7.2 13.5 6.8C13 6.5 12.5 7 12 7.2C11.5 7 11 6.5 10.5 6.8Z" stroke-width="1"/><path d="M12 16v3"/><path d="M8 19h8"/></svg>
-            <span class="sidebar-item-name">Macintosh HD</span>
+            <span class="sidebar-item-name">@_volumeName</span>
         </div>
         }
         @if (_showApplications)
@@ -85,7 +86,7 @@
         <div class="sidebar-item @(ViewModel.CurrentPath == "/Applications" ? "active" : "")"
              @onclick="@(() => NavigateTo("/Applications"))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818CF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M8.5 17l3.5-10 3.5 10"/><path d="M9.8 14.5h4.4"/></svg>
-            <span class="sidebar-item-name">应用程序</span>
+            <span class="sidebar-item-name">@_applicationsName</span>
         </div>
         }
         @if (_showTrash)
@@ -93,7 +94,7 @@
         <div class="sidebar-item @(IsTrashActive ? "active" : "")"
              @onclick="@(() => NavigateTo(TrashPath))">
             <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M5 5l1.5 16h11l1.5-16"/><path d="M10 8v10"/><path d="M14 8v10"/></svg>
-            <span class="sidebar-item-name">废纸篓</span>
+            <span class="sidebar-item-name">@_trashName</span>
         </div>
         }
     </div>
@@ -242,6 +243,7 @@
     [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
     [Inject] private IFileService FileService { get; set; } = null!;
     [Inject] private MacExplorer.Services.ISettingsService SettingsService { get; set; } = null!;
+    [Inject] private IDisplayNameService DisplayNameService { get; set; } = null!;
 
     private const string SettingKeyAiCollapsed = "sidebar_ai_collapsed";
     private const string SettingKeyCollectionsCollapsed = "sidebar_collections_collapsed";
@@ -249,6 +251,16 @@
     private bool _isAiCollapsed;
     private bool _isCollectionsCollapsed;
     private string _userName = "";
+
+    // Localized display names for system folders
+    private string _desktopName = "";
+    private string _documentsName = "";
+    private string _downloadsName = "";
+    private string _picturesName = "";
+    private string _musicName = "";
+    private string _applicationsName = "";
+    private string _volumeName = "";
+    private string _trashName = "";
 
     // Sidebar visibility settings
     private bool _showUsername = true;
@@ -271,6 +283,17 @@
         _isAiCollapsed = SettingsService.Get(SettingKeyAiCollapsed, false);
         _isCollectionsCollapsed = SettingsService.Get(SettingKeyCollectionsCollapsed, false);
         _userName = Path.GetFileName(ViewModel.HomeDirectory);
+
+        var home = ViewModel.HomeDirectory;
+        _desktopName = DisplayNameService.GetDisplayName(home + "/Desktop");
+        _documentsName = DisplayNameService.GetDisplayName(home + "/Documents");
+        _downloadsName = DisplayNameService.GetDisplayName(home + "/Downloads");
+        _picturesName = DisplayNameService.GetDisplayName(home + "/Pictures");
+        _musicName = DisplayNameService.GetDisplayName(home + "/Music");
+        _applicationsName = DisplayNameService.GetDisplayName("/Applications");
+        _volumeName = DisplayNameService.GetDisplayName("/");
+        _trashName = DisplayNameService.GetDisplayName(Path.Combine(home, ".Trash"));
+
         ReloadSidebarVisibility();
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
