@@ -109,6 +109,20 @@ window.fkfinderContextMenu = {
             this._autoCloseHandler = null;
         }
         this._autoCloseRef = null;
+    },
+    // Hit-test: find the file entry (data-path) at given screen coordinates,
+    // temporarily hiding overlay & menu so elementFromPoint sees through them.
+    getFileEntryAtPosition: function(x, y) {
+        var overlay = document.querySelector('.context-menu-overlay');
+        var menu = document.querySelector('.context-menu');
+        if (overlay) overlay.style.pointerEvents = 'none';
+        if (menu) menu.style.pointerEvents = 'none';
+        var el = document.elementFromPoint(x, y);
+        if (overlay) overlay.style.pointerEvents = '';
+        if (menu) menu.style.pointerEvents = '';
+        if (!el) return null;
+        var fileEl = el.closest('[data-path]');
+        return fileEl ? fileEl.getAttribute('data-path') : null;
     }
 };
 

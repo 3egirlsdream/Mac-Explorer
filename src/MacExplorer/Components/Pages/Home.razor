@@ -105,7 +105,10 @@
     @* Web Context Menu *@
     @if (ViewModel.IsContextMenuVisible)
     {
-        <div class="context-menu-overlay" @onclick="CloseContextMenu">
+        <div class="context-menu-overlay"
+             @onmousedown="OnOverlayMouseDown"
+             @oncontextmenu="OnOverlayContextMenu"
+             @oncontextmenu:preventDefault>
             <ContextMenu X="ViewModel.ContextMenuX"
                          Y="ViewModel.ContextMenuY"
                          Actions="ViewModel.ContextMenuActions"
@@ -347,6 +350,40 @@
     private void CloseContextMenu()
     {
         ViewModel.CloseContextMenuCommand.Execute(null);
+    }
+
+    private async Task OnOverlayMouseDown(MouseEventArgs e)
+    {
+        if (e.Button == 0) // left click
+        {
+            var path = await JSRuntime.InvokeAsync<string?>(
+                "fkfinderContextMenu.getFileEntryAtPosition", e.ClientX, e.ClientY);
+            if (path != null)
+            {
+                var entry = ViewModel.Entries.FirstOrDefault(en => en.FullPath == path);
+                if (entry != null)
+                    ViewModel.SelectEntry(entry, false, false);
+            }
+            CloseContextMenu();
+        }
+    }
+
+    private async Task OnOverlayContextMenu(MouseEventArgs e)
+    {
+        var path = await JSRuntime.InvokeAsync<string?>(
+            "fkfinderContextMenu.getFileEntryAtPosition", e.ClientX, e.ClientY);
+        if (path != null)
+        {
+            var entry = ViewModel.Entries.FirstOrDefault(en => en.FullPath == path);
+            if (entry != null)
+            {
+                if (!ViewModel.SelectedEntries.Contains(entry))
+                    ViewModel.SelectEntry(entry, false, false);
+                await ViewModel.ShowFileContextMenuAsync(entry, e.ClientX, e.ClientY);
+                return;
+            }
+        }
+        CloseContextMenu();
     }
 
     private void OnCompressConfirm(MacExplorer.Models.CompressOptions options)
