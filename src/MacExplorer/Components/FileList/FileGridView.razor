@@ -240,6 +240,7 @@
         ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
         _dblClickTimer?.Dispose();
         _pendingOpenTimer?.Dispose();
+        _renameTimer?.Dispose();
         await RevokeAllBlobUrlsAsync();
     }
 
@@ -259,6 +260,7 @@
     private string _renameText = "";
     private bool _skipScrollHandlingOnNextEntriesChange;
     private bool _renameInputMouseDown;
+    private DateTime _renameStartedAt;
 
     // ── Render helpers using inline templates ──
 
@@ -308,7 +310,7 @@
             builder.AddAttribute(26, "class", "rename-input");
             builder.AddAttribute(27, "value", _renameText);
             builder.AddAttribute(28, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
-            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
+            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, OnRenameBlur));
             builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
             builder.AddAttribute(31, "onclick:stopPropagation", true);
             builder.AddAttribute(32, "ondblclick:stopPropagation", true);
@@ -417,7 +419,7 @@
             builder.AddAttribute(26, "class", "rename-input rename-input-grid");
             builder.AddAttribute(27, "value", _renameText);
             builder.AddAttribute(28, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
-            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, () => CommitRename()));
+            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, OnRenameBlur));
             builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
             builder.AddAttribute(31, "onclick:stopPropagation", true);
             builder.AddAttribute(32, "ondblclick:stopPropagation", true);
@@ -469,10 +471,15 @@
     private FileSystemEntry? _pendingOpenEntry;
     private System.Threading.Timer? _dblClickTimer;
     private System.Threading.Timer? _pendingOpenTimer;
+    private System.Threading.Timer? _renameTimer;
 
     private void OnEntryMouseDown(FileSystemEntry entry, MouseEventArgs e)
     {
         if (e.Button != 0 || _renamingEntry != null || _isDragging) return;
+
+        // Cancel any pending slow-click rename
+        _renameTimer?.Dispose();
+        _renameTimer = null;
 
         if (_pendingOpenEntry == entry)
         {
@@ -496,9 +503,31 @@
             // First click — start timer
             _pendingOpenEntry = entry;
             _dblClickTimer?.Dispose();
+
+            // Check if entry was already the single selected item (for slow-click rename)
+            bool wasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
+                && ViewModel.SelectedEntries.Count == 1
+                && ViewModel.SelectedEntries.Contains(entry);
+
+            var clickedEntry = entry;
             _dblClickTimer = new System.Threading.Timer(_ =>
             {
                 _pendingOpenEntry = null;
+
+                // Not a double-click. If entry was already selected, schedule rename.
+                if (wasAlreadySingleSelected && !_isDragging && _renamingEntry == null)
+                {
+                    _renameTimer = new System.Threading.Timer(_ =>
+                    {
+                        _renameTimer = null;
+                        if (!_isDragging && _renamingEntry == null
+                            && ViewModel.SelectedEntries.Count == 1
+                            && ViewModel.SelectedEntries.Contains(clickedEntry))
+                        {
+                            InvokeAsync(() => StartRename(clickedEntry));
+                        }
+                    }, null, 150, Timeout.Infinite);
+                }
             }, null, 350, Timeout.Infinite);
         }
 
@@ -538,6 +567,10 @@
 
     private async void OnContentMouseDown(MouseEventArgs e)
     {
+        // Cancel any pending slow-click rename
+        _renameTimer?.Dispose();
+        _renameTimer = null;
+
         // Defensive guard: if the mousedown originated from the rename input
         // (stopPropagation may not work reliably on all WebView platforms),
         // ignore the event to keep the rename input active.
@@ -583,6 +616,8 @@
         _dblClickTimer = null;
         _pendingOpenTimer?.Dispose();
         _pendingOpenTimer = null;
+        _renameTimer?.Dispose();
+        _renameTimer = null;
         _pendingDeselectEntry = null;
         _draggedEntry = entry;
 
@@ -663,14 +698,8 @@
     {
         _renamingEntry = entry;
         _renameInputFocused = false;
-        // Pre-select name without extension for files
-        if (entry.IsDirectory)
-            _renameText = entry.Name;
-        else
-        {
-            var ext = Path.GetExtension(entry.Name);
-            _renameText = string.IsNullOrEmpty(ext) ? entry.Name : entry.Name[..^ext.Length];
-        }
+        _renameStartedAt = DateTime.UtcNow;
+        _renameText = entry.Name;
         StateHasChanged();
     }
 
@@ -688,6 +717,21 @@
             await JSRuntime.InvokeVoidAsync("fkfinderSelection.focusAndSelect", el);
         }
         catch { }
+    }
+
+    private async Task OnRenameBlur()
+    {
+        // Guard: if blur fires within 500ms of entering rename mode, it's likely a
+        // spurious blur from the initial focus setup or a background re-render race
+        // (e.g. RefreshFromNotification replacing the Entries collection).
+        // In that case, re-focus the input instead of committing.
+        if (_renamingEntry != null && (DateTime.UtcNow - _renameStartedAt).TotalMilliseconds < 500)
+        {
+            _renameInputFocused = false;
+            StateHasChanged();
+            return;
+        }
+        await CommitRename();
     }
 
     private async Task OnRenameKeyDown(KeyboardEventArgs e)
@@ -723,10 +767,6 @@
 
             if (string.IsNullOrWhiteSpace(newName))
                 return;
-
-            // For files, preserve original extension if user didn't include one
-            if (!entry.IsDirectory && !string.IsNullOrEmpty(entry.Extension) && !newName.Contains('.'))
-                newName += entry.Extension;
 
             // Skip rename if name didn't actually change
             if (newName == entry.Name)

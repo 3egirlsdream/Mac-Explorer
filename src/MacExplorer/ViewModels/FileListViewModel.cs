@@ -1327,18 +1327,19 @@ public partial class FileListViewModel : ObservableObject
                 _navigation.CurrentPath,
                 rawEntries,
                 msg => StatusText = msg,
-                async () =>
+                async (createdName) =>
                 {
                     ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
                     await LoadDirectoryContentsAsync(forceRefresh: true);
                     // Auto-select and rename
-                    var newEntry = Entries.FirstOrDefault(e => e.Name.EndsWith("未命名文件夹"));
+                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
                     if (newEntry != null)
                     {
                         SelectedEntries.Clear();
                         SelectedEntries.Add(newEntry);
                         _fileOps.RaiseRequestRename(newEntry);
                     }
+                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
                 }
             );
         }
@@ -1356,17 +1357,19 @@ public partial class FileListViewModel : ObservableObject
                 rawEntries,
                 extension,
                 msg => StatusText = msg,
-                async () =>
+                async (createdName) =>
                 {
                     ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
                     await LoadDirectoryContentsAsync(forceRefresh: true);
-                    // Auto-select
-                    var newEntry = Entries.FirstOrDefault(e => e.Name.StartsWith("未命名"));
+                    // Auto-select and rename
+                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
                     if (newEntry != null)
                     {
                         SelectedEntries.Clear();
                         SelectedEntries.Add(newEntry);
+                        _fileOps.RaiseRequestRename(newEntry);
                     }
+                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
                 }
             );
         }

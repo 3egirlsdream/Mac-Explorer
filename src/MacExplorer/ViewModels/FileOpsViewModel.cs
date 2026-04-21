@@ -279,15 +279,14 @@ public partial class FileOpsViewModel : ObservableObject
         string currentPath,
         IReadOnlyList<FileSystemEntry> rawEntries,
         Action<string>? setStatus = null,
-        Func<Task>? refreshCallback = null)
+        Func<string, Task>? refreshCallback = null)
     {
         try
         {
             var name = GetUniqueNameInCurrentDir("未命名文件夹", isDirectory: true, rawEntries);
             var fullPath = await _fileService.CreateFolderAsync(currentPath, name);
-            _directoryChangeNotifier?.NotifyChanged([currentPath], null);
             if (refreshCallback != null)
-                await refreshCallback();
+                await refreshCallback(name);
         }
         catch (Exception ex)
         {
@@ -301,7 +300,7 @@ public partial class FileOpsViewModel : ObservableObject
         IReadOnlyList<FileSystemEntry> rawEntries,
         string? extension = null,
         Action<string>? setStatus = null,
-        Func<Task>? refreshCallback = null)
+        Func<string, Task>? refreshCallback = null)
     {
         try
         {
@@ -324,9 +323,8 @@ public partial class FileOpsViewModel : ObservableObject
                 ? await _fileService.CreateFileWithContentAsync(currentPath, name, template)
                 : await _fileService.CreateFileAsync(currentPath, name);
 
-            _directoryChangeNotifier?.NotifyChanged([currentPath], null);
             if (refreshCallback != null)
-                await refreshCallback();
+                await refreshCallback(name);
         }
         catch (Exception ex)
         {
