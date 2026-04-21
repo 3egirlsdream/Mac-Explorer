@@ -9,6 +9,13 @@ public class MacContextMenuService : IContextMenuService
     private readonly IFileService _fileService;
     private HashSet<string>? _installedApps;
 
+    private static readonly (string Label, string BundleId, string CliName, string IconSvg)[] VscodeBasedEditors =
+    [
+        ("Cursor", "com.todesktop.230313mzl4w4u92", "cursor", Icons.CodeEditor),
+        ("Kiro", "dev.kiro.desktop", "kiro", Icons.Kiro),
+        ("Qoder", "com.qoder.ide", "qoder", Icons.Qoder),
+    ];
+
     public MacContextMenuService(IApplicationLauncherService launcher, IFileService fileService)
     {
         _launcher = launcher;
@@ -75,6 +82,14 @@ public class MacContextMenuService : IContextMenuService
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(terminalPath) });
         if (IsAppInstalled("com.microsoft.VSCode"))
             actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(entry.FullPath) });
+        foreach (var editor in VscodeBasedEditors)
+        {
+            if (IsAppInstalled(editor.BundleId))
+            {
+                var e = editor;
+                actions.Add(new() { Label = $"在 {e.Label} 中打开", IconSvg = e.IconSvg, Execute = () => _launcher.OpenInEditorAsync(entry.FullPath, e.CliName, e.BundleId) });
+            }
+        }
 
         // Pin到收藏（仅文件夹）
         if (entry.IsDirectory)
@@ -102,6 +117,14 @@ public class MacContextMenuService : IContextMenuService
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(currentDirectory) });
         if (IsAppInstalled("com.microsoft.VSCode"))
             actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(currentDirectory) });
+        foreach (var editor in VscodeBasedEditors)
+        {
+            if (IsAppInstalled(editor.BundleId))
+            {
+                var e = editor;
+                actions.Add(new() { Label = $"在 {e.Label} 中打开", IconSvg = e.IconSvg, Execute = () => _launcher.OpenInEditorAsync(currentDirectory, e.CliName, e.BundleId) });
+            }
+        }
 
         actions.Add(ContextMenuAction.Separator);
 
@@ -230,6 +253,9 @@ public class MacContextMenuService : IContextMenuService
         ],
         ".html" or ".css" or ".js" or ".ts" or ".py" or ".java" or ".cs" or ".go" or ".rs" or ".swift" => [
             new() { Name = "VS Code", BundleIdentifier = "com.microsoft.VSCode", IsDefault = true },
+            new() { Name = "Cursor", BundleIdentifier = "com.todesktop.230313mzl4w4u92" },
+            new() { Name = "Kiro", BundleIdentifier = "dev.kiro.desktop" },
+            new() { Name = "Qoder", BundleIdentifier = "com.qoder.ide" },
             new() { Name = "Xcode", BundleIdentifier = "com.apple.dt.Xcode" },
         ],
         _ => []

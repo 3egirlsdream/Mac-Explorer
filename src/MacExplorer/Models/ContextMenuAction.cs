@@ -47,19 +47,22 @@ public static class Icons
     public const string SortUpDown = "M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4";
 
     // Info
-    public const string Info = "M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 16v-4M12 8h.01";
+    public const string Info = "M12 3a9 9 0 100 18 9 9 0 100-18zM12 7v6M12 17h.01";
     public const string CopyPath = "M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71";
 
     // Apps
     public const string Terminal = "M4 17l6-5-6-5M12 19h8";
-    public const string Finder = "M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM12 2v13M8.5 9.5h.01M15.5 9.5h.01M7.5 16c1.5 2 3 2.5 4.5 2.5s3-.5 4.5-2.5";
+    public const string Finder = "M12 2v14M7 10h.01M17 10h.01M5 18c2.3 2.5 4.7 3.5 7 3.5s4.7-1 7-3.5";
     public const string Search = "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z";
-    public const string VSCode = "M23.15 2.587L18.21.21a1.494 1.494 0 00-1.705.29l-6.046 5.503-3.27-2.517a.998.998 0 00-1.289.072l-1.7 1.7a.999.999 0 000 1.414l2.825 2.825-2.825 2.825a.999.999 0 000 1.414l1.7 1.7c.36.36.926.388 1.29.072l3.269-2.517 6.046 5.503a1.494 1.494 0 001.705.29l4.94-2.377A1.5 1.5 0 0024 18.41V5.59a1.5 1.5 0 00-.85-1.003zM17.5 18.5l-7-5.5 7-5.5v11z";
+    public const string VSCode = "M16.2 3.1L15.4 3.4L9.4 10L5.6 6.9L4.8 6.8L3.2 7.5L3 8L3 16L3.2 16.5L4.8 17.3L5.4 17.3L9.4 14L15.8 20.9L16.7 20.9L20.7 18.8L21 18.1L21 5.9L20.3 5L16.2 3.1zM16.5 8.2L16.5 15.8L11.9 12L16.5 8.2zM5.3 9.5L7.6 12L5.3 14.6L5.3 9.5z";
+    public const string CodeEditor = "M7 8l-4 4 4 4M17 8l4 4-4 4M14 4l-4 16";
+    public const string Kiro = "M7.09 16.76c-1.89 4.19 2.14 5.24 5.11 2.78.87 2.75 4.15.7 5.32-1.44 2.59-4.69 1.54-9.49 1.28-10.48-1.84-6.74-11.04-6.75-12.63.03-.37 1.18-.38 2.54-.59 3.93-.1.71-.18 1.16-.45 1.9-.16.43-.37.8-.71 1.45-.53.99-.3 2.91 2.42 1.91l0.25-.11h-.01zM12.55 10.56c-.76 0-.87-.91-.87-1.44 0-.48.08-.87.25-1.12.14-.22.36-.32.62-.32.26 0 .49.1.66.33.18.25.28.63.28 1.1 0 .91-.34 1.44-.92 1.44h-.01zM15.66 10.56c-.76 0-.87-.91-.87-1.44 0-.48.08-.87.25-1.12.14-.22.36-.32.62-.32.26 0 .49.1.66.33.18.25.28.63.28 1.1 0 .91-.34 1.44-.92 1.44h-.01z";
+    public const string Qoder = "M21 13.8L21 10.7L20.9 9.8L20.1 7.7L12 3.1L13.1 4.6L13.9 6.2L13.9 10.7L13.5 12.1L13.1 13.5L11.3 15.5L9.2 16.8L6.9 17.3L4.7 16.7L9.1 18.9L12.8 21L15 21L17 20.3L17.6 20L20 20.7L21 19.4zM12 3.1L10 3L8.3 3L5 5.1L3.2 8.5L3 10.5L3 13.2L4.4 16.4L12 20.7L10.5 19.1L10 17.6L10 13.1L10.1 11.9L10.7 10.6L12.1 8.6L14.3 7L16.8 6.4L18.9 6.7z";
 
     /// <summary>
     /// Returns true if the icon should be rendered with fill instead of stroke.
     /// </summary>
-    public static bool IsFillIcon(string? iconSvg) => iconSvg == VSCode || iconSvg == StarFilled || iconSvg == Pin;
+    public static bool IsFillIcon(string? iconSvg) => iconSvg == VSCode || iconSvg == StarFilled || iconSvg == Pin || iconSvg == Kiro || iconSvg == Qoder;
 
     // Add
     public const string Plus = "M12 5v14M5 12h14";

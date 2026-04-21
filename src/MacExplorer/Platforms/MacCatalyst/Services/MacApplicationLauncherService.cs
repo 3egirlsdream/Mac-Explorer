@@ -28,19 +28,22 @@ public class MacApplicationLauncherService : IApplicationLauncherService
 
     public async Task OpenInVsCodeAsync(string directoryPath)
     {
-        // Try the standard VS Code CLI path first, fall back to 'open -a'
-        var codePath = "/usr/local/bin/code";
-        if (!File.Exists(codePath))
-            codePath = "/opt/homebrew/bin/code";
+        await OpenInEditorAsync(directoryPath, "code", "com.microsoft.VSCode");
+    }
 
-        if (File.Exists(codePath))
+    public async Task OpenInEditorAsync(string path, string cliName, string bundleId)
+    {
+        var cliPath = $"/usr/local/bin/{cliName}";
+        if (!File.Exists(cliPath))
+            cliPath = $"/opt/homebrew/bin/{cliName}";
+
+        if (File.Exists(cliPath))
         {
-            await RunProcessAsync(codePath, $"\"{directoryPath}\"");
+            await RunProcessAsync(cliPath, $"\"{path}\"");
         }
         else
         {
-            // Fall back to opening via bundle identifier
-            await RunProcessAsync("open", $"-b com.microsoft.VSCode \"{directoryPath}\"");
+            await RunProcessAsync("open", $"-b {bundleId} \"{path}\"");
         }
     }
 
