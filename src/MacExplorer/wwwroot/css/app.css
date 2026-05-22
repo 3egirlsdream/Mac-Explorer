@@ -428,6 +428,55 @@ input:focus {
 }
 
 /* ═══════════════════════════════════════
+   Paste Conflict Dialog
+   ═══════════════════════════════════════ */
+
+.paste-conflict-dialog {
+    padding: 20px 24px;
+    min-width: 340px;
+    max-width: 440px;
+}
+
+.paste-conflict-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 8px;
+}
+
+.paste-conflict-message {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.paste-conflict-list {
+    margin: 8px 0;
+    padding-left: 20px;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.paste-conflict-list li {
+    margin-bottom: 2px;
+    word-break: break-all;
+}
+
+.paste-conflict-hint {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--color-text-tertiary, #999);
+}
+
+.paste-conflict-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* ═══════════════════════════════════════
    Main Content Area
    ═══════════════════════════════════════ */
 
@@ -1112,6 +1161,19 @@ input:focus {
     background: var(--color-bg-hover);
 }
 
+.file-grid-item:active {
+    background: var(--color-bg-selected);
+}
+
+.file-grid-item:focus {
+    outline: none;
+}
+
+.file-grid-item:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
 .file-grid-item.selected {
     background: var(--color-bg-selected);
     box-shadow: inset 0 0 0 1.5px var(--color-accent-medium);
@@ -1260,8 +1322,22 @@ input:focus {
     background: var(--color-bg-hover);
 }
 
+.file-list-row:active {
+    background: var(--color-bg-selected);
+}
+
+.file-list-row:focus {
+    outline: none;
+}
+
+.file-list-row:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
 .file-list-row.selected {
     background: var(--color-bg-selected);
+    box-shadow: inset 0 0 0 1.5px var(--color-accent-medium);
 }
 
 .file-list-row.selected:hover {
@@ -1885,27 +1961,75 @@ input:focus {
 }
 
 /* ═══ Inline Rename Input ═══ */
-.rename-input {
+/* ── Rename input via MTextField Plain ── */
+.rename-input.m-input {
     flex: 1;
     min-width: 60px;
     max-width: 100%;
-    height: 24px;
-    padding: 1px var(--space-2);
-    font-size: var(--font-size-body);
-    font-weight: var(--font-weight-medium);
-    font-family: var(--font-family);
-    border: 1px solid var(--color-accent);
-    border-radius: var(--radius-xs);
-    background: var(--color-bg-content);
-    color: var(--color-text-primary);
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-accent-light);
+    padding: 0 !important;
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    line-height: inherit;
+    color: inherit;
+    border-radius: 0;
+    min-height: unset;
 }
 
-.rename-input-grid {
+.rename-input .m-input__control {
+    padding: 0;
+    min-height: unset;
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    line-height: inherit;
+    color: inherit;
+}
+
+.rename-input .m-input__slot {
+    padding: 0 !important;
+    min-height: unset;
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    line-height: inherit;
+    color: inherit;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.rename-input .m-text-field__details,
+.rename-input .m-input__details {
+    display: none;
+}
+
+.rename-input .m-input__slot input {
+    height: auto;
+    padding: 0;
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    line-height: inherit;
+    color: inherit;
+    background: transparent;
+    border: none;
+    outline: none;
+    min-height: unset;
+    box-shadow: none;
+}
+
+.rename-input-grid.m-input {
+    flex: none;
     text-align: center;
     width: 84px;
     font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-family);
+    line-height: var(--line-height-tight);
+    color: var(--color-text-primary);
 }
 
 /* ═══════════════════════════════════════
@@ -2256,6 +2380,24 @@ input:focus {
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    gap: 1px;
+}
+
+.file-list-rating .star-icon {
+    width: 12px;
+    height: 12px;
+    cursor: pointer;
+    color: var(--color-text-quaternary);
+    transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.file-list-rating .star-icon.filled {
+    color: #F5A623;
+}
+
+.file-list-rating .star-icon:hover {
+    color: #F5A623;
+    transform: scale(1.2);
 }
 
 .file-grid-rating {
@@ -2264,6 +2406,22 @@ input:focus {
     justify-content: center;
     gap: 1px;
     margin-top: 2px;
+}
+
+.file-grid-rating .star-icon {
+    width: 12px;
+    height: 12px;
+    cursor: pointer;
+    color: var(--color-text-quaternary);
+    transition: color 0.12s ease;
+}
+
+.file-grid-rating .star-icon.filled {
+    color: #F5A623;
+}
+
+.file-grid-rating .star-icon:hover {
+    color: #F5A623;
 }
 
 /* ═══ Sidebar Collections ═══ */
@@ -3241,7 +3399,9 @@ html {
 
 /* ═══ External Drag-and-Drop Feedback ═══ */
 .file-list-row.external-drag-over,
-.file-grid-item.external-drag-over {
+.file-grid-item.external-drag-over,
+.file-list-row.internal-drag-over,
+.file-grid-item.internal-drag-over {
     background: rgba(0, 122, 255, 0.15);
     outline: 2px dashed var(--color-accent);
     outline-offset: -2px;

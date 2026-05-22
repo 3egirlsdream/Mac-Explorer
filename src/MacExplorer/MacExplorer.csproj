@@ -10,6 +10,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
         <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
@@ -21,12 +22,15 @@
 
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationVersion>11</ApplicationVersion>
 
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
 
         <!-- Skip strict Xcode version check (SDK 26.2 works with Xcode 26.3) -->
         <ValidateXcodeVersion>false</ValidateXcodeVersion>
+
+        <!-- Only trim SDK assemblies, preserve user/NuGet code for AOT compatibility -->
+        <MtouchLink Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst' and '$(Configuration)' == 'Release'">SdkOnly</MtouchLink>
     </PropertyGroup>
 
     <ItemGroup>
@@ -96,5 +100,20 @@
         <!-- Re-sign after Info.plist modification to avoid -54 launch error -->
         <Exec Command="codesign --force --sign - '$(_AppBundlePath)'" />
     </Target>
+
+    <!-- Rename .pkg to include build version: MacExplorer-1.0.11.pkg -->
+    <Target Name="RenamePkgWithVersion" AfterTargets="Publish" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst' and '$(Configuration)' == 'Release'">
+        <PropertyGroup>
+            <_PkgDir>$(OutputPath)publish</_PkgDir>
+            <_OldPkg>$(_PkgDir)/MacExplorer-$(ApplicationDisplayVersion).pkg</_OldPkg>
+            <_NewPkg>$(_PkgDir)/MacExplorer-$(ApplicationDisplayVersion).$(ApplicationVersion).pkg</_NewPkg>
+        </PropertyGroup>
+        <Move SourceFiles="$(_OldPkg)" DestinationFiles="$(_NewPkg)" Condition="Exists('$(_OldPkg)')" />
+        <Message Text="Package renamed: $(_NewPkg)" Importance="high" Condition="Exists('$(_NewPkg)')" />
+    </Target>
+
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst' and '$(Configuration)' == 'Debug'">
+        <CodeSignEntitlements>Platforms/MacCatalyst/Entitlements.Debug.plist</CodeSignEntitlements>
+    </PropertyGroup>
 
 </Project>

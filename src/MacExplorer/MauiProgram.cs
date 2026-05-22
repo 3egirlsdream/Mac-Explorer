@@ -28,6 +28,10 @@ public static class MauiProgram
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
             });
+        
+        #if DEBUG
+            builder.Services.AddBlazorWebViewDeveloperTools();
+        #endif
 
 #if MACCATALYST
         // 配置生命周期事件，使窗口透明
@@ -163,6 +167,10 @@ public static class MauiProgram
             new Platforms.MacCatalyst.Services.MacDragDropBridge(
                 sp.GetRequiredService<IFileService>(),
                 sp.GetRequiredService<IDirectoryChangeNotifier>()));
+        builder.Services.AddSingleton<IVolumeMonitorService>(sp =>
+            new Platforms.MacCatalyst.Services.MacVolumeMonitorService(
+                sp.GetRequiredService<IAiTagService>(),
+                sp.GetService<ILoggerFactory>()?.CreateLogger<Platforms.MacCatalyst.Services.MacVolumeMonitorService>()));
 
         // Register sub-viewmodels (Scoped so each window gets its own instance)
         builder.Services.AddScoped<NavigationViewModel>();

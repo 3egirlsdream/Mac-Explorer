@@ -174,6 +174,11 @@ window.fkfinderSelection = {
             }, 0);
         }
     },
+    selectActive: function() {
+        if (document.activeElement && document.activeElement.select) {
+            document.activeElement.select();
+        }
+    },
     blurActive: function() {
         if (document.activeElement && document.activeElement.blur) {
             document.activeElement.blur();

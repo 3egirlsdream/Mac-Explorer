@@ -39,12 +39,28 @@
     <script src="js/native-drag.js"></script>
     <script src="js/theme.js"></script>
     <script>
+        // ── Debug: log ALL drag events at JS level ──
+        (function() {
+            var events = ['dragstart','dragend','dragenter','dragover','dragleave','drop'];
+            events.forEach(function(evt) {
+                document.addEventListener(evt, function(e) {
+                    var el = e.target;
+                    var path = el && el.closest ? (el.closest('[data-path]') || {}).getAttribute('data-path') : null;
+                    console.log('[JS-Drag] ' + evt + ' target=' + (el.tagName||'?') + ' path=' + (path||'N/A') + ' isDir=' + (el.closest && el.closest('[data-is-directory="true"]') ? 'Y' : 'N'));
+                }, true);
+            });
+        })();
+
         // Enable HTML5 drag ghost for all draggable elements (Blazor doesn't set dataTransfer)
         document.addEventListener('dragstart', function(e) {
             var el = e.target.closest('[draggable="true"]');
             if (el && e.dataTransfer) {
-                e.dataTransfer.setData('text/plain', '');
+                // Always set effectAllowed to 'move' for compatibility with Mac Catalyst bridge
                 e.dataTransfer.effectAllowed = 'move';
+                // Only set text/plain if native-drag.js hasn't already set file URLs
+                if (!e.dataTransfer.types || !e.dataTransfer.types.includes('text/uri-list')) {
+                    e.dataTransfer.setData('text/plain', '');
+                }
 
                 // Inject drag count badge synchronously so WKWebView captures it in the ghost.
                 // Read count from data attribute (set at render time) to avoid timing issues
@@ -54,7 +70,12 @@
                 if (count <= 1) {
                     count = document.querySelectorAll('.file-list-row.selected, .file-grid-item.selected').length;
                 }
-                if (count > 1 && (countAttr || el.matches('.selected'))) {
+                // Fallback: use captured selection from mousedown (native-drag.js)
+                // in case Blazor hasn't re-rendered the DOM before dragstart.
+                if (count <= 1 && window.fkfinderDragCapture) {
+                    count = window.fkfinderDragCapture.getSelectedCount();
+                }
+                if (count > 1 && (countAttr || el.matches('.selected') || (window.fkfinderDragCapture && window.fkfinderDragCapture.getSelectedCount() > 1))) {
                     var badge = document.createElement('div');
                     badge.className = 'drag-count-badge';
                     badge.textContent = count;

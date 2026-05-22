@@ -2,9 +2,7 @@
 
 <div class="ai-text-search">
     <div class="ai-search-box">
-        <svg class="ai-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
+        <svg class="ai-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Search"/></svg>
         <input class="ai-search-input"
                type="text"
                placeholder="搜索图片中识别的文字..."
@@ -14,9 +12,7 @@
         @if (!string.IsNullOrEmpty(_searchQuery))
         {
             <button class="ai-search-clear" @onclick="ClearSearch">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Close"/></svg>
             </button>
         }
     </div>
@@ -24,9 +20,7 @@
     @if (_hasSearched && ViewModel.Entries.Count == 0)
     {
         <div class="ai-empty-state">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
-                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-            </svg>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.3"><path d="@Icons.Search"/></svg>
             <span class="ai-empty-text">未找到匹配结果</span>
             <span class="ai-empty-hint">试试其他关键词</span>
         </div>
@@ -53,10 +47,7 @@
     else
     {
         <div class="ai-empty-state">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-            </svg>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.3"><path d="@Icons.FileText"/></svg>
             <span class="ai-empty-text">搜索图片中的文字</span>
             <span class="ai-empty-hint">AI 从图片中识别的文字内容（OCR）均可搜索</span>
         </div>

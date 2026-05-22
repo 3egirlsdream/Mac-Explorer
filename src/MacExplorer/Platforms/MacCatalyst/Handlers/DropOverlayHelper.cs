@@ -105,6 +105,9 @@ public static class DropOverlayHelper
     /// <summary>NSWindow handle → WKWebView (weak).</summary>
     private static readonly Dictionary<IntPtr, WeakReference<WKWebView>> _windowToWebView = new();
 
+    /// <summary>Last drag location tracked during internal drag draggingUpdated calls.</summary>
+    private static CGPoint _lastDragLocation;
+
     private const nuint NSDragOperationGeneric = 4;
     private const nuint NSDragOperationNone = 0;
 
@@ -262,12 +265,25 @@ public static class DropOverlayHelper
 
     private static nuint OnDraggingEntered(IntPtr self, IntPtr sel, IntPtr draggingInfo)
     {
-        Log("draggingEntered");
+        // Accept both internal and external drags at the native level.
+        // WKWebView suppresses HTML5 dragover/drop events when a native
+        // NSDraggingSession is active, so internal drags must be handled
+        // entirely at the AppKit layer.
+        if (NativeDragDropHelper.IsInternalDragActive)
+            Log("draggingEntered: internal drag, accepting natively");
+        else
+            Log("draggingEntered: external drag");
         return NSDragOperationGeneric;
     }
 
     private static nuint OnDraggingUpdated(IntPtr self, IntPtr sel, IntPtr draggingInfo)
     {
+        // Track position for drop target resolution
+        if (NativeDragDropHelper.IsInternalDragActive)
+        {
+            var location = objc_msgSend_ret_CGPoint(draggingInfo, Selector.GetHandle("draggingLocation"));
+            _lastDragLocation = location;
+        }
         return NSDragOperationGeneric;
     }
 
@@ -278,13 +294,19 @@ public static class DropOverlayHelper
 
     private static byte OnPrepareForDragOperation(IntPtr self, IntPtr sel, IntPtr draggingInfo)
     {
-        Log("prepareForDragOperation");
+        // Accept both internal and external drags at native level
+        if (NativeDragDropHelper.IsInternalDragActive)
+            Log("prepareForDragOperation: internal drag");
+        else
+            Log("prepareForDragOperation: external drag");
         return 1; // YES
     }
 
     private static byte OnPerformDragOperation(IntPtr self, IntPtr sel, IntPtr draggingInfo)
     {
-        Log("performDragOperation: extracting files...");
+        bool isInternal = NativeDragDropHelper.IsInternalDragActive;
+        Log($"performDragOperation: isInternal={isInternal}");
+
         try
         {
             // Get dragging location for target folder resolution
@@ -294,19 +316,35 @@ public static class DropOverlayHelper
             // Find the NSWindow that owns this overlay
             var overlayWindow = objc_msgSend(self, Selector.GetHandle("window"));
 
-            // Extract file paths from pasteboard
-            var paths = ExtractFilePathsFromPasteboard(draggingInfo);
-
-            if (paths.Count > 0)
+            List<string> paths;
+            if (isInternal)
             {
-                Log($"  Extracted {paths.Count} file path(s)");
-
-                // Try to resolve target directory via JS, then notify bridge
-                ResolveTargetAndNotify(overlayWindow, self, location, paths);
+                // Use paths sent from JS dragstart (reliable, avoids pasteboard issues)
+                paths = new List<string>(NativeDragDropHelper.InternalDragPaths);
+                Log($"  Internal drag: {paths.Count} path(s) from JS");
             }
             else
             {
-                Log("  No file paths extracted from pasteboard");
+                // Extract file paths from pasteboard for external drags
+                paths = ExtractFilePathsFromPasteboard(draggingInfo);
+            }
+
+            if (paths.Count > 0)
+            {
+                Log($"  {paths.Count} file path(s) (internal={isInternal})");
+
+                if (isInternal)
+                {
+                    ResolveTargetAndHandleInternalDrop(overlayWindow, self, location, paths);
+                }
+                else
+                {
+                    ResolveTargetAndNotify(overlayWindow, self, location, paths);
+                }
+            }
+            else
+            {
+                Log("  No file paths");
             }
         }
         catch (Exception ex)
@@ -572,6 +610,82 @@ public static class DropOverlayHelper
                 var targetDir = _bridge?.GetCurrentDirectory() ?? "";
                 Log($"  Drop (no webview): {paths.Count} file(s) -> '{targetDir}'");
                 _bridge?.HandleExternalDrop(paths.ToArray(), targetDir, nsWindow);
+            });
+        }
+    }
+
+    /// <summary>
+    /// Resolves target directory via JS and calls bridge.HandleInternalDrop for
+    /// same-window drag-move operations with conflict detection support.
+    /// </summary>
+    private static void ResolveTargetAndHandleInternalDrop(
+        IntPtr nsWindow, IntPtr overlay, CGPoint location, List<string> paths)
+    {
+        WKWebView? webView = null;
+        if (nsWindow != IntPtr.Zero &&
+            _windowToWebView.TryGetValue(nsWindow, out var weakRef))
+        {
+            weakRef.TryGetTarget(out webView);
+        }
+
+        if (webView != null)
+        {
+            var bounds = objc_msgSend_ret_CGRect(overlay, Selector.GetHandle("bounds"));
+            var jsX = location.X;
+            var jsY = bounds.Height - location.Y;
+
+            var wv = webView;
+            var filePaths = paths.ToArray();
+            var targetWindowId = nsWindow.ToString();
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                string? targetDir = null;
+                try
+                {
+                    // Diagnostic: log what's at the drop point
+                    var debugResult = await wv.EvaluateJavaScriptAsync(
+                        $"typeof fkfinderNativeDrag !== 'undefined' ? fkfinderNativeDrag.debugPoint({jsX},{jsY}) : 'no fkfinderNativeDrag'");
+                    Log($"  JS debugPoint: {debugResult}");
+
+                    var result = await wv.EvaluateJavaScriptAsync(
+                        $"typeof fkfinderNativeDrag !== 'undefined' ? fkfinderNativeDrag.getDropTargetAtPoint({jsX},{jsY}) : null");
+
+                    var jsResult = result?.ToString();
+                    if (!string.IsNullOrEmpty(jsResult)
+                        && jsResult != "null"
+                        && jsResult != "<null>"
+                        && jsResult != "undefined"
+                        && jsResult != "(null)")
+                    {
+                        targetDir = jsResult;
+                        Log($"  JS resolved target dir for internal drop: {targetDir}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"  JS eval error (internal): {ex.Message}");
+                }
+
+                if (string.IsNullOrEmpty(targetDir))
+                {
+                    targetDir = _bridge?.GetCurrentDirectoryForWindow(targetWindowId);
+                    Log($"  Using current dir for internal drop, window {targetWindowId}: {targetDir ?? "(null)"}");
+                }
+
+                targetDir ??= "";
+
+                Log($"  Internal drop: {filePaths.Length} file(s) -> '{targetDir}'");
+                _bridge?.HandleInternalDrop(filePaths, targetDir, nsWindow);
+            });
+        }
+        else
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                var targetDir = _bridge?.GetCurrentDirectory() ?? "";
+                Log($"  Internal drop (no webview): {paths.Count} file(s) -> '{targetDir}'");
+                _bridge?.HandleInternalDrop(paths.ToArray(), targetDir, nsWindow);
             });
         }
     }

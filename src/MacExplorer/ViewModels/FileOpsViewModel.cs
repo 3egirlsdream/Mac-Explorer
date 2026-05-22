@@ -71,7 +71,19 @@ public partial class FileOpsViewModel : ObservableObject
         OnPropertyChanged(nameof(CutPaths));
     }
 
-    public async Task PasteAsync(string currentPath, bool isCollectionView, int? currentCollectionId)
+    public List<string> GetPasteConflicts(string currentPath)
+    {
+        if (_clipboardService == null || !_clipboardService.HasClipboardFiles) return [];
+        var entry = _clipboardService.GetClipboardEntry();
+        if (entry == null || entry.Operation != ClipboardOperation.Cut) return [];
+
+        return entry.SourcePaths
+            .Select(p => Path.GetFileName(p))
+            .Where(name => File.Exists(Path.Combine(currentPath, name)) || Directory.Exists(Path.Combine(currentPath, name)))
+            .ToList();
+    }
+
+    public async Task PasteAsync(string currentPath, bool isCollectionView, int? currentCollectionId, bool overwrite = false)
     {
         if (_clipboardService == null || !_clipboardService.HasClipboardFiles) return;
         var entry = _clipboardService.GetClipboardEntry();
@@ -84,7 +96,7 @@ public partial class FileOpsViewModel : ObservableObject
                 if (entry.Operation == ClipboardOperation.Copy)
                     await _fileService.CopyAsync(sourcePath, currentPath);
                 else
-                    await _fileService.MoveAsync(sourcePath, currentPath);
+                    await _fileService.MoveAsync(sourcePath, currentPath, overwrite);
             }
             if (entry.Operation == ClipboardOperation.Cut) { _clipboardService.Clear(); CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
 
@@ -152,11 +164,27 @@ public partial class FileOpsViewModel : ObservableObject
         }
     }
 
+    public List<string> GetMoveConflicts(IReadOnlyList<FileSystemEntry> entries, string targetDirectory)
+    {
+        var conflicts = new List<string>();
+        foreach (var entry in entries)
+        {
+            var destPath = Path.Combine(targetDirectory, entry.Name);
+            var exists = File.Exists(destPath) || Directory.Exists(destPath);
+            System.IO.File.AppendAllText("/tmp/fkfinder_drag_debug.log",
+                $"{DateTime.Now:HH:mm:ss.fff} [GetMoveConflicts] destPath={destPath}, exists={exists}\n");
+            if (exists)
+                conflicts.Add(entry.Name);
+        }
+        return conflicts;
+    }
+
     public async Task MoveEntriesAsync(
         IReadOnlyList<FileSystemEntry> entries,
         FileSystemEntry targetFolder,
         Action<string>? setStatus = null,
-        Action<string?>? setActiveTaskId = null)
+        Action<string?>? setActiveTaskId = null,
+        bool overwrite = false)
     {
         if (!targetFolder.IsDirectory) return;
 
@@ -171,7 +199,7 @@ public partial class FileOpsViewModel : ObservableObject
             try
             {
                 foreach (var path in sourcePaths)
-                    await _fileService.MoveAsync(path, targetFolder.FullPath);
+                    await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
                 _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(sourcePaths[0]) ?? "", targetFolder.FullPath], null);
             }
             catch (Exception ex)

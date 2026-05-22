@@ -1,0 +1,34 @@
+<div class="paste-conflict-dialog">
+    <div class="paste-conflict-title">目标位置已存在同名项目</div>
+    <div class="paste-conflict-message">
+        @if (ConflictNames.Count == 1)
+        {
+            <span>目标位置已存在 <strong>@ConflictNames[0]</strong>，是否替换？</span>
+            <span class="paste-conflict-hint">替换将覆盖目标位置的文件；若是文件夹，则合并内容（同名文件将被替换）。</span>
+        }
+        else
+        {
+            <span>目标位置已存在 <strong>@ConflictNames.Count</strong> 个同名项目，是否替换？</span>
+            <ul class="paste-conflict-list">
+                @foreach (var name in ConflictNames)
+                {
+                    <li>@name</li>
+                }
+            </ul>
+            <span class="paste-conflict-hint">替换将覆盖目标位置的文件；若是文件夹，则合并内容（同名文件将被替换）。</span>
+        }
+    </div>
+    <div class="paste-conflict-actions">
+        <button class="modal-btn modal-btn-cancel" @onclick="Cancel">取消</button>
+        <button class="modal-btn modal-btn-danger" @onclick="Confirm">替换</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<string> ConflictNames { get; set; } = [];
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task Confirm() => await OnConfirm.InvokeAsync();
+    private async Task Cancel() => await OnCancel.InvokeAsync();
+}

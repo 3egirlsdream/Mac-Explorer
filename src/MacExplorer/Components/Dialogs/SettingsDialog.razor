@@ -66,8 +66,8 @@
                         </div>
                     </div>
                     <label class="settings-toggle" @onclick:stopPropagation>
-                        <input type="checkbox" checked="@ViewModel.HideSystemFiles"
-                               @onchange="OnHideSystemFilesToggle" />
+                        <input type="checkbox" checked="@_hideSystemFiles"
+                               @onchange="@(e => OnFileDisplayToggle(e, v => { _hideSystemFiles = v; ViewModel.HideSystemFiles = v; }))" />
                         <span class="settings-toggle-slider"></span>
                     </label>
                 </div>
@@ -79,8 +79,8 @@
                         </div>
                     </div>
                     <label class="settings-toggle" @onclick:stopPropagation>
-                        <input type="checkbox" checked="@ViewModel.HideDotFiles"
-                               @onchange="OnHideDotFilesToggle" />
+                        <input type="checkbox" checked="@_hideDotFiles"
+                               @onchange="@(e => OnFileDisplayToggle(e, v => { _hideDotFiles = v; ViewModel.HideDotFiles = v; }))" />
                         <span class="settings-toggle-slider"></span>
                     </label>
                 </div>
@@ -92,8 +92,8 @@
                         </div>
                     </div>
                     <label class="settings-toggle" @onclick:stopPropagation>
-                        <input type="checkbox" checked="@ViewModel.HideDotFolders"
-                               @onchange="OnHideDotFoldersToggle" />
+                        <input type="checkbox" checked="@_hideDotFolders"
+                               @onchange="@(e => OnFileDisplayToggle(e, v => { _hideDotFolders = v; ViewModel.HideDotFolders = v; }))" />
                         <span class="settings-toggle-slider"></span>
                     </label>
                 </div>
@@ -234,7 +234,7 @@
                     <div class="settings-dropdown-wrapper" @onclick:stopPropagation>
                         <button class="settings-dropdown-trigger" @onclick="ToggleThemeDropdown">
                             <span>@GetThemeModeLabel(_themeMode)</span>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Down"/></svg>
                         </button>
                         @if (_showThemeDropdown)
                         {
@@ -313,6 +313,11 @@
     private bool _showAiDates = true;
     private bool _showAiTextSearch = true;
 
+    // File display state (local fields for reliable toggle rendering)
+    private bool _hideSystemFiles = true;
+    private bool _hideDotFiles = true;
+    private bool _hideDotFolders = true;
+
     // Appearance state
     private string _themeMode = "system";
     private bool _showThemeDropdown;
@@ -340,6 +345,11 @@
         _showAiDates = SettingsService.Get("sidebar_show_ai_dates", true);
         _showAiTextSearch = SettingsService.Get("sidebar_show_ai_text_search", true);
 
+        // Load file display settings
+        _hideSystemFiles = ViewModel.HideSystemFiles;
+        _hideDotFiles = ViewModel.HideDotFiles;
+        _hideDotFolders = ViewModel.HideDotFolders;
+
         // Load appearance settings
         _themeMode = SettingsService.Get("theme_mode", "system");
         _vibrancyEnabled = SettingsService.Get("vibrancy_enabled", true);
@@ -365,20 +375,11 @@
         ViewModel.IsAiAnalysisEnabled = (bool)(e.Value ?? false);
     }
 
-    // File display tab handlers
-    private void OnHideSystemFilesToggle(ChangeEventArgs e)
+    // File display tab handler
+    private void OnFileDisplayToggle(ChangeEventArgs e, Action<bool> setter)
     {
-        ViewModel.HideSystemFiles = (bool)(e.Value ?? false);
-    }
-
-    private void OnHideDotFilesToggle(ChangeEventArgs e)
-    {
-        ViewModel.HideDotFiles = (bool)(e.Value ?? false);
-    }
-
-    private void OnHideDotFoldersToggle(ChangeEventArgs e)
-    {
-        ViewModel.HideDotFolders = (bool)(e.Value ?? false);
+        var value = (bool)(e.Value ?? false);
+        setter(value);
     }
 
     // Sidebar tab handler

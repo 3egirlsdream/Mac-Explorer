@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MacExplorer.Indexing;
@@ -37,6 +38,7 @@ public partial class FileListViewModel : ObservableObject
 
     private bool _isRefreshingFromNotification;
     private FileSystemEntry? _lastClickedEntry;
+    private string? _lastClickedPath;
 
     // ── Properties that remain in coordinator ──
 
@@ -215,6 +217,7 @@ public partial class FileListViewModel : ObservableObject
         _archive.PropertyChanged += OnArchivePropertyChanged;
         _collection.PropertyChanged += OnCollectionPropertyChanged;
         _sortFilter.PropertyChanged += OnSortFilterPropertyChanged;
+        _fileOps.PropertyChanged += OnFileOpsPropertyChanged;
 
         // Load persisted user preferences
         if (_settingsService != null)
@@ -307,6 +310,14 @@ public partial class FileListViewModel : ObservableObject
                 sortedEntries => Entries = sortedEntries,
                 msg => StatusText = msg
             );
+        }
+    }
+
+    private void OnFileOpsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FileOpsViewModel.CutPaths))
+        {
+            OnPropertyChanged(nameof(CutPaths));
         }
     }
 
@@ -498,6 +509,9 @@ public partial class FileListViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenEntryAsync(FileSystemEntry entry)
     {
+        _logger?.LogDebug("[OpenEntry] Called: path={Path}, isDir={IsDir}, isVirtual={IsVirtual}, iconKey={IconKey}, isArchiveView={IsArchiveView}",
+            entry.FullPath, entry.IsDirectory, entry.IsVirtual, entry.IconKey, IsArchiveView);
+
         // Virtual AI folder: navigate into AI detail
         if (entry.IsVirtual)
         {
@@ -548,7 +562,14 @@ public partial class FileListViewModel : ObservableObject
                 await NavigateToAsync(entry.FullPath);
         }
         else if (_launcherService != null)
+        {
+            _logger?.LogDebug("[OpenEntry] Opening file via launcherService: {Path}", entry.FullPath);
             await _launcherService.OpenFileAsync(entry.FullPath);
+        }
+        else
+        {
+            _logger?.LogWarning("[OpenEntry] _launcherService is null, cannot open file");
+        }
     }
 
     // ── Archive Navigation ──
@@ -689,13 +710,34 @@ public partial class FileListViewModel : ObservableObject
 
     // ── Selection ──
 
+    private IReadOnlyList<FileSystemEntry> GetSelectableEntries() =>
+        GroupField != GroupField.None
+            ? Groups.SelectMany(g => g.Entries).ToList()
+            : Entries.ToList();
+
+    private static int FindEntryIndexByPath(IReadOnlyList<FileSystemEntry> list, string fullPath)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (string.Equals(list[i].FullPath, fullPath, StringComparison.Ordinal))
+                return i;
+        }
+        return -1;
+    }
+
+    private void SetSelectionAnchor(FileSystemEntry entry)
+    {
+        _lastClickedEntry = entry;
+        _lastClickedPath = entry.FullPath;
+    }
+
     public void SelectEntry(FileSystemEntry entry, bool cmdKey = false, bool shiftKey = false)
     {
-        if (shiftKey && _lastClickedEntry != null)
+        if (shiftKey && _lastClickedPath != null)
         {
-            var list = Entries.ToList();
-            var startIdx = list.IndexOf(_lastClickedEntry);
-            var endIdx = list.IndexOf(entry);
+            var list = GetSelectableEntries();
+            var startIdx = FindEntryIndexByPath(list, _lastClickedPath);
+            var endIdx = FindEntryIndexByPath(list, entry.FullPath);
             if (startIdx < 0 || endIdx < 0) return;
 
             if (startIdx > endIdx) (startIdx, endIdx) = (endIdx, startIdx);
@@ -714,20 +756,20 @@ public partial class FileListViewModel : ObservableObject
                 SelectedEntries.Remove(entry);
             else
                 SelectedEntries.Add(entry);
-            _lastClickedEntry = entry;
+            SetSelectionAnchor(entry);
         }
         else
         {
             SelectedEntries.Clear();
             SelectedEntries.Add(entry);
-            _lastClickedEntry = entry;
+            SetSelectionAnchor(entry);
         }
     }
 
     public void SelectAll()
     {
         SelectedEntries.Clear();
-        foreach (var entry in Entries)
+        foreach (var entry in GetSelectableEntries())
             SelectedEntries.Add(entry);
     }
 
@@ -736,12 +778,15 @@ public partial class FileListViewModel : ObservableObject
     {
         SelectedEntries.Clear();
         _lastClickedEntry = null;
+        _lastClickedPath = null;
     }
 
     // ── Context Menu ──
 
     public async Task ShowFileContextMenuAsync(FileSystemEntry entry, double x, double y)
     {
+        ActivateAppWindow();
+
         ContextMenuEntry = entry;
         ContextMenuX = x;
         ContextMenuY = y;
@@ -812,6 +857,8 @@ public partial class FileListViewModel : ObservableObject
 
     public async Task ShowBackgroundContextMenuAsync(double x, double y)
     {
+        ActivateAppWindow();
+
         ContextMenuEntry = null;
         ContextMenuX = x;
         ContextMenuY = y;
@@ -950,8 +997,11 @@ public partial class FileListViewModel : ObservableObject
                     IsQuickAction = action.IsQuickAction,
                     Execute = () =>
                     {
-                        SelectedEntries.Clear();
-                        SelectedEntries.Add(entry);
+                        if (!SelectedEntries.Contains(entry))
+                        {
+                            SelectedEntries.Clear();
+                            SelectedEntries.Add(entry);
+                        }
                         ShowDeleteConfirmDialogCommand.Execute(null);
                         return Task.CompletedTask;
                     }
@@ -998,8 +1048,8 @@ public partial class FileListViewModel : ObservableObject
                     Label = isPinned ? "取消Pin" : "Pin到收藏",
                     IconSvg = Icons.Pin,
                     Execute = isPinned
-                        ? () => _fileOps.UnpinFolderAsync(entry.FullPath)
-                        : () => _fileOps.PinFolderAsync(entry.FullPath, entry.Name)
+                        ? () => UnpinFolderAsync(entry.FullPath)
+                        : () => PinFolderAsync(entry.FullPath, entry.Name)
                 });
             }
             else
@@ -1111,7 +1161,11 @@ public partial class FileListViewModel : ObservableObject
                     IconSvg = action.IconSvg,
                     Execute = async () =>
                     {
-                        await _fileService.DeletePermanentlyAsync(entry.FullPath);
+                        var pathsToDelete = SelectedEntries.Contains(entry)
+                            ? SelectedEntries.Select(e => e.FullPath).ToList()
+                            : [entry.FullPath];
+                        foreach (var p in pathsToDelete)
+                            await _fileService.DeletePermanentlyAsync(p);
                         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
                         await LoadDirectoryContentsAsync(forceRefresh: true);
                     }
@@ -1195,17 +1249,61 @@ public partial class FileListViewModel : ObservableObject
         StatusText = $"已剪切 {SelectedEntries.Count} 项";
     }
 
+    // Paste conflict dialog state
+    [ObservableProperty]
+    private bool _isPasteConfirmDialogVisible;
+
+    public List<string> PasteConflictNames { get; private set; } = [];
+
+    // Move (drag-drop) conflict dialog state
+    [ObservableProperty]
+    private bool _isMoveConfirmDialogVisible;
+
+    public List<string> MoveConflictNames { get; private set; } = [];
+
+    private IReadOnlyList<FileSystemEntry>? _pendingMoveEntries;
+    private FileSystemEntry? _pendingMoveTarget;
+
     [RelayCommand]
     public async Task PasteAsync()
     {
         try
         {
+            var conflicts = _fileOps.GetPasteConflicts(_navigation.CurrentPath);
+            if (conflicts.Count > 0)
+            {
+                PasteConflictNames = conflicts;
+                IsPasteConfirmDialogVisible = true;
+                return;
+            }
+
             await _fileOps.PasteAsync(_navigation.CurrentPath, IsCollectionView, _navigation.CurrentCollectionId);
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = "已粘贴";
         }
         catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
+    }
+
+    [RelayCommand]
+    public async Task ConfirmPasteAsync()
+    {
+        IsPasteConfirmDialogVisible = false;
+        try
+        {
+            await _fileOps.PasteAsync(_navigation.CurrentPath, IsCollectionView, _navigation.CurrentCollectionId, overwrite: true);
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            await LoadDirectoryContentsAsync(forceRefresh: true);
+            StatusText = "已粘贴";
+        }
+        catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
+    }
+
+    [RelayCommand]
+    public void CancelPasteConfirmDialog()
+    {
+        IsPasteConfirmDialogVisible = false;
+        PasteConflictNames.Clear();
     }
 
     // Delete confirmation dialog state
@@ -1391,6 +1489,22 @@ public partial class FileListViewModel : ObservableObject
     {
         try
         {
+            System.IO.File.AppendAllText("/tmp/fkfinder_drag_debug.log",
+                $"{DateTime.Now:HH:mm:ss.fff} [MoveEntries] Called: {entries.Count} entries to {targetFolder.FullPath}, sources=[{string.Join(", ", entries.Select(e => e.Name))}]\n");
+            var conflicts = _fileOps.GetMoveConflicts(entries, targetFolder.FullPath);
+            System.IO.File.AppendAllText("/tmp/fkfinder_drag_debug.log",
+                $"{DateTime.Now:HH:mm:ss.fff} [MoveEntries] Conflicts: {conflicts.Count} ({string.Join(", ", conflicts)})\n");
+            if (conflicts.Count > 0)
+            {
+                System.IO.File.AppendAllText("/tmp/fkfinder_drag_debug.log",
+                    $"{DateTime.Now:HH:mm:ss.fff} [MoveEntries] Showing conflict dialog for: {string.Join(", ", conflicts)}\n");
+                _pendingMoveEntries = entries;
+                _pendingMoveTarget = targetFolder;
+                MoveConflictNames = conflicts;
+                IsMoveConfirmDialogVisible = true;
+                return;
+            }
+
             await _fileOps.MoveEntriesAsync(
                 entries,
                 targetFolder,
@@ -1401,6 +1515,42 @@ public partial class FileListViewModel : ObservableObject
             await LoadDirectoryContentsAsync(forceRefresh: true);
         }
         catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
+    }
+
+    [RelayCommand]
+    public async Task ConfirmMoveAsync()
+    {
+        IsMoveConfirmDialogVisible = false;
+        if (_pendingMoveEntries == null || _pendingMoveTarget == null) return;
+
+        try
+        {
+            await _fileOps.MoveEntriesAsync(
+                _pendingMoveEntries,
+                _pendingMoveTarget,
+                msg => StatusText = msg,
+                id => { },
+                overwrite: true
+            );
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            await LoadDirectoryContentsAsync(forceRefresh: true);
+            StatusText = "已移动";
+        }
+        catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
+        finally
+        {
+            _pendingMoveEntries = null;
+            _pendingMoveTarget = null;
+        }
+    }
+
+    [RelayCommand]
+    public void CancelMoveConfirmDialog()
+    {
+        IsMoveConfirmDialogVisible = false;
+        MoveConflictNames.Clear();
+        _pendingMoveEntries = null;
+        _pendingMoveTarget = null;
     }
 
     public event Action<FileSystemEntry>? RenameRequested;
@@ -1457,12 +1607,17 @@ public partial class FileListViewModel : ObservableObject
         {
             await _fileOps.RenameEntryAsync(entry, newName, IsAiView, msg => StatusText = msg);
 
-            // Update PIN folder paths
+            // Update PIN folder path only if it was already pinned
             var oldPath = entry.FullPath;
             var dir = Path.GetDirectoryName(oldPath) ?? "";
             var newPath = Path.Combine(dir, newName);
 
-            await _fileOps.PinFolderAsync(newPath, newName); // This will update if needed
+            if (await _fileOps.IsFolderPinnedAsync(oldPath))
+            {
+                await _fileOps.UnpinFolderAsync(oldPath);
+                await _fileOps.PinFolderAsync(newPath, newName);
+                await _collection.LoadPinnedFoldersAsync();
+            }
 
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
@@ -1882,6 +2037,7 @@ public partial class FileListViewModel : ObservableObject
         );
         SelectedEntries.Clear();
         _lastClickedEntry = null;
+        _lastClickedPath = null;
 
         // Restore selected entry when navigating back/forward
         if (IsRestoringNavigation)
@@ -1893,7 +2049,7 @@ public partial class FileListViewModel : ObservableObject
                 if (entry != null)
                 {
                     SelectedEntries.Add(entry);
-                    _lastClickedEntry = entry;
+                    SetSelectionAnchor(entry);
                 }
             }
         }
@@ -1906,7 +2062,7 @@ public partial class FileListViewModel : ObservableObject
             {
                 SelectedEntries.Clear();
                 SelectedEntries.Add(target);
-                _lastClickedEntry = target;
+                SetSelectionAnchor(target);
             }
             PendingSelectFileName = null;
         }
@@ -1925,6 +2081,31 @@ public partial class FileListViewModel : ObservableObject
     private static bool IsApplicationsPath(string path)
     {
         return path == "/Applications" || path.StartsWith("/Applications/", StringComparison.OrdinalIgnoreCase);
+    }
+
+#if MACCATALYST
+    [System.Runtime.InteropServices.DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr _objc_msgSend_ptr(IntPtr receiver, IntPtr selector);
+
+    [System.Runtime.InteropServices.DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void _objc_msgSend_void_bool(IntPtr receiver, IntPtr selector, bool arg);
+#endif
+
+    /// <summary>
+    /// Activates the app window so that subsequent clicks (e.g. context menu items)
+    /// are processed immediately without needing an extra focus click.
+    /// </summary>
+    private void ActivateAppWindow()
+    {
+#if MACCATALYST
+        try
+        {
+            var nsAppClass = ObjCRuntime.Class.GetHandle("NSApplication");
+            var sharedApp = _objc_msgSend_ptr(nsAppClass, ObjCRuntime.Selector.GetHandle("sharedApplication"));
+            _objc_msgSend_void_bool(sharedApp, ObjCRuntime.Selector.GetHandle("activateIgnoringOtherApps:"), true);
+        }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to activate app window (NSApplication)"); }
+#endif
     }
 }
 

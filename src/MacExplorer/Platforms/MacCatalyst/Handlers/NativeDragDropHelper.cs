@@ -32,8 +32,22 @@ public static class NativeDragDropHelper
     private static IDragDropBridge? _bridge;
     private static readonly List<FileDropMessageHandler> _jsHandlers = new();
     private static readonly List<DragStateMessageHandler> _stateHandlers = new();
+    private static readonly List<JsLogMessageHandler> _logHandlers = new();
     private static readonly Dictionary<WKWebView, IntPtr> _webViewNSWindowMap = new();
     private static IntPtr _lastDragWindow;
+
+    /// <summary>
+    /// True while an internal HTML5 drag is in progress (same-window or cross-window).
+    /// Used by DropOverlayHelper to avoid intercepting internal drags.
+    /// </summary>
+    public static bool IsInternalDragActive { get; private set; }
+
+    /// <summary>
+    /// File paths being dragged in the current internal drag session.
+    /// Set from JS dragstart via fkfinderDragState message.
+    /// Used by DropOverlayHelper.performDragOperation to avoid pasteboard extraction.
+    /// </summary>
+    public static string[] InternalDragPaths { get; private set; } = [];
 
     /// <summary>
     /// Attach to a WKWebView for both JS-based drops and drag state tracking.
@@ -52,6 +66,11 @@ public static class NativeDragDropHelper
         var stateHandler = new DragStateMessageHandler();
         _stateHandlers.Add(stateHandler);
         webView.Configuration.UserContentController.AddScriptMessageHandler(stateHandler, "fkfinderDragState");
+
+        // JS → Native log bridge (console.log doesn't work reliably in WKWebView)
+        var logHandler = new JsLogMessageHandler();
+        _logHandlers.Add(logHandler);
+        webView.Configuration.UserContentController.AddScriptMessageHandler(logHandler, "fkfinderLog");
 
         Log("AttachToWebView: native drop handled by DropOverlayHelper at AppKit level");
     }
@@ -264,9 +283,19 @@ public static class NativeDragDropHelper
             for (nuint i = 0; i < pathsArray.Count; i++)
                 paths[i] = pathsArray.GetItem<NSString>(i).ToString();
 
-            Log($"JS drop: {paths.Length} path(s) -> {targetDir}");
-            var nsWindow = message.WebView != null ? FindNSWindowForWebView(message.WebView) : IntPtr.Zero;
-            _bridge.HandleExternalDrop(paths, targetDir, nsWindow);
+            var isInternal = dict["isInternal"] as NSNumber;
+            if (isInternal?.BoolValue == true)
+            {
+                Log($"JS internal drop: {paths.Length} path(s) -> {targetDir}");
+                var nsWindow = message.WebView != null ? FindNSWindowForWebView(message.WebView) : IntPtr.Zero;
+                _bridge.HandleInternalDrop(paths, targetDir, nsWindow);
+            }
+            else
+            {
+                Log($"JS drop: {paths.Length} path(s) -> {targetDir}");
+                var nsWindow = message.WebView != null ? FindNSWindowForWebView(message.WebView) : IntPtr.Zero;
+                _bridge.HandleExternalDrop(paths, targetDir, nsWindow);
+            }
         }
     }
 
@@ -285,35 +314,48 @@ public static class NativeDragDropHelper
             var isDragStarted = started.BoolValue;
             Log($"DragState: internal drag {(isDragStarted ? "STARTED" : "ENDED")}");
 
+            IsInternalDragActive = isDragStarted;
+
             if (isDragStarted)
             {
-                // Hide only the overlay for the window that started the drag
-                // Use the webView that sent the message to find the correct window
-                var webView = message.WebView;
-                if (webView != null)
+                // Store file paths sent from JS for use in performDragOperation.
+                // This avoids relying on native pasteboard extraction, which may
+                // not work with JS-set dataTransfer in WKWebView.
+                var pathsArray = dict["paths"] as NSArray;
+                if (pathsArray != null && pathsArray.Count > 0)
                 {
-                    var nsWindow = FindNSWindowForWebView(webView);
-                    if (nsWindow != IntPtr.Zero)
-                    {
-                        DropOverlayHelper.SetOverlayHidden(nsWindow, true);
-                        _lastDragWindow = nsWindow;
-                    }
-                    else
-                    {
-                        // Fallback: hide all
-                        DropOverlayHelper.SetOverlayHiddenForAllWindows(true);
-                    }
-                }
-                else
-                {
-                    DropOverlayHelper.SetOverlayHiddenForAllWindows(true);
+                    var paths = new string[(int)pathsArray.Count];
+                    for (nuint i = 0; i < pathsArray.Count; i++)
+                        paths[i] = pathsArray.GetItem<NSString>(i).ToString();
+                    InternalDragPaths = paths;
+                    Log($"DragState: stored {paths.Length} internal drag path(s)");
                 }
             }
             else
             {
-                // Show all overlays when drag ends
-                DropOverlayHelper.SetOverlayHiddenForAllWindows(false);
+                InternalDragPaths = [];
             }
+
+            // NOTE: We do NOT hide the overlay during internal drags.
+            // WKWebView suppresses HTML5 dragover/drop events when a native
+            // NSDraggingSession is active, so internal drags must be handled
+            // entirely at the native AppKit layer via DropOverlayHelper.
+            // The overlay must remain visible to receive draggingEntered,
+            // draggingUpdated, and performDragOperation callbacks.
+        }
+    }
+
+    // ── WKScriptMessageHandler for JS → Native log bridge ──
+    // console.log output is not reliably captured in WKWebView on Mac Catalyst.
+    // This handler writes JS diagnostic messages to the native drag log file.
+
+    private class JsLogMessageHandler : NSObject, IWKScriptMessageHandler
+    {
+        public void DidReceiveScriptMessage(
+            WKUserContentController userContentController, WKScriptMessage message)
+        {
+            var msg = message.Body?.ToString() ?? "(null)";
+            Log($"[JS] {msg}");
         }
     }
 }

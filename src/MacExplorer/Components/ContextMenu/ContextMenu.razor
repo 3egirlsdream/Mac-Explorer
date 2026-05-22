@@ -2,7 +2,7 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<div class="context-menu glass-effect" @ref="_menuRef" style="@MenuPosition" @oncontextmenu:preventDefault>
+<div class="context-menu glass-effect" @ref="_menuRef" style="@MenuPosition" @oncontextmenu:preventDefault @onmousedown:stopPropagation>
     @{ var quickActions = Actions.Where(a => a.IsQuickAction).ToList(); }
     @if (quickActions.Count > 0)
     {
@@ -11,7 +11,7 @@
             {
                 <div class="context-menu-quick-item @(!qa.IsEnabled ? "disabled" : "")" @onclick="() => ExecuteAction(qa)" title="@qa.Label">
                     <span class="context-menu-quick-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@qa.IconSvg"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="@qa.IconSvg"/></svg>
                     </span>
                     <span class="context-menu-quick-label">@qa.Label</span>
                 </div>
@@ -34,14 +34,7 @@
                 <span class="context-menu-icon">
                     @if (!string.IsNullOrEmpty(action.IconSvg))
                     {
-                        @if (Icons.IsFillIcon(action.IconSvg))
-                        {
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd"><path d="@action.IconSvg"/></svg>
-                        }
-                        else
-                        {
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@action.IconSvg"/></svg>
-                        }
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@action.IconSvg"/></svg>
                     }
                 </span>
                 <span class="context-menu-label">@action.Label</span>
@@ -64,14 +57,7 @@
                                     <span class="context-menu-icon">
                                         @if (!string.IsNullOrEmpty(sub.IconSvg))
                                         {
-                                            @if (Icons.IsFillIcon(sub.IconSvg))
-                                            {
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd"><path d="@sub.IconSvg"/></svg>
-                                            }
-                                            else
-                                            {
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@sub.IconSvg"/></svg>
-                                            }
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@sub.IconSvg"/></svg>
                                         }
                                     </span>
                                     <span class="context-menu-label">@sub.Label</span>
@@ -94,14 +80,7 @@
                 <span class="context-menu-icon">
                     @if (!string.IsNullOrEmpty(action.IconSvg))
                     {
-                        @if (Icons.IsFillIcon(action.IconSvg))
-                        {
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd"><path d="@action.IconSvg"/></svg>
-                        }
-                        else
-                        {
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@action.IconSvg"/></svg>
-                        }
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@action.IconSvg"/></svg>
                     }
                 </span>
                 <span class="context-menu-label">@action.Label</span>

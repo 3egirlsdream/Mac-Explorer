@@ -42,21 +42,14 @@ public static class DockMenuHelper
         IntPtr receiver, IntPtr selector,
         IntPtr title, IntPtr action, IntPtr keyEquivalent);
 
-    // Delegate types for injected methods
-    private delegate IntPtr DockMenuFn(IntPtr self, IntPtr sel, IntPtr app);
-    private delegate void ActionFn(IntPtr self, IntPtr sel, IntPtr sender);
-
-    // Must be kept alive to prevent GC
-    private static DockMenuFn? _dockMenuFn;
-    private static ActionFn? _openNewWindowFn;
-    private static ActionFn? _navigateToFolderFn;
+    // Must be kept alive to prevent GC (function pointer stored in ObjC runtime)
 
     private static IFrequentFolderService? _frequentFolderService;
     private static Action? _openNewWindowAction;
     private static NavigationBridge? _navigationBridge;
     private static IntPtr _delegateHandle;
 
-    public static void Register(IFrequentFolderService frequentFolderService, NavigationBridge navigationBridge, Action openNewWindowAction)
+    public static unsafe void Register(IFrequentFolderService frequentFolderService, NavigationBridge navigationBridge, Action openNewWindowAction)
     {
         _frequentFolderService = frequentFolderService;
         _openNewWindowAction = openNewWindowAction;
@@ -83,24 +76,21 @@ public static class DockMenuHelper
             Log($"delegate class = {Marshal.PtrToStringAnsi(classNamePtr)}");
 
             // 1) Inject applicationDockMenu:
-            _dockMenuFn = OnApplicationDockMenu;
             class_replaceMethod(delegateClass,
                 Selector.GetHandle("applicationDockMenu:"),
-                Marshal.GetFunctionPointerForDelegate(_dockMenuFn),
+                (IntPtr)(delegate* unmanaged<IntPtr, IntPtr, IntPtr, IntPtr>)&OnApplicationDockMenu,
                 "@@:@");
 
             // 2) Inject openNewWindow: action handler
-            _openNewWindowFn = OnOpenNewWindow;
             class_addMethod(delegateClass,
                 Selector.GetHandle("openNewWindow:"),
-                Marshal.GetFunctionPointerForDelegate(_openNewWindowFn),
+                (IntPtr)(delegate* unmanaged<IntPtr, IntPtr, IntPtr, void>)&OnOpenNewWindow,
                 "v@:@");
 
             // 3) Inject navigateToFolder: action handler
-            _navigateToFolderFn = OnNavigateToFolder;
             class_addMethod(delegateClass,
                 Selector.GetHandle("navigateToFolder:"),
-                Marshal.GetFunctionPointerForDelegate(_navigateToFolderFn),
+                (IntPtr)(delegate* unmanaged<IntPtr, IntPtr, IntPtr, void>)&OnNavigateToFolder,
                 "v@:@");
 
             Log("Dock menu registered successfully");
@@ -113,12 +103,14 @@ public static class DockMenuHelper
 
     // ── Injected ObjC methods (called as C function pointers) ──
 
+    [UnmanagedCallersOnly]
     private static IntPtr OnApplicationDockMenu(IntPtr self, IntPtr sel, IntPtr app)
     {
         try { return BuildDockMenu(); }
         catch (Exception ex) { Log($"Error building menu - {ex.Message}"); return IntPtr.Zero; }
     }
 
+    [UnmanagedCallersOnly]
     private static void OnOpenNewWindow(IntPtr self, IntPtr sel, IntPtr sender)
     {
         Console.WriteLine("[MacExplorer] DockMenu: openNewWindow: action triggered!");
@@ -131,6 +123,7 @@ public static class DockMenuHelper
         });
     }
 
+    [UnmanagedCallersOnly]
     private static void OnNavigateToFolder(IntPtr self, IntPtr sel, IntPtr sender)
     {
         Console.WriteLine("[MacExplorer] DockMenu: navigateToFolder: action triggered!");

@@ -364,7 +364,7 @@ end tell");
         });
     }
 
-    public async Task MoveAsync(string sourcePath, string destinationDirectory)
+    public async Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false)
     {
         await Task.Run(() =>
         {
@@ -372,10 +372,43 @@ end tell");
             var destinationPath = Path.Combine(destinationDirectory, name);
 
             if (Directory.Exists(sourcePath))
-                Directory.Move(sourcePath, destinationPath);
+            {
+                if (overwrite && Directory.Exists(destinationPath))
+                    MergeDirectory(sourcePath, destinationPath);
+                else
+                    Directory.Move(sourcePath, destinationPath);
+            }
             else if (File.Exists(sourcePath))
+            {
+                if (overwrite && File.Exists(destinationPath))
+                    File.Delete(destinationPath);
                 File.Move(sourcePath, destinationPath);
+            }
         });
+    }
+
+    private static void MergeDirectory(string sourceDir, string destDir)
+    {
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var fileName = Path.GetFileName(file);
+            var destFile = Path.Combine(destDir, fileName);
+            if (File.Exists(destFile))
+                File.Delete(destFile);
+            File.Move(file, destFile);
+        }
+
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            var dirName = Path.GetFileName(dir);
+            var destSubDir = Path.Combine(destDir, dirName);
+            if (Directory.Exists(destSubDir))
+                MergeDirectory(dir, destSubDir);
+            else
+                Directory.Move(dir, destSubDir);
+        }
+
+        Directory.Delete(sourceDir);
     }
 
     public async Task CopyAsync(string sourcePath, string destinationDirectory)

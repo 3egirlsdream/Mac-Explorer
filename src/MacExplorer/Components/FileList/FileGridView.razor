@@ -51,7 +51,7 @@
         @if (ViewModel.Entries.Count == 0 && !ViewModel.IsLoading)
         {
             <div class="empty-state">
-                <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.3">
                     <path d="@Icons.Folder" />
                 </svg>
                 <div class="empty-state-text">@GetEmptyStateText()</div>
@@ -120,6 +120,23 @@
     [CascadingParameter] public FileListViewModel ViewModel { get; set; } = null!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
 
+#if DEBUG
+    private static readonly string DebugLogPath = "/tmp/fkfinder_drag_debug.log";
+
+    private static void DebugLog(string msg)
+    {
+        try
+        {
+            var line = $"{DateTime.Now:HH:mm:ss.fff} [FileGridView] {msg}";
+            System.IO.File.AppendAllText(DebugLogPath, line + Environment.NewLine);
+            Console.WriteLine(line);
+        }
+        catch { }
+    }
+#else
+    private static void DebugLog(string msg) { }
+#endif
+
     protected override void OnInitialized()
     {
         ViewModel.RenameRequested += OnRenameRequested;
@@ -129,8 +146,13 @@
 
     private async void OnSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
-        if (_renamingEntry != null) return;
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            if (_renamingEntry != null) return;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[FileGridView] Error in OnSelectionChanged: {ex}"); }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -241,6 +263,7 @@
         _dblClickTimer?.Dispose();
         _pendingOpenTimer?.Dispose();
         _renameTimer?.Dispose();
+        _pendingDeselectTimer?.Dispose();
         await RevokeAllBlobUrlsAsync();
     }
 
@@ -250,10 +273,14 @@
     private FileSystemEntry? _dragOverEntry;
     private bool _isDragging;
     private int _dragCount;
+    private long _lastMouseDownMs; // guards against WKWebView double-mousedown
 
     // Pending deselect: when mousedown on an already-selected entry in multi-selection,
     // defer deselection to mouseup so dragstart can cancel it.
     private FileSystemEntry? _pendingDeselectEntry;
+    // Deferred deselect timer: delays mouseup deselection so that dragstart (which fires
+    // AFTER mouseup in WKWebView) has a chance to cancel it and preserve multi-selection.
+    private System.Threading.Timer? _pendingDeselectTimer;
 
     // Inline rename state
     private FileSystemEntry? _renamingEntry;
@@ -267,6 +294,25 @@
     private bool IsDragSource(FileSystemEntry entry) =>
         _isDragging && _draggedEntries != null && _draggedEntries.Contains(entry);
 
+    private int GetDragBadgeCount(FileSystemEntry entry, bool isDragSrc)
+    {
+        // During drag, use the snapshot count so all dragged entries show the badge.
+        if (isDragSrc && _draggedEntries is { Count: > 1 })
+            return _draggedEntries.Count;
+
+        // Before dragstart: if mousedown pre-snapshot exists for this entry,
+        // keep the badge visible so WKWebView's dragstart JS can read it,
+        // even if the deferred deselect timer already cleared selection.
+        if (_draggedEntries is { Count: > 1 } && _draggedEntries.Contains(entry))
+            return _draggedEntries.Count;
+
+        // Not dragging: show badge for multi-selected entries.
+        if (ViewModel.SelectedEntries.Count > 1 && ViewModel.SelectedEntries.Contains(entry))
+            return ViewModel.SelectedEntries.Count;
+
+        return 0;
+    }
+
     private RenderFragment<FileSystemEntry> RenderListRow => (entry) => builder =>
     {
         var isSelected = ViewModel.SelectedEntries.Contains(entry);
@@ -275,8 +321,10 @@
         var isDragSrc = IsDragSource(entry);
         builder.OpenElement(0, "div");
         builder.AddAttribute(1, "class", $"file-list-row {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")} {(isDragSrc ? "dragging" : "")}");
-        if (isSelected && ViewModel.SelectedEntries.Count > 1)
-            builder.AddAttribute(2, "data-selected-count", ViewModel.SelectedEntries.Count.ToString());
+
+        var dragBadgeCount = GetDragBadgeCount(entry, isDragSrc);
+        if (dragBadgeCount > 1)
+            builder.AddAttribute(2, "data-selected-count", dragBadgeCount.ToString());
         builder.AddAttribute(3, "draggable", (_renamingEntry != entry && !entry.IsVirtual) ? "true" : "false");
         builder.AddAttribute(4, "ondragstart", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragStart(entry)));
         builder.AddAttribute(5, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
@@ -301,22 +349,28 @@
         builder.AddAttribute(21, "class", "file-list-name");
         builder.OpenElement(22, "span");
         builder.AddAttribute(23, "class", "file-list-icon");
-        builder.AddContent(24, (MarkupString)GetIconSvg(entry, 20));
+        builder.AddContent(24, (MarkupString)GetIconSvg(entry, 24));
         builder.CloseElement();
 
         if (_renamingEntry == entry)
         {
-            builder.OpenElement(25, "input");
-            builder.AddAttribute(26, "class", "rename-input");
-            builder.AddAttribute(27, "value", _renameText);
-            builder.AddAttribute(28, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
-            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, OnRenameBlur));
-            builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
-            builder.AddAttribute(31, "onclick:stopPropagation", true);
-            builder.AddAttribute(32, "ondblclick:stopPropagation", true);
-            builder.AddAttribute(33, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
-            builder.AddAttribute(34, "onmousedown:stopPropagation", true);
-            builder.AddElementReferenceCapture(35, async el => await FocusRenameInput(el));
+            builder.OpenElement(25, "div");
+            builder.AddAttribute(26, "style", "display:contents");
+            builder.AddAttribute(27, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
+            builder.AddAttribute(28, "onmousedown:stopPropagation", true);
+
+            builder.OpenComponent<Masa.Blazor.MTextField<string>>(29);
+            builder.AddAttribute(30, "Class", "rename-input");
+            builder.AddAttribute(31, "Value", _renameText);
+            builder.AddAttribute(32, "ValueChanged", EventCallback.Factory.Create<string>(this, v => { _renameText = v; }));
+            builder.AddAttribute(33, "Plain", true);
+            builder.AddAttribute(34, "Dense", true);
+            builder.AddAttribute(35, "BackgroundColor", "transparent");
+            builder.AddAttribute(36, "OnBlur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => OnRenameBlur()));
+            builder.AddAttribute(37, "OnKeyDown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
+            builder.AddComponentReferenceCapture(38, component => _ = FocusRenameTextField(component));
+            builder.CloseComponent();
+
             builder.CloseElement();
         }
         else
@@ -387,8 +441,10 @@
         var isDragSrc = IsDragSource(entry);
         builder.OpenElement(0, "div");
         builder.AddAttribute(1, "class", $"file-grid-item {(isSelected ? "selected" : "")} {(isDragOver ? "drag-over" : "")} {(isCut ? "cut" : "")} {(isDragSrc ? "dragging" : "")}");
-        if (isSelected && ViewModel.SelectedEntries.Count > 1)
-            builder.AddAttribute(2, "data-selected-count", ViewModel.SelectedEntries.Count.ToString());
+
+        var dragBadgeCount = GetDragBadgeCount(entry, isDragSrc);
+        if (dragBadgeCount > 1)
+            builder.AddAttribute(2, "data-selected-count", dragBadgeCount.ToString());
         builder.AddAttribute(3, "draggable", (_renamingEntry != entry && !entry.IsVirtual) ? "true" : "false");
         builder.AddAttribute(4, "ondragstart", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragStart(entry)));
         builder.AddAttribute(5, "ondragover", EventCallback.Factory.Create<DragEventArgs>(this, _ => OnDragOver(entry)));
@@ -410,22 +466,28 @@
 
         builder.OpenElement(20, "div");
         builder.AddAttribute(21, "class", "file-grid-icon");
-        builder.AddContent(22, (MarkupString)GetIconSvg(entry, 36));
+        builder.AddContent(22, (MarkupString)GetIconSvg(entry, 40));
         builder.CloseElement();
 
         if (_renamingEntry == entry)
         {
-            builder.OpenElement(25, "input");
-            builder.AddAttribute(26, "class", "rename-input rename-input-grid");
-            builder.AddAttribute(27, "value", _renameText);
-            builder.AddAttribute(28, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => _renameText = e.Value?.ToString() ?? ""));
-            builder.AddAttribute(29, "onblur", EventCallback.Factory.Create(this, OnRenameBlur));
-            builder.AddAttribute(30, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
-            builder.AddAttribute(31, "onclick:stopPropagation", true);
-            builder.AddAttribute(32, "ondblclick:stopPropagation", true);
-            builder.AddAttribute(33, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
-            builder.AddAttribute(34, "onmousedown:stopPropagation", true);
-            builder.AddElementReferenceCapture(35, async el => await FocusRenameInput(el));
+            builder.OpenElement(25, "div");
+            builder.AddAttribute(26, "style", "display:contents");
+            builder.AddAttribute(27, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => _renameInputMouseDown = true));
+            builder.AddAttribute(28, "onmousedown:stopPropagation", true);
+
+            builder.OpenComponent<Masa.Blazor.MTextField<string>>(29);
+            builder.AddAttribute(30, "Class", "rename-input rename-input-grid");
+            builder.AddAttribute(31, "Value", _renameText);
+            builder.AddAttribute(32, "ValueChanged", EventCallback.Factory.Create<string>(this, v => { _renameText = v; }));
+            builder.AddAttribute(33, "Plain", true);
+            builder.AddAttribute(34, "Dense", true);
+            builder.AddAttribute(35, "BackgroundColor", "transparent");
+            builder.AddAttribute(36, "OnBlur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => OnRenameBlur()));
+            builder.AddAttribute(37, "OnKeyDown", EventCallback.Factory.Create<KeyboardEventArgs>(this, async e => await OnRenameKeyDown(e)));
+            builder.AddComponentReferenceCapture(38, component => _ = FocusRenameTextField(component));
+            builder.CloseComponent();
+
             builder.CloseElement();
         }
         else
@@ -458,7 +520,10 @@
         // skip click handling — mouseup handles deselection, or dragstart cancels it.
         // This prevents WKWebView's click-before-dragstart from clearing multi-selection.
         if (_pendingDeselectEntry == entry && !e.CtrlKey && !e.MetaKey && !e.ShiftKey)
+        {
+            _pendingDeselectEntry = null;
             return;
+        }
 
         ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
 
@@ -475,7 +540,26 @@
 
     private void OnEntryMouseDown(FileSystemEntry entry, MouseEventArgs e)
     {
-        if (e.Button != 0 || _renamingEntry != null || _isDragging) return;
+        if (e.Button != 0 || _renamingEntry != null || _isDragging) {
+            if (_isDragging) DebugLog($"[DragDrop] OnEntryMouseDown SKIPPED (still dragging): entry={entry.Name}");
+            return;
+        }
+
+        // WKWebView fires mousedown twice during drag initiation (~23-50ms apart).
+        // The second event targets a different entry that is not in SelectedEntries,
+        // which would trigger SelectEntry and clear multi-selection.
+        // Block rapid-fire mousedown only when the entry is not already selected,
+        // so genuine double-clicks on the same entry still pass through.
+        var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+        if (nowMs - _lastMouseDownMs < 100)
+        {
+            if (!ViewModel.SelectedEntries.Contains(entry))
+            {
+                DebugLog($"[DragDrop] OnEntryMouseDown SKIPPED (rapid-fire on unselected, {nowMs - _lastMouseDownMs}ms): entry={entry.Name}");
+                return;
+            }
+        }
+        _lastMouseDownMs = nowMs;
 
         // Cancel any pending slow-click rename
         _renameTimer?.Dispose();
@@ -547,6 +631,11 @@
         else
         {
             _pendingDeselectEntry = null;
+            // Select the entry immediately on mousedown.
+            // During a drag, click never fires (user holds button and moves),
+            // so OnDragStart needs the selection to be set here.
+            // For normal clicks, click handler will re-select (idempotent).
+            ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
         }
     }
 
@@ -554,49 +643,68 @@
     {
         if (e.Button != 0) return;
         var pending = _pendingDeselectEntry;
-        _pendingDeselectEntry = null;
+        // NOTE: Do NOT clear _pendingDeselectEntry here — WKWebView fires click AFTER
+        // mouseup and BEFORE dragstart. The click handler needs _pendingDeselectEntry
+        // to skip deselection. It will be cleared by the timer, dragstart, or click guard.
         if (pending == entry && !_isDragging)
         {
-            // No drag happened — clear the pre-snapshot and deselect to single item.
-            _draggedEntries = null;
-            ViewModel.SelectEntry(entry, false, false);
-            if (ViewModel.IsMetadataPanelVisible)
-                ViewModel.CloseMetadataCommand.Execute(null);
+            var capturedEntry = entry;
+            _pendingDeselectTimer?.Dispose();
+            _pendingDeselectTimer = new System.Threading.Timer(_ =>
+            {
+                _pendingDeselectTimer = null;
+                _pendingDeselectEntry = null;
+                if (!_isDragging)
+                {
+                    InvokeAsync(() =>
+                    {
+                        ViewModel.SelectEntry(capturedEntry, false, false);
+                        if (ViewModel.IsMetadataPanelVisible)
+                            ViewModel.CloseMetadataCommand.Execute(null);
+                        StateHasChanged();
+                    });
+                }
+            }, null, 120, Timeout.Infinite);
         }
     }
 
     private async void OnContentMouseDown(MouseEventArgs e)
     {
-        // Cancel any pending slow-click rename
-        _renameTimer?.Dispose();
-        _renameTimer = null;
-
-        // Defensive guard: if the mousedown originated from the rename input
-        // (stopPropagation may not work reliably on all WebView platforms),
-        // ignore the event to keep the rename input active.
-        if (_renameInputMouseDown)
+        try
         {
-            _renameInputMouseDown = false;
-            return;
-        }
+            // Cancel any pending slow-click rename
+            _renameTimer?.Dispose();
+            _renameTimer = null;
 
-        if (e.Button == 0 && e.Detail == 1)
-        {
-            // Commit rename if active (instead of canceling)
-            if (_renamingEntry != null)
+            // Defensive guard: if the mousedown originated from the rename input
+            // (stopPropagation may not work reliably on all WebView platforms),
+            // ignore the event to keep the rename input active.
+            if (_renameInputMouseDown)
             {
-                await CommitRename();
+                _renameInputMouseDown = false;
                 return;
             }
 
-            // Click on blank area clears selection
-            if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey)
-                ViewModel.ClearSelection();
+            if (e.Button == 0 && e.Detail == 1)
+            {
+                // Commit rename if active (instead of canceling)
+                if (_renamingEntry != null)
+                {
+                    await CommitRename();
+                    return;
+                }
 
-            // Auto-close metadata panel when clicking blank area
-            if (ViewModel.IsMetadataPanelVisible)
-                ViewModel.CloseMetadataCommand.Execute(null);
+                // Click on blank area clears selection
+                if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey)
+                    ViewModel.ClearSelection();
+
+                // Auto-close metadata panel when clicking blank area
+                if (ViewModel.IsMetadataPanelVisible)
+                    ViewModel.CloseMetadataCommand.Execute(null);
+            }
         }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[FileGridView] Error in OnContentMouseDown: {ex}"); }
     }
 
     private async Task OpenEntry(FileSystemEntry entry)
@@ -610,6 +718,7 @@
     private void OnDragStart(FileSystemEntry entry)
     {
         if (entry.IsVirtual) return;
+        DebugLog($"[DragDrop] OnDragStart: entry={entry.Name}, isDir={entry.IsDirectory}, selectedCount={ViewModel.SelectedEntries.Count}, draggedEntriesCount={_draggedEntries?.Count}, isDragging={_isDragging}");
         _isDragging = true;
         _pendingOpenEntry = null;
         _dblClickTimer?.Dispose();
@@ -618,6 +727,8 @@
         _pendingOpenTimer = null;
         _renameTimer?.Dispose();
         _renameTimer = null;
+        _pendingDeselectTimer?.Dispose();
+        _pendingDeselectTimer = null;
         _pendingDeselectEntry = null;
         _draggedEntry = entry;
 
@@ -630,6 +741,17 @@
                 ? ViewModel.SelectedEntries.ToList()
                 : new List<FileSystemEntry> { entry };
         }
+        else
+        {
+            // Pre-snapshot is still valid, but the deferred deselect timer may have
+            // already cleared multi-selection. Restore all entries from the snapshot
+            // so they keep their "selected" highlight during drag.
+            foreach (var e in _draggedEntries)
+            {
+                if (!ViewModel.SelectedEntries.Contains(e))
+                    ViewModel.SelectedEntries.Add(e);
+            }
+        }
 
         if (!ViewModel.SelectedEntries.Contains(entry))
             ViewModel.SelectEntry(entry, false, false);
@@ -640,8 +762,17 @@
 
     private void OnDragOver(FileSystemEntry entry)
     {
+        // Debug: log unconditionally to see if dragover fires at all
+        if (_draggedEntry != null)
+        {
+            DebugLog($"[DragDrop] OnDragOver fired: entry={entry.Name}, isDir={entry.IsDirectory}, isVirtual={entry.IsVirtual}, sameRef={entry == _draggedEntry}, dragEntry={_draggedEntry?.Name}");
+        }
         if (_draggedEntry != null && entry.IsDirectory && entry != _draggedEntry && !entry.IsVirtual)
+        {
+            if (_dragOverEntry != entry)
+                DebugLog($"[DragDrop] OnDragOver ACCEPTED: target={entry.Name}");
             _dragOverEntry = entry;
+        }
     }
 
     private void OnDragLeave(FileSystemEntry entry)
@@ -652,10 +783,12 @@
 
     private async Task OnDrop(FileSystemEntry target)
     {
+        DebugLog($"[DragDrop] OnDrop ENTER: target={target.Name}, isDir={target.IsDirectory}, draggedEntry={_draggedEntry?.Name}, draggedEntriesCount={_draggedEntries?.Count}");
         _dragOverEntry = null;
         _isDragging = false;
         if (_draggedEntry == null || !target.IsDirectory || target == _draggedEntry)
         {
+            DebugLog($"[DragDrop] OnDrop EARLY RETURN: draggedEntryNull={_draggedEntry == null}, notDir={!target.IsDirectory}, sameRef={target == _draggedEntry}");
             _draggedEntry = null;
             _draggedEntries = null;
             return;
@@ -665,16 +798,25 @@
         _draggedEntry = null;
         _draggedEntries = null;
 
+        // Filter out the target itself from entries to prevent moving a folder into itself
+        entriesToMove = entriesToMove.Where(e => e != target).ToList();
+        if (entriesToMove.Count == 0) { DebugLog("[DragDrop] OnDrop: all entries filtered out"); return; }
+
+        DebugLog($"[DragDrop] OnDrop: moving {entriesToMove.Count} entries to {target.FullPath}");
         await ViewModel.MoveEntriesAsync(entriesToMove, target);
     }
 
     private void OnDragEnd()
     {
+        DebugLog($"[DragDrop] OnDragEnd: isDragging={_isDragging}, draggedEntriesCount={_draggedEntries?.Count}");
         _isDragging = false;
         _draggedEntry = null;
         _draggedEntries = null;
         _dragOverEntry = null;
         _dragCount = 0;
+        _pendingDeselectEntry = null;
+        _pendingDeselectTimer?.Dispose();
+        _pendingDeselectTimer = null;
     }
 
     private void OnContentDragOver(DragEventArgs e)
@@ -707,14 +849,18 @@
     private bool _isCommitting;
     private bool _needRestoreScrollAfterRename;
 
-    private async Task FocusRenameInput(ElementReference el)
+    private async Task FocusRenameTextField(object component)
     {
         if (_renameInputFocused) return;
         _renameInputFocused = true;
         try
         {
-            await Task.Yield();
-            await JSRuntime.InvokeVoidAsync("fkfinderSelection.focusAndSelect", el);
+            if (component is Masa.Blazor.MTextField<string> tf)
+            {
+                await Task.Yield();
+                await tf.FocusAsync();
+                await JSRuntime.InvokeVoidAsync("fkfinderSelection.selectActive");
+            }
         }
         catch { }
     }
@@ -871,26 +1017,26 @@
         // Virtual AI entry with face thumbnail: circular image
         if (entry.IsVirtual && !string.IsNullOrEmpty(entry.ThumbnailUrl))
         {
-            var displaySize = size <= 20 ? 20 : 64;
+            var displaySize = size <= 24 ? 24 : 64;
             return $@"<img src=""{entry.ThumbnailUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""ai-face-thumbnail"" />";
         }
 
         // Virtual AI entry without thumbnail: colored AI icon
         if (entry.IsVirtual)
-            return FileIconRenderer.RenderAiIcon(entry.IconKey, size <= 20 ? 20 : 36);
+            return FileIconRenderer.RenderAiIcon(entry.IconKey, size <= 24 ? 24 : 40);
 
         // Use thumbnail if available (image files resolved by ViewModel)
         if (!string.IsNullOrEmpty(entry.ThumbnailUrl))
         {
-            var cssClass = size <= 20 ? "file-list-thumbnail" : "file-grid-thumbnail";
-            var displaySize = size <= 20 ? 20 : 64;
+            var cssClass = size <= 24 ? "file-list-thumbnail" : "file-grid-thumbnail";
+            var displaySize = size <= 24 ? 24 : 64;
             return $@"<img src=""{entry.ThumbnailUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""{cssClass}"" />";
         }
 
         // Use Blob URL if available for this entry
         if (!string.IsNullOrEmpty(entry.IconUrl) && _blobUrlCache.TryGetValue(entry.IconUrl, out var blobUrl))
         {
-            var displaySize = size <= 20 ? 20 : 64;
+            var displaySize = size <= 24 ? 24 : 64;
             return $@"<img src=""{blobUrl}"" width=""{displaySize}"" height=""{displaySize}"" class=""app-icon-img"" />";
         }
 

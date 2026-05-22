@@ -100,6 +100,24 @@
                                    OnCancel="OnCollectionDeleteCancel" />
 </MDialog>
 
+<MDialog @bind-Value="_pasteConfirmVisible"
+         MaxWidth="420"
+         ContentClass="fk-dialog-glass"
+         Persistent="true">
+    <PasteConflictDialog ConflictNames="@_pasteConflictNames"
+                         OnConfirm="OnPasteConfirm"
+                         OnCancel="OnPasteCancel" />
+</MDialog>
+
+<MDialog @bind-Value="_moveConfirmVisible"
+         MaxWidth="420"
+         ContentClass="fk-dialog-glass"
+         Persistent="true">
+    <PasteConflictDialog ConflictNames="@_moveConflictNames"
+                         OnConfirm="OnMoveConfirm"
+                         OnCancel="OnMoveCancel" />
+</MDialog>
+
 <TaskPanel />
 
     @* Web Context Menu *@
@@ -127,6 +145,10 @@
     private string _deleteConfirmFirstName = "";
     private bool _collectionDeleteConfirmVisible;
     private string _collectionDeleteName = "";
+    private bool _pasteConfirmVisible;
+    private List<string> _pasteConflictNames = [];
+    private bool _moveConfirmVisible;
+    private List<string> _moveConflictNames = [];
     private BackgroundTaskInfo? _activeTask;
 #if MACCATALYST
     private IntPtr _nsWindowHandle;
@@ -149,28 +171,36 @@
 
         // Check if this new window should navigate to a pending folder path
         var pendingPath = NavigationBridge.PendingNavigationPath;
+#if DEBUG
         Console.WriteLine($"[MacExplorer] Home.OnInitialized: PendingNavigationPath='{pendingPath}'");
+#endif
 
         // Also check the static cold-start fallback from SceneDelegate
 #if MACCATALYST
         if (string.IsNullOrEmpty(pendingPath))
         {
             pendingPath = MacExplorer.SceneDelegate._coldStartPath;
+#if DEBUG
             Console.WriteLine($"[MacExplorer] Home.OnInitialized: _coldStartPath='{pendingPath}'");
+#endif
             MacExplorer.SceneDelegate._coldStartPath = null;
         }
 #endif
 
         if (!string.IsNullOrEmpty(pendingPath))
         {
+#if DEBUG
             Console.WriteLine($"[MacExplorer] Home.OnInitialized: navigating to pending path '{pendingPath}'");
+#endif
             NavigationBridge.PendingNavigationPath = null;
             _ = ViewModel.NavigateToCommand.ExecuteAsync(pendingPath);
         }
+#if DEBUG
         else
         {
             Console.WriteLine("[MacExplorer] Home.OnInitialized: no pending path");
         }
+#endif
 
         // Subscribe to ViewModel property changes to trigger re-render
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -187,12 +217,16 @@
 
     private async void OnMouseBack()
     {
-        await InvokeAsync(async () => await ViewModel.NavigateBackCommand.ExecuteAsync(null));
+        try { await InvokeAsync(async () => await ViewModel.NavigateBackCommand.ExecuteAsync(null)); }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[Home] Error in OnMouseBack: {ex}"); }
     }
 
     private async void OnMouseForward()
     {
-        await InvokeAsync(async () => await ViewModel.NavigateForwardCommand.ExecuteAsync(null));
+        try { await InvokeAsync(async () => await ViewModel.NavigateForwardCommand.ExecuteAsync(null)); }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[Home] Error in OnMouseForward: {ex}"); }
     }
 
     private async void OnThemeChanged(object? sender, MacExplorer.Services.ThemeChangedEventArgs e)
@@ -213,39 +247,49 @@
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        // Only re-render Home for properties that affect its layout
-        if (e.PropertyName is nameof(ViewModel.IsHomePage)
-            or nameof(ViewModel.IsLoading)
-            or nameof(ViewModel.CurrentPath)
-            or nameof(ViewModel.IsPreviewPaneVisible)
-            or nameof(ViewModel.IsContextMenuVisible)
-            or nameof(ViewModel.IsMetadataPanelVisible)
-            or nameof(ViewModel.SortField)
-            or nameof(ViewModel.SortAscending)
-            or nameof(ViewModel.IsCompressDialogVisible)
-            or nameof(ViewModel.ActiveTaskId)
-            or nameof(ViewModel.IsArchiveView)
-            or nameof(ViewModel.IsAiView)
-            or nameof(ViewModel.PinnedFolders)
-            or nameof(ViewModel.IsDeleteConfirmDialogVisible)
-            or nameof(ViewModel.IsCollectionDeleteConfirmDialogVisible))
+        try
         {
-            SyncDialogState();
-            await InvokeAsync(StateHasChanged);
-        }
+            // Only re-render Home for properties that affect its layout
+            if (e.PropertyName is nameof(ViewModel.IsHomePage)
+                or nameof(ViewModel.IsLoading)
+                or nameof(ViewModel.CurrentPath)
+                or nameof(ViewModel.IsPreviewPaneVisible)
+                or nameof(ViewModel.IsContextMenuVisible)
+                or nameof(ViewModel.IsMetadataPanelVisible)
+                or nameof(ViewModel.SortField)
+                or nameof(ViewModel.SortAscending)
+                or nameof(ViewModel.IsCompressDialogVisible)
+                or nameof(ViewModel.ActiveTaskId)
+                or nameof(ViewModel.IsArchiveView)
+                or nameof(ViewModel.IsAiView)
+                or nameof(ViewModel.PinnedFolders)
+                or nameof(ViewModel.IsDeleteConfirmDialogVisible)
+                or nameof(ViewModel.IsCollectionDeleteConfirmDialogVisible)
+                or nameof(ViewModel.IsPasteConfirmDialogVisible)
+                or nameof(ViewModel.IsMoveConfirmDialogVisible))
+            {
+                SyncDialogState();
+                await InvokeAsync(StateHasChanged);
+            }
 
 #if MACCATALYST
-        // Update NSWindow title so the Dock menu shows the current directory name
-        if (e.PropertyName is nameof(ViewModel.CurrentPath)
-            or nameof(ViewModel.IsHomePage)
-            or nameof(ViewModel.IsArchiveView)
-            or nameof(ViewModel.IsAiView)
-            or nameof(ViewModel.IsCollectionView)
-            or nameof(ViewModel.CurrentCollectionName))
-        {
-            UpdateNSWindowTitle();
-        }
+            // Update NSWindow title so the Dock menu shows the current directory name
+            if (e.PropertyName is nameof(ViewModel.CurrentPath)
+                or nameof(ViewModel.IsHomePage)
+                or nameof(ViewModel.IsArchiveView)
+                or nameof(ViewModel.IsAiView)
+                or nameof(ViewModel.IsCollectionView)
+                or nameof(ViewModel.CurrentCollectionName))
+            {
+                UpdateNSWindowTitle();
+            }
 #endif
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Home] Error in OnViewModelPropertyChanged: {ex}");
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -422,6 +466,30 @@
         ViewModel.CancelCollectionDeleteConfirmDialog();
     }
 
+    private async Task OnPasteConfirm()
+    {
+        _pasteConfirmVisible = false;
+        await ViewModel.ConfirmPasteAsync();
+    }
+
+    private void OnPasteCancel()
+    {
+        _pasteConfirmVisible = false;
+        ViewModel.CancelPasteConfirmDialog();
+    }
+
+    private async Task OnMoveConfirm()
+    {
+        _moveConfirmVisible = false;
+        await ViewModel.ConfirmMoveAsync();
+    }
+
+    private void OnMoveCancel()
+    {
+        _moveConfirmVisible = false;
+        ViewModel.CancelMoveConfirmDialog();
+    }
+
     private void OnMinimizeTask()
     {
         ViewModel.MinimizeActiveTask();
@@ -429,8 +497,16 @@
 
     private async void OnTasksChanged()
     {
-        SyncDialogState();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            SyncDialogState();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Home] Error in OnTasksChanged: {ex}");
+        }
     }
 
     private void SyncDialogState()
@@ -450,6 +526,12 @@
 
         _collectionDeleteConfirmVisible = ViewModel.IsCollectionDeleteConfirmDialogVisible;
         _collectionDeleteName = ViewModel.PendingDeleteCollectionName;
+
+        _pasteConfirmVisible = ViewModel.IsPasteConfirmDialogVisible;
+        _pasteConflictNames = ViewModel.PasteConflictNames;
+
+        _moveConfirmVisible = ViewModel.IsMoveConfirmDialogVisible;
+        _moveConflictNames = ViewModel.MoveConflictNames;
     }
 
 #if MACCATALYST

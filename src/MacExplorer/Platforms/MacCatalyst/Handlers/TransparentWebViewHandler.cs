@@ -14,6 +14,12 @@ public class TransparentWebViewHandler : Microsoft.AspNetCore.Components.WebView
     {
         var webView = base.CreatePlatformView();
 
+#if DEBUG
+        // Enable Safari DevTools inspection for the WKWebView
+        if (OperatingSystem.IsIOSVersionAtLeast(16, 4))
+            webView.Inspectable = true;
+#endif
+
         // Make WebView transparent so vibrancy background is visible
         webView.Opaque = false;
         webView.BackgroundColor = UIColor.Clear;

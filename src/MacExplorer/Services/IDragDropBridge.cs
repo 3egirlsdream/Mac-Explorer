@@ -40,4 +40,10 @@ public interface IDragDropBridge
     /// The nsWindow identifies which window received the drop for targeted refresh.
     /// </summary>
     void HandleExternalDrop(string[] sourcePaths, string targetDirectory, IntPtr nsWindow);
+
+    /// <summary>
+    /// Called when an internal drag-drop completes (same-window, file→folder move).
+    /// Uses ViewModel's conflict-aware move with overwrite dialog support.
+    /// </summary>
+    void HandleInternalDrop(string[] sourcePaths, string targetDirectory, IntPtr nsWindow);
 }

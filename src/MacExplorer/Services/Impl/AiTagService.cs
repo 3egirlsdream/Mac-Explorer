@@ -244,6 +244,44 @@ public class AiTagService : IAiTagService
         }
     }
 
+    public async Task DeleteAnalysisForPathPrefixAsync(string pathPrefix)
+    {
+        if (string.IsNullOrEmpty(pathPrefix)) return;
+
+        // Ensure prefix ends without trailing slash for consistent LIKE pattern
+        var prefix = pathPrefix.TrimEnd('/');
+
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            foreach (var table in new[] { "ai_tags", "face_observations", "ai_analysis_status" })
+            {
+                using var cmd = _connection.CreateCommand();
+                cmd.Transaction = transaction;
+                cmd.CommandText = $"DELETE FROM {table} WHERE file_path = @prefix OR file_path LIKE @prefix || '/%'";
+                cmd.Parameters.AddWithValue("@prefix", prefix);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // Clean up orphaned face clusters
+            using var cleanupCmd = _connection.CreateCommand();
+            cleanupCmd.Transaction = transaction;
+            cleanupCmd.CommandText = """
+                DELETE FROM face_clusters WHERE id NOT IN (
+                    SELECT DISTINCT cluster_id FROM face_observations WHERE cluster_id IS NOT NULL
+                )
+                """;
+            await cleanupCmd.ExecuteNonQueryAsync();
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
     // ── Tag queries ──
 
     public async Task<IReadOnlyList<AiTag>> GetTagsForFileAsync(string filePath)
@@ -455,17 +493,14 @@ public class AiTagService : IAiTagService
 
             foreach (var path in filePaths)
             {
-                // Remove old face tags for this cluster
                 using (var cmd = _connection.CreateCommand())
                 {
                     cmd.Transaction = transaction;
-                    cmd.CommandText = "DELETE FROM ai_tags WHERE file_path = @path AND tag_type = 'face' AND tag_value = (SELECT display_name FROM face_clusters WHERE id = @id)";
+                    cmd.CommandText = "DELETE FROM ai_tags WHERE file_path = @path AND tag_type = 'face'";
                     cmd.Parameters.AddWithValue("@path", path);
-                    cmd.Parameters.AddWithValue("@id", clusterId);
                     await cmd.ExecuteNonQueryAsync();
                 }
 
-                // Insert new face tag
                 await InsertTagAsync(path, "face", name, 1.0f, DateTime.UtcNow.Ticks, transaction);
             }
 

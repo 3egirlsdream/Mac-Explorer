@@ -5,15 +5,15 @@
     <!-- Navigation buttons group -->
     <div class="navbar-btn-group">
         <button class="toolbar-btn @(!ViewModel.CanGoBack ? "disabled" : "")" @onclick="NavigateBack" title="后退" disabled="@(!ViewModel.CanGoBack)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Back"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Back"/></svg>
         </button>
         <button class="toolbar-btn @(!ViewModel.CanGoForward ? "disabled" : "")" @onclick="NavigateForward" title="前进" disabled="@(!ViewModel.CanGoForward)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Forward"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Forward"/></svg>
         </button>
         @if (!ViewModel.IsHomePage)
         {
             <button class="toolbar-btn" @onclick="NavigateUp" title="上级目录">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Up"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Up"/></svg>
             </button>
         }
         <button class="toolbar-btn" @onclick="Refresh" title="刷新 (⌘R)">
@@ -26,7 +26,7 @@
 
     <!-- Search -->
     <div class="search-bar @(ViewModel.IsSearchMode ? "active" : "")">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Search"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Search"/></svg>
         <input type="text" placeholder="搜索..."
                @bind="searchQuery"
                @bind:event="oninput"

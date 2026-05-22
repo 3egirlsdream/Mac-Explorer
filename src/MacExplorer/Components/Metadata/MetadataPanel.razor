@@ -4,9 +4,7 @@
 {
     <div class="metadata-panel glass-effect-without-border @(_isClosing ? "panel-slide-out" : "panel-slide-in")">
         <button class="metadata-close-btn" @onclick="Close" title="关闭">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="@Icons.Close"/>
-            </svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Close"/></svg>
         </button>
 
         <div class="metadata-header">
@@ -256,7 +254,7 @@
                 <div class="metadata-section">
                     <div class="metadata-section-title metadata-all-props-toggle" @onclick="ToggleAllProperties">
                         所有属性 (@img.AllProperties.Count)
-                        <svg class="metadata-toggle-arrow @(_showAllProperties ? "expanded" : "")" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg class="metadata-toggle-arrow @(_showAllProperties ? "expanded" : "")" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                             <path d="@Icons.Forward"/>
                         </svg>
                     </div>

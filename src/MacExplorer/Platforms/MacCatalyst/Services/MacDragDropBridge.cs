@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.ViewModels;
 using ObjCRuntime;
@@ -188,6 +189,61 @@ public class MacDragDropBridge : IDragDropBridge
 
             if (moved > 0)
                 _directoryChangeNotifier.NotifyChanged(affectedDirs.ToArray());
+        });
+    }
+
+    public async void HandleInternalDrop(string[] sourcePaths, string targetDirectory, IntPtr nsWindow)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (string.IsNullOrEmpty(targetDirectory)) return;
+
+            var vm = GetActiveViewModel();
+            if (vm == null)
+            {
+                Console.WriteLine("[MacExplorer] HandleInternalDrop: no active ViewModel");
+                return;
+            }
+
+            // Build lookup of entries by full path from current ViewModel's entries
+            var entryLookup = new Dictionary<string, FileSystemEntry>();
+            foreach (var e in vm.Entries)
+            {
+                if (!string.IsNullOrEmpty(e.FullPath) && !entryLookup.ContainsKey(e.FullPath))
+                    entryLookup[e.FullPath] = e;
+            }
+
+            // Resolve source paths to FileSystemEntry objects
+            var sourceEntries = new List<FileSystemEntry>();
+            foreach (var path in sourcePaths)
+            {
+                if (entryLookup.TryGetValue(path, out var entry))
+                    sourceEntries.Add(entry);
+            }
+
+            // Resolve target to FileSystemEntry
+            if (!entryLookup.TryGetValue(targetDirectory, out var targetEntry))
+            {
+                Console.WriteLine($"[MacExplorer] HandleInternalDrop: target '{targetDirectory}' not found in entries");
+                return;
+            }
+
+            if (sourceEntries.Count == 0)
+            {
+                Console.WriteLine("[MacExplorer] HandleInternalDrop: no source entries resolved");
+                return;
+            }
+
+            // Filter out the target itself to prevent moving a folder into itself
+            sourceEntries = sourceEntries.Where(e => e != targetEntry).ToList();
+            if (sourceEntries.Count == 0) return;
+
+#if DEBUG
+            Console.WriteLine($"[MacExplorer] HandleInternalDrop: moving {sourceEntries.Count} entries to {targetDirectory}");
+#endif
+
+            // Delegate to ViewModel for conflict-aware move (supports overwrite dialog)
+            await vm.MoveEntriesAsync(sourceEntries, targetEntry);
         });
     }
 

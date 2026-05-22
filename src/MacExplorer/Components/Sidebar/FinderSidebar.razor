@@ -9,7 +9,7 @@
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#54A3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4-4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#54A3F7"><path d="@Icons.Person"/></svg>
             <span class="sidebar-item-name">@_userName</span>
         </div>
         }
@@ -17,7 +17,7 @@
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Desktop" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Desktop"))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#54A3F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#54A3F7"><path d="@Icons.Desktop"/></svg>
             <span class="sidebar-item-name">@_desktopName</span>
         </div>
         }
@@ -25,7 +25,7 @@
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Documents" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Documents"))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.FileText"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#3B82F6"><path d="@Icons.FileText"/></svg>
             <span class="sidebar-item-name">@_documentsName</span>
         </div>
         }
@@ -33,7 +33,7 @@
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Downloads" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Downloads"))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#22C55E"><path d="@Icons.Download"/></svg>
             <span class="sidebar-item-name">@_downloadsName</span>
         </div>
         }
@@ -41,7 +41,7 @@
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Pictures" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Pictures"))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8912D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#E8912D"><path d="@Icons.Image"/></svg>
             <span class="sidebar-item-name">@_picturesName</span>
         </div>
         }
@@ -49,7 +49,7 @@
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == ViewModel.HomeDirectory + "/Music" ? "active" : "")"
              @onclick="@(() => NavigateTo(ViewModel.HomeDirectory + "/Music"))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#EC4899"><path d="@Icons.Music"/></svg>
             <span class="sidebar-item-name">@_musicName</span>
         </div>
         }
@@ -57,7 +57,7 @@
         {
             <div class="sidebar-item @(ViewModel.CurrentPath == pin.FolderPath ? "active" : "")"
                  @onclick="@(() => NavigateTo(pin.FolderPath))">
-                <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Folder"/></svg>
+                <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#F59E0B"><path d="@Icons.Folder"/></svg>
                 <span class="sidebar-item-name">@pin.DisplayName</span>
                 <button class="sidebar-item-delete-btn"
                         @onclick="() => UnpinFolder(pin)"
@@ -77,15 +77,33 @@
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == "/" ? "active" : "")"
              @onclick="@(() => NavigateTo("/"))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1" width="18" height="15" rx="2.5"/><path d="M12 5.5v1.2" stroke-width="1"/><path d="M12.2 5.5c.5-.5 1.1-.4 1.4 0" stroke-width="1"/><path d="M10.5 6.8C9 7.2 9 9.5 9.5 10.8C10 12 11 11.8 12 11.5C13 11.8 14 12 14.5 10.8C15 9.5 15 7.2 13.5 6.8C13 6.5 12.5 7 12 7.2C11.5 7 11 6.5 10.5 6.8Z" stroke-width="1"/><path d="M12 16v3"/><path d="M8 19h8"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#22D3EE"><path d="@Icons.ExternalDrive"/></svg>
             <span class="sidebar-item-name">@_volumeName</span>
+        </div>
+        }
+        @foreach (var vol in _externalVolumes)
+        {
+        <div class="sidebar-item @(ViewModel.CurrentPath.StartsWith(vol.Path, StringComparison.Ordinal) ? "active" : "")"
+             @onclick="@(() => NavigateTo(vol.Path))"
+             @oncontextmenu="e => ShowVolumeContextMenu(e, vol)"
+             @oncontextmenu:preventDefault>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#F97316"><path d="@Icons.ExternalDrive"/></svg>
+            <span class="sidebar-item-name">@vol.DisplayName</span>
+            <button class="sidebar-item-delete-btn"
+                    @onclick="() => EjectVolume(vol)"
+                    @onclick:stopPropagation
+                    title="弹出">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="@Icons.Eject"/>
+                </svg>
+            </button>
         </div>
         }
         @if (_showApplications)
         {
         <div class="sidebar-item @(ViewModel.CurrentPath == "/Applications" ? "active" : "")"
              @onclick="@(() => NavigateTo("/Applications"))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818CF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M8.5 17l3.5-10 3.5 10"/><path d="M9.8 14.5h4.4"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#818CF8"><path d="@Icons.Apps"/></svg>
             <span class="sidebar-item-name">@_applicationsName</span>
         </div>
         }
@@ -93,7 +111,7 @@
         {
         <div class="sidebar-item @(IsTrashActive ? "active" : "")"
              @onclick="@(() => NavigateTo(TrashPath))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M5 5l1.5 16h11l1.5-16"/><path d="M10 8v10"/><path d="M14 8v10"/></svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#A78BFA"><path d="@Icons.Trash"/></svg>
             <span class="sidebar-item-name">@_trashName</span>
         </div>
         }
@@ -102,8 +120,8 @@
     <div class="sidebar-section">
         <div class="sidebar-section-title sidebar-section-title-collapsible" @onclick="ToggleAiCollapsed">
             AI 智能
-            <svg class="sidebar-collapse-icon @(_isAiCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 6l6 6-6 6"/>
+            <svg class="sidebar-collapse-icon @(_isAiCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <path d="@Icons.ChevronRight"/>
             </svg>
         </div>
         @if (!_isAiCollapsed)
@@ -112,10 +130,7 @@
         {
         <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.People ? "active" : "")"
              @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.People))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
-            </svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#EC4899"><path d="@Icons.People"/></svg>
             <span class="sidebar-item-name">人物</span>
         </div>
         }
@@ -123,10 +138,7 @@
         {
         <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.Categories ? "active" : "")"
              @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.Categories))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-            </svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#8B5CF6"><path d="@Icons.Grid"/></svg>
             <span class="sidebar-item-name">分类</span>
         </div>
         }
@@ -134,9 +146,7 @@
         {
         <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.Locations ? "active" : "")"
              @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.Locations))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
-            </svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#EF4444"><path d="@Icons.Location"/></svg>
             <span class="sidebar-item-name">地点</span>
         </div>
         }
@@ -144,9 +154,7 @@
         {
         <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.Dates ? "active" : "")"
              @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.Dates))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-            </svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#F59E0B"><path d="@Icons.Calendar"/></svg>
             <span class="sidebar-item-name">日期</span>
         </div>
         }
@@ -154,9 +162,7 @@
         {
         <div class="sidebar-item @(ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.TextSearch ? "active" : "")"
              @onclick="@(() => ViewModel.NavigateToAiViewAsync(AiViewMode.TextSearch))">
-            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-            </svg>
+            <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#3B82F6"><path d="@Icons.Search"/></svg>
             <span class="sidebar-item-name">文字搜索</span>
         </div>
         }
@@ -166,8 +172,8 @@
     <div class="sidebar-section">
         <div class="sidebar-section-title sidebar-section-title-collapsible" @onclick="ToggleCollectionsCollapsed">
             收藏夹
-            <svg class="sidebar-collapse-icon @(_isCollectionsCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 6l6 6-6 6"/>
+            <svg class="sidebar-collapse-icon @(_isCollectionsCollapsed ? "" : "expanded")" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <path d="@Icons.ChevronRight"/>
             </svg>
         </div>
         @if (!_isCollectionsCollapsed)
@@ -177,7 +183,7 @@
                 @if (_renamingCollection?.Id == collection.Id)
                 {
                     <div class="sidebar-item">
-                        <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.CollectionAdd"/></svg>
+                        <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#F59E0B"><path d="@Icons.CollectionAdd"/></svg>
                         <input class="sidebar-rename-input"
                                @bind="_renameCollectionText"
                                @bind:event="oninput"
@@ -192,14 +198,14 @@
                          @onclick="() => NavigateToCollection(collection)"
                          @oncontextmenu="e => ShowCollectionContextMenu(e, collection)"
                          @oncontextmenu:preventDefault>
-                        <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.CollectionAdd"/></svg>
+                        <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#F59E0B"><path d="@Icons.CollectionAdd"/></svg>
                         <span class="sidebar-item-name">@collection.Name</span>
                         <button class="sidebar-item-delete-btn"
                                 @onclick="() => RequestDeleteCollection(collection)"
                                 @onclick:stopPropagation
                                 title="删除收藏夹">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 6L6 18M6 6l12 12"/>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="@Icons.Close"/>
                             </svg>
                         </button>
                     </div>
@@ -208,7 +214,7 @@
             @if (_showNewCollectionInput)
             {
                 <div class="sidebar-item">
-                    <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.CollectionAdd"/></svg>
+                    <svg class="sidebar-item-icon" width="14" height="14" viewBox="0 0 24 24" fill="#F59E0B"><path d="@Icons.CollectionAdd"/></svg>
                     <input class="sidebar-rename-input"
                            @bind="_newCollectionName"
                            @bind:event="oninput"
@@ -218,7 +224,7 @@
                 </div>
             }
             <div class="sidebar-item" style="color: var(--color-text-quaternary);" @onclick="StartNewCollection">
-                <svg class="sidebar-item-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="@Icons.Plus"/></svg>
+                <svg class="sidebar-item-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Plus"/></svg>
                 <span class="sidebar-item-name">新建收藏夹</span>
             </div>
         }
@@ -244,6 +250,7 @@
     [Inject] private IFileService FileService { get; set; } = null!;
     [Inject] private MacExplorer.Services.ISettingsService SettingsService { get; set; } = null!;
     [Inject] private IDisplayNameService DisplayNameService { get; set; } = null!;
+    [Inject] private IVolumeMonitorService? VolumeMonitor { get; set; }
 
     private const string SettingKeyAiCollapsed = "sidebar_ai_collapsed";
     private const string SettingKeyCollectionsCollapsed = "sidebar_collections_collapsed";
@@ -278,6 +285,9 @@
     private bool _showAiDates = true;
     private bool _showAiTextSearch = true;
 
+    // External volumes
+    private IReadOnlyList<VolumeInfo> _externalVolumes = [];
+
     protected override void OnInitialized()
     {
         _isAiCollapsed = SettingsService.Get(SettingKeyAiCollapsed, false);
@@ -295,7 +305,10 @@
         _trashName = DisplayNameService.GetDisplayName(Path.Combine(home, ".Trash"));
 
         ReloadSidebarVisibility();
+        RefreshExternalVolumes();
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        if (VolumeMonitor != null)
+            VolumeMonitor.VolumesChanged += OnVolumesChanged;
     }
 
     private void ReloadSidebarVisibility()
@@ -345,6 +358,8 @@
     public void Dispose()
     {
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        if (VolumeMonitor != null)
+            VolumeMonitor.VolumesChanged -= OnVolumesChanged;
     }
 
     private string TrashPath => FileService.TrashDirectory;
@@ -460,5 +475,53 @@
             _renamingCollection = null;
             _renameCollectionText = "";
         }
+    }
+
+    // ── External volumes ──
+
+    private void RefreshExternalVolumes()
+    {
+        _externalVolumes = VolumeMonitor?.ExternalVolumes ?? [];
+    }
+
+    private async void OnVolumesChanged()
+    {
+        RefreshExternalVolumes();
+
+        // If currently browsing a removed volume, navigate home
+        if (!string.IsNullOrEmpty(ViewModel.CurrentPath)
+            && ViewModel.CurrentPath.StartsWith("/Volumes/", StringComparison.Ordinal))
+        {
+            var stillMounted = _externalVolumes.Any(v =>
+                ViewModel.CurrentPath.StartsWith(v.Path, StringComparison.Ordinal));
+            if (!stillMounted)
+            {
+                await ViewModel.NavigateToCommand.ExecuteAsync("/");
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task EjectVolume(VolumeInfo vol)
+    {
+        if (VolumeMonitor == null) return;
+        var success = await VolumeMonitor.EjectVolumeAsync(vol.Path);
+        if (!success)
+        {
+            ViewModel.StatusText = $"无法弹出「{vol.DisplayName}」，请关闭正在使用的文件后重试";
+        }
+    }
+
+    private void ShowVolumeContextMenu(MouseEventArgs e, VolumeInfo vol)
+    {
+        var actions = new List<ContextMenuAction>
+        {
+            new() { Label = $"弹出「{vol.DisplayName}」", IconSvg = Icons.Eject, Execute = () => EjectVolume(vol) },
+        };
+        ViewModel.ContextMenuX = e.ClientX;
+        ViewModel.ContextMenuY = e.ClientY;
+        ViewModel.ContextMenuActions = new System.Collections.ObjectModel.ObservableCollection<ContextMenuAction>(actions);
+        ViewModel.IsContextMenuVisible = true;
     }
 }
