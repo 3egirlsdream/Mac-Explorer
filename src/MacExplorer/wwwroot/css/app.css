@@ -1142,6 +1142,7 @@ input:focus {
     background: transparent;
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .file-grid-item {
@@ -1161,27 +1162,14 @@ input:focus {
     background: var(--color-bg-hover);
 }
 
-.file-grid-item:active {
-    background: var(--color-bg-selected);
-}
-
 .file-grid-item:focus {
     outline: none;
 }
 
-.file-grid-item:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-}
-
 .file-grid-item.selected {
     background: var(--color-bg-selected);
-    box-shadow: inset 0 0 0 1.5px var(--color-accent-medium);
 }
 
-.file-grid-item.selected:hover {
-    background: var(--color-bg-selected-hover);
-}
 
 .file-grid-item.drag-over {
     background: var(--color-bg-selected);
@@ -1238,9 +1226,6 @@ input:focus {
     color: var(--color-text-primary);
 }
 
-.file-grid-item.selected .file-grid-name {
-    color: var(--color-accent);
-}
 
 /* ═══ List View ═══ */
 .file-list {
@@ -1249,6 +1234,7 @@ input:focus {
     background: transparent;
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .file-list-header {
@@ -1322,27 +1308,16 @@ input:focus {
     background: var(--color-bg-hover);
 }
 
-.file-list-row:active {
-    background: var(--color-bg-selected);
-}
 
 .file-list-row:focus {
     outline: none;
 }
 
-.file-list-row:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-}
 
 .file-list-row.selected {
     background: var(--color-bg-selected);
-    box-shadow: inset 0 0 0 1.5px var(--color-accent-medium);
 }
 
-.file-list-row.selected:hover {
-    background: var(--color-bg-selected-hover);
-}
 
 .file-list-row.drag-over {
     background: var(--color-bg-selected);

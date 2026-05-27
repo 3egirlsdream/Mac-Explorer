@@ -1,5 +1,6 @@
 using MacExplorer.Models;
 using MacExplorer.Services;
+using UIKit;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
@@ -8,6 +9,7 @@ public class MacContextMenuService : IContextMenuService
     private readonly IApplicationLauncherService _launcher;
     private readonly IFileService _fileService;
     private HashSet<string>? _installedApps;
+    private readonly Task<HashSet<string>> _installedAppsTask;
 
     private static readonly (string Label, string BundleId, string CliName, string IconSvg)[] VscodeBasedEditors =
     [
@@ -20,6 +22,7 @@ public class MacContextMenuService : IContextMenuService
     {
         _launcher = launcher;
         _fileService = fileService;
+        _installedAppsTask = Task.Run(ScanInstalledApps);
     }
 
     public async Task<IReadOnlyList<ContextMenuAction>> GetFileContextMenuActionsAsync(FileSystemEntry entry)
@@ -169,8 +172,16 @@ public class MacContextMenuService : IContextMenuService
 
     public bool IsAppInstalled(string bundleIdentifier)
     {
-        _installedApps ??= ScanInstalledApps();
-        return _installedApps.Contains(bundleIdentifier);
+        if (_installedApps != null)
+            return _installedApps.Contains(bundleIdentifier);
+
+        if (_installedAppsTask.IsCompletedSuccessfully)
+        {
+            _installedApps = _installedAppsTask.Result;
+            return _installedApps.Contains(bundleIdentifier);
+        }
+
+        return false;
     }
 
     private static HashSet<string> ScanInstalledApps()
@@ -210,28 +221,13 @@ public class MacContextMenuService : IContextMenuService
         catch { return null; }
     }
 
-    private static async Task CopyToClipboard(string text)
+    private static Task CopyToClipboard(string text)
     {
-        await Task.Run(() =>
+        MainThread.BeginInvokeOnMainThread(() =>
         {
-            try
-            {
-                var process = new System.Diagnostics.Process
-                {
-                    StartInfo = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "pbcopy",
-                        RedirectStandardInput = true,
-                        UseShellExecute = false
-                    }
-                };
-                process.Start();
-                process.StandardInput.Write(text);
-                process.StandardInput.Close();
-                process.WaitForExit();
-            }
-            catch { }
+            UIPasteboard.General.String = text;
         });
+        return Task.CompletedTask;
     }
 
     private static List<RegisteredApp> GetKnownAppsForExtension(string ext) => ext switch

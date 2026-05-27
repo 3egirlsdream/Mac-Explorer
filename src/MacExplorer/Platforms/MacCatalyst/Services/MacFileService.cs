@@ -43,51 +43,26 @@ public class MacFileService : IFileService
                 if (!Directory.Exists(path))
                     return entries;
 
-                // Use safe enumeration with exception handling per item
-                try
+                // Single enumeration: GetFileSystemEntries avoids the directory/file seek gap
+                var allPaths = Directory.GetFileSystemEntries(path);
+                foreach (var entryPath in allPaths)
                 {
-                    foreach (var dirPath in Directory.EnumerateDirectories(path))
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        try
-                        {
-                            var dirInfo = new DirectoryInfo(dirPath);
-                            entries.Add(CreateEntryFromDirectoryInfo(dirInfo));
-                        }
-                        catch (UnauthorizedAccessException)
-                        {
-                            var name = Path.GetFileName(dirPath);
-                            entries.Add(CreateInaccessibleEntry(dirPath, name, isDirectory: true));
-                        }
+                        var attrs = File.GetAttributes(entryPath);
+                        var isDir = attrs.HasFlag(FileAttributes.Directory);
+                        if (isDir)
+                            entries.Add(CreateEntryFromDirectoryPath(entryPath, attrs));
+                        else
+                            entries.Add(CreateEntryFromFilePath(entryPath, attrs));
                     }
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // Partial directory listing - continue with what we have
-                }
-
-                try
-                {
-                    foreach (var filePath in Directory.EnumerateFiles(path))
+                    catch (UnauthorizedAccessException)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        try
-                        {
-                            var fileInfo = new FileInfo(filePath);
-                            entries.Add(CreateEntryFromFileInfo(fileInfo));
-                        }
-                        catch (UnauthorizedAccessException)
-                        {
-                            var name = Path.GetFileName(filePath);
-                            entries.Add(CreateInaccessibleEntry(filePath, name, isDirectory: false));
-                        }
+                        var name = Path.GetFileName(entryPath);
+                        entries.Add(CreateInaccessibleEntry(entryPath, name, isDirectory: false));
                     }
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // Partial file listing - continue with what we have
                 }
 
                 // Merge /System/Applications counterpart when browsing under /Applications
@@ -98,25 +73,18 @@ public class MacFileService : IFileService
                     {
                         try
                         {
-                            foreach (var dirPath in Directory.EnumerateDirectories(systemPath))
+                            foreach (var entryPath in Directory.GetFileSystemEntries(systemPath))
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
                                 try
                                 {
-                                    var dirInfo = new DirectoryInfo(dirPath);
-                                    if (!entries.Any(e => e.Name == dirInfo.Name))
-                                        entries.Add(CreateEntryFromDirectoryInfo(dirInfo));
-                                }
-                                catch { }
-                            }
-                            foreach (var filePath in Directory.EnumerateFiles(systemPath))
-                            {
-                                cancellationToken.ThrowIfCancellationRequested();
-                                try
-                                {
-                                    var fileInfo = new FileInfo(filePath);
-                                    if (!fileInfo.Name.StartsWith('.') && !entries.Any(e => e.Name == fileInfo.Name))
-                                        entries.Add(CreateEntryFromFileInfo(fileInfo));
+                                    var attrs = File.GetAttributes(entryPath);
+                                    var name = Path.GetFileName(entryPath);
+                                    if (name.StartsWith('.') || entries.Any(e => e.Name == name)) continue;
+                                    var isDir = attrs.HasFlag(FileAttributes.Directory);
+                                    entries.Add(isDir
+                                        ? CreateEntryFromDirectoryPath(entryPath, attrs)
+                                        : CreateEntryFromFilePath(entryPath, attrs));
                                 }
                                 catch { }
                             }
@@ -460,6 +428,54 @@ end tell");
         catch { }
 
         return volumes;
+    }
+
+    private FileSystemEntry CreateEntryFromDirectoryPath(string fullPath, FileAttributes attrs)
+    {
+        var name = Path.GetFileName(fullPath);
+        var ext = Path.GetExtension(name);
+        var bundleIconKey = Indexing.SqliteFileIndex.ResolveBundleIconKey(ext);
+
+        if (bundleIconKey == "folder" && IsKnownLibraryBundle(name))
+            bundleIconKey = "app-bundle";
+
+        return new FileSystemEntry
+        {
+            FullPath = fullPath,
+            Name = name,
+            IsDirectory = true,
+            Size = 0,
+            LastModified = File.GetLastWriteTime(fullPath),
+            Created = File.GetCreationTime(fullPath),
+            Extension = ext,
+            IsHidden = name.StartsWith('.'),
+            IsSymbolicLink = attrs.HasFlag(FileAttributes.ReparsePoint),
+            IsReadable = true,
+            IsWritable = !attrs.HasFlag(FileAttributes.ReadOnly),
+            IconKey = bundleIconKey,
+        };
+    }
+
+    private FileSystemEntry CreateEntryFromFilePath(string fullPath, FileAttributes attrs)
+    {
+        var name = Path.GetFileName(fullPath);
+        var ext = Path.GetExtension(name).ToLowerInvariant();
+
+        return new FileSystemEntry
+        {
+            FullPath = fullPath,
+            Name = name,
+            IsDirectory = false,
+            Size = new FileInfo(fullPath).Length,
+            LastModified = File.GetLastWriteTime(fullPath),
+            Created = File.GetCreationTime(fullPath),
+            Extension = ext,
+            IsHidden = name.StartsWith('.'),
+            IsSymbolicLink = attrs.HasFlag(FileAttributes.ReparsePoint),
+            IsReadable = true,
+            IsWritable = !attrs.HasFlag(FileAttributes.ReadOnly),
+            IconKey = GetIconKeyForExtension(ext)
+        };
     }
 
     private FileSystemEntry CreateEntryFromDirectoryInfo(DirectoryInfo dir)

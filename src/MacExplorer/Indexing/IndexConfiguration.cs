@@ -22,7 +22,7 @@ public class IndexConfiguration
     /// <summary>
     /// How long a directory listing is considered "fresh" before re-scanning.
     /// </summary>
-    public TimeSpan FreshnessThreshold { get; set; } = TimeSpan.FromSeconds(5);
+    public TimeSpan FreshnessThreshold { get; set; } = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// Database file path.

@@ -48,6 +48,8 @@ public partial class FileListViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<FileSystemEntry> _selectedEntries = [];
 
+    private readonly HashSet<FileSystemEntry> _selectedEntriesSet = [];
+
     [ObservableProperty]
     private bool _isLoading;
 
@@ -210,6 +212,17 @@ public partial class FileListViewModel : ObservableObject
 
         // Wire up RenameRequested event from FileOps
         _fileOps.RequestRename += OnFileOpsRenameRequested;
+
+        // Keep a HashSet mirror of SelectedEntries for O(1) lookups during render
+        SelectedEntries.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems != null)
+                foreach (FileSystemEntry item in e.NewItems) _selectedEntriesSet.Add(item);
+            if (e.OldItems != null)
+                foreach (FileSystemEntry item in e.OldItems) _selectedEntriesSet.Remove(item);
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+                _selectedEntriesSet.Clear();
+        };
 
         // Wire up PropertyChanged events from sub-viewmodels to forward notifications
         _navigation.PropertyChanged += OnNavigationPropertyChanged;
@@ -731,6 +744,8 @@ public partial class FileListViewModel : ObservableObject
         _lastClickedPath = entry.FullPath;
     }
 
+    public bool IsEntrySelected(FileSystemEntry entry) => _selectedEntriesSet.Contains(entry);
+
     public void SelectEntry(FileSystemEntry entry, bool cmdKey = false, bool shiftKey = false)
     {
         if (shiftKey && _lastClickedPath != null)
@@ -760,8 +775,20 @@ public partial class FileListViewModel : ObservableObject
         }
         else
         {
-            SelectedEntries.Clear();
-            SelectedEntries.Add(entry);
+            if (SelectedEntries.Count == 1 && SelectedEntries[0] == entry)
+                return;
+
+            // Use Replace (single event) instead of Clear+Add (two events) to avoid
+            // an intermediate render frame with no selection visible.
+            if (SelectedEntries.Count == 1)
+            {
+                SelectedEntries[0] = entry;
+            }
+            else
+            {
+                SelectedEntries.Clear();
+                SelectedEntries.Add(entry);
+            }
             SetSelectionAnchor(entry);
         }
     }
@@ -785,7 +812,7 @@ public partial class FileListViewModel : ObservableObject
 
     public async Task ShowFileContextMenuAsync(FileSystemEntry entry, double x, double y)
     {
-        ActivateAppWindow();
+        _ = Task.Run(ActivateAppWindow);
 
         ContextMenuEntry = entry;
         ContextMenuX = x;
@@ -843,7 +870,6 @@ public partial class FileListViewModel : ObservableObject
 
         if (_nativeContextMenuService != null)
         {
-            await Task.Delay(50);
             var actions = ContextMenuActions;
             var menuX = x;
             var menuY = y;
@@ -857,7 +883,7 @@ public partial class FileListViewModel : ObservableObject
 
     public async Task ShowBackgroundContextMenuAsync(double x, double y)
     {
-        ActivateAppWindow();
+        _ = Task.Run(ActivateAppWindow);
 
         ContextMenuEntry = null;
         ContextMenuX = x;
@@ -899,7 +925,6 @@ public partial class FileListViewModel : ObservableObject
 
         if (_nativeContextMenuService != null)
         {
-            await Task.Delay(50);
             var actions = ContextMenuActions;
             var menuX = x;
             var menuY = y;
@@ -1997,15 +2022,16 @@ public partial class FileListViewModel : ObservableObject
             const int batchSize = 20;
             for (int i = 0; i < imageEntries.Count; i += batchSize)
             {
-                var batch = imageEntries.Skip(i).Take(batchSize);
-                foreach (var entry in batch)
+                var batch = imageEntries.Skip(i).Take(batchSize).ToList();
+                var tasks = batch.Select(async entry =>
                 {
                     var bytes = await _thumbnailService.GetThumbnailAsync(entry.FullPath, 128);
                     if (bytes != null)
                     {
                         entry.ThumbnailUrl = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
                     }
-                }
+                });
+                await Task.WhenAll(tasks);
                 OnPropertyChanged(nameof(Entries));
             }
         }
