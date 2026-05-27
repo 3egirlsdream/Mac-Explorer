@@ -1116,8 +1116,7 @@ input:focus {
 
 .file-content-scroll {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     position: relative;
 }
 
@@ -1141,8 +1140,17 @@ input:focus {
     align-content: start;
     background: transparent;
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+}
+
+.file-grid-row {
+    display: flex;
+    gap: var(--space-3);
+    height: 100px;
+}
+
+.file-grid-row > .file-grid-item {
+    flex: 1;
+    min-width: 0;
 }
 
 .file-grid-item {
@@ -1233,8 +1241,6 @@ input:focus {
     flex-direction: column;
     background: transparent;
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
 }
 
 .file-list-header {
