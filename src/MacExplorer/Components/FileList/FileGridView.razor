@@ -260,8 +260,8 @@
         ViewModel.RenameRequested -= OnRenameRequested;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
+        _mousedownDebounceTimer?.Dispose();
         _renameTimer?.Dispose();
-        _pendingDeselectTimer?.Dispose();
         await RevokeAllBlobUrlsAsync();
     }
 
