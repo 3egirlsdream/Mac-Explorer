@@ -260,8 +260,6 @@
         ViewModel.RenameRequested -= OnRenameRequested;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
-        _dblClickTimer?.Dispose();
-        _pendingOpenTimer?.Dispose();
         _renameTimer?.Dispose();
         _pendingDeselectTimer?.Dispose();
         await RevokeAllBlobUrlsAsync();
@@ -273,14 +271,6 @@
     private FileSystemEntry? _dragOverEntry;
     private bool _isDragging;
     private int _dragCount;
-    private long _lastMouseDownMs; // guards against WKWebView double-mousedown
-
-    // Pending deselect: when mousedown on an already-selected entry in multi-selection,
-    // defer deselection to mouseup so dragstart can cancel it.
-    private FileSystemEntry? _pendingDeselectEntry;
-    // Deferred deselect timer: delays mouseup deselection so that dragstart (which fires
-    // AFTER mouseup in WKWebView) has a chance to cancel it and preserve multi-selection.
-    private System.Threading.Timer? _pendingDeselectTimer;
 
     // Inline rename state
     private FileSystemEntry? _renamingEntry;
@@ -288,6 +278,25 @@
     private bool _skipScrollHandlingOnNextEntriesChange;
     private bool _renameInputMouseDown;
     private DateTime _renameStartedAt;
+
+    // ── Mousedown debounce state ──
+    // WKWebView fires 2-3 mousedown events per physical click (~23-50ms apart).
+    // Debounce consolidates them: capture state on each mousedown, reset a 100ms timer,
+    // and process only after silence.
+    private System.Threading.Timer? _mousedownDebounceTimer;
+    private FileSystemEntry? _capturedMouseDownEntry;
+    private bool _capturedWasAlreadySingleSelected;
+    private bool _capturedCtrlKey;
+    private bool _capturedMetaKey;
+    private bool _capturedShiftKey;
+
+    // ── Double-click & slow-click rename state ──
+    // Double-click: same entry clicked twice within [150ms, 500ms).
+    // 150ms lower bound = 100ms debounce + 50ms safety margin.
+    private System.Threading.Timer? _renameTimer;
+    private FileSystemEntry? _lastRenameTarget;
+    private FileSystemEntry? _lastClickTarget;
+    private long _lastClickTimeMs;
 
     // ── Render helpers using inline templates ──
 
@@ -307,7 +316,7 @@
             return _draggedEntries.Count;
 
         // Not dragging: show badge for multi-selected entries.
-        if (ViewModel.SelectedEntries.Count > 1 && ViewModel.SelectedEntries.Contains(entry))
+        if (ViewModel.SelectedEntries.Count > 1 && ViewModel.IsEntrySelected(entry))
             return ViewModel.SelectedEntries.Count;
 
         return 0;
@@ -315,7 +324,7 @@
 
     private RenderFragment<FileSystemEntry> RenderListRow => (entry) => builder =>
     {
-        var isSelected = ViewModel.SelectedEntries.Contains(entry);
+        var isSelected = ViewModel.IsEntrySelected(entry);
         var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
         var isCut = ViewModel.CutPaths.Contains(entry.FullPath);
         var isDragSrc = IsDragSource(entry);
@@ -435,7 +444,7 @@
 
     private RenderFragment<FileSystemEntry> RenderGridItem => (entry) => builder =>
     {
-        var isSelected = ViewModel.SelectedEntries.Contains(entry);
+        var isSelected = ViewModel.IsEntrySelected(entry);
         var isDragOver = _dragOverEntry == entry && entry.IsDirectory && _draggedEntry != entry;
         var isCut = ViewModel.CutPaths.Contains(entry.FullPath);
         var isDragSrc = IsDragSource(entry);
@@ -532,12 +541,6 @@
             ViewModel.CloseMetadataCommand.Execute(null);
     }
 
-    // Custom double-click via timer (only fast double-clicks open, not slow clicks)
-    private FileSystemEntry? _pendingOpenEntry;
-    private System.Threading.Timer? _dblClickTimer;
-    private System.Threading.Timer? _pendingOpenTimer;
-    private System.Threading.Timer? _renameTimer;
-
     private void OnEntryMouseDown(FileSystemEntry entry, MouseEventArgs e)
     {
         if (e.Button != 0 || _renamingEntry != null || _isDragging) {
@@ -546,14 +549,11 @@
         }
 
         // WKWebView fires mousedown twice during drag initiation (~23-50ms apart).
-        // The second event targets a different entry that is not in SelectedEntries,
-        // which would trigger SelectEntry and clear multi-selection.
-        // Block rapid-fire mousedown only when the entry is not already selected,
-        // so genuine double-clicks on the same entry still pass through.
+        // Block rapid-fire mousedown on unselected entries.
         var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
         if (nowMs - _lastMouseDownMs < 100)
         {
-            if (!ViewModel.SelectedEntries.Contains(entry))
+            if (!ViewModel.IsEntrySelected(entry))
             {
                 DebugLog($"[DragDrop] OnEntryMouseDown SKIPPED (rapid-fire on unselected, {nowMs - _lastMouseDownMs}ms): entry={entry.Name}");
                 return;
@@ -561,80 +561,59 @@
         }
         _lastMouseDownMs = nowMs;
 
-        // Cancel any pending slow-click rename
+        // Cancel pending slow-click rename on any new mousedown
         _renameTimer?.Dispose();
         _renameTimer = null;
+        _lastRenameTarget = null;
 
-        if (_pendingOpenEntry == entry)
+        // Double-click detection: same entry clicked twice within [100ms, 500ms].
+        // Lower bound filters out WKWebView's duplicate mousedown (~23-50ms per physical click).
+        if (_lastClickTarget == entry && nowMs - _lastClickTimeMs is >= 100 and < 500)
         {
-            // Second fast click on same entry — schedule open after short delay
-            // so that dragstart has a chance to cancel it if user is dragging
-            _dblClickTimer?.Dispose();
-            _dblClickTimer = null;
-            _pendingOpenEntry = null;
-            _pendingDeselectEntry = null;
-            _pendingOpenTimer?.Dispose();
-            var entryToOpen = entry;
-            _pendingOpenTimer = new System.Threading.Timer(_ =>
-            {
-                _pendingOpenTimer = null;
-                if (!_isDragging)
-                    InvokeAsync(() => OpenEntry(entryToOpen));
-            }, null, 100, Timeout.Infinite);
+            _lastClickTarget = null;
+            _renameTimer?.Dispose();
+            _renameTimer = null;
+            _lastRenameTarget = null;
+            if (_renamingEntry == null && !_isDragging)
+                _ = OpenEntry(entry);
+            return;
         }
-        else
+        _lastClickTarget = entry;
+        _lastClickTimeMs = nowMs;
+
+        // Schedule slow-click rename if this entry is already the sole selection
+        bool wasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
+            && ViewModel.SelectedEntries.Count == 1
+            && ViewModel.IsEntrySelected(entry);
+
+        if (wasAlreadySingleSelected)
         {
-            // First click — start timer
-            _pendingOpenEntry = entry;
-            _dblClickTimer?.Dispose();
-
-            // Check if entry was already the single selected item (for slow-click rename)
-            bool wasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
-                && ViewModel.SelectedEntries.Count == 1
-                && ViewModel.SelectedEntries.Contains(entry);
-
+            _lastRenameTarget = entry;
             var clickedEntry = entry;
-            _dblClickTimer = new System.Threading.Timer(_ =>
+            _renameTimer = new System.Threading.Timer(_ =>
             {
-                _pendingOpenEntry = null;
-
-                // Not a double-click. If entry was already selected, schedule rename.
-                if (wasAlreadySingleSelected && !_isDragging && _renamingEntry == null)
+                _renameTimer = null;
+                _lastRenameTarget = null;
+                if (!_isDragging && _renamingEntry == null
+                    && ViewModel.SelectedEntries.Count == 1
+                    && ViewModel.IsEntrySelected(clickedEntry))
                 {
-                    _renameTimer = new System.Threading.Timer(_ =>
-                    {
-                        _renameTimer = null;
-                        if (!_isDragging && _renamingEntry == null
-                            && ViewModel.SelectedEntries.Count == 1
-                            && ViewModel.SelectedEntries.Contains(clickedEntry))
-                        {
-                            InvokeAsync(() => StartRename(clickedEntry));
-                        }
-                    }, null, 150, Timeout.Infinite);
+                    InvokeAsync(() => StartRename(clickedEntry));
                 }
-            }, null, 350, Timeout.Infinite);
+            }, null, 600, Timeout.Infinite);
         }
 
-        // Multi-selection drag support: when mousedown on an already-selected entry
-        // in a multi-selection (no modifiers), defer deselection to mouseup.
-        // This allows dragstart to cancel the deselect and preserve multi-selection for drag.
+        // Multi-selection drag support
         if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey
             && ViewModel.SelectedEntries.Count > 1
-            && ViewModel.SelectedEntries.Contains(entry))
+            && ViewModel.IsEntrySelected(entry))
         {
             _pendingDeselectEntry = entry;
-            // Snapshot selected entries NOW, before mouseup/click can clear the selection.
-            // In WKWebView, mouseup fires before dragstart, which would clear multi-selection
-            // before OnDragStart can snapshot it.
             _draggedEntries = ViewModel.SelectedEntries.ToList();
         }
         else
         {
             _pendingDeselectEntry = null;
-            // Select the entry immediately on mousedown.
-            // During a drag, click never fires (user holds button and moves),
-            // so OnDragStart needs the selection to be set here.
-            // For normal clicks, click handler will re-select (idempotent).
             ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
         }
     }
@@ -720,13 +699,9 @@
         if (entry.IsVirtual) return;
         DebugLog($"[DragDrop] OnDragStart: entry={entry.Name}, isDir={entry.IsDirectory}, selectedCount={ViewModel.SelectedEntries.Count}, draggedEntriesCount={_draggedEntries?.Count}, isDragging={_isDragging}");
         _isDragging = true;
-        _pendingOpenEntry = null;
-        _dblClickTimer?.Dispose();
-        _dblClickTimer = null;
-        _pendingOpenTimer?.Dispose();
-        _pendingOpenTimer = null;
         _renameTimer?.Dispose();
         _renameTimer = null;
+        _lastRenameTarget = null;
         _pendingDeselectTimer?.Dispose();
         _pendingDeselectTimer = null;
         _pendingDeselectEntry = null;
@@ -737,7 +712,7 @@
         // Otherwise snapshot from current selection.
         if (_draggedEntries == null || !_draggedEntries.Contains(entry))
         {
-            _draggedEntries = ViewModel.SelectedEntries.Contains(entry)
+            _draggedEntries = ViewModel.IsEntrySelected(entry)
                 ? ViewModel.SelectedEntries.ToList()
                 : new List<FileSystemEntry> { entry };
         }
@@ -753,7 +728,7 @@
             }
         }
 
-        if (!ViewModel.SelectedEntries.Contains(entry))
+        if (!ViewModel.IsEntrySelected(entry))
             ViewModel.SelectEntry(entry, false, false);
 
         _dragCount = _draggedEntries?.Count ?? 1;
@@ -948,7 +923,7 @@
     private async Task OnFileContextMenu(MouseEventArgs e, FileSystemEntry entry)
     {
         _fileContextMenuActive = true;
-        if (!ViewModel.SelectedEntries.Contains(entry))
+        if (!ViewModel.IsEntrySelected(entry))
             ViewModel.SelectEntry(entry, false, false);
         await ViewModel.ShowFileContextMenuAsync(entry, e.ClientX, e.ClientY);
     }
