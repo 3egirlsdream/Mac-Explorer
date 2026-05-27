@@ -574,6 +574,62 @@
         }, null, 100, Timeout.Infinite);
     }
 
+    /// <summary>
+    /// Called after 100ms of mousedown silence. Handles selection, double-click
+    /// detection, and slow-click rename scheduling — all in one place to avoid
+    /// redundant StateHasChanged calls from WKWebView's duplicate events.
+    /// </summary>
+    private void ProcessDebouncedMousedown()
+    {
+        var entry = _capturedMouseDownEntry;
+        if (entry == null || _isDragging) return;
+
+        var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
+        // Double-click detection: same entry clicked twice within [150ms, 500ms).
+        // Lower bound (150ms) = debounce window (100ms) + safety margin (50ms)
+        // to prevent WKWebView duplicate mousedown from being counted as a second click.
+        if (_lastClickTarget == entry && nowMs - _lastClickTimeMs is >= 150 and < 500)
+        {
+            _lastClickTarget = null;
+            _lastClickTimeMs = 0;
+            _renameTimer?.Dispose();
+            _renameTimer = null;
+            _lastRenameTarget = null;
+            if (_renamingEntry == null)
+                _ = OpenEntry(entry);
+            return;
+        }
+
+        _lastClickTarget = entry;
+        _lastClickTimeMs = nowMs;
+
+        // Execute selection (single StateHasChanged via CollectionChanged → OnSelectionChanged)
+        ViewModel.SelectEntry(entry, _capturedCtrlKey || _capturedMetaKey, _capturedShiftKey);
+
+        // Auto-close metadata panel when clicking a file
+        if (ViewModel.IsMetadataPanelVisible)
+            ViewModel.CloseMetadataCommand.Execute(null);
+
+        // Schedule slow-click rename if this entry was already the sole selection
+        if (_capturedWasAlreadySingleSelected)
+        {
+            _lastRenameTarget = entry;
+            var clickedEntry = entry;
+            _renameTimer = new System.Threading.Timer(_ =>
+            {
+                _renameTimer = null;
+                _lastRenameTarget = null;
+                if (!_isDragging && _renamingEntry == null
+                    && ViewModel.SelectedEntries.Count == 1
+                    && ViewModel.IsEntrySelected(clickedEntry))
+                {
+                    InvokeAsync(() => StartRename(clickedEntry));
+                }
+            }, null, 400, Timeout.Infinite);
+        }
+    }
+
     private void OnEntryMouseUp(FileSystemEntry entry, MouseEventArgs e)
     {
         if (e.Button != 0) return;
