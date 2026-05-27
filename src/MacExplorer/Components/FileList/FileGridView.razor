@@ -281,10 +281,11 @@
 
     // ── Mousedown debounce state ──
     // WKWebView fires 2-3 mousedown events per physical click (~23-50ms apart).
-    // Debounce consolidates them: capture state on each mousedown, reset a 100ms timer,
+    // Debounce consolidates them: capture state on each mousedown, reset a 50ms timer,
     // and process only after silence.
     private System.Threading.Timer? _mousedownDebounceTimer;
     private FileSystemEntry? _capturedMouseDownEntry;
+    private long _capturedMouseDownTimeMs;
     private bool _capturedWasAlreadySingleSelected;
     private bool _capturedCtrlKey;
     private bool _capturedMetaKey;
@@ -544,9 +545,12 @@
         _renameTimer = null;
         _lastRenameTarget = null;
 
+        var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
         // Capture state at mousedown time — before click/mouseup can mutate
         // SelectedEntries or trigger StateHasChanged.
         _capturedMouseDownEntry = entry;
+        _capturedMouseDownTimeMs = nowMs;
         _capturedWasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
             && ViewModel.SelectedEntries.Count == 1
             && ViewModel.IsEntrySelected(entry);
@@ -554,15 +558,15 @@
         _capturedMetaKey = e.MetaKey;
         _capturedShiftKey = e.ShiftKey;
 
-        // Debounce: reset timer on each mousedown, process after 100ms of silence.
-        // This absorbs WKWebView's duplicate mousedown events (23-50ms apart).
+        // Debounce: reset timer on each mousedown, process after 50ms of silence.
+        // WKWebView duplicates are 23-50ms apart, so 50ms is sufficient.
         _mousedownDebounceTimer?.Dispose();
         _mousedownDebounceTimer = new System.Threading.Timer(_ =>
         {
             _mousedownDebounceTimer?.Dispose();
             _mousedownDebounceTimer = null;
             InvokeAsync(() => ProcessDebouncedMousedown());
-        }, null, 100, Timeout.Infinite);
+        }, null, 50, Timeout.Infinite);
     }
 
     /// <summary>
@@ -575,12 +579,12 @@
         var entry = _capturedMouseDownEntry;
         if (entry == null || _isDragging) return;
 
-        var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+        var clickTimeMs = _capturedMouseDownTimeMs;
 
-        // Double-click detection: same entry clicked twice within [150ms, 500ms).
-        // Lower bound (150ms) = debounce window (100ms) + safety margin (50ms)
-        // to prevent WKWebView duplicate mousedown from being counted as a second click.
-        if (_lastClickTarget == entry && nowMs - _lastClickTimeMs is >= 150 and < 500)
+        // Double-click detection: same entry clicked twice within [100ms, 500ms).
+        // Uses captured mousedown timestamp (not debounce processing time) so the
+        // window is measured from actual physical clicks.
+        if (_lastClickTarget == entry && clickTimeMs - _lastClickTimeMs is >= 100 and < 500)
         {
             _lastClickTarget = null;
             _lastClickTimeMs = 0;
@@ -593,7 +597,7 @@
         }
 
         _lastClickTarget = entry;
-        _lastClickTimeMs = nowMs;
+        _lastClickTimeMs = clickTimeMs;
 
         // Execute selection (single StateHasChanged via CollectionChanged → OnSelectionChanged)
         ViewModel.SelectEntry(entry, _capturedCtrlKey || _capturedMetaKey, _capturedShiftKey);
