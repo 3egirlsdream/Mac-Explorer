@@ -548,74 +548,30 @@
             return;
         }
 
-        // WKWebView fires mousedown twice during drag initiation (~23-50ms apart).
-        // Block rapid-fire mousedown on unselected entries.
-        var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-        if (nowMs - _lastMouseDownMs < 100)
-        {
-            if (!ViewModel.IsEntrySelected(entry))
-            {
-                DebugLog($"[DragDrop] OnEntryMouseDown SKIPPED (rapid-fire on unselected, {nowMs - _lastMouseDownMs}ms): entry={entry.Name}");
-                return;
-            }
-        }
-        _lastMouseDownMs = nowMs;
-
         // Cancel pending slow-click rename on any new mousedown
         _renameTimer?.Dispose();
         _renameTimer = null;
         _lastRenameTarget = null;
 
-        // Double-click detection: same entry clicked twice within [100ms, 500ms].
-        // Lower bound filters out WKWebView's duplicate mousedown (~23-50ms per physical click).
-        if (_lastClickTarget == entry && nowMs - _lastClickTimeMs is >= 100 and < 500)
-        {
-            _lastClickTarget = null;
-            _renameTimer?.Dispose();
-            _renameTimer = null;
-            _lastRenameTarget = null;
-            if (_renamingEntry == null && !_isDragging)
-                _ = OpenEntry(entry);
-            return;
-        }
-        _lastClickTarget = entry;
-        _lastClickTimeMs = nowMs;
-
-        // Schedule slow-click rename if this entry is already the sole selection
-        bool wasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
+        // Capture state at mousedown time — before click/mouseup can mutate
+        // SelectedEntries or trigger StateHasChanged.
+        _capturedMouseDownEntry = entry;
+        _capturedWasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
             && ViewModel.SelectedEntries.Count == 1
             && ViewModel.IsEntrySelected(entry);
+        _capturedCtrlKey = e.CtrlKey;
+        _capturedMetaKey = e.MetaKey;
+        _capturedShiftKey = e.ShiftKey;
 
-        if (wasAlreadySingleSelected)
+        // Debounce: reset timer on each mousedown, process after 100ms of silence.
+        // This absorbs WKWebView's duplicate mousedown events (23-50ms apart).
+        _mousedownDebounceTimer?.Dispose();
+        _mousedownDebounceTimer = new System.Threading.Timer(_ =>
         {
-            _lastRenameTarget = entry;
-            var clickedEntry = entry;
-            _renameTimer = new System.Threading.Timer(_ =>
-            {
-                _renameTimer = null;
-                _lastRenameTarget = null;
-                if (!_isDragging && _renamingEntry == null
-                    && ViewModel.SelectedEntries.Count == 1
-                    && ViewModel.IsEntrySelected(clickedEntry))
-                {
-                    InvokeAsync(() => StartRename(clickedEntry));
-                }
-            }, null, 600, Timeout.Infinite);
-        }
-
-        // Multi-selection drag support
-        if (!e.CtrlKey && !e.MetaKey && !e.ShiftKey
-            && ViewModel.SelectedEntries.Count > 1
-            && ViewModel.IsEntrySelected(entry))
-        {
-            _pendingDeselectEntry = entry;
-            _draggedEntries = ViewModel.SelectedEntries.ToList();
-        }
-        else
-        {
-            _pendingDeselectEntry = null;
-            ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
-        }
+            _mousedownDebounceTimer?.Dispose();
+            _mousedownDebounceTimer = null;
+            InvokeAsync(() => ProcessDebouncedMousedown());
+        }, null, 100, Timeout.Infinite);
     }
 
     private void OnEntryMouseUp(FileSystemEntry entry, MouseEventArgs e)
