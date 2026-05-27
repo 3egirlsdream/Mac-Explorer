@@ -169,6 +169,9 @@
         {
             await JSRuntime.InvokeVoidAsync("fkfinderColumnResize.init");
             await CreateBlobUrlsForEntriesAsync();
+            // Register resize observer for grid column recalculation
+            var dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("fkfinderGrid.observeResize", dotNetRef);
         }
 
         // Measure container width for grid row virtualization
@@ -294,6 +297,7 @@
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
         _renameTimer?.Dispose();
+        try { await JSRuntime.InvokeVoidAsync("fkfinderGrid.disconnect"); } catch { }
         await RevokeAllBlobUrlsAsync();
     }
 
