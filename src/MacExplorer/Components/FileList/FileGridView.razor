@@ -260,7 +260,6 @@
         ViewModel.RenameRequested -= OnRenameRequested;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
-        _mousedownDebounceTimer?.Dispose();
         _renameTimer?.Dispose();
         await RevokeAllBlobUrlsAsync();
     }
@@ -279,19 +278,8 @@
     private bool _renameInputMouseDown;
     private DateTime _renameStartedAt;
 
-    // ── Mousedown debounce state ──
-    // WKWebView fires 2-3 mousedown events per physical click (~23-50ms apart).
-    // Debounce consolidates them: capture state on each mousedown, reset a 50ms timer,
-    // and process only after silence.
-    private System.Threading.Timer? _mousedownDebounceTimer;
-    private FileSystemEntry? _capturedMouseDownEntry;
-    private long _capturedMouseDownTimeMs;
-    private bool _capturedWasAlreadySingleSelected;
-    private long _lastSelectMs;
-
-    // ── Double-click & slow-click rename state ──
-    // Double-click: same entry clicked twice within [150ms, 500ms).
-    // 150ms lower bound = 100ms debounce + 50ms safety margin.
+    // ── Mousedown / Double-click / Rename state ──
+    private long _lastMouseDownMs; // guards against WKWebView double-mousedown
     private System.Threading.Timer? _renameTimer;
     private FileSystemEntry? _lastRenameTarget;
     private FileSystemEntry? _lastClickTarget;
@@ -522,10 +510,12 @@
 
     private void OnEntryClick(FileSystemEntry entry, MouseEventArgs e)
     {
-        // If debounce is still pending, ProcessDebouncedMousedown will handle everything.
-        if (_mousedownDebounceTimer != null || _renamingEntry != null || _isDragging) return;
+        if (_renamingEntry != null || _isDragging) return;
 
-        ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
+        // Selection is handled in OnEntryMouseDown for normal clicks.
+        // This is a safety fallback for edge cases where mousedown was skipped.
+        if (!ViewModel.IsEntrySelected(entry) || ViewModel.SelectedEntries.Count > 1)
+            ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
 
         if (ViewModel.IsMetadataPanelVisible)
             ViewModel.CloseMetadataCommand.Execute(null);
@@ -538,63 +528,25 @@
             return;
         }
 
-        // Cancel pending slow-click rename on any new mousedown
+        var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
+        // Guard: block WKWebView duplicate mousedown (23-50ms apart).
+        // All logic below runs at most once per physical click.
+        if (nowMs - _lastMouseDownMs < 60) return;
+        _lastMouseDownMs = nowMs;
+
+        // Cancel pending slow-click rename
         _renameTimer?.Dispose();
         _renameTimer = null;
         _lastRenameTarget = null;
 
-        var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-
         // Capture whether entry was already the sole selection BEFORE SelectEntry
-        // mutates it. This determines if we should later schedule slow-click rename.
-        _capturedWasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
+        bool wasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
             && ViewModel.SelectedEntries.Count == 1
             && ViewModel.IsEntrySelected(entry);
 
-        // Select immediately for instant visual feedback — don't wait for debounce.
-        // Guard against WKWebView duplicate mousedown (23-50ms): only execute
-        // SelectEntry once per physical click. SelectEntry is idempotent for
-        // same-entry clicks anyway, but the guard prevents cmd+toggle double-flip.
-        if (nowMs - _lastSelectMs >= 60)
-        {
-            _lastSelectMs = nowMs;
-            ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
-            if (ViewModel.IsMetadataPanelVisible)
-                ViewModel.CloseMetadataCommand.Execute(null);
-        }
-
-        // Capture state for debounced double-click/rename processing
-        _capturedMouseDownEntry = entry;
-        _capturedMouseDownTimeMs = nowMs;
-
-        // Debounce for double-click detection and slow-click rename only.
-        // Selection already happened above — this just waits for WKWebView silence
-        // to determine if it was a double-click or should schedule rename.
-        _mousedownDebounceTimer?.Dispose();
-        _mousedownDebounceTimer = new System.Threading.Timer(_ =>
-        {
-            _mousedownDebounceTimer?.Dispose();
-            _mousedownDebounceTimer = null;
-            InvokeAsync(() => ProcessDebouncedMousedown());
-        }, null, 50, Timeout.Infinite);
-    }
-
-    /// <summary>
-    /// Called after 50ms of mousedown silence. Handles double-click detection
-    /// and slow-click rename scheduling. Selection is handled immediately in
-    /// OnEntryMouseDown for instant visual feedback.
-    /// </summary>
-    private void ProcessDebouncedMousedown()
-    {
-        var entry = _capturedMouseDownEntry;
-        if (entry == null || _isDragging) return;
-
-        var clickTimeMs = _capturedMouseDownTimeMs;
-
         // Double-click detection: same entry clicked twice within [100ms, 500ms).
-        // Uses captured mousedown timestamps so the window is measured from
-        // actual physical clicks, not debounce processing time.
-        if (_lastClickTarget == entry && clickTimeMs - _lastClickTimeMs is >= 100 and < 500)
+        if (_lastClickTarget == entry && nowMs - _lastClickTimeMs is >= 100 and < 500)
         {
             _lastClickTarget = null;
             _lastClickTimeMs = 0;
@@ -602,12 +554,16 @@
                 _ = OpenEntry(entry);
             return;
         }
-
         _lastClickTarget = entry;
-        _lastClickTimeMs = clickTimeMs;
+        _lastClickTimeMs = nowMs;
+
+        // Select immediately — instant visual feedback
+        ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
+        if (ViewModel.IsMetadataPanelVisible)
+            ViewModel.CloseMetadataCommand.Execute(null);
 
         // Schedule slow-click rename if this entry was already the sole selection
-        if (_capturedWasAlreadySingleSelected)
+        if (wasAlreadySingleSelected)
         {
             _lastRenameTarget = entry;
             var clickedEntry = entry;
@@ -627,10 +583,7 @@
 
     private void OnEntryMouseUp(FileSystemEntry entry, MouseEventArgs e)
     {
-        // When debounce is active, selection is handled by ProcessDebouncedMousedown.
-        // Multi-selection drag is handled by OnDragStart which snapshots from
-        // SelectedEntries directly — no need for the old _pendingDeselectEntry dance.
-        if (_mousedownDebounceTimer != null || e.Button != 0) return;
+        // Selection handled in OnEntryMouseDown. No-op.
     }
 
     private async void OnContentMouseDown(MouseEventArgs e)
@@ -690,7 +643,7 @@
         _lastRenameTarget = null;
         _draggedEntry = entry;
 
-        // With debounce, ProcessDebouncedMousedown won't fire since _isDragging is now true.
+        // With _isDragging set, OnEntryMouseDown guards will skip all logic.
         // Snapshot selected entries for drag from current selection directly.
         _draggedEntries = ViewModel.IsEntrySelected(entry)
             ? ViewModel.SelectedEntries.ToList()
