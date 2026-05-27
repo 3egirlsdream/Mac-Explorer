@@ -523,20 +523,11 @@
 
     private void OnEntryClick(FileSystemEntry entry, MouseEventArgs e)
     {
-        if (_renamingEntry != null || _isDragging) return;
-
-        // If a pending deselect was set by mousedown (multi-selection, no modifiers),
-        // skip click handling — mouseup handles deselection, or dragstart cancels it.
-        // This prevents WKWebView's click-before-dragstart from clearing multi-selection.
-        if (_pendingDeselectEntry == entry && !e.CtrlKey && !e.MetaKey && !e.ShiftKey)
-        {
-            _pendingDeselectEntry = null;
-            return;
-        }
+        // If debounce is still pending, ProcessDebouncedMousedown will handle everything.
+        if (_mousedownDebounceTimer != null || _renamingEntry != null || _isDragging) return;
 
         ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
 
-        // Auto-close metadata panel when clicking a file
         if (ViewModel.IsMetadataPanelVisible)
             ViewModel.CloseMetadataCommand.Execute(null);
     }
@@ -632,31 +623,10 @@
 
     private void OnEntryMouseUp(FileSystemEntry entry, MouseEventArgs e)
     {
-        if (e.Button != 0) return;
-        var pending = _pendingDeselectEntry;
-        // NOTE: Do NOT clear _pendingDeselectEntry here — WKWebView fires click AFTER
-        // mouseup and BEFORE dragstart. The click handler needs _pendingDeselectEntry
-        // to skip deselection. It will be cleared by the timer, dragstart, or click guard.
-        if (pending == entry && !_isDragging)
-        {
-            var capturedEntry = entry;
-            _pendingDeselectTimer?.Dispose();
-            _pendingDeselectTimer = new System.Threading.Timer(_ =>
-            {
-                _pendingDeselectTimer = null;
-                _pendingDeselectEntry = null;
-                if (!_isDragging)
-                {
-                    InvokeAsync(() =>
-                    {
-                        ViewModel.SelectEntry(capturedEntry, false, false);
-                        if (ViewModel.IsMetadataPanelVisible)
-                            ViewModel.CloseMetadataCommand.Execute(null);
-                        StateHasChanged();
-                    });
-                }
-            }, null, 120, Timeout.Infinite);
-        }
+        // When debounce is active, selection is handled by ProcessDebouncedMousedown.
+        // Multi-selection drag is handled by OnDragStart which snapshots from
+        // SelectedEntries directly — no need for the old _pendingDeselectEntry dance.
+        if (_mousedownDebounceTimer != null || e.Button != 0) return;
     }
 
     private async void OnContentMouseDown(MouseEventArgs e)
