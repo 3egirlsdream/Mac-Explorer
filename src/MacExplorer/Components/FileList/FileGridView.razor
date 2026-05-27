@@ -684,31 +684,13 @@
         _renameTimer?.Dispose();
         _renameTimer = null;
         _lastRenameTarget = null;
-        _pendingDeselectTimer?.Dispose();
-        _pendingDeselectTimer = null;
-        _pendingDeselectEntry = null;
         _draggedEntry = entry;
 
-        // Use pre-snapshot from mousedown if available (handles WKWebView timing where
-        // mouseup fires before dragstart and clears multi-selection).
-        // Otherwise snapshot from current selection.
-        if (_draggedEntries == null || !_draggedEntries.Contains(entry))
-        {
-            _draggedEntries = ViewModel.IsEntrySelected(entry)
-                ? ViewModel.SelectedEntries.ToList()
-                : new List<FileSystemEntry> { entry };
-        }
-        else
-        {
-            // Pre-snapshot is still valid, but the deferred deselect timer may have
-            // already cleared multi-selection. Restore all entries from the snapshot
-            // so they keep their "selected" highlight during drag.
-            foreach (var e in _draggedEntries)
-            {
-                if (!ViewModel.SelectedEntries.Contains(e))
-                    ViewModel.SelectedEntries.Add(e);
-            }
-        }
+        // With debounce, ProcessDebouncedMousedown won't fire since _isDragging is now true.
+        // Snapshot selected entries for drag from current selection directly.
+        _draggedEntries = ViewModel.IsEntrySelected(entry)
+            ? ViewModel.SelectedEntries.ToList()
+            : new List<FileSystemEntry> { entry };
 
         if (!ViewModel.IsEntrySelected(entry))
             ViewModel.SelectEntry(entry, false, false);
@@ -771,9 +753,6 @@
         _draggedEntries = null;
         _dragOverEntry = null;
         _dragCount = 0;
-        _pendingDeselectEntry = null;
-        _pendingDeselectTimer?.Dispose();
-        _pendingDeselectTimer = null;
     }
 
     private void OnContentDragOver(DragEventArgs e)
