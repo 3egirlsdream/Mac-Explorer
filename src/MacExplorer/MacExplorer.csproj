@@ -61,7 +61,6 @@
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
         <PackageReference Include="Masa.Blazor" Version="1.9.*" />
         <PackageReference Include="SharpCompress" Version="0.38.0" />
-        <PackageReference Include="LibGit2Sharp" Version="0.31.*" />
     </ItemGroup>
 
     <!-- Generate a proper macOS .icns from Resizetizer output (which only has iPad idiom),

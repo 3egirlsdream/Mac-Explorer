@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using LibGit2Sharp;
+using System.Diagnostics;
 using MacExplorer.Models;
 using Microsoft.Extensions.Logging;
 
@@ -26,22 +26,14 @@ public class GitStatusService : IGitStatusService, IDisposable
     {
         try
         {
-            var repoRoot = Repository.Discover(directoryPath);
-            if (string.IsNullOrEmpty(repoRoot)) return null;
+            var repoRoot = FindGitRoot(directoryPath);
+            if (repoRoot == null) return null;
 
             if (_cache.TryGetValue(repoRoot, out var cached) && cached.IsValid)
                 return cached;
 
-            using var repo = new Repository(repoRoot);
             var statuses = new Dictionary<string, GitFileStatus>(StringComparer.Ordinal);
-
-            foreach (var item in repo.RetrieveStatus(new StatusOptions { Show = StatusShowOption.IndexAndWorkDir }))
-            {
-                var path = item.FilePath;
-                var status = MapStatus(item.State);
-                if (status != GitFileStatus.None)
-                    statuses[path] = status;
-            }
+            RunGitStatus(repoRoot, statuses);
 
             var result = new GitRepoStatus
             {
@@ -61,24 +53,96 @@ public class GitStatusService : IGitStatusService, IDisposable
         }
     }
 
+    private static string? FindGitRoot(string path)
+    {
+        var dir = Path.GetFullPath(path);
+        while (dir != null)
+        {
+            var gitPath = Path.Combine(dir, ".git");
+            if (Directory.Exists(gitPath) || File.Exists(gitPath))
+                return dir;
+            var parent = Path.GetDirectoryName(dir);
+            if (parent == dir) break;
+            dir = parent!;
+        }
+        return null;
+    }
+
+    private static void RunGitStatus(string repoRoot, Dictionary<string, GitFileStatus> statuses)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "/usr/bin/git",
+            Arguments = "status --porcelain -z",
+            WorkingDirectory = repoRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var proc = Process.Start(psi);
+        if (proc == null) return;
+
+        var output = proc.StandardOutput.ReadToEnd();
+        proc.WaitForExit(5000);
+
+        if (string.IsNullOrEmpty(output)) return;
+
+        // --porcelain -z format: XY\0[origin\0]path\0
+        // XY = status codes (index + worktree)
+        var entries = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+
+        for (int i = 0; i < entries.Length; i++)
+        {
+            if (entries[i].Length < 3) continue;
+
+            var xy = entries[i][..2];
+            var path = entries[i][2..];
+
+            // Skip rename origin lines (they start with "R ")
+            if (xy == "??" && path.Contains(" -> ")) continue;
+            // Rename: next entry is the new path
+            if (xy[0] == 'R')
+            {
+                if (i + 1 < entries.Length)
+                {
+                    i++;
+                    path = entries[i];
+                    statuses[path] = GitFileStatus.Renamed;
+                }
+                continue;
+            }
+
+            var status = ParsePorcelainStatus(xy);
+            if (status != GitFileStatus.Unmodified)
+                statuses[path] = status;
+        }
+    }
+
+    private static GitFileStatus ParsePorcelainStatus(string xy)
+    {
+        var x = xy[0]; // index status
+        var y = xy[1]; // worktree status
+
+        return (x, y) switch
+        {
+            ('?', '?') => GitFileStatus.Untracked,
+            ('!', _) or (_, '!') => GitFileStatus.Ignored,
+            ('A', _) or ('C', _) => GitFileStatus.Added,    // Added / Copied
+            ('D', _) or (_, 'D') => GitFileStatus.Deleted,
+            ('R', _) => GitFileStatus.Renamed,
+            ('M', _) => GitFileStatus.Staged,                // Modified in index (staged)
+            (_, 'M') => GitFileStatus.Modified,              // Modified in worktree
+            ('U', _) or (_, 'U') or ('A', 'A') or ('D', 'U')
+                or ('U', 'D') or ('D', 'D') => GitFileStatus.Conflicted,
+            _ => GitFileStatus.Unmodified
+        };
+    }
+
     public void InvalidateCache(string repoRoot)
     {
         _cache.TryRemove(repoRoot, out _);
-    }
-
-    private static GitFileStatus MapStatus(FileStatus state)
-    {
-        if (state.HasFlag(FileStatus.Conflicted)) return GitFileStatus.Conflicted;
-        if (state.HasFlag(FileStatus.DeletedFromIndex) || state.HasFlag(FileStatus.DeletedFromWorkdir))
-            return GitFileStatus.Deleted;
-        if (state.HasFlag(FileStatus.RenamedInIndex) || state.HasFlag(FileStatus.RenamedInWorkdir))
-            return GitFileStatus.Renamed;
-        if (state.HasFlag(FileStatus.NewInIndex)) return GitFileStatus.Added;
-        if (state.HasFlag(FileStatus.ModifiedInIndex)) return GitFileStatus.Staged;
-        if (state.HasFlag(FileStatus.ModifiedInWorkdir)) return GitFileStatus.Modified;
-        if (state.HasFlag(FileStatus.NewInWorkdir)) return GitFileStatus.Untracked;
-        if (state.HasFlag(FileStatus.Ignored)) return GitFileStatus.Ignored;
-        return GitFileStatus.Unmodified;
     }
 
     private void WatchRepo(string repoRoot)

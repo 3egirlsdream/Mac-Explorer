@@ -1973,6 +1973,7 @@ public partial class FileListViewModel : ObservableObject
                         // Resolve app icons even when loading from index (IconUrl is not persisted in index)
                         _ = ResolveIconsInBackgroundAsync(entries);
                         _ = ResolveThumbnailsInBackgroundAsync(entries);
+                        GitLog($"[GIT] Index path, calling ResolveGitStatusAsync");
                         _ = ResolveGitStatusAsync();
                         return;
                     }
@@ -1996,6 +1997,7 @@ public partial class FileListViewModel : ObservableObject
         _ = ResolveIconsInBackgroundAsync(entries);
         _ = ResolveThumbnailsInBackgroundAsync(entries);
         _ = TriggerImageAnalysisAsync(entries);
+        GitLog($"[GIT] Fire-and-forget ResolveGitStatusAsync, service={_gitStatusService != null}, path={_navigation.CurrentPath}");
         _ = ResolveGitStatusAsync();
 
         // Batch load ratings for current directory
@@ -2108,15 +2110,24 @@ public partial class FileListViewModel : ObservableObject
     /// <summary>
     // ── Git status resolution ──
 
+    private static void GitLog(string msg)
+    {
+        try { GitLog($"{DateTime.Now:HH:mm:ss.fff} {msg}\n"); } catch { }
+    }
+
     private async Task ResolveGitStatusAsync()
     {
+        GitLog($"[GIT] Entered ResolveGitStatusAsync, service={_gitStatusService != null}");
         if (_gitStatusService == null) return;
         try
         {
+            GitLog($"[GIT] Resolving status for {_navigation.CurrentPath}");
             var repoStatus = await _gitStatusService.GetRepoStatusAsync(_navigation.CurrentPath);
-            if (repoStatus == null) return;
+            if (repoStatus == null) { GitLog("[GIT] repoStatus is null"); return; }
 
+            GitLog($"[GIT] Found repo at {repoStatus.RepoRoot}, {repoStatus.FileStatuses.Count} status entries");
             var repoRoot = repoStatus.RepoRoot;
+            var updated = 0;
             for (int i = 0; i < Entries.Count; i++)
             {
                 var entry = Entries[i];
@@ -2128,6 +2139,7 @@ public partial class FileListViewModel : ObservableObject
 
                 if (repoStatus.FileStatuses.TryGetValue(relativePath, out var status))
                 {
+                    updated++;
                     Entries[i] = new FileSystemEntry
                     {
                         FullPath = entry.FullPath, Name = entry.Name,
@@ -2144,6 +2156,7 @@ public partial class FileListViewModel : ObservableObject
                 }
                 else if (entry.IsDirectory && repoStatus.HasAnyChange(relativePath))
                 {
+                    updated++;
                     Entries[i] = new FileSystemEntry
                     {
                         FullPath = entry.FullPath, Name = entry.Name,
@@ -2159,10 +2172,13 @@ public partial class FileListViewModel : ObservableObject
                     };
                 }
             }
+            GitLog($"[GIT] Updated {updated} entries with Git status");
             OnPropertyChanged(nameof(Entries));
         }
         catch (Exception ex)
         {
+            GitLog($"[GIT] Error: {ex.GetType().Name}: {ex.Message}");
+            GitLog($"[GIT] Error: {ex.GetType().Name}: {ex.Message}");
             _logger?.LogWarning(ex, "Failed to resolve Git status for {Path}", _navigation.CurrentPath);
         }
     }
