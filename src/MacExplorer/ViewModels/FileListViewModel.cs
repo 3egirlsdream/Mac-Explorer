@@ -1973,6 +1973,7 @@ public partial class FileListViewModel : ObservableObject
                         // Resolve app icons even when loading from index (IconUrl is not persisted in index)
                         _ = ResolveIconsInBackgroundAsync(entries);
                         _ = ResolveThumbnailsInBackgroundAsync(entries);
+                        _ = ResolveGitStatusAsync();
                         return;
                     }
                 }
@@ -2158,6 +2159,7 @@ public partial class FileListViewModel : ObservableObject
                     };
                 }
             }
+            OnPropertyChanged(nameof(Entries));
         }
         catch (Exception ex)
         {
