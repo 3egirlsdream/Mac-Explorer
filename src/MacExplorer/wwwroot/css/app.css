@@ -1245,6 +1245,16 @@ input:focus {
     overflow-y: auto;
 }
 
+/* Virtualize wrapper: constrains height so Virtualize's internal scroll container works.
+   The > div targets the Virtualize component's own container div. */
+.file-virtualize-wrapper {
+    overflow: hidden !important;
+}
+
+.file-virtualize-wrapper > div {
+    height: 100%;
+}
+
 .file-list-header {
     display: grid;
     grid-template-columns: 1fr var(--col-modified, 150px) var(--col-size, 90px) var(--col-type, 100px) var(--col-rating, 80px);

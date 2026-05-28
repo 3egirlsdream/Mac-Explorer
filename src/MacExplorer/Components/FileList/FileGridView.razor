@@ -74,7 +74,7 @@
             }
             else
             {
-                <div class="file-list" style="overflow: hidden">
+                <div class="file-list file-virtualize-wrapper">
                     <Virtualize Items="ViewModel.Entries" ItemSize="38">
                         <ItemContent>
                             @RenderListRow(context)
@@ -102,7 +102,7 @@
             {
                 @if (_gridRows.Count > 0)
                 {
-                    <div class="file-grid" style="overflow: hidden">
+                    <div class="file-grid file-virtualize-wrapper">
                         <Virtualize Items="_gridRows" ItemSize="100" Context="row">
                             <ItemContent>
                                 <div class="file-grid-row">
