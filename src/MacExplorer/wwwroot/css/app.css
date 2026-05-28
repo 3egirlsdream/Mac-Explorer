@@ -1140,6 +1140,7 @@ input:focus {
     align-content: start;
     background: transparent;
     flex: 1;
+    overflow-y: auto;
 }
 
 .file-grid-row {
@@ -1241,6 +1242,7 @@ input:focus {
     flex-direction: column;
     background: transparent;
     flex: 1;
+    overflow-y: auto;
 }
 
 .file-list-header {

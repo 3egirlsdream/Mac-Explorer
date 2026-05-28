@@ -59,9 +59,9 @@
         }
         else if (ViewModel.ViewMode == ViewMode.List)
         {
-            <div class="file-list">
-                @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
-                {
+            @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
+            {
+                <div class="file-list">
                     @foreach (var group in ViewModel.Groups)
                     {
                         <div class="file-group-header">@group.Name</div>
@@ -70,16 +70,18 @@
                             @RenderListRow(entry);
                         }
                     }
-                }
-                else
-                {
+                </div>
+            }
+            else
+            {
+                <div class="file-list" style="overflow: hidden">
                     <Virtualize Items="ViewModel.Entries" ItemSize="38">
                         <ItemContent>
                             @RenderListRow(context)
                         </ItemContent>
                     </Virtualize>
-                }
-            </div>
+                </div>
+            }
         }
         else
         {
@@ -100,16 +102,18 @@
             {
                 @if (_gridRows.Count > 0)
                 {
-                    <Virtualize Items="_gridRows" ItemSize="100" Context="row">
-                        <ItemContent>
-                            <div class="file-grid-row">
-                                @foreach (var entry in row)
-                                {
-                                    @RenderGridItem(entry)
-                                }
-                            </div>
-                        </ItemContent>
-                    </Virtualize>
+                    <div class="file-grid" style="overflow: hidden">
+                        <Virtualize Items="_gridRows" ItemSize="100" Context="row">
+                            <ItemContent>
+                                <div class="file-grid-row">
+                                    @foreach (var entry in row)
+                                    {
+                                        @RenderGridItem(entry)
+                                    }
+                                </div>
+                            </ItemContent>
+                        </Virtualize>
+                    </div>
                 }
             }
         }
