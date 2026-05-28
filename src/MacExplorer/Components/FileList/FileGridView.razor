@@ -278,6 +278,7 @@
 
     // ── Mousedown / Double-click / Rename state ──
     private long _lastMouseDownMs; // guards against WKWebView double-mousedown
+    private bool _entryMouseDownHandled; // prevents OnContentMouseDown from canceling rename timer
     private System.Threading.Timer? _renameTimer;
     private FileSystemEntry? _lastRenameTarget;
     private FileSystemEntry? _lastClickTarget;
@@ -533,15 +534,24 @@
         if (nowMs - _lastMouseDownMs < 60) return;
         _lastMouseDownMs = nowMs;
 
+        // Signal OnContentMouseDown that this mousedown was handled by an entry,
+        // so it doesn't cancel our rename timer (stopPropagation is unreliable in WKWebView).
+        _entryMouseDownHandled = true;
+
         // Cancel pending slow-click rename
-        _renameTimer?.Dispose();
-        _renameTimer = null;
+        if (_renameTimer != null)
+        {
+            DebugLog($"[RENAME] CANCELLING rename timer for {_lastRenameTarget?.Name ?? "null"}");
+            _renameTimer.Dispose();
+            _renameTimer = null;
+        }
         _lastRenameTarget = null;
 
         // Capture whether entry was already the sole selection BEFORE SelectEntry
         bool wasAlreadySingleSelected = !e.CtrlKey && !e.MetaKey && !e.ShiftKey
             && ViewModel.SelectedEntries.Count == 1
             && ViewModel.IsEntrySelected(entry);
+        DebugLog($"[RENAME] mousedown: entry={entry.Name}, wasSingle={wasAlreadySingleSelected}, selCount={ViewModel.SelectedEntries.Count}, isSelected={ViewModel.IsEntrySelected(entry)}, guardMs={_lastMouseDownMs}");
 
         // Double-click detection: same entry clicked twice within [100ms, 500ms).
         if (_lastClickTarget == entry && nowMs - _lastClickTimeMs is >= 100 and < 500)
@@ -563,16 +573,20 @@
         // Schedule slow-click rename if this entry was already the sole selection
         if (wasAlreadySingleSelected)
         {
+            DebugLog($"[RENAME] Scheduling rename timer for {entry.Name}, guardMs={_lastMouseDownMs}");
             _lastRenameTarget = entry;
             var clickedEntry = entry;
             _renameTimer = new System.Threading.Timer(_ =>
             {
                 _renameTimer = null;
                 _lastRenameTarget = null;
-                if (!_isDragging && _renamingEntry == null
+                var cond = !_isDragging && _renamingEntry == null
                     && ViewModel.SelectedEntries.Count == 1
-                    && ViewModel.IsEntrySelected(clickedEntry))
+                    && ViewModel.IsEntrySelected(clickedEntry);
+                DebugLog($"[RENAME] Timer fired: entry={clickedEntry.Name}, isDragging={_isDragging}, renaming={_renamingEntry != null}, selCount={ViewModel.SelectedEntries.Count}, isSelected={ViewModel.IsEntrySelected(clickedEntry)}, cond={cond}");
+                if (cond)
                 {
+                    DebugLog($"[RENAME] Invoking StartRename for {clickedEntry.Name}");
                     InvokeAsync(() => StartRename(clickedEntry));
                 }
             }, null, 400, Timeout.Infinite);
@@ -588,17 +602,26 @@
     {
         try
         {
-            // Cancel any pending slow-click rename
-            _renameTimer?.Dispose();
-            _renameTimer = null;
+            // If an entry handled this mousedown, skip (stopPropagation is unreliable in WKWebView)
+            if (_entryMouseDownHandled)
+            {
+                _entryMouseDownHandled = false;
+                return;
+            }
 
             // Defensive guard: if the mousedown originated from the rename input
-            // (stopPropagation may not work reliably on all WebView platforms),
-            // ignore the event to keep the rename input active.
             if (_renameInputMouseDown)
             {
                 _renameInputMouseDown = false;
                 return;
+            }
+
+            // Cancel any pending slow-click rename (only when clicking blank area)
+            if (_renameTimer != null)
+            {
+                DebugLog($"[RENAME] OnContentMouseDown CANCELLING rename timer");
+                _renameTimer.Dispose();
+                _renameTimer = null;
             }
 
             if (e.Button == 0 && e.Detail == 1)
@@ -729,6 +752,7 @@
 
     public void StartRename(FileSystemEntry entry)
     {
+        DebugLog($"[RENAME] StartRename called: {entry.Name}");
         _renamingEntry = entry;
         _renameInputFocused = false;
         _renameStartedAt = DateTime.UtcNow;
@@ -758,17 +782,14 @@
 
     private async Task OnRenameBlur()
     {
-        // Guard: if blur fires within 500ms of entering rename mode, it's likely a
-        // spurious blur from the initial focus setup or a background re-render race
-        // (e.g. RefreshFromNotification replacing the Entries collection).
-        // In that case, re-focus the input instead of committing.
-        if (_renamingEntry != null && (DateTime.UtcNow - _renameStartedAt).TotalMilliseconds < 500)
+        // Spurious blur events are common in WKWebView. Instead of committing,
+        // always try to re-focus the input. Rename is committed explicitly by
+        // Enter key (OnRenameKeyDown) or clicking blank area (OnContentMouseDown).
+        if (_renamingEntry != null)
         {
             _renameInputFocused = false;
             StateHasChanged();
-            return;
         }
-        await CommitRename();
     }
 
     private async Task OnRenameKeyDown(KeyboardEventArgs e)
@@ -782,11 +803,27 @@
     private async Task CommitRename()
     {
         if (_isCommitting || _renamingEntry == null) return;
+        DebugLog($"[RENAME] CommitRename: entry={_renamingEntry.Name}, newName={_renameText}");
         _isCommitting = true;
         try
         {
+            var entry = _renamingEntry;
+            var newName = _renameText.Trim();
+
+            // If name didn't change, just exit rename mode without any side effects.
+            // This handles spurious blur events where the input loses focus before
+            // the user has a chance to type anything.
+            if (string.IsNullOrWhiteSpace(newName) || newName == entry.Name)
+            {
+                DebugLog($"[RENAME] CommitRename: name unchanged, canceling rename");
+                _renamingEntry = null;
+                _renameText = "";
+                _renameInputFocused = false;
+                StateHasChanged();
+                return;
+            }
+
             // Save scroll BEFORE the input is removed from DOM.
-            // This is the single source of truth for scroll position during rename.
             try { await JSRuntime.InvokeVoidAsync("fkfinderScroll.saveScroll"); }
             catch { }
             _needRestoreScrollAfterRename = true;
@@ -796,18 +833,9 @@
             try { await JSRuntime.InvokeVoidAsync("fkfinderSelection.blurActive"); }
             catch { }
 
-            var entry = _renamingEntry;
-            var newName = _renameText.Trim();
             _renamingEntry = null;
             _renameText = "";
             StateHasChanged();
-
-            if (string.IsNullOrWhiteSpace(newName))
-                return;
-
-            // Skip rename if name didn't actually change
-            if (newName == entry.Name)
-                return;
 
             // Tell the PropertyChanged handler to skip its own scroll management,
             // since we already saved scroll and will restore in OnAfterRenderAsync.
@@ -905,7 +933,9 @@
 
     private string GetIconSvg(FileSystemEntry entry, int size)
     {
-        // Virtual AI entry with face thumbnail: circular image
+        string svg;
+
+        // Virtual AI entry with face thumbnail: circular image (no Git badge)
         if (entry.IsVirtual && !string.IsNullOrEmpty(entry.ThumbnailUrl))
         {
             var displaySize = size <= 24 ? 24 : 64;
@@ -933,10 +963,21 @@
 
         // Folder: Fluent design icon (skip for known bundle types like .pvm, .vmwarevm, .app)
         if (entry.IsDirectory && !IsBundleFile(entry))
-            return FileIconRenderer.RenderFolder(size);
+            svg = FileIconRenderer.RenderFolder(size);
+        else
+            svg = FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
 
-        // File (or bundle): rich SVG icon with extension label
-        return FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
+        // Overlay Git status badge on SVG icons
+        if (entry.GitStatus is not GitFileStatus.None and not GitFileStatus.Unmodified and not GitFileStatus.Ignored)
+        {
+            svg = svg.Replace("</svg>", FileIconRenderer.RenderGitBadge(entry.GitStatus, size) + "</svg>");
+        }
+        else if (entry.IsDirectory && entry.HasGitChanges)
+        {
+            svg = svg.Replace("</svg>", FileIconRenderer.RenderGitFolderBadge(size) + "</svg>");
+        }
+
+        return svg;
     }
 
     private string GetStarRatingMarkup(FileSystemEntry entry, int starSize)
