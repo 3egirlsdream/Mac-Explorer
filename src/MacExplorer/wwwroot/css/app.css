@@ -1155,6 +1155,8 @@ input:focus {
     transition: background var(--transition-fast), box-shadow var(--transition-fast);
     min-height: 96px;
     position: relative;
+    content-visibility: auto;
+    contain-intrinsic-size: 100px;
 }
 
 .file-grid-item:hover {
@@ -1301,6 +1303,8 @@ input:focus {
     border-radius: var(--radius-sm);
     min-height: 34px;
     position: relative;
+    content-visibility: auto;
+    contain-intrinsic-size: 38px;
 }
 
 .file-list-row:hover {

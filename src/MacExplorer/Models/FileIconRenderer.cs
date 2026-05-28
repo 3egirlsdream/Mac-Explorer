@@ -461,41 +461,4 @@ public static class FileIconRenderer
         @"<circle cx=""21"" cy=""17"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.5""/>" +
         @"<circle cx=""11"" cy=""22"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.3""/>" +
         @"<circle cx=""16"" cy=""22"" r=""1.2"" fill=""#8B5CF6"" opacity=""0.3""/>";
-
-    // ── Git status badges ──
-
-    public static string RenderGitBadge(GitFileStatus status, int iconSize)
-    {
-        if (status is GitFileStatus.None or GitFileStatus.Unmodified or GitFileStatus.Ignored)
-            return string.Empty;
-
-        var (color, letter) = status switch
-        {
-            GitFileStatus.Modified => ("#E2B714", "M"),
-            GitFileStatus.Staged or GitFileStatus.Added => ("#4CAF50", "A"),
-            GitFileStatus.Deleted => ("#F44336", "D"),
-            GitFileStatus.Renamed => ("#2196F3", "R"),
-            GitFileStatus.Untracked => ("#9E9E9E", "?"),
-            GitFileStatus.Conflicted => ("#FF5722", "!"),
-            _ => ("", "")
-        };
-
-        var badgeSize = iconSize <= 24 ? 8 : 12;
-        var cx = iconSize <= 24 ? 20 : 56;
-        var cy = iconSize <= 24 ? 20 : 56;
-        var fontSize = iconSize <= 24 ? 7 : 10;
-        var textY = cy + fontSize / 3.0;
-
-        return $@"<circle cx=""{cx}"" cy=""{cy}"" r=""{badgeSize}"" fill=""{color}"" stroke=""rgba(255,255,255,0.9)"" stroke-width=""1.5""/>
-              <text x=""{cx}"" y=""{textY}"" fill=""#fff"" font-size=""{fontSize}"" font-weight=""bold"" text-anchor=""middle"" dominant-baseline=""middle"">{letter}</text>";
-    }
-
-    public static string RenderGitFolderBadge(int iconSize)
-    {
-        var badgeSize = iconSize <= 24 ? 4 : 6;
-        var cx = iconSize <= 24 ? 20 : 56;
-        var cy = iconSize <= 24 ? 20 : 56;
-
-        return $@"<circle cx=""{cx}"" cy=""{cy}"" r=""{badgeSize}"" fill=""#E2B714"" stroke=""rgba(255,255,255,0.9)"" stroke-width=""1""/>";
-    }
 }

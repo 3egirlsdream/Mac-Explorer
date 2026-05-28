@@ -26,7 +26,6 @@ public partial class FileListViewModel : ObservableObject
     private readonly ISettingsService? _settingsService;
     private readonly IArchiveService? _archiveService;
     private readonly ILogger<FileListViewModel>? _logger;
-    private readonly IGitStatusService? _gitStatusService;
 
     // Sub-viewmodels
     private readonly NavigationViewModel _navigation;
@@ -186,8 +185,7 @@ public partial class FileListViewModel : ObservableObject
         IArchiveService? archiveService = null,
         IDragDropBridge? dragDropBridge = null,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
-        ILoggerFactory? loggerFactory = null,
-        IGitStatusService? gitStatusService = null)
+        ILoggerFactory? loggerFactory = null)
     {
         _navigation = navigation;
         _fileOps = fileOps;
@@ -211,7 +209,6 @@ public partial class FileListViewModel : ObservableObject
         _dragDropBridge = dragDropBridge;
         _directoryChangeNotifier = directoryChangeNotifier;
         _logger = loggerFactory?.CreateLogger<FileListViewModel>();
-        _gitStatusService = gitStatusService;
 
         // Wire up RenameRequested event from FileOps
         _fileOps.RequestRename += OnFileOpsRenameRequested;
@@ -1973,8 +1970,6 @@ public partial class FileListViewModel : ObservableObject
                         // Resolve app icons even when loading from index (IconUrl is not persisted in index)
                         _ = ResolveIconsInBackgroundAsync(entries);
                         _ = ResolveThumbnailsInBackgroundAsync(entries);
-                        GitLog($"[GIT] Index path, calling ResolveGitStatusAsync");
-                        _ = ResolveGitStatusAsync();
                         return;
                     }
                 }
@@ -1997,8 +1992,6 @@ public partial class FileListViewModel : ObservableObject
         _ = ResolveIconsInBackgroundAsync(entries);
         _ = ResolveThumbnailsInBackgroundAsync(entries);
         _ = TriggerImageAnalysisAsync(entries);
-        GitLog($"[GIT] Fire-and-forget ResolveGitStatusAsync, service={_gitStatusService != null}, path={_navigation.CurrentPath}");
-        _ = ResolveGitStatusAsync();
 
         // Batch load ratings for current directory
         _ = _collection.GetRating(_navigation.CurrentPath); // Just to initialize
@@ -2104,82 +2097,6 @@ public partial class FileListViewModel : ObservableObject
         if (ScrollBehaviorAfterLoad != ScrollMode.ScrollToSelected)
         {
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-        }
-    }
-
-    /// <summary>
-    // ── Git status resolution ──
-
-    private static void GitLog(string msg)
-    {
-        try { GitLog($"{DateTime.Now:HH:mm:ss.fff} {msg}\n"); } catch { }
-    }
-
-    private async Task ResolveGitStatusAsync()
-    {
-        GitLog($"[GIT] Entered ResolveGitStatusAsync, service={_gitStatusService != null}");
-        if (_gitStatusService == null) return;
-        try
-        {
-            GitLog($"[GIT] Resolving status for {_navigation.CurrentPath}");
-            var repoStatus = await _gitStatusService.GetRepoStatusAsync(_navigation.CurrentPath);
-            if (repoStatus == null) { GitLog("[GIT] repoStatus is null"); return; }
-
-            GitLog($"[GIT] Found repo at {repoStatus.RepoRoot}, {repoStatus.FileStatuses.Count} status entries");
-            var repoRoot = repoStatus.RepoRoot;
-            var updated = 0;
-            for (int i = 0; i < Entries.Count; i++)
-            {
-                var entry = Entries[i];
-                if (entry.IsVirtual || entry.GitStatus != GitFileStatus.None) continue;
-
-                var relativePath = entry.FullPath.StartsWith(repoRoot, StringComparison.OrdinalIgnoreCase)
-                    ? entry.FullPath[repoRoot.Length..].TrimStart('/')
-                    : entry.FullPath;
-
-                if (repoStatus.FileStatuses.TryGetValue(relativePath, out var status))
-                {
-                    updated++;
-                    Entries[i] = new FileSystemEntry
-                    {
-                        FullPath = entry.FullPath, Name = entry.Name,
-                        IsDirectory = entry.IsDirectory, Size = entry.Size,
-                        LastModified = entry.LastModified, Created = entry.Created,
-                        Extension = entry.Extension, IsHidden = entry.IsHidden,
-                        IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable,
-                        IsWritable = entry.IsWritable, IconKey = entry.IconKey,
-                        IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl,
-                        IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType,
-                        VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount,
-                        GitStatus = status
-                    };
-                }
-                else if (entry.IsDirectory && repoStatus.HasAnyChange(relativePath))
-                {
-                    updated++;
-                    Entries[i] = new FileSystemEntry
-                    {
-                        FullPath = entry.FullPath, Name = entry.Name,
-                        IsDirectory = entry.IsDirectory, Size = entry.Size,
-                        LastModified = entry.LastModified, Created = entry.Created,
-                        Extension = entry.Extension, IsHidden = entry.IsHidden,
-                        IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable,
-                        IsWritable = entry.IsWritable, IconKey = entry.IconKey,
-                        IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl,
-                        IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType,
-                        VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount,
-                        HasGitChanges = true
-                    };
-                }
-            }
-            GitLog($"[GIT] Updated {updated} entries with Git status");
-            OnPropertyChanged(nameof(Entries));
-        }
-        catch (Exception ex)
-        {
-            GitLog($"[GIT] Error: {ex.GetType().Name}: {ex.Message}");
-            GitLog($"[GIT] Error: {ex.GetType().Name}: {ex.Message}");
-            _logger?.LogWarning(ex, "Failed to resolve Git status for {Path}", _navigation.CurrentPath);
         }
     }
 
