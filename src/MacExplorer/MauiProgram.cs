@@ -213,7 +213,8 @@ public static class MauiProgram
             sp.GetService<IArchiveService>(),
             sp.GetService<IDragDropBridge>(),
             sp.GetRequiredService<IDirectoryChangeNotifier>(),
-            sp.GetService<ILoggerFactory>()
+            sp.GetService<ILoggerFactory>(),
+            sp.GetService<IGitStatusService>()
         ));
 
         builder.Services.AddMauiBlazorWebView();
