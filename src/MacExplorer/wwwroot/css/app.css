@@ -1116,7 +1116,8 @@ input:focus {
 
 .file-content-scroll {
     flex: 1;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     position: relative;
 }
 
@@ -1143,17 +1144,6 @@ input:focus {
     overflow-y: auto;
 }
 
-.file-grid-row {
-    display: flex;
-    gap: var(--space-3);
-    height: 100px;
-}
-
-.file-grid-row > .file-grid-item {
-    flex: 1;
-    min-width: 0;
-}
-
 .file-grid-item {
     display: flex;
     flex-direction: column;
@@ -1165,6 +1155,8 @@ input:focus {
     transition: background var(--transition-fast), box-shadow var(--transition-fast);
     min-height: 96px;
     position: relative;
+    content-visibility: auto;
+    contain-intrinsic-size: 100px;
 }
 
 .file-grid-item:hover {
@@ -1243,16 +1235,7 @@ input:focus {
     background: transparent;
     flex: 1;
     overflow-y: auto;
-}
-
-/* Virtualize wrapper: constrains height so Virtualize's internal scroll container works.
-   The > div targets the Virtualize component's own container div. */
-.file-virtualize-wrapper {
-    overflow: hidden !important;
-}
-
-.file-virtualize-wrapper > div {
-    height: 100%;
+    overflow-x: hidden;
 }
 
 .file-list-header {
@@ -1320,6 +1303,8 @@ input:focus {
     border-radius: var(--radius-sm);
     min-height: 34px;
     position: relative;
+    content-visibility: auto;
+    contain-intrinsic-size: 38px;
 }
 
 .file-list-row:hover {

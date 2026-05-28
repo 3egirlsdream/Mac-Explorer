@@ -59,9 +59,9 @@
         }
         else if (ViewModel.ViewMode == ViewMode.List)
         {
-            @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
-            {
-                <div class="file-list">
+            <div class="file-list">
+                @if (ViewModel.GroupField != GroupField.None && ViewModel.Groups.Count > 0)
+                {
                     @foreach (var group in ViewModel.Groups)
                     {
                         <div class="file-group-header">@group.Name</div>
@@ -70,18 +70,15 @@
                             @RenderListRow(entry);
                         }
                     }
-                </div>
-            }
-            else
-            {
-                <div class="file-list file-virtualize-wrapper">
-                    <Virtualize Items="ViewModel.Entries" ItemSize="38">
-                        <ItemContent>
-                            @RenderListRow(context)
-                        </ItemContent>
-                    </Virtualize>
-                </div>
-            }
+                }
+                else
+                {
+                    @foreach (var entry in ViewModel.Entries)
+                    {
+                        @RenderListRow(entry);
+                    }
+                }
+            </div>
         }
         else
         {
@@ -100,21 +97,12 @@
             }
             else
             {
-                @if (_gridRows.Count > 0)
-                {
-                    <div class="file-grid file-virtualize-wrapper">
-                        <Virtualize Items="_gridRows" ItemSize="100" Context="row">
-                            <ItemContent>
-                                <div class="file-grid-row">
-                                    @foreach (var entry in row)
-                                    {
-                                        @RenderGridItem(entry)
-                                    }
-                                </div>
-                            </ItemContent>
-                        </Virtualize>
-                    </div>
-                }
+                <div class="file-grid">
+                    @foreach (var entry in ViewModel.Entries)
+                    {
+                        @RenderGridItem(entry);
+                    }
+                </div>
             }
         }
     </div>
@@ -173,28 +161,7 @@
         {
             await JSRuntime.InvokeVoidAsync("fkfinderColumnResize.init");
             await CreateBlobUrlsForEntriesAsync();
-            // Register resize observer for grid column recalculation
-            var dotNetRef = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("fkfinderGrid.observeResize", dotNetRef);
         }
-
-        // Measure container width for grid row virtualization
-        if (ViewModel.ViewMode == ViewMode.Grid && ViewModel.GroupField == GroupField.None
-            && ViewModel.Entries.Count > 0)
-        {
-            try
-            {
-                var width = await JSRuntime.InvokeAsync<double>("fkfinderGrid.getItemWidth");
-                if (width > 0)
-                {
-                    var itemsPerRow = Math.Max(1, (int)(width / 108)); // 96px min + 12px gap
-                    if (itemsPerRow != _itemsPerRow || !_gridRowsComputed)
-                        ComputeGridRows(itemsPerRow);
-                }
-            }
-            catch { }
-        }
-
         if (_needRestoreScrollAfterRename)
         {
             _needRestoreScrollAfterRename = false;
@@ -209,8 +176,6 @@
             or nameof(ViewModel.Groups) or nameof(ViewModel.GroupField) or nameof(ViewModel.CutPaths))
         {
             if (_renamingEntry != null) return;
-            if (e.PropertyName == nameof(ViewModel.ViewMode))
-                _gridRowsComputed = false;
             InvokeAsync(StateHasChanged);
         }
         else if (e.PropertyName == nameof(ViewModel.Entries))
@@ -219,13 +184,6 @@
             // background thumbnail updates (ResolveFaceThumbnailsAsync etc.)
             if (_renamingEntry != null)
                 return;
-
-            // Recompute grid rows when entries change
-            if (ViewModel.ViewMode == ViewMode.Grid && ViewModel.GroupField == GroupField.None)
-            {
-                _gridRowsComputed = false;
-                ComputeGridRows(_itemsPerRow);
-            }
 
             // When CommitRename already saved scroll, skip the normal scroll handling
             // to avoid overwriting the saved position. Just render and create blob URLs.
@@ -301,7 +259,6 @@
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
         _renameTimer?.Dispose();
-        try { await JSRuntime.InvokeVoidAsync("fkfinderGrid.disconnect"); } catch { }
         await RevokeAllBlobUrlsAsync();
     }
 
@@ -325,11 +282,6 @@
     private FileSystemEntry? _lastRenameTarget;
     private FileSystemEntry? _lastClickTarget;
     private long _lastClickTimeMs;
-
-    // ── Virtualize grid state ──
-    private List<FileSystemEntry[]> _gridRows = [];
-    private int _itemsPerRow = 8;
-    private bool _gridRowsComputed;
 
     // ── Render helpers using inline templates ──
 
@@ -1058,40 +1010,6 @@
             _activeBlobUrls.Clear();
         }
         _blobUrlCache.Clear();
-    }
-
-    // ── Grid row computation for Virtualize ──
-
-    private void ComputeGridRows(int itemsPerRow)
-    {
-        if (itemsPerRow <= 0) itemsPerRow = 1;
-        _itemsPerRow = itemsPerRow;
-        _gridRows = ViewModel.Entries
-            .Select((entry, i) => new { entry, i })
-            .GroupBy(x => x.i / itemsPerRow)
-            .Select(g => g.Select(x => x.entry).ToArray())
-            .ToList();
-        _gridRowsComputed = true;
-    }
-
-    [JSInvokable]
-    public async Task OnContainerResize()
-    {
-        if (ViewModel.ViewMode != ViewMode.Grid || ViewModel.GroupField != GroupField.None) return;
-        try
-        {
-            var width = await JSRuntime.InvokeAsync<double>("fkfinderGrid.getItemWidth");
-            if (width > 0)
-            {
-                var itemsPerRow = Math.Max(1, (int)(width / 108));
-                if (itemsPerRow != _itemsPerRow)
-                {
-                    ComputeGridRows(itemsPerRow);
-                    StateHasChanged();
-                }
-            }
-        }
-        catch { }
     }
 
 }
