@@ -26,6 +26,7 @@ public partial class FileListViewModel : ObservableObject
     private readonly ISettingsService? _settingsService;
     private readonly IArchiveService? _archiveService;
     private readonly ILogger<FileListViewModel>? _logger;
+    private readonly IGitStatusService? _gitStatusService;
 
     // Sub-viewmodels
     private readonly NavigationViewModel _navigation;
@@ -185,7 +186,8 @@ public partial class FileListViewModel : ObservableObject
         IArchiveService? archiveService = null,
         IDragDropBridge? dragDropBridge = null,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
-        ILoggerFactory? loggerFactory = null)
+        ILoggerFactory? loggerFactory = null,
+        IGitStatusService? gitStatusService = null)
     {
         _navigation = navigation;
         _fileOps = fileOps;
@@ -209,6 +211,7 @@ public partial class FileListViewModel : ObservableObject
         _dragDropBridge = dragDropBridge;
         _directoryChangeNotifier = directoryChangeNotifier;
         _logger = loggerFactory?.CreateLogger<FileListViewModel>();
+        _gitStatusService = gitStatusService;
 
         // Wire up RenameRequested event from FileOps
         _fileOps.RequestRename += OnFileOpsRenameRequested;
@@ -1992,6 +1995,7 @@ public partial class FileListViewModel : ObservableObject
         _ = ResolveIconsInBackgroundAsync(entries);
         _ = ResolveThumbnailsInBackgroundAsync(entries);
         _ = TriggerImageAnalysisAsync(entries);
+        _ = ResolveGitStatusAsync();
 
         // Batch load ratings for current directory
         _ = _collection.GetRating(_navigation.CurrentPath); // Just to initialize
@@ -2098,6 +2102,35 @@ public partial class FileListViewModel : ObservableObject
         {
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         }
+    }
+
+    private async Task ResolveGitStatusAsync()
+    {
+        if (_gitStatusService == null) return;
+        try
+        {
+            var repoStatus = await _gitStatusService.GetRepoStatusAsync(_navigation.CurrentPath);
+            if (repoStatus == null) return;
+
+            var repoRoot = repoStatus.RepoRoot;
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                var entry = Entries[i];
+                if (entry.IsVirtual || entry.GitStatus != GitFileStatus.None) continue;
+                var relativePath = entry.FullPath.StartsWith(repoRoot, StringComparison.OrdinalIgnoreCase)
+                    ? entry.FullPath[repoRoot.Length..].TrimStart('/') : entry.FullPath;
+                if (repoStatus.FileStatuses.TryGetValue(relativePath, out var status))
+                {
+                    Entries[i] = new FileSystemEntry { FullPath = entry.FullPath, Name = entry.Name, IsDirectory = entry.IsDirectory, Size = entry.Size, LastModified = entry.LastModified, Created = entry.Created, Extension = entry.Extension, IsHidden = entry.IsHidden, IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable, IsWritable = entry.IsWritable, IconKey = entry.IconKey, IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl, IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType, VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount, GitStatus = status };
+                }
+                else if (entry.IsDirectory && repoStatus.HasAnyChange(relativePath))
+                {
+                    Entries[i] = new FileSystemEntry { FullPath = entry.FullPath, Name = entry.Name, IsDirectory = entry.IsDirectory, Size = entry.Size, LastModified = entry.LastModified, Created = entry.Created, Extension = entry.Extension, IsHidden = entry.IsHidden, IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable, IsWritable = entry.IsWritable, IconKey = entry.IconKey, IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl, IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType, VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount, HasGitChanges = true };
+                }
+            }
+            OnPropertyChanged(nameof(Entries));
+        }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Git status resolve failed"); }
     }
 
     /// <summary>

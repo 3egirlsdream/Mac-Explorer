@@ -22,6 +22,8 @@ public class FileSystemEntry
     public string? VirtualFolderType { get; init; }
     public string? VirtualFolderKey { get; init; }
     public int VirtualItemCount { get; init; }
+    public GitFileStatus GitStatus { get; init; }
+    public bool HasGitChanges { get; init; }
 
     public string DisplayName => IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
     public string FormattedSize => IsVirtual ? $"{VirtualItemCount} 项" : FormatSize(Size, IsDirectory);

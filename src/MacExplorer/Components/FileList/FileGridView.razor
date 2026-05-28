@@ -932,11 +932,18 @@
         }
 
         // Folder: Fluent design icon (skip for known bundle types like .pvm, .vmwarevm, .app)
+        string svg;
         if (entry.IsDirectory && !IsBundleFile(entry))
-            return FileIconRenderer.RenderFolder(size);
+            svg = FileIconRenderer.RenderFolder(size);
+        else
+            svg = FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
 
-        // File (or bundle): rich SVG icon with extension label
-        return FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
+        if (entry.GitStatus is not GitFileStatus.None and not GitFileStatus.Unmodified and not GitFileStatus.Ignored)
+            svg = svg.Replace("</svg>", FileIconRenderer.RenderGitBadge(entry.GitStatus, size) + "</svg>");
+        else if (entry.IsDirectory && entry.HasGitChanges)
+            svg = svg.Replace("</svg>", FileIconRenderer.RenderGitFolderBadge(size) + "</svg>");
+
+        return svg;
     }
 
     private string GetStarRatingMarkup(FileSystemEntry entry, int starSize)
