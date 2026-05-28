@@ -127,6 +127,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IQuickLookService, Platforms.MacCatalyst.Services.MacQuickLookService>();
         builder.Services.AddSingleton<IMouseNavigationService, Platforms.MacCatalyst.Services.MacMouseNavigationService>();
         builder.Services.AddSingleton<IThumbnailService, Platforms.MacCatalyst.Services.MacThumbnailService>();
+        builder.Services.AddSingleton<IGitStatusService, Services.Impl.GitStatusService>();
         builder.Services.AddSingleton<ICollectionService>(sp =>
             new Services.Impl.CollectionService(
                 sp.GetRequiredService<Services.Impl.DatabaseConnectionFactory>(),
