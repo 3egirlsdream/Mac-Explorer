@@ -92,9 +92,9 @@ public class GitStatusService : IGitStatusService, IDisposable
         var entries = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
         for (int i = 0; i < entries.Length; i++)
         {
-            if (entries[i].Length < 3) continue;
+            if (entries[i].Length < 4) continue;
             var xy = entries[i][..2];
-            var path = entries[i][2..];
+            var path = entries[i][3..]; // porcelain format: "XY PATH" — skip XY + space
 
             if (xy[0] == 'R')
             {

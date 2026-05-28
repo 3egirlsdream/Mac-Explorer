@@ -2107,15 +2107,13 @@ public partial class FileListViewModel : ObservableObject
 
     private async Task ResolveGitStatusAsync()
     {
-        System.IO.File.AppendAllText("/tmp/fkfinder_git.log", $"{DateTime.Now:HH:mm:ss.fff} Git: called, svc={_gitStatusService != null}, path={_navigation.CurrentPath}\n");
         if (_gitStatusService == null) return;
         try
         {
             var repoStatus = await _gitStatusService.GetRepoStatusAsync(_navigation.CurrentPath);
-            if (repoStatus == null) { System.IO.File.AppendAllText("/tmp/fkfinder_git.log", $"{DateTime.Now:HH:mm:ss.fff} Git: null repoStatus\n"); return; }
+            if (repoStatus == null) return;
 
             var repoRoot = repoStatus.RepoRoot;
-            var count = 0;
             for (int i = 0; i < Entries.Count; i++)
             {
                 var entry = Entries[i];
@@ -2124,19 +2122,16 @@ public partial class FileListViewModel : ObservableObject
                     ? entry.FullPath[repoRoot.Length..].TrimStart('/') : entry.FullPath;
                 if (repoStatus.FileStatuses.TryGetValue(relativePath, out var status))
                 {
-                    count++;
                     Entries[i] = new FileSystemEntry { FullPath = entry.FullPath, Name = entry.Name, IsDirectory = entry.IsDirectory, Size = entry.Size, LastModified = entry.LastModified, Created = entry.Created, Extension = entry.Extension, IsHidden = entry.IsHidden, IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable, IsWritable = entry.IsWritable, IconKey = entry.IconKey, IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl, IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType, VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount, GitStatus = status };
                 }
                 else if (entry.IsDirectory && repoStatus.HasAnyChange(relativePath))
                 {
-                    count++;
                     Entries[i] = new FileSystemEntry { FullPath = entry.FullPath, Name = entry.Name, IsDirectory = entry.IsDirectory, Size = entry.Size, LastModified = entry.LastModified, Created = entry.Created, Extension = entry.Extension, IsHidden = entry.IsHidden, IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable, IsWritable = entry.IsWritable, IconKey = entry.IconKey, IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl, IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType, VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount, HasGitChanges = true };
                 }
             }
-            System.IO.File.AppendAllText("/tmp/fkfinder_git.log", $"{DateTime.Now:HH:mm:ss.fff} Git: {repoStatus.FileStatuses.Count} status entries, {count} updated, root={repoRoot}, sampleStatus={string.Join("|", repoStatus.FileStatuses.Take(3).Select(kv => $"{kv.Key}={kv.Value}"))}, sampleEntry={string.Join("|", Entries.Take(3).Select(e => e.FullPath))}\n");
             OnPropertyChanged(nameof(Entries));
         }
-        catch (Exception ex) { System.IO.File.AppendAllText("/tmp/fkfinder_git.log", $"{DateTime.Now:HH:mm:ss.fff} Git error: {ex.Message}\n"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Git status resolve failed"); }
     }
 
     /// <summary>
