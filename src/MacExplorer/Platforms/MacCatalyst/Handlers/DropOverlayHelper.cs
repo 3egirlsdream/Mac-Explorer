@@ -270,14 +270,22 @@ public static class DropOverlayHelper
         // NSDraggingSession is active, so internal drags must be handled
         // entirely at the AppKit layer.
         if (NativeDragDropHelper.IsInternalDragActive)
+        {
             Log("draggingEntered: internal drag, accepting natively");
+            PatchInternalDragSessionPasteboard(draggingInfo, "entered");
+        }
         else
+        {
             Log("draggingEntered: external drag");
+        }
         return NSDragOperationGeneric;
     }
 
     private static nuint OnDraggingUpdated(IntPtr self, IntPtr sel, IntPtr draggingInfo)
     {
+        if (NativeDragDropHelper.IsInternalDragActive)
+            PatchInternalDragSessionPasteboard(draggingInfo, "updated");
+
         // Track position for drop target resolution
         if (NativeDragDropHelper.IsInternalDragActive)
         {
@@ -290,6 +298,19 @@ public static class DropOverlayHelper
     private static void OnDraggingExited(IntPtr self, IntPtr sel, IntPtr draggingInfo)
     {
         Log("draggingExited");
+    }
+
+    private static void PatchInternalDragSessionPasteboard(IntPtr draggingInfo, string phase)
+    {
+        try
+        {
+            var pasteboard = objc_msgSend(draggingInfo, Selector.GetHandle("draggingPasteboard"));
+            NativeDragDropHelper.PublishInternalDragFilesToSessionPasteboard(pasteboard, phase);
+        }
+        catch (Exception ex)
+        {
+            Log($"patch internal drag pasteboard failed ({phase}): {ex.Message}");
+        }
     }
 
     private static byte OnPrepareForDragOperation(IntPtr self, IntPtr sel, IntPtr draggingInfo)

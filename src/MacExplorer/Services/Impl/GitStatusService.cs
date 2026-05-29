@@ -70,10 +70,82 @@ public class GitStatusService : IGitStatusService, IDisposable
 
     private static void RunGitStatus(string repoRoot, Dictionary<string, GitFileStatus> statuses)
     {
+        var output = RunGitCommand(repoRoot, "status --porcelain -z");
+        if (string.IsNullOrEmpty(output)) return;
+
+        var entries = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < entries.Length; i++)
+        {
+            if (entries[i].Length < 4) continue;
+            var xy = entries[i][..2];
+            var path = entries[i][3..];
+
+            if (xy[0] is 'R' or 'C')
+            {
+                if (path.EndsWith('/')) path = path[..^1];
+                statuses[path] = xy[0] == 'R' ? GitFileStatus.Renamed : GitFileStatus.Added;
+                if (i + 1 < entries.Length)
+                    i++;
+                continue;
+            }
+
+            // Strip trailing slash from untracked directory paths (e.g. "宣传/" → "宣传")
+            // so they match relativePath computed without trailing slash
+            if (path.EndsWith('/'))
+                path = path[..^1];
+
+            var status = ParsePorcelainStatus(xy);
+            if (status != GitFileStatus.Unmodified)
+                statuses[path] = status;
+        }
+    }
+
+    /// <summary>Get all ignored paths under repoRoot using git ls-files. Returns set of ignored relative paths (no trailing slashes).</summary>
+    public static HashSet<string> GetIgnoredPaths(string repoRoot)
+    {
+        var ignored = new HashSet<string>(StringComparer.Ordinal);
+
+        var output = RunGitCommand(repoRoot, "ls-files -o -i --exclude-standard -z --directory");
+        if (string.IsNullOrEmpty(output)) return ignored;
+
+        foreach (var raw in output.Split('\0', StringSplitOptions.RemoveEmptyEntries))
+        {
+            // Unquote paths with non-ASCII chars (git quotes as "octal-escaped")
+            var path = raw.StartsWith('"') ? UnquotePath(raw) : raw;
+            // Strip trailing slash from directories
+            if (path.EndsWith('/'))
+                path = path[..^1];
+            ignored.Add(path);
+        }
+
+        return ignored;
+    }
+
+    /// <summary>Get untracked (non-ignored) paths under repoRoot. Returns set of relative paths (no trailing slashes).</summary>
+    public static HashSet<string> GetUntrackedPaths(string repoRoot)
+    {
+        var untracked = new HashSet<string>(StringComparer.Ordinal);
+
+        var output = RunGitCommand(repoRoot, "ls-files -o --exclude-standard -z --directory");
+        if (string.IsNullOrEmpty(output)) return untracked;
+
+        foreach (var raw in output.Split('\0', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var path = raw.StartsWith('"') ? UnquotePath(raw) : raw;
+            if (path.EndsWith('/'))
+                path = path[..^1];
+            untracked.Add(path);
+        }
+
+        return untracked;
+    }
+
+    private static string RunGitCommand(string repoRoot, string arguments, int timeoutMs = 5000)
+    {
         var psi = new ProcessStartInfo
         {
             FileName = "/usr/bin/git",
-            Arguments = "status --porcelain -z",
+            Arguments = arguments,
             WorkingDirectory = repoRoot,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -82,30 +154,47 @@ public class GitStatusService : IGitStatusService, IDisposable
         };
 
         using var proc = Process.Start(psi);
-        if (proc == null) return;
+        if (proc == null) return string.Empty;
 
-        var output = proc.StandardOutput.ReadToEnd();
-        proc.WaitForExit(5000);
+        var outputTask = proc.StandardOutput.ReadToEndAsync();
+        var errorTask = proc.StandardError.ReadToEndAsync();
 
-        if (string.IsNullOrEmpty(output)) return;
-
-        var entries = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
-        for (int i = 0; i < entries.Length; i++)
+        if (!proc.WaitForExit(timeoutMs))
         {
-            if (entries[i].Length < 4) continue;
-            var xy = entries[i][..2];
-            var path = entries[i][3..]; // porcelain format: "XY PATH" — skip XY + space
-
-            if (xy[0] == 'R')
-            {
-                if (i + 1 < entries.Length) { i++; path = entries[i]; statuses[path] = GitFileStatus.Renamed; }
-                continue;
-            }
-
-            var status = ParsePorcelainStatus(xy);
-            if (status != GitFileStatus.Unmodified)
-                statuses[path] = status;
+            try { proc.Kill(entireProcessTree: true); }
+            catch { }
+            return string.Empty;
         }
+
+        try { Task.WaitAll([outputTask, errorTask], 1000); }
+        catch { return string.Empty; }
+
+        return proc.ExitCode == 0 ? outputTask.Result : string.Empty;
+    }
+
+    private static string UnquotePath(string quoted)
+    {
+        // Git quotes non-ASCII paths as "\xxx\yyy..." (octal UTF-8)
+        // Strip surrounding quotes and decode
+        var inner = quoted[1..^1]; // remove leading/trailing "
+        using var ms = new MemoryStream();
+        for (int i = 0; i < inner.Length; i++)
+        {
+            if (inner[i] == '\\' && i + 3 <= inner.Length)
+            {
+                // Parse 3-digit octal
+                var octal = inner.Substring(i + 1, 3);
+                if (octal.All(c => c >= '0' && c <= '7'))
+                {
+                    ms.WriteByte(Convert.ToByte(octal, 8));
+                    i += 3;
+                    continue;
+                }
+            }
+            var b = (byte)inner[i];
+            ms.WriteByte(b);
+        }
+        return System.Text.Encoding.UTF8.GetString(ms.ToArray());
     }
 
     private static GitFileStatus ParsePorcelainStatus(string xy)
@@ -131,23 +220,27 @@ public class GitStatusService : IGitStatusService, IDisposable
         if (_watchedRepo == repoRoot) return;
         _watcher?.Dispose();
         _watchedRepo = repoRoot;
-        var gitDir = Path.Combine(repoRoot, ".git");
-        if (!Directory.Exists(gitDir)) return;
+        if (!Directory.Exists(repoRoot)) return;
         try
         {
-            _watcher = new FileSystemWatcher(gitDir)
+            // Watch the working tree (not .git) so file edits invalidate the cache,
+            // while .git-internal changes (refs, HEAD) don't cause a feedback loop.
+            _watcher = new FileSystemWatcher(repoRoot)
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
                 EnableRaisingEvents = true
             };
-            _watcher.Changed += (_, _) => InvalidateCache(repoRoot);
-            _watcher.Created += (_, _) => InvalidateCache(repoRoot);
-            _watcher.Deleted += (_, _) => InvalidateCache(repoRoot);
-            _watcher.Renamed += (_, _) => InvalidateCache(repoRoot);
+            _watcher.Changed += (_, e) => { if (!IsInsideGitDir(e.FullPath)) InvalidateCache(repoRoot); };
+            _watcher.Created += (_, e) => { if (!IsInsideGitDir(e.FullPath)) InvalidateCache(repoRoot); };
+            _watcher.Deleted += (_, e) => { if (!IsInsideGitDir(e.FullPath)) InvalidateCache(repoRoot); };
+            _watcher.Renamed += (_, e) => { if (!IsInsideGitDir(e.FullPath)) InvalidateCache(repoRoot); };
         }
-        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to watch .git for {Repo}", repoRoot); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to watch repo for {Repo}", repoRoot); }
     }
+
+    private static bool IsInsideGitDir(string fullPath) =>
+        fullPath.Contains("/.git/", StringComparison.Ordinal) || fullPath.EndsWith("/.git", StringComparison.Ordinal);
 
     public void Dispose() { _watcher?.Dispose(); _cache.Clear(); }
 }

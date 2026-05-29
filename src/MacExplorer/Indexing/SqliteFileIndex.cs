@@ -8,6 +8,7 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly string _databasePath;
+    private readonly SemaphoreSlim _connectionLock = new(1, 1);
     private bool _disposed;
 
     public SqliteFileIndex(string databasePath)
@@ -110,204 +111,317 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 
     public async Task<IReadOnlyList<FileSystemEntry>> GetDirectoryContentsAsync(string parentPath)
     {
-        var entries = new List<FileSystemEntry>();
-
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            SELECT path, name, extension, parent_path, size, is_directory,
-                   created_at, modified_at, content_type, is_hidden
-            FROM files
-            WHERE parent_path = @parentPath
-            ORDER BY is_directory DESC, name COLLATE NOCASE ASC
-            """;
-        cmd.Parameters.AddWithValue("@parentPath", parentPath);
-
-        using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            entries.Add(ReadEntry(reader));
-        }
-
-        return entries;
-    }
-
-    public async Task<FileSystemEntry?> GetEntryAsync(string path)
-    {
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            SELECT path, name, extension, parent_path, size, is_directory,
-                   created_at, modified_at, content_type, is_hidden
-            FROM files
-            WHERE path = @path
-            """;
-        cmd.Parameters.AddWithValue("@path", path);
-
-        using var reader = await cmd.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
-        {
-            return ReadEntry(reader);
-        }
-
-        return null;
-    }
-
-    public async Task<IReadOnlyList<FileSystemEntry>> SearchByNameAsync(string pattern, int limit = 100)
-    {
-        // If FTS5 is not available, go directly to LIKE search
-        if (!SqliteSchema.IsFts5Available)
-            return await SearchByNameLikeAsync(pattern, limit);
-
-        var entries = new List<FileSystemEntry>();
-
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            SELECT f.path, f.name, f.extension, f.parent_path, f.size, f.is_directory,
-                   f.created_at, f.modified_at, f.content_type, f.is_hidden
-            FROM files_fts ft
-            JOIN files f ON f.rowid = ft.rowid
-            WHERE files_fts MATCH @pattern
-            ORDER BY rank
-            LIMIT @limit
-            """;
-        cmd.Parameters.AddWithValue("@pattern", $"{pattern}*");
-        cmd.Parameters.AddWithValue("@limit", limit);
-
+        await _connectionLock.WaitAsync();
         try
         {
+            var entries = new List<FileSystemEntry>();
+
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                SELECT path, name, extension, parent_path, size, is_directory,
+                       created_at, modified_at, content_type, is_hidden
+                FROM files
+                WHERE parent_path = @parentPath
+                ORDER BY is_directory DESC, name COLLATE NOCASE ASC
+                """;
+            cmd.Parameters.AddWithValue("@parentPath", parentPath);
+
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 entries.Add(ReadEntry(reader));
             }
-        }
-        catch (SqliteException)
-        {
-            // FTS5 query syntax error, try simple LIKE search as fallback
-            return await SearchByNameLikeAsync(pattern, limit);
-        }
 
-        // FTS5 only supports prefix matching; supplement with LIKE for contains matching
-        if (entries.Count < limit)
+            return entries;
+        }
+        finally
         {
-            var existingPaths = new HashSet<string>(entries.Select(e => e.FullPath));
-            var likeResults = await SearchByNameLikeAsync(pattern, limit - entries.Count + existingPaths.Count);
-            foreach (var entry in likeResults)
+            _connectionLock.Release();
+        }
+    }
+
+    public async Task<FileSystemEntry?> GetEntryAsync(string path)
+    {
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                SELECT path, name, extension, parent_path, size, is_directory,
+                       created_at, modified_at, content_type, is_hidden
+                FROM files
+                WHERE path = @path
+                """;
+            cmd.Parameters.AddWithValue("@path", path);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
             {
-                if (existingPaths.Add(entry.FullPath))
+                return ReadEntry(reader);
+            }
+
+            return null;
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+    }
+
+    public async Task<IReadOnlyList<FileSystemEntry>> SearchByNameAsync(string pattern, int limit = 100)
+    {
+        await _connectionLock.WaitAsync();
+        try
+        {
+            // If FTS5 is not available, go directly to LIKE search
+            if (!SqliteSchema.IsFts5Available)
+                return await SearchByNameLikeAsync(pattern, limit);
+
+            var entries = new List<FileSystemEntry>();
+
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                SELECT f.path, f.name, f.extension, f.parent_path, f.size, f.is_directory,
+                       f.created_at, f.modified_at, f.content_type, f.is_hidden
+                FROM files_fts ft
+                JOIN files f ON f.rowid = ft.rowid
+                WHERE files_fts MATCH @pattern
+                ORDER BY rank
+                LIMIT @limit
+                """;
+            cmd.Parameters.AddWithValue("@pattern", $"{pattern}*");
+            cmd.Parameters.AddWithValue("@limit", limit);
+
+            try
+            {
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
-                    entries.Add(entry);
-                    if (entries.Count >= limit) break;
+                    entries.Add(ReadEntry(reader));
                 }
             }
-        }
+            catch (SqliteException)
+            {
+                // FTS5 query syntax error, try simple LIKE search as fallback
+                return await SearchByNameLikeAsync(pattern, limit);
+            }
 
-        return entries;
+            // FTS5 only supports prefix matching; supplement with LIKE for contains matching
+            if (entries.Count < limit)
+            {
+                var existingPaths = new HashSet<string>(entries.Select(e => e.FullPath));
+                var likeResults = await SearchByNameLikeAsync(pattern, limit - entries.Count + existingPaths.Count);
+                foreach (var entry in likeResults)
+                {
+                    if (existingPaths.Add(entry.FullPath))
+                    {
+                        entries.Add(entry);
+                        if (entries.Count >= limit) break;
+                    }
+                }
+            }
+
+            return entries;
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     public async Task<bool> IsDirectoryFreshAsync(string path, TimeSpan freshnessThreshold)
     {
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            SELECT last_scanned FROM directories WHERE path = @path
-            """;
-        cmd.Parameters.AddWithValue("@path", path);
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                SELECT last_scanned FROM directories WHERE path = @path
+                """;
+            cmd.Parameters.AddWithValue("@path", path);
 
-        var result = await cmd.ExecuteScalarAsync();
-        if (result == null || result == DBNull.Value)
-            return false;
+            var result = await cmd.ExecuteScalarAsync();
+            if (result == null || result == DBNull.Value)
+                return false;
 
-        var lastScanned = new DateTime((long)result, DateTimeKind.Utc);
-        return DateTime.UtcNow - lastScanned < freshnessThreshold;
+            var lastScanned = new DateTime((long)result, DateTimeKind.Utc);
+            return DateTime.UtcNow - lastScanned < freshnessThreshold;
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     // IFileIndexWriter - Write operations
 
     public async Task UpdateDirectoryAsync(string directoryPath, IReadOnlyList<FileSystemEntry> entries)
     {
-        using var transaction = _connection.BeginTransaction();
-
+        await _connectionLock.WaitAsync();
         try
         {
-            // Delete old entries for this directory
-            using (var cmd = _connection.CreateCommand())
-            {
-                cmd.Transaction = transaction;
-                cmd.CommandText = "DELETE FROM files WHERE parent_path = @parentPath";
-                cmd.Parameters.AddWithValue("@parentPath", directoryPath);
-                await cmd.ExecuteNonQueryAsync();
-            }
+            using var transaction = _connection.BeginTransaction();
 
-            // Insert new entries
-            foreach (var entry in entries)
+            try
             {
-                using var cmd = _connection.CreateCommand();
-                cmd.Transaction = transaction;
-                cmd.CommandText = """
-                    INSERT OR REPLACE INTO files (path, name, extension, parent_path, size, is_directory, created_at, modified_at, content_type, is_hidden, indexed_at)
-                    VALUES (@path, @name, @extension, @parentPath, @size, @isDirectory, @createdAt, @modifiedAt, @contentType, @isHidden, @indexedAt)
-                    """;
-                AddEntryParameters(cmd, entry);
-                await cmd.ExecuteNonQueryAsync();
-            }
+                // Delete old entries for this directory
+                using (var cmd = _connection.CreateCommand())
+                {
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = "DELETE FROM files WHERE parent_path = @parentPath";
+                    cmd.Parameters.AddWithValue("@parentPath", directoryPath);
+                    await cmd.ExecuteNonQueryAsync();
+                }
 
-            // Update directory metadata
-            using (var cmd = _connection.CreateCommand())
+                // Insert new entries
+                foreach (var entry in entries)
+                {
+                    using var cmd = _connection.CreateCommand();
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = """
+                        INSERT OR REPLACE INTO files (path, name, extension, parent_path, size, is_directory, created_at, modified_at, content_type, is_hidden, indexed_at)
+                        VALUES (@path, @name, @extension, @parentPath, @size, @isDirectory, @createdAt, @modifiedAt, @contentType, @isHidden, @indexedAt)
+                        """;
+                    AddEntryParameters(cmd, entry);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                // Update directory metadata
+                using (var cmd = _connection.CreateCommand())
+                {
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = """
+                        INSERT OR REPLACE INTO directories (path, file_count, total_size, last_scanned, scan_status)
+                        VALUES (@path, @fileCount, @totalSize, @lastScanned, @scanStatus)
+                        """;
+                    cmd.Parameters.AddWithValue("@path", directoryPath);
+                    cmd.Parameters.AddWithValue("@fileCount", entries.Count);
+                    cmd.Parameters.AddWithValue("@totalSize", entries.Where(e => !e.IsDirectory).Sum(e => e.Size));
+                    cmd.Parameters.AddWithValue("@lastScanned", DateTime.UtcNow.Ticks);
+                    cmd.Parameters.AddWithValue("@scanStatus", "complete");
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                transaction.Commit();
+            }
+            catch
             {
-                cmd.Transaction = transaction;
-                cmd.CommandText = """
-                    INSERT OR REPLACE INTO directories (path, file_count, total_size, last_scanned, scan_status)
-                    VALUES (@path, @fileCount, @totalSize, @lastScanned, @scanStatus)
-                    """;
-                cmd.Parameters.AddWithValue("@path", directoryPath);
-                cmd.Parameters.AddWithValue("@fileCount", entries.Count);
-                cmd.Parameters.AddWithValue("@totalSize", entries.Where(e => !e.IsDirectory).Sum(e => e.Size));
-                cmd.Parameters.AddWithValue("@lastScanned", DateTime.UtcNow.Ticks);
-                cmd.Parameters.AddWithValue("@scanStatus", "complete");
-                await cmd.ExecuteNonQueryAsync();
+                transaction.Rollback();
+                throw;
             }
-
-            transaction.Commit();
         }
-        catch
+        finally
         {
-            transaction.Rollback();
-            throw;
+            _connectionLock.Release();
+        }
+    }
+
+    public async Task InvalidateDirectoriesAsync(IEnumerable<string> directoryPaths)
+    {
+        var paths = directoryPaths
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(NormalizeDirectoryPath)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (paths.Count == 0) return;
+
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var transaction = _connection.BeginTransaction();
+
+            try
+            {
+                foreach (var path in paths)
+                {
+                    using (var cmd = _connection.CreateCommand())
+                    {
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = "DELETE FROM files WHERE parent_path = @path";
+                        cmd.Parameters.AddWithValue("@path", path);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+
+                    using (var cmd = _connection.CreateCommand())
+                    {
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = "DELETE FROM directories WHERE path = @path";
+                        cmd.Parameters.AddWithValue("@path", path);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+        finally
+        {
+            _connectionLock.Release();
         }
     }
 
     public async Task RemoveEntryAsync(string path)
     {
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "DELETE FROM files WHERE path = @path";
-        cmd.Parameters.AddWithValue("@path", path);
-        await cmd.ExecuteNonQueryAsync();
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "DELETE FROM files WHERE path = @path";
+            cmd.Parameters.AddWithValue("@path", path);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     public async Task RenameEntryAsync(string oldPath, string newPath, string newName)
     {
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            UPDATE files
-            SET path = @newPath, name = @newName, extension = @ext, modified_at = @now
-            WHERE path = @oldPath
-            """;
-        cmd.Parameters.AddWithValue("@newPath", newPath);
-        cmd.Parameters.AddWithValue("@newName", newName);
-        cmd.Parameters.AddWithValue("@ext", string.IsNullOrEmpty(Path.GetExtension(newName)) ? DBNull.Value : Path.GetExtension(newName));
-        cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.Ticks);
-        cmd.Parameters.AddWithValue("@oldPath", oldPath);
-        await cmd.ExecuteNonQueryAsync();
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                UPDATE files
+                SET path = @newPath, name = @newName, extension = @ext, modified_at = @now
+                WHERE path = @oldPath
+                """;
+            cmd.Parameters.AddWithValue("@newPath", newPath);
+            cmd.Parameters.AddWithValue("@newName", newName);
+            cmd.Parameters.AddWithValue("@ext", string.IsNullOrEmpty(Path.GetExtension(newName)) ? DBNull.Value : Path.GetExtension(newName));
+            cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.Ticks);
+            cmd.Parameters.AddWithValue("@oldPath", oldPath);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     public async Task AddEntryAsync(FileSystemEntry entry)
     {
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            INSERT OR REPLACE INTO files (path, name, extension, parent_path, size, is_directory, created_at, modified_at, content_type, is_hidden, indexed_at)
-            VALUES (@path, @name, @extension, @parentPath, @size, @isDirectory, @createdAt, @modifiedAt, @contentType, @isHidden, @indexedAt)
-            """;
-        AddEntryParameters(cmd, entry);
-        await cmd.ExecuteNonQueryAsync();
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR REPLACE INTO files (path, name, extension, parent_path, size, is_directory, created_at, modified_at, content_type, is_hidden, indexed_at)
+                VALUES (@path, @name, @extension, @parentPath, @size, @isDirectory, @createdAt, @modifiedAt, @contentType, @isHidden, @indexedAt)
+                """;
+            AddEntryParameters(cmd, entry);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     private static FileSystemEntry ReadEntry(SqliteDataReader reader)
@@ -396,6 +510,7 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
         {
             _connection.Close();
             _connection.Dispose();
+            _connectionLock.Dispose();
             _disposed = true;
         }
     }
@@ -404,24 +519,46 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 
     public string? GetCachedIcon(string appPath)
     {
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT icon_base64 FROM icon_cache WHERE app_path = @path";
-        cmd.Parameters.AddWithValue("@path", appPath);
-        var result = cmd.ExecuteScalar();
-        return result as string;
+        _connectionLock.Wait();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "SELECT icon_base64 FROM icon_cache WHERE app_path = @path";
+            cmd.Parameters.AddWithValue("@path", appPath);
+            var result = cmd.ExecuteScalar();
+            return result as string;
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     public void SetCachedIcon(string appPath, string iconBase64)
     {
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            INSERT OR REPLACE INTO icon_cache (app_path, icon_base64, modified_at)
-            VALUES (@path, @icon, @modifiedAt)
-            """;
-        cmd.Parameters.AddWithValue("@path", appPath);
-        cmd.Parameters.AddWithValue("@icon", iconBase64);
-        cmd.Parameters.AddWithValue("@modifiedAt", DateTime.UtcNow.Ticks);
-        cmd.ExecuteNonQuery();
+        _connectionLock.Wait();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR REPLACE INTO icon_cache (app_path, icon_base64, modified_at)
+                VALUES (@path, @icon, @modifiedAt)
+                """;
+            cmd.Parameters.AddWithValue("@path", appPath);
+            cmd.Parameters.AddWithValue("@icon", iconBase64);
+            cmd.Parameters.AddWithValue("@modifiedAt", DateTime.UtcNow.Ticks);
+            cmd.ExecuteNonQuery();
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+    }
+
+    private static string NormalizeDirectoryPath(string path)
+    {
+        if (path == "/") return path;
+        return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 }
 
@@ -436,6 +573,7 @@ public interface IFileIndex
 public interface IFileIndexWriter
 {
     Task UpdateDirectoryAsync(string directoryPath, IReadOnlyList<FileSystemEntry> entries);
+    Task InvalidateDirectoriesAsync(IEnumerable<string> directoryPaths);
     Task RenameEntryAsync(string oldPath, string newPath, string newName);
     Task RemoveEntryAsync(string path);
     Task AddEntryAsync(FileSystemEntry entry);

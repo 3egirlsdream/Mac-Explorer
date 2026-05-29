@@ -1,4 +1,6 @@
+using MacExplorer.Indexing;
 using MacExplorer.ViewModels;
+using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
 
@@ -9,11 +11,21 @@ namespace MacExplorer.Services.Impl;
 /// </summary>
 public class DirectoryChangeNotifier : IDirectoryChangeNotifier
 {
+    private readonly IFileIndexWriter? _fileIndexWriter;
+    private readonly ILogger<DirectoryChangeNotifier>? _logger;
     private readonly object _lock = new();
     private readonly List<WeakReference<FileListViewModel>> _viewModels = new();
     private readonly HashSet<string> _pendingChanges = new(StringComparer.Ordinal);
     private readonly HashSet<FileListViewModel> _excludedVms = new(ReferenceEqualityComparer.Instance);
     private Timer? _debounceTimer;
+
+    public DirectoryChangeNotifier(
+        IFileIndexWriter? fileIndexWriter = null,
+        ILogger<DirectoryChangeNotifier>? logger = null)
+    {
+        _fileIndexWriter = fileIndexWriter;
+        _logger = logger;
+    }
 
     public void Subscribe(FileListViewModel vm)
     {
@@ -39,19 +51,39 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
     {
         if (directoryPaths.Length == 0) return;
 
+        var normalizedPaths = directoryPaths
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(NormalizeDirectoryPath)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (normalizedPaths.Length == 0) return;
+
+        InvalidateIndex(normalizedPaths);
+
         lock (_lock)
         {
-            foreach (var dir in directoryPaths)
-            {
-                if (!string.IsNullOrEmpty(dir))
-                    _pendingChanges.Add(dir);
-            }
+            foreach (var dir in normalizedPaths)
+                _pendingChanges.Add(dir);
             if (excludeVm != null)
                 _excludedVms.Add(excludeVm);
 
             // Reset the debounce timer (200ms)
             _debounceTimer?.Dispose();
             _debounceTimer = new Timer(OnDebounceElapsed, null, 200, Timeout.Infinite);
+        }
+    }
+
+    private void InvalidateIndex(string[] directoryPaths)
+    {
+        if (_fileIndexWriter == null) return;
+
+        try
+        {
+            Task.Run(() => _fileIndexWriter.InvalidateDirectoriesAsync(directoryPaths)).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to invalidate directory index");
         }
     }
 
@@ -105,5 +137,11 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
                 }
             }
         });
+    }
+
+    private static string NormalizeDirectoryPath(string path)
+    {
+        if (path == "/") return path;
+        return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 }

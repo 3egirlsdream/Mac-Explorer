@@ -197,6 +197,13 @@ public class MacDragDropBridge : IDragDropBridge
         await MainThread.InvokeOnMainThreadAsync(async () =>
         {
             if (string.IsNullOrEmpty(targetDirectory)) return;
+            if (IsInvalidInternalDropTarget(sourcePaths, targetDirectory))
+            {
+#if DEBUG
+                Console.WriteLine($"[MacExplorer] HandleInternalDrop: ignoring drop onto dragged item/descendant '{targetDirectory}'");
+#endif
+                return;
+            }
 
             var vm = GetActiveViewModel();
             if (vm == null)
@@ -245,6 +252,26 @@ public class MacDragDropBridge : IDragDropBridge
             // Delegate to ViewModel for conflict-aware move (supports overwrite dialog)
             await vm.MoveEntriesAsync(sourceEntries, targetEntry);
         });
+    }
+
+    private static bool IsInvalidInternalDropTarget(IEnumerable<string> sourcePaths, string targetDirectory)
+    {
+        foreach (var sourcePath in sourcePaths)
+        {
+            if (string.Equals(sourcePath, targetDirectory, StringComparison.Ordinal))
+                return true;
+            if (IsDescendantPath(targetDirectory, sourcePath))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool IsDescendantPath(string candidatePath, string ancestorPath)
+    {
+        var normalizedAncestor = ancestorPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return normalizedAncestor.Length > 0
+            && candidatePath.Length > normalizedAncestor.Length
+            && candidatePath.StartsWith(normalizedAncestor + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
     private FileListViewModel? GetActiveViewModel()

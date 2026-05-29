@@ -10,7 +10,7 @@ namespace MacExplorer.Platforms.MacCatalyst.Handlers;
 
 /// <summary>
 /// Handles native drag-and-drop for MacExplorer.
-/// - Drag OUT: HTML5 drag + file:// URLs (injected in native-drag.js)
+/// - Drag OUT: HTML5 drag fallback + native NSDragPboard file objects
 /// - Drop IN (external / cross-window): DropOverlayHelper handles at AppKit level
 /// - Drop IN (same-window): JS drop event → WKScriptMessageHandler → IDragDropBridge
 /// - Drag State: tracks internal drag state to hide/show overlay
@@ -23,10 +23,26 @@ public static class NativeDragDropHelper
     private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern nint objc_msgSend_nint(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern byte objc_msgSend_bool_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern byte objc_msgSend_bool_IntPtr_IntPtr(
+        IntPtr receiver, IntPtr selector, IntPtr arg1, IntPtr arg2);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern nint objc_msgSend_count(IntPtr receiver, IntPtr selector);
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_objectAtIndex(IntPtr receiver, IntPtr selector, nuint index);
+
+    [DllImport("/usr/lib/libdl.dylib")]
+    private static extern IntPtr dlopen(string path, int mode);
 
     // ── Static state ──
     private static IDragDropBridge? _bridge;
@@ -34,7 +50,10 @@ public static class NativeDragDropHelper
     private static readonly List<DragStateMessageHandler> _stateHandlers = new();
     private static readonly List<JsLogMessageHandler> _logHandlers = new();
     private static readonly Dictionary<WKWebView, IntPtr> _webViewNSWindowMap = new();
-    private static IntPtr _lastDragWindow;
+    private static ulong _dragPasteboardGeneration;
+    private static IntPtr _lastSessionPasteboard;
+    private static ulong _lastSessionPasteboardGeneration;
+    private static int _sessionPasteboardWriteCount;
 
     /// <summary>
     /// True while an internal HTML5 drag is in progress (same-window or cross-window).
@@ -230,6 +249,179 @@ public static class NativeDragDropHelper
         }
     }
 
+    // ── Native drag pasteboard for Drag OUT ──
+
+    private static void PublishDragFilesToNativePasteboard(string[] paths)
+    {
+        var validPaths = GetValidDragPaths(paths);
+        if (validPaths.Length == 0) return;
+
+        _dragPasteboardGeneration++;
+        var generation = _dragPasteboardGeneration;
+
+        WriteDragFilesToNativePasteboard(validPaths, "initial");
+
+        // WebKit finalizes its drag pasteboard after the JS dragstart callback.
+        // Rewrite shortly after dragstart so native apps see our multi-item file
+        // objects instead of only the HTML5 text fallback.
+        DispatchQueue.MainQueue.DispatchAfter(
+            new DispatchTime(DispatchTime.Now, 50_000_000),
+            () =>
+            {
+                if (_dragPasteboardGeneration == generation)
+                    WriteDragFilesToNativePasteboard(validPaths, "deferred-50ms");
+            });
+    }
+
+    public static void PublishInternalDragFilesToSessionPasteboard(IntPtr pasteboard, string phase)
+    {
+        if (pasteboard == IntPtr.Zero || InternalDragPaths.Length == 0)
+            return;
+
+        if (_lastSessionPasteboard != pasteboard ||
+            _lastSessionPasteboardGeneration != _dragPasteboardGeneration)
+        {
+            _lastSessionPasteboard = pasteboard;
+            _lastSessionPasteboardGeneration = _dragPasteboardGeneration;
+            _sessionPasteboardWriteCount = 0;
+        }
+
+        // WebKit may still mutate the session pasteboard during the first few
+        // drag callbacks. Patching a handful of early callbacks is cheap and
+        // makes the real NSDragging session carry multiple file items.
+        if (_sessionPasteboardWriteCount >= 3)
+            return;
+
+        _sessionPasteboardWriteCount++;
+        WriteDragFilesToPasteboard(pasteboard, InternalDragPaths, $"session-{phase}-{_sessionPasteboardWriteCount}");
+    }
+
+    private static void WriteDragFilesToNativePasteboard(string[] paths, string phase)
+    {
+        try
+        {
+            dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", 1);
+
+            var nsPasteboardClass = ObjCRuntime.Class.GetHandle("NSPasteboard");
+            if (nsPasteboardClass == IntPtr.Zero)
+            {
+                Log($"DragOut pasteboard ({phase}): NSPasteboard class not found");
+                return;
+            }
+
+            using var dragPboardName = new NSString("NSDragPboard");
+            var pasteboard = objc_msgSend_IntPtr(
+                nsPasteboardClass,
+                Selector.GetHandle("pasteboardWithName:"),
+                dragPboardName.Handle);
+            if (pasteboard == IntPtr.Zero)
+            {
+                Log($"DragOut pasteboard ({phase}): NSDragPboard not found");
+                return;
+            }
+
+            WriteDragFilesToPasteboard(pasteboard, paths, phase);
+        }
+        catch (Exception ex)
+        {
+            Log($"DragOut pasteboard ({phase}) error: {ex.Message}\n{ex.StackTrace}");
+        }
+    }
+
+    private static string[] GetValidDragPaths(string[] paths)
+    {
+        var validPaths = paths
+            .Where(path => !string.IsNullOrWhiteSpace(path) &&
+                           (File.Exists(path) || Directory.Exists(path)))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (validPaths.Length == 0)
+            Log("DragOut pasteboard: no valid path(s) to publish");
+
+        return validPaths;
+    }
+
+    private static void WriteDragFilesToPasteboard(IntPtr pasteboard, string[] paths, string phase)
+    {
+        var validPaths = GetValidDragPaths(paths);
+        if (validPaths.Length == 0)
+            return;
+
+        var urls = new List<NSUrl>(paths.Length);
+        var pathStrings = new List<NSString>(paths.Length);
+
+        try
+        {
+            dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", 1);
+
+            if (pasteboard == IntPtr.Zero)
+            {
+                Log($"DragOut pasteboard ({phase}): pasteboard is null");
+                return;
+            }
+
+            foreach (var path in validPaths)
+            {
+                var url = NSUrl.FromFilename(path);
+                if (url != null)
+                    urls.Add(url);
+                pathStrings.Add(new NSString(path));
+            }
+
+            if (urls.Count == 0)
+            {
+                Log($"DragOut pasteboard ({phase}): no URL object(s)");
+                return;
+            }
+
+            objc_msgSend_nint(pasteboard, Selector.GetHandle("clearContents"));
+
+            using var urlArray = NSArray.FromNSObjects(urls.ToArray());
+            var wroteObjects = objc_msgSend_bool_IntPtr(
+                pasteboard,
+                Selector.GetHandle("writeObjects:"),
+                urlArray.Handle) != 0;
+
+            using var pathsArray = NSArray.FromNSObjects(pathStrings.ToArray());
+            using var filenamesType = new NSString("NSFilenamesPboardType");
+            var wroteFilenames = objc_msgSend_bool_IntPtr_IntPtr(
+                pasteboard,
+                Selector.GetHandle("setPropertyList:forType:"),
+                pathsArray.Handle,
+                filenamesType.Handle) != 0;
+
+            var fileUrlList = string.Join("\r\n", urls.Select(url => url.AbsoluteString));
+            using var uriList = new NSString(fileUrlList);
+            using var uriListType = new NSString("text/uri-list");
+            var wroteUriList = objc_msgSend_bool_IntPtr_IntPtr(
+                pasteboard,
+                Selector.GetHandle("setString:forType:"),
+                uriList.Handle,
+                uriListType.Handle) != 0;
+
+            using var plainTextType = new NSString("public.utf8-plain-text");
+            var wrotePlainText = objc_msgSend_bool_IntPtr_IntPtr(
+                pasteboard,
+                Selector.GetHandle("setString:forType:"),
+                uriList.Handle,
+                plainTextType.Handle) != 0;
+
+            Log($"DragOut pasteboard ({phase}): paths={validPaths.Length}, writeObjects={wroteObjects}, NSFilenames={wroteFilenames}, uriList={wroteUriList}, plainText={wrotePlainText}");
+        }
+        catch (Exception ex)
+        {
+            Log($"DragOut pasteboard ({phase}) error: {ex.Message}\n{ex.StackTrace}");
+        }
+        finally
+        {
+            foreach (var url in urls)
+                url.Dispose();
+            foreach (var pathString in pathStrings)
+                pathString.Dispose();
+        }
+    }
+
     /// <summary>
     /// Find the NSWindow associated with a WKWebView.
     /// </summary>
@@ -329,11 +521,15 @@ public static class NativeDragDropHelper
                         paths[i] = pathsArray.GetItem<NSString>(i).ToString();
                     InternalDragPaths = paths;
                     Log($"DragState: stored {paths.Length} internal drag path(s)");
+                    PublishDragFilesToNativePasteboard(paths);
                 }
             }
             else
             {
                 InternalDragPaths = [];
+                _dragPasteboardGeneration++;
+                _lastSessionPasteboard = IntPtr.Zero;
+                _sessionPasteboardWriteCount = 0;
             }
 
             // NOTE: We do NOT hide the overlay during internal drags.

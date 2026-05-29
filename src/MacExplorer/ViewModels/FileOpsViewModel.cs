@@ -188,9 +188,13 @@ public partial class FileOpsViewModel : ObservableObject
     {
         if (!targetFolder.IsDirectory) return;
 
+        var allSourcePaths = entries.Select(e => e.FullPath).ToList();
+        if (IsInvalidMoveTarget(allSourcePaths, targetFolder.FullPath)) return;
+
         var sourcePaths = entries.Where(e => e != targetFolder)
             .Select(e => e.FullPath).ToList();
         if (sourcePaths.Count == 0) return;
+        var affectedDirectories = GetAffectedMoveDirectories(entries, targetFolder.FullPath);
 
         bool crossVolume = _fileService.IsCrossVolume(sourcePaths[0], targetFolder.FullPath);
 
@@ -200,7 +204,7 @@ public partial class FileOpsViewModel : ObservableObject
             {
                 foreach (var path in sourcePaths)
                     await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
-                _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(sourcePaths[0]) ?? "", targetFolder.FullPath], null);
+                _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null);
             }
             catch (Exception ex)
             {
@@ -226,6 +230,7 @@ public partial class FileOpsViewModel : ObservableObject
                 await _fileService.MoveWithProgressAsync(sourcePaths, targetFolder.FullPath,
                     progress, taskInfo.Cts.Token);
                 _taskManager.CompleteTask(taskInfo.Id);
+                _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null);
             }
             catch (OperationCanceledException)
             {
@@ -236,6 +241,43 @@ public partial class FileOpsViewModel : ObservableObject
                 _taskManager.FailTask(taskInfo.Id, ex.Message);
             }
         });
+    }
+
+    private static string[] GetAffectedMoveDirectories(IEnumerable<FileSystemEntry> entries, string targetDirectory)
+    {
+        var dirs = new HashSet<string>(StringComparer.Ordinal) { targetDirectory };
+        foreach (var entry in entries)
+        {
+            var sourceDir = Path.GetDirectoryName(entry.FullPath);
+            if (!string.IsNullOrEmpty(sourceDir))
+                dirs.Add(sourceDir);
+            if (entry.IsDirectory)
+            {
+                dirs.Add(entry.FullPath);
+                dirs.Add(Path.Combine(targetDirectory, entry.Name));
+            }
+        }
+        return dirs.ToArray();
+    }
+
+    private static bool IsInvalidMoveTarget(IEnumerable<string> sourcePaths, string targetDirectory)
+    {
+        foreach (var sourcePath in sourcePaths)
+        {
+            if (string.Equals(sourcePath, targetDirectory, StringComparison.Ordinal))
+                return true;
+            if (IsDescendantPath(targetDirectory, sourcePath))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool IsDescendantPath(string candidatePath, string ancestorPath)
+    {
+        var normalizedAncestor = ancestorPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return normalizedAncestor.Length > 0
+            && candidatePath.Length > normalizedAncestor.Length
+            && candidatePath.StartsWith(normalizedAncestor + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
     public async Task RenameEntryAsync(

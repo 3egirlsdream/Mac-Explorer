@@ -18,7 +18,7 @@ MacExplorer 是一个 macOS Finder 替代品，使用 .NET MAUI Blazor 在 Mac C
 
 | 场景 | 状态 | 实现方式 |
 |------|------|----------|
-| 拖出（→ Finder/其他应用） | **已实现** | HTML5 `text/uri-list` + `text/plain`（`native-drag.js`） |
+| 拖出（→ Finder/其他应用） | **已实现** | HTML5 `text/uri-list` fallback + 原生 `NSDragPboard` 多文件对象 |
 | 拖入-内部（同窗口文件 → 子文件夹） | **已实现** | HTML5 DnD + Blazor 事件处理 |
 | 拖入-外部（Finder → MacExplorer） | **已实现** | AppKit NSView 覆盖层 + NSDraggingDestination（`DropOverlayHelper.cs`） |
 | 拖入-跨窗口（MacExplorer → MacExplorer） | **已实现** | 覆盖层拦截 + NSWindow 场景匹配 + 源目录刷新 |
@@ -162,11 +162,29 @@ NSWindow
 
 ## 技术细节
 
+### 拖出到第三方应用的多文件修复
+
+**问题表现**：从 MacExplorer 拖一个文件到 Lightroom、微信等第三方软件时可以正常接收；一次拖多个文件时，第三方软件无法接收。
+
+**根本原因**：`native-drag.js` 原本只在 HTML5 `dataTransfer` 中写入 `text/uri-list` 和 `text/plain`。这对浏览器或部分 Web 接收方足够，但 AppKit/原生第三方软件通常读取的是拖拽会话的 `NSPasteboard` item。单文件时 WKWebView 会把一个 `file://` URL 桥接成原生文件对象，因此看起来可用；多文件时它只携带一段 CRLF 分隔的文本 URL 列表，Lightroom、微信这类原生接收方不会把这段文本当成多个文件。
+
+**最终方案**：
+- JS `dragstart` 继续写入 `text/uri-list` / `text/plain`，作为 Web 目标和旧逻辑 fallback。
+- JS 同时通过现有 `fkfinderDragState` 把本次拖拽的完整文件路径发送给 C#。
+- `NativeDragDropHelper` 收到路径后先写入命名 `NSDragPboard` 作为兼容 fallback。
+- `DropOverlayHelper` 在 `draggingEntered:` / `draggingUpdated:` 拿到真实 `NSDraggingInfo.draggingPasteboard` 后，再把同一批路径写入当前拖拽会话的 pasteboard：
+  - 使用 `writeObjects:` 写入多个 `NSURL` 文件对象，让原生第三方软件按多 item 读取。
+  - 同时写入 legacy `NSFilenamesPboardType`，兼容仍读取旧 pasteboard type 的应用。
+  - 补写 `text/uri-list` 和 `public.utf8-plain-text`，保留 Web/文本目标的 fallback。
+  - 对当前 session pasteboard 的前几个拖拽回调重复 patch，避免 WKWebView 在拖拽刚开始时覆盖 pasteboard 导致多文件对象丢失。
+
+这样拖出链路同时具备两套数据：Web/HTML5 目标读取文本 fallback，Finder、Lightroom、微信等原生应用读取当前 `NSDragging` 会话 pasteboard 中的多文件对象。注意：只写 `pasteboardWithName("NSDragPboard")` 不够，因为 WKWebView 发起的实际拖拽会话可能使用自己的 session pasteboard，第三方应用读取的是 `draggingPasteboard`。
+
 ### 关键文件
 
 | 文件 | 作用 |
 |------|------|
-| `Platforms/MacCatalyst/Handlers/NativeDragDropHelper.cs` | 原生拖拽处理核心（P/Invoke） |
+| `Platforms/MacCatalyst/Handlers/NativeDragDropHelper.cs` | 原生拖拽处理核心（P/Invoke，含 `NSDragPboard` 多文件拖出写入） |
 | `Platforms/MacCatalyst/Handlers/TransparentWebViewHandler.cs` | 创建 WKWebView，调用 `AttachToWebView` |
 | `Services/IDragDropBridge.cs` | Blazor ↔ 原生拖拽桥接接口 |
 | `Platforms/MacCatalyst/Services/MacDragDropBridge.cs` | IDragDropBridge 实现，管理多窗口 ViewModel |

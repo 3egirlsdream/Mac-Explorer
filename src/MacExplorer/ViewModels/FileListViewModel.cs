@@ -562,6 +562,14 @@ public partial class FileListViewModel : ObservableObject
             return;
         }
 
+        if (!IsCollectionView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
+        {
+            StatusText = $"项目不存在，已刷新: {entry.Name}";
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            await LoadDirectoryContentsAsync(forceRefresh: true);
+            return;
+        }
+
         // Normal view: double-click archive file -> enter archive browsing
         if (!entry.IsDirectory && _archiveService?.IsArchiveFile(entry.FullPath) == true)
         {
@@ -2110,29 +2118,124 @@ public partial class FileListViewModel : ObservableObject
         if (_gitStatusService == null) return;
         try
         {
+            _logger?.LogDebug("[GIT] ResolveGitStatusAsync start, path={Path}, entries={Count}", _navigation.CurrentPath, Entries.Count);
             var repoStatus = await _gitStatusService.GetRepoStatusAsync(_navigation.CurrentPath);
-            if (repoStatus == null) return;
+            if (repoStatus == null) { _logger?.LogDebug("[GIT] repoStatus is null"); return; }
 
             var repoRoot = repoStatus.RepoRoot;
-            for (int i = 0; i < Entries.Count; i++)
+            var changed = false;
+            var snapshot = new List<FileSystemEntry>(Entries);
+
+            // Collect candidates: entries under repo root not in FileStatuses
+            var candidates = new List<(int index, string relativePath)>();
+            for (int i = 0; i < snapshot.Count; i++)
             {
-                var entry = Entries[i];
+                var entry = snapshot[i];
                 if (entry.IsVirtual || entry.GitStatus != GitFileStatus.None) continue;
-                var relativePath = entry.FullPath.StartsWith(repoRoot, StringComparison.OrdinalIgnoreCase)
-                    ? entry.FullPath[repoRoot.Length..].TrimStart('/') : entry.FullPath;
+                if (!entry.FullPath.StartsWith(repoRoot, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var relativePath = entry.FullPath[repoRoot.Length..].TrimStart('/');
+
                 if (repoStatus.FileStatuses.TryGetValue(relativePath, out var status))
                 {
-                    Entries[i] = new FileSystemEntry { FullPath = entry.FullPath, Name = entry.Name, IsDirectory = entry.IsDirectory, Size = entry.Size, LastModified = entry.LastModified, Created = entry.Created, Extension = entry.Extension, IsHidden = entry.IsHidden, IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable, IsWritable = entry.IsWritable, IconKey = entry.IconKey, IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl, IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType, VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount, GitStatus = status };
+                    if (status == GitFileStatus.Ignored) continue;
+                    snapshot[i] = CopyWithGit(entry, gitStatus: status);
+                    changed = true;
                 }
-                else if (entry.IsDirectory && repoStatus.HasAnyChange(relativePath))
+                else
                 {
-                    Entries[i] = new FileSystemEntry { FullPath = entry.FullPath, Name = entry.Name, IsDirectory = entry.IsDirectory, Size = entry.Size, LastModified = entry.LastModified, Created = entry.Created, Extension = entry.Extension, IsHidden = entry.IsHidden, IsSymbolicLink = entry.IsSymbolicLink, IsReadable = entry.IsReadable, IsWritable = entry.IsWritable, IconKey = entry.IconKey, IconUrl = entry.IconUrl, ThumbnailUrl = entry.ThumbnailUrl, IsVirtual = entry.IsVirtual, VirtualFolderType = entry.VirtualFolderType, VirtualFolderKey = entry.VirtualFolderKey, VirtualItemCount = entry.VirtualItemCount, HasGitChanges = true };
+                    candidates.Add((i, relativePath));
                 }
             }
-            OnPropertyChanged(nameof(Entries));
+
+            // Distinguish ignored, untracked, and tracked-clean among candidates
+            if (candidates.Count > 0)
+            {
+                var ignoredTask = Task.Run(() => Services.Impl.GitStatusService.GetIgnoredPaths(repoRoot));
+                var untrackedTask = Task.Run(() => Services.Impl.GitStatusService.GetUntrackedPaths(repoRoot));
+                await Task.WhenAll(ignoredTask, untrackedTask);
+                var ignoredPaths = ignoredTask.Result;
+                var untrackedPaths = untrackedTask.Result;
+
+                // Build prefix sets for checking children of ignored/untracked dirs
+                var ignoredPrefixes = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var p in ignoredPaths!)
+                    ignoredPrefixes.Add(p + '/');
+                var untrackedPrefixes = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var p in untrackedPaths!)
+                    untrackedPrefixes.Add(p + '/');
+
+                foreach (var (index, relativePath) in candidates)
+                {
+                    // Skip files inside ignored directories (e.g. node_modules/express/index.js)
+                    if (ignoredPaths.Contains(relativePath)
+                        || ignoredPrefixes.Any(prefix => relativePath.StartsWith(prefix, StringComparison.Ordinal)))
+                        continue;
+
+                    var entry = snapshot[index];
+                    var isUntracked = untrackedPaths.Contains(relativePath)
+                        || untrackedPrefixes.Any(prefix => relativePath.StartsWith(prefix, StringComparison.Ordinal));
+
+                    if (entry.IsDirectory)
+                    {
+                        if (isUntracked)
+                            snapshot[index] = CopyWithGit(entry, gitStatus: GitFileStatus.Untracked);
+                        else if (repoStatus.HasAnyChange(relativePath))
+                            snapshot[index] = CopyWithGit(entry, hasGitChanges: true);
+                        else
+                            snapshot[index] = CopyWithGit(entry, gitStatus: GitFileStatus.Unmodified);
+                    }
+                    else
+                    {
+                        snapshot[index] = CopyWithGit(entry, gitStatus: isUntracked ? GitFileStatus.Untracked : GitFileStatus.Unmodified);
+                    }
+                    changed = true;
+                }
+            }
+
+            if (changed)
+                ApplyEntriesPreservingSelection(snapshot);
         }
         catch (Exception ex) { _logger?.LogWarning(ex, "Git status resolve failed"); }
     }
+
+    private void ApplyEntriesPreservingSelection(IReadOnlyList<FileSystemEntry> entries)
+    {
+        var selectedPaths = SelectedEntries
+            .Select(e => e.FullPath)
+            .ToHashSet(StringComparer.Ordinal);
+        var anchorPath = _lastClickedPath;
+
+        ApplyEntries(entries);
+
+        if (selectedPaths.Count == 0) return;
+
+        var restoredSelection = Entries
+            .Where(e => selectedPaths.Contains(e.FullPath))
+            .ToList();
+        if (restoredSelection.Count == 0) return;
+
+        SelectedEntries.Clear();
+        foreach (var entry in restoredSelection)
+            SelectedEntries.Add(entry);
+
+        var anchor = anchorPath != null
+            ? restoredSelection.FirstOrDefault(e => string.Equals(e.FullPath, anchorPath, StringComparison.Ordinal))
+            : restoredSelection.LastOrDefault();
+        if (anchor != null)
+            SetSelectionAnchor(anchor);
+    }
+
+    private static FileSystemEntry CopyWithGit(FileSystemEntry src, GitFileStatus gitStatus = GitFileStatus.None, bool hasGitChanges = false) => new()
+    {
+        FullPath = src.FullPath, Name = src.Name, IsDirectory = src.IsDirectory,
+        Size = src.Size, LastModified = src.LastModified, Created = src.Created,
+        Extension = src.Extension, IsHidden = src.IsHidden, IsSymbolicLink = src.IsSymbolicLink,
+        IsReadable = src.IsReadable, IsWritable = src.IsWritable, IconKey = src.IconKey,
+        IconUrl = src.IconUrl, ThumbnailUrl = src.ThumbnailUrl, IsVirtual = src.IsVirtual,
+        VirtualFolderType = src.VirtualFolderType, VirtualFolderKey = src.VirtualFolderKey,
+        VirtualItemCount = src.VirtualItemCount, GitStatus = gitStatus, HasGitChanges = hasGitChanges
+    };
 
     /// <summary>
     /// Check if a path is under /Applications and needs to merge /System/Applications counterpart.

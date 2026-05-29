@@ -27,10 +27,8 @@ public class GitRepoStatus
         var prefix = directoryPath.EndsWith('/') ? directoryPath : directoryPath + '/';
         foreach (var (path, status) in FileStatuses)
         {
-            if (!path.StartsWith(prefix, StringComparison.Ordinal)) continue;
-            if (status is GitFileStatus.Modified or GitFileStatus.Staged or GitFileStatus.Added
-                or GitFileStatus.Deleted or GitFileStatus.Renamed or GitFileStatus.Untracked
-                or GitFileStatus.Conflicted)
+            if (status == GitFileStatus.Ignored) continue;
+            if (path.StartsWith(prefix, StringComparison.Ordinal))
                 return true;
         }
         return false;

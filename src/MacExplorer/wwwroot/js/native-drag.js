@@ -44,6 +44,29 @@
             .filter(Boolean);
     }
 
+    function normalizePath(path) {
+        if (!path || path === '/') return path || '';
+        return path.replace(/\/+$/, '');
+    }
+
+    function isDescendantPath(candidatePath, ancestorPath) {
+        var candidate = normalizePath(candidatePath);
+        var ancestor = normalizePath(ancestorPath);
+        return ancestor.length > 0
+            && candidate.length > ancestor.length
+            && candidate.indexOf(ancestor + '/') === 0;
+    }
+
+    function isInvalidInternalDropTarget(sourcePaths, targetDir) {
+        if (!targetDir) return true;
+        var target = normalizePath(targetDir);
+        for (var i = 0; i < sourcePaths.length; i++) {
+            var source = normalizePath(sourcePaths[i]);
+            if (source === target || isDescendantPath(target, source)) return true;
+        }
+        return false;
+    }
+
     // ── Capture selection state at mousedown for drag fallback ──
 
     document.addEventListener('mousedown', function (event) {
@@ -225,7 +248,8 @@
             var el = document.elementFromPoint(event.clientX, event.clientY);
             if (el) {
                 var folder = el.closest('[data-path][data-is-directory="true"]');
-                if (folder && !folder.classList.contains('internal-drag-over')) {
+                var folderPath = folder ? folder.getAttribute('data-path') : null;
+                if (folder && !isInvalidInternalDropTarget(_capturedSelectedPaths, folderPath) && !folder.classList.contains('internal-drag-over')) {
                     folder.classList.add('internal-drag-over');
                 }
             }
@@ -297,6 +321,12 @@
             }
 
             jsLog('[MacExplorer/Drop] Internal drop: ' + paths.length + ' path(s) -> ' + (targetDir || '(no target)'));
+
+            if (paths.length > 0 && isInvalidInternalDropTarget(paths, targetDir)) {
+                jsLog('[MacExplorer/Drop] Internal drop ignored: target is dragged item or descendant');
+                _isInternalDrag = false;
+                return;
+            }
 
             if (paths.length > 0 && targetDir) {
                 if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.fkfinderDrop) {

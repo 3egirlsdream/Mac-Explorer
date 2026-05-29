@@ -467,27 +467,35 @@ public static class FileIconRenderer
         var (color, letter) = status switch
         {
             GitFileStatus.Modified => ("#E2B714", "M"),
-            GitFileStatus.Staged or GitFileStatus.Added => ("#4CAF50", "A"),
+            GitFileStatus.Staged => ("#4CAF50", "M"),
+            GitFileStatus.Added => ("#4CAF50", "A"),
             GitFileStatus.Deleted => ("#F44336", "D"),
             GitFileStatus.Renamed => ("#2196F3", "R"),
             GitFileStatus.Untracked => ("#9E9E9E", "?"),
             GitFileStatus.Conflicted => ("#FF5722", "!"),
+            GitFileStatus.Unmodified => ("#4CAF50", ""),
             _ => ("", "")
         };
+        if (status == GitFileStatus.Unmodified)
+        {
+            // Small green dot for tracked-but-clean files
+            return $@"<circle cx=""26"" cy=""26"" r=""3"" fill=""{color}"" stroke=""rgba(255,255,255,0.9)"" stroke-width=""1""/>";
+        }
         if (string.IsNullOrEmpty(letter)) return "";
 
-        var badgeSize = iconSize <= 24 ? 8 : 12;
-        var cx = iconSize <= 24 ? 20 : 56;
-        var cy = iconSize <= 24 ? 20 : 56;
-        var fontSize = iconSize <= 24 ? 7 : 10;
-        return $@"<circle cx=""{cx}"" cy=""{cy}"" r=""{badgeSize}"" fill=""{color}"" stroke=""rgba(255,255,255,0.9)"" stroke-width=""1.5""/><text x=""{cx}"" y=""{cy + fontSize / 3.0:F1}"" fill=""#fff"" font-size=""{fontSize}"" font-weight=""bold"" text-anchor=""middle"" dominant-baseline=""middle"">{letter}</text>";
+        // viewBox is 0 0 32 32 — badge must be within this range
+        var cx = 26;
+        var cy = 26;
+        var badgeSize = 5;
+        var fontSize = 7;
+        return $@"<circle cx=""{cx}"" cy=""{cy}"" r=""{badgeSize}"" fill=""{color}"" stroke=""rgba(255,255,255,0.9)"" stroke-width=""1.5""/><text x=""{cx}"" y=""{cy}"" fill=""#fff"" font-size=""{fontSize}"" font-weight=""bold"" text-anchor=""middle"" dominant-baseline=""central"">{letter}</text>";
     }
 
     public static string RenderGitFolderBadge(int iconSize)
     {
-        var r = iconSize <= 24 ? 4 : 6;
-        var cx = iconSize <= 24 ? 20 : 56;
-        var cy = iconSize <= 24 ? 20 : 56;
+        var cx = 26;
+        var cy = 26;
+        var r = 3;
         return $@"<circle cx=""{cx}"" cy=""{cy}"" r=""{r}"" fill=""#E2B714"" stroke=""rgba(255,255,255,0.9)"" stroke-width=""1""/>";
     }
 }

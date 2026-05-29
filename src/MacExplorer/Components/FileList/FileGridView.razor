@@ -278,6 +278,7 @@
 
     // ── Mousedown / Double-click / Rename state ──
     private long _lastMouseDownMs; // guards against WKWebView double-mousedown
+    private long _lastEntryMouseDownMs; // timestamp of last OnEntryMouseDown, used by OnContentMouseDown to skip
     private System.Threading.Timer? _renameTimer;
     private FileSystemEntry? _lastRenameTarget;
     private FileSystemEntry? _lastClickTarget;
@@ -532,6 +533,7 @@
         // All logic below runs at most once per physical click.
         if (nowMs - _lastMouseDownMs < 60) return;
         _lastMouseDownMs = nowMs;
+        _lastEntryMouseDownMs = nowMs; // signal OnContentMouseDown to skip
 
         // Cancel pending slow-click rename
         _renameTimer?.Dispose();
@@ -555,8 +557,16 @@
         _lastClickTarget = entry;
         _lastClickTimeMs = nowMs;
 
-        // Select immediately — instant visual feedback
-        ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
+        var hasModifier = e.CtrlKey || e.MetaKey || e.ShiftKey;
+        var preserveMultiSelectionForDrag = !hasModifier
+            && ViewModel.SelectedEntries.Count > 1
+            && ViewModel.IsEntrySelected(entry);
+
+        // If a selected item is part of a multi-selection, keep the selection
+        // intact through dragstart so dragging without Command moves all items.
+        // A plain click still collapses to a single selection in OnEntryClick.
+        if (!preserveMultiSelectionForDrag)
+            ViewModel.SelectEntry(entry, e.CtrlKey || e.MetaKey, e.ShiftKey);
         if (ViewModel.IsMetadataPanelVisible)
             ViewModel.CloseMetadataCommand.Execute(null);
 
@@ -588,6 +598,12 @@
     {
         try
         {
+            // OnEntryMouseDown fires before OnContentMouseDown (target before bubble).
+            // If an entry mousedown just ran, skip to avoid canceling its rename timer.
+            var nowMs = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+            if (nowMs - _lastEntryMouseDownMs < 60)
+                return;
+
             // Cancel any pending slow-click rename
             _renameTimer?.Dispose();
             _renameTimer = null;
@@ -661,7 +677,7 @@
         {
             DebugLog($"[DragDrop] OnDragOver fired: entry={entry.Name}, isDir={entry.IsDirectory}, isVirtual={entry.IsVirtual}, sameRef={entry == _draggedEntry}, dragEntry={_draggedEntry?.Name}");
         }
-        if (_draggedEntry != null && entry.IsDirectory && entry != _draggedEntry && !entry.IsVirtual)
+        if (_draggedEntry != null && entry.IsDirectory && !entry.IsVirtual && !IsInvalidDragTarget(entry))
         {
             if (_dragOverEntry != entry)
                 DebugLog($"[DragDrop] OnDragOver ACCEPTED: target={entry.Name}");
@@ -680,9 +696,9 @@
         DebugLog($"[DragDrop] OnDrop ENTER: target={target.Name}, isDir={target.IsDirectory}, draggedEntry={_draggedEntry?.Name}, draggedEntriesCount={_draggedEntries?.Count}");
         _dragOverEntry = null;
         _isDragging = false;
-        if (_draggedEntry == null || !target.IsDirectory || target == _draggedEntry)
+        if (_draggedEntry == null || !target.IsDirectory || IsInvalidDragTarget(target))
         {
-            DebugLog($"[DragDrop] OnDrop EARLY RETURN: draggedEntryNull={_draggedEntry == null}, notDir={!target.IsDirectory}, sameRef={target == _draggedEntry}");
+            DebugLog($"[DragDrop] OnDrop EARLY RETURN: draggedEntryNull={_draggedEntry == null}, notDir={!target.IsDirectory}, invalidTarget={IsInvalidDragTarget(target)}");
             _draggedEntry = null;
             _draggedEntries = null;
             return;
@@ -698,6 +714,22 @@
 
         DebugLog($"[DragDrop] OnDrop: moving {entriesToMove.Count} entries to {target.FullPath}");
         await ViewModel.MoveEntriesAsync(entriesToMove, target);
+    }
+
+    private bool IsInvalidDragTarget(FileSystemEntry target)
+    {
+        var draggedEntries = _draggedEntries ?? (_draggedEntry != null ? new List<FileSystemEntry> { _draggedEntry } : []);
+        return draggedEntries.Any(source =>
+            string.Equals(source.FullPath, target.FullPath, StringComparison.Ordinal)
+            || IsDescendantPath(target.FullPath, source.FullPath));
+    }
+
+    private static bool IsDescendantPath(string candidatePath, string ancestorPath)
+    {
+        var normalizedAncestor = ancestorPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return normalizedAncestor.Length > 0
+            && candidatePath.Length > normalizedAncestor.Length
+            && candidatePath.StartsWith(normalizedAncestor + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
     private void OnDragEnd()
@@ -938,7 +970,7 @@
         else
             svg = FileIconRenderer.Render(entry.IconKey, entry.Extension, size);
 
-        if (entry.GitStatus is not GitFileStatus.None and not GitFileStatus.Unmodified and not GitFileStatus.Ignored)
+        if (entry.GitStatus is not GitFileStatus.None and not GitFileStatus.Ignored)
             svg = svg.Replace("</svg>", FileIconRenderer.RenderGitBadge(entry.GitStatus, size) + "</svg>");
         else if (entry.IsDirectory && entry.HasGitChanges)
             svg = svg.Replace("</svg>", FileIconRenderer.RenderGitFolderBadge(size) + "</svg>");
