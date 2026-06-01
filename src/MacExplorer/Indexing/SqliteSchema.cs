@@ -4,7 +4,7 @@ namespace MacExplorer.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 6;
+    public const int CurrentVersion = 7;
 
     /// <summary>
     /// Whether FTS5 is available (set during Initialize).
@@ -110,6 +110,8 @@ public static class SqliteSchema
             MigrateToV5(connection, transaction);
         if (storedVersion < 6)
             MigrateToV6(connection, transaction);
+        if (storedVersion < 7)
+            MigrateToV7(connection, transaction);
 
         // Record current version
         ExecuteNonQuery(connection, """
@@ -299,6 +301,44 @@ public static class SqliteSchema
             """, transaction);
 
         System.Diagnostics.Debug.WriteLine("Schema migrated to v6: ai_analysis_status, ai_tags, ai_tags_fts, face_observations, face_clusters");
+    }
+
+    private static void MigrateToV7(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS open_with_apps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bundle_id TEXT NOT NULL UNIQUE,
+                label TEXT NOT NULL,
+                is_top_level INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                icon_base64 TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """, transaction);
+
+        // Insert default editors
+        var defaults = new[]
+        {
+            ("com.microsoft.VSCode", "VS Code", 1, 0),
+            ("com.todesktop.230313mzl4w4u92", "Cursor", 1, 1),
+            ("dev.kiro.desktop", "Kiro", 1, 2),
+            ("com.qoder.ide", "Qoder", 1, 3),
+        };
+
+        foreach (var (bundleId, label, isTopLevel, sortOrder) in defaults)
+        {
+            ExecuteNonQuery(connection, """
+                INSERT OR IGNORE INTO open_with_apps (bundle_id, label, is_top_level, sort_order)
+                VALUES (@bundleId, @label, @isTopLevel, @sortOrder)
+                """, transaction,
+                ("@bundleId", bundleId),
+                ("@label", label),
+                ("@isTopLevel", isTopLevel),
+                ("@sortOrder", sortOrder));
+        }
+
+        System.Diagnostics.Debug.WriteLine("Schema migrated to v7: open_with_apps");
     }
 
     private static void TryCreateAiTagsFts5(SqliteConnection connection, SqliteTransaction transaction)
