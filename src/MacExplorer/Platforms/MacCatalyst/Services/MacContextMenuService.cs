@@ -257,7 +257,7 @@ public class MacContextMenuService : IContextMenuService
         try
         {
             var escapedPath = appPath.Replace("\\", "\\\\").Replace("'", "\\'");
-            var script = $"ObjC.import('AppKit');ObjC.import('Foundation');var ws=$.NSWorkspace.sharedWorkspace;var icon=ws.iconForFile('{escapedPath}');var sz=$.NSMakeSize(32,32);var newImg=$.NSImage.alloc.initWithSize(sz);newImg.lockFocus;icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,32,32),$.NSZeroRect,$.NSCompositingOperationSourceOver,1.0);newImg.unlockFocus;var tiff=newImg.TIFFRepresentation;var rep=$.NSBitmapImageRep.imageRepWithData(tiff);var png=rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG,$({}));var base64=png.base64EncodedStringWithOptions(0);ObjC.unwrap(base64);";
+            var script = "ObjC.import('AppKit');ObjC.import('Foundation');var ws=$.NSWorkspace.sharedWorkspace;var icon=ws.iconForFile('" + escapedPath + "');var sz=$.NSMakeSize(32,32);var newImg=$.NSImage.alloc.initWithSize(sz);newImg.lockFocus;icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,32,32),$.NSZeroRect,$.NSCompositingOperationSourceOver,1.0);newImg.unlockFocus;var tiff=newImg.TIFFRepresentation;var rep=$.NSBitmapImageRep.imageRepWithData(tiff);var png=rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG,$({}));var base64=png.base64EncodedStringWithOptions(0);ObjC.unwrap(base64);";
 
             var psi = new System.Diagnostics.ProcessStartInfo
             {
