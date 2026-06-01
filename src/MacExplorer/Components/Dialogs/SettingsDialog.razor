@@ -3,6 +3,7 @@
 @inject MacExplorer.Services.ISettingsService SettingsService
 @inject MacExplorer.Services.IThemeService ThemeService
 @inject FileListViewModel ViewModel
+@inject IOpenWithAppService OpenWithService
 
 <div class="settings-dialog">
     <div class="settings-dialog-title">设置</div>
@@ -12,6 +13,7 @@
         <div class="settings-tab @(_activeTab == "files" ? "active" : "")" @onclick="@(() => _activeTab = "files")">文件显示</div>
         <div class="settings-tab @(_activeTab == "sidebar" ? "active" : "")" @onclick="@(() => _activeTab = "sidebar")">侧边栏</div>
         <div class="settings-tab @(_activeTab == "appearance" ? "active" : "")" @onclick="@(() => _activeTab = "appearance")">外观</div>
+        <div class="settings-tab @(_activeTab == "openwith" ? "active" : "")" @onclick="@(() => _activeTab = "openwith")">打开方式</div>
     </div>
 
     <div class="settings-tab-content">
@@ -281,6 +283,49 @@
             </div>
             <div class="settings-restart-hint">毛玻璃设置修改后需重启应用生效</div>
         }
+        else if (_activeTab == "openwith")
+        {
+            <div class="settings-list">
+                <div class="settings-item" style="justify-content: flex-start; gap: 8px;">
+                    <button class="settings-dialog-btn" @onclick="OpenAddAppModal" style="margin: 0;">+ 添加应用</button>
+                </div>
+
+                @foreach (var app in _openWithApps)
+                {
+                    <div class="settings-item">
+                        <div class="settings-item-info" style="flex-direction: row; align-items: center; gap: 10px;">
+                            @if (!string.IsNullOrEmpty(app.IconBase64))
+                            {
+                                <img src="data:image/png;base64,@app.IconBase64" width="24" height="24" style="object-fit: contain; border-radius: 4px;" />
+                            }
+                            else
+                            {
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.CodeEditor"/></svg>
+                            }
+                            <div class="settings-item-label" style="margin: 0;">@app.Label</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 0.85em; opacity: 0.7;">显示在根目录</span>
+                            <label class="settings-toggle" @onclick:stopPropagation>
+                                <input type="checkbox" checked="@app.IsTopLevel"
+                                       @onchange="@(e => OnTopLevelToggle(app, e))" />
+                                <span class="settings-toggle-slider"></span>
+                            </label>
+                            <button class="settings-dialog-btn" style="padding: 2px 8px; margin: 0; opacity: 0.6;"
+                                    @onclick="@(() => OnRemoveApp(app))" @onclick:stopPropagation>×</button>
+                        </div>
+                    </div>
+                }
+
+                @if (_openWithApps.Count == 0)
+                {
+                    <div style="text-align: center; padding: 20px; opacity: 0.5; font-size: 0.9em;">
+                        尚未配置任何应用，点击上方按钮添加
+                    </div>
+                }
+            </div>
+            <div class="settings-restart-hint">开启"显示在根目录"的应用直接出现在右键菜单中，关闭的应用收纳在"打开方式"子菜单中。</div>
+        }
     </div>
 
     <div class="settings-dialog-actions">
@@ -324,6 +369,13 @@
     private bool _vibrancyEnabled = true;
     private double _vibrancyAlpha = 0.85;
 
+    // Open With apps state
+    private List<OpenWithApp> _openWithApps = new();
+    private bool _showAddAppModal;
+    private List<AppListItem> _installedApps = new();
+    private string _appSearchText = "";
+    private bool _isLoadingApps;
+
     protected override void OnInitialized()
     {
         _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
@@ -354,6 +406,9 @@
         _themeMode = SettingsService.Get("theme_mode", "system");
         _vibrancyEnabled = SettingsService.Get("vibrancy_enabled", true);
         _vibrancyAlpha = SettingsService.Get("vibrancy_alpha", 0.85);
+
+        // Load open-with apps
+        _ = LoadOpenWithAppsAsync();
     }
 
     // General tab handlers
@@ -428,4 +483,114 @@
     }
 
     private async Task Close() => await OnClose.InvokeAsync();
+
+    // Open With tab handlers
+    private async Task OnTopLevelToggle(OpenWithApp app, ChangeEventArgs e)
+    {
+        var isTopLevel = (bool)(e.Value ?? false);
+        await OpenWithService.UpdateAsync(app.Id, null, isTopLevel, null);
+        await LoadOpenWithAppsAsync();
+    }
+
+    private async Task OnRemoveApp(OpenWithApp app)
+    {
+        await OpenWithService.RemoveAsync(app.Id);
+        await LoadOpenWithAppsAsync();
+    }
+
+    private async Task OpenAddAppModal()
+    {
+        _showAddAppModal = true;
+        _isLoadingApps = true;
+        _appSearchText = "";
+        StateHasChanged();
+
+        _installedApps = await OpenWithService.GetInstalledAppsAsync();
+        _isLoadingApps = false;
+        StateHasChanged();
+    }
+
+    private void CloseAddAppModal()
+    {
+        _showAddAppModal = false;
+        StateHasChanged();
+    }
+
+    private async Task AddApp(AppListItem app)
+    {
+        await OpenWithService.AddAsync(app.BundleId, app.Name, isTopLevel: true);
+        _showAddAppModal = false;
+        await LoadOpenWithAppsAsync();
+    }
+
+    private IEnumerable<AppListItem> FilteredInstalledApps
+    {
+        get
+        {
+            var existing = new HashSet<string>(_openWithApps.Select(a => a.BundleId));
+            var query = _installedApps.Where(a => !existing.Contains(a.BundleId));
+            if (!string.IsNullOrWhiteSpace(_appSearchText))
+                query = query.Where(a => a.Name.Contains(_appSearchText, StringComparison.OrdinalIgnoreCase));
+            return query;
+        }
+    }
+
+    private async Task LoadOpenWithAppsAsync()
+    {
+        _openWithApps = await OpenWithService.GetAllAsync();
+        StateHasChanged();
+    }
+}
+
+@if (_showAddAppModal)
+{
+    <div class="settings-dropdown-backdrop" @onclick="CloseAddAppModal"></div>
+    <div class="settings-dialog" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 420px; max-height: 500px; z-index: 1001; display: flex; flex-direction: column;">
+        <div class="settings-dialog-title" style="display: flex; justify-content: space-between; align-items: center;">
+            添加应用
+            <button class="settings-dialog-btn" style="padding: 2px 8px; margin: 0;" @onclick="CloseAddAppModal">×</button>
+        </div>
+
+        <div style="padding: 8px 16px;">
+            <input type="text" placeholder="搜索应用..."
+                   style="width: 100%; padding: 8px 12px; border: 1px solid rgba(128,128,128,0.3); border-radius: 6px; background: rgba(255,255,255,0.05); color: inherit; font-size: 0.9em; outline: none; box-sizing: border-box;"
+                   @bind="_appSearchText" @bind:event="oninput" />
+        </div>
+
+        <div style="flex: 1; overflow-y: auto; padding: 0 16px 16px;">
+            @if (_isLoadingApps)
+            {
+                <div style="text-align: center; padding: 30px; opacity: 0.5;">正在扫描应用...</div>
+            }
+            else
+            {
+                @foreach (var app in FilteredInstalledApps)
+                {
+                    <div class="settings-item" style="cursor: pointer;" @onclick="@(() => AddApp(app))">
+                        <div class="settings-item-info" style="flex-direction: row; align-items: center; gap: 10px;">
+                            @if (!string.IsNullOrEmpty(app.IconBase64))
+                            {
+                                <img src="data:image/png;base64,@app.IconBase64" width="24" height="24" style="object-fit: contain; border-radius: 4px;" />
+                            }
+                            else
+                            {
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="opacity: 0.3;"><path d="@Icons.Apps"/></svg>
+                            }
+                            <div>
+                                <div class="settings-item-label" style="margin: 0;">@app.Name</div>
+                                <div style="font-size: 0.75em; opacity: 0.5;">@app.BundleId</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (!FilteredInstalledApps.Any())
+                {
+                    <div style="text-align: center; padding: 20px; opacity: 0.5; font-size: 0.9em;">
+                        @(_installedApps.Count == 0 ? "未找到已安装的应用" : "没有匹配的应用")
+                    </div>
+                }
+            }
+        </div>
+    </div>
 }
