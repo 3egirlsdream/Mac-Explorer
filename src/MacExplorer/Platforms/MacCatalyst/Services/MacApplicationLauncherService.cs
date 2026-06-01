@@ -121,11 +121,6 @@ public class MacApplicationLauncherService : IApplicationLauncherService
         await RunOsascriptAsync(script);
     }
 
-    public async Task OpenInVsCodeAsync(string directoryPath)
-    {
-        await OpenInEditorAsync(directoryPath, "code", "com.microsoft.VSCode");
-    }
-
     public async Task OpenInEditorAsync(string path, string cliName, string bundleId)
     {
         var cliPath = $"/usr/local/bin/{cliName}";

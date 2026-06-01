@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using MacExplorer.Indexing;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
 using Microsoft.Extensions.Logging;
 using Masa.Blazor;
@@ -119,6 +120,10 @@ public static class MauiProgram
             new Platforms.MacCatalyst.Services.MacFileService(sp.GetRequiredService<SqliteFileIndex>()));
         builder.Services.AddSingleton<IApplicationLauncherService, Platforms.MacCatalyst.Services.MacApplicationLauncherService>();
         builder.Services.AddSingleton<IContextMenuService, Platforms.MacCatalyst.Services.MacContextMenuService>();
+        builder.Services.AddSingleton<IOpenWithAppService>(sp =>
+            new OpenWithAppService(
+                sp.GetRequiredService<DatabaseConnectionFactory>(),
+                sp.GetService<ILoggerFactory>()?.CreateLogger<OpenWithAppService>()));
         // [Web ContextMenu] Mac原生菜单已屏蔽，使用Web实现
         // builder.Services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
         builder.Services.AddSingleton<IMetadataService, Platforms.MacCatalyst.Services.MacMetadataService>();

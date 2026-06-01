@@ -13,6 +13,7 @@ public class MacContextMenuService : IContextMenuService
 
     private static readonly (string Label, string BundleId, string CliName, string IconSvg)[] VscodeBasedEditors =
     [
+        ("VS Code", "com.microsoft.VSCode", "code", Icons.VSCode),
         ("Cursor", "com.todesktop.230313mzl4w4u92", "cursor", Icons.CodeEditor),
         ("Kiro", "dev.kiro.desktop", "kiro", Icons.Kiro),
         ("Qoder", "com.qoder.ide", "qoder", Icons.Qoder),
@@ -83,8 +84,6 @@ public class MacContextMenuService : IContextMenuService
         // Terminal: for directories use the path directly, for files use parent directory
         var terminalPath = entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(terminalPath) });
-        if (IsAppInstalled("com.microsoft.VSCode"))
-            actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(entry.FullPath) });
         foreach (var editor in VscodeBasedEditors)
         {
             if (IsAppInstalled(editor.BundleId))
@@ -118,8 +117,6 @@ public class MacContextMenuService : IContextMenuService
         actions.Add(ContextMenuAction.Separator);
 
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(currentDirectory) });
-        if (IsAppInstalled("com.microsoft.VSCode"))
-            actions.Add(new() { Label = "在 VS Code 中打开", IconSvg = Icons.VSCode, Execute = () => _launcher.OpenInVsCodeAsync(currentDirectory) });
         foreach (var editor in VscodeBasedEditors)
         {
             if (IsAppInstalled(editor.BundleId))
