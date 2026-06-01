@@ -8,21 +8,15 @@ public class MacContextMenuService : IContextMenuService
 {
     private readonly IApplicationLauncherService _launcher;
     private readonly IFileService _fileService;
+    private readonly IOpenWithAppService _openWithService;
     private HashSet<string>? _installedApps;
     private readonly Task<HashSet<string>> _installedAppsTask;
 
-    private static readonly (string Label, string BundleId, string CliName, string IconSvg)[] VscodeBasedEditors =
-    [
-        ("VS Code", "com.microsoft.VSCode", "code", Icons.VSCode),
-        ("Cursor", "com.todesktop.230313mzl4w4u92", "cursor", Icons.CodeEditor),
-        ("Kiro", "dev.kiro.desktop", "kiro", Icons.Kiro),
-        ("Qoder", "com.qoder.ide", "qoder", Icons.Qoder),
-    ];
-
-    public MacContextMenuService(IApplicationLauncherService launcher, IFileService fileService)
+    public MacContextMenuService(IApplicationLauncherService launcher, IFileService fileService, IOpenWithAppService openWithService)
     {
         _launcher = launcher;
         _fileService = fileService;
+        _openWithService = openWithService;
         _installedAppsTask = Task.Run(ScanInstalledApps);
     }
 
@@ -39,23 +33,7 @@ public class MacContextMenuService : IContextMenuService
             actions.Add(new() { Label = "显示包内容", IconSvg = Icons.Folder, Execute = null });
         }
 
-        var apps = await GetApplicationsForFileAsync(entry.FullPath);
-        if (apps.Count > 0)
-        {
-            actions.Add(new ContextMenuAction
-            {
-                Label = "打开方式",
-                IconSvg = Icons.Open,
-                SubItems = apps.Select(app => new ContextMenuAction
-                {
-                    Label = app.Name,
-                    IconSvg = Icons.Finder,
-                    Execute = () => _launcher.OpenFileWithAppAsync(entry.FullPath, app.BundleIdentifier)
-                }).ToList()
-            });
-        }
-
-        // Quick actions: Cut, Copy, Rename, Delete (shown as icon bar at top of menu)
+        // Quick actions: Cut, Copy, Rename, Delete
         actions.Add(new() { Label = "剪切", IconSvg = Icons.Cut, ShortcutText = "⌘X", IsQuickAction = true });
         actions.Add(new() { Label = "拷贝", IconSvg = Icons.Copy, ShortcutText = "⌘C", IsQuickAction = true });
         actions.Add(new() { Label = "重命名", IconSvg = Icons.Rename, ShortcutText = "↵", IsQuickAction = true });
@@ -84,14 +62,9 @@ public class MacContextMenuService : IContextMenuService
         // Terminal: for directories use the path directly, for files use parent directory
         var terminalPath = entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(terminalPath) });
-        foreach (var editor in VscodeBasedEditors)
-        {
-            if (IsAppInstalled(editor.BundleId))
-            {
-                var e = editor;
-                actions.Add(new() { Label = $"在 {e.Label} 中打开", IconSvg = e.IconSvg, Execute = () => _launcher.OpenInEditorAsync(entry.FullPath, e.CliName, e.BundleId) });
-            }
-        }
+
+        // Configured "Open With" apps
+        await AddOpenWithActionsAsync(actions, entry.FullPath);
 
         // Pin到收藏（仅文件夹）
         if (entry.IsDirectory)
@@ -117,14 +90,9 @@ public class MacContextMenuService : IContextMenuService
         actions.Add(ContextMenuAction.Separator);
 
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(currentDirectory) });
-        foreach (var editor in VscodeBasedEditors)
-        {
-            if (IsAppInstalled(editor.BundleId))
-            {
-                var e = editor;
-                actions.Add(new() { Label = $"在 {e.Label} 中打开", IconSvg = e.IconSvg, Execute = () => _launcher.OpenInEditorAsync(currentDirectory, e.CliName, e.BundleId) });
-            }
-        }
+
+        // Configured "Open With" apps
+        await AddOpenWithActionsAsync(actions, currentDirectory);
 
         actions.Add(ContextMenuAction.Separator);
 
@@ -149,6 +117,79 @@ public class MacContextMenuService : IContextMenuService
             new() { Label = "清倒废纸篓", IconSvg = Icons.Delete, Execute = null },
         };
         return Task.FromResult<IReadOnlyList<ContextMenuAction>>(actions.AsReadOnly());
+    }
+
+    /// <summary>
+    /// Adds configured "Open With" apps to the menu.
+    /// Top-level apps are added directly; others go into a unified "打开方式" submenu
+    /// along with system-registered default apps.
+    /// </summary>
+    private async Task AddOpenWithActionsAsync(List<ContextMenuAction> actions, string path)
+    {
+        var allApps = await _openWithService.GetAllAsync();
+        var topLevel = allApps.Where(a => a.IsTopLevel).ToList();
+        var submenuApps = allApps.Where(a => !a.IsTopLevel).ToList();
+
+        // Add top-level apps directly to menu
+        foreach (var app in topLevel)
+        {
+            if (!IsAppInstalled(app.BundleId)) continue;
+            var a = app;
+            actions.Add(new()
+            {
+                Label = $"在 {a.Label} 中打开",
+                IconBase64 = a.IconBase64,
+                IconSvg = Icons.CodeEditor, // fallback
+                Execute = () => _launcher.OpenInEditorAsync(path, "", a.BundleId),
+            });
+        }
+
+        // Build unified "打开方式" submenu
+        var subItems = new List<ContextMenuAction>();
+
+        // User-configured submenu apps
+        foreach (var app in submenuApps)
+        {
+            if (!IsAppInstalled(app.BundleId)) continue;
+            var a = app;
+            subItems.Add(new()
+            {
+                Label = $"在 {a.Label} 中打开",
+                IconBase64 = a.IconBase64,
+                IconSvg = Icons.CodeEditor,
+                Execute = () => _launcher.OpenInEditorAsync(path, "", a.BundleId),
+            });
+        }
+
+        // System-registered default apps
+        var systemApps = await GetApplicationsForFileAsync(path);
+        if (systemApps.Count > 0)
+        {
+            if (subItems.Count > 0)
+                subItems.Add(ContextMenuAction.Separator);
+
+            foreach (var sysApp in systemApps)
+            {
+                var iconBase64 = GetAppBundleIconBase64(sysApp.BundleIdentifier);
+                subItems.Add(new()
+                {
+                    Label = sysApp.Name,
+                    IconBase64 = iconBase64,
+                    IconSvg = Icons.Finder, // fallback
+                    Execute = () => _launcher.OpenFileWithAppAsync(path, sysApp.BundleIdentifier),
+                });
+            }
+        }
+
+        if (subItems.Count > 0)
+        {
+            actions.Add(new ContextMenuAction
+            {
+                Label = "打开方式",
+                IconSvg = Icons.Open,
+                SubItems = subItems,
+            });
+        }
     }
 
     public async Task<IReadOnlyList<RegisteredApp>> GetApplicationsForFileAsync(string filePath)
@@ -179,6 +220,66 @@ public class MacContextMenuService : IContextMenuService
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Gets the base64 icon for an installed app by its bundle identifier.
+    /// Returns null if the app is not found or icon extraction fails.
+    /// </summary>
+    private string? GetAppBundleIconBase64(string bundleIdentifier)
+    {
+        try
+        {
+            var searchPaths = new[] { "/Applications", "/System/Applications", "/Applications/Utilities" };
+            foreach (var searchPath in searchPaths)
+            {
+                if (!Directory.Exists(searchPath)) continue;
+                foreach (var dir in Directory.EnumerateDirectories(searchPath, "*.app", SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        var plistPath = Path.Combine(dir, "Contents", "Info.plist");
+                        if (!File.Exists(plistPath)) continue;
+                        var dict = Foundation.NSMutableDictionary.FromFile(plistPath);
+                        if (dict?["CFBundleIdentifier"]?.ToString() == bundleIdentifier)
+                            return ExtractIconBase64(dir);
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static string? ExtractIconBase64(string appPath)
+    {
+        try
+        {
+            var escapedPath = appPath.Replace("\\", "\\\\").Replace("'", "\\'");
+            var script = $"ObjC.import('AppKit');ObjC.import('Foundation');var ws=$.NSWorkspace.sharedWorkspace;var icon=ws.iconForFile('{escapedPath}');var sz=$.NSMakeSize(32,32);var newImg=$.NSImage.alloc.initWithSize(sz);newImg.lockFocus;icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,32,32),$.NSZeroRect,$.NSCompositingOperationSourceOver,1.0);newImg.unlockFocus;var tiff=newImg.TIFFRepresentation;var rep=$.NSBitmapImageRep.imageRepWithData(tiff);var png=rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG,$({}));var base64=png.base64EncodedStringWithOptions(0);ObjC.unwrap(base64);";
+
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "/usr/bin/osascript",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add("-l");
+            psi.ArgumentList.Add("JavaScript");
+            psi.ArgumentList.Add("-e");
+            psi.ArgumentList.Add(script);
+
+            var process = System.Diagnostics.Process.Start(psi);
+            if (process == null) return null;
+            var output = process.StandardOutput.ReadToEnd().Trim();
+            process.WaitForExit(5000);
+
+            return string.IsNullOrEmpty(output) ? null : output;
+        }
+        catch { return null; }
     }
 
     private static HashSet<string> ScanInstalledApps()
