@@ -11,7 +11,14 @@
             {
                 <div class="context-menu-quick-item @(!qa.IsEnabled ? "disabled" : "")" @onclick="() => ExecuteAction(qa)" title="@qa.Label">
                     <span class="context-menu-quick-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="@qa.IconSvg"/></svg>
+                        @if (!string.IsNullOrEmpty(qa.IconBase64))
+                        {
+                            <img src="data:image/png;base64,@qa.IconBase64" width="16" height="16" style="object-fit: contain;" />
+                        }
+                        else
+                        {
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="@qa.IconSvg"/></svg>
+                        }
                     </span>
                     <span class="context-menu-quick-label">@qa.Label</span>
                 </div>
@@ -32,7 +39,11 @@
                  @onmouseleave="() => { if (_hoveredSubMenu == action) _hoveredSubMenu = null; }"
                  @oncontextmenu:preventDefault>
                 <span class="context-menu-icon">
-                    @if (!string.IsNullOrEmpty(action.IconSvg))
+                    @if (!string.IsNullOrEmpty(action.IconBase64))
+                    {
+                        <img src="data:image/png;base64,@action.IconBase64" width="14" height="14" style="object-fit: contain;" />
+                    }
+                    else if (!string.IsNullOrEmpty(action.IconSvg))
                     {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@action.IconSvg"/></svg>
                     }
@@ -55,7 +66,11 @@
                                      @onclick="() => ExecuteAction(sub)"
                                      @onclick:stopPropagation>
                                     <span class="context-menu-icon">
-                                        @if (!string.IsNullOrEmpty(sub.IconSvg))
+                                        @if (!string.IsNullOrEmpty(sub.IconBase64))
+                                        {
+                                            <img src="data:image/png;base64,@sub.IconBase64" width="14" height="14" style="object-fit: contain;" />
+                                        }
+                                        else if (!string.IsNullOrEmpty(sub.IconSvg))
                                         {
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@sub.IconSvg"/></svg>
                                         }
@@ -78,7 +93,11 @@
                  @onclick="() => ExecuteAction(action)"
                  @oncontextmenu:preventDefault>
                 <span class="context-menu-icon">
-                    @if (!string.IsNullOrEmpty(action.IconSvg))
+                    @if (!string.IsNullOrEmpty(action.IconBase64))
+                    {
+                        <img src="data:image/png;base64,@action.IconBase64" width="14" height="14" style="object-fit: contain;" />
+                    }
+                    else if (!string.IsNullOrEmpty(action.IconSvg))
                     {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@action.IconSvg"/></svg>
                     }
