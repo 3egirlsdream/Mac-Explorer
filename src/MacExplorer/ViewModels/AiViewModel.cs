@@ -347,7 +347,8 @@ public partial class AiViewModel : ObservableObject
     public async Task TriggerImageAnalysisAsync(
         IReadOnlyList<FileSystemEntry> entries,
         string currentPath,
-        Action<string?> setActiveTaskId)
+        Action<string?> setActiveTaskId,
+        CancellationToken cancellationToken = default)
     {
         if (_aiTagService == null || _imageAnalysisService == null || _taskManager == null) return;
         if (!IsAiAnalysisEnabled) return;
@@ -364,10 +365,12 @@ public partial class AiViewModel : ObservableObject
             var toAnalyze = await _aiTagService.GetUnanalyzedFilesAsync(
                 imageEntries.Select(e => e.FullPath).ToList(),
                 imageEntries.Select(e => e.LastModified.Ticks).ToList());
+            cancellationToken.ThrowIfCancellationRequested();
 
             // 3. Detect deleted files — clean up orphan AI data
             var currentPaths = new HashSet<string>(imageEntries.Select(e => e.FullPath));
             var analyzedPaths = await _aiTagService.GetAnalyzedPathsInDirectoryAsync(currentPath);
+            cancellationToken.ThrowIfCancellationRequested();
             var deletedPaths = analyzedPaths.Where(p => !currentPaths.Contains(p)).ToList();
             if (deletedPaths.Count > 0)
             {
@@ -382,17 +385,23 @@ public partial class AiViewModel : ObservableObject
             var taskInfo = _taskManager.AddTask($"AI 图像分析 0/{toAnalyze.Count}");
             setActiveTaskId(taskInfo.Id);
             var semaphore = new SemaphoreSlim(3);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                taskInfo.Cts.Token,
+                cancellationToken);
+            var token = linkedCts.Token;
             var completed = 0;
+            var wasCanceled = false;
 
             try
             {
                 var tasks = toAnalyze.Select(async file =>
                 {
-                    await semaphore.WaitAsync(taskInfo.Cts.Token);
+                    await semaphore.WaitAsync(token);
                     try
                     {
-                        taskInfo.Cts.Token.ThrowIfCancellationRequested();
-                        var result = await _imageAnalysisService.AnalyzeImageAsync(file.Path, taskInfo.Cts.Token);
+                        token.ThrowIfCancellationRequested();
+                        var result = await _imageAnalysisService.AnalyzeImageAsync(file.Path, token);
+                        token.ThrowIfCancellationRequested();
                         await _aiTagService.SaveAnalysisResultAsync(file.Path, file.ModifiedTicks, result);
                         var count = Interlocked.Increment(ref completed);
                         _taskManager.UpdateProgress(taskInfo.Id, (double)count / toAnalyze.Count,
@@ -404,15 +413,23 @@ public partial class AiViewModel : ObservableObject
                 await Task.WhenAll(tasks);
 
                 // 6. Run face clustering
+                token.ThrowIfCancellationRequested();
                 await _aiTagService.RunClusteringAsync();
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException)
+            {
+                wasCanceled = true;
+            }
             finally
             {
-                _taskManager.CompleteTask(taskInfo.Id);
+                if (wasCanceled)
+                    _taskManager.RemoveTask(taskInfo.Id);
+                else
+                    _taskManager.CompleteTask(taskInfo.Id);
                 semaphore.Dispose();
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger?.LogError(ex, "AI analysis trigger failed");

@@ -23,10 +23,15 @@
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(ViewModel.AiViewMode))
+        try
         {
-            await InvokeAsync(StateHasChanged);
+            if (e.PropertyName is nameof(ViewModel.AiViewMode))
+            {
+                await InvokeAsync(StateHasChanged);
+            }
         }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[AiViewHost] Property change callback failed: {ex}"); }
     }
 
     public void Dispose()

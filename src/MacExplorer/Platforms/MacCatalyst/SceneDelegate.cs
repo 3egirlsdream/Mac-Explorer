@@ -108,8 +108,15 @@ public class SceneDelegate : MauiUISceneDelegate
                 // 然后异步尝试即时导航（适用于热启动——已有活跃窗口的情况）
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    Console.WriteLine($"[MacExplorer] SceneDelegate.OpenUrlContexts: attempting NavigateAsync for '{path}'");
-                    await bridge.NavigateAsync(path);
+                    try
+                    {
+                        Console.WriteLine($"[MacExplorer] SceneDelegate.OpenUrlContexts: attempting NavigateAsync for '{path}'");
+                        await bridge.NavigateAsync(path);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[MacExplorer] SceneDelegate.OpenUrlContexts: navigation failed: {ex}");
+                    }
                 });
             }
             else

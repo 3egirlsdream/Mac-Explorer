@@ -170,88 +170,102 @@ public class MacDragDropBridge : IDragDropBridge
 
     public async void HandleExternalDrop(string[] sourcePaths, string targetDirectory, IntPtr nsWindow)
     {
-        await MainThread.InvokeOnMainThreadAsync(async () =>
+        try
         {
-            if (string.IsNullOrEmpty(targetDirectory)) return;
-
-            var affectedDirs = new HashSet<string> { targetDirectory };
-            int moved = 0;
-
-            foreach (var sourcePath in sourcePaths)
+            await MainThread.InvokeOnMainThreadAsync(async () =>
             {
-                var sourceDir = Path.GetDirectoryName(sourcePath);
-                if (!string.IsNullOrEmpty(sourceDir)) affectedDirs.Add(sourceDir);
-                if (sourceDir == targetDirectory) continue;
+                if (string.IsNullOrEmpty(targetDirectory)) return;
 
-                try { await _fileService.MoveAsync(sourcePath, targetDirectory); moved++; }
-                catch (Exception ex) { Console.WriteLine($"[MacExplorer] Drop move failed: {ex.Message}"); }
-            }
+                var affectedDirs = new HashSet<string> { targetDirectory };
+                int moved = 0;
 
-            if (moved > 0)
-                _directoryChangeNotifier.NotifyChanged(affectedDirs.ToArray());
-        });
+                foreach (var sourcePath in sourcePaths)
+                {
+                    var sourceDir = Path.GetDirectoryName(sourcePath);
+                    if (!string.IsNullOrEmpty(sourceDir)) affectedDirs.Add(sourceDir);
+                    if (sourceDir == targetDirectory) continue;
+
+                    try { await _fileService.MoveAsync(sourcePath, targetDirectory); moved++; }
+                    catch (Exception ex) { Console.WriteLine($"[MacExplorer] Drop move failed: {ex.Message}"); }
+                }
+
+                if (moved > 0)
+                    _directoryChangeNotifier.NotifyChanged(affectedDirs.ToArray());
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MacExplorer] External drop callback failed: {ex}");
+        }
     }
 
     public async void HandleInternalDrop(string[] sourcePaths, string targetDirectory, IntPtr nsWindow)
     {
-        await MainThread.InvokeOnMainThreadAsync(async () =>
+        try
         {
-            if (string.IsNullOrEmpty(targetDirectory)) return;
-            if (IsInvalidInternalDropTarget(sourcePaths, targetDirectory))
+            await MainThread.InvokeOnMainThreadAsync(async () =>
             {
+                if (string.IsNullOrEmpty(targetDirectory)) return;
+                if (IsInvalidInternalDropTarget(sourcePaths, targetDirectory))
+                {
 #if DEBUG
-                Console.WriteLine($"[MacExplorer] HandleInternalDrop: ignoring drop onto dragged item/descendant '{targetDirectory}'");
+                    Console.WriteLine($"[MacExplorer] HandleInternalDrop: ignoring drop onto dragged item/descendant '{targetDirectory}'");
 #endif
-                return;
-            }
+                    return;
+                }
 
-            var vm = GetActiveViewModel();
-            if (vm == null)
-            {
-                Console.WriteLine("[MacExplorer] HandleInternalDrop: no active ViewModel");
-                return;
-            }
+                var vm = GetActiveViewModel();
+                if (vm == null)
+                {
+                    Console.WriteLine("[MacExplorer] HandleInternalDrop: no active ViewModel");
+                    return;
+                }
 
-            // Build lookup of entries by full path from current ViewModel's entries
-            var entryLookup = new Dictionary<string, FileSystemEntry>();
-            foreach (var e in vm.Entries)
-            {
-                if (!string.IsNullOrEmpty(e.FullPath) && !entryLookup.ContainsKey(e.FullPath))
-                    entryLookup[e.FullPath] = e;
-            }
+                // Build lookup of entries by full path from current ViewModel's entries
+                var entryLookup = new Dictionary<string, FileSystemEntry>();
+                foreach (var e in vm.Entries)
+                {
+                    if (!string.IsNullOrEmpty(e.FullPath) && !entryLookup.ContainsKey(e.FullPath))
+                        entryLookup[e.FullPath] = e;
+                }
 
-            // Resolve source paths to FileSystemEntry objects
-            var sourceEntries = new List<FileSystemEntry>();
-            foreach (var path in sourcePaths)
-            {
-                if (entryLookup.TryGetValue(path, out var entry))
-                    sourceEntries.Add(entry);
-            }
+                // Resolve source paths to FileSystemEntry objects
+                var sourceEntries = new List<FileSystemEntry>();
+                foreach (var path in sourcePaths)
+                {
+                    if (entryLookup.TryGetValue(path, out var entry))
+                        sourceEntries.Add(entry);
+                }
 
-            // Resolve target to FileSystemEntry
-            if (!entryLookup.TryGetValue(targetDirectory, out var targetEntry))
-            {
-                Console.WriteLine($"[MacExplorer] HandleInternalDrop: target '{targetDirectory}' not found in entries");
-                return;
-            }
+                // Resolve target to FileSystemEntry
+                if (!entryLookup.TryGetValue(targetDirectory, out var targetEntry))
+                {
+                    Console.WriteLine($"[MacExplorer] HandleInternalDrop: target '{targetDirectory}' not found in entries");
+                    return;
+                }
 
-            if (sourceEntries.Count == 0)
-            {
-                Console.WriteLine("[MacExplorer] HandleInternalDrop: no source entries resolved");
-                return;
-            }
+                if (sourceEntries.Count == 0)
+                {
+                    Console.WriteLine("[MacExplorer] HandleInternalDrop: no source entries resolved");
+                    return;
+                }
 
-            // Filter out the target itself to prevent moving a folder into itself
-            sourceEntries = sourceEntries.Where(e => e != targetEntry).ToList();
-            if (sourceEntries.Count == 0) return;
+                // Filter out the target itself to prevent moving a folder into itself
+                sourceEntries = sourceEntries.Where(e => e != targetEntry).ToList();
+                if (sourceEntries.Count == 0) return;
 
 #if DEBUG
-            Console.WriteLine($"[MacExplorer] HandleInternalDrop: moving {sourceEntries.Count} entries to {targetDirectory}");
+                Console.WriteLine($"[MacExplorer] HandleInternalDrop: moving {sourceEntries.Count} entries to {targetDirectory}");
 #endif
 
-            // Delegate to ViewModel for conflict-aware move (supports overwrite dialog)
-            await vm.MoveEntriesAsync(sourceEntries, targetEntry);
-        });
+                // Delegate to ViewModel for conflict-aware move (supports overwrite dialog)
+                await vm.MoveEntriesAsync(sourceEntries, targetEntry);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MacExplorer] Internal drop callback failed: {ex}");
+        }
     }
 
     private static bool IsInvalidInternalDropTarget(IEnumerable<string> sourcePaths, string targetDirectory)

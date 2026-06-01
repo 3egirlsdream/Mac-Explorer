@@ -43,11 +43,18 @@ public class AppDelegate : MauiUIApplicationDelegate
 				Console.WriteLine($"[MacExplorer] AppDelegate.OpenUrls: set PendingNavigationPath='{path}'");
 
 				// 然后异步尝试即时导航
-				MainThread.BeginInvokeOnMainThread(async () =>
-				{
-					Console.WriteLine($"[MacExplorer] AppDelegate.OpenUrls: attempting NavigateAsync for '{path}'");
-					await bridge.NavigateAsync(path);
-				});
+					MainThread.BeginInvokeOnMainThread(async () =>
+					{
+						try
+						{
+							Console.WriteLine($"[MacExplorer] AppDelegate.OpenUrls: attempting NavigateAsync for '{path}'");
+							await bridge.NavigateAsync(path);
+						}
+						catch (Exception ex)
+						{
+							Console.WriteLine($"[MacExplorer] AppDelegate.OpenUrls: navigation failed: {ex}");
+						}
+					});
 			}
 			else
 			{

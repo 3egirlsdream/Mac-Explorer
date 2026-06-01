@@ -40,6 +40,11 @@ public partial class FileListViewModel : ObservableObject
     private bool _isRefreshingFromNotification;
     private FileSystemEntry? _lastClickedEntry;
     private string? _lastClickedPath;
+    private readonly object _directoryWorkLock = new();
+    private CancellationTokenSource _directoryWorkCts = new();
+    private int _directoryWorkGeneration;
+
+    private const string LastDirectorySettingKey = "navigation_last_directory";
 
     // ── Properties that remain in coordinator ──
 
@@ -92,6 +97,12 @@ public partial class FileListViewModel : ObservableObject
     public bool IsHomePage => _navigation.IsHomePage;
     public ObservableCollection<BreadcrumbSegment> Breadcrumbs => _navigation.Breadcrumbs;
     public string HomeDirectory => _fileService.HomeDirectory;
+
+    public string? GetRestorableDirectoryPath()
+    {
+        var path = _settingsService?.Get(LastDirectorySettingKey);
+        return !string.IsNullOrEmpty(path) && Directory.Exists(path) ? path : null;
+    }
 
     // Archive state forwarded
     public bool IsArchiveView => _navigation.IsArchiveView;
@@ -399,7 +410,6 @@ public partial class FileListViewModel : ObservableObject
 
         _navigation.IsHomePage = false;
 
-        var oldPath = _navigation.CurrentPath;
         await _navigation.NavigateToAsync(path);
 
         try
@@ -409,9 +419,11 @@ public partial class FileListViewModel : ObservableObject
         catch (Exception ex) { StatusText = $"无法访问: {ex.Message}"; }
         finally { IsLoading = false; }
 
-        // Update FSEvents watch
-        _navigation.UnwatchCurrentDirectory(oldPath);
-        _navigation.WatchCurrentDirectory();
+        if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
+        {
+            _navigation.SetWatchedDirectory(path);
+            _settingsService?.Set(LastDirectorySettingKey, path);
+        }
     }
 
     [RelayCommand]
@@ -498,6 +510,11 @@ public partial class FileListViewModel : ObservableObject
                 try
                 {
                     await LoadDirectoryContentsAsync();
+                    if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
+                    {
+                        _navigation.SetWatchedDirectory(path);
+                        _settingsService?.Set(LastDirectorySettingKey, path);
+                    }
                 }
                 catch (Exception ex) { StatusText = $"无法访问: {ex.Message}"; }
                 finally { IsLoading = false; }
@@ -512,10 +529,9 @@ public partial class FileListViewModel : ObservableObject
     [RelayCommand]
     public void GoHome()
     {
-        if (!string.IsNullOrEmpty(_navigation.CurrentPath))
-            _navigation.UnwatchCurrentDirectory(_navigation.CurrentPath);
-
+        CancelDirectoryWork();
         _navigation.GoHome();
+        _settingsService?.Set(LastDirectorySettingKey, "");
         _ai.Reset();
         Entries.Clear();
         StatusText = "";
@@ -600,6 +616,8 @@ public partial class FileListViewModel : ObservableObject
 
     private async Task NavigateToArchiveAsync(string sentinelPath)
     {
+        CancelDirectoryWork();
+        _navigation.SetWatchedDirectory(null);
         _navigation.IsHomePage = false;
         _navigation.IsCollectionView = false;
         _navigation.IsArchiveView = true;
@@ -622,13 +640,14 @@ public partial class FileListViewModel : ObservableObject
         );
 
         _navigation.UpdateHistoryForSentinelPath(sentinelPath);
-        _navigation.WatchCurrentDirectory();
     }
 
     // ── AI Navigation ──
 
     private async Task HandleAiNavigationAsync(string sentinelPath)
     {
+        CancelDirectoryWork();
+        _navigation.SetWatchedDirectory(null);
         _navigation.IsHomePage = false;
         _navigation.IsCollectionView = false;
         _navigation.IsArchiveView = false;
@@ -1717,6 +1736,7 @@ public partial class FileListViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(query)) { ExitSearch(); return; }
 
+        CancelDirectoryWork();
         _search.EnterSearchMode(IsHomePage);
         _navigation.IsHomePage = false;
         _navigation.IsSearchMode = true;
@@ -1819,10 +1839,9 @@ public partial class FileListViewModel : ObservableObject
 
     public async Task NavigateToCollectionAsync(int collectionId)
     {
+        CancelDirectoryWork();
+        _navigation.SetWatchedDirectory(null);
         // Clear current path so sidebar folder items deselect properly
-        var oldPath = _navigation.CurrentPath;
-        if (!string.IsNullOrEmpty(oldPath))
-            _navigation.UnwatchCurrentDirectory(oldPath);
         _navigation.CurrentPath = "";
 
         await _collection.NavigateToCollectionAsync(
@@ -1963,6 +1982,7 @@ public partial class FileListViewModel : ObservableObject
 
     private async Task LoadDirectoryContentsAsync(bool forceRefresh = false)
     {
+        var work = BeginDirectoryWork();
         IReadOnlyList<FileSystemEntry> entries;
         try
         {
@@ -1975,13 +1995,11 @@ public partial class FileListViewModel : ObservableObject
                 if (isFresh)
                 {
                     entries = await _fileIndex.GetDirectoryContentsAsync(_navigation.CurrentPath);
+                    if (!IsCurrentDirectoryWork(work)) return;
                     if (entries.Count > 0)
                     {
                         ApplyEntries(entries);
-                        // Resolve app icons even when loading from index (IconUrl is not persisted in index)
-                        _ = ResolveIconsInBackgroundAsync(entries);
-                        _ = ResolveThumbnailsInBackgroundAsync(entries);
-                        _ = ResolveGitStatusAsync();
+                        StartDirectoryBackgroundWork(entries, work, includeAnalysis: false);
                         return;
                     }
                 }
@@ -1989,7 +2007,15 @@ public partial class FileListViewModel : ObservableObject
         }
         catch (Exception ex) { _logger?.LogError(ex, "Failed to load directory contents from index for {Path}", _navigation.CurrentPath); }
 
-        entries = await _fileService.GetDirectoryContentsAsync(_navigation.CurrentPath);
+        try
+        {
+            entries = await _fileService.GetDirectoryContentsAsync(_navigation.CurrentPath, work.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        if (!IsCurrentDirectoryWork(work)) return;
 
         try
         {
@@ -1998,31 +2024,40 @@ public partial class FileListViewModel : ObservableObject
         }
         catch (Exception ex) { _logger?.LogError(ex, "Failed to update index for directory {Path}", _navigation.CurrentPath); }
 
+        if (!IsCurrentDirectoryWork(work)) return;
         ApplyEntries(entries);
-
-        // Resolve app icons lazily in background (don't block the list display)
-        _ = ResolveIconsInBackgroundAsync(entries);
-        _ = ResolveThumbnailsInBackgroundAsync(entries);
-        _ = TriggerImageAnalysisAsync(entries);
-        _ = ResolveGitStatusAsync();
+        StartDirectoryBackgroundWork(entries, work, includeAnalysis: true);
 
         // Batch load ratings for current directory
         _ = _collection.GetRating(_navigation.CurrentPath); // Just to initialize
     }
 
-    private async Task ResolveIconsInBackgroundAsync(IReadOnlyList<FileSystemEntry> entries)
+    private void StartDirectoryBackgroundWork(
+        IReadOnlyList<FileSystemEntry> entries,
+        DirectoryWork work,
+        bool includeAnalysis)
+    {
+        _ = ResolveIconsInBackgroundAsync(entries, work);
+        _ = ResolveThumbnailsInBackgroundAsync(entries, work);
+        _ = ResolveGitStatusAsync(work);
+        if (includeAnalysis)
+            _ = TriggerImageAnalysisAsync(entries, work);
+    }
+
+    private async Task ResolveIconsInBackgroundAsync(IReadOnlyList<FileSystemEntry> entries, DirectoryWork work)
     {
         try
         {
             await _fileService.ResolveAppIconsAsync(entries, () =>
             {
-                OnPropertyChanged(nameof(Entries));
+                if (IsCurrentDirectoryWork(work))
+                    OnPropertyChanged(nameof(Entries));
             });
         }
         catch (Exception ex) { _logger?.LogError(ex, "Failed to resolve app icons"); }
     }
 
-    private async Task ResolveThumbnailsInBackgroundAsync(IReadOnlyList<FileSystemEntry> entries)
+    private async Task ResolveThumbnailsInBackgroundAsync(IReadOnlyList<FileSystemEntry> entries, DirectoryWork work)
     {
         if (_thumbnailService == null) return;
         try
@@ -2035,36 +2070,41 @@ public partial class FileListViewModel : ObservableObject
             const int batchSize = 20;
             for (int i = 0; i < imageEntries.Count; i += batchSize)
             {
+                work.Token.ThrowIfCancellationRequested();
                 var batch = imageEntries.Skip(i).Take(batchSize).ToList();
                 var tasks = batch.Select(async entry =>
                 {
-                    var bytes = await _thumbnailService.GetThumbnailAsync(entry.FullPath, 128);
-                    if (bytes != null)
+                    var bytes = await _thumbnailService.GetThumbnailAsync(entry.FullPath, 128, work.Token);
+                    if (bytes != null && IsCurrentDirectoryWork(work))
                     {
                         entry.ThumbnailUrl = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
                     }
                 });
                 await Task.WhenAll(tasks);
-                OnPropertyChanged(nameof(Entries));
+                if (IsCurrentDirectoryWork(work))
+                    OnPropertyChanged(nameof(Entries));
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex) { _logger?.LogError(ex, "Failed to resolve thumbnails"); }
     }
 
-    private async Task TriggerImageAnalysisAsync(IReadOnlyList<FileSystemEntry> entries)
+    private async Task TriggerImageAnalysisAsync(IReadOnlyList<FileSystemEntry> entries, DirectoryWork work)
     {
         await _ai.TriggerImageAnalysisAsync(
             entries,
             _navigation.CurrentPath,
-            id => { } // active task id
+            id => { }, // active task id
+            work.Token
         );
     }
 
     private void ResolveRealEntries(IReadOnlyList<FileSystemEntry> entries)
     {
         if (!entries.Any(e => !e.IsVirtual)) return;
-        _ = ResolveIconsInBackgroundAsync(entries);
-        _ = ResolveThumbnailsInBackgroundAsync(entries);
+        var work = BeginDirectoryWork();
+        _ = ResolveIconsInBackgroundAsync(entries, work);
+        _ = ResolveThumbnailsInBackgroundAsync(entries, work);
     }
 
     private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries)
@@ -2113,14 +2153,15 @@ public partial class FileListViewModel : ObservableObject
         }
     }
 
-    private async Task ResolveGitStatusAsync()
+    private async Task ResolveGitStatusAsync(DirectoryWork work)
     {
         if (_gitStatusService == null) return;
         try
         {
+            work.Token.ThrowIfCancellationRequested();
             _logger?.LogDebug("[GIT] ResolveGitStatusAsync start, path={Path}, entries={Count}", _navigation.CurrentPath, Entries.Count);
             var repoStatus = await _gitStatusService.GetRepoStatusAsync(_navigation.CurrentPath);
-            if (repoStatus == null) { _logger?.LogDebug("[GIT] repoStatus is null"); return; }
+            if (repoStatus == null || !IsCurrentDirectoryWork(work)) { _logger?.LogDebug("[GIT] repoStatus is null or stale"); return; }
 
             var repoRoot = repoStatus.RepoRoot;
             var changed = false;
@@ -2154,6 +2195,7 @@ public partial class FileListViewModel : ObservableObject
                 var ignoredTask = Task.Run(() => Services.Impl.GitStatusService.GetIgnoredPaths(repoRoot));
                 var untrackedTask = Task.Run(() => Services.Impl.GitStatusService.GetUntrackedPaths(repoRoot));
                 await Task.WhenAll(ignoredTask, untrackedTask);
+                if (!IsCurrentDirectoryWork(work)) return;
                 var ignoredPaths = ignoredTask.Result;
                 var untrackedPaths = untrackedTask.Result;
 
@@ -2193,11 +2235,48 @@ public partial class FileListViewModel : ObservableObject
                 }
             }
 
-            if (changed)
+            if (changed && IsCurrentDirectoryWork(work))
                 ApplyEntriesPreservingSelection(snapshot);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex) { _logger?.LogWarning(ex, "Git status resolve failed"); }
     }
+
+    public void StopDirectoryWork()
+    {
+        CancelDirectoryWork();
+        _navigation.SetWatchedDirectory(null);
+    }
+
+    private DirectoryWork BeginDirectoryWork()
+    {
+        lock (_directoryWorkLock)
+        {
+            _directoryWorkCts.Cancel();
+            _directoryWorkCts.Dispose();
+            _directoryWorkCts = new CancellationTokenSource();
+            return new DirectoryWork(++_directoryWorkGeneration, _directoryWorkCts.Token);
+        }
+    }
+
+    private void CancelDirectoryWork()
+    {
+        lock (_directoryWorkLock)
+        {
+            _directoryWorkCts.Cancel();
+            _directoryWorkCts.Dispose();
+            _directoryWorkCts = new CancellationTokenSource();
+            _directoryWorkGeneration++;
+        }
+    }
+
+    private bool IsCurrentDirectoryWork(DirectoryWork work)
+    {
+        return !work.Token.IsCancellationRequested
+            && Volatile.Read(ref _directoryWorkGeneration) == work.Generation;
+    }
+
+    private readonly record struct DirectoryWork(int Generation, CancellationToken Token);
 
     private void ApplyEntriesPreservingSelection(IReadOnlyList<FileSystemEntry> entries)
     {

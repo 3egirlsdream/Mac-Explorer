@@ -37,6 +37,8 @@ public partial class SearchViewModel : ObservableObject
     public void ExitSearchMode(bool restoreHomePage)
     {
         _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = null;
         IsSearchMode = false;
         SearchQuery = string.Empty;
 

@@ -46,9 +46,8 @@ public static class NativeDragDropHelper
 
     // ── Static state ──
     private static IDragDropBridge? _bridge;
-    private static readonly List<FileDropMessageHandler> _jsHandlers = new();
-    private static readonly List<DragStateMessageHandler> _stateHandlers = new();
-    private static readonly List<JsLogMessageHandler> _logHandlers = new();
+    private static readonly object _webViewLock = new();
+    private static readonly Dictionary<WKWebView, HandlerRegistration> _handlerRegistrations = new();
     private static readonly Dictionary<WKWebView, IntPtr> _webViewNSWindowMap = new();
     private static ulong _dragPasteboardGeneration;
     private static IntPtr _lastSessionPasteboard;
@@ -76,22 +75,45 @@ public static class NativeDragDropHelper
     {
         _bridge = bridge;
 
-        // JS message handler for same-window HTML5 DnD (internal drag → subfolder)
-        var handler = new FileDropMessageHandler(bridge);
-        _jsHandlers.Add(handler);
-        webView.Configuration.UserContentController.AddScriptMessageHandler(handler, "fkfinderDrop");
+        lock (_webViewLock)
+        {
+            if (_handlerRegistrations.ContainsKey(webView))
+                return;
 
-        // JS message handler for drag state tracking (hide/show overlay)
-        var stateHandler = new DragStateMessageHandler();
-        _stateHandlers.Add(stateHandler);
-        webView.Configuration.UserContentController.AddScriptMessageHandler(stateHandler, "fkfinderDragState");
+            var handler = new FileDropMessageHandler(bridge);
+            var stateHandler = new DragStateMessageHandler();
+            var logHandler = new JsLogMessageHandler();
 
-        // JS → Native log bridge (console.log doesn't work reliably in WKWebView)
-        var logHandler = new JsLogMessageHandler();
-        _logHandlers.Add(logHandler);
-        webView.Configuration.UserContentController.AddScriptMessageHandler(logHandler, "fkfinderLog");
+            webView.Configuration.UserContentController.AddScriptMessageHandler(handler, "fkfinderDrop");
+            webView.Configuration.UserContentController.AddScriptMessageHandler(stateHandler, "fkfinderDragState");
+            webView.Configuration.UserContentController.AddScriptMessageHandler(logHandler, "fkfinderLog");
+            _handlerRegistrations[webView] = new HandlerRegistration(handler, stateHandler, logHandler);
+        }
 
         Log("AttachToWebView: native drop handled by DropOverlayHelper at AppKit level");
+    }
+
+    public static void DetachFromWebView(WKWebView webView)
+    {
+        HandlerRegistration? registration;
+        IntPtr nsWindow;
+
+        lock (_webViewLock)
+        {
+            if (!_handlerRegistrations.Remove(webView, out registration))
+                return;
+
+            _webViewNSWindowMap.Remove(webView, out nsWindow);
+        }
+
+        var controller = webView.Configuration.UserContentController;
+        controller.RemoveScriptMessageHandler("fkfinderDrop");
+        controller.RemoveScriptMessageHandler("fkfinderDragState");
+        controller.RemoveScriptMessageHandler("fkfinderLog");
+        registration.Dispose();
+
+        DropOverlayHelper.UnregisterWebView(nsWindow, webView);
+        Log("Detached WKWebView native drag handlers");
     }
 
     /// <summary>
@@ -107,6 +129,12 @@ public static class NativeDragDropHelper
 
     private static void DiscoverNSWindowForWebView(WKWebView webView, int attempt)
     {
+        lock (_webViewLock)
+        {
+            if (!_handlerRegistrations.ContainsKey(webView))
+                return;
+        }
+
         if (attempt > 20)
         {
             Log("Gave up finding NSWindow for WKWebView");
@@ -126,7 +154,12 @@ public static class NativeDragDropHelper
         var nsWindow = FindNSWindowForUIWindow(uiWindow);
         if (nsWindow != IntPtr.Zero)
         {
-            _webViewNSWindowMap[webView] = nsWindow;
+            lock (_webViewLock)
+            {
+                if (!_handlerRegistrations.ContainsKey(webView))
+                    return;
+                _webViewNSWindowMap[webView] = nsWindow;
+            }
             DropOverlayHelper.RegisterWebView(nsWindow, webView);
             Log($"Mapped WKWebView to NSWindow {nsWindow}");
         }
@@ -427,9 +460,36 @@ public static class NativeDragDropHelper
     /// </summary>
     public static IntPtr FindNSWindowForWebView(WKWebView webView)
     {
-        if (_webViewNSWindowMap.TryGetValue(webView, out var nsWindow))
-            return nsWindow;
-        return IntPtr.Zero;
+        lock (_webViewLock)
+        {
+            return _webViewNSWindowMap.TryGetValue(webView, out var nsWindow)
+                ? nsWindow
+                : IntPtr.Zero;
+        }
+    }
+
+    private sealed class HandlerRegistration : IDisposable
+    {
+        private readonly FileDropMessageHandler _dropHandler;
+        private readonly DragStateMessageHandler _stateHandler;
+        private readonly JsLogMessageHandler _logHandler;
+
+        public HandlerRegistration(
+            FileDropMessageHandler dropHandler,
+            DragStateMessageHandler stateHandler,
+            JsLogMessageHandler logHandler)
+        {
+            _dropHandler = dropHandler;
+            _stateHandler = stateHandler;
+            _logHandler = logHandler;
+        }
+
+        public void Dispose()
+        {
+            _dropHandler.Dispose();
+            _stateHandler.Dispose();
+            _logHandler.Dispose();
+        }
     }
 
     // ── Helpers ──

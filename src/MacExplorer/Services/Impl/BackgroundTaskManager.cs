@@ -25,7 +25,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
     {
         var task = new BackgroundTaskInfo { Label = label, OnCompleted = onCompleted };
         lock (_lock) _tasks.Add(task);
-        TasksChanged?.Invoke();
+        RaiseTasksChanged();
         return task;
     }
 
@@ -38,7 +38,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
             task.Progress = progress;
             task.CurrentFile = currentFile;
         }
-        TasksChanged?.Invoke();
+        RaiseTasksChanged();
     }
 
     public void CompleteTask(string taskId)
@@ -52,7 +52,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
             task.Progress = 100;
             callback = task.OnCompleted;
         }
-        TasksChanged?.Invoke();
+        RaiseTasksChanged();
 
         // 执行完成回调
         if (callback != null)
@@ -71,7 +71,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
             task.State = BackgroundTaskState.Failed;
             task.ErrorMessage = error;
         }
-        TasksChanged?.Invoke();
+        RaiseTasksChanged();
 
         // 5 秒后自动移除
         _ = Task.Delay(5000).ContinueWith(_ => RemoveTask(taskId));
@@ -85,12 +85,33 @@ public class BackgroundTaskManager : IBackgroundTaskManager
             if (task == null) return;
             task.IsMinimized = true;
         }
-        TasksChanged?.Invoke();
+        RaiseTasksChanged();
     }
 
     public void RemoveTask(string taskId)
     {
-        lock (_lock) _tasks.RemoveAll(t => t.Id == taskId);
-        TasksChanged?.Invoke();
+        List<BackgroundTaskInfo> removed;
+        lock (_lock)
+        {
+            removed = _tasks.Where(t => t.Id == taskId).ToList();
+            _tasks.RemoveAll(t => t.Id == taskId);
+        }
+
+        foreach (var task in removed)
+            task.Cts.Dispose();
+
+        RaiseTasksChanged();
+    }
+
+    private void RaiseTasksChanged()
+    {
+        var handlers = TasksChanged?.GetInvocationList();
+        if (handlers == null) return;
+
+        foreach (var handler in handlers)
+        {
+            try { ((Action)handler)(); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Background task subscriber failed"); }
+        }
     }
 }

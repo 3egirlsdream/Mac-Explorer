@@ -343,16 +343,21 @@
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(ViewModel.PinnedFolders) or nameof(ViewModel.Collections)
-            or nameof(ViewModel.IsAiView) or nameof(ViewModel.AiViewMode))
+        try
         {
-            await InvokeAsync(StateHasChanged);
+            if (e.PropertyName is nameof(ViewModel.PinnedFolders) or nameof(ViewModel.Collections)
+                or nameof(ViewModel.IsAiView) or nameof(ViewModel.AiViewMode))
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+            else if (e.PropertyName == "SidebarVisibilityChanged")
+            {
+                ReloadSidebarVisibility();
+                await InvokeAsync(StateHasChanged);
+            }
         }
-        else if (e.PropertyName == "SidebarVisibilityChanged")
-        {
-            ReloadSidebarVisibility();
-            await InvokeAsync(StateHasChanged);
-        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[FinderSidebar] Property change callback failed: {ex}"); }
     }
 
     public void Dispose()
@@ -486,21 +491,26 @@
 
     private async void OnVolumesChanged()
     {
-        RefreshExternalVolumes();
-
-        // If currently browsing a removed volume, navigate home
-        if (!string.IsNullOrEmpty(ViewModel.CurrentPath)
-            && ViewModel.CurrentPath.StartsWith("/Volumes/", StringComparison.Ordinal))
+        try
         {
-            var stillMounted = _externalVolumes.Any(v =>
-                ViewModel.CurrentPath.StartsWith(v.Path, StringComparison.Ordinal));
-            if (!stillMounted)
-            {
-                await ViewModel.NavigateToCommand.ExecuteAsync("/");
-            }
-        }
+            RefreshExternalVolumes();
 
-        await InvokeAsync(StateHasChanged);
+            // If currently browsing a removed volume, navigate home
+            if (!string.IsNullOrEmpty(ViewModel.CurrentPath)
+                && ViewModel.CurrentPath.StartsWith("/Volumes/", StringComparison.Ordinal))
+            {
+                var stillMounted = _externalVolumes.Any(v =>
+                    ViewModel.CurrentPath.StartsWith(v.Path, StringComparison.Ordinal));
+                if (!stillMounted)
+                {
+                    await ViewModel.NavigateToCommand.ExecuteAsync("/");
+                }
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[FinderSidebar] Volume change callback failed: {ex}"); }
     }
 
     private async Task EjectVolume(VolumeInfo vol)

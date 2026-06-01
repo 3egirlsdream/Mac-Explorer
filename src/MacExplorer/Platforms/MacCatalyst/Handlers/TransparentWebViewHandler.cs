@@ -59,4 +59,10 @@ public class TransparentWebViewHandler : Microsoft.AspNetCore.Components.WebView
             NativeDragDropHelper.RegisterWebViewForWindow(platformView);
         }
     }
+
+    protected override void DisconnectHandler(WKWebView platformView)
+    {
+        NativeDragDropHelper.DetachFromWebView(platformView);
+        base.DisconnectHandler(platformView);
+    }
 }

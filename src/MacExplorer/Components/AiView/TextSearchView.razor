@@ -97,12 +97,17 @@
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if ((e.PropertyName == "Entries" || e.PropertyName == "TextTokens") &&
-            ViewModel.Entries.Count == 0 && ViewModel.TextTokens.Count > 0 && _hasSearched)
+        try
         {
-            _hasSearched = false;
-            await InvokeAsync(StateHasChanged);
+            if ((e.PropertyName == "Entries" || e.PropertyName == "TextTokens") &&
+                ViewModel.Entries.Count == 0 && ViewModel.TextTokens.Count > 0 && _hasSearched)
+            {
+                _hasSearched = false;
+                await InvokeAsync(StateHasChanged);
+            }
         }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[TextSearchView] Property change callback failed: {ex}"); }
     }
 
     public void Dispose()

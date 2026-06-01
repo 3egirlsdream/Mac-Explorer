@@ -255,11 +255,16 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         ViewModel.RenameRequested -= OnRenameRequested;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
         _renameTimer?.Dispose();
-        await RevokeAllBlobUrlsAsync();
+        if (await _blobUrlGate.WaitAsync(TimeSpan.FromSeconds(5)))
+        {
+            try { await RevokeAllBlobUrlsAsync(); }
+            finally { _blobUrlGate.Release(); }
+        }
     }
 
     // Drag-and-drop state
@@ -923,6 +928,8 @@
     // Blob URL cache: file path → blob:http://... URL
     private readonly Dictionary<string, string> _blobUrlCache = new();
     private readonly List<string> _activeBlobUrls = new();
+    private readonly SemaphoreSlim _blobUrlGate = new(1);
+    private bool _disposed;
 
     private static readonly HashSet<string> _bundleExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -996,6 +1003,12 @@
 
     private async Task CreateBlobUrlsForEntriesAsync()
     {
+        if (_disposed) return;
+        if (await _blobUrlGate.WaitAsync(TimeSpan.FromSeconds(5)))
+        try
+        {
+            if (_disposed) return;
+
         // Collect current entry IconUrls to detect stale cache entries
         var currentIconUrls = new HashSet<string>(
             ViewModel.Entries
@@ -1028,13 +1041,21 @@
                 var bytes = await System.IO.File.ReadAllBytesAsync(entry.IconUrl!);
                 if (bytes.Length == 0)
                     continue;
+                if (_disposed || !ViewModel.Entries.Any(current => current.IconUrl == entry.IconUrl))
+                    continue;
                 var blobUrl = await JSRuntime.InvokeAsync<string>("createBlobUrl", bytes, "image/png");
                 _blobUrlCache[entry.IconUrl!] = blobUrl;
                 _activeBlobUrls.Add(blobUrl);
             }
             catch { }
         }
-        StateHasChanged();
+        if (!_disposed)
+            StateHasChanged();
+        }
+        finally
+        {
+            _blobUrlGate.Release();
+        }
     }
 
     private async Task RevokeAllBlobUrlsAsync()

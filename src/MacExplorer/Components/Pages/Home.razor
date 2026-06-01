@@ -10,7 +10,6 @@
 @inject MacExplorer.Services.IBackgroundTaskManager TaskManager
 @inject MacExplorer.Services.IDragDropBridge DragDropBridge
 @inject MacExplorer.Services.IDirectoryChangeNotifier DirectoryChangeNotifier
-@inject MacExplorer.Services.IFSEventsWatcher FSEventsWatcher
 @inject MacExplorer.Services.IThemeService ThemeService
 @implements IAsyncDisposable
 
@@ -187,13 +186,16 @@
         }
 #endif
 
+        if (string.IsNullOrEmpty(pendingPath))
+            pendingPath = ViewModel.GetRestorableDirectoryPath();
+
         if (!string.IsNullOrEmpty(pendingPath))
         {
 #if DEBUG
             Console.WriteLine($"[MacExplorer] Home.OnInitialized: navigating to pending path '{pendingPath}'");
 #endif
             NavigationBridge.PendingNavigationPath = null;
-            _ = ViewModel.NavigateToCommand.ExecuteAsync(pendingPath);
+            _ = NavigateToInitialPathAsync(pendingPath);
         }
 #if DEBUG
         else
@@ -213,6 +215,12 @@
 
         // Subscribe to theme changes
         ThemeService.ThemeChanged += OnThemeChanged;
+    }
+
+    private async Task NavigateToInitialPathAsync(string path)
+    {
+        try { await ViewModel.NavigateToCommand.ExecuteAsync(path); }
+        catch (Exception ex) { Console.WriteLine($"[Home] Initial navigation failed: {ex}"); }
     }
 
     private async void OnMouseBack()
@@ -560,9 +568,7 @@
     public async ValueTask DisposeAsync()
     {
         DirectoryChangeNotifier.Unsubscribe(ViewModel);
-        if (!string.IsNullOrEmpty(ViewModel.CurrentPath))
-            FSEventsWatcher.UnwatchDirectory(ViewModel.CurrentPath);
-
+        ViewModel.StopDirectoryWork();
         NavigationBridge.Unregister(ViewModel);
         DragDropBridge.Unregister(ViewModel);
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
@@ -570,6 +576,8 @@
         MouseNavService.BackButtonPressed -= OnMouseBack;
         MouseNavService.ForwardButtonPressed -= OnMouseForward;
         ThemeService.ThemeChanged -= OnThemeChanged;
+        try { await JSRuntime.InvokeVoidAsync("fkfinderKeyboard.dispose"); }
+        catch { }
         _dotNetRef?.Dispose();
         await ValueTask.CompletedTask;
     }

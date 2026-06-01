@@ -93,7 +93,7 @@
     --space-20: 40px;
 
     /* Typography */
-    --font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', system-ui, sans-serif;
+    --font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
     --font-size-micro: 12px;
     --font-size-caption: 13px;

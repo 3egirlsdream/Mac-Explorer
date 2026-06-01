@@ -162,6 +162,17 @@ public static class DropOverlayHelper
         Log($"Registered WKWebView for window {nsWindow}");
     }
 
+    public static void UnregisterWebView(IntPtr nsWindow, WKWebView webView)
+    {
+        if (nsWindow == IntPtr.Zero) return;
+        if (_windowToWebView.TryGetValue(nsWindow, out var weakRef)
+            && (!weakRef.TryGetTarget(out var registered) || ReferenceEquals(registered, webView)))
+        {
+            _windowToWebView.Remove(nsWindow);
+            Log($"Unregistered WKWebView for window {nsWindow}");
+        }
+    }
+
     /// <summary>
     /// Get the WKWebView associated with a given NSWindow.
     /// Returns null if no webView is registered for this window.

@@ -1,12 +1,15 @@
 // MacExplorer keyboard shortcuts
 window.fkfinderKeyboard = {
     initialized: false,
+    _keyDownHandler: null,
+    _contextMenuHandler: null,
+    _mouseUpHandler: null,
     init: function(dotNetRef) {
         if (this.initialized) return;
         this.initialized = true;
         this.dotNetRef = dotNetRef;
 
-        document.addEventListener('keydown', (e) => {
+        this._keyDownHandler = (e) => {
             // Skip shortcuts when inside input/textarea or when rename input is active
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (document.querySelector('.rename-input')) return;
@@ -58,15 +61,17 @@ window.fkfinderKeyboard = {
                 e.preventDefault();
                 this.dotNetRef.invokeMethodAsync('OnKeyboardShortcut', 'togglePreview');
             }
-        });
+        };
+        document.addEventListener('keydown', this._keyDownHandler);
 
         // Prevent native context menu globally
-        document.addEventListener('contextmenu', (e) => {
+        this._contextMenuHandler = (e) => {
             e.preventDefault();
-        });
+        };
+        document.addEventListener('contextmenu', this._contextMenuHandler);
 
         // Mouse side buttons: button 3 = back, button 4 = forward
-        document.addEventListener('mouseup', (e) => {
+        this._mouseUpHandler = (e) => {
             if (e.button === 3) {
                 e.preventDefault();
                 this.dotNetRef.invokeMethodAsync('OnKeyboardShortcut', 'navigateBack');
@@ -74,7 +79,18 @@ window.fkfinderKeyboard = {
                 e.preventDefault();
                 this.dotNetRef.invokeMethodAsync('OnKeyboardShortcut', 'navigateForward');
             }
-        });
+        };
+        document.addEventListener('mouseup', this._mouseUpHandler);
+    },
+    dispose: function() {
+        if (this._keyDownHandler) document.removeEventListener('keydown', this._keyDownHandler);
+        if (this._contextMenuHandler) document.removeEventListener('contextmenu', this._contextMenuHandler);
+        if (this._mouseUpHandler) document.removeEventListener('mouseup', this._mouseUpHandler);
+        this._keyDownHandler = null;
+        this._contextMenuHandler = null;
+        this._mouseUpHandler = null;
+        this.dotNetRef = null;
+        this.initialized = false;
     }
 };
 

@@ -210,49 +210,63 @@
 
     private async void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ViewModel.SelectedEntries))
+        try
         {
-            ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
-            ViewModel.SelectedEntries.CollectionChanged += OnSelectionChanged;
-            UpdateSelection();
-            await InvokeAsync(StateHasChanged);
-        }
-        else if (e.PropertyName == nameof(ViewModel.Entries))
-        {
-            // Validate that the previewed file still exists in the new Entries
-            if (_selectedEntry != null)
+            if (e.PropertyName == nameof(ViewModel.SelectedEntries))
             {
-                var stillExists = ViewModel.Entries.Any(entry => entry.FullPath == _selectedEntry.FullPath);
-                if (!stillExists)
-                {
-                    _selectedEntry = null;
-                    _previewImageUrl = null;
-                    _currentRating = 0;
-                    _hasHighResPreview = false;
-                    _imageMetadata = null;
-                    await InvokeAsync(StateHasChanged);
-                    return;
-                }
-            }
-
-            // Thumbnails resolved asynchronously — refresh preview if the selected entry got a thumbnail
-            // But don't downgrade if we already have a high-res preview
-            if (_selectedEntry != null && !_hasHighResPreview && _previewImageUrl == null && !string.IsNullOrEmpty(_selectedEntry.ThumbnailUrl))
-            {
-                _previewImageUrl = _selectedEntry.ThumbnailUrl;
+                ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
+                ViewModel.SelectedEntries.CollectionChanged += OnSelectionChanged;
+                UpdateSelection();
                 await InvokeAsync(StateHasChanged);
             }
+            else if (e.PropertyName == nameof(ViewModel.Entries))
+            {
+                // Validate that the previewed file still exists in the new Entries
+                if (_selectedEntry != null)
+                {
+                    var stillExists = ViewModel.Entries.Any(entry => entry.FullPath == _selectedEntry.FullPath);
+                    if (!stillExists)
+                    {
+                        _previewLoadGeneration++;
+                        _metadataLoadGeneration++;
+                        _selectedEntry = null;
+                        _previewImageUrl = null;
+                        _currentRating = 0;
+                        _hasHighResPreview = false;
+                        _imageMetadata = null;
+                        await InvokeAsync(StateHasChanged);
+                        return;
+                    }
+                }
+
+                // Thumbnails resolved asynchronously — refresh preview if the selected entry got a thumbnail
+                // But don't downgrade if we already have a high-res preview
+                if (_selectedEntry != null && !_hasHighResPreview && _previewImageUrl == null && !string.IsNullOrEmpty(_selectedEntry.ThumbnailUrl))
+                {
+                    _previewImageUrl = _selectedEntry.ThumbnailUrl;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
         }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[PreviewPane] Property change callback failed: {ex}"); }
     }
 
     private async void OnSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
-        UpdateSelection();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            UpdateSelection();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { Console.WriteLine($"[PreviewPane] Selection callback failed: {ex}"); }
     }
 
     private void UpdateSelection()
     {
+        _previewLoadGeneration++;
+        _metadataLoadGeneration++;
         _hasHighResPreview = false;
         _imageMetadata = null;
         if (ViewModel.SelectedEntries.Count == 1)
@@ -278,7 +292,7 @@
 
     private async Task LoadHighResPreviewAsync(FileSystemEntry entry)
     {
-        var generation = ++_previewLoadGeneration;
+        var generation = _previewLoadGeneration;
         try
         {
             var bytes = await ThumbnailService.GetThumbnailAsync(entry.FullPath, 512);
@@ -295,7 +309,7 @@
 
     private async Task LoadImageMetadataAsync(FileSystemEntry entry)
     {
-        var generation = ++_metadataLoadGeneration;
+        var generation = _metadataLoadGeneration;
         try
         {
             var metadata = await MetadataService.GetMetadataAsync(entry.FullPath);

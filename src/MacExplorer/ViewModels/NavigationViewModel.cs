@@ -18,6 +18,7 @@ public partial class NavigationViewModel : ObservableObject
     private int _historyIndex = -1;
     private bool _isNavigatingHistory;
     private readonly Dictionary<string, string?> _pathSelectedEntries = new();
+    private string? _watchedDirectory;
 
     [ObservableProperty]
     private string _currentPath = "";
@@ -87,7 +88,8 @@ public partial class NavigationViewModel : ObservableObject
 
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
     {
-        return !isArchiveView && !isAiView && !isCollectionView && !string.IsNullOrEmpty(CurrentPath);
+        return !isArchiveView && !isAiView && !isCollectionView && !IsSearchMode
+            && !string.IsNullOrEmpty(CurrentPath);
     }
 
     [RelayCommand]
@@ -192,10 +194,7 @@ public partial class NavigationViewModel : ObservableObject
     [RelayCommand]
     public void GoHome()
     {
-        // Unwatch FSEvents when leaving normal directory view
-        if (!string.IsNullOrEmpty(CurrentPath))
-            _fsEventsWatcher?.UnwatchDirectory(CurrentPath);
-
+        SetWatchedDirectory(null);
         IsHomePage = true;
         CurrentPath = "";
         Breadcrumbs.Clear();
@@ -328,14 +327,37 @@ public partial class NavigationViewModel : ObservableObject
 
     public void WatchCurrentDirectory()
     {
-        if (!string.IsNullOrEmpty(CurrentPath))
-            _fsEventsWatcher?.WatchDirectory(CurrentPath);
+        SetWatchedDirectory(CurrentPath);
     }
 
     public void UnwatchCurrentDirectory(string? oldPath)
     {
-        if (!string.IsNullOrEmpty(oldPath) && oldPath != CurrentPath)
-            _fsEventsWatcher?.UnwatchDirectory(oldPath);
+        if (!string.IsNullOrEmpty(oldPath) && string.Equals(oldPath, _watchedDirectory, StringComparison.Ordinal))
+            SetWatchedDirectory(null);
+    }
+
+    public void SetWatchedDirectory(string? path)
+    {
+        var normalized = NormalizeWatchPath(path);
+        if (string.Equals(normalized, _watchedDirectory, StringComparison.Ordinal))
+            return;
+
+        if (_watchedDirectory != null)
+            _fsEventsWatcher?.UnwatchDirectory(_watchedDirectory);
+
+        _watchedDirectory = normalized;
+        if (_watchedDirectory != null)
+            _fsEventsWatcher?.WatchDirectory(_watchedDirectory);
+    }
+
+    private static string? NormalizeWatchPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return null;
+
+        return path == "/"
+            ? path
+            : path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
     public bool IsInTrash => CurrentPath == _fileService.TrashDirectory;

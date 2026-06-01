@@ -84,17 +84,19 @@ public class MacFSEventsWatcher : IFSEventsWatcher, IDisposable
 
         if (_watchedPaths.Count == 0) return;
 
+        var pathPtrs = Array.Empty<IntPtr>();
+        var pathsArray = IntPtr.Zero;
         try
         {
             // Build CFArray of path strings
-            var pathPtrs = new IntPtr[_watchedPaths.Count];
+            pathPtrs = new IntPtr[_watchedPaths.Count];
             int idx = 0;
             foreach (var p in _watchedPaths.Keys)
             {
                 pathPtrs[idx++] = CFStringCreateWithCString(IntPtr.Zero, p, kCFStringEncodingUTF8);
             }
 
-            var pathsArray = CFArrayCreate(IntPtr.Zero, pathPtrs, pathPtrs.Length, IntPtr.Zero);
+            pathsArray = CFArrayCreate(IntPtr.Zero, pathPtrs, pathPtrs.Length, IntPtr.Zero);
 
             // Create callback delegate (stored as static to prevent GC)
             _callbackDelegate = OnFSEvent;
@@ -119,16 +121,19 @@ public class MacFSEventsWatcher : IFSEventsWatcher, IDisposable
             FSEventStreamScheduleWithRunLoop(_stream, mainRunLoop, _kCFRunLoopDefaultMode);
             FSEventStreamStart(_stream);
 
-            // Release the CFStrings we created
-            foreach (var ptr in pathPtrs)
-            {
-                if (ptr != IntPtr.Zero) CFRelease(ptr);
-            }
-            CFRelease(pathsArray);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[MacExplorer] FSEvents RebuildStream failed: {ex.Message}");
+        }
+        finally
+        {
+            foreach (var ptr in pathPtrs)
+            {
+                if (ptr != IntPtr.Zero) CFRelease(ptr);
+            }
+
+            if (pathsArray != IntPtr.Zero) CFRelease(pathsArray);
         }
     }
 

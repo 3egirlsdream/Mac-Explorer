@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using CoreFoundation;
 using Foundation;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -12,14 +13,16 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 /// Provides volume classification (internal vs external) via NSURL resource values.
 /// Handles AI data cleanup when external volumes are physically removed.
 /// </summary>
-public class MacVolumeMonitorService : IVolumeMonitorService
+public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
 {
     private readonly IAiTagService _aiTagService;
     private readonly ILogger<MacVolumeMonitorService>? _logger;
     private readonly object _lock = new();
     private readonly object _cleanupLock = new();
     private readonly List<string> _pendingRemovedVolumePaths = [];
+    private readonly Dictionary<string, int> _missingVolumeScanCounts = new(StringComparer.Ordinal);
     private CancellationTokenSource? _cleanupDebounceCts;
+    private int _confirmationScanScheduled;
 
     private List<VolumeInfo> _externalVolumes = [];
     private IntPtr _stream;
@@ -114,7 +117,7 @@ public class MacVolumeMonitorService : IVolumeMonitorService
                     if (dir.Name.EndsWith(" - Data", StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    var url = NSUrl.CreateFileUrl(dir.FullName);
+                    using var url = NSUrl.CreateFileUrl(dir.FullName);
                     if (url == null) continue;
 
                     // Query volume properties via NSURL resource values
@@ -157,10 +160,12 @@ public class MacVolumeMonitorService : IVolumeMonitorService
 
     private unsafe void StartMonitoring()
     {
+        var pathStr = IntPtr.Zero;
+        var pathsArray = IntPtr.Zero;
         try
         {
-            var pathStr = CFStringCreateWithCString(IntPtr.Zero, "/Volumes", kCFStringEncodingUTF8);
-            var pathsArray = CFArrayCreate(IntPtr.Zero, [pathStr], 1, IntPtr.Zero);
+            pathStr = CFStringCreateWithCString(IntPtr.Zero, "/Volumes", kCFStringEncodingUTF8);
+            pathsArray = CFArrayCreate(IntPtr.Zero, [pathStr], 1, IntPtr.Zero);
 
             _stream = FSEventStreamCreate(
                 IntPtr.Zero,
@@ -177,13 +182,15 @@ public class MacVolumeMonitorService : IVolumeMonitorService
                 FSEventStreamScheduleWithRunLoop(_stream, mainRunLoop, _kCFRunLoopDefaultMode);
                 FSEventStreamStart(_stream);
             }
-
-            if (pathStr != IntPtr.Zero) CFRelease(pathStr);
-            CFRelease(pathsArray);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[MacExplorer] VolumeMonitor StartMonitoring failed: {ex.Message}");
+        }
+        finally
+        {
+            if (pathStr != IntPtr.Zero) CFRelease(pathStr);
+            if (pathsArray != IntPtr.Zero) CFRelease(pathsArray);
         }
     }
 
@@ -210,22 +217,79 @@ public class MacVolumeMonitorService : IVolumeMonitorService
         var newVolumes = ScanExternalVolumes();
 
         List<VolumeInfo> removedVolumes;
+        var needsConfirmationScan = false;
         lock (_lock)
         {
-            // Detect removed volumes (were in old list but not in new list)
             var newPaths = new HashSet<string>(newVolumes.Select(v => v.Path), StringComparer.Ordinal);
-            removedVolumes = _externalVolumes
-                .Where(v => !newPaths.Contains(v.Path))
-                .ToList();
+            var retainedVolumes = new List<VolumeInfo>(newVolumes);
+            removedVolumes = [];
 
-            _externalVolumes = newVolumes;
+            foreach (var oldVolume in _externalVolumes.Where(v => !newPaths.Contains(v.Path)))
+            {
+                var missingCount = _missingVolumeScanCounts.GetValueOrDefault(oldVolume.Path) + 1;
+                if (missingCount >= 2)
+                {
+                    _missingVolumeScanCounts.Remove(oldVolume.Path);
+                    removedVolumes.Add(oldVolume);
+                }
+                else
+                {
+                    _missingVolumeScanCounts[oldVolume.Path] = missingCount;
+                    retainedVolumes.Add(oldVolume);
+                    needsConfirmationScan = true;
+                }
+            }
+
+            foreach (var mountedPath in newPaths)
+                _missingVolumeScanCounts.Remove(mountedPath);
+
+            _externalVolumes = retainedVolumes;
         }
+
+        if (needsConfirmationScan)
+            ScheduleConfirmationScan();
 
         if (removedVolumes.Count > 0)
             ScheduleVolumeCleanup(removedVolumes.Select(v => v.Path));
 
         // Notify UI on main thread
-        MainThread.BeginInvokeOnMainThread(() => VolumesChanged?.Invoke());
+        MainThread.BeginInvokeOnMainThread(RaiseVolumesChanged);
+    }
+
+    private void ScheduleConfirmationScan()
+    {
+        if (Interlocked.Exchange(ref _confirmationScanScheduled, 1) != 0)
+            return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500);
+                if (!_disposed)
+                    DispatchQueue.MainQueue.DispatchAsync(() => HandleVolumesChanged());
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to confirm external volume removal");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _confirmationScanScheduled, 0);
+            }
+        });
+    }
+
+    private void RaiseVolumesChanged()
+    {
+        var handlers = VolumesChanged?.GetInvocationList();
+        if (handlers == null) return;
+
+        foreach (var handler in handlers)
+        {
+            try { ((Action)handler)(); }
+            catch (Exception ex) { _logger?.LogError(ex, "External volume change subscriber failed"); }
+        }
     }
 
     private void ScheduleVolumeCleanup(IEnumerable<string> volumePaths)
@@ -309,6 +373,8 @@ public class MacVolumeMonitorService : IVolumeMonitorService
             _cleanupDebounceCts = null;
             _pendingRemovedVolumePaths.Clear();
         }
+        lock (_lock)
+            _missingVolumeScanCounts.Clear();
 
         if (_stream != IntPtr.Zero)
         {
@@ -328,22 +394,8 @@ public class MacVolumeMonitorService : IVolumeMonitorService
     private const uint kFSEventStreamCreateFlagNoDefer = 0x00000002;
     private const uint kCFStringEncodingUTF8 = 0x08000100;
 
-    private static IntPtr _kCFRunLoopDefaultMode = IntPtr.Zero;
-    
-    static MacVolumeMonitorService()
-    {
-        _kCFRunLoopDefaultMode = CFStringCreateWithCString(
-            IntPtr.Zero, "kCFRunLoopDefaultMode", kCFStringEncodingUTF8);
-    }
-    
-    ~MacVolumeMonitorService()
-    {
-        if (_kCFRunLoopDefaultMode != IntPtr.Zero)
-        {
-            CFRelease(_kCFRunLoopDefaultMode);
-            _kCFRunLoopDefaultMode = IntPtr.Zero;
-        }
-    }
+    private static readonly IntPtr _kCFRunLoopDefaultMode = CFStringCreateWithCString(
+        IntPtr.Zero, "kCFRunLoopDefaultMode", kCFStringEncodingUTF8);
 
     [DllImport("/System/Library/Frameworks/CoreServices.framework/CoreServices")]
     private static extern unsafe IntPtr FSEventStreamCreate(

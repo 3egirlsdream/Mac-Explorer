@@ -18,8 +18,16 @@ public class MacThumbnailService : IThumbnailService
     };
 
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
+    private readonly object _memoryCacheLock = new();
+    private readonly SemaphoreSlim _thumbnailGenerationGate = new(4);
     private readonly string _diskCacheDir;
+    private long _memoryCacheBytes;
+    private int _diskWritesSinceCleanup;
+    private int _diskCleanupScheduled;
     private const int MaxMemoryCacheEntries = 500;
+    private const long MaxMemoryCacheBytes = 64L * 1024 * 1024;
+    private const long MaxDiskCacheBytes = 512L * 1024 * 1024;
+    private const int DiskCleanupInterval = 100;
 
     public MacThumbnailService()
     {
@@ -30,6 +38,8 @@ public class MacThumbnailService : IThumbnailService
 
         if (!Directory.Exists(_diskCacheDir))
             Directory.CreateDirectory(_diskCacheDir);
+
+        ScheduleDiskCacheCleanup(force: true);
     }
 
     public bool IsImageFile(string extension)
@@ -67,7 +77,16 @@ public class MacThumbnailService : IThumbnailService
         }
 
         // Generate thumbnail using native CGImageSource
-        var bytes = await Task.Run(() => GenerateThumbnailNative(filePath, maxPixelSize), ct);
+        await _thumbnailGenerationGate.WaitAsync(ct);
+        byte[]? bytes;
+        try
+        {
+            bytes = await Task.Run(() => GenerateThumbnailNative(filePath, maxPixelSize), ct);
+        }
+        finally
+        {
+            _thumbnailGenerationGate.Release();
+        }
         if (bytes == null)
             return null;
 
@@ -75,7 +94,11 @@ public class MacThumbnailService : IThumbnailService
         AddToMemoryCache(cacheKey, bytes);
         _ = Task.Run(async () =>
         {
-            try { await File.WriteAllBytesAsync(diskPath, bytes, CancellationToken.None); }
+            try
+            {
+                await File.WriteAllBytesAsync(diskPath, bytes, CancellationToken.None);
+                ScheduleDiskCacheCleanup();
+            }
             catch { }
         });
 
@@ -86,7 +109,7 @@ public class MacThumbnailService : IThumbnailService
     {
         var keysToRemove = _memoryCache.Keys.Where(k => k.StartsWith(filePath + ":")).ToList();
         foreach (var key in keysToRemove)
-            _memoryCache.TryRemove(key, out _);
+            RemoveFromMemoryCache(key);
     }
 
     public async Task<byte[]?> GetFaceCropAsync(string filePath, float bx, float by, float bw, float bh, int maxPixelSize = 128, CancellationToken ct = default)
@@ -116,14 +139,27 @@ public class MacThumbnailService : IThumbnailService
             catch { }
         }
 
-        var bytes = await Task.Run(() => GenerateFaceCropNative(filePath, bx, by, bw, bh, maxPixelSize), ct);
+        await _thumbnailGenerationGate.WaitAsync(ct);
+        byte[]? bytes;
+        try
+        {
+            bytes = await Task.Run(() => GenerateFaceCropNative(filePath, bx, by, bw, bh, maxPixelSize), ct);
+        }
+        finally
+        {
+            _thumbnailGenerationGate.Release();
+        }
         if (bytes == null)
             return null;
 
         AddToMemoryCache(cacheKey, bytes);
         _ = Task.Run(async () =>
         {
-            try { await File.WriteAllBytesAsync(diskPath, bytes, CancellationToken.None); }
+            try
+            {
+                await File.WriteAllBytesAsync(diskPath, bytes, CancellationToken.None);
+                ScheduleDiskCacheCleanup();
+            }
             catch { }
         });
 
@@ -134,7 +170,7 @@ public class MacThumbnailService : IThumbnailService
     {
         try
         {
-            var url = Foundation.NSUrl.FromFilename(filePath);
+            using var url = Foundation.NSUrl.FromFilename(filePath);
             if (url == null) return null;
 
             using var imageSource = CGImageSource.FromUrl(url, null);
@@ -197,7 +233,7 @@ public class MacThumbnailService : IThumbnailService
     {
         try
         {
-            var url = Foundation.NSUrl.FromFilename(filePath);
+            using var url = Foundation.NSUrl.FromFilename(filePath);
             if (url == null) return null;
 
             using var imageSource = CGImageSource.FromUrl(url, null);
@@ -228,14 +264,73 @@ public class MacThumbnailService : IThumbnailService
 
     private void AddToMemoryCache(string key, byte[] data)
     {
-        if (_memoryCache.Count >= MaxMemoryCacheEntries)
+        if (data.LongLength > MaxMemoryCacheBytes)
+            return;
+
+        lock (_memoryCacheLock)
         {
-            // Simple eviction: remove roughly half the entries
-            var keysToRemove = _memoryCache.Keys.Take(MaxMemoryCacheEntries / 2).ToList();
-            foreach (var k in keysToRemove)
-                _memoryCache.TryRemove(k, out _);
+            if (_memoryCache.TryRemove(key, out var old))
+                _memoryCacheBytes -= old.LongLength;
+
+            while (_memoryCache.Count >= MaxMemoryCacheEntries
+                   || _memoryCacheBytes + data.LongLength > MaxMemoryCacheBytes)
+            {
+                var keyToRemove = _memoryCache.Keys.FirstOrDefault();
+                if (keyToRemove == null || !_memoryCache.TryRemove(keyToRemove, out var removed))
+                    break;
+                _memoryCacheBytes -= removed.LongLength;
+            }
+
+            _memoryCache[key] = data;
+            _memoryCacheBytes += data.LongLength;
         }
-        _memoryCache[key] = data;
+    }
+
+    private void RemoveFromMemoryCache(string key)
+    {
+        lock (_memoryCacheLock)
+        {
+            if (_memoryCache.TryRemove(key, out var removed))
+                _memoryCacheBytes -= removed.LongLength;
+        }
+    }
+
+    private void CleanupDiskCache()
+    {
+        try
+        {
+            var files = new DirectoryInfo(_diskCacheDir)
+                .EnumerateFiles("*.png")
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .ToList();
+            var retainedBytes = 0L;
+            foreach (var file in files)
+            {
+                retainedBytes += file.Length;
+                if (retainedBytes <= MaxDiskCacheBytes)
+                    continue;
+
+                try { file.Delete(); }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
+    private void ScheduleDiskCacheCleanup(bool force = false)
+    {
+        if (!force && Interlocked.Increment(ref _diskWritesSinceCleanup) < DiskCleanupInterval)
+            return;
+
+        Interlocked.Exchange(ref _diskWritesSinceCleanup, 0);
+        if (Interlocked.Exchange(ref _diskCleanupScheduled, 1) != 0)
+            return;
+
+        _ = Task.Run(() =>
+        {
+            try { CleanupDiskCache(); }
+            finally { Interlocked.Exchange(ref _diskCleanupScheduled, 0); }
+        });
     }
 
     private string GetDiskCachePath(string input)
