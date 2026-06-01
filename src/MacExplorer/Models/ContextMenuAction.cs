@@ -11,6 +11,7 @@ public class ContextMenuAction
     public IReadOnlyList<ContextMenuAction>? SubItems { get; init; }
     public string? Tag { get; init; }
     public bool IsQuickAction { get; init; }
+    public string? IconBase64 { get; init; }
 
     public static ContextMenuAction Separator => new() { IsSeparator = true };
 }
