@@ -192,44 +192,51 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
     {
         try
         {
-            // Use JXA to get app icon as base64 PNG
+            // Use JXA to get app icon as base64 PNG — write to temp file (matching MacFileService pattern)
             var escapedPath = appPath.Replace("\\", "\\\\").Replace("'", "\\'");
-            var script = $$"""
-                ObjC.import('AppKit');
-                ObjC.import('Foundation');
-                var ws = $.NSWorkspace.sharedWorkspace;
-                var icon = ws.iconForFile('{{escapedPath}}');
-                var sz = $.NSMakeSize(32, 32);
-                var newImg = $.NSImage.alloc.initWithSize(sz);
-                newImg.lockFocus;
-                icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,32,32), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);
-                newImg.unlockFocus;
-                var tiff = newImg.TIFFRepresentation;
-                var rep = $.NSBitmapImageRep.imageRepWithData(tiff);
-                var png = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $({}));
-                var base64 = png.base64EncodedStringWithOptions(0);
-                ObjC.unwrap(base64);
-                """;
+            var script = "ObjC.import('AppKit');\n" +
+                "ObjC.import('Foundation');\n" +
+                "var ws = $.NSWorkspace.sharedWorkspace;\n" +
+                "var icon = ws.iconForFile('" + escapedPath + "');\n" +
+                "var sz = $.NSMakeSize(32, 32);\n" +
+                "var newImg = $.NSImage.alloc.initWithSize(sz);\n" +
+                "newImg.lockFocus;\n" +
+                "icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,32,32), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);\n" +
+                "newImg.unlockFocus;\n" +
+                "var tiff = newImg.TIFFRepresentation;\n" +
+                "var rep = $.NSBitmapImageRep.imageRepWithData(tiff);\n" +
+                "var png = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $({}));\n" +
+                "var base64 = png.base64EncodedStringWithOptions(0);\n" +
+                "ObjC.unwrap(base64);\n";
 
-            var psi = new ProcessStartInfo
+            var scriptPath = Path.Combine(Path.GetTempPath(), $"fkfinder_icon_{Guid.NewGuid():N}.js");
+            File.WriteAllText(scriptPath, script);
+
+            try
             {
-                FileName = "/usr/bin/osascript",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-            psi.ArgumentList.Add("-l");
-            psi.ArgumentList.Add("JavaScript");
-            psi.ArgumentList.Add("-e");
-            psi.ArgumentList.Add(script);
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "/usr/bin/osascript",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                psi.ArgumentList.Add("-l");
+                psi.ArgumentList.Add("JavaScript");
+                psi.ArgumentList.Add(scriptPath);
 
-            var process = Process.Start(psi);
-            if (process == null) return null;
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit(5000);
+                var process = Process.Start(psi);
+                if (process == null) return null;
+                var output = process.StandardOutput.ReadToEnd().Trim();
+                process.WaitForExit(5000);
 
-            return string.IsNullOrEmpty(output) ? null : output;
+                return string.IsNullOrEmpty(output) ? null : output;
+            }
+            finally
+            {
+                try { File.Delete(scriptPath); } catch { }
+            }
         }
         catch { return null; }
     }
