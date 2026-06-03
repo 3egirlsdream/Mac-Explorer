@@ -286,33 +286,73 @@
         else if (_activeTab == "openwith")
         {
             <div class="settings-list">
-                <div class="settings-item" style="justify-content: flex-start; gap: 8px;">
-                    <button class="settings-dialog-btn" @onclick="OpenAddAppModal" style="margin: 0;">+ 添加应用</button>
+                <div class="settings-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                    <div class="settings-dropdown-wrapper" @onclick:stopPropagation style="width: 100%;">
+                        <button class="settings-dropdown-trigger" style="width: 100%; justify-content: flex-start;" @onclick="ToggleAddAppDropdown">
+                            <span>+ 添加应用</span>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Down"/></svg>
+                        </button>
+                        @if (_showAddAppDropdown)
+                        {
+                            <div class="settings-dropdown-backdrop" @onclick="@(() => _showAddAppDropdown = false)"></div>
+                            <div class="settings-dropdown glass-effect" @onclick:stopPropagation style="width: 100%; max-height: 280px; overflow-y: auto;">
+                                <div style="padding: 4px 8px 8px;">
+                                    <input type="text" placeholder="搜索应用..."
+                                           style="width: 100%; padding: 6px 10px; border: 1px solid rgba(128,128,128,0.3); border-radius: 6px; background: rgba(255,255,255,0.05); color: inherit; font-size: 0.85em; outline: none; box-sizing: border-box;"
+                                           @bind="_appSearchText" @bind:event="oninput" />
+                                </div>
+                                @if (_isLoadingApps)
+                                {
+                                    <div style="text-align: center; padding: 12px; opacity: 0.5; font-size: 0.85em;">正在扫描...</div>
+                                }
+                                else
+                                {
+                                    @foreach (var app in FilteredInstalledApps.Take(5))
+                                    {
+                                        <div class="settings-dropdown-item" @onclick="@(() => AddApp(app))">
+                                            @if (!string.IsNullOrEmpty(app.IconBase64))
+                                            {
+                                                <img src="data:image/png;base64,@app.IconBase64" width="18" height="18" style="object-fit: contain; border-radius: 3px; margin-right: 8px;" />
+                                            }
+                                            <span>@app.Name</span>
+                                        </div>
+                                    }
+                                    @if (!FilteredInstalledApps.Any())
+                                    {
+                                        <div style="text-align: center; padding: 12px; opacity: 0.5; font-size: 0.85em;">
+                                            @(_installedApps.Count == 0 ? "未找到已安装的应用" : "没有匹配的应用")
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
                 </div>
 
                 @foreach (var app in _openWithApps)
                 {
-                    <div class="settings-item">
-                        <div class="settings-item-info" style="flex-direction: row; align-items: center; gap: 10px;">
+                    <div class="settings-item openwith-app-item">
+                        <div class="openwith-app-info">
                             @if (!string.IsNullOrEmpty(app.IconBase64))
                             {
-                                <img src="data:image/png;base64,@app.IconBase64" width="24" height="24" style="object-fit: contain; border-radius: 4px;" />
+                                <img src="data:image/png;base64,@app.IconBase64" width="20" height="20" style="object-fit: contain; border-radius: 3px; flex-shrink: 0;" />
                             }
                             else
                             {
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.CodeEditor"/></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;"><path d="@Icons.CodeEditor"/></svg>
                             }
-                            <div class="settings-item-label" style="margin: 0;">@app.Label</div>
+                            <span class="openwith-app-name">@app.Label</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 0.85em; opacity: 0.7;">显示在根目录</span>
+                        <div class="openwith-app-actions">
+                            <span class="openwith-app-label">显示在根目录</span>
                             <label class="settings-toggle" @onclick:stopPropagation>
                                 <input type="checkbox" checked="@app.IsTopLevel"
                                        @onchange="@(e => OnTopLevelToggle(app, e))" />
                                 <span class="settings-toggle-slider"></span>
                             </label>
-                            <button class="settings-dialog-btn" style="padding: 2px 8px; margin: 0; opacity: 0.6;"
-                                    @onclick="@(() => OnRemoveApp(app))" @onclick:stopPropagation>×</button>
+                            <button class="openwith-delete-btn" @onclick="@(() => OnRemoveApp(app))" @onclick:stopPropagation data-tooltip="删除">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Delete"/></svg>
+                            </button>
                         </div>
                     </div>
                 }
@@ -371,7 +411,7 @@
 
     // Open With apps state
     private List<OpenWithApp> _openWithApps = new();
-    private bool _showAddAppModal;
+    private bool _showAddAppDropdown;
     private List<AppListItem> _installedApps = new();
     private string _appSearchText = "";
     private bool _isLoadingApps;
@@ -498,28 +538,24 @@
         await LoadOpenWithAppsAsync();
     }
 
-    private async Task OpenAddAppModal()
+    private async Task ToggleAddAppDropdown()
     {
-        _showAddAppModal = true;
-        _isLoadingApps = true;
-        _appSearchText = "";
-        StateHasChanged();
-
-        _installedApps = await OpenWithService.GetInstalledAppsAsync();
-        _isLoadingApps = false;
-        StateHasChanged();
-    }
-
-    private void CloseAddAppModal()
-    {
-        _showAddAppModal = false;
+        _showAddAppDropdown = !_showAddAppDropdown;
+        if (_showAddAppDropdown && _installedApps.Count == 0)
+        {
+            _isLoadingApps = true;
+            StateHasChanged();
+            _installedApps = await OpenWithService.GetInstalledAppsAsync();
+            _isLoadingApps = false;
+        }
         StateHasChanged();
     }
 
     private async Task AddApp(AppListItem app)
     {
         await OpenWithService.AddAsync(app.BundleId, app.Name, isTopLevel: true);
-        _showAddAppModal = false;
+        _showAddAppDropdown = false;
+        _appSearchText = "";
         await LoadOpenWithAppsAsync();
     }
 
@@ -540,57 +576,4 @@
         _openWithApps = await OpenWithService.GetAllAsync();
         StateHasChanged();
     }
-}
-
-@if (_showAddAppModal)
-{
-    <div class="settings-dropdown-backdrop" @onclick="CloseAddAppModal"></div>
-    <div class="settings-dialog" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 420px; max-height: 500px; z-index: 1001; display: flex; flex-direction: column;">
-        <div class="settings-dialog-title" style="display: flex; justify-content: space-between; align-items: center;">
-            添加应用
-            <button class="settings-dialog-btn" style="padding: 2px 8px; margin: 0;" @onclick="CloseAddAppModal">×</button>
-        </div>
-
-        <div style="padding: 8px 16px;">
-            <input type="text" placeholder="搜索应用..."
-                   style="width: 100%; padding: 8px 12px; border: 1px solid rgba(128,128,128,0.3); border-radius: 6px; background: rgba(255,255,255,0.05); color: inherit; font-size: 0.9em; outline: none; box-sizing: border-box;"
-                   @bind="_appSearchText" @bind:event="oninput" />
-        </div>
-
-        <div style="flex: 1; overflow-y: auto; padding: 0 16px 16px;">
-            @if (_isLoadingApps)
-            {
-                <div style="text-align: center; padding: 30px; opacity: 0.5;">正在扫描应用...</div>
-            }
-            else
-            {
-                @foreach (var app in FilteredInstalledApps)
-                {
-                    <div class="settings-item" style="cursor: pointer;" @onclick="@(() => AddApp(app))">
-                        <div class="settings-item-info" style="flex-direction: row; align-items: center; gap: 10px;">
-                            @if (!string.IsNullOrEmpty(app.IconBase64))
-                            {
-                                <img src="data:image/png;base64,@app.IconBase64" width="24" height="24" style="object-fit: contain; border-radius: 4px;" />
-                            }
-                            else
-                            {
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="opacity: 0.3;"><path d="@Icons.Apps"/></svg>
-                            }
-                            <div>
-                                <div class="settings-item-label" style="margin: 0;">@app.Name</div>
-                                <div style="font-size: 0.75em; opacity: 0.5;">@app.BundleId</div>
-                            </div>
-                        </div>
-                    </div>
-                }
-
-                @if (!FilteredInstalledApps.Any())
-                {
-                    <div style="text-align: center; padding: 20px; opacity: 0.5; font-size: 0.9em;">
-                        @(_installedApps.Count == 0 ? "未找到已安装的应用" : "没有匹配的应用")
-                    </div>
-                }
-            }
-        </div>
-    </div>
 }

@@ -10,7 +10,7 @@ public class BackgroundTaskInfo
     public string CurrentFile { get; set; } = "";
     public BackgroundTaskState State { get; set; } = BackgroundTaskState.Running;
     public string? ErrorMessage { get; set; }
-    public bool IsMinimized { get; set; }
+    public bool IsDismissedByUser { get; set; }
     public CancellationTokenSource Cts { get; set; } = new();
     public Func<Task>? OnCompleted { get; set; }
 }

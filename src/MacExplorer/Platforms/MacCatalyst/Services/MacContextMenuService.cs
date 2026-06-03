@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using UIKit;
@@ -12,12 +13,17 @@ public class MacContextMenuService : IContextMenuService
     private HashSet<string>? _installedApps;
     private readonly Task<HashSet<string>> _installedAppsTask;
 
+    // System app icon cache: bundleId → base64 PNG
+    private readonly ConcurrentDictionary<string, string?> _iconCache = new();
+    private readonly Task _iconCacheTask;
+
     public MacContextMenuService(IApplicationLauncherService launcher, IFileService fileService, IOpenWithAppService openWithService)
     {
         _launcher = launcher;
         _fileService = fileService;
         _openWithService = openWithService;
         _installedAppsTask = Task.Run(ScanInstalledApps);
+        _iconCacheTask = Task.Run(WarmupIconCache);
     }
 
     public async Task<IReadOnlyList<ContextMenuAction>> GetFileContextMenuActionsAsync(FileSystemEntry entry)
@@ -27,8 +33,8 @@ public class MacContextMenuService : IContextMenuService
             new() { Label = "打开", IconSvg = Icons.Open, ShortcutText = "⌘O", Execute = () => _launcher.OpenFileAsync(entry.FullPath) },
         };
 
-        // Configured "Open With" apps — right after "打开"
-        await AddOpenWithActionsAsync(actions, entry.FullPath);
+        // "打开方式" submenu — right after "打开"
+        await AddOpenWithSubmenuAsync(actions, entry.FullPath);
 
         // Add "Show Package Contents" for .app bundles
         if (entry.IconKey == "app-bundle")
@@ -66,6 +72,9 @@ public class MacContextMenuService : IContextMenuService
         var terminalPath = entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(terminalPath) });
 
+        // Top-level configured apps (e.g. "在 VS Code 中打开")
+        await AddTopLevelOpenWithActionsAsync(actions, entry.FullPath);
+
         // Pin到收藏（仅文件夹）
         if (entry.IsDirectory)
         {
@@ -91,8 +100,8 @@ public class MacContextMenuService : IContextMenuService
 
         actions.Add(new() { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcher.OpenInTerminalAsync(currentDirectory) });
 
-        // Configured "Open With" apps
-        await AddOpenWithActionsAsync(actions, currentDirectory);
+        // Top-level configured apps
+        await AddTopLevelOpenWithActionsAsync(actions, currentDirectory);
 
         actions.Add(ContextMenuAction.Separator);
 
@@ -120,31 +129,14 @@ public class MacContextMenuService : IContextMenuService
     }
 
     /// <summary>
-    /// Adds configured "Open With" apps to the menu.
-    /// Top-level apps are added directly; others go into a unified "打开方式" submenu
-    /// along with system-registered default apps.
+    /// Adds the "打开方式" submenu (non-top-level apps + system default apps).
+    /// Placed right after "打开" in the menu.
     /// </summary>
-    private async Task AddOpenWithActionsAsync(List<ContextMenuAction> actions, string path)
+    private async Task AddOpenWithSubmenuAsync(List<ContextMenuAction> actions, string path)
     {
         var allApps = await _openWithService.GetAllAsync();
-        var topLevel = allApps.Where(a => a.IsTopLevel).ToList();
         var submenuApps = allApps.Where(a => !a.IsTopLevel).ToList();
 
-        // Add top-level apps directly to menu
-        foreach (var app in topLevel)
-        {
-            if (!IsAppInstalled(app.BundleId)) continue;
-            var a = app;
-            actions.Add(new()
-            {
-                Label = $"在 {a.Label} 中打开",
-                IconBase64 = a.IconBase64,
-                IconSvg = Icons.CodeEditor, // fallback
-                Execute = () => _launcher.OpenInEditorAsync(path, "", a.BundleId),
-            });
-        }
-
-        // Build unified "打开方式" submenu
         var subItems = new List<ContextMenuAction>();
 
         // User-configured submenu apps
@@ -192,6 +184,29 @@ public class MacContextMenuService : IContextMenuService
         }
     }
 
+    /// <summary>
+    /// Adds top-level configured apps directly to the menu.
+    /// Placed after "在终端中打开".
+    /// </summary>
+    private async Task AddTopLevelOpenWithActionsAsync(List<ContextMenuAction> actions, string path)
+    {
+        var allApps = await _openWithService.GetAllAsync();
+        var topLevel = allApps.Where(a => a.IsTopLevel).ToList();
+
+        foreach (var app in topLevel)
+        {
+            if (!IsAppInstalled(app.BundleId)) continue;
+            var a = app;
+            actions.Add(new()
+            {
+                Label = $"在 {a.Label} 中打开",
+                IconBase64 = a.IconBase64,
+                IconSvg = Icons.CodeEditor, // fallback
+                Execute = () => _launcher.OpenInEditorAsync(path, "", a.BundleId),
+            });
+        }
+    }
+
     public async Task<IReadOnlyList<RegisteredApp>> GetApplicationsForFileAsync(string filePath)
     {
         var apps = new List<RegisteredApp>();
@@ -226,11 +241,20 @@ public class MacContextMenuService : IContextMenuService
     /// Gets the base64 icon for an installed app by its bundle identifier.
     /// Returns null if the app is not found or icon extraction fails.
     /// </summary>
-    private string? GetAppBundleIconBase64(string bundleIdentifier)
+    private string? GetAppBundleIconBase64(string bundleIdentifier) =>
+        _iconCache.TryGetValue(bundleIdentifier, out var icon) ? icon : null;
+
+    /// <summary>
+    /// Batch-warm the icon cache at startup by scanning installed apps
+    /// and extracting icons via a single JXA process.
+    /// </summary>
+    private void WarmupIconCache()
     {
         try
         {
             var searchPaths = new[] { "/Applications", "/System/Applications", "/Applications/Utilities" };
+            var apps = new List<(string bundleId, string appPath)>();
+
             foreach (var searchPath in searchPaths)
             {
                 if (!Directory.Exists(searchPath)) continue;
@@ -241,15 +265,111 @@ public class MacContextMenuService : IContextMenuService
                         var plistPath = Path.Combine(dir, "Contents", "Info.plist");
                         if (!File.Exists(plistPath)) continue;
                         var dict = Foundation.NSMutableDictionary.FromFile(plistPath);
-                        if (dict?["CFBundleIdentifier"]?.ToString() == bundleIdentifier)
-                            return ExtractIconBase64(dir);
+                        var bundleId = dict?["CFBundleIdentifier"]?.ToString();
+                        if (!string.IsNullOrEmpty(bundleId))
+                            apps.Add((bundleId, dir));
                     }
                     catch { }
                 }
             }
+
+            // Extract icons in batches of 20
+            const int batchSize = 20;
+            for (int i = 0; i < apps.Count; i += batchSize)
+            {
+                var batch = apps.Skip(i).Take(batchSize).ToList();
+                ExtractIconsBatch(batch);
+            }
         }
         catch { }
-        return null;
+    }
+
+    private void ExtractIconsBatch(List<(string bundleId, string appPath)> batch)
+    {
+        try
+        {
+            var iconDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MacExplorer", "icon-cache");
+            Directory.CreateDirectory(iconDir);
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("ObjC.import('AppKit');");
+            sb.AppendLine("ObjC.import('Foundation');");
+            sb.AppendLine("var ws = $.NSWorkspace.sharedWorkspace;");
+            sb.AppendLine("function extractIcon(appPath, outPath) {");
+            sb.AppendLine("  try {");
+            sb.AppendLine("    var icon = ws.iconForFile(appPath);");
+            sb.AppendLine("    var sz = $.NSMakeSize(128, 128);");
+            sb.AppendLine("    var newImg = $.NSImage.alloc.initWithSize(sz);");
+            sb.AppendLine("    newImg.lockFocus;");
+            sb.AppendLine("    icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,128,128), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);");
+            sb.AppendLine("    newImg.unlockFocus;");
+            sb.AppendLine("    var tiff = newImg.TIFFRepresentation;");
+            sb.AppendLine("    var rep = $.NSBitmapImageRep.imageRepWithData(tiff);");
+            sb.AppendLine("    var png = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $({}));");
+            sb.AppendLine("    png.writeToFileAtomically(outPath, true);");
+            sb.AppendLine("  } catch(e) {}");
+            sb.AppendLine("}");
+
+            var outPaths = new List<(string bundleId, string outPath)>();
+            foreach (var (bundleId, appPath) in batch)
+            {
+                var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(appPath))).Substring(0, 16).ToLowerInvariant();
+                var outPath = Path.Combine(iconDir, $"{hash}.png");
+                outPaths.Add((bundleId, outPath));
+
+                var escapedApp = appPath.Replace("\\", "\\\\").Replace("'", "\\'");
+                var escapedOut = outPath.Replace("\\", "\\\\").Replace("'", "\\'");
+                sb.AppendLine($"extractIcon('{escapedApp}', '{escapedOut}');");
+            }
+            sb.AppendLine("'done'");
+
+            var scriptPath = Path.Combine(Path.GetTempPath(), $"fkfinder_warmup_{Guid.NewGuid():N}.js");
+            File.WriteAllText(scriptPath, sb.ToString());
+
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "/usr/bin/osascript",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                psi.ArgumentList.Add("-l");
+                psi.ArgumentList.Add("JavaScript");
+                psi.ArgumentList.Add(scriptPath);
+
+                var process = System.Diagnostics.Process.Start(psi);
+                process?.WaitForExit(30000);
+            }
+            finally
+            {
+                try { File.Delete(scriptPath); } catch { }
+            }
+
+            // Read extracted PNGs as base64 into cache
+            foreach (var (bundleId, outPath) in outPaths)
+            {
+                try
+                {
+                    if (File.Exists(outPath) && new FileInfo(outPath).Length > 0)
+                    {
+                        var bytes = File.ReadAllBytes(outPath);
+                        _iconCache[bundleId] = Convert.ToBase64String(bytes);
+                    }
+                    else
+                    {
+                        _iconCache[bundleId] = null;
+                    }
+                }
+                catch { _iconCache[bundleId] = null; }
+            }
+        }
+        catch { }
     }
 
     private static string? ExtractIconBase64(string appPath)
@@ -261,10 +381,10 @@ public class MacContextMenuService : IContextMenuService
                 "ObjC.import('Foundation');\n" +
                 "var ws = $.NSWorkspace.sharedWorkspace;\n" +
                 "var icon = ws.iconForFile('" + escapedPath + "');\n" +
-                "var sz = $.NSMakeSize(32, 32);\n" +
+                "var sz = $.NSMakeSize(128, 128);\n" +
                 "var newImg = $.NSImage.alloc.initWithSize(sz);\n" +
                 "newImg.lockFocus;\n" +
-                "icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,32,32), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);\n" +
+                "icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,128,128), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);\n" +
                 "newImg.unlockFocus;\n" +
                 "var tiff = newImg.TIFFRepresentation;\n" +
                 "var rep = $.NSBitmapImageRep.imageRepWithData(tiff);\n" +
@@ -292,7 +412,11 @@ public class MacContextMenuService : IContextMenuService
                 var process = System.Diagnostics.Process.Start(psi);
                 if (process == null) return null;
                 var output = process.StandardOutput.ReadToEnd().Trim();
+                var error = process.StandardError.ReadToEnd().Trim();
                 process.WaitForExit(5000);
+
+                if (!string.IsNullOrEmpty(error))
+                    System.Diagnostics.Debug.WriteLine($"[ExtractIconBase64] Error for {appPath}: {error}");
 
                 return string.IsNullOrEmpty(output) ? null : output;
             }
@@ -301,7 +425,11 @@ public class MacContextMenuService : IContextMenuService
                 try { File.Delete(scriptPath); } catch { }
             }
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ExtractIconBase64] Exception for {appPath}: {ex.Message}");
+            return null;
+        }
     }
 
     private static HashSet<string> ScanInstalledApps()

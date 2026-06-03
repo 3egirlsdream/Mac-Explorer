@@ -3,72 +3,261 @@
 @inject IBackgroundTaskManager TaskManager
 @implements IDisposable
 
-@if (_visibleTasks.Count > 0)
+@if (_panelVisible)
 {
-    <div class="task-panel glass-effect">
-        <div class="task-panel-header">
-            <span>后台任务 (@_visibleTasks.Count)</span>
+    @if (_isCollapsed)
+    {
+        <div class="task-panel task-panel-collapsed glass-effect"
+             @onclick="() => _isCollapsed = false">
+            <span class="task-panel-collapsed-text">@_runningCount 个后台任务</span>
+            <span class="task-panel-collapsed-chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Up"/></svg>
+            </span>
         </div>
-        @foreach (var task in _visibleTasks)
-        {
-            <div class="task-panel-item @task.State.ToString().ToLowerInvariant()">
-                <div class="task-panel-item-header">
-                    <span class="task-panel-item-label">@task.Label</span>
-                    @if (task.State == BackgroundTaskState.Running)
-                    {
-                        <span class="task-panel-item-pct">@($"{task.Progress:F0}%")</span>
-                    }
-                    else if (task.State == BackgroundTaskState.Completed)
-                    {
-                        <span class="task-panel-item-status completed-text">已完成</span>
-                    }
-                    else if (task.State == BackgroundTaskState.Failed)
-                    {
-                        <span class="task-panel-item-status failed-text">失败</span>
-                    }
-                </div>
-                @if (task.State == BackgroundTaskState.Running)
+    }
+    else
+    {
+        <div class="task-panel glass-effect @(_isExiting ? "task-panel-exit" : "")">
+            <div class="task-panel-header">
+                <span class="task-panel-header-text">后台任务 (@_runningCount)</span>
+                <button class="task-panel-collapse-btn"
+                        @onclick="() => _isCollapsed = true"
+                        title="收起">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Down"/></svg>
+                </button>
+            </div>
+            <div class="task-panel-list">
+                @foreach (var task in _displayTasks)
                 {
-                    <div class="task-panel-progress-track">
-                        <div class="task-panel-progress-bar" style="width: @($"{task.Progress:F0}%")"></div>
+                    <div class="task-panel-item @TaskStateClass(task) @(_dismissingIds.Contains(task.Id) ? "task-panel-item-dismissing" : "")">
+                        <div class="task-panel-item-header">
+                            <div class="task-panel-item-left">
+                                <span class="task-panel-item-label">@task.Label</span>
+                                @if (!string.IsNullOrEmpty(task.CurrentFile) && task.State == BackgroundTaskState.Running)
+                                {
+                                    <span class="task-panel-item-file" title="@task.CurrentFile">@TruncatePath(task.CurrentFile)</span>
+                                }
+                            </div>
+                            <div class="task-panel-item-right">
+                                @if (task.State == BackgroundTaskState.Running)
+                                {
+                                    <span class="task-panel-item-pct">@($"{task.Progress:F0}%")</span>
+                                }
+                                else if (task.State == BackgroundTaskState.Completed)
+                                {
+                                    <span class="task-panel-item-status completed-text">已完成</span>
+                                }
+                                else if (task.State == BackgroundTaskState.Failed)
+                                {
+                                    <span class="task-panel-item-status failed-text">失败</span>
+                                    <button class="task-panel-dismiss-btn"
+                                            @onclick="() => DismissTask(task)"
+                                            title="关闭">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="@Icons.Close"/></svg>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        @if (task.State == BackgroundTaskState.Running)
+                        {
+                            <div class="task-panel-progress-track">
+                                <div class="task-panel-progress-bar" style="width: @($"{task.Progress:F0}%")"></div>
+                            </div>
+                        }
+                        @if (task.State == BackgroundTaskState.Failed && !string.IsNullOrEmpty(task.ErrorMessage))
+                        {
+                            <div class="task-panel-error">@task.ErrorMessage</div>
+                        }
                     </div>
                 }
-                @if (task.State == BackgroundTaskState.Failed && !string.IsNullOrEmpty(task.ErrorMessage))
-                {
-                    <div class="task-panel-error">@task.ErrorMessage</div>
-                }
             </div>
-        }
-    </div>
+        </div>
+    }
 }
 
 @code {
-    private List<BackgroundTaskInfo> _visibleTasks = [];
+    private List<BackgroundTaskInfo> _displayTasks = [];
+    private readonly HashSet<string> _dismissingIds = [];
+    private readonly Dictionary<string, CancellationTokenSource> _autoRemoveCts = [];
+    private bool _isCollapsed;
+    private bool _isExiting;
+    private bool _panelVisible;
+    private int _runningCount;
+
+    private const double CompletedDelayMs = 3000;
+    private const double FailedDelayMs = 5000;
+    private const double DismissAnimationMs = 350;
+    private const double ExitAnimationMs = 200;
 
     protected override void OnInitialized()
     {
         TaskManager.TasksChanged += OnTasksChanged;
-        UpdateVisibleTasks();
+        RefreshState();
     }
 
     private void OnTasksChanged()
     {
         InvokeAsync(() =>
         {
-            UpdateVisibleTasks();
+            RefreshState();
             StateHasChanged();
         });
     }
 
-    private void UpdateVisibleTasks()
+    private void RefreshState()
     {
-        _visibleTasks = TaskManager.Tasks
-            .Where(t => t.IsMinimized || t.State != BackgroundTaskState.Running)
-            .ToList();
+        var allTasks = TaskManager.Tasks.ToList();
+
+        // Purge dismissed tasks from manager
+        foreach (var task in allTasks.Where(t => t.IsDismissedByUser))
+        {
+            CancelAutoRemove(task.Id);
+            TaskManager.RemoveTask(task.Id);
+        }
+
+        // Re-fetch after purging
+        allTasks = TaskManager.Tasks.ToList();
+
+        _runningCount = allTasks.Count(t => t.State == BackgroundTaskState.Running);
+
+        // Start auto-remove timers for newly terminal tasks
+        foreach (var task in allTasks)
+        {
+            if ((task.State == BackgroundTaskState.Completed || task.State == BackgroundTaskState.Failed)
+                && !_autoRemoveCts.ContainsKey(task.Id)
+                && !_dismissingIds.Contains(task.Id))
+            {
+                var delay = task.State == BackgroundTaskState.Completed ? CompletedDelayMs : FailedDelayMs;
+                var cts = new CancellationTokenSource();
+                _autoRemoveCts[task.Id] = cts;
+                _ = AutoRemoveAfterDelay(task.Id, delay, cts.Token);
+            }
+        }
+
+        // Clean up auto-remove entries for tasks no longer in manager
+        var activeIds = allTasks.Select(t => t.Id).ToHashSet();
+        foreach (var id in _autoRemoveCts.Keys.Except(activeIds).ToList())
+        {
+            CancelAutoRemove(id);
+        }
+
+        _displayTasks = allTasks.ToList();
+
+        // Determine panel visibility
+        if (allTasks.Count > 0)
+        {
+            _panelVisible = true;
+            _isExiting = false;
+        }
+        else
+        {
+            _displayTasks.Clear();
+            if (_panelVisible && !_isExiting)
+                _ = ExitPanel();
+        }
+    }
+
+    private async Task AutoRemoveAfterDelay(string taskId, double delayMs, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay((int)delayMs, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            _autoRemoveCts.Remove(taskId);
+            _dismissingIds.Add(taskId);
+            StateHasChanged();
+
+            // Wait for dismiss animation
+            await Task.Delay((int)DismissAnimationMs);
+
+            _dismissingIds.Remove(taskId);
+            TaskManager.RemoveTask(taskId);
+
+            var remaining = TaskManager.Tasks.ToList();
+            if (remaining.Count == 0)
+            {
+                await ExitPanel();
+            }
+            else
+            {
+                RefreshState();
+                StateHasChanged();
+            }
+        });
+    }
+
+    private async void DismissTask(BackgroundTaskInfo task)
+    {
+        CancelAutoRemove(task.Id);
+        _dismissingIds.Add(task.Id);
+        StateHasChanged();
+
+        await Task.Delay((int)DismissAnimationMs);
+
+        _dismissingIds.Remove(task.Id);
+        TaskManager.RemoveTask(task.Id);
+
+        var remaining = TaskManager.Tasks.ToList();
+        if (remaining.Count == 0)
+        {
+            await ExitPanel();
+        }
+        else
+        {
+            RefreshState();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExitPanel()
+    {
+        _isExiting = true;
+        StateHasChanged();
+        await Task.Delay((int)ExitAnimationMs);
+        _panelVisible = false;
+        _isExiting = false;
+        _displayTasks.Clear();
+        StateHasChanged();
+    }
+
+    private void CancelAutoRemove(string taskId)
+    {
+        if (_autoRemoveCts.TryGetValue(taskId, out var cts))
+        {
+            cts.Cancel();
+            cts.Dispose();
+            _autoRemoveCts.Remove(taskId);
+        }
+    }
+
+    private static string TaskStateClass(BackgroundTaskInfo task) => task.State switch
+    {
+        BackgroundTaskState.Completed => "task-panel-item-completed",
+        BackgroundTaskState.Failed => "task-panel-item-failed",
+        _ => ""
+    };
+
+    private static string TruncatePath(string path)
+    {
+        var name = System.IO.Path.GetFileName(path);
+        return name.Length > 35 ? "..." + name[^32..] : name;
     }
 
     public void Dispose()
     {
         TaskManager.TasksChanged -= OnTasksChanged;
+        foreach (var cts in _autoRemoveCts.Values)
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+        _autoRemoveCts.Clear();
     }
 }

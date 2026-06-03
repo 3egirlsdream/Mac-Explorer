@@ -65,6 +65,7 @@
 
     /* Glass Effect — shared frosted glass for menus & flyouts */
     --glass-effect-bg: rgba(255, 255, 255, 0.6);
+    --glass-effect-bg-submenu: rgba(255, 255, 255, 0.95);
     --glass-effect-blur: 21.5px;
     --glass-effect-border: rgba(255, 255, 255, 0.18);
     --glass-effect-shadow: rgba(142, 142, 142, 0.19) 0px 6px 15px 0px;
@@ -185,6 +186,7 @@
 
     /* Glass Effect — dark mode */
     --glass-effect-bg: rgba(40, 40, 40, 0.6);
+    --glass-effect-bg-submenu: rgba(40, 40, 40, 0.95);
     --glass-effect-border: rgba(255, 255, 255, 0.12);
     --glass-effect-shadow: rgba(0, 0, 0, 0.3) 0px 6px 15px 0px;
 

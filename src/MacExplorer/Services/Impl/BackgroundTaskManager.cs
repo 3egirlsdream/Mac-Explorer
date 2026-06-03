@@ -58,8 +58,6 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         if (callback != null)
             _ = Task.Run(async () => { try { await callback(); } catch (Exception ex) { _logger?.LogWarning(ex, "Background task callback failed for task {TaskId}", taskId); } });
 
-        // 3 秒后自动移除
-        _ = Task.Delay(3000).ContinueWith(_ => RemoveTask(taskId));
     }
 
     public void FailTask(string taskId, string error)
@@ -73,19 +71,11 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         }
         RaiseTasksChanged();
 
-        // 5 秒后自动移除
-        _ = Task.Delay(5000).ContinueWith(_ => RemoveTask(taskId));
     }
 
     public void MinimizeTask(string taskId)
     {
-        lock (_lock)
-        {
-            var task = _tasks.FirstOrDefault(t => t.Id == taskId);
-            if (task == null) return;
-            task.IsMinimized = true;
-        }
-        RaiseTasksChanged();
+        // No-op: task lifecycle is now managed by TaskPanel component
     }
 
     public void RemoveTask(string taskId)

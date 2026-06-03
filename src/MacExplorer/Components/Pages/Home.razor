@@ -7,7 +7,6 @@
 @inject MacExplorer.Services.IQuickLookService QuickLookService
 @inject MacExplorer.Services.IMouseNavigationService MouseNavService
 @inject MacExplorer.Services.NavigationBridge NavigationBridge
-@inject MacExplorer.Services.IBackgroundTaskManager TaskManager
 @inject MacExplorer.Services.IDragDropBridge DragDropBridge
 @inject MacExplorer.Services.IDirectoryChangeNotifier DirectoryChangeNotifier
 @inject MacExplorer.Services.IThemeService ThemeService
@@ -53,14 +52,6 @@
         </div>
     </CascadingValue>
 
-    <MDialog @bind-Value="_progressDialogVisible"
-         ContentClass="fk-dialog-glass-dense"
-         Persistent="true">
-    @if (_activeTask != null)
-    {
-        <CenterProgressCard Task="_activeTask" OnMinimize="OnMinimizeTask" />
-    }
-</MDialog>
 
 <MDialog @bind-Value="_compressDialogVisible"
          MaxWidth="380"
@@ -137,7 +128,6 @@
 @code {
     private DotNetObjectReference<Home>? _dotNetRef;
     private bool _compressDialogVisible;
-    private bool _progressDialogVisible;
     private bool _settingsDialogVisible;
     private bool _deleteConfirmVisible;
     private int _deleteConfirmCount;
@@ -148,7 +138,6 @@
     private List<string> _pasteConflictNames = [];
     private bool _moveConfirmVisible;
     private List<string> _moveConflictNames = [];
-    private BackgroundTaskInfo? _activeTask;
 #if MACCATALYST
     private IntPtr _nsWindowHandle;
 #endif
@@ -171,8 +160,18 @@
         // Check if this new window should navigate to a pending folder path
         var pendingPath = NavigationBridge.PendingNavigationPath;
 #if DEBUG
-        Console.WriteLine($"[MacExplorer] Home.OnInitialized: PendingNavigationPath='{pendingPath}'");
+        Console.WriteLine($"[MacExplorer] Home.OnInitialized: PendingNavigationPath='{pendingPath}', PendingQuickAccessFocus={NavigationBridge.PendingQuickAccessFocus}");
 #endif
+
+        // If "快速访达" was triggered, skip session restore and stay on home page
+        var isQuickAccess = NavigationBridge.PendingQuickAccessFocus;
+        if (isQuickAccess)
+        {
+            NavigationBridge.PendingQuickAccessFocus = false;
+#if DEBUG
+            Console.WriteLine("[MacExplorer] Home.OnInitialized: PendingQuickAccessFocus was true, skipping session restore");
+#endif
+        }
 
         // Also check the static cold-start fallback from SceneDelegate
 #if MACCATALYST
@@ -186,7 +185,8 @@
         }
 #endif
 
-        if (string.IsNullOrEmpty(pendingPath))
+        // Only restore last directory if this is NOT a quick access launch
+        if (string.IsNullOrEmpty(pendingPath) && !isQuickAccess)
             pendingPath = ViewModel.GetRestorableDirectoryPath();
 
         if (!string.IsNullOrEmpty(pendingPath))
@@ -206,7 +206,6 @@
 
         // Subscribe to ViewModel property changes to trigger re-render
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
-        TaskManager.TasksChanged += OnTasksChanged;
 
         // Subscribe to mouse side buttons (back/forward)
         MouseNavService.BackButtonPressed += OnMouseBack;
@@ -267,7 +266,6 @@
                 or nameof(ViewModel.SortField)
                 or nameof(ViewModel.SortAscending)
                 or nameof(ViewModel.IsCompressDialogVisible)
-                or nameof(ViewModel.ActiveTaskId)
                 or nameof(ViewModel.IsArchiveView)
                 or nameof(ViewModel.IsAiView)
                 or nameof(ViewModel.PinnedFolders)
@@ -429,7 +427,7 @@
             var entry = ViewModel.Entries.FirstOrDefault(en => en.FullPath == path);
             if (entry != null)
             {
-                if (!ViewModel.SelectedEntries.Contains(entry))
+                if (!ViewModel.IsEntrySelected(entry))
                     ViewModel.SelectEntry(entry, false, false);
                 await ViewModel.ShowFileContextMenuAsync(entry, e.ClientX, e.ClientY);
                 return;
@@ -498,35 +496,10 @@
         ViewModel.CancelMoveConfirmDialog();
     }
 
-    private void OnMinimizeTask()
-    {
-        ViewModel.MinimizeActiveTask();
-    }
-
-    private async void OnTasksChanged()
-    {
-        try
-        {
-            SyncDialogState();
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (ObjectDisposedException) { }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Home] Error in OnTasksChanged: {ex}");
-        }
-    }
-
     private void SyncDialogState()
     {
         _compressDialogVisible = ViewModel.IsCompressDialogVisible
                                  && ViewModel.PendingCompressOptions != null;
-
-        var activeTask = ViewModel.ActiveTaskId != null
-            ? TaskManager.Tasks.FirstOrDefault(t => t.Id == ViewModel.ActiveTaskId)
-            : null;
-        _activeTask = activeTask;
-        _progressDialogVisible = activeTask != null;
 
         _deleteConfirmVisible = ViewModel.IsDeleteConfirmDialogVisible;
         _deleteConfirmCount = ViewModel.DeleteConfirmItemCount;
@@ -572,7 +545,6 @@
         NavigationBridge.Unregister(ViewModel);
         DragDropBridge.Unregister(ViewModel);
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        TaskManager.TasksChanged -= OnTasksChanged;
         MouseNavService.BackButtonPressed -= OnMouseBack;
         MouseNavService.ForwardButtonPressed -= OnMouseForward;
         ThemeService.ThemeChanged -= OnThemeChanged;

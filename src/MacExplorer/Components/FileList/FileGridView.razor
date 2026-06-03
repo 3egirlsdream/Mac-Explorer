@@ -141,15 +141,39 @@
     {
         ViewModel.RenameRequested += OnRenameRequested;
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
-        ViewModel.SelectedEntries.CollectionChanged += OnSelectionChanged;
+        RebindSelectedEntries();
     }
+
+    private System.Collections.ObjectModel.ObservableCollection<FileSystemEntry>? _subscribedSelectedEntries;
+
+    private void RebindSelectedEntries()
+    {
+        if (ReferenceEquals(_subscribedSelectedEntries, ViewModel.SelectedEntries))
+            return;
+
+        if (_subscribedSelectedEntries != null)
+            _subscribedSelectedEntries.CollectionChanged -= OnSelectionChanged;
+
+        _subscribedSelectedEntries = ViewModel.SelectedEntries;
+        _subscribedSelectedEntries.CollectionChanged += OnSelectionChanged;
+    }
+
+    // ── Selection Render merge ──
+    private bool _selectionRenderPending;
 
     private async void OnSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         try
         {
             if (_renamingEntry != null) return;
-            await InvokeAsync(StateHasChanged);
+            if (_selectionRenderPending) return;
+            _selectionRenderPending = true;
+            await InvokeAsync(async () =>
+            {
+                await Task.Yield();
+                _selectionRenderPending = false;
+                StateHasChanged();
+            });
         }
         catch (ObjectDisposedException) { }
         catch (Exception ex) { Console.WriteLine($"[FileGridView] Error in OnSelectionChanged: {ex}"); }
@@ -172,6 +196,14 @@
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ViewModel.SelectedEntries))
+        {
+            RebindSelectedEntries();
+            if (_renamingEntry != null) return;
+            InvokeAsync(StateHasChanged);
+            return;
+        }
+
         if (e.PropertyName is nameof(ViewModel.IsLoading) or nameof(ViewModel.CurrentPath) or nameof(ViewModel.ViewMode)
             or nameof(ViewModel.Groups) or nameof(ViewModel.GroupField) or nameof(ViewModel.CutPaths))
         {
@@ -258,7 +290,11 @@
         _disposed = true;
         ViewModel.RenameRequested -= OnRenameRequested;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        ViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
+        if (_subscribedSelectedEntries != null)
+        {
+            _subscribedSelectedEntries.CollectionChanged -= OnSelectionChanged;
+            _subscribedSelectedEntries = null;
+        }
         _renameTimer?.Dispose();
         if (await _blobUrlGate.WaitAsync(TimeSpan.FromSeconds(5)))
         {
@@ -876,6 +912,7 @@
     private async Task OnFileContextMenu(MouseEventArgs e, FileSystemEntry entry)
     {
         _fileContextMenuActive = true;
+        // 如果右键目标未选中，切换到单选（走批量替换路径）
         if (!ViewModel.IsEntrySelected(entry))
             ViewModel.SelectEntry(entry, false, false);
         await ViewModel.ShowFileContextMenuAsync(entry, e.ClientX, e.ClientY);

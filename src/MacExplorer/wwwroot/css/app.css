@@ -1196,8 +1196,14 @@ input:focus {
     font-size: 36px;
     line-height: 1;
     filter: drop-shadow(0 1px 2px rgba(0,0,0,0.06));
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
+}
+
+.file-grid-icon img {
+    max-width: 44px;
+    max-height: 44px;
+    object-fit: contain;
 }
 
 .file-grid-icon .ai-face-thumbnail {
@@ -1631,6 +1637,8 @@ input:focus {
     padding: var(--space-2) 0;
     z-index: calc(var(--z-context-menu) + 2);
     animation: contextMenuIn 150ms cubic-bezier(0.1, 0.9, 0.2, 1);
+    /* More opaque than parent menu to avoid double-blur when layered on top */
+    background-color: var(--glass-effect-bg-submenu);
 }
 
 /* Bridge the gap between parent item and submenu to prevent mouseleave */
@@ -1930,7 +1938,8 @@ input:focus {
 }
 
 /* ═══ Context menu SVG icon alignment ═══ */
-.context-menu-icon svg {
+.context-menu-icon svg,
+.context-menu-icon img {
     display: block;
 }
 
@@ -2136,7 +2145,7 @@ input:focus {
     min-width: 200px;
     max-width: 50vw;
     border-left: 1px solid var(--color-border);
-    background: var(--glass-effect-bg);
+    /* background: var(--glass-effect-bg); */
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     display: flex;
@@ -2745,6 +2754,62 @@ input:focus {
     text-align: center;
 }
 
+/* ═══ Open With app list items ═══ */
+.openwith-app-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.openwith-app-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.openwith-app-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--font-size-body);
+}
+
+.openwith-app-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.openwith-app-label {
+    font-size: 0.8em;
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+.openwith-delete-btn {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    padding: 0;
+}
+
+.openwith-delete-btn:hover {
+    background: rgba(255, 59, 48, 0.15);
+    color: #ff3b30;
+}
+
 /* Settings Dropdown - unified with toolbar dropdown style */
 .settings-dropdown-wrapper {
     position: relative;
@@ -2786,7 +2851,8 @@ input:focus {
     padding: var(--space-2) 0;
     z-index: var(--z-dropdown);
     animation: dropdownFadeIn 150ms cubic-bezier(0.1, 0.9, 0.2, 1);
-    background-color: var(--glass-effect-bg);
+    /* More opaque than parent to avoid double-transparency when layered */
+    background-color: var(--glass-effect-bg-submenu);
     backdrop-filter: blur(21.5px) saturate(180%);
     -webkit-backdrop-filter: blur(21.5px) saturate(180%);
     border: 1px solid var(--glass-effect-border);
@@ -2951,101 +3017,6 @@ input:focus {
 }
 
 /* ═══════════════════════════════════════
-   Center Progress Card
-   ═══════════════════════════════════════ */
-
-.center-progress-card {
-    width: 380px;
-    padding: var(--space-6);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.center-progress-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.center-progress-label {
-    font-size: var(--font-size-caption);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-primary);
-}
-
-.center-progress-minimize {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-xs);
-    border: none;
-    background: transparent;
-    color: var(--color-text-tertiary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.center-progress-minimize:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text-primary);
-}
-
-.center-progress-track {
-    height: 4px;
-    background: var(--color-bg-hover);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.center-progress-bar {
-    height: 100%;
-    background: var(--color-accent);
-    border-radius: 2px;
-    transition: width 200ms ease;
-}
-
-.center-progress-bar.completed {
-    background: #34c759;
-}
-
-.center-progress-bar.failed {
-    background: #ff3b30;
-}
-
-.center-progress-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.center-progress-file {
-    font-size: var(--font-size-micro);
-    color: var(--color-text-tertiary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
-}
-
-.center-progress-pct {
-    font-size: var(--font-size-caption);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-accent);
-    font-variant-numeric: tabular-nums;
-    margin-left: var(--space-3);
-}
-
-.center-progress-error {
-    font-size: var(--font-size-micro);
-    color: #ff3b30;
-    margin-top: var(--space-1);
-}
-
-/* ═══════════════════════════════════════
    Task Panel (right-bottom)
    ═══════════════════════════════════════ */
 
@@ -3053,8 +3024,8 @@ input:focus {
     position: fixed;
     bottom: 16px;
     right: 16px;
-    width: 300px;
-    max-height: 260px;
+    width: 320px;
+    max-height: 360px;
     overflow-y: auto;
     padding: var(--space-4);
     background: var(--glass-menu-bg);
@@ -3066,8 +3037,16 @@ input:focus {
     z-index: var(--z-panel);
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: 0;
     animation: taskPanelIn 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+    transition: opacity 200ms cubic-bezier(0.1, 0.9, 0.2, 1),
+                transform 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+.task-panel-exit {
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
 }
 
 @keyframes taskPanelIn {
@@ -3075,34 +3054,117 @@ input:focus {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Header ── */
 .task-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: var(--space-3);
+    border-bottom: 0.5px solid var(--color-border-subtle);
+    flex-shrink: 0;
+}
+
+.task-panel-header-text {
     font-size: var(--font-size-caption);
     font-weight: var(--font-weight-semibold);
     color: var(--color-text-secondary);
 }
 
+.task-panel-collapse-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-xs);
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.task-panel-collapse-btn:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+/* ── List ── */
+.task-panel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ── Item ── */
 .task-panel-item {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    padding: var(--space-2) 0;
+    padding: var(--space-3) 0;
     border-top: 0.5px solid var(--color-border-subtle);
+    transition: opacity 300ms cubic-bezier(0.1, 0.9, 0.2, 1),
+                max-height 300ms cubic-bezier(0.1, 0.9, 0.2, 1),
+                padding 300ms cubic-bezier(0.1, 0.9, 0.2, 1),
+                border-width 300ms cubic-bezier(0.1, 0.9, 0.2, 1);
+    max-height: 120px;
+    overflow: hidden;
 }
 
-.task-panel-item:first-of-type {
+.task-panel-item:first-child {
     border-top: none;
 }
 
+.task-panel-item-dismissing {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top-width: 0;
+}
+
+/* ── Item header ── */
 .task-panel-item-header {
     display: flex;
     justify-content: space-between;
+    align-items: flex-start;
+}
+
+.task-panel-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    flex: 1;
+}
+
+.task-panel-item-right {
+    display: flex;
     align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+    margin-left: var(--space-4);
 }
 
 .task-panel-item-label {
     font-size: var(--font-size-micro);
     font-weight: var(--font-weight-medium);
     color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.task-panel-item-file {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .task-panel-item-pct {
@@ -3115,11 +3177,35 @@ input:focus {
 .task-panel-item-status {
     font-size: var(--font-size-micro);
     font-weight: var(--font-weight-medium);
+    white-space: nowrap;
 }
 
 .completed-text { color: #34c759; }
 .failed-text { color: #ff3b30; }
 
+/* ── Dismiss button (failed tasks) ── */
+.task-panel-dismiss-btn {
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-xs);
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.task-panel-dismiss-btn:hover {
+    background: rgba(255, 59, 48, 0.12);
+    color: #ff3b30;
+}
+
+/* ── Progress bar ── */
 .task-panel-progress-track {
     height: 3px;
     background: var(--color-bg-hover);
@@ -3134,9 +3220,52 @@ input:focus {
     transition: width 200ms ease;
 }
 
+/* ── Error message ── */
 .task-panel-error {
-    font-size: var(--font-size-micro);
+    font-size: 11px;
     color: #ff3b30;
+    line-height: var(--line-height-tight);
+    word-break: break-all;
+}
+
+/* ── Collapsed state ── */
+.task-panel-collapsed {
+    width: auto;
+    min-width: 140px;
+    max-height: none;
+    padding: var(--space-3) var(--space-6);
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-fast);
+}
+
+.task-panel-collapsed:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.dark-mode .task-panel-collapsed:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.task-panel-collapsed-text {
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.task-panel-collapsed-chevron {
+    color: var(--color-text-tertiary);
+    display: flex;
+    align-items: center;
+    transition: transform var(--transition-fast);
+}
+
+.task-panel-collapsed:hover .task-panel-collapsed-chevron {
+    transform: translateY(-2px);
 }
 
 /* ═══════════════════════════════════════

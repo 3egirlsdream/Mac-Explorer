@@ -8,6 +8,7 @@ namespace MacExplorer.Services.Impl;
 
 public class OpenWithAppService : IOpenWithAppService, IDisposable
 {
+    private readonly DatabaseConnectionFactory _connectionFactory;
     private readonly SqliteConnection _connection;
     private readonly ILogger<OpenWithAppService>? _logger;
     private List<OpenWithApp> _cache = new();
@@ -15,36 +16,80 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
 
     public OpenWithAppService(DatabaseConnectionFactory connectionFactory, ILogger<OpenWithAppService>? logger = null)
     {
+        _connectionFactory = connectionFactory;
         _connection = connectionFactory.GetConnection();
         _logger = logger;
         LoadAll();
+        _ = Task.Run(FillMissingIcons);
     }
 
     private void LoadAll()
     {
         try
         {
-            var list = new List<OpenWithApp>();
-            using var cmd = _connection.CreateCommand();
-            cmd.CommandText = "SELECT id, bundle_id, label, is_top_level, sort_order, icon_base64 FROM open_with_apps ORDER BY sort_order";
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                list.Add(new OpenWithApp
-                {
-                    Id = reader.GetInt32(0),
-                    BundleId = reader.GetString(1),
-                    Label = reader.GetString(2),
-                    IsTopLevel = reader.GetInt32(3) != 0,
-                    SortOrder = reader.GetInt32(4),
-                    IconBase64 = reader.IsDBNull(5) ? null : reader.GetString(5),
-                });
-            }
+            var list = ReadAll(_connection);
             lock (_lock) { _cache = list; }
         }
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Failed to load open_with_apps in {Method}", nameof(LoadAll));
+        }
+    }
+
+    private static List<OpenWithApp> ReadAll(SqliteConnection connection)
+    {
+        var list = new List<OpenWithApp>();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT id, bundle_id, label, is_top_level, sort_order, icon_base64 FROM open_with_apps ORDER BY sort_order";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new OpenWithApp
+            {
+                Id = reader.GetInt32(0),
+                BundleId = reader.GetString(1),
+                Label = reader.GetString(2),
+                IsTopLevel = reader.GetInt32(3) != 0,
+                SortOrder = reader.GetInt32(4),
+                IconBase64 = reader.IsDBNull(5) ? null : reader.GetString(5),
+            });
+        }
+        return list;
+    }
+
+    private void FillMissingIcons()
+    {
+        List<OpenWithApp> needsIcon;
+        lock (_lock) { needsIcon = _cache.Where(a => a.IconBase64 == null).ToList(); }
+
+        if (needsIcon.Count == 0) return;
+
+        using var connection = _connectionFactory.GetConnection();
+        foreach (var app in needsIcon)
+        {
+            try
+            {
+                var icon = ReadAppIconBase64(app.BundleId);
+                if (icon != null)
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "UPDATE open_with_apps SET icon_base64 = @icon WHERE id = @id";
+                    cmd.Parameters.AddWithValue("@id", app.Id);
+                    cmd.Parameters.AddWithValue("@icon", icon);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            catch { }
+        }
+
+        try
+        {
+            var refreshed = ReadAll(connection);
+            lock (_lock) { _cache = refreshed; }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to refresh open_with_apps cache after icon fill");
         }
     }
 
@@ -198,10 +243,10 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
                 "ObjC.import('Foundation');\n" +
                 "var ws = $.NSWorkspace.sharedWorkspace;\n" +
                 "var icon = ws.iconForFile('" + escapedPath + "');\n" +
-                "var sz = $.NSMakeSize(32, 32);\n" +
+                "var sz = $.NSMakeSize(128, 128);\n" +
                 "var newImg = $.NSImage.alloc.initWithSize(sz);\n" +
                 "newImg.lockFocus;\n" +
-                "icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,32,32), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);\n" +
+                "icon.drawInRectFromRectOperationFraction($.NSMakeRect(0,0,128,128), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);\n" +
                 "newImg.unlockFocus;\n" +
                 "var tiff = newImg.TIFFRepresentation;\n" +
                 "var rep = $.NSBitmapImageRep.imageRepWithData(tiff);\n" +
@@ -258,13 +303,18 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
                         if (!File.Exists(plistPath)) continue;
                         var dict = Foundation.NSMutableDictionary.FromFile(plistPath);
                         if (dict?["CFBundleIdentifier"]?.ToString() == bundleId)
-                            return ExtractIconBase64(dir);
+                        {
+                            var icon = ExtractIconBase64(dir);
+                            System.Diagnostics.Debug.WriteLine($"[ReadAppIconBase64] {bundleId} -> {dir} -> icon: {(icon != null ? $"{icon.Length} chars" : "NULL")}");
+                            return icon;
+                        }
                     }
                     catch { }
                 }
             }
             catch { }
         }
+        System.Diagnostics.Debug.WriteLine($"[ReadAppIconBase64] {bundleId} -> NOT FOUND");
         return null;
     }
 

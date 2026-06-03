@@ -347,7 +347,6 @@ public partial class AiViewModel : ObservableObject
     public async Task TriggerImageAnalysisAsync(
         IReadOnlyList<FileSystemEntry> entries,
         string currentPath,
-        Action<string?> setActiveTaskId,
         CancellationToken cancellationToken = default)
     {
         if (_aiTagService == null || _imageAnalysisService == null || _taskManager == null) return;
@@ -383,7 +382,6 @@ public partial class AiViewModel : ObservableObject
 
             // 5. Run analysis in background
             var taskInfo = _taskManager.AddTask($"AI 图像分析 0/{toAnalyze.Count}");
-            setActiveTaskId(taskInfo.Id);
             var semaphore = new SemaphoreSlim(3);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
                 taskInfo.Cts.Token,
