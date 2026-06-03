@@ -137,7 +137,19 @@ public partial class FileOpsViewModel : ObservableObject
                 catch (Exception ex) { _logger?.LogError(ex, "Failed to delete AI analysis data for {Count} files", deletedPaths.Count); }
             }
 
-            _directoryChangeNotifier?.NotifyChanged([currentPath], null);
+            // DeleteSelectedAsync is the centralized delete path for ALL views.
+            // Use the actual parent directories of deleted files so that file-system
+            // directory views (including NormalView) get notified even when the user
+            // is currently in a collection/archive/AI special view.
+            var parentDirs = deletedPaths
+                .Select(p => Path.GetDirectoryName(p))
+                .Where(d => !string.IsNullOrEmpty(d))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray()!;
+            if (parentDirs.Length > 0)
+                _directoryChangeNotifier?.NotifyChanged(parentDirs, null);
+            else
+                _directoryChangeNotifier?.NotifyChanged([currentPath], null);
         }
         catch (Exception ex)
         {
@@ -183,7 +195,6 @@ public partial class FileOpsViewModel : ObservableObject
         IReadOnlyList<FileSystemEntry> entries,
         FileSystemEntry targetFolder,
         Action<string>? setStatus = null,
-        Action<string?>? setActiveTaskId = null,
         bool overwrite = false)
     {
         if (!targetFolder.IsDirectory) return;

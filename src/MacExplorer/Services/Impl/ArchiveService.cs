@@ -252,12 +252,12 @@ public class ArchiveService : IArchiveService
         });
     }
 
-    public async Task CompressAsync(
+    public async Task<string> CompressAsync(
         CompressOptions options,
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken ct = default)
     {
-        await Task.Run(() =>
+        return await Task.Run(() =>
         {
             var ext = options.Format switch
             {
@@ -328,6 +328,7 @@ public class ArchiveService : IArchiveService
             writer.Dispose();
             stream.Dispose();
             File.Move(outputPath + ".fkfinder-tmp", outputPath);
+            return outputPath;
         }, ct);
     }
 

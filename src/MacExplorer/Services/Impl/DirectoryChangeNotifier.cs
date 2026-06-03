@@ -113,7 +113,7 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
                 }
 
                 if (excluded.Contains(vm)) continue;
-                if (vm.IsHomePage || vm.IsArchiveView || vm.IsAiView || vm.IsCollectionView) continue;
+                if (vm.IsHomePage) continue;
                 if (string.IsNullOrEmpty(vm.CurrentPath)) continue;
                 if (!dirs.Contains(vm.CurrentPath)) continue;
 

@@ -19,9 +19,6 @@ public partial class ArchiveViewModel : ObservableObject
     [ObservableProperty]
     private CompressOptions? _pendingCompressOptions;
 
-    [ObservableProperty]
-    private string? _activeTaskId;
-
     public ArchiveViewModel(
         IArchiveService? archiveService = null,
         IBackgroundTaskManager? taskManager = null,
@@ -68,7 +65,6 @@ public partial class ArchiveViewModel : ObservableObject
         FileSystemEntry entry,
         string currentPath,
         Action<string> setStatus,
-        Action<string?> setActiveTaskId,
         Func<Task> refreshCallback)
     {
         if (_archiveService == null || _taskManager == null) return;
@@ -78,7 +74,6 @@ public partial class ArchiveViewModel : ObservableObject
         {
             await refreshCallback();
         });
-        setActiveTaskId(taskInfo.Id);
 
         _ = Task.Run(async () =>
         {
@@ -162,8 +157,8 @@ public partial class ArchiveViewModel : ObservableObject
     public void ConfirmCompress(
         CompressOptions options,
         ICollectionService? collectionService,
+        IDirectoryChangeNotifier? directoryChangeNotifier,
         Func<Task> refreshCallback,
-        Action<string?> setActiveTaskId,
         Action<string> setStatus)
     {
         IsCompressDialogVisible = false;
@@ -174,21 +169,10 @@ public partial class ArchiveViewModel : ObservableObject
 
         var taskInfo = _taskManager.AddTask("正在压缩...", async () =>
         {
-            if (collectionId != null && collectionService != null)
-            {
-                var ext = options.Format switch
-                {
-                    ArchiveFormat.Zip => ".zip",
-                    ArchiveFormat.TarGz => ".tar.gz",
-                    ArchiveFormat.TarBz2 => ".tar.bz2",
-                    _ => ".zip"
-                };
-                var outputPath = Path.Combine(options.OutputDirectory, options.ArchiveName + ext);
-                await collectionService.AddFileToCollectionAsync(collectionId.Value, outputPath);
-            }
+            // Notify the output directory so other windows/views refresh the file list
+            directoryChangeNotifier?.NotifyChanged([options.OutputDirectory], null);
             await refreshCallback();
         });
-        setActiveTaskId(taskInfo.Id);
 
         _ = Task.Run(async () =>
         {
@@ -198,7 +182,11 @@ public partial class ArchiveViewModel : ObservableObject
                 {
                     _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile);
                 });
-                await _archiveService.CompressAsync(options, progress, taskInfo.Cts.Token);
+                var actualOutputPath = await _archiveService.CompressAsync(options, progress, taskInfo.Cts.Token);
+                if (collectionId != null && collectionService != null)
+                {
+                    await collectionService.AddFileToCollectionAsync(collectionId.Value, actualOutputPath);
+                }
                 _taskManager.CompleteTask(taskInfo.Id);
             }
             catch (OperationCanceledException)
@@ -210,15 +198,6 @@ public partial class ArchiveViewModel : ObservableObject
                 _taskManager.FailTask(taskInfo.Id, ex.Message);
             }
         });
-    }
-
-    public void MinimizeActiveTask()
-    {
-        if (ActiveTaskId != null)
-        {
-            _taskManager?.MinimizeTask(ActiveTaskId);
-            ActiveTaskId = null;
-        }
     }
 
     public void CancelCompressDialog()

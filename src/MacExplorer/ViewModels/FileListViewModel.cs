@@ -110,7 +110,6 @@ public partial class FileListViewModel : ObservableObject
     public string CurrentArchiveInternalPath => _navigation.CurrentArchiveInternalPath;
     public bool IsCompressDialogVisible => _archive.IsCompressDialogVisible;
     public CompressOptions? PendingCompressOptions => _archive.PendingCompressOptions;
-    public string? ActiveTaskId => _archive.ActiveTaskId;
 
     // Search state forwarded
     public bool IsSearchMode => _navigation.IsSearchMode;
@@ -228,15 +227,7 @@ public partial class FileListViewModel : ObservableObject
         _fileOps.RequestRename += OnFileOpsRenameRequested;
 
         // Keep a HashSet mirror of SelectedEntries for O(1) lookups during render
-        SelectedEntries.CollectionChanged += (_, e) =>
-        {
-            if (e.NewItems != null)
-                foreach (FileSystemEntry item in e.NewItems) _selectedEntriesSet.Add(item);
-            if (e.OldItems != null)
-                foreach (FileSystemEntry item in e.OldItems) _selectedEntriesSet.Remove(item);
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
-                _selectedEntriesSet.Clear();
-        };
+        SelectedEntries.CollectionChanged += OnSelectedEntriesCollectionChanged;
 
         // Wire up PropertyChanged events from sub-viewmodels to forward notifications
         _navigation.PropertyChanged += OnNavigationPropertyChanged;
@@ -295,8 +286,7 @@ public partial class FileListViewModel : ObservableObject
     private void OnArchivePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ArchiveViewModel.IsCompressDialogVisible)
-            or nameof(ArchiveViewModel.PendingCompressOptions)
-            or nameof(ArchiveViewModel.ActiveTaskId))
+            or nameof(ArchiveViewModel.PendingCompressOptions))
         {
             OnPropertyChanged(e.PropertyName);
         }
@@ -774,6 +764,41 @@ public partial class FileListViewModel : ObservableObject
         _lastClickedPath = entry.FullPath;
     }
 
+    private void OnSelectedEntriesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+            foreach (FileSystemEntry item in e.NewItems) _selectedEntriesSet.Add(item);
+        if (e.OldItems != null)
+            foreach (FileSystemEntry item in e.OldItems) _selectedEntriesSet.Remove(item);
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+            _selectedEntriesSet.Clear();
+    }
+
+    /// <summary>
+    /// 一次性替换整个选择集，只触发一次 PropertyChanged(SelectedEntries)，
+    /// 避免逐条 Add/Remove 导致多次 Blazor diff。
+    /// </summary>
+    private void ReplaceSelection(IEnumerable<FileSystemEntry> entries, FileSystemEntry? anchor = null)
+    {
+        var newCollection = new ObservableCollection<FileSystemEntry>(entries);
+        var oldCollection = SelectedEntries;
+
+        // 先取消旧集合的事件订阅，避免在 Clear 时触发维护 _selectedEntriesSet
+        oldCollection.CollectionChanged -= OnSelectedEntriesCollectionChanged;
+        oldCollection.Clear();
+
+        // 重建 HashSet
+        _selectedEntriesSet.Clear();
+        foreach (var e in newCollection)
+            _selectedEntriesSet.Add(e);
+
+        SelectedEntries = newCollection;
+        newCollection.CollectionChanged += OnSelectedEntriesCollectionChanged;
+
+        if (anchor != null)
+            SetSelectionAnchor(anchor);
+    }
+
     public bool IsEntrySelected(FileSystemEntry entry) => _selectedEntriesSet.Contains(entry);
 
     public void SelectEntry(FileSystemEntry entry, bool cmdKey = false, bool shiftKey = false)
@@ -787,20 +812,39 @@ public partial class FileListViewModel : ObservableObject
 
             if (startIdx > endIdx) (startIdx, endIdx) = (endIdx, startIdx);
 
-            if (!cmdKey) SelectedEntries.Clear();
-
+            var range = new List<FileSystemEntry>(endIdx - startIdx + 1);
             for (int i = startIdx; i <= endIdx; i++)
+                range.Add(list[i]);
+
+            if (cmdKey)
             {
-                if (!SelectedEntries.Contains(list[i]))
-                    SelectedEntries.Add(list[i]);
+                // Cmd+Shift: 把范围追加到现有选择中（不创建新集合）
+                foreach (var e in range)
+                {
+                    if (!_selectedEntriesSet.Contains(e))
+                    {
+                        _selectedEntriesSet.Add(e);
+                        SelectedEntries.Add(e);
+                    }
+                }
+            }
+            else
+            {
+                ReplaceSelection(range, list[startIdx]);
             }
         }
         else if (cmdKey)
         {
-            if (SelectedEntries.Contains(entry))
+            if (_selectedEntriesSet.Contains(entry))
+            {
+                _selectedEntriesSet.Remove(entry);
                 SelectedEntries.Remove(entry);
+            }
             else
+            {
+                _selectedEntriesSet.Add(entry);
                 SelectedEntries.Add(entry);
+            }
             SetSelectionAnchor(entry);
         }
         else
@@ -808,32 +852,45 @@ public partial class FileListViewModel : ObservableObject
             if (SelectedEntries.Count == 1 && SelectedEntries[0] == entry)
                 return;
 
-            // Use Replace (single event) instead of Clear+Add (two events) to avoid
-            // an intermediate render frame with no selection visible.
             if (SelectedEntries.Count == 1)
             {
+                // 使用 Replace（单事件）代替 Clear+Add（两个事件）
+                _selectedEntriesSet.Remove(SelectedEntries[0]);
                 SelectedEntries[0] = entry;
+                _selectedEntriesSet.Add(entry);
             }
             else
             {
-                SelectedEntries.Clear();
-                SelectedEntries.Add(entry);
+                ReplaceSelection([entry], entry);
             }
-            SetSelectionAnchor(entry);
         }
     }
 
     public void SelectAll()
     {
-        SelectedEntries.Clear();
-        foreach (var entry in GetSelectableEntries())
-            SelectedEntries.Add(entry);
+        var selectable = GetSelectableEntries();
+        if (selectable.Count == 0)
+        {
+            ClearSelection();
+            return;
+        }
+        ReplaceSelection(selectable, selectable[0]);
     }
 
     [RelayCommand]
     public void ClearSelection()
     {
-        SelectedEntries.Clear();
+        if (SelectedEntries.Count == 0) return;
+
+        _selectedEntriesSet.Clear();
+        var oldCollection = SelectedEntries;
+        oldCollection.CollectionChanged -= OnSelectedEntriesCollectionChanged;
+        oldCollection.Clear();
+
+        var newCollection = new ObservableCollection<FileSystemEntry>();
+        SelectedEntries = newCollection;
+        newCollection.CollectionChanged += OnSelectedEntriesCollectionChanged;
+
         _lastClickedEntry = null;
         _lastClickedPath = null;
     }
@@ -1052,7 +1109,7 @@ public partial class FileListViewModel : ObservableObject
                     IsQuickAction = action.IsQuickAction,
                     Execute = () =>
                     {
-                        if (!SelectedEntries.Contains(entry))
+                        if (!_selectedEntriesSet.Contains(entry))
                         {
                             SelectedEntries.Clear();
                             SelectedEntries.Add(entry);
@@ -1216,7 +1273,7 @@ public partial class FileListViewModel : ObservableObject
                     IconSvg = action.IconSvg,
                     Execute = async () =>
                     {
-                        var pathsToDelete = SelectedEntries.Contains(entry)
+                        var pathsToDelete = _selectedEntriesSet.Contains(entry)
                             ? SelectedEntries.Select(e => e.FullPath).ToList()
                             : [entry.FullPath];
                         foreach (var p in pathsToDelete)
@@ -1563,8 +1620,7 @@ public partial class FileListViewModel : ObservableObject
             await _fileOps.MoveEntriesAsync(
                 entries,
                 targetFolder,
-                msg => StatusText = msg,
-                id => { } // active task id
+                msg => StatusText = msg
             );
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
@@ -1584,7 +1640,6 @@ public partial class FileListViewModel : ObservableObject
                 _pendingMoveEntries,
                 _pendingMoveTarget,
                 msg => StatusText = msg,
-                id => { },
                 overwrite: true
             );
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
@@ -1697,7 +1752,6 @@ public partial class FileListViewModel : ObservableObject
             entry,
             _navigation.CurrentPath,
             msg => StatusText = msg,
-            id => { }, // active task id
             async () => await RefreshAsync()
         );
     }
@@ -1719,13 +1773,11 @@ public partial class FileListViewModel : ObservableObject
         _archive.ConfirmCompress(
             options,
             _collection.CollectionService,
+            _directoryChangeNotifier,
             async () => await RefreshAsync(),
-            id => { },
             msg => StatusText = msg
         );
     }
-
-    public void MinimizeActiveTask() => _archive.MinimizeActiveTask();
 
     public void CancelCompressDialog() => _archive.CancelCompressDialog();
 
@@ -2094,7 +2146,6 @@ public partial class FileListViewModel : ObservableObject
         await _ai.TriggerImageAnalysisAsync(
             entries,
             _navigation.CurrentPath,
-            id => { }, // active task id
             work.Token
         );
     }
@@ -2294,15 +2345,10 @@ public partial class FileListViewModel : ObservableObject
             .ToList();
         if (restoredSelection.Count == 0) return;
 
-        SelectedEntries.Clear();
-        foreach (var entry in restoredSelection)
-            SelectedEntries.Add(entry);
-
         var anchor = anchorPath != null
             ? restoredSelection.FirstOrDefault(e => string.Equals(e.FullPath, anchorPath, StringComparison.Ordinal))
             : restoredSelection.LastOrDefault();
-        if (anchor != null)
-            SetSelectionAnchor(anchor);
+        ReplaceSelection(restoredSelection, anchor);
     }
 
     private static FileSystemEntry CopyWithGit(FileSystemEntry src, GitFileStatus gitStatus = GitFileStatus.None, bool hasGitChanges = false) => new()

@@ -17,7 +17,8 @@ public interface IArchiveService
     Task<string> ExtractEntryToTempAsync(
         string archivePath, string entryKey);
 
-    Task CompressAsync(
+    /// <returns>The actual output file path (may differ from the requested name due to deduplication).</returns>
+    Task<string> CompressAsync(
         CompressOptions options,
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken ct = default);
