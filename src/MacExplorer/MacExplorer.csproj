@@ -69,8 +69,11 @@
         <PropertyGroup>
             <_AppBundlePath>$(OutputPath)$(ApplicationTitle).app</_AppBundlePath>
             <_IconSource>$(IntermediateOutputPath)resizetizer/r/Assets.xcassets/appicon.appiconset/appiconItunesArtwork.png</_IconSource>
+            <_IconSourceNoRid>$(BaseIntermediateOutputPath)$(Configuration)/$(TargetFramework)/resizetizer/r/Assets.xcassets/appicon.appiconset/appiconItunesArtwork.png</_IconSourceNoRid>
+            <_IconSource Condition="!Exists('$(_IconSource)') and Exists('$(_IconSourceNoRid)')">$(_IconSourceNoRid)</_IconSource>
             <_IconsetDir>$(IntermediateOutputPath)macicon.iconset</_IconsetDir>
         </PropertyGroup>
+        <Error Text="App icon source not found: $(_IconSource)" Condition="!Exists('$(_IconSource)')" />
         <RemoveDir Directories="$(_IconsetDir)" />
         <MakeDir Directories="$(_IconsetDir)" />
         <Exec Command="sips -z 16 16 '$(_IconSource)' --out '$(_IconsetDir)/icon_16x16.png' &gt;/dev/null 2&gt;&amp;1" />
@@ -99,6 +102,19 @@
         <Exec Command="for lang in zh-Hans zh-Hant en ja ko fr de es pt it ru ar nl sv da nb fi pl tr uk th vi id ms hi he; do /usr/libexec/PlistBuddy -c &quot;Add :CFBundleLocalizations: string $lang&quot; '$(_AppBundlePath)/Contents/Info.plist'; done" IgnoreExitCode="true" />
         <!-- Re-sign after Info.plist modification to avoid -54 launch error -->
         <Exec Command="codesign --force --sign - '$(_AppBundlePath)'" />
+    </Target>
+
+    <!-- Create an upload-ready app zip with macOS bundle permissions preserved. -->
+    <Target Name="PackageMacCatalystAppZip" AfterTargets="ReplaceMacCatalystIcon" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst' and '$(Configuration)' == 'Release'">
+        <PropertyGroup>
+            <_AppBundlePath>$(OutputPath)$(ApplicationTitle).app</_AppBundlePath>
+            <_ZipDir>$(OutputPath)publish</_ZipDir>
+            <_ZipPath>$(_ZipDir)/MacExplorer.zip</_ZipPath>
+        </PropertyGroup>
+        <MakeDir Directories="$(_ZipDir)" />
+        <Exec Command="chmod +x '$(_AppBundlePath)/Contents/MacOS/$(AssemblyName)'" />
+        <Exec Command="ditto -c -k --sequesterRsrc --keepParent '$(_AppBundlePath)' '$(_ZipPath)'" />
+        <Message Text="App zip created: $(_ZipPath)" Importance="high" Condition="Exists('$(_ZipPath)')" />
     </Target>
 
     <!-- Rename .pkg to include build version: MacExplorer-1.0.11.pkg -->

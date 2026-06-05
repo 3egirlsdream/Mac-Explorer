@@ -164,6 +164,17 @@ public static class MauiProgram
         builder.Services.AddSingleton<IThemeService, Platforms.MacCatalyst.Services.MacThemeService>();
         builder.Services.AddSingleton<IDisplayNameService, Platforms.MacCatalyst.Services.MacDisplayNameService>();
 
+        // App Update (use SocketsHttpHandler to bypass ATS for HTTP endpoints)
+        builder.Services.AddSingleton<HttpClient>(_ => new HttpClient(new SocketsHttpHandler
+        {
+            ConnectTimeout = TimeSpan.FromSeconds(30),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+        })
+        {
+            Timeout = TimeSpan.FromMinutes(10)
+        });
+        builder.Services.AddSingleton<IAppUpdateService, Services.Impl.AppUpdateService>();
+
         // Unified refresh pipeline
         builder.Services.AddSingleton<IDirectoryChangeNotifier, Services.Impl.DirectoryChangeNotifier>();
         builder.Services.AddSingleton<IFSEventsWatcher>(sp =>

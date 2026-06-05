@@ -10,6 +10,7 @@
 @inject MacExplorer.Services.IDragDropBridge DragDropBridge
 @inject MacExplorer.Services.IDirectoryChangeNotifier DirectoryChangeNotifier
 @inject MacExplorer.Services.IThemeService ThemeService
+@inject MacExplorer.Services.IBackgroundTaskManager TaskManager
 @implements IAsyncDisposable
 
 <MApp Style="background:transparent">
@@ -66,7 +67,7 @@
 </MDialog>
 
 <MDialog @bind-Value="_settingsDialogVisible"
-         MaxWidth="480"
+         MaxWidth="560"
          ContentClass="fk-dialog-glass">
     <SettingsDialog OnClose="@(() => _settingsDialogVisible = false)" />
 </MDialog>
@@ -138,6 +139,8 @@
     private List<string> _pasteConflictNames = [];
     private bool _moveConfirmVisible;
     private List<string> _moveConflictNames = [];
+    private BackgroundTaskInfo? _activeTask;
+    private bool _progressDialogVisible;
 #if MACCATALYST
     private IntPtr _nsWindowHandle;
 #endif
@@ -496,11 +499,33 @@
         ViewModel.CancelMoveConfirmDialog();
     }
 
+    private void OnMinimizeTask()
+    {
+    }
+
+    private async void OnTasksChanged()
+    {
+        try
+        {
+            SyncDialogState();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Home] Error in OnTasksChanged: {ex}");
+        }
+    }
+
     private void SyncDialogState()
     {
         _compressDialogVisible = ViewModel.IsCompressDialogVisible
                                  && ViewModel.PendingCompressOptions != null;
 
+        var activeTask = TaskManager.Tasks
+            .FirstOrDefault(t => t.State == BackgroundTaskState.Running);
+        _activeTask = activeTask;
+        _progressDialogVisible = activeTask != null;
         _deleteConfirmVisible = ViewModel.IsDeleteConfirmDialogVisible;
         _deleteConfirmCount = ViewModel.DeleteConfirmItemCount;
         _deleteConfirmFirstName = ViewModel.DeleteConfirmFirstItemName;

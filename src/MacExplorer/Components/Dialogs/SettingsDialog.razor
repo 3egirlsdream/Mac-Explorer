@@ -4,6 +4,7 @@
 @inject MacExplorer.Services.IThemeService ThemeService
 @inject FileListViewModel ViewModel
 @inject IOpenWithAppService OpenWithService
+@inject MacExplorer.Services.IAppUpdateService AppUpdateService
 
 <div class="settings-dialog">
     <div class="settings-dialog-title">设置</div>
@@ -14,6 +15,7 @@
         <div class="settings-tab @(_activeTab == "sidebar" ? "active" : "")" @onclick="@(() => _activeTab = "sidebar")">侧边栏</div>
         <div class="settings-tab @(_activeTab == "appearance" ? "active" : "")" @onclick="@(() => _activeTab = "appearance")">外观</div>
         <div class="settings-tab @(_activeTab == "openwith" ? "active" : "")" @onclick="@(() => _activeTab = "openwith")">打开方式</div>
+        <div class="settings-tab @(_activeTab == "about" ? "active" : "")" @onclick="@(() => _activeTab = "about")">关于</div>
     </div>
 
     <div class="settings-tab-content">
@@ -366,6 +368,68 @@
             </div>
             <div class="settings-restart-hint">开启"显示在根目录"的应用直接出现在右键菜单中，关闭的应用收纳在"打开方式"子菜单中。</div>
         }
+        else if (_activeTab == "about")
+        {
+            <div class="about-panel">
+                <img class="about-app-icon" src="/appicon.png" alt="MacExplorer" />
+
+                <div class="about-app-name">MacExplorer</div>
+
+                <div class="about-version-badge">
+                    @if (_updateCheckState == UpdateCheckState.UpdateAvailable)
+                    {
+                        <span class="new-dot"></span>
+                    }
+                    版本 @_currentVersion
+                </div>
+
+                @if (_updateCheckState != UpdateCheckState.Downloading)
+                {
+                    <button class="about-update-btn @GetUpdateBtnClass()"
+                            @onclick="OnUpdateButtonClick"
+                            disabled="@(_updateCheckState is UpdateCheckState.Checking or UpdateCheckState.Downloading or UpdateCheckState.Installing)">
+                        @if (_updateCheckState == UpdateCheckState.Checking)
+                        {
+                            <span class="btn-spinner"></span>
+                            <span>检查中...</span>
+                        }
+                        else if (_updateCheckState == UpdateCheckState.UpdateAvailable)
+                        {
+                            <span>立即更新</span>
+                        }
+                        else
+                        {
+                            <span>检查更新</span>
+                        }
+                    </button>
+                }
+
+                @if (_updateCheckState == UpdateCheckState.Downloading)
+                {
+                    <div class="about-progress-bar">
+                        <div class="about-progress-fill" style="width: @((int)_downloadProgress)%"></div>
+                    </div>
+                    <div class="about-status">@_downloadStatusText</div>
+                }
+
+                @if (!string.IsNullOrEmpty(_updateStatusMessage))
+                {
+                    <div class="about-status @GetUpdateStatusClass()">
+                        @_updateStatusMessage
+                    </div>
+                }
+
+                @if (_versionInfo != null && !string.IsNullOrWhiteSpace(_versionInfo.Memo))
+                {
+                    <div class="about-changelog">
+                        <div class="about-changelog-header">更新日志</div>
+                        <div class="about-changelog-content">@_versionInfo.Memo</div>
+                    </div>
+                }
+
+                <div class="about-footer">Copyright 2024–2026 MacExplorer</div>
+            </div>
+        }
     </div>
 
     <div class="settings-dialog-actions">
@@ -416,6 +480,16 @@
     private string _appSearchText = "";
     private bool _isLoadingApps;
 
+    // About / Update state
+    private UpdateCheckState _updateCheckState = UpdateCheckState.Idle;
+    private VersionInfo? _versionInfo;
+    private string _updateStatusMessage = "";
+    private string _downloadStatusText = "";
+    private double _downloadProgress;
+    private string _currentVersion = "1.0";
+
+    private enum UpdateCheckState { Idle, Checking, NoUpdate, UpdateAvailable, Downloading, Installing, Error }
+
     protected override void OnInitialized()
     {
         _isDefaultHandler = DefaultAppService.IsDefaultFolderHandler();
@@ -446,6 +520,9 @@
         _themeMode = SettingsService.Get("theme_mode", "system");
         _vibrancyEnabled = SettingsService.Get("vibrancy_enabled", true);
         _vibrancyAlpha = SettingsService.Get("vibrancy_alpha", 0.85);
+
+        // Load current version for about panel
+        _currentVersion = GetCurrentAppVersion();
 
         // Load open-with apps
         _ = LoadOpenWithAppsAsync();
@@ -575,5 +652,98 @@
     {
         _openWithApps = await OpenWithService.GetAllAsync();
         StateHasChanged();
+    }
+
+    // About / Update methods
+    private static string GetCurrentAppVersion()
+    {
+        try
+        {
+            var display = Foundation.NSBundle.MainBundle.InfoDictionary["CFBundleShortVersionString"]
+                ?.ToString() ?? "1.0";
+            var build = Foundation.NSBundle.MainBundle.InfoDictionary["CFBundleVersion"]
+                ?.ToString();
+            if (!string.IsNullOrWhiteSpace(build))
+                return $"{display}.{build}";
+            return display;
+        }
+        catch { }
+        return "1.0";
+    }
+
+    private string GetUpdateBtnClass() => _updateCheckState switch
+    {
+        UpdateCheckState.Checking => "checking",
+        UpdateCheckState.Downloading => "downloading",
+        _ => ""
+    };
+
+    private string GetUpdateStatusClass() => _updateCheckState switch
+    {
+        UpdateCheckState.Error => "error",
+        UpdateCheckState.NoUpdate => "success",
+        _ => ""
+    };
+
+    private async Task OnUpdateButtonClick()
+    {
+        if (_updateCheckState == UpdateCheckState.UpdateAvailable && _versionInfo != null)
+        {
+            _updateCheckState = UpdateCheckState.Downloading;
+            _updateStatusMessage = "";
+            _downloadProgress = 0;
+            _downloadStatusText = "准备下载...";
+            StateHasChanged();
+
+            try
+            {
+                var capturedState = _updateCheckState;
+                var progress = new Progress<(double Progress, string Status)>(report =>
+                {
+                    if (_updateCheckState != UpdateCheckState.Downloading) return;
+                    _downloadProgress = report.Progress;
+                    _downloadStatusText = report.Status;
+                    StateHasChanged();
+                });
+
+                await AppUpdateService.DownloadAndInstallAsync(_versionInfo, progress);
+            }
+            catch (Exception ex)
+            {
+                _updateCheckState = UpdateCheckState.Error;
+                _updateStatusMessage = $"下载失败: {ex.Message}";
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            _updateCheckState = UpdateCheckState.Checking;
+            _updateStatusMessage = "";
+            _versionInfo = null;
+            StateHasChanged();
+
+            try
+            {
+                _versionInfo = await AppUpdateService.CheckVersionAsync();
+
+                if (_versionInfo != null)
+                {
+                    _updateCheckState = UpdateCheckState.UpdateAvailable;
+                    _updateStatusMessage = $"发现新版本 {_versionInfo.Version}";
+                }
+                else
+                {
+                    _updateCheckState = UpdateCheckState.NoUpdate;
+                    _updateStatusMessage = "已是最新版本";
+                }
+            }
+            catch (Exception ex)
+            {
+                _updateCheckState = UpdateCheckState.Error;
+                _updateStatusMessage = $"检查失败: {ex.Message}";
+            }
+
+            StateHasChanged();
+        }
     }
 }
