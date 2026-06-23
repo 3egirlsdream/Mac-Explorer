@@ -13,8 +13,10 @@ public class AppWindow : Window
 {
     private const double ResizeHitTestThickness = 10;
     private bool _isResizing;
+    private bool _resizeFramePending;
     private WindowEdge _resizeEdge;
     private PixelPoint _resizeStartPointer;
+    private PixelPoint _pendingResizePointer;
     private PixelPoint _resizeStartPosition;
     private double _resizeStartWidth;
     private double _resizeStartHeight;
@@ -92,6 +94,7 @@ public class AppWindow : Window
         _resizeEdge = edge;
         _resizeStartScaling = RenderScaling <= 0 ? 1 : RenderScaling;
         _resizeStartPointer = GetPointerScreenPosition(e, _resizeStartScaling);
+        _pendingResizePointer = _resizeStartPointer;
         _resizeStartPosition = Position;
         _resizeStartWidth = Bounds.Width;
         _resizeStartHeight = Bounds.Height;
@@ -105,7 +108,8 @@ public class AppWindow : Window
         if (!_isResizing)
             return;
 
-        ResizeToPointer(e);
+        _pendingResizePointer = GetPointerScreenPosition(e, _resizeStartScaling);
+        ScheduleResizeToPointer();
         e.Handled = true;
     }
 
@@ -114,7 +118,8 @@ public class AppWindow : Window
         if (!_isResizing)
             return;
 
-        ResizeToPointer(e);
+        _pendingResizePointer = GetPointerScreenPosition(e, _resizeStartScaling);
+        ApplyResizeToPointer(_pendingResizePointer);
         EndResizeDrag();
         e.Handled = true;
     }
@@ -122,9 +127,22 @@ public class AppWindow : Window
     private void OnWindowPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
         => EndResizeDrag();
 
-    private void ResizeToPointer(PointerEventArgs e)
+    private void ScheduleResizeToPointer()
     {
-        var pointer = GetPointerScreenPosition(e, _resizeStartScaling);
+        if (_resizeFramePending)
+            return;
+
+        _resizeFramePending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _resizeFramePending = false;
+            if (_isResizing)
+                ApplyResizeToPointer(_pendingResizePointer);
+        }, DispatcherPriority.Input);
+    }
+
+    private void ApplyResizeToPointer(PixelPoint pointer)
+    {
         var deltaX = (pointer.X - _resizeStartPointer.X) / _resizeStartScaling;
         var deltaY = (pointer.Y - _resizeStartPointer.Y) / _resizeStartScaling;
 

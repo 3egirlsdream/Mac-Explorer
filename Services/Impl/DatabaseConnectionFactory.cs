@@ -24,6 +24,10 @@ public class DatabaseConnectionFactory
     /// </summary>
     public SqliteConnection GetConnection()
     {
+        var directory = Path.GetDirectoryName(_databasePath);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
         var conn = new SqliteConnection($"Data Source={_databasePath};Mode=ReadWriteCreate");
         conn.Open();
 
