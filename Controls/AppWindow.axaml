@@ -1,0 +1,73 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:MacExplorer.Controls">
+    <Styles.Resources>
+        <ControlTheme x:Key="{x:Type local:AppWindow}" TargetType="local:AppWindow">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid x:Name="WindowShadowHost"
+                          Background="Transparent"
+                          Margin="18">
+                        <Border x:Name="WindowShadowLayer"
+                                Background="{DynamicResource WindowBackgroundBrush}"
+                                CornerRadius="{StaticResource RadiusXl}"
+                                BoxShadow="{StaticResource WindowShadow}"/>
+                        <Border x:Name="WindowFrame"
+                                Background="{DynamicResource WindowBackgroundBrush}"
+                                BorderBrush="{DynamicResource WindowBorderBrush}"
+                                BorderThickness="0"
+                                CornerRadius="{StaticResource RadiusXl}"
+                                ClipToBounds="True">
+                            <Grid RowDefinitions="40,*">
+                                <local:WindowTitleBar Grid.Row="0" Title="{TemplateBinding Title}"/>
+                                <ContentPresenter Grid.Row="1"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="West" Width="10"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Cursor="SizeWestEast"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="East" Width="10"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Cursor="SizeWestEast"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="North" Height="10"
+                                                        HorizontalAlignment="Stretch" VerticalAlignment="Top" Cursor="SizeNorthSouth"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="South" Height="10"
+                                                        HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Cursor="SizeNorthSouth"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="NorthWest" Width="16" Height="16"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="SizeAll"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="NorthEast" Width="16" Height="16"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="SizeAll"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="SouthWest" Width="16" Height="16"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="SizeAll"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="SouthEast" Width="16" Height="16"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeAll"
+                                                        IsVisible="{TemplateBinding CanResize}"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:maximized /template/ Grid#WindowShadowHost">
+                <Setter Property="Margin" Value="0"/>
+            </Style>
+            <Style Selector="^:maximized /template/ Border#WindowShadowLayer">
+                <Setter Property="BoxShadow" Value="0 0 0 0 #00000000"/>
+                <Setter Property="CornerRadius" Value="0"/>
+            </Style>
+            <Style Selector="^:maximized /template/ Border#WindowFrame">
+                <Setter Property="CornerRadius" Value="0"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+        </ControlTheme>
+    </Styles.Resources>
+</Styles>

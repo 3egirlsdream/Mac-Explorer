@@ -1,0 +1,96 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:MacExplorer.Controls"
+             x:Class="MacExplorer.Controls.WindowTitleBar"
+             x:Name="TitleBarRoot"
+             Height="40">
+    <UserControl.Styles>
+        <Style Selector="Button.window-control">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="MinWidth" Value="20"/>
+            <Setter Property="MinHeight" Value="20"/>
+            <Setter Property="Padding" Value="3.25"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.window-control:pointerover">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="RenderTransform" Value="scale(1.04)"/>
+        </Style>
+        <Style Selector="Button.window-control:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.92)"/>
+        </Style>
+        <Style Selector="Button.window-control:focus-visible">
+            <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.window-control-symbol">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.08" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="StackPanel.window-controls:pointerover TextBlock.window-control-symbol">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+        <Border x:Name="WindowControlsReserve" Grid.Column="0" Padding="14,0,12,0"
+                VerticalAlignment="Stretch">
+            <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="6"
+                        VerticalAlignment="Center">
+                <Button x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
+                        AutomationProperties.Name="关闭窗口">
+                    <Grid Width="13.5" Height="13.5">
+                        <Ellipse Fill="{DynamicResource WindowCloseBrush}"/>
+                        <TextBlock Classes="window-control-symbol" Text="×" Foreground="#5C1A17" Margin="0,-1,0,0"/>
+                    </Grid>
+                </Button>
+                <Button x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
+                        AutomationProperties.Name="最小化窗口">
+                    <Grid Width="13.5" Height="13.5">
+                        <Ellipse Fill="{DynamicResource WindowMinimizeBrush}"/>
+                        <TextBlock Classes="window-control-symbol" Text="−" Foreground="#654200" Margin="0,-2,0,0"/>
+                    </Grid>
+                </Button>
+                <Button x:Name="MaximizeButton" Classes="window-control" ToolTip.Tip="最大化或还原"
+                        AutomationProperties.Name="最大化或还原窗口">
+                    <Grid Width="13.5" Height="13.5">
+                        <Ellipse Fill="{DynamicResource WindowMaximizeBrush}"/>
+                        <TextBlock Classes="window-control-symbol" Text="+" Foreground="#0C551C" Margin="0,-1,0,0"/>
+                    </Grid>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="DragRegion" Grid.Column="1" Background="Transparent"
+                PointerPressed="OnDragRegionPressed">
+            <TextBlock Text="{Binding Title, ElementName=TitleBarRoot}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontSize="{StaticResource FontSizeSm}" FontWeight="Medium"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       IsHitTestVisible="False"/>
+        </Border>
+
+        <Border Grid.Column="2"
+                Width="{Binding Bounds.Width, ElementName=WindowControlsReserve}"
+                Background="Transparent"
+                PointerPressed="OnDragRegionPressed"/>
+    </Grid>
+</UserControl>

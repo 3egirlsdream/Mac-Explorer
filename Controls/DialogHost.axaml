@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MacExplorer.Controls.DialogHost"
+             x:Name="Host"
+             IsVisible="False"
+             Focusable="True"
+             KeyDown="OnKeyDown">
+    <Grid Background="{DynamicResource OverlayBrush}">
+        <Border Background="Transparent" PointerPressed="OnOverlayPressed"/>
+        <Border Classes="card"
+                Width="420" MaxWidth="520"
+                Padding="22"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                KeyboardNavigation.TabNavigation="Cycle"
+                AutomationProperties.Name="确认对话框"
+                BoxShadow="{StaticResource ShadowMd}">
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="7">
+                    <TextBlock x:Name="TitleText" Classes="heading"/>
+                    <TextBlock x:Name="MessageText" Classes="body"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button x:Name="CancelButton" Classes="secondary" Content="取消" MinWidth="82"
+                            AutomationProperties.Name="取消"/>
+                    <Button x:Name="ConfirmButton" Classes="danger" Content="确认" MinWidth="82"
+                            AutomationProperties.Name="确认"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
