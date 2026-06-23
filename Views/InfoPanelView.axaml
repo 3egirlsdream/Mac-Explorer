@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Views.InfoPanelView"
+             x:DataType="vm:FileListViewModel"
+             x:CompileBindings="False">
+
+    <Border x:Name="InfoPanelRoot" Classes="info-panel" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+                <!-- Header with preview controls -->
+                <DockPanel Grid.Row="0" Margin="14,12,14,0" LastChildFill="True">
+                    <Button DockPanel.Dock="Right" x:Name="ClosePanelBtn"
+                            Classes="ghost info-panel-icon"
+                            Padding="0" Click="ClosePanel" HorizontalAlignment="Right"
+                            VerticalAlignment="Top">
+                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="10" Height="10"
+                                  Foreground="{DynamicResource ColorTextTertiary}"/>
+                    </Button>
+                    <Button DockPanel.Dock="Right" x:Name="ExpandPreviewBtn"
+                            Classes="ghost info-panel-icon" Margin="0,0,6,0"
+                            Padding="0" Click="TogglePreviewExpanded"
+                            ToolTip.Tip="展开预览" HorizontalAlignment="Right"
+                            VerticalAlignment="Top">
+                        <PathIcon x:Name="ExpandPreviewIcon"
+                                  Data="M4 4H10V5.5H5.5V10H4V4ZM14 4H20V10H18.5V5.5H14V4ZM4 14H5.5V18.5H10V20H4V14ZM18.5 14H20V20H14V18.5H18.5V14Z"
+                                  Width="13" Height="13"
+                                  Foreground="{DynamicResource ColorTextTertiary}"/>
+                    </Button>
+                    <TextBlock x:Name="PanelTitle" Text="信息" FontWeight="SemiBold" FontSize="14"
+                               Foreground="{DynamicResource ColorTextPrimary}"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+
+            <ScrollViewer Grid.Row="1">
+              <StackPanel Spacing="0">
+                <!-- Type-aware preview host -->
+                <Border x:Name="PreviewImageArea" Margin="14,10,14,0" CornerRadius="10"
+                        Background="{DynamicResource ColorBgHover}" MinHeight="160"
+                        ClipToBounds="True">
+                    <Panel>
+                        <Image x:Name="PreviewImage" Stretch="Uniform"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBox x:Name="PreviewText"
+                                 IsVisible="False" IsReadOnly="True" AcceptsReturn="True"
+                                 TextWrapping="NoWrap" FontFamily="Menlo,Monaco,monospace"
+                                 FontSize="12" Padding="12" BorderThickness="0"
+                                 Background="Transparent"
+                                 VerticalContentAlignment="Top"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                        <TextBlock x:Name="PreviewPlaceholder"
+                                   Text="选择文件以预览" FontSize="13"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ColorTextTertiary}"/>
+                        <Border x:Name="PreviewKindBadge" IsVisible="False"
+                                HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Margin="8" Padding="7,3" CornerRadius="6"
+                                Background="#B8202024">
+                            <TextBlock x:Name="PreviewKindText" FontSize="10" Foreground="White"/>
+                        </Border>
+                        <Button x:Name="CopyImageTextBtn" IsVisible="False"
+                                Classes="ghost compact" Click="CopyImageText"
+                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                Margin="8" Padding="9,5" CornerRadius="7"
+                                Background="#D9202024" Foreground="White"
+                                Content="复制图片文字" FontSize="11"
+                                ToolTip.Tip="使用 macOS Vision 识别并复制文字">
+                        </Button>
+                    </Panel>
+                </Border>
+
+                <StackPanel x:Name="DetailsPanel" Spacing="0">
+                <!-- Tabs -->
+                <Grid Margin="14,12,14,0" ColumnDefinitions="*,*">
+                    <Button Grid.Column="0" x:Name="TabBasicBtn" Content="基本信息"
+                            Classes="ghost info-tab-active" Click="SwitchToBasicTab"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="0,6"/>
+                    <Button Grid.Column="1" x:Name="TabExifBtn" Content="EXIF 信息"
+                            Classes="ghost info-tab" Click="SwitchToExifTab"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="0,6"/>
+                </Grid>
+
+                <!-- Tab: Basic Info -->
+                <StackPanel x:Name="BasicTabContent" Margin="14,10,14,0" Spacing="8">
+                    <Grid ColumnDefinitions="72,*">
+                        <TextBlock Text="位置" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="InfoPath" Text="—" FontSize="12"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource ColorTextPrimary}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="72,*">
+                        <TextBlock Text="大小" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="InfoSize" Text="—" FontSize="12"
+                                   Foreground="{DynamicResource ColorTextPrimary}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="72,*">
+                        <TextBlock Text="类型" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="InfoType" Text="—" FontSize="12"
+                                   Foreground="{DynamicResource ColorTextPrimary}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="72,*">
+                        <TextBlock Text="修改时间" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="InfoModified" Text="—" FontSize="12"
+                                   Foreground="{DynamicResource ColorTextTertiary}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="72,*">
+                        <TextBlock Text="创建时间" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="InfoCreated" Text="—" FontSize="12"
+                                   Foreground="{DynamicResource ColorTextTertiary}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="72,*">
+                        <TextBlock Text="访问时间" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="InfoAccessed" Text="—" FontSize="12"
+                                   Foreground="{DynamicResource ColorTextTertiary}" VerticalAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Tab: EXIF Info -->
+                <StackPanel x:Name="ExifTabContent" IsVisible="False" Margin="14,10,14,0" Spacing="8">
+                    <TextBlock x:Name="ExifNoDataLabel" Text="无 EXIF 信息" FontSize="12"
+                               Foreground="{DynamicResource ColorTextTertiary}" IsVisible="False"/>
+                    <StackPanel x:Name="ExifFieldsPanel" Spacing="8"/>
+                </StackPanel>
+
+                <!-- Tags Section -->
+                <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="14,12"/>
+                <StackPanel Margin="14,0,14,0" Spacing="10">
+                    <TextBlock Text="标签" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}"/>
+
+                    <!-- System color tags (Apple style) -->
+                    <StackPanel x:Name="SystemTagsPanel" Spacing="8" Orientation="Horizontal"/>
+
+                    <!-- Custom tags -->
+                    <WrapPanel x:Name="CustomTagsPanel"/>
+
+                    <!-- Add tag input -->
+                    <Border Classes="card" CornerRadius="8" Padding="2" Margin="0,2,0,0">
+                        <TextBox x:Name="TagInput"
+                                 PlaceholderText="添加标签，回车确认"
+                                 KeyDown="OnTagInputKeyDown"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- Quick Actions -->
+                <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="14,12"/>
+                <StackPanel Margin="14,0,14,14" Spacing="8">
+                    <TextBlock Text="快速操作" FontSize="11" Foreground="{DynamicResource ColorTextSecondary}"/>
+                    <Border Classes="sidebar-item" PointerPressed="CopyPath">
+                        <Grid ColumnDefinitions="24,*">
+                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.CopyPath}"
+                                      Width="14" Height="14" Foreground="{DynamicResource ColorTextSecondary}"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="复制路径" FontSize="13"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ColorTextPrimary}"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="sidebar-item" PointerPressed="OpenInTerminal">
+                        <Grid ColumnDefinitions="24,*">
+                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Terminal}"
+                                      Width="14" Height="14" Foreground="{DynamicResource ColorTextSecondary}"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="在终端中打开" FontSize="13"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ColorTextPrimary}"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="sidebar-item" PointerPressed="CompressFile">
+                        <Grid ColumnDefinitions="24,*">
+                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Compress}"
+                                      Width="14" Height="14" Foreground="{DynamicResource ColorTextSecondary}"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="压缩" FontSize="13"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ColorTextPrimary}"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

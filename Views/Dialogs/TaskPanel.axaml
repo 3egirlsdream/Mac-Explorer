@@ -1,0 +1,154 @@
+<controls:ToolWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MacExplorer.Controls"
+        xmlns:icons="using:MacExplorer.Assets"
+        x:Class="MacExplorer.Views.Dialogs.TaskPanel"
+        Title="后台任务" Width="460" Height="520" MinWidth="420" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource GlassEffectBg}">
+
+    <controls:ToolWindow.Styles>
+        <Style Selector="Border.task-summary">
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+        <Style Selector="TextBlock.task-stat-value">
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.task-stat-label">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+        <Style Selector="Border.task-row">
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+        <Style Selector="TextBlock.task-title">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.task-meta">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.task-progress-text">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.task-state-pill">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="Border.task-dot">
+            <Setter Property="Width" Value="9"/>
+            <Setter Property="Height" Value="9"/>
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,5,0,0"/>
+        </Style>
+        <Style Selector="Border.task-dot.running">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Border.task-dot.completed">
+            <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
+        </Style>
+        <Style Selector="Border.task-dot.failed">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+        </Style>
+        <Style Selector="Button.task-icon-button">
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="7"/>
+            <Setter Property="CornerRadius" Value="7"/>
+        </Style>
+        <Style Selector="Button.task-icon-button PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="ProgressBar.task-progress">
+            <Setter Property="Height" Value="5"/>
+        </Style>
+    </controls:ToolWindow.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20" RowSpacing="16">
+        <StackPanel Grid.Row="0" Spacing="14">
+            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Spacing="3">
+                    <TextBlock x:Name="TaskSummaryText" Text="没有正在运行的任务"
+                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                </StackPanel>
+                <Button x:Name="ClearAllButton" Grid.Column="1" Content="全部清空"
+                        Classes="ghost compact" Click="ClearAllTasks"/>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                <Border Grid.Column="0" Classes="task-summary">
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="RunningCountText" Text="0" Classes="task-stat-value"/>
+                        <TextBlock Text="进行中" Classes="task-stat-label"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="task-summary">
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="CompletedCountText" Text="0" Classes="task-stat-value"/>
+                        <TextBlock Text="已完成" Classes="task-stat-label"/>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="FailedStat" Grid.Column="2" Classes="task-summary">
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="FailedCountText" Text="0" Classes="task-stat-value"/>
+                        <TextBlock Text="需要处理" Classes="task-stat-label"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Border x:Name="EmptyPlaceholder"
+                    Background="{DynamicResource SurfaceElevatedBrush}"
+                    BorderBrush="{DynamicResource ColorBorderSubtle}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                    <PathIcon Data="{x:Static icons:Icons.Info}" Width="34" Height="34"
+                              Foreground="{DynamicResource SuccessBrush}"
+                              HorizontalAlignment="Center"/>
+                    <TextBlock Text="没有后台任务" FontSize="14" FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="所有任务都已处理完毕"
+                               FontSize="12"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer x:Name="TaskListScroll"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="8" x:Name="TaskItemsPanel"/>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+            <Button x:Name="ClearCompletedButton"
+                    Grid.Column="1"
+                    Content="清除已完成"
+                    Classes="ghost compact"
+                    Click="ClearCompleted"/>
+        </Grid>
+    </Grid>
+</controls:ToolWindow>

@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:icons="using:MacExplorer.Assets"
+             xmlns:local="using:MacExplorer.Views"
+             x:Class="MacExplorer.Views.AiView"
+             x:DataType="vm:FileListViewModel"
+             x:CompileBindings="False">
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource ColorBgContent}">
+        <Border Grid.Row="0" Padding="16,12" Background="Transparent">
+            <Border Classes="ai-search-box">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                          Width="18" Height="18" Margin="0,0,10,0"
+                          Foreground="{DynamicResource ColorTextSecondary}"/>
+                <TextBox Grid.Column="1" x:Name="AiSearchBox"
+                         Classes="search-input"
+                         PlaceholderText="搜索图片中识别的文字..."
+                         KeyDown="OnAiSearchKeyDown"/>
+                <Button Grid.Column="2" x:Name="ClearSearchButton" Content="✕"
+                        Classes="ghost close-btn"
+                        Width="24" Height="24" IsVisible="False"
+                        Background="Transparent" BorderThickness="0"
+                        Click="ClearSearch"/>
+            </Grid>
+            </Border>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <local:FileListView x:Name="ResultsView" DataContext="{Binding}" IsVisible="False"/>
+
+            <ScrollViewer x:Name="TokenView">
+                <StackPanel Margin="20" Spacing="14">
+                    <TextBlock Text="热门文字" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                    <TextBlock Text="选择 AI 从图片中识别出的文字，或在上方输入关键词搜索。"
+                               FontSize="12" Foreground="{DynamicResource ColorTextSecondary}"/>
+                    <WrapPanel x:Name="TextTokensPanel"/>
+                    <StackPanel x:Name="EmptyState" Margin="0,70,0,0"
+                                HorizontalAlignment="Center" Spacing="8">
+                        <PathIcon Data="{x:Static icons:Icons.FileText}" Width="48" Height="48"
+                                  Opacity="0.3" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="EmptyTitle" Text="还没有识别到文字内容"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource ColorTextSecondary}"/>
+                        <TextBlock x:Name="EmptyHint" Text="浏览包含图片的文件夹后会自动建立文字索引"
+                                   FontSize="12" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource ColorTextTertiary}"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

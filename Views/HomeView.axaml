@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Views.HomeView"
+             x:DataType="vm:FileListViewModel"
+             x:CompileBindings="False">
+
+    <Grid Background="{DynamicResource ColorBgContent}" x:Name="HomeRoot">
+        <Grid.ContextMenu><ContextMenu x:Name="HomeCtxMenu"/></Grid.ContextMenu>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Spacing="34" Margin="32" MaxWidth="720">
+            <Border Classes="home-search-box">
+                <Grid ColumnDefinitions="Auto,*">
+                    <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                              Width="18" Height="18" Margin="14,0,8,0"
+                              Foreground="{DynamicResource ColorTextTertiary}"/>
+                    <TextBox Grid.Column="1" x:Name="HomeSearchBox"
+                             Classes="home-search-input"
+                             PlaceholderText="搜索文件和文件夹"
+                             KeyDown="OnHomeSearchKeyDown"/>
+                </Grid>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="30">
+                <Button Classes="ghost home-shortcut" Click="NavigateHomeDirectory">
+                    <StackPanel Spacing="10">
+                        <Border Classes="home-shortcut-icon">
+                            <PathIcon Data="{x:Static icons:Icons.Home}" Width="46" Height="46"
+                                      Foreground="#54A3F7"/>
+                        </Border>
+                        <TextBlock Text="主目录" HorizontalAlignment="Center" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+                <Button Classes="ghost home-shortcut" Click="NavigateDesktop">
+                    <StackPanel Spacing="10">
+                        <Border Classes="home-shortcut-icon">
+                            <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="46" Height="46"
+                                      Foreground="#54A3F7"/>
+                        </Border>
+                        <TextBlock Text="桌面" HorizontalAlignment="Center" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+                <Button Classes="ghost home-shortcut" Click="NavigateMacintoshHd">
+                    <StackPanel Spacing="10">
+                        <Border Classes="home-shortcut-icon">
+                            <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="46" Height="46"
+                                      Foreground="#22D3EE"/>
+                        </Border>
+                        <TextBlock Text="Macintosh HD" HorizontalAlignment="Center" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

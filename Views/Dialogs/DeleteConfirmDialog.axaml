@@ -1,0 +1,26 @@
+<controls:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MacExplorer.Controls"
+        x:Class="MacExplorer.Views.Dialogs.DeleteConfirmDialog"
+        Title="确认删除" Width="380" Height="180"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource GlassEffectBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+        <TextBlock Grid.Row="0" x:Name="DialogTitle" Text="确认删除" FontSize="16" FontWeight="Bold"
+                   Foreground="{DynamicResource ColorTextPrimary}"/>
+        <TextBlock Grid.Row="1" x:Name="ConfirmMessage"
+                   Text="确定要删除选中的项目吗？"
+                   FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"
+                   Foreground="{DynamicResource ColorTextSecondary}"
+                   Margin="0,8"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Spacing="8">
+            <Button Content="取消" Width="80" Classes="secondary"
+                    Click="Cancel"/>
+            <Button x:Name="ConfirmButton" Content="删除" Width="80" Classes="danger"
+                    Click="Confirm"/>
+        </StackPanel>
+    </Grid>
+</controls:DialogWindow>

@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:MacExplorer.Controls"
+             x:Class="MacExplorer.Views.LiquidGlassDemo"
+             Background="{DynamicResource WindowBackgroundBrush}">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.subtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="Button.glass-btn">
+            <Setter Property="Background" Value="#14000000"/>
+            <Setter Property="Foreground" Value="#1C1C1E"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="28,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.glass-btn:pointerover">
+            <Setter Property="Background" Value="#20000000"/>
+        </Style>
+        <Style Selector="Button.glass-btn:pressed">
+            <Setter Property="Background" Value="#0A000000"/>
+        </Style>
+        <Style Selector="Button.glass-btn-cancel">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#8E8E93"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="28,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.glass-btn-cancel:pointerover">
+            <Setter Property="Background" Value="#0C000000"/>
+            <Setter Property="Foreground" Value="#1C1C1E"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <Panel.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                <GradientStop Color="#E8E8ED" Offset="0"/>
+                <GradientStop Color="#F2F2F7" Offset="0.4"/>
+                <GradientStop Color="#E5E5EA" Offset="0.7"/>
+                <GradientStop Color="#F2F2F7" Offset="1"/>
+            </LinearGradientBrush>
+        </Panel.Background>
+
+        <!-- Decorative soft orbs -->
+        <Ellipse Width="400" Height="400" Margin="40,20,0,0"
+                 HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.3">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#FF6B6B" Offset="0"/>
+                    <GradientStop Color="#FF6B6B00" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+        <Ellipse Width="320" Height="320" Margin="0,0,60,40"
+                 HorizontalAlignment="Right" VerticalAlignment="Bottom" Opacity="0.25">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#5B86E5" Offset="0"/>
+                    <GradientStop Color="#5B86E500" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+        <Ellipse Width="260" Height="260" Margin="320,200,0,0"
+                 HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.2">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#36D1DC" Offset="0"/>
+                    <GradientStop Color="#36D1DC00" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+        <Ellipse Width="240" Height="240" Margin="0,0,280,160"
+                 HorizontalAlignment="Right" VerticalAlignment="Bottom" Opacity="0.25">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#F093FB" Offset="0"/>
+                    <GradientStop Color="#F093FB00" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Glass Card using the reusable component -->
+        <controls:SurfaceCard Width="440" Height="340"
+                                   CornerRadius="28" Padding="36"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+            <controls:SurfaceCard.Content>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14">
+                    <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                              Width="48" Height="48" HorizontalAlignment="Center"
+                              Foreground="#40000000"/>
+                    <TextBlock Classes="title" Text="Liquid Glass" HorizontalAlignment="Center"/>
+                    <TextBlock Classes="subtitle" Text="Apple WWDC25 inspired material"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Soft lensing · Uniform edge reflections&#x0a;High transparency · No hard borders"
+                               TextAlignment="Center" FontSize="12" Foreground="#8E8E93"
+                               TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="14"
+                                HorizontalAlignment="Center" Margin="0,8,0,0">
+                        <Button Content="Confirm" Classes="primary glass-btn"/>
+                        <Button Content="Cancel" Classes="ghost glass-btn-ghost"/>
+                    </StackPanel>
+                </StackPanel>
+            </controls:SurfaceCard.Content>
+        </controls:SurfaceCard>
+    </Panel>
+</UserControl>

@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:MacExplorer.Models"
+             xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Views.ContextMenuView">
+
+    <Border Classes="glass-effect" MinWidth="200" MaxWidth="320"
+            Padding="0" CornerRadius="10">
+        <StackPanel x:Name="MenuItemsPanel"/>
+    </Border>
+</UserControl>

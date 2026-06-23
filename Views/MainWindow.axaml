@@ -1,0 +1,169 @@
+<controls:AppWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MacExplorer.ViewModels"
+        xmlns:icons="using:MacExplorer.Assets"
+        xmlns:local="using:MacExplorer.Views"
+        xmlns:controls="using:MacExplorer.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1400" d:DesignHeight="900"
+        x:Class="MacExplorer.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel" x:CompileBindings="False"
+        Title="Mac Explorer"
+        Width="1400" Height="900"
+        MinWidth="1400" MinHeight="900">
+
+    <Grid>
+    <Border x:Name="RootLayout" CornerRadius="0">
+        <Grid ColumnDefinitions="260,*" Margin="8">
+            <!-- Left: Sidebar (full height) — Liquid Glass -->
+            <controls:SurfaceCard Grid.Column="0" CornerRadius="16" Padding="0"
+                                       Margin="0,0,4,0">
+                <controls:SurfaceCard.Content>
+                    <Grid RowDefinitions="*,Auto">
+                        <local:FinderSidebarView Grid.Row="0"
+                                                  x:Name="SidebarControl"
+                                                  DataContext="{Binding FileList}"/>
+                        <Button Grid.Row="1" x:Name="SettingsButton"
+                                Margin="8,4,8,8"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left" Padding="10,6"
+                                Classes="ghost glass-btn-ghost">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
+                                <TextBlock Text="设置" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </controls:SurfaceCard.Content>
+            </controls:SurfaceCard>
+
+            <!-- Right: Navbar + Toolbar + Content -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="4,0,0,0">
+                <!-- Row 0: Navigation bar + Toolbar — single Liquid Glass card -->
+                <controls:SurfaceCard Grid.Row="0" CornerRadius="14" Padding="0"
+                                           Margin="0,0,0,4">
+                    <controls:SurfaceCard.Content>
+                        <Border CornerRadius="14" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,Auto">
+                            <!-- Navigation bar row -->
+                            <Border Grid.Row="0" Height="40">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="8,0" VerticalAlignment="Bottom">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
+                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="后退 ⌘[" Click="NavigateBack"
+                                                IsEnabled="{Binding FileList.CanGoBack}">
+                                            <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
+                                        </Button>
+                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="前进 ⌘]" Click="NavigateForward"
+                                                IsEnabled="{Binding FileList.CanGoForward}">
+                                            <PathIcon Data="{x:Static icons:Icons.Forward}" Width="14" Height="14"/>
+                                        </Button>
+                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="上级目录 ⌘↑" Click="NavigateUp"
+                                                IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                                            <PathIcon Data="{x:Static icons:Icons.Up}" Width="14" Height="14"/>
+                                        </Button>
+                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="刷新 ⌘R" Click="RefreshView">
+                                            <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="14" Height="14"/>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
+                                                         DataContext="{Binding FileList}"
+                                                         Margin="8,0" VerticalAlignment="Center"/>
+
+                                    <!-- Search -->
+                                    <Border Grid.Column="2" Classes="search-bar"
+                                            VerticalAlignment="Center" Margin="6,0,0,0">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                                                      Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                      Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBox Grid.Column="1" x:Name="SearchBox"
+                                                     Classes="search-input"
+                                                     PlaceholderText="搜索..."
+                                                     KeyDown="OnSearchKeyDown"/>
+                                            <Button Grid.Column="2" x:Name="SearchClearBtn" Content="✕"
+                                                    Classes="ghost close-btn search-clear-btn"
+                                                    Width="20" Height="20" Padding="0" Background="Transparent" FontSize="11"
+                                                    Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"
+                                                    Click="ClearSearch"/>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            
+                            <!-- Toolbar row -->
+                            <local:FinderToolbar Grid.Row="1" x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
+                        </Grid>
+                        </Border>
+                    </controls:SurfaceCard.Content>
+                </controls:SurfaceCard>
+
+                <!-- Row 1: Content + Status bar — single Liquid Glass card -->
+                <controls:SurfaceCard Grid.Row="1" CornerRadius="14" Padding="0">
+                    <controls:SurfaceCard.Content>
+                        <Border CornerRadius="14" ClipToBounds="True">
+                        <Grid RowDefinitions="*,Auto">
+                            <SplitView x:Name="InfoDrawer"
+                                       DisplayMode="Inline"
+                                       PanePlacement="Right"
+                                       OpenPaneLength="380"
+                                       CompactPaneLength="0"
+                                       IsPaneOpen="False">
+                                <SplitView.Pane>
+                                    <Grid x:Name="InfoPanelPane" ClipToBounds="True">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" x:Name="InfoPanelResizeHandle" Background="Transparent"
+                                                Cursor="SizeWestEast"
+                                                PointerPressed="OnInfoPanelResizePressed"
+                                                PointerMoved="OnInfoPanelResizeMoved"
+                                                PointerReleased="OnInfoPanelResizeReleased"/>
+                                        <local:InfoPanelView Grid.Column="1"
+                                                             x:Name="InfoPanelControl"
+                                                             DataContext="{Binding FileList}"/>
+                                    </Grid>
+                                </SplitView.Pane>
+                                <SplitView.Content>
+                                    <Grid>
+                                        <local:FileListView x:Name="FileListControl"
+                                                            DataContext="{Binding FileList}"
+                                                            IsVisible="True"/>
+                                        <local:HomeView x:Name="HomeViewControl"
+                                                        DataContext="{Binding FileList}"
+                                                        IsVisible="False"/>
+                                        <local:AiView x:Name="AiViewControl"
+                                                      DataContext="{Binding FileList}"
+                                                      IsVisible="False"/>
+                                    </Grid>
+                                </SplitView.Content>
+                            </SplitView>
+
+                            <!-- Status bar -->
+                            <Border Grid.Row="1" Height="32">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,0">
+                                    <TextBlock Grid.Column="0" Text="{Binding FileList.StatusText}"
+                                               FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <Button Grid.Column="2" x:Name="TaskButton" IsVisible="False"
+                                            Classes="ghost glass-btn-ghost" Padding="8,3" Margin="0,2,8,2"
+                                            Click="OpenTaskPanel">
+                                        <TextBlock x:Name="TaskButtonText" Text="后台任务" FontSize="11" VerticalAlignment="Center"/>
+                                    </Button>
+                                    <TextBlock Grid.Column="3" Text="Mac Explorer"
+                                               FontSize="10" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        </Border>
+                    </controls:SurfaceCard.Content>
+                </controls:SurfaceCard>
+            </Grid>
+        </Grid>
+    </Border>
+    <controls:DialogHost x:Name="DialogHost"/>
+    </Grid>
+</controls:AppWindow>

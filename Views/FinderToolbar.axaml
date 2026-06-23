@@ -1,0 +1,190 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Views.FinderToolbar"
+             x:DataType="vm:FileListViewModel"
+             x:CompileBindings="False">
+
+    <Border Classes="finder-toolbar">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="0,0">
+
+            <!-- New button + Dropdown Popup -->
+            <Button Grid.Column="0" Classes="ghost toolbar-btn w32" ToolTip.Tip="新建"
+                    x:Name="NewBtn" Click="ToggleNewDropdown">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <PathIcon Data="{x:Static icons:Icons.Plus}" Width="10" Height="10"/>
+                    <TextBlock Text="新建" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <!-- New dropdown popup -->
+            <Popup x:Name="NewDropdown" Placement="BottomEdgeAlignedLeft" PlacementTarget="NewBtn"
+                   IsOpen="False" IsLightDismissEnabled="True"
+                   OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False"
+                   Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
+                <Border Classes="toolbar-popup" MinWidth="200">
+                    <StackPanel>
+                        <Button Classes="toolbar-popup-item"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="NewFolder">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{x:Static icons:Icons.NewFolder}" Width="14" Height="14"/>
+                                <TextBlock Text="新建文件夹" FontSize="13"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="toolbar-popup-item"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".txt" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{x:Static icons:Icons.FileText}" Width="14" Height="14"/>
+                                <TextBlock Text="新建文本文件" FontSize="13"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="toolbar-popup-item"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".md" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{x:Static icons:Icons.FileMarkdown}" Width="14" Height="14"/>
+                                <TextBlock Text="新建 Markdown" FontSize="13"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="toolbar-popup-item"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".json" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{x:Static icons:Icons.FileConfig}" Width="14" Height="14"/>
+                                <TextBlock Text="新建 JSON 文件" FontSize="13"/>
+                            </StackPanel>
+                        </Button>
+                        <Separator/>
+                        <Button x:Name="NewWordButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".docx" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Data="{x:Static icons:Icons.FileText}" Width="14" Height="14"/><TextBlock Text="新建 Word 文稿" FontSize="13"/></StackPanel>
+                        </Button>
+                        <Button x:Name="NewExcelButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".xlsx" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Data="{x:Static icons:Icons.Grid}" Width="14" Height="14"/><TextBlock Text="新建 Excel 表格" FontSize="13"/></StackPanel>
+                        </Button>
+                        <Button x:Name="NewPowerPointButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".pptx" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Data="{x:Static icons:Icons.Preview}" Width="14" Height="14"/><TextBlock Text="新建 PowerPoint 演示文稿" FontSize="13"/></StackPanel>
+                        </Button>
+                        <Button x:Name="NewPagesButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".pages" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Data="{x:Static icons:Icons.FileText}" Width="14" Height="14"/><TextBlock Text="新建 Pages 文稿" FontSize="13"/></StackPanel>
+                        </Button>
+                        <Button x:Name="NewNumbersButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".numbers" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Data="{x:Static icons:Icons.Grid}" Width="14" Height="14"/><TextBlock Text="新建 Numbers 表格" FontSize="13"/></StackPanel>
+                        </Button>
+                        <Button x:Name="NewKeynoteButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Tag=".key" Click="NewFile">
+                            <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Data="{x:Static icons:Icons.Preview}" Width="14" Height="14"/><TextBlock Text="新建 Keynote 演示文稿" FontSize="13"/></StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <Separator Grid.Column="1" Classes="toolbar-separator"/>
+
+            <!-- Clipboard -->
+            <Button Grid.Column="2" Classes="ghost toolbar-btn w32" ToolTip.Tip="剪切 ⌘X" Click="CutSelected">
+                <PathIcon Data="{x:Static icons:Icons.Cut}" Width="14" Height="14"/>
+            </Button>
+            <Button Grid.Column="3" Classes="ghost toolbar-btn w32" ToolTip.Tip="复制 ⌘C" Click="CopySelected">
+                <PathIcon Data="{x:Static icons:Icons.Copy}" Width="14" Height="14"/>
+            </Button>
+            <Button Grid.Column="4" Classes="ghost toolbar-btn w32" ToolTip.Tip="粘贴 ⌘V" Click="PasteItems">
+                <PathIcon Data="{x:Static icons:Icons.Paste}" Width="14" Height="14"/>
+            </Button>
+            <Button Grid.Column="5" Classes="ghost toolbar-btn w32" ToolTip.Tip="删除 ⌘⌫" Click="DeleteSelected">
+                <PathIcon Data="{x:Static icons:Icons.Delete}" Width="14" Height="14"/>
+            </Button>
+
+            <Button Grid.Column="6" Classes="ghost toolbar-btn w32" ToolTip.Tip="首页 ⌘H" Click="GoHome">
+                <PathIcon Data="{x:Static icons:Icons.Home}" Width="14" Height="14"/>
+            </Button>
+
+            <Separator Grid.Column="7" Classes="toolbar-separator"/>
+
+            <!-- View mode toggle -->
+            <Button Grid.Column="8" Classes="ghost toolbar-btn w32" ToolTip.Tip="图标视图" Click="ToggleGridView">
+                <PathIcon Data="{x:Static icons:Icons.Grid}" Width="14" Height="14"/>
+            </Button>
+            <Button Grid.Column="9" Classes="ghost toolbar-btn w32" ToolTip.Tip="列表视图" Click="ToggleListView">
+                <PathIcon Data="{x:Static icons:Icons.List}" Width="14" Height="14"/>
+            </Button>
+
+            <Separator Grid.Column="10" Classes="toolbar-separator"/>
+
+            <!-- Sort & Group -->
+            <Button Grid.Column="11" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="排序和分组" Click="ToggleSortDropdown">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <PathIcon Data="{x:Static icons:Icons.SortUpDown}" Width="14" Height="14"/>
+                    <TextBlock Text="排序" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Popup x:Name="SortDropdown" Placement="BottomEdgeAlignedLeft" PlacementTarget="SortButton"
+                   IsOpen="False" IsLightDismissEnabled="True"
+                   OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False"
+                   Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
+                <Border Classes="toolbar-popup" MinWidth="190">
+                    <StackPanel>
+                        <TextBlock Text="排序方式" Classes="toolbar-popup-header"/>
+                        <Button Content="名称" Tag="Name" Classes="toolbar-popup-item" Click="SelectSortField"/>
+                        <Button Content="修改日期" Tag="Modified" Classes="toolbar-popup-item" Click="SelectSortField"/>
+                        <Button Content="大小" Tag="Size" Classes="toolbar-popup-item" Click="SelectSortField"/>
+                        <Button Content="类型" Tag="Type" Classes="toolbar-popup-item" Click="SelectSortField"/>
+                        <Separator/>
+                        <Button x:Name="SortDirectionButton" Content="升序 ↑" Classes="toolbar-popup-item" Click="ToggleSortDirection"/>
+                        <Separator/>
+                        <TextBlock Text="分组方式" Classes="toolbar-popup-header"/>
+                        <Button Content="不分组" Tag="None" Classes="toolbar-popup-item" Click="SelectGroupField"/>
+                        <Button Content="类型" Tag="Type" Classes="toolbar-popup-item" Click="SelectGroupField"/>
+                        <Button Content="修改日期" Tag="Modified" Classes="toolbar-popup-item" Click="SelectGroupField"/>
+                        <Button Content="大小" Tag="Size" Classes="toolbar-popup-item" Click="SelectGroupField"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Spacer -->
+            <Border Grid.Column="12"/>
+
+            <!-- Info panel toggle -->
+            <Button Grid.Column="13" Classes="ghost toolbar-btn w32" ToolTip.Tip="信息面板 ⌘I" Click="ToggleInfoPanel">
+                <PathIcon Data="{x:Static icons:Icons.Info}" Width="14" Height="14"/>
+            </Button>
+
+            <!-- More button -->
+            <Button Grid.Column="14" Classes="ghost toolbar-btn w32" ToolTip.Tip="更多"
+                    x:Name="MoreBtn" Click="ToggleMoreDropdown">
+                <PathIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="14" Height="14"/>
+            </Button>
+
+            <!-- More dropdown popup -->
+            <Popup x:Name="MoreDropdown" Placement="BottomEdgeAlignedRight" PlacementTarget="MoreBtn"
+                   IsOpen="False" IsLightDismissEnabled="True"
+                   OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False"
+                   Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
+                <Border Classes="toolbar-popup" MinWidth="180">
+                    <StackPanel>
+                        <Button Classes="toolbar-popup-item"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="OnConnectRemoteServer">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="14" Height="14"/>
+                                <TextBlock Text="连接远程服务器" FontSize="13"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Settings button -->
+            <Button Grid.Column="15" Classes="ghost toolbar-btn w32" ToolTip.Tip="设置" Click="OpenSettings">
+                <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

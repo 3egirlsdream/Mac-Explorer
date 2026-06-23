@@ -1,0 +1,57 @@
+<controls:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MacExplorer.Controls"
+        x:Class="MacExplorer.Views.Dialogs.CompressDialog"
+        Title="压缩文件" Width="450" Height="360"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource GlassEffectBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <StackPanel Grid.Row="1" Spacing="14">
+            <StackPanel Spacing="4">
+                <TextBlock Text="压缩包名称" FontSize="12"
+                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                <TextBox x:Name="ArchiveNameBox" Text="Archive.zip"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="压缩格式" FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button x:Name="BtnZip" Classes="secondary"
+                            Click="OnFormatChanged" Tag="Zip">ZIP</Button>
+                    <Button x:Name="BtnTarGz" Classes="secondary"
+                            Click="OnFormatChanged" Tag="TarGz">tar.gz</Button>
+                    <Button x:Name="BtnTarBz2" Classes="secondary"
+                            Click="OnFormatChanged" Tag="TarBz2">tar.bz2</Button>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="压缩级别" FontSize="12"
+                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button x:Name="BtnFast" Classes="secondary"
+                            Click="OnLevelChanged" Tag="Fast">快速</Button>
+                    <Button x:Name="BtnStandard" Classes="secondary"
+                            Click="OnLevelChanged" Tag="Standard">标准</Button>
+                    <Button x:Name="BtnMaximum" Classes="secondary"
+                            Click="OnLevelChanged" Tag="Maximum">最大</Button>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+            <Button Content="取消" Width="80" Classes="secondary"
+                    HorizontalContentAlignment="Center"
+                    Click="CancelClick"/>
+            <Button Content="压缩" Width="80" Classes="primary"
+                    x:Name="ConfirmBtn"
+                    HorizontalContentAlignment="Center"
+                    Click="ConfirmClick"/>
+        </StackPanel>
+    </Grid>
+</controls:DialogWindow>

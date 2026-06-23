@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:icons="using:MacExplorer.Assets"
+             xmlns:models="using:MacExplorer.Models"
+             x:Class="MacExplorer.Views.BreadcrumbBar"
+             x:DataType="vm:FileListViewModel"
+             x:CompileBindings="False">
+
+    <Border Classes="breadcrumb-bar" Padding="4,2" Background="{DynamicResource SurfaceElevatedBrush}">
+        <Grid ColumnDefinitions="*">
+            <!-- Home Page Mode -->
+            <TextBox Grid.Column="0"
+                     LineHeight="30"
+                     x:Name="HomePathInput"
+                     Classes="breadcrumb-input"
+                     PlaceholderText="输入路径前往..."
+                     IsVisible="{Binding IsHomePage}"
+                     KeyDown="OnHomePathKeyDown"
+                     LostFocus="OnHomePathLostFocus"/>
+
+            <!-- Browse Mode: BreadcrumbBar -->
+            <ScrollViewer Grid.Column="1"
+                          x:Name="BrowseModePanel"
+                          IsVisible="{Binding IsHomePage, Converter={StaticResource BoolNotConverter}}"
+                          DoubleTapped="OnBrowseModeDoubleTapped"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Breadcrumbs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="0"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:BreadcrumbSegment">
+                            <StackPanel Orientation="Horizontal" Spacing="0" Cursor="Hand"
+                                        Background="Transparent">
+                                <!-- Chevron separator (not shown for first item) -->
+                                <PathIcon Data="{x:Static icons:Icons.ChevronRight}"
+                                          Width="12" Height="12"
+                                          Foreground="{DynamicResource ColorTextQuaternary}"
+                                          Margin="2,0"
+                                          VerticalAlignment="Center"/>
+                                <!-- Segment button -->
+                                <Border x:Name="SegmentBorder"
+                                        CornerRadius="4"
+                                        Padding="6,2"
+                                        Background="Transparent"
+                                        PointerPressed="OnSegmentClicked"
+                                        Tag="{Binding FullPath}">
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <TextBox Grid.Column="0"
+                     x:Name="PathInput"
+                     Classes="breadcrumb-input"
+                     IsVisible="False"
+                     KeyDown="OnPathInputKeyDown"
+                     TextChanged="OnPathInputTextChanged"
+                     LostFocus="OnPathInputLostFocus"/>
+
+            <Popup x:Name="PathSuggestionsPopup"
+                   PlacementTarget="{Binding #PathInput}"
+                   Placement="Bottom"
+                   IsLightDismissEnabled="False">
+                <Border Width="420" MaxHeight="240" Margin="0,4,0,0"
+                        CornerRadius="12" Padding="6"
+                        Background="{DynamicResource GlassMenuBg}"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
+                        BoxShadow="{StaticResource WindowShadow}">
+                    <ListBox x:Name="PathSuggestionList"
+                             SelectionChanged="OnPathSuggestionSelected"
+                             DoubleTapped="OnPathSuggestionDoubleTapped"/>
+                </Border>
+            </Popup>
+        </Grid>
+    </Border>
+</UserControl>

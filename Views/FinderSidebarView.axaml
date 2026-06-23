@@ -1,0 +1,454 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:models="using:MacExplorer.Models"
+             xmlns:icons="using:MacExplorer.Assets"
+             xmlns:converters="using:MacExplorer.Converters"
+             x:Class="MacExplorer.Views.FinderSidebarView"
+             x:DataType="vm:FileListViewModel"
+             x:CompileBindings="False">
+
+    <UserControl.Resources>
+        <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
+        <converters:StringToColorConverter x:Key="StringToColor"/>
+        <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
+    </UserControl.Resources>
+
+    <ScrollViewer>
+        <StackPanel Margin="4,8,4,4">
+
+                    <!-- ═══ 收藏 Favorites ═══ -->
+                    <!-- <TextBlock Classes="sidebar-section-title" Text="收藏"/> -->
+
+                    <!-- Username -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarUsername}"
+                            x:Name="UsernameItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Person}"
+                                      Width="14" Height="14"
+                                      Foreground="#54A3F7"/>
+                            <TextBlock Text="{Binding UserName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Desktop -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarDesktop}"
+                            x:Name="DesktopItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Desktop}"
+                                      Width="14" Height="14"
+                                      Foreground="#54A3F7"/>
+                            <TextBlock Text="{Binding DesktopName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Documents -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarDocuments}"
+                            x:Name="DocumentsItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.FileText}"
+                                      Width="14" Height="14"
+                                      Foreground="#3B82F6"/>
+                            <TextBlock Text="{Binding DocumentsName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Downloads -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarDownloads}"
+                            x:Name="DownloadsItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Download}"
+                                      Width="14" Height="14"
+                                      Foreground="#22C55E"/>
+                            <TextBlock Text="{Binding DownloadsName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pictures -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarPictures}"
+                            x:Name="PicturesItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Image}"
+                                      Width="14" Height="14"
+                                      Foreground="#E8912D"/>
+                            <TextBlock Text="{Binding PicturesName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Music -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarMusic}"
+                            x:Name="MusicItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Music}"
+                                      Width="14" Height="14"
+                                      Foreground="#EC4899"/>
+                            <TextBlock Text="{Binding MusicName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pinned folders (kept from existing, already working) -->
+                    <ItemsControl Classes="sidebar-items"
+                                  ItemsSource="{Binding PinnedFolders}"
+                                  IsVisible="{Binding PinnedFolders, Converter={StaticResource IsNotEmpty}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:PinnedFolder">
+                                <Border Classes="sidebar-item"
+                                        Tag="{Binding FolderPath}"
+                                        PointerPressed="OnPinnedFolderPressed">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
+                                            <PathIcon Data="{x:Static icons:Icons.Folder}"
+                                                      Width="14" Height="14"
+                                                      Foreground="#F59E0B"/>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                            Classes="ghost sidebar-item-action pinned-unpin"
+                                            Tag="{Binding FolderPath}"
+                                            ToolTip.Tip="取消固定"
+                                            PointerPressed="OnUnpinPointerPressed"
+                                            Click="UnpinFolder">
+                                            <PathIcon Data="{x:Static icons:Icons.Pin}"
+                                                      Width="12" Height="12"
+                                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- ═══ 位置 Locations ═══ -->
+                    <TextBlock Classes="sidebar-section-title" Text="位置"/>
+
+                    <!-- Macintosh HD -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarMacintoshHd}"
+                            x:Name="VolumeItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
+                                      Width="14" Height="14"
+                                      Foreground="#22D3EE"/>
+                            <TextBlock Text="{Binding VolumeName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- External volumes -->
+                    <ItemsControl Classes="sidebar-items"
+                                  ItemsSource="{Binding ExternalVolumes}"
+                                  IsVisible="{Binding ExternalVolumes, Converter={StaticResource IsNotEmpty}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:VolumeInfo">
+                                <Border Classes="sidebar-item"
+                                        Tag="{Binding .}"
+                                        PointerPressed="OnVolumePressed">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
+                                            <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
+                                                      Width="14" Height="14"
+                                                      Foreground="#F97316"/>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center" FontSize="13"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Classes="ghost sidebar-item-action"
+                                                Tag="{Binding .}"
+                                                ToolTip.Tip="推出"
+                                                PointerPressed="OnUnpinPointerPressed"
+                                                Click="EjectVolume">
+                                            <PathIcon Data="{x:Static icons:Icons.Eject}"
+                                                      Width="12" Height="12"
+                                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Applications -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarApplications}"
+                            x:Name="ApplicationsItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Apps}"
+                                      Width="14" Height="14"
+                                      Foreground="#818CF8"/>
+                            <TextBlock Text="{Binding ApplicationsName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Trash -->
+                    <Border Classes="sidebar-item"
+                            IsVisible="{Binding ShowSidebarTrash}"
+                            x:Name="TrashItem"
+                            PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Trash}"
+                                      Width="14" Height="14"
+                                      Foreground="#A78BFA"/>
+                            <TextBlock Text="{Binding TrashName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center" FontSize="13"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ═══ 远程服务器 Remote Servers ═══ -->
+                    <Grid ColumnDefinitions="Auto,*"
+                          Margin="0,8,0,2"
+                          x:Name="RemoteServersHeader"
+                          IsVisible="False">
+                        <TextBlock Grid.Column="0" Text="远程服务器"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Padding="18,4,0,4"/>
+                    </Grid>
+
+                    <!-- Remote server list -->
+                    <ItemsControl x:Name="RemoteServersList" Classes="sidebar-items" IsVisible="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="sidebar-item"
+                                        Tag="{Binding}"
+                                        PointerPressed="OnRemoteServerPressed">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+                                        <!-- Connection status dot -->
+                                        <Ellipse Grid.Column="0"
+                                                 Width="6" Height="6"
+                                                 Fill="{Binding StatusColor}"
+                                                 Margin="0,0,6,0"
+                                                 VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Background="Transparent"
+                                                    Margin="0">
+                                            <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
+                                                      Width="14" Height="14"
+                                                      Foreground="#06B6D4"/>
+                                            <StackPanel Margin="6,0,0,0">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           VerticalAlignment="Center" FontSize="13"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding StatusText}"
+                                                           FontSize="10" Opacity="0.6"
+                                                           Foreground="{Binding StatusColor}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Button Grid.Column="2"
+                                                Classes="ghost sidebar-item-action"
+                                                Tag="{Binding}"
+                                                ToolTip.Tip="断开连接"
+                                                PointerPressed="OnUnpinPointerPressed"
+                                                Click="OnDisconnectRemoteServer">
+                                            <PathIcon Data="{x:Static icons:Icons.Delete}"
+                                                      Width="12" Height="12"
+                                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- ═══ AI 智能 AI ═══ -->
+                    <Grid ColumnDefinitions="Auto,*,Auto"
+                          Margin="0,8,0,2"
+                          PointerPressed="OnToggleAiCollapsed"
+                          Cursor="Hand">
+                        <TextBlock Grid.Column="0" Text="AI 智能"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Padding="18,4,0,4"/>
+                        <PathIcon Grid.Column="2" Data="{x:Static icons:Icons.ChevronRight}"
+                                  Width="10" Height="10"
+                                  Foreground="{DynamicResource ColorTextQuaternary}"
+                                  Margin="0,4,12,4"
+                                  x:Name="AiChevron"/>
+                    </Grid>
+
+                    <StackPanel IsVisible="{Binding !IsAiSectionCollapsed}"
+                                x:Name="AiPanel">
+
+                        <!-- People -->
+                        <Border Classes="sidebar-item"
+                                IsVisible="{Binding ShowSidebarAiPeople}"
+                                x:Name="AiPeopleItem"
+                                PointerPressed="OnSidebarItemPressed">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <PathIcon Data="{x:Static icons:Icons.People}"
+                                          Width="14" Height="14"
+                                          Foreground="#EC4899"/>
+                                <TextBlock Text="人物" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Categories -->
+                        <Border Classes="sidebar-item"
+                                IsVisible="{Binding ShowSidebarAiCategories}"
+                                x:Name="AiCategoriesItem"
+                                PointerPressed="OnSidebarItemPressed">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <PathIcon Data="{x:Static icons:Icons.Grid}"
+                                          Width="14" Height="14"
+                                          Foreground="#8B5CF6"/>
+                                <TextBlock Text="分类" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Locations -->
+                        <Border Classes="sidebar-item"
+                                IsVisible="{Binding ShowSidebarAiLocations}"
+                                x:Name="AiLocationsItem"
+                                PointerPressed="OnSidebarItemPressed">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <PathIcon Data="{x:Static icons:Icons.Location}"
+                                          Width="14" Height="14"
+                                          Foreground="#EF4444"/>
+                                <TextBlock Text="地点" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Dates -->
+                        <Border Classes="sidebar-item"
+                                IsVisible="{Binding ShowSidebarAiDates}"
+                                x:Name="AiDatesItem"
+                                PointerPressed="OnSidebarItemPressed">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <PathIcon Data="{x:Static icons:Icons.Calendar}"
+                                          Width="14" Height="14"
+                                          Foreground="#F59E0B"/>
+                                <TextBlock Text="日期" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Text Search -->
+                        <Border Classes="sidebar-item"
+                                IsVisible="{Binding ShowSidebarAiTextSearch}"
+                                x:Name="AiTextSearchItem"
+                                PointerPressed="OnSidebarItemPressed">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <PathIcon Data="{x:Static icons:Icons.Search}"
+                                          Width="14" Height="14"
+                                          Foreground="#3B82F6"/>
+                                <TextBlock Text="文字搜索" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ═══ 收藏夹 Collections ═══ -->
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                          Margin="0,8,0,2">
+                        <TextBlock Grid.Column="0" Text="收藏夹"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Padding="18,4,0,4"
+                                   Cursor="Hand"
+                                   PointerPressed="OnToggleCollectionsCollapsed"/>
+                        <Button Grid.Column="2"
+                                x:Name="AddCollectionBtn"
+                                Classes="ghost sidebar-header-action"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="4" Margin="0,2,6,2"
+                                Click="StartNewCollection"
+                                ToolTip.Tip="新建收藏夹">
+                            <PathIcon Data="{x:Static icons:Icons.Plus}"
+                                      Width="10" Height="10"
+                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                        </Button>
+                        <PathIcon Grid.Column="3" Data="{x:Static icons:Icons.ChevronRight}"
+                                  Width="10" Height="10"
+                                  Foreground="{DynamicResource ColorTextQuaternary}"
+                                  Margin="0,4,12,4"
+                                  Cursor="Hand"
+                                  PointerPressed="OnToggleCollectionsCollapsed"
+                                  x:Name="CollChevron"/>
+                    </Grid>
+
+                    <StackPanel IsVisible="{Binding !IsCollectionsSectionCollapsed}"
+                                x:Name="CollectionsPanel">
+
+                        <!-- Collection list -->
+                        <ItemsControl Classes="sidebar-items"
+                                      ItemsSource="{Binding Collections}"
+                                      IsVisible="{Binding Collections, Converter={StaticResource IsNotEmpty}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:Collection">
+                                    <Border Classes="sidebar-item"
+                                            Tag="{Binding}"
+                                            PointerPressed="OnCollectionPressed">
+                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Background="Transparent">
+                                            <PathIcon Data="{x:Static icons:Icons.CollectionAdd}"
+                                                      Width="14" Height="14"
+                                                      Foreground="#F59E0B"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center" FontSize="13"/>
+                                            <Button Grid.Column="2" Tag="{Binding}"
+                                                    Classes="ghost sidebar-item-action"
+                                                    ToolTip.Tip="重命名"
+                                                    PointerPressed="OnUnpinPointerPressed"
+                                                    Click="RenameCollection">
+                                                <PathIcon Data="{x:Static icons:Icons.Rename}" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button Grid.Column="3" Tag="{Binding}"
+                                                    Classes="ghost sidebar-item-action"
+                                                    ToolTip.Tip="删除"
+                                                    PointerPressed="OnUnpinPointerPressed"
+                                                    Click="DeleteCollection">
+                                                <PathIcon Data="{x:Static icons:Icons.Delete}" Width="12" Height="12"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- New collection input -->
+                        <Border x:Name="NewCollectionPanel" IsVisible="False" Margin="4,0" Padding="8,3">
+                            <TextBox x:Name="NewCollectionInput"
+                                     Classes="sidebar-rename-input"
+                                     FontSize="13"
+                                     KeyDown="OnNewCollectionKeyDown"
+                                     LostFocus="OnNewCollectionLostFocus"/>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+</UserControl>
