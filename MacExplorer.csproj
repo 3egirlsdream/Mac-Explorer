@@ -1,0 +1,115 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MacExplorer</RootNamespace>
+    <ApplicationId>com.macexplorer.app</ApplicationId>
+    <Version>1.0.14</Version>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\*.cs;Assets\*.axaml" />
+    <Compile Remove="Tests/**/*.cs" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.4" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
+    <PackageReference Include="SharpCompress" Version="0.49.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Svg.Skia" Version="5.0.0" />
+    <PackageReference Include="SSH.NET" Version="2025.0.0" />
+  </ItemGroup>
+
+  <!-- Create macOS .app bundle after build (macOS-only: Avalonia Desktop outputs a raw binary, not a bundle) -->
+  <Target Name="BuildMacOSImageAnalysisHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <Exec Command="xcrun swiftc -O 'Platforms/MacOS/ImageAnalysisHelper.swift' -framework Vision -framework CoreLocation -o '$(OutputPath)MacExplorer.ImageAnalysis'" />
+  </Target>
+
+  <Target Name="BuildMacOSNativeDragHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <Exec Command="clang++ -fobjc-arc -dynamiclib 'Platforms/MacOS/NativeFileDrag.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+  </Target>
+
+  <Target Name="CopyMacOSAppIconToOutput" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/Assets/appicon.icns" DestinationFolder="$(OutputPath)" Condition="Exists('$(MSBuildProjectDirectory)/Assets/appicon.icns')" />
+  </Target>
+
+  <Target Name="CreateMacOSBundle" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <PropertyGroup>
+      <_AppBundleName>Mac Explorer.app</_AppBundleName>
+      <_AppBundleDir>$(OutputPath)$(_AppBundleName)</_AppBundleDir>
+      <_MacOSDir>$(_AppBundleDir)/Contents/MacOS</_MacOSDir>
+      <_ResourcesDir>$(_AppBundleDir)/Contents/Resources</_ResourcesDir>
+      <_IconSource>$(MSBuildProjectDirectory)/Assets/appicon.icns</_IconSource>
+    </PropertyGroup>
+
+    <Message Text="[macOS] Creating .app bundle: $(_AppBundleDir)" Importance="high" />
+
+    <!-- Create dirs -->
+    <RemoveDir Directories="$(_AppBundleDir)" Condition="Exists('$(_AppBundleDir)')" />
+    <MakeDir Directories="$(_MacOSDir)" />
+    <MakeDir Directories="$(_ResourcesDir)" />
+
+    <!-- Copy executable -->
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName)" DestinationFolder="$(_MacOSDir)" />
+
+    <!-- Copy Info.plist -->
+    <Copy SourceFiles="Platforms/MacOS/Info.plist" DestinationFolder="$(_AppBundleDir)/Contents" />
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleShortVersionString $(Version)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleVersion $(Version)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+
+    <!-- Copy icon -->
+    <Copy SourceFiles="$(_IconSource)" DestinationFolder="$(_ResourcesDir)" Condition="Exists('$(_IconSource)')" />
+
+    <!-- Copy .dll / .dylib / .json next to the executable so they resolve -->
+    <ItemGroup>
+      <_BundleFiles Include="$(OutputPath)*.dll" />
+      <_BundleFiles Include="$(OutputPath)*.dylib" />
+      <_BundleFiles Include="$(OutputPath)*.deps.json" />
+      <_BundleFiles Include="$(OutputPath)*.runtimeconfig.json" />
+      <_BundleFiles Include="$(OutputPath)*.pdb" />
+      <!-- Copy macOS native libraries (Avalonia.Native, Skia, HarfBuzz, SQLite) -->
+      <_NativeLibs Include="$(OutputPath)runtimes/osx/native/*.dylib" />
+      <_NativeLibs Include="$(OutputPath)runtimes/osx-arm64/native/*.dylib" />
+      <_NativeHelpers Include="$(OutputPath)MacExplorer.ImageAnalysis" />
+      <_NativeHelpers Include="$(OutputPath)libMacExplorerNativeDrag.dylib" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BundleFiles)" DestinationFolder="$(_MacOSDir)" />
+    <Copy SourceFiles="@(_NativeLibs)" DestinationFolder="$(_MacOSDir)" />
+    <Copy SourceFiles="@(_NativeHelpers)" DestinationFolder="$(_MacOSDir)" />
+
+    <!-- Codesign (ad-hoc) so the bundle is not quarantined (deep signs all embedded binaries). -->
+    <Exec Command="codesign --force --deep --sign - '$(_AppBundleDir)'" />
+
+    <Message Text="[macOS] .app bundle ready at: $(_AppBundleDir)" Importance="high" />
+  </Target>
+
+  <Target Name="CreateMacOSReleaseArchive"
+          AfterTargets="CreateMacOSBundle"
+          Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <_ReleaseAppBundle>$(OutputPath)Mac Explorer.app</_ReleaseAppBundle>
+      <_ReleaseArchive>$(OutputPath)MacExplorer-$(Version)-macos.zip</_ReleaseArchive>
+    </PropertyGroup>
+    <Delete Files="$(_ReleaseArchive)" Condition="Exists('$(_ReleaseArchive)')" />
+    <Exec Command="/usr/bin/ditto -c -k --sequesterRsrc --keepParent '$(_ReleaseAppBundle)' '$(_ReleaseArchive)'" />
+    <Message Text="[macOS] Release archive ready at: $(_ReleaseArchive)" Importance="high" />
+  </Target>
+</Project>

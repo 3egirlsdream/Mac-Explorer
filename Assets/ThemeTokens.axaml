@@ -1,0 +1,170 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <FontFamily x:Key="AppFontFamily">Inter, -apple-system, BlinkMacSystemFont, sans-serif</FontFamily>
+
+            <sys:Double x:Key="FontSizeXs">11</sys:Double>
+            <sys:Double x:Key="FontSizeSm">12</sys:Double>
+            <sys:Double x:Key="FontSizeBase">13</sys:Double>
+            <sys:Double x:Key="FontSizeMd">15</sys:Double>
+            <sys:Double x:Key="FontSizeLg">18</sys:Double>
+            <sys:Double x:Key="FontSizeXl">22</sys:Double>
+
+            <sys:Double x:Key="Space1">4</sys:Double>
+            <sys:Double x:Key="Space2">8</sys:Double>
+            <sys:Double x:Key="Space3">12</sys:Double>
+            <sys:Double x:Key="Space4">16</sys:Double>
+            <sys:Double x:Key="Space5">20</sys:Double>
+            <sys:Double x:Key="Space6">24</sys:Double>
+
+            <CornerRadius x:Key="RadiusSm">4</CornerRadius>
+            <CornerRadius x:Key="RadiusMd">7</CornerRadius>
+            <CornerRadius x:Key="RadiusLg">10</CornerRadius>
+            <CornerRadius x:Key="RadiusXl">14</CornerRadius>
+            <CornerRadius x:Key="RadiusFull">999</CornerRadius>
+
+            <Thickness x:Key="ControlPadding">12,7</Thickness>
+            <Thickness x:Key="CompactControlPadding">9,5</Thickness>
+            <Thickness x:Key="CardPadding">16</Thickness>
+            <BoxShadows x:Key="ShadowSm">0 1 2 0 #16000000</BoxShadows>
+            <BoxShadows x:Key="ShadowMd">0 10 30 -8 #30000000</BoxShadows>
+            <BoxShadows x:Key="WindowShadow">0 6 15 0 #308E8E8E</BoxShadows>
+
+            <SolidColorBrush x:Key="WindowCloseBrush" Color="#FF5F57"/>
+            <SolidColorBrush x:Key="WindowMinimizeBrush" Color="#FEBC2E"/>
+            <SolidColorBrush x:Key="WindowMaximizeBrush" Color="#28C840"/>
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FAFAFA"/>
+                    <SolidColorBrush x:Key="WindowBorderBrush" Color="#18000000"/>
+                    <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#FAFAFA"/>
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#F0F1F3"/>
+                    <SolidColorBrush x:Key="ControlHoverBrush" Color="#0B0F172A"/>
+                    <SolidColorBrush x:Key="ControlPressedBrush" Color="#120F172A"/>
+                    <SolidColorBrush x:Key="SelectionBrush" Color="#163B82F6"/>
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#171A21"/>
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6270"/>
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#7D8491"/>
+                    <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="BorderBrush" Color="#18000000"/>
+                    <SolidColorBrush x:Key="BorderStrongBrush" Color="#2A000000"/>
+                    <SolidColorBrush x:Key="AccentBrush" Color="#3B82F6"/>
+                    <SolidColorBrush x:Key="AccentHoverBrush" Color="#2563EB"/>
+                    <SolidColorBrush x:Key="FocusRingBrush" Color="#3B82F6"/>
+                    <SolidColorBrush x:Key="DangerBrush" Color="#E5484D"/>
+                    <SolidColorBrush x:Key="SuccessBrush" Color="#2F9E64"/>
+                    <SolidColorBrush x:Key="WarningBrush" Color="#D99000"/>
+                    <SolidColorBrush x:Key="OverlayBrush" Color="#52000000"/>
+
+                    <!-- Compatibility semantic names used by existing views. -->
+                    <SolidColorBrush x:Key="ColorBgPrimary" Color="#FAFAFA"/>
+                    <SolidColorBrush x:Key="ColorBgSidebar" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBgToolbar" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBgContent" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBgHover" Color="#0B0F172A"/>
+                    <SolidColorBrush x:Key="ColorBgHoverStrong" Color="#120F172A"/>
+                    <SolidColorBrush x:Key="ColorBgActive" Color="#100F172A"/>
+                    <SolidColorBrush x:Key="ColorBgSelected" Color="#163B82F6"/>
+                    <SolidColorBrush x:Key="ColorBgSelectedHover" Color="#253B82F6"/>
+                    <SolidColorBrush x:Key="ColorAccent" Color="#3B82F6"/>
+                    <SolidColorBrush x:Key="ColorAccentHover" Color="#2563EB"/>
+                    <SolidColorBrush x:Key="ColorAccentLight" Color="#163B82F6"/>
+                    <SolidColorBrush x:Key="ColorAccentMedium" Color="#2A3B82F6"/>
+                    <SolidColorBrush x:Key="ColorTextPrimary" Color="#171A21"/>
+                    <SolidColorBrush x:Key="ColorTextSecondary" Color="#5B6270"/>
+                    <SolidColorBrush x:Key="ColorTextTertiary" Color="#737B88"/>
+                    <SolidColorBrush x:Key="ColorTextQuaternary" Color="#9298A4"/>
+                    <SolidColorBrush x:Key="ColorTextDisabled" Color="#A8ADB7"/>
+                    <SolidColorBrush x:Key="ColorTextOnAccent" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBorder" Color="#18000000"/>
+                    <SolidColorBrush x:Key="ColorBorderStrong" Color="#2A000000"/>
+                    <SolidColorBrush x:Key="ColorBorderSubtle" Color="#10000000"/>
+                    <SolidColorBrush x:Key="ColorBorderPrimary" Color="#18000000"/>
+                    <SolidColorBrush x:Key="ColorDivider" Color="#14000000"/>
+                    <SolidColorBrush x:Key="ColorDanger" Color="#E5484D"/>
+                    <SolidColorBrush x:Key="ColorWarning" Color="#D99000"/>
+                    <SolidColorBrush x:Key="ColorSuccess" Color="#2F9E64"/>
+                    <SolidColorBrush x:Key="ColorSurfaceSecondary" Color="#F0F1F3"/>
+                    <SolidColorBrush x:Key="GlassSidebarBg" Color="#EAFFFFFF"/>
+                    <SolidColorBrush x:Key="GlassToolbarBg" Color="#F2FFFFFF"/>
+                    <SolidColorBrush x:Key="GlassContentBg" Color="#F5FFFFFF"/>
+                    <SolidColorBrush x:Key="GlassMenuBg" Color="#F7FFFFFF"/>
+                    <SolidColorBrush x:Key="GlassPanelBg" Color="#EEFFFFFF"/>
+                    <SolidColorBrush x:Key="GlassEffectBg" Color="#FAFFFFFF"/>
+                    <SolidColorBrush x:Key="GlassEffectBgSubmenu" Color="#F2FFFFFF"/>
+                    <SolidColorBrush x:Key="AddressbarBg" Color="#080F172A"/>
+                    <SolidColorBrush x:Key="AddressbarBgHover" Color="#100F172A"/>
+                    <SolidColorBrush x:Key="AddressbarBgFocus" Color="#FAFFFFFF"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#181A1F"/>
+                    <SolidColorBrush x:Key="WindowBorderBrush" Color="#28FFFFFF"/>
+                    <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#14161A"/>
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#F21E2026"/>
+                    <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#252830"/>
+                    <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#202329"/>
+                    <SolidColorBrush x:Key="ControlHoverBrush" Color="#12FFFFFF"/>
+                    <SolidColorBrush x:Key="ControlPressedBrush" Color="#1CFFFFFF"/>
+                    <SolidColorBrush x:Key="SelectionBrush" Color="#304C8DFF"/>
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F4F5F7"/>
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B5BAC5"/>
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#9298A4"/>
+                    <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="BorderBrush" Color="#22FFFFFF"/>
+                    <SolidColorBrush x:Key="BorderStrongBrush" Color="#38FFFFFF"/>
+                    <SolidColorBrush x:Key="AccentBrush" Color="#5B9BFF"/>
+                    <SolidColorBrush x:Key="AccentHoverBrush" Color="#77AAFF"/>
+                    <SolidColorBrush x:Key="FocusRingBrush" Color="#77AAFF"/>
+                    <SolidColorBrush x:Key="DangerBrush" Color="#FF6B70"/>
+                    <SolidColorBrush x:Key="SuccessBrush" Color="#49C982"/>
+                    <SolidColorBrush x:Key="WarningBrush" Color="#F2B544"/>
+                    <SolidColorBrush x:Key="OverlayBrush" Color="#76000000"/>
+
+                    <SolidColorBrush x:Key="ColorBgPrimary" Color="#14161A"/>
+                    <SolidColorBrush x:Key="ColorBgSidebar" Color="#181A1F"/>
+                    <SolidColorBrush x:Key="ColorBgToolbar" Color="#1B1D23"/>
+                    <SolidColorBrush x:Key="ColorBgContent" Color="#1E2026"/>
+                    <SolidColorBrush x:Key="ColorBgHover" Color="#12FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBgHoverStrong" Color="#1CFFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBgActive" Color="#18FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBgSelected" Color="#304C8DFF"/>
+                    <SolidColorBrush x:Key="ColorBgSelectedHover" Color="#405B9BFF"/>
+                    <SolidColorBrush x:Key="ColorAccent" Color="#5B9BFF"/>
+                    <SolidColorBrush x:Key="ColorAccentHover" Color="#77AAFF"/>
+                    <SolidColorBrush x:Key="ColorAccentLight" Color="#304C8DFF"/>
+                    <SolidColorBrush x:Key="ColorAccentMedium" Color="#405B9BFF"/>
+                    <SolidColorBrush x:Key="ColorTextPrimary" Color="#F4F5F7"/>
+                    <SolidColorBrush x:Key="ColorTextSecondary" Color="#B5BAC5"/>
+                    <SolidColorBrush x:Key="ColorTextTertiary" Color="#9298A4"/>
+                    <SolidColorBrush x:Key="ColorTextQuaternary" Color="#737A86"/>
+                    <SolidColorBrush x:Key="ColorTextDisabled" Color="#626975"/>
+                    <SolidColorBrush x:Key="ColorTextOnAccent" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBorder" Color="#22FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBorderStrong" Color="#38FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBorderSubtle" Color="#18FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorBorderPrimary" Color="#22FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorDivider" Color="#20FFFFFF"/>
+                    <SolidColorBrush x:Key="ColorDanger" Color="#FF6B70"/>
+                    <SolidColorBrush x:Key="ColorWarning" Color="#F2B544"/>
+                    <SolidColorBrush x:Key="ColorSuccess" Color="#49C982"/>
+                    <SolidColorBrush x:Key="ColorSurfaceSecondary" Color="#202329"/>
+                    <SolidColorBrush x:Key="GlassSidebarBg" Color="#EA181A1F"/>
+                    <SolidColorBrush x:Key="GlassToolbarBg" Color="#F21B1D23"/>
+                    <SolidColorBrush x:Key="GlassContentBg" Color="#F21E2026"/>
+                    <SolidColorBrush x:Key="GlassMenuBg" Color="#FA252830"/>
+                    <SolidColorBrush x:Key="GlassPanelBg" Color="#F022252B"/>
+                    <SolidColorBrush x:Key="GlassEffectBg" Color="#FA202329"/>
+                    <SolidColorBrush x:Key="GlassEffectBgSubmenu" Color="#F2252830"/>
+                    <SolidColorBrush x:Key="AddressbarBg" Color="#10FFFFFF"/>
+                    <SolidColorBrush x:Key="AddressbarBgHover" Color="#18FFFFFF"/>
+                    <SolidColorBrush x:Key="AddressbarBgFocus" Color="#F2252830"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Styles.Resources>
+</Styles>

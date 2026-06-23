@@ -1,0 +1,29 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MacExplorer.App"
+             xmlns:local="using:MacExplorer"
+             xmlns:views="using:MacExplorer.Views"
+             xmlns:converters="using:MacExplorer.Converters"
+             RequestedThemeVariant="Default">
+
+    <Application.Resources>
+        <views:BoolNotConverter x:Key="BoolNotConverter"/>
+        <converters:StringToGeometryConverter x:Key="StringToGeometryConverter"/>
+        <converters:StringToColorConverter x:Key="StringToColorConverter"/>
+        <converters:FileEntryToIconConverter x:Key="FileEntryToIconConverter"/>
+        <converters:FileEntryToIconColorConverter x:Key="FileEntryToIconColorConverter"/>
+    </Application.Resources>
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://MacExplorer/Assets/ThemeTokens.axaml"/>
+        <StyleInclude Source="avares://MacExplorer/Assets/Styles.axaml"/>
+        <StyleInclude Source="avares://MacExplorer/Controls/SurfaceCard.axaml"/>
+        <StyleInclude Source="avares://MacExplorer/Controls/AppWindow.axaml"/>
+        <StyleInclude Source="avares://MacExplorer/Assets/ComponentStyles.axaml"/>
+    </Application.Styles>
+</Application>

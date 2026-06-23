@@ -1,6 +1,6 @@
 # Mac Explorer
 
-基于 .NET MAUI Blazor 的 macOS 文件资源管理器（Mac Catalyst）。
+基于 .NET Avalonia 的 macOS 文件资源管理器（Mac Catalyst）。
 
 ## 环境要求
 
