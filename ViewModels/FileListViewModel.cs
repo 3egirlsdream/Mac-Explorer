@@ -114,6 +114,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     // Enums - kept here for backward compatibility
     public enum ScrollMode { ResetToTop, RestoreNavigation, ScrollToSelected, PreservePosition }
     public ScrollMode ScrollBehaviorAfterLoad { get; set; } = ScrollMode.ResetToTop;
+    public event Action? ScrollToSelectionRequested;
 
     // Forwarded properties from sub-viewmodels for binding
     public string CurrentPath => _navigation.CurrentPath;
@@ -588,7 +589,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         try
         {
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await LoadDirectoryContentsAsync(forceRefresh: true);
+            if (IsRemoteView)
+                await RefreshRemoteDirectoryAsync();
+            else
+                await LoadDirectoryContentsAsync(forceRefresh: true);
         }
         finally { _isRefreshingFromNotification = false; }
     }
@@ -599,6 +603,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateToAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
+
+        if (VirtualPath.IsHomePath(path))
+        {
+            GoHome();
+            return;
+        }
 
         // Intercept archive sentinel paths
         if (ArchivePathHelper.IsArchivePath(path))
@@ -638,6 +648,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
 
         if (_navigation.CurrentPath == path && Entries.Count > 0
+            && string.IsNullOrEmpty(PendingSelectFileName)
             && !_navigation.IsCollectionView && !_navigation.IsAiView && !_navigation.IsArchiveView && !_navigation.IsRemoteView) return;
 
         IsLoading = true;
@@ -664,6 +675,42 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _navigation.SetWatchedDirectory(path);
             _settingsService?.Set(LastDirectorySettingKey, path);
         }
+    }
+
+    public async Task RevealFileAsync(FileSystemEntry entry)
+    {
+        if (entry.IsDirectory)
+        {
+            await NavigateToAsync(entry.FullPath);
+            return;
+        }
+
+        var parentPath = Path.GetDirectoryName(entry.FullPath);
+        if (string.IsNullOrEmpty(parentPath) || !Directory.Exists(parentPath))
+            return;
+
+        var canReuseCurrentDirectory =
+            string.Equals(_navigation.CurrentPath, parentPath, StringComparison.Ordinal)
+            && !_navigation.IsSearchMode
+            && !_navigation.IsCollectionView
+            && !_navigation.IsAiView
+            && !_navigation.IsArchiveView
+            && !_navigation.IsRemoteView;
+        if (canReuseCurrentDirectory)
+        {
+            var target = Entries.FirstOrDefault(candidate =>
+                string.Equals(candidate.FullPath, entry.FullPath, StringComparison.Ordinal));
+            if (target != null)
+            {
+                SetSelection([target], target);
+                ScrollToSelectionRequested?.Invoke();
+                return;
+            }
+        }
+
+        PendingSelectFileName = entry.Name;
+        ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
+        await NavigateToAsync(parentPath);
     }
 
     [RelayCommand]
@@ -778,6 +825,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         CancelDirectoryWork();
         _navigation.GoHome();
         _settingsService?.Set(LastDirectorySettingKey, "");
+        _search.Reset();
         _ai.Reset();
         Entries.Clear();
         StatusText = "";
@@ -976,6 +1024,29 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.UpdateHistoryForSentinelPath(sentinelPath);
     }
 
+    private async Task RefreshRemoteDirectoryAsync()
+    {
+        if (_remoteConnectionService == null || _sftpFileService == null
+            || string.IsNullOrEmpty(_navigation.CurrentRemoteServerId)
+            || !VirtualPath.IsRemotePath(_navigation.CurrentPath))
+            return;
+
+        var (serverId, remotePath) = VirtualPath.ParseRemotePath(_navigation.CurrentPath);
+        if (!string.Equals(serverId, _navigation.CurrentRemoteServerId, StringComparison.Ordinal))
+            return;
+
+        var client = _remoteConnectionService.GetClient(serverId);
+        if (client == null)
+        {
+            StatusText = "服务器未连接";
+            return;
+        }
+
+        _sftpFileService.SetCurrentServer(serverId);
+        var entries = await _sftpFileService.GetDirectoryContentsAsync(remotePath);
+        ApplyEntries(entries);
+    }
+
     public async Task ConnectToServerAsync(RemoteServerInfo server)
     {
         if (_remoteConnectionService == null) return;
@@ -1032,6 +1103,25 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task RefreshAsync()
     {
         if (IsHomePage) return;
+
+        if (IsRemoteView)
+        {
+            IsLoading = true;
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            try
+            {
+                await RefreshRemoteDirectoryAsync();
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"刷新失败: {ex.Message}";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+            return;
+        }
 
         if (IsArchiveView && _navigation.CurrentArchivePath != null)
         {
@@ -1473,6 +1563,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (_contextMenuService != null && includeDynamicActions)
                 actions.AddRange(await _contextMenuService.GetTopLevelOpenWithActionsAsync(entry.FullPath));
         }
+        else if (includeDynamicActions)
+        {
+            var topLevelOpenWith = await BuildTopLevelOpenWithActionsForRemoteAsync(entry);
+            if (topLevelOpenWith.Count > 0)
+            {
+                actions.Add(ContextMenuAction.Separator);
+                actions.AddRange(topLevelOpenWith);
+            }
+        }
 
         // Pin (skip for remote paths)
         if (entry.IsDirectory && includeDynamicActions && !isRemote)
@@ -1525,33 +1624,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         try
         {
-            var (serverId, remotePath) = VirtualPath.ParseRemotePath(entry.FullPath);
             var actions = new List<ContextMenuAction>();
 
             foreach (var app in await _openWithAppService.GetSubmenuAppsAsync())
             {
-                var bundleId = app.BundleId;
-                actions.Add(new ContextMenuAction
-                {
-                    Label = app.Label,
-                    IconSvg = Icons.Open,
-                    LoadIconBase64Async = () => _openWithAppService.GetAppIconBase64Async(bundleId),
-                    Execute = async () =>
-                    {
-                        try
-                        {
-                            StatusText = $"正在下载 {entry.Name}...";
-                            var localPath = await _remoteFileEditService.DownloadForEditAsync(remotePath, serverId);
-                            _remoteFileEditService.WatchForChanges(localPath, remotePath, serverId);
-                            StatusText = "";
-                            await _launcherService.OpenFileWithAppAsync(localPath, bundleId);
-                        }
-                        catch (Exception ex)
-                        {
-                            StatusText = $"打开失败: {ex.Message}";
-                        }
-                    }
-                });
+                actions.Add(BuildRemoteOpenWithAction(entry, app, app.Label));
             }
             return actions;
         }
@@ -1560,6 +1637,56 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             StatusText = $"准备文件失败: {ex.Message}";
             return [];
         }
+    }
+
+    private async Task<IReadOnlyList<ContextMenuAction>> BuildTopLevelOpenWithActionsForRemoteAsync(
+        FileSystemEntry entry)
+    {
+        if (_remoteFileEditService == null || _remoteConnectionService == null
+            || _openWithAppService == null || _launcherService == null)
+            return [];
+
+        try
+        {
+            return (await _openWithAppService.GetTopLevelAppsAsync())
+                .Select(app => BuildRemoteOpenWithAction(entry, app, $"在 {app.Label} 中打开"))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"准备打开方式失败: {ex.Message}";
+            return [];
+        }
+    }
+
+    private ContextMenuAction BuildRemoteOpenWithAction(
+        FileSystemEntry entry,
+        OpenWithApp app,
+        string label)
+    {
+        var bundleId = app.BundleId;
+        return new ContextMenuAction
+        {
+            Label = label,
+            IconSvg = Icons.Open,
+            LoadIconBase64Async = () => _openWithAppService!.GetAppIconBase64Async(bundleId),
+            Execute = async () =>
+            {
+                try
+                {
+                    var (serverId, remotePath) = VirtualPath.ParseRemotePath(entry.FullPath);
+                    StatusText = $"正在下载 {entry.Name}...";
+                    var localPath = await _remoteFileEditService!.DownloadForEditAsync(remotePath, serverId);
+                    _remoteFileEditService.WatchForChanges(localPath, remotePath, serverId);
+                    StatusText = "";
+                    await _launcherService!.OpenFileWithAppAsync(localPath, bundleId);
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"打开失败: {ex.Message}";
+                }
+            }
+        };
     }
 
     private async Task<List<ContextMenuAction>> BuildBackgroundContextMenuAsync()
@@ -2498,8 +2625,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task SearchAsync(string query)
     {
-        if (string.IsNullOrWhiteSpace(query)) { ExitSearch(); return; }
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            await ExitSearchAsync();
+            return;
+        }
 
+        var searchCurrentPath = IsHomePage ? null : _navigation.CurrentPath;
         CancelDirectoryWork();
         _search.EnterSearchMode(IsHomePage);
         _navigation.IsHomePage = false;
@@ -2507,17 +2639,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.SearchQuery = query;
         IsLoading = true;
 
-        var searchPath = string.IsNullOrEmpty(_navigation.CurrentPath) ? HomeDirectory : _navigation.CurrentPath;
-
         try
         {
             await _search.SearchAsync(
                 query,
                 HomeDirectory,
-                _navigation.CurrentPath,
+                searchCurrentPath,
                 entries =>
                 {
-                    Entries = entries;
+                    ApplyEntries(entries);
                     SelectedEntries.Clear();
                 },
                 msg => StatusText = msg
@@ -2526,7 +2656,27 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         finally { IsLoading = false; }
     }
 
-    public void ExitSearch()
+    public Task<IReadOnlyList<FileSystemEntry>> GetSearchSuggestionsAsync(
+        string query,
+        int maxResults,
+        CancellationToken cancellationToken)
+    {
+        var searchRoot = IsHomePage
+            || string.IsNullOrEmpty(_navigation.CurrentPath)
+            || VirtualPath.IsRemotePath(_navigation.CurrentPath)
+            || AiPathHelper.IsAiPath(_navigation.CurrentPath)
+            || ArchivePathHelper.IsArchivePath(_navigation.CurrentPath)
+                ? HomeDirectory
+                : _navigation.CurrentPath;
+
+        return _search.GetSuggestionsAsync(
+            searchRoot,
+            query,
+            maxResults,
+            cancellationToken);
+    }
+
+    public async Task ExitSearchAsync()
     {
         var wasHomePage = _search.WasHomePageBeforeSearch;
         _search.ExitSearchMode(true);
@@ -2536,7 +2686,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (wasHomePage)
         {
             _navigation.IsHomePage = true;
+            SelectedEntries.Clear();
+            return;
         }
+
+        await RefreshAsync();
     }
 
     // ── Collections ──

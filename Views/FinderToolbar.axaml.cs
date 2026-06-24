@@ -139,11 +139,6 @@ public partial class FinderToolbar : UserControl
         ViewModel?.ToggleInfoPanel();
     }
 
-    private void OpenSettings(object? sender, RoutedEventArgs e)
-    {
-        OpenSettingsCallback?.Invoke();
-    }
-
     private void ToggleMoreDropdown(object? sender, RoutedEventArgs e)
     {
         var shouldOpen = !MoreDropdown.IsOpen;

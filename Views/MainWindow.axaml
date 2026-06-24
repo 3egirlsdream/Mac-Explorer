@@ -31,7 +31,7 @@
                                 Classes="ghost glass-btn-ghost">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
-                                <TextBlock Text="设置" FontSize="12"/>
+                                <TextBlock Text="设置" FontSize="12" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -79,11 +79,14 @@
                                                       Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"
                                                       Foreground="{DynamicResource TextMutedBrush}"/>
                                             <TextBox Grid.Column="1" x:Name="SearchBox"
-                                                     Classes="search-input"
+                                                     Classes="search-input omnibox-input"
                                                      PlaceholderText="搜索..."
+                                                     TextChanged="OnSearchTextChanged"
                                                      KeyDown="OnSearchKeyDown"/>
                                             <Button Grid.Column="2" x:Name="SearchClearBtn" Content="✕"
                                                     Classes="ghost close-btn search-clear-btn"
+                                                    VerticalContentAlignment="Center"
+                                                    HorizontalContentAlignment="Center"
                                                     Width="20" Height="20" Padding="0" Background="Transparent" FontSize="11"
                                                     Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"
                                                     Click="ClearSearch"/>

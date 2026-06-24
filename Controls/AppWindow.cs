@@ -12,16 +12,17 @@ namespace MacExplorer.Controls;
 public class AppWindow : Window
 {
     private const double ResizeHitTestThickness = 10;
+    private static readonly TimeSpan ResizeFrameInterval = TimeSpan.FromMilliseconds(16);
     private bool _isResizing;
-    private bool _resizeFramePending;
     private WindowEdge _resizeEdge;
-    private PixelPoint _resizeStartPointer;
-    private PixelPoint _pendingResizePointer;
+    private Point _resizeStartPointer;
+    private Point _pendingResizePointer;
     private PixelPoint _resizeStartPosition;
     private double _resizeStartWidth;
     private double _resizeStartHeight;
     private double _resizeStartScaling = 1;
     private IPointer? _resizePointer;
+    private IDisposable? _resizeTimer;
 
     public AppWindow()
     {
@@ -93,12 +94,13 @@ public class AppWindow : Window
         _isResizing = true;
         _resizeEdge = edge;
         _resizeStartScaling = RenderScaling <= 0 ? 1 : RenderScaling;
-        _resizeStartPointer = GetPointerScreenPosition(e, _resizeStartScaling);
+        _resizeStartPointer = GetPointerScreenPosition(e);
         _pendingResizePointer = _resizeStartPointer;
         _resizeStartPosition = Position;
         _resizeStartWidth = Bounds.Width;
         _resizeStartHeight = Bounds.Height;
         _resizePointer = e.Pointer;
+        Cursor = GetResizeCursor(edge);
         _resizePointer.Capture(this);
         e.Handled = true;
     }
@@ -108,7 +110,14 @@ public class AppWindow : Window
         if (!_isResizing)
             return;
 
-        _pendingResizePointer = GetPointerScreenPosition(e, _resizeStartScaling);
+        var pointer = GetPointerScreenPosition(e);
+        if (pointer == _pendingResizePointer)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        _pendingResizePointer = pointer;
         ScheduleResizeToPointer();
         e.Handled = true;
     }
@@ -118,7 +127,7 @@ public class AppWindow : Window
         if (!_isResizing)
             return;
 
-        _pendingResizePointer = GetPointerScreenPosition(e, _resizeStartScaling);
+        _pendingResizePointer = GetPointerScreenPosition(e);
         ApplyResizeToPointer(_pendingResizePointer);
         EndResizeDrag();
         e.Handled = true;
@@ -129,22 +138,21 @@ public class AppWindow : Window
 
     private void ScheduleResizeToPointer()
     {
-        if (_resizeFramePending)
+        if (_resizeTimer != null)
             return;
 
-        _resizeFramePending = true;
-        Dispatcher.UIThread.Post(() =>
+        _resizeTimer = DispatcherTimer.RunOnce(() =>
         {
-            _resizeFramePending = false;
+            _resizeTimer = null;
             if (_isResizing)
                 ApplyResizeToPointer(_pendingResizePointer);
-        }, DispatcherPriority.Input);
+        }, ResizeFrameInterval, DispatcherPriority.Input);
     }
 
-    private void ApplyResizeToPointer(PixelPoint pointer)
+    private void ApplyResizeToPointer(Point pointer)
     {
-        var deltaX = (pointer.X - _resizeStartPointer.X) / _resizeStartScaling;
-        var deltaY = (pointer.Y - _resizeStartPointer.Y) / _resizeStartScaling;
+        var deltaX = pointer.X - _resizeStartPointer.X;
+        var deltaY = pointer.Y - _resizeStartPointer.Y;
 
         var width = _resizeStartWidth;
         var height = _resizeStartHeight;
@@ -169,10 +177,22 @@ public class AppWindow : Window
             positionY = _resizeStartPosition.Y + ToPixels(_resizeStartHeight - height, _resizeStartScaling);
         }
 
-        Width = width;
-        Height = height;
+        if (MacWindowChrome.TrySetWindowFrame(
+                this,
+                width,
+                height,
+                keepRightEdge: IsWest(_resizeEdge),
+                keepTopEdge: IsSouth(_resizeEdge)))
+            return;
 
-        if (positionX != Position.X || positionY != Position.Y)
+        if ((IsEast(_resizeEdge) || IsWest(_resizeEdge)) && Math.Abs(width - Bounds.Width) >= 0.5)
+            Width = width;
+
+        if ((IsSouth(_resizeEdge) || IsNorth(_resizeEdge)) && Math.Abs(height - Bounds.Height) >= 0.5)
+            Height = height;
+
+        if ((IsWest(_resizeEdge) || IsNorth(_resizeEdge))
+            && (positionX != Position.X || positionY != Position.Y))
             Position = new PixelPoint(positionX, positionY);
     }
 
@@ -182,16 +202,19 @@ public class AppWindow : Window
             return;
 
         _isResizing = false;
+        _resizeTimer?.Dispose();
+        _resizeTimer = null;
+        ClearValue(CursorProperty);
         _resizePointer?.Capture(null);
         _resizePointer = null;
     }
 
-    private PixelPoint GetPointerScreenPosition(PointerEventArgs e, double scaling)
+    private Point GetPointerScreenPosition(PointerEventArgs e)
     {
-        var local = e.GetPosition(this);
-        return new PixelPoint(
-            Position.X + ToPixels(local.X, scaling),
-            Position.Y + ToPixels(local.Y, scaling));
+        if (MacWindowChrome.TryGetPointerScreenPosition(out var pointer))
+            return pointer;
+
+        return this.PointToScreen(e.GetPosition(this)).ToPoint(_resizeStartScaling);
     }
 
     private static int ToPixels(double value, double scaling)
@@ -217,6 +240,14 @@ public class AppWindow : Window
 
     private static bool IsSouth(WindowEdge edge)
         => edge is WindowEdge.South or WindowEdge.SouthWest or WindowEdge.SouthEast;
+
+    private static Cursor GetResizeCursor(WindowEdge edge)
+        => new(edge switch
+        {
+            WindowEdge.West or WindowEdge.East => StandardCursorType.SizeWestEast,
+            WindowEdge.North or WindowEdge.South => StandardCursorType.SizeNorthSouth,
+            _ => StandardCursorType.SizeAll
+        });
 
     private WindowEdge? GetResizeEdge(Point point)
     {

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 
@@ -7,6 +8,16 @@ namespace MacExplorer.Platforms.MacOS;
 internal static class MacWindowChrome
 {
     private const string LibObjC = "/usr/lib/libobjc.A.dylib";
+    private const string NativeHelper = "MacExplorerNativeDrag";
+    private const string CoreGraphics = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+    private const string CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct CGPoint
+    {
+        public readonly double X;
+        public readonly double Y;
+    }
 
     public static void MakeTransparent(TopLevel topLevel)
     {
@@ -45,6 +56,61 @@ internal static class MacWindowChrome
         catch (EntryPointNotFoundException)
         {
             // Same fallback as above.
+        }
+    }
+
+    public static bool TryGetPointerScreenPosition(out Point position)
+    {
+        position = default;
+        if (!OperatingSystem.IsMacOS())
+            return false;
+
+        var cgEvent = CGEventCreate(IntPtr.Zero);
+        if (cgEvent == IntPtr.Zero)
+            return false;
+
+        try
+        {
+            var location = CGEventGetLocation(cgEvent);
+            position = new Point(location.X, location.Y);
+            return true;
+        }
+        finally
+        {
+            CFRelease(cgEvent);
+        }
+    }
+
+    public static bool TrySetWindowFrame(
+        TopLevel topLevel,
+        double width,
+        double height,
+        bool keepRightEdge,
+        bool keepTopEdge)
+    {
+        if (!OperatingSystem.IsMacOS())
+            return false;
+
+        var nsView = GetNSView(topLevel);
+        if (nsView == IntPtr.Zero)
+            return false;
+
+        try
+        {
+            return MacExplorerSetWindowFrame(
+                nsView,
+                width,
+                height,
+                keepRightEdge ? 1 : 0,
+                keepTopEdge ? 1 : 0) != 0;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
         }
     }
 
@@ -119,4 +185,21 @@ internal static class MacWindowChrome
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_intptr(IntPtr receiver, IntPtr selector, IntPtr value);
+
+    [DllImport(CoreGraphics)]
+    private static extern IntPtr CGEventCreate(IntPtr source);
+
+    [DllImport(CoreGraphics)]
+    private static extern CGPoint CGEventGetLocation(IntPtr cgEvent);
+
+    [DllImport(CoreFoundation)]
+    private static extern void CFRelease(IntPtr cf);
+
+    [DllImport(NativeHelper, EntryPoint = "MacExplorerSetWindowFrame")]
+    private static extern int MacExplorerSetWindowFrame(
+        IntPtr nsView,
+        double width,
+        double height,
+        int keepRightEdge,
+        int keepTopEdge);
 }

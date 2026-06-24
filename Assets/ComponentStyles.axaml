@@ -25,7 +25,6 @@
         </ControlTheme>
     </Styles.Resources>
     <Style Selector="Window">
-        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>

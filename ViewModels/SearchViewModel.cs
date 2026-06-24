@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MacExplorer.Models;
@@ -53,7 +52,7 @@ public partial class SearchViewModel : ObservableObject
         string query,
         string homeDirectory,
         string? currentPath,
-        Action<ObservableCollection<FileSystemEntry>> setEntries,
+        Action<IReadOnlyList<FileSystemEntry>> setEntries,
         Action<string> setStatus)
     {
         if (string.IsNullOrWhiteSpace(query)) { ExitSearchMode(true); return; }
@@ -70,25 +69,50 @@ public partial class SearchViewModel : ObservableObject
 
         try
         {
-            var results = new ObservableCollection<FileSystemEntry>();
-            setEntries(results);
+            var results = new List<FileSystemEntry>();
+            setEntries([]);
             setStatus($"正在搜索 \"{query}\"...");
 
             const int maxResults = 500;
-            var updateCounter = 0;
             await foreach (var entry in _searchService.SearchAsync(searchPath, query, maxResults, _searchCts.Token))
             {
                 results.Add(entry);
-                updateCounter++;
-                if (updateCounter % 25 == 0)
+                if (results.Count == 1 || results.Count % 25 == 0)
+                {
+                    setEntries(results.ToArray());
                     setStatus($"正在搜索 \"{query}\" — 已找到 {results.Count} 项");
+                }
             }
+            if (results.Count == 0 || results.Count % 25 != 0)
+                setEntries(results);
             setStatus(results.Count >= maxResults
                 ? $"搜索 \"{query}\" — 显示前 {maxResults} 项"
                 : $"搜索 \"{query}\" — 找到 {results.Count} 项");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { setStatus($"搜索失败: {ex.Message}"); }
+    }
+
+    public async Task<IReadOnlyList<FileSystemEntry>> GetSuggestionsAsync(
+        string directory,
+        string query,
+        int maxResults,
+        CancellationToken cancellationToken)
+    {
+        if (_searchService == null || string.IsNullOrWhiteSpace(query))
+            return [];
+
+        var results = new List<FileSystemEntry>();
+        await foreach (var entry in _searchService.SearchAsync(
+                           directory,
+                           query,
+                           maxResults,
+                           cancellationToken))
+        {
+            results.Add(entry);
+        }
+
+        return results;
     }
 
     public void CancelSearch()

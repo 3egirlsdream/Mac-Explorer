@@ -12,5 +12,6 @@ public interface IOpenWithAppService
     Task AddAsync(string bundleId, string label, bool isTopLevel, string? iconBase64 = null);
     Task UpdateAsync(int id, string? label, bool? isTopLevel, int? sortOrder);
     Task RemoveAsync(int id);
+    Task<int> RemoveUnavailableAppsAsync();
     Task<List<AppListItem>> GetInstalledAppsAsync();
 }

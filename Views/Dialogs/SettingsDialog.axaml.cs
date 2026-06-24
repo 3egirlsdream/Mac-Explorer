@@ -52,6 +52,7 @@ public partial class SettingsDialog : DialogWindow
     private async void OnOpened(object? sender, EventArgs e)
     {
         LoadSettings();
+        await _openWithService.RemoveUnavailableAppsAsync();
         await LoadOpenWithAppsAsync();
         _initializing = false;
     }

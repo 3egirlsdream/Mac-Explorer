@@ -6,6 +6,9 @@ namespace MacExplorer.Services;
 /// </summary>
 public static class VirtualPath
 {
+    /// <summary>Application home view.</summary>
+    public const string Home = "__home__";
+
     /// <summary>Prefix for AI view paths: __ai:face:123, __ai:categories, etc.</summary>
     public const string AiPrefix = "__ai:";
 
@@ -54,6 +57,9 @@ public static class VirtualPath
 
     /// <summary>Prefix for remote server paths: __remote:serverId:/path/to/file</summary>
     public const string RemotePrefix = "__remote:";
+
+    public static bool IsHomePath(string? path) =>
+        string.Equals(path, Home, StringComparison.Ordinal);
 
     public static bool IsRemotePath(string? path) => path != null && path.StartsWith(RemotePrefix, StringComparison.Ordinal);
 

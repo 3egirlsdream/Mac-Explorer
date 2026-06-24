@@ -21,6 +21,7 @@ namespace MacExplorer.Views;
 
 public partial class MainWindow : AppWindow
 {
+    private bool _isRestoringSearch;
     private SettingsDialog? _settingsDialog;
     private TaskPanel? _taskPanel;
     private MainWindowViewModel? _vm;
@@ -493,15 +494,41 @@ public partial class MainWindow : AppWindow
         }
         else if (e.Key == Key.Escape)
         {
-            ClearSearch(sender, e);
+            SearchBox.Text = "";
+            await RestoreSearchOriginAsync();
+            e.Handled = true;
         }
     }
 
-    private void ClearSearch(object? sender, RoutedEventArgs e)
+    private async void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        var hasQuery = !string.IsNullOrWhiteSpace(SearchBox.Text);
+        SearchClearBtn.IsVisible = hasQuery;
+        if (!hasQuery && _vm?.FileList.IsSearchMode == true)
+            await RestoreSearchOriginAsync();
+    }
+
+    private async void ClearSearch(object? sender, RoutedEventArgs e)
     {
         SearchBox.Text = "";
         SearchClearBtn.IsVisible = false;
-        _vm?.FileList.ExitSearch();
+        await RestoreSearchOriginAsync();
+    }
+
+    private async Task RestoreSearchOriginAsync()
+    {
+        if (_isRestoringSearch || _vm?.FileList.IsSearchMode != true)
+            return;
+
+        _isRestoringSearch = true;
+        try
+        {
+            await _vm.FileList.ExitSearchAsync();
+        }
+        finally
+        {
+            _isRestoringSearch = false;
+        }
     }
 
     public void OpenSettings()

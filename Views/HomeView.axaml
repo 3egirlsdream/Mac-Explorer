@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
+             xmlns:models="using:MacExplorer.Models"
              x:Class="MacExplorer.Views.HomeView"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
@@ -10,17 +11,59 @@
         <Grid.ContextMenu><ContextMenu x:Name="HomeCtxMenu"/></Grid.ContextMenu>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="34" Margin="32" MaxWidth="720">
-            <Border Classes="home-search-box">
-                <Grid ColumnDefinitions="Auto,*">
-                    <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
-                              Width="18" Height="18" Margin="14,0,8,0"
-                              Foreground="{DynamicResource ColorTextTertiary}"/>
-                    <TextBox Grid.Column="1" x:Name="HomeSearchBox"
-                             Classes="home-search-input"
-                             PlaceholderText="搜索文件和文件夹"
-                             KeyDown="OnHomeSearchKeyDown"/>
-                </Grid>
-            </Border>
+            <Grid>
+                <Border x:Name="HomeSearchContainer" Classes="home-search-box">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                                  Width="18" Height="18" Margin="14,0,8,0"
+                                  Foreground="{DynamicResource ColorTextTertiary}"/>
+                        <TextBox Grid.Column="1" x:Name="HomeSearchBox"
+                                 Classes="home-search-input omnibox-input"
+                                 PlaceholderText="输入路径、URL、文件名或 AI 关键词..."
+                                 GotFocus="OnHomeSearchGotFocus"
+                                 TextChanged="OnHomeSearchTextChanged"
+                                 LostFocus="OnHomeSearchLostFocus"
+                                 KeyDown="OnHomeSearchKeyDown"/>
+                    </Grid>
+                </Border>
+                <Popup x:Name="HomeSearchPopup"
+                       PlacementTarget="{Binding #HomeSearchContainer}"
+                       Placement="Bottom"
+                       IsLightDismissEnabled="False">
+                    <Border x:Name="HomeSearchSurface"
+                            MaxHeight="340"
+                            Classes="omnibox-popup omnibox-input">
+                        <ListBox x:Name="HomeSearchSuggestionList"
+                                 Classes="omnibox-suggestions">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:OmniboxSuggestion">
+                                    <Grid ColumnDefinitions="32,*"
+                                          Background="Transparent"
+                                          Tapped="OnHomeSuggestionTapped">
+                                        <Border Width="28" Height="28" CornerRadius="6"
+                                                Background="{DynamicResource ColorBgHover}">
+                                            <PathIcon Data="{Binding IconData}"
+                                                      Width="15" Height="15"
+                                                      Foreground="{Binding IconColor}"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="8,0,4,0"
+                                                    VerticalAlignment="Center" Spacing="1">
+                                            <TextBlock Text="{Binding Title}" FontSize="13"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Popup>
+            </Grid>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="30">
                 <Button Classes="ghost home-shortcut" Click="NavigateHomeDirectory">

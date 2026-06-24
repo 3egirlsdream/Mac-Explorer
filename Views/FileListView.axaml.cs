@@ -51,6 +51,8 @@ public partial class FileListView : UserControl
     private static readonly SemaphoreSlim EntryImageLoadGate = new(4);
     private readonly ObservableCollection<FileListPresentationRow> _groupedListRows = [];
     private readonly ObservableCollection<FileGridPresentationRow> _gridRows = [];
+    private readonly Dictionary<string, FileListPresentationRow> _groupedRowByPath = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FileGridPresentationRow> _gridRowByPath = new(StringComparer.Ordinal);
     private int _gridColumnCount;
 
     private sealed class EntryImageLoadState
@@ -161,6 +163,7 @@ public partial class FileListView : UserControl
             _subscribedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _subscribedViewModel.SelectedEntries.CollectionChanged -= OnSelectedEntriesChanged;
             _subscribedViewModel.RenameRequested -= OnRenameRequested;
+            _subscribedViewModel.ScrollToSelectionRequested -= OnScrollToSelectionRequested;
         }
         SubscribeEntriesCollection(null);
 
@@ -171,6 +174,7 @@ public partial class FileListView : UserControl
             _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
             _subscribedViewModel.SelectedEntries.CollectionChanged += OnSelectedEntriesChanged;
             _subscribedViewModel.RenameRequested += OnRenameRequested;
+            _subscribedViewModel.ScrollToSelectionRequested += OnScrollToSelectionRequested;
             SubscribeEntriesCollection(_subscribedViewModel.Entries);
         }
 
@@ -275,6 +279,27 @@ public partial class FileListView : UserControl
             return;
 
         source = !string.IsNullOrWhiteSpace(entry.ThumbnailUrl) ? entry.ThumbnailUrl : source;
+
+        // If thumbnail not yet available for a virtual entry, listen for it
+        if (string.IsNullOrWhiteSpace(source) && entry.IsVirtual)
+        {
+            PropertyChangedEventHandler? handler = null;
+            handler = (_, args) =>
+            {
+                if (args.PropertyName == nameof(FileSystemEntry.ThumbnailUrl)
+                    && !string.IsNullOrWhiteSpace(entry.ThumbnailUrl)
+                    && ReferenceEquals(image.DataContext, entry))
+                {
+                    entry.PropertyChanged -= handler;
+                    Dispatcher.UIThread.Post(() => _ = LoadEntryImageAsync(image), DispatcherPriority.Loaded);
+                }
+            };
+            entry.PropertyChanged += handler;
+            // Also clean up if the image's DataContext changes
+            image.DataContextChanged += (_, _) => entry.PropertyChanged -= handler;
+            return;
+        }
+
         if (image.Tag is string currentSource && currentSource == source && image.Source != null) return;
 
         var cts = new CancellationTokenSource();
@@ -465,6 +490,8 @@ public partial class FileListView : UserControl
             case FileListViewModel.ScrollMode.RestoreNavigation:
             case FileListViewModel.ScrollMode.ScrollToSelected:
                 BringSelectedEntryIntoView();
+                if (ViewModel != null)
+                    ViewModel.ScrollBehaviorAfterLoad = FileListViewModel.ScrollMode.PreservePosition;
                 break;
             default:
                 scroll.Offset = new Vector(0, 0);
@@ -484,15 +511,35 @@ public partial class FileListView : UserControl
     private void BringSelectedEntryIntoView()
     {
         if (ViewModel?.SelectedEntries.FirstOrDefault() is not { } selected) return;
-        this.GetVisualDescendants()
-            .OfType<ListBoxItem>()
-            .FirstOrDefault(item => ReferenceEquals(item.DataContext, selected))
-            ?.BringIntoView();
+
+        if (FileItemsList.IsVisible)
+        {
+            FileItemsList.ScrollIntoView(selected);
+        }
+        else if (GroupedListItems.IsVisible
+                 && _groupedRowByPath.TryGetValue(selected.FullPath, out var groupedRow))
+        {
+            GroupedListItems.ScrollIntoView(groupedRow);
+        }
+        else if (GridViewItems.IsVisible
+                 && _gridRowByPath.TryGetValue(selected.FullPath, out var gridRow))
+        {
+            GridViewItems.ScrollIntoView(gridRow);
+        }
     }
 
     private void OnSelectedEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         QueueSelectionSynchronization();
+    }
+
+    private void OnScrollToSelectionRequested()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            BringSelectedEntryIntoView();
+            Dispatcher.UIThread.Post(SynchronizeSelectionControls, DispatcherPriority.Background);
+        }, DispatcherPriority.Background);
     }
 
     private void OnRenameRequested(FileSystemEntry entry)
@@ -1338,7 +1385,9 @@ public partial class FileListView : UserControl
                 Color = SKColors.White,
                 IsAntialias = true
             };
-            using var typeface = SKTypeface.FromFamilyName("Inter", SKFontStyle.Bold);
+            using var typeface = SKTypeface.FromFamilyName(
+                FontManager.Current.DefaultFontFamily.Name,
+                SKFontStyle.Bold);
             using var font = new SKFont(typeface, badgeText.Length > 2 ? 12 : 15);
             var metrics = font.Metrics;
             var baseline = badgeRect.MidY - (metrics.Ascent + metrics.Descent) / 2;
@@ -1779,13 +1828,18 @@ public partial class FileListView : UserControl
         if (ViewModel == null) return;
 
         _groupedListRows.Clear();
+        _groupedRowByPath.Clear();
         if (ViewModel.GroupField != GroupField.None)
         {
             foreach (var group in ViewModel.Groups)
             {
                 _groupedListRows.Add(new FileListPresentationRow { GroupName = group.Name });
                 foreach (var entry in group.Entries)
-                    _groupedListRows.Add(new FileListPresentationRow { Entry = entry });
+                {
+                    var row = new FileListPresentationRow { Entry = entry };
+                    _groupedListRows.Add(row);
+                    _groupedRowByPath[entry.FullPath] = row;
+                }
             }
         }
 
@@ -1807,6 +1861,7 @@ public partial class FileListView : UserControl
         if (ViewModel == null) return;
         _gridColumnCount = columns;
         _gridRows.Clear();
+        _gridRowByPath.Clear();
 
         IEnumerable<(string? Header, IReadOnlyList<FileSystemEntry> Entries)> groups =
             ViewModel.GroupField == GroupField.None
@@ -1817,10 +1872,15 @@ public partial class FileListView : UserControl
             if (header != null)
                 _gridRows.Add(new FileGridPresentationRow { GroupName = header });
             for (var i = 0; i < entries.Count; i += columns)
-                _gridRows.Add(new FileGridPresentationRow
+            {
+                var row = new FileGridPresentationRow
                 {
                     Entries = entries.Skip(i).Take(columns).ToArray()
-                });
+                };
+                _gridRows.Add(row);
+                foreach (var entry in row.Entries)
+                    _gridRowByPath[entry.FullPath] = row;
+            }
         }
     }
 

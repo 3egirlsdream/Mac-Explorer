@@ -180,6 +180,15 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
 
     private static string NormalizeDirectoryPath(string path)
     {
+        if (VirtualPath.IsRemotePath(path))
+        {
+            var (serverId, remotePath) = VirtualPath.ParseRemotePath(path);
+            var normalizedRemotePath = remotePath == "/"
+                ? "/"
+                : remotePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return VirtualPath.BuildRemotePath(serverId, normalizedRemotePath);
+        }
+
         if (path == "/") return path;
         return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }

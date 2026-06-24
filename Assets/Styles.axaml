@@ -271,15 +271,82 @@
     </Style>
 
     <Style Selector="TextBox.breadcrumb-input">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinHeight" Value="30"/>
+        <Setter Property="MaxHeight" Value="30"/>
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="4,0"/>
+        <Setter Property="Padding" Value="6,0"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
     <Style Selector="TextBox.breadcrumb-input:focus">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <Style Selector="TextBox.omnibox-input">
+        <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource ColorBgHoverStrong}"/>
+        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+<Style Selector="TextBox.omnibox-input:pointerover, TextBox.omnibox-input:focus">
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+</Style>
+
+<Style Selector="TextBox.omnibox-input /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+</Style>
+
+<Style Selector="TextBox.omnibox-input:pointerover /template/ Border#PART_BorderElement, TextBox.omnibox-input:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+</Style>
+
+    <Style Selector="Border.omnibox-popup">
+        <Setter Property="Margin" Value="12,6,12,12"/>
+        <Setter Property="Padding" Value="6"/>
+        <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="BoxShadow" Value="{StaticResource WindowShadow}"/>
+    </Style>
+
+    <Style Selector="ListBox.omnibox-suggestions">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <Style Selector="ListBox.omnibox-suggestions ListBoxItem">
+        <Setter Property="MinHeight" Value="44"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="ListBox.omnibox-suggestions ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
+        <Setter Property="CornerRadius" Value="7"/>
+    </Style>
+
+    <Style Selector="ListBox.omnibox-suggestions ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CornerRadius" Value="7"/>
     </Style>
 
     <!-- ═══ Search Bar Styles ═══ -->
@@ -319,12 +386,6 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="3,0"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
-
-    <Style Selector="TextBox.search-input:pointerover, TextBox.search-input:focus">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <!-- ═══ File List Styles ═══ -->

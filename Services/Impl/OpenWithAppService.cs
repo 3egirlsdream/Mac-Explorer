@@ -260,6 +260,46 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
         }
     }
 
+    public async Task<int> RemoveUnavailableAppsAsync()
+    {
+        List<OpenWithApp> configuredApps;
+        lock (_lock) { configuredApps = new List<OpenWithApp>(_cache); }
+
+        var unavailableIds = await Task.Run(() => configuredApps
+            .Where(app => GetApplicationAvailability(app.BundleId) == ApplicationAvailability.NotInstalled)
+            .Select(app => app.Id)
+            .ToList());
+        if (unavailableIds.Count == 0)
+            return 0;
+
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var transaction = _connection.BeginTransaction();
+            foreach (var id in unavailableIds)
+            {
+                using var cmd = _connection.CreateCommand();
+                cmd.Transaction = transaction;
+                cmd.CommandText = "DELETE FROM open_with_apps WHERE id = @id";
+                cmd.Parameters.AddWithValue("@id", id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            transaction.Commit();
+            LoadAll();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to remove unavailable open-with applications");
+            return 0;
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+
+        return unavailableIds.Count;
+    }
+
     public Task<List<AppListItem>> GetInstalledAppsAsync()
     {
         return Task.Run(() =>
@@ -298,6 +338,60 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
 
             return apps.OrderBy(a => a.Name).ToList();
         });
+    }
+
+    private static ApplicationAvailability GetApplicationAvailability(string bundleId)
+    {
+        try
+        {
+            var script = $"""
+                ObjC.import('AppKit');
+                var url = $.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier('{EscapeJavaScript(bundleId)}');
+                url ? ObjC.unwrap(url.path) : '';
+                """;
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "/usr/bin/osascript",
+                ArgumentList = { "-l", "JavaScript", "-e", script },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            if (process == null)
+                return ApplicationAvailability.Unknown;
+
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(3000))
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                return ApplicationAvailability.Unknown;
+            }
+
+            _ = errorTask.GetAwaiter().GetResult();
+            if (process.ExitCode != 0)
+                return ApplicationAvailability.Unknown;
+
+            var appPath = outputTask.GetAwaiter().GetResult().Trim();
+            return !string.IsNullOrEmpty(appPath) && Directory.Exists(appPath)
+                ? ApplicationAvailability.Installed
+                : ApplicationAvailability.NotInstalled;
+        }
+        catch
+        {
+            return ApplicationAvailability.Unknown;
+        }
+    }
+
+    private static string EscapeJavaScript(string value) =>
+        value.Replace("\\", "\\\\").Replace("'", "\\'");
+
+    private enum ApplicationAvailability
+    {
+        Unknown,
+        Installed,
+        NotInstalled
     }
 
     private static string? ExtractIconBase64(string appPath)

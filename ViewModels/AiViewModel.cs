@@ -505,7 +505,11 @@ public partial class AiViewModel : ObservableObject
                     // Sync thumbnail back to the corresponding FileSystemEntry
                     var entry = entries?.FirstOrDefault(e => e.VirtualFolderKey == cluster.Id.ToString());
                     if (entry != null)
+                    {
                         entry.ThumbnailUrl = url;
+                        // Force binding re-evaluation so the converter returns the thumbnail
+                        entry.RaiseIconBindingChanged();
+                    }
                     onUpdated?.Invoke();
                 }
             }

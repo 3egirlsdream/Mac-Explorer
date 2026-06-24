@@ -94,7 +94,7 @@ public partial class NavigationViewModel : ObservableObject
 
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
     {
-        return !isArchiveView && !isAiView && !isCollectionView && !IsRemoteView && !IsSearchMode
+        return !isArchiveView && !isAiView && !isCollectionView && !IsSearchMode
             && !string.IsNullOrEmpty(CurrentPath);
     }
 
@@ -204,6 +204,19 @@ public partial class NavigationViewModel : ObservableObject
     public void GoHome()
     {
         SetWatchedDirectory(null);
+        IsArchiveView = false;
+        IsAiView = false;
+        IsCollectionView = false;
+        IsRemoteView = false;
+        IsSearchMode = false;
+        SearchQuery = string.Empty;
+        CurrentArchivePath = null;
+        CurrentArchiveInternalPath = "";
+        CurrentCollectionId = null;
+        CurrentCollectionName = null;
+        CurrentFaceClusterId = null;
+        CurrentAiContextLabel = null;
+        CurrentRemoteServerId = null;
         IsHomePage = true;
         CurrentPath = "";
         Breadcrumbs.Clear();
@@ -315,7 +328,7 @@ public partial class NavigationViewModel : ObservableObject
     {
         var segments = new List<BreadcrumbSegment>
         {
-            new() { Name = "AI 智能", DisplayName = "AI 智能", FullPath = "", HasDropdown = false },
+            new() { Name = "首页", DisplayName = "首页", FullPath = VirtualPath.Home, HasDropdown = false },
             new() { Name = modeName, DisplayName = modeName, FullPath = modePath, HasDropdown = contextLabel != null }
         };
         if (contextLabel != null)

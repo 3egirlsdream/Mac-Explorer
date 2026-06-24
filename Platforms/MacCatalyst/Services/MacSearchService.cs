@@ -50,6 +50,36 @@ public class MacSearchService : ISearchService
         var yieldedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var yieldedCount = 0;
         var limit = Math.Max(1, maxResults);
+        IReadOnlyList<FileSystemEntry>? rootEntries = null;
+
+        try
+        {
+            rootEntries = await _fileService.GetDirectoryContentsAsync(directory, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            rootEntries = null;
+        }
+
+        if (rootEntries != null)
+        {
+            foreach (var entry in rootEntries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (entry.Name.Contains(pattern, StringComparison.OrdinalIgnoreCase)
+                    && yieldedPaths.Add(entry.FullPath))
+                {
+                    yieldedCount++;
+                    yield return entry;
+                    if (yieldedCount >= limit)
+                        yield break;
+                }
+            }
+        }
 
         // Try FTS5 index search first (skip if index is unavailable)
         if (_fileIndex != null && _indexConfig.ShouldIndex(directory))
@@ -69,7 +99,8 @@ public class MacSearchService : ISearchService
                 foreach (var entry in indexResults)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (IsPathWithinDirectory(entry.FullPath, directory)
+                    if (entry.Name.Contains(pattern, StringComparison.OrdinalIgnoreCase)
+                        && IsPathWithinDirectory(entry.FullPath, directory)
                         && yieldedPaths.Add(entry.FullPath))
                     {
                         yieldedCount++;
@@ -96,7 +127,8 @@ public class MacSearchService : ISearchService
                            pattern,
                            yieldedPaths,
                            new SearchState(limit - yieldedCount),
-                           cancellationToken))
+                           cancellationToken,
+                           initialEntries: rootEntries))
         {
             cancellationToken.ThrowIfCancellationRequested();
             yield return entry;
@@ -109,19 +141,27 @@ public class MacSearchService : ISearchService
         HashSet<string> yieldedPaths,
         SearchState state,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken,
-        int depth = 0)
+        int depth = 0,
+        IReadOnlyList<FileSystemEntry>? initialEntries = null)
     {
         if (state.Remaining <= 0 || depth > 8)
             yield break;
 
         IReadOnlyList<FileSystemEntry> entries;
-        try
+        if (initialEntries != null)
         {
-            entries = await _fileService.GetDirectoryContentsAsync(directory, cancellationToken);
+            entries = initialEntries;
         }
-        catch
+        else
         {
-            yield break;
+            try
+            {
+                entries = await _fileService.GetDirectoryContentsAsync(directory, cancellationToken);
+            }
+            catch
+            {
+                yield break;
+            }
         }
 
         foreach (var entry in entries)

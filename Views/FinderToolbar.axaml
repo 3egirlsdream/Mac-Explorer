@@ -180,11 +180,6 @@
                     </StackPanel>
                 </Border>
             </Popup>
-
-            <!-- Settings button -->
-            <Button Grid.Column="15" Classes="ghost toolbar-btn w32" ToolTip.Tip="设置" Click="OpenSettings">
-                <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
-            </Button>
         </Grid>
     </Border>
 </UserControl>

@@ -101,7 +101,7 @@ public class MacThumbnailService : IThumbnailService
         if (!File.Exists(filePath) || bw <= 0 || bh <= 0)
             return null;
 
-        var cacheKey = $"face:{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{bx:F4}:{by:F4}:{bw:F4}:{bh:F4}:{maxPixelSize}";
+        var cacheKey = $"face-v2:{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{bx:F4}:{by:F4}:{bw:F4}:{bh:F4}:{maxPixelSize}";
         if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes))
             return memoryBytes;
 
@@ -123,31 +123,57 @@ public class MacThumbnailService : IThumbnailService
         await _generationGate.WaitAsync(ct);
         try
         {
+            if (File.Exists(cachePath))
+            {
+                var cached = await File.ReadAllBytesAsync(cachePath, ct);
+                AddToMemory(cacheKey, cached);
+                return cached;
+            }
+
             var dimensions = await GetDimensionsAsync(filePath, ct);
             if (dimensions == null) return null;
 
             var (width, height) = dimensions.Value;
-            var cropWidth = Math.Max(1, (int)Math.Round(bw * width * 1.6));
-            var cropHeight = Math.Max(1, (int)Math.Round(bh * height * 1.6));
+            var cropWidth = Math.Clamp((int)Math.Round(bw * width * 1.6), 1, width);
+            var cropHeight = Math.Clamp((int)Math.Round(bh * height * 1.6), 1, height);
             var centerX = (bx + bw / 2f) * width;
             var centerY = (1f - by - bh / 2f) * height;
             var offsetX = Math.Clamp((int)Math.Round(centerX - cropWidth / 2f), 0, Math.Max(0, width - cropWidth));
             var offsetY = Math.Clamp((int)Math.Round(centerY - cropHeight / 2f), 0, Math.Max(0, height - cropHeight));
 
-            var arguments = new[]
+            var croppedPath = Path.Combine(_diskCacheDirectory, $".face-crop-{Guid.NewGuid():N}.png");
+            try
             {
-                "-c", cropHeight.ToString(), cropWidth.ToString(),
-                "--cropOffset", offsetY.ToString(), offsetX.ToString(),
-                "-Z", maxPixelSize.ToString(),
-                "--setProperty", "format", "png",
-                filePath, "--out", cachePath
-            };
-            if (!await RunSipsAsync(arguments, ct) || !File.Exists(cachePath))
-                return null;
+                var cropArguments = new[]
+                {
+                    "-c", cropHeight.ToString(), cropWidth.ToString(),
+                    "--cropOffset", offsetY.ToString(), offsetX.ToString(),
+                    "--setProperty", "format", "png",
+                    filePath, "--out", croppedPath
+                };
+                if (!await RunSipsAsync(cropArguments, ct) || !File.Exists(croppedPath))
+                    return null;
 
-            var bytes = await File.ReadAllBytesAsync(cachePath, ct);
-            AddToMemory(cacheKey, bytes);
-            return bytes;
+                var resizeArguments = new[]
+                {
+                    "-Z", Math.Max(1, maxPixelSize).ToString(),
+                    "--setProperty", "format", "png",
+                    croppedPath, "--out", cachePath
+                };
+                if (!await RunSipsAsync(resizeArguments, ct) || !File.Exists(cachePath))
+                {
+                    TryDelete(cachePath);
+                    return null;
+                }
+
+                var bytes = await File.ReadAllBytesAsync(cachePath, ct);
+                AddToMemory(cacheKey, bytes);
+                return bytes;
+            }
+            finally
+            {
+                TryDelete(croppedPath);
+            }
         }
         finally
         {

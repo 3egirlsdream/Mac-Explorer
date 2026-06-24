@@ -272,13 +272,13 @@ public class AiTagService : IAiTagService
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            // Clean up orphaned face clusters
+            // Clean up orphaned unnamed face clusters (preserve user-named clusters)
             using var cleanupCmd = _connection.CreateCommand();
             cleanupCmd.Transaction = transaction;
             cleanupCmd.CommandText = """
                 DELETE FROM face_clusters WHERE id NOT IN (
                     SELECT DISTINCT cluster_id FROM face_observations WHERE cluster_id IS NOT NULL
-                )
+                ) AND display_name IS NULL
                 """;
             await cleanupCmd.ExecuteNonQueryAsync();
 
@@ -828,14 +828,14 @@ public class AiTagService : IAiTagService
             await cmd.ExecuteNonQueryAsync();
         }
 
-        // Clean up empty clusters
+        // Clean up empty unnamed clusters (preserve user-named clusters)
         using (var cmd = _connection.CreateCommand())
         {
             cmd.Transaction = transaction;
             cmd.CommandText = """
                 DELETE FROM face_clusters WHERE id NOT IN (
                     SELECT DISTINCT cluster_id FROM face_observations WHERE cluster_id IS NOT NULL
-                )
+                ) AND display_name IS NULL
                 """;
             await cmd.ExecuteNonQueryAsync();
         }

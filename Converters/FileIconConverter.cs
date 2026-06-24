@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -21,13 +22,48 @@ public class FileEntryToIconConverter : IValueConverter
 
         var size = ParseIconSize(parameter, culture);
 
-        return entry.IsDirectory
-            ? SvgIconCache.GetFolderIcon(size)
-            : SvgIconCache.GetFileIcon(entry.IconKey, entry.Extension, size);
+        // Return thumbnail if available (e.g. face crop for AI face clusters)
+        if (!string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
+        {
+            var bitmap = LoadBitmapFromUrl(entry.ThumbnailUrl);
+            if (bitmap != null) return bitmap;
+        }
+
+        if (!entry.IsDirectory)
+            return SvgIconCache.GetFileIcon(entry.IconKey, entry.Extension, size);
+
+        return entry.IconKey is { Length: > 3 } && entry.IconKey.StartsWith("ai-")
+            ? SvgIconCache.GetAiIcon(entry.IconKey, size)
+            : SvgIconCache.GetFolderIcon(size);
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
+
+    private static Bitmap? LoadBitmapFromUrl(string url)
+    {
+        try
+        {
+            if (url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                var comma = url.IndexOf(',');
+                if (comma < 0) return null;
+                using var dataStream = new MemoryStream(System.Convert.FromBase64String(url[(comma + 1)..]));
+                return new Bitmap(dataStream);
+            }
+
+            if (File.Exists(url))
+            {
+                using var fileStream = File.OpenRead(url);
+                return new Bitmap(fileStream);
+            }
+        }
+        catch
+        {
+            // Fall through to icon
+        }
+        return null;
+    }
 
     private static int ParseIconSize(object? parameter, CultureInfo culture)
     {

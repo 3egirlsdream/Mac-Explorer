@@ -37,6 +37,33 @@ static NSMutableSet<MacExplorerDragSource*>* MacExplorerActiveDragSources()
 
 @end
 
+extern "C" __attribute__((visibility("default")))
+int MacExplorerSetWindowFrame(
+    void* nsViewHandle,
+    double width,
+    double height,
+    int keepRightEdge,
+    int keepTopEdge)
+{
+    if (nsViewHandle == NULL || width <= 0.0 || height <= 0.0)
+        return 0;
+
+    NSView* view = (__bridge NSView*)nsViewHandle;
+    NSWindow* window = view.window;
+    if (window == nil)
+        return 0;
+
+    NSRect frame = window.frame;
+    if (keepRightEdge != 0)
+        frame.origin.x = NSMaxX(frame) - width;
+    if (keepTopEdge != 0)
+        frame.origin.y = NSMaxY(frame) - height;
+
+    frame.size = NSMakeSize(width, height);
+    [window setFrame:frame display:YES];
+    return 1;
+}
+
 static NSArray<NSString*>* MacExplorerParseNullSeparatedPaths(const char* bytes, int byteLength)
 {
     if (bytes == NULL || byteLength <= 0)

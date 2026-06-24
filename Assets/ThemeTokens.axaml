@@ -3,8 +3,6 @@
         xmlns:sys="using:System">
     <Styles.Resources>
         <ResourceDictionary>
-            <FontFamily x:Key="AppFontFamily">Inter, -apple-system, BlinkMacSystemFont, sans-serif</FontFamily>
-
             <sys:Double x:Key="FontSizeXs">11</sys:Double>
             <sys:Double x:Key="FontSizeSm">12</sys:Double>
             <sys:Double x:Key="FontSizeBase">13</sys:Double>

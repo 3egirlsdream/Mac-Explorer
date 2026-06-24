@@ -92,6 +92,11 @@ public class FileSystemEntry : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Force bindings that use {Binding .} to re-evaluate (e.g. icon converter).
+    /// </summary>
+    public void RaiseIconBindingChanged() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(""));
+
     private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value)) return;
