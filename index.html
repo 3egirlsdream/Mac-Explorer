@@ -270,13 +270,13 @@
         }
 
         .hero {
-            width: var(--wrap);
+            width: min(1380px, calc(100vw - 40px));
             margin: 0 auto;
             padding: 116px 0 68px;
             display: grid;
-            grid-template-columns: minmax(0, 0.9fr) minmax(520px, 1.1fr);
+            grid-template-columns: minmax(390px, 0.72fr) minmax(680px, 1.28fr);
             align-items: center;
-            gap: clamp(34px, 5vw, 72px);
+            gap: clamp(28px, 3vw, 54px);
         }
 
         .eyebrow {
@@ -746,6 +746,632 @@
             background: var(--blue-soft);
         }
 
+        .showcase-stage {
+            position: relative;
+            min-width: 680px;
+            height: 590px;
+            isolation: isolate;
+        }
+
+        .showcase-window {
+            position: absolute;
+            z-index: 2;
+            top: 104px;
+            left: 50%;
+            width: 72%;
+            height: 382px;
+            overflow: hidden;
+            transform: translateX(-50%);
+            border: 1px solid color-mix(in srgb, var(--line) 92%, var(--blue));
+            border-radius: 15px;
+            background: color-mix(in srgb, var(--panel-solid) 94%, transparent);
+            box-shadow:
+                0 28px 70px rgba(44, 65, 98, 0.17),
+                0 4px 16px rgba(44, 65, 98, 0.08);
+        }
+
+        .showcase-window::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: inherit;
+            box-shadow: inset 0 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .showcase-titlebar {
+            height: 36px;
+            display: grid;
+            grid-template-columns: 76px 1fr 118px;
+            align-items: center;
+            gap: 8px;
+            padding: 0 11px;
+            border-bottom: 1px solid var(--line-soft);
+            background: color-mix(in srgb, var(--panel-solid) 82%, var(--panel-muted));
+        }
+
+        .showcase-traffic {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .showcase-traffic span {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+        }
+
+        .showcase-traffic span:nth-child(1) { background: #ff5f57; }
+        .showcase-traffic span:nth-child(2) { background: #febc2e; }
+        .showcase-traffic span:nth-child(3) { background: #28c840; }
+
+        .showcase-path {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+            height: 24px;
+            border: 1px solid var(--line-soft);
+            border-radius: 7px;
+            color: var(--muted);
+            background: color-mix(in srgb, var(--panel-solid) 76%, transparent);
+            font-size: 9px;
+            font-weight: 680;
+            white-space: nowrap;
+        }
+
+        .showcase-search {
+            display: flex;
+            align-items: center;
+            height: 24px;
+            padding: 0 8px;
+            border: 1px solid var(--line-soft);
+            border-radius: 7px;
+            color: var(--soft);
+            font-size: 9px;
+        }
+
+        .showcase-body {
+            display: grid;
+            grid-template-columns: 114px 1fr;
+            height: calc(100% - 36px);
+        }
+
+        .showcase-sidebar {
+            padding: 13px 9px;
+            border-right: 1px solid var(--line-soft);
+            background: color-mix(in srgb, var(--panel-muted) 48%, transparent);
+        }
+
+        .showcase-group + .showcase-group {
+            margin-top: 13px;
+        }
+
+        .showcase-group-title {
+            margin: 0 7px 5px;
+            color: var(--soft);
+            font-size: 8px;
+            font-weight: 760;
+        }
+
+        .showcase-side-row {
+            height: 23px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 7px;
+            border-radius: 6px;
+            color: var(--muted);
+            font-size: 8.5px;
+            font-weight: 650;
+        }
+
+        .showcase-side-row.active {
+            color: var(--ink);
+            background: color-mix(in srgb, var(--blue) 11%, transparent);
+        }
+
+        .showcase-side-icon {
+            width: 12px;
+            height: 9px;
+            flex: 0 0 auto;
+            border: 1.5px solid currentColor;
+            border-radius: 3px;
+            color: var(--blue);
+            opacity: 0.82;
+        }
+
+        .showcase-side-row.remote .showcase-side-icon {
+            color: #12a59e;
+            border-radius: 5px;
+        }
+
+        .showcase-files {
+            position: relative;
+            min-width: 0;
+            padding: 9px 12px 20px;
+            background: color-mix(in srgb, var(--panel-solid) 90%, transparent);
+        }
+
+        .showcase-toolbar {
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 7px;
+            border-bottom: 1px solid var(--line-soft);
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 680;
+        }
+
+        .showcase-tools,
+        .showcase-view-tools {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .showcase-tool {
+            min-width: 20px;
+            height: 19px;
+            display: grid;
+            place-items: center;
+            padding: 0 4px;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            color: var(--muted);
+            background: color-mix(in srgb, var(--panel-muted) 56%, transparent);
+            font-size: 8px;
+        }
+
+        .showcase-tool.wide {
+            min-width: 36px;
+        }
+
+        .showcase-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            column-gap: 7px;
+            row-gap: 11px;
+            margin-top: 13px;
+        }
+
+        .showcase-file {
+            min-width: 0;
+            display: grid;
+            justify-items: center;
+            gap: 5px;
+            color: var(--ink-2);
+            font-size: 7.5px;
+            font-weight: 650;
+            text-align: center;
+        }
+
+        .showcase-file > span:last-child {
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .folder-icon {
+            position: relative;
+            width: 34px;
+            height: 25px;
+            border-radius: 4px 5px 5px 5px;
+            background: linear-gradient(180deg, #ffc928, #f6b900);
+            box-shadow: inset 0 -5px 8px rgba(179, 116, 0, 0.08);
+        }
+
+        .folder-icon::before {
+            content: "";
+            position: absolute;
+            top: -4px;
+            left: 2px;
+            width: 15px;
+            height: 7px;
+            border-radius: 4px 4px 0 0;
+            background: #ffc928;
+        }
+
+        .doc-icon {
+            position: relative;
+            width: 27px;
+            height: 32px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line-soft);
+            border-radius: 4px 4px 6px 6px;
+            color: var(--blue-strong);
+            background: linear-gradient(180deg, #fff, #edf2f8);
+            font-size: 7px;
+            font-weight: 850;
+        }
+
+        .doc-icon.code {
+            color: #0b9b68;
+            background: linear-gradient(180deg, #effcf6, #d8f3e7);
+        }
+
+        .file-state {
+            position: absolute;
+            right: -4px;
+            bottom: -4px;
+            width: 12px;
+            height: 12px;
+            display: grid;
+            place-items: center;
+            border: 1.5px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            background: #18b866;
+            font-size: 7px;
+            line-height: 1;
+        }
+
+        .file-state.modified {
+            background: #f0aa16;
+        }
+
+        .showcase-status {
+            position: absolute;
+            right: 13px;
+            bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #18a95d;
+            font-size: 8px;
+            font-weight: 760;
+        }
+
+        .showcase-status::before {
+            content: "";
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .spotlight {
+            --spot: var(--blue);
+            position: absolute;
+            z-index: 4;
+            width: 184px;
+            overflow: hidden;
+            border: 1px solid color-mix(in srgb, var(--spot) 18%, var(--line));
+            border-radius: 15px;
+            background: color-mix(in srgb, var(--panel-solid) 88%, transparent);
+            backdrop-filter: blur(20px) saturate(150%);
+            -webkit-backdrop-filter: blur(20px) saturate(150%);
+            box-shadow:
+                0 18px 36px rgba(44, 65, 98, 0.12),
+                0 2px 8px rgba(44, 65, 98, 0.05);
+            padding: 13px;
+        }
+
+        .spotlight::after {
+            content: "";
+            position: absolute;
+            width: 54px;
+            border-top: 1px dashed color-mix(in srgb, var(--spot) 72%, transparent);
+            pointer-events: none;
+        }
+
+        .spotlight-git {
+            --spot: #7657e8;
+            top: 9px;
+            left: 0;
+            height: 190px;
+        }
+
+        .spotlight-git::after {
+            right: -54px;
+            bottom: 39px;
+        }
+
+        .spotlight-remote {
+            --spot: #12a59e;
+            left: 0;
+            bottom: 0;
+            height: 218px;
+        }
+
+        .spotlight-remote::after {
+            right: -54px;
+            top: 65px;
+        }
+
+        .spotlight-ai {
+            --spot: #2583f7;
+            top: 9px;
+            right: 0;
+            height: 204px;
+        }
+
+        .spotlight-ai::after {
+            left: -54px;
+            bottom: 51px;
+        }
+
+        .spotlight-search-card {
+            --spot: #f47c20;
+            right: 0;
+            bottom: 0;
+            height: 226px;
+        }
+
+        .spotlight-search-card::after {
+            left: -54px;
+            top: 58px;
+        }
+
+        .spotlight h3 {
+            margin: 0;
+            color: var(--spot);
+            font-size: 15px;
+            line-height: 1.2;
+        }
+
+        .spotlight > p {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 9px;
+            line-height: 1.35;
+        }
+
+        .spotlight-ui {
+            margin-top: 10px;
+            border: 1px solid var(--line-soft);
+            border-radius: 9px;
+            background: color-mix(in srgb, var(--panel-solid) 92%, var(--panel-muted));
+            box-shadow: var(--shadow-sm);
+        }
+
+        .git-status-list {
+            display: grid;
+            gap: 7px;
+            padding: 10px;
+        }
+
+        .git-status-row {
+            display: grid;
+            grid-template-columns: 15px 1fr;
+            align-items: center;
+            gap: 7px;
+            color: var(--ink-2);
+            font-size: 8.5px;
+            font-weight: 680;
+        }
+
+        .git-dot {
+            width: 14px;
+            height: 14px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            color: #fff;
+            background: #1ab865;
+            font-size: 7px;
+        }
+
+        .git-dot.modified {
+            background: #e7a719;
+        }
+
+        .remote-panel {
+            padding: 8px;
+        }
+
+        .saved-server {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 7px;
+            padding: 6px;
+            border-radius: 6px;
+            color: var(--ink-2);
+            background: color-mix(in srgb, var(--panel-muted) 68%, transparent);
+            font-size: 8px;
+            font-weight: 720;
+        }
+
+        .server-signal {
+            width: 15px;
+            height: 15px;
+            display: grid;
+            place-items: center;
+            color: var(--spot);
+            font-size: 10px;
+        }
+
+        .server-meta {
+            display: grid;
+            gap: 1px;
+        }
+
+        .server-meta small {
+            color: var(--soft);
+            font-size: 6.5px;
+            font-weight: 600;
+        }
+
+        .remote-input {
+            height: 24px;
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+            padding: 0 7px;
+            border: 1px solid var(--line-soft);
+            border-radius: 5px;
+            color: var(--soft);
+            font-size: 7px;
+        }
+
+        .remote-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-top: 7px;
+        }
+
+        .remote-actions span {
+            height: 23px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line-soft);
+            border-radius: 5px;
+            color: var(--muted);
+            font-size: 7px;
+            font-weight: 760;
+        }
+
+        .remote-actions .connect {
+            color: #fff;
+            border-color: var(--spot);
+            background: var(--spot);
+        }
+
+        .ai-panel {
+            padding: 8px;
+        }
+
+        .ai-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+
+        .ai-metric {
+            padding: 6px 3px;
+            border: 1px solid var(--line-soft);
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .ai-metric strong {
+            display: block;
+            color: var(--ink);
+            font-size: 11px;
+            line-height: 1.1;
+        }
+
+        .ai-metric span {
+            color: var(--soft);
+            font-size: 6.5px;
+        }
+
+        .ai-task {
+            margin-top: 7px;
+            padding: 7px;
+            border: 1px solid var(--line-soft);
+            border-radius: 6px;
+        }
+
+        .ai-task-title {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--ink-2);
+            font-size: 7.5px;
+            font-weight: 730;
+        }
+
+        .ai-task-title i {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--spot);
+        }
+
+        .ai-progress {
+            height: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: var(--panel-muted);
+        }
+
+        .ai-progress span {
+            display: block;
+            width: 64%;
+            height: 100%;
+            border-radius: inherit;
+            background: var(--spot);
+        }
+
+        .spotlight-search-ui {
+            margin-top: 9px;
+        }
+
+        .spotlight-search-input {
+            height: 27px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 8px;
+            border: 1px solid var(--line-soft);
+            border-radius: 8px;
+            color: var(--ink-2);
+            background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+            font-size: 8px;
+            font-weight: 650;
+        }
+
+        .spotlight-search-input::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border: 1.5px solid var(--soft);
+            border-radius: 50%;
+        }
+
+        .search-results {
+            display: grid;
+            gap: 1px;
+            margin-top: 5px;
+            padding: 4px;
+            border: 1px solid var(--line-soft);
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+        }
+
+        .search-result {
+            display: grid;
+            grid-template-columns: 12px 1fr;
+            gap: 5px;
+            padding: 4px;
+            border-radius: 5px;
+            color: var(--ink-2);
+            font-size: 7px;
+            line-height: 1.2;
+        }
+
+        .search-result:first-child {
+            background: color-mix(in srgb, var(--spot) 8%, transparent);
+        }
+
+        .result-doc {
+            width: 9px;
+            height: 11px;
+            border: 1px solid var(--soft);
+            border-radius: 2px;
+        }
+
+        .search-result strong {
+            display: block;
+            font-size: 7.5px;
+        }
+
+        .search-result small {
+            display: block;
+            margin-top: 1px;
+            color: var(--soft);
+            font-size: 6px;
+        }
+
         .section {
             width: var(--wrap);
             margin: 0 auto;
@@ -1171,7 +1797,7 @@
             }
 
             .hero-visual {
-                width: min(100%, 680px);
+                width: min(100%, 820px);
                 margin: 0 auto;
             }
 
@@ -1203,6 +1829,36 @@
 
             .hero-visual {
                 margin-top: 4px;
+            }
+
+            .showcase-stage {
+                min-width: 0;
+                height: auto;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            .showcase-window {
+                position: relative;
+                top: auto;
+                left: auto;
+                order: -1;
+                grid-column: 1 / -1;
+                width: 100%;
+                height: 410px;
+                transform: none;
+            }
+
+            .spotlight {
+                position: relative;
+                inset: auto;
+                width: auto;
+                height: 205px;
+            }
+
+            .spotlight::after {
+                display: none;
             }
 
             .app-window {
@@ -1333,6 +1989,51 @@
                 min-height: 244px;
             }
 
+            .showcase-stage {
+                grid-template-columns: 1fr;
+                gap: 9px;
+            }
+
+            .showcase-window {
+                height: 300px;
+                border-radius: 12px;
+            }
+
+            .showcase-titlebar {
+                grid-template-columns: 60px 1fr;
+            }
+
+            .showcase-search {
+                display: none;
+            }
+
+            .showcase-body {
+                grid-template-columns: 82px 1fr;
+            }
+
+            .showcase-sidebar {
+                padding: 10px 6px;
+            }
+
+            .showcase-side-row {
+                padding: 0 4px;
+                font-size: 7.5px;
+            }
+
+            .showcase-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                row-gap: 9px;
+            }
+
+            .showcase-file:nth-child(n+10) {
+                display: none;
+            }
+
+            .spotlight {
+                height: auto;
+                min-height: 174px;
+            }
+
             .chrome {
                 height: 36px;
                 padding: 0 10px;
@@ -1413,7 +2114,7 @@
                 <div class="eyebrow"><span class="status-dot" aria-hidden="true"></span>适用于 macOS 15.0+ · 免费开源</div>
                 <h1 id="hero-title"><span class="line">更顺手的</span><span class="line">Mac 文件管理器</span></h1>
                 <p class="hero-lede">
-                    Mac Explorer 不是把 Finder 换一层皮，而是把日常文件工作里最常绕路的部分重新整理：浏览、搜索、批量操作、远程目录、压缩包、Git 状态和图片理解，都在一个干净的窗口里完成。
+                    浏览、搜索、远程连接、Git 与 AI 分析，都在一个窗口里完成。
                 </p>
                 <div class="hero-actions">
                     <a class="button primary" href="https://github.com/3egirlsdream/Mac-Explorer/releases">下载最新版本</a>
@@ -1426,102 +2127,150 @@
                 </div>
             </div>
 
-            <div class="hero-visual reveal" aria-label="Mac Explorer 界面预览">
-                <div class="app-window">
-                    <div class="chrome">
-                        <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
-                        <div class="pathbar">Users / jiangxinji / Documents</div>
-                        <div class="search-pill">搜索文件、标签或路径</div>
+            <div class="hero-visual reveal" aria-label="Mac Explorer 文件管理与四项亮点功能预览">
+                <div class="showcase-stage">
+                    <article class="spotlight spotlight-git">
+                        <h3>Git 集成</h3>
+                        <p>文件状态实时呈现，改动一眼看清。</p>
+                        <div class="spotlight-ui git-status-list">
+                            <div class="git-status-row"><span class="git-dot">✓</span><span>已提交</span></div>
+                            <div class="git-status-row"><span class="git-dot modified">M</span><span>已修改</span></div>
+                            <div class="git-status-row"><span class="git-dot">+</span><span>已新增</span></div>
+                        </div>
+                    </article>
+
+                    <article class="spotlight spotlight-remote">
+                        <h3>远程 SFTP 连接</h3>
+                        <p>像打开本地文件夹一样管理服务器。</p>
+                        <div class="spotlight-ui remote-panel">
+                            <div class="saved-server">
+                                <span class="server-signal">•••</span>
+                                <span class="server-meta">staging.example.com<small>dev@staging.example.com:22</small></span>
+                            </div>
+                            <div class="remote-input">服务器名称</div>
+                            <div class="remote-input">主机地址</div>
+                            <div class="remote-actions"><span class="connect">连接</span><span>保存</span></div>
+                        </div>
+                    </article>
+
+                    <div class="showcase-window" aria-label="Mac Explorer 文件夹窗口">
+                        <div class="showcase-titlebar">
+                            <div class="showcase-traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+                            <div class="showcase-path">本地磁盘 › 用户 › 文档 › Mac Explorer</div>
+                            <div class="showcase-search">⌕ 搜索...</div>
+                        </div>
+                        <div class="showcase-body">
+                            <aside class="showcase-sidebar">
+                                <div class="showcase-group">
+                                    <div class="showcase-group-title">收藏夹</div>
+                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>最近使用</div>
+                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>桌面</div>
+                                    <div class="showcase-side-row active"><span class="showcase-side-icon"></span>文稿</div>
+                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>下载</div>
+                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>图片</div>
+                                </div>
+                                <div class="showcase-group">
+                                    <div class="showcase-group-title">位置</div>
+                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>本地磁盘</div>
+                                    <div class="showcase-side-row remote"><span class="showcase-side-icon"></span>项目磁盘</div>
+                                    <div class="showcase-side-row remote"><span class="showcase-side-icon"></span>远程服务器</div>
+                                </div>
+                            </aside>
+                            <section class="showcase-files">
+                                <div class="showcase-toolbar">
+                                    <div class="showcase-tools">
+                                        <span class="showcase-tool wide">＋ 新建</span>
+                                        <span class="showcase-tool">剪切</span>
+                                        <span class="showcase-tool">复制</span>
+                                        <span class="showcase-tool">删除</span>
+                                    </div>
+                                    <div class="showcase-view-tools">
+                                        <span class="showcase-tool">▦</span>
+                                        <span class="showcase-tool">☰</span>
+                                        <span class="showcase-tool wide">↕ 排序</span>
+                                    </div>
+                                </div>
+                                <div class="showcase-grid">
+                                    <div class="showcase-file"><div class="doc-icon">CS<span class="file-state">✓</span></div><span>ViewController.cs</span></div>
+                                    <div class="showcase-file"><div class="doc-icon">CS<span class="file-state modified">M</span></div><span>Program.cs</span></div>
+                                    <div class="showcase-file"><div class="doc-icon">AX</div><span>App.axaml</span></div>
+                                    <div class="showcase-file"><div class="doc-icon">MD<span class="file-state">✓</span></div><span>README.md</span></div>
+                                    <div class="showcase-file"><div class="doc-icon code">&lt;/&gt;<span class="file-state">+</span></div><span>index.html</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"><span class="file-state">✓</span></div><span>ViewModels</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"><span class="file-state modified">M</span></div><span>Converters</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"><span class="file-state">+</span></div><span>Indexing</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"></div><span>Tests</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"></div><span>Platforms</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"></div><span>Controls</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"></div><span>Models</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"></div><span>Services</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"></div><span>Assets</span></div>
+                                    <div class="showcase-file"><div class="folder-icon"></div><span>Views</span></div>
+                                </div>
+                                <div class="showcase-status">已连接</div>
+                            </section>
+                        </div>
                     </div>
-                    <div class="app-body">
-                        <aside class="sidebar">
-                            <div class="side-title">收藏夹</div>
-                            <div class="side-list">
-                                <div class="side-item active"><span class="mini-icon"></span>Documents</div>
-                                <div class="side-item"><span class="mini-icon"></span>Projects</div>
-                                <div class="side-item"><span class="mini-icon"></span>Downloads</div>
-                                <div class="side-item"><span class="mini-icon"></span>Desktop</div>
+
+                    <article class="spotlight spotlight-ai">
+                        <h3>AI 智能分析</h3>
+                        <p>理解图片与文件内容，后台安静处理。</p>
+                        <div class="spotlight-ui ai-panel">
+                            <div class="ai-summary">
+                                <div class="ai-metric"><strong>1</strong><span>运行中</span></div>
+                                <div class="ai-metric"><strong>0</strong><span>已完成</span></div>
+                                <div class="ai-metric"><strong>0</strong><span>待处理</span></div>
                             </div>
-                            <div class="side-title" style="margin-top:18px">连接</div>
-                            <div class="side-list">
-                                <div class="side-item"><span class="mini-icon"></span>Design NAS</div>
-                                <div class="side-item"><span class="mini-icon"></span>Staging SFTP</div>
+                            <div class="ai-task">
+                                <div class="ai-task-title"><i></i><span>AI 图像分析 108/168</span></div>
+                                <div class="ai-progress"><span></span></div>
                             </div>
-                        </aside>
-                        <section class="file-area">
-                            <div class="toolbar-row">
-                                <div class="mini-label">按名称排序</div>
-                                <div class="segmented" aria-hidden="true"><span class="active">▦</span><span>☰</span></div>
+                        </div>
+                    </article>
+
+                    <article class="spotlight spotlight-search-card">
+                        <h3>全局文件搜索</h3>
+                        <p>文件名、路径与内容统一检索。</p>
+                        <div class="spotlight-search-ui">
+                            <div class="spotlight-search-input">readme</div>
+                            <div class="search-results">
+                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/文档/项目/README.md</small></span></div>
+                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/下载/工具包/README.md</small></span></div>
+                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/工作/发布/README.md</small></span></div>
+                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/归档/旧版/README.md</small></span></div>
                             </div>
-                            <div class="file-grid">
-                                <div class="file-card active"><div class="file-icon"><span class="git-badge green"></span></div><div class="file-name">Launch</div></div>
-                                <div class="file-card"><div class="file-icon photo"></div><div class="file-name">Screenshots</div></div>
-                                <div class="file-card"><div class="file-icon doc"><span class="git-badge"></span></div><div class="file-name">README.md</div></div>
-                                <div class="file-card"><div class="file-icon"></div><div class="file-name">Builds</div></div>
-                                <div class="file-card"><div class="file-icon doc"></div><div class="file-name">Release.zip</div></div>
-                                <div class="file-card"><div class="file-icon"></div><div class="file-name">Assets</div></div>
-                                <div class="file-card"><div class="file-icon photo"></div><div class="file-name">Family</div></div>
-                                <div class="file-card"><div class="file-icon doc"></div><div class="file-name">Notes.txt</div></div>
-                            </div>
-                        </section>
-                        <aside class="inspector">
-                            <div class="mini-label">快速预览</div>
-                            <div class="preview-tile">
-                                <div class="preview-image"></div>
-                            </div>
-                            <div class="meta-list">
-                                <div class="meta"><span>类型</span><strong>图片文件夹</strong></div>
-                                <div class="meta"><span>修改</span><strong>今天</strong></div>
-                                <div class="meta"><span>评分</span><strong class="stars">★★★★</strong></div>
-                                <div class="meta"><span>Git</span><strong>Modified</strong></div>
-                            </div>
-                        </aside>
-                    </div>
-                    <div class="task-float">
-                        <div class="task-title"><span>正在压缩 Release.zip</span><span>72%</span></div>
-                        <div class="bar"><span></span></div>
-                    </div>
-                </div>
-                <div class="floating-card">
-                    <strong>AI 已为当前目录生成标签</strong>
-                    <div class="tag-cloud">
-                        <span class="tag hot">截图</span>
-                        <span class="tag">设计稿</span>
-                        <span class="tag">旧金山</span>
-                        <span class="tag hot">人像</span>
-                        <span class="tag">文档</span>
-                        <span class="tag">代码</span>
-                    </div>
+                        </div>
+                    </article>
                 </div>
             </div>
         </section>
 
         <section class="section compact" id="highlights">
             <div class="section-kicker reveal">Highlights</div>
-            <h2 class="reveal">它解决的是每天都会遇到的小摩擦。</h2>
+            <h2 class="reveal">少切换，文件工作更顺手。</h2>
             <p class="section-lede reveal">
-                常见文件管理器把功能分散在菜单、终端、压缩工具和远程客户端里。Mac Explorer 把这些动作收拢成一个连续的工作流，让你少切换、少等待、少猜文件在哪里。
+                把分散的工具收进同一个文件管理器。
             </p>
             <div class="value-grid">
                 <article class="value-card reveal">
                     <span class="value-index">01</span>
                     <div>
                         <h3>看得更完整</h3>
-                        <p>列表和网格视图都支持排序、分组、过滤、Git 标记、评分与元数据预览，文件状态不用跳到别的工具里确认。</p>
+                        <p>排序、过滤、Git 状态和文件信息一目了然。</p>
                     </div>
                 </article>
                 <article class="value-card reveal">
                     <span class="value-index">02</span>
                     <div>
                         <h3>找得更自然</h3>
-                        <p>文件名搜索、FTS5 全文索引、AI 标签和图片内容理解一起工作。你可以按名字找，也可以按“人物、场景、地点、关键词”找。</p>
+                        <p>按文件名、内容或 AI 标签快速定位。</p>
                     </div>
                 </article>
                 <article class="value-card reveal">
                     <span class="value-index">03</span>
                     <div>
                         <h3>操作更连贯</h3>
-                        <p>复制、移动、压缩、解压、SFTP 上传、Quick Look 预览和右键快捷操作都围绕同一个窗口设计，批量任务也有清晰进度。</p>
+                        <p>预览、批量处理、压缩与远程传输无需换工具。</p>
                     </div>
                 </article>
             </div>
@@ -1529,9 +2278,9 @@
 
         <section class="section" id="features">
             <div class="section-kicker reveal">Features</div>
-            <h2 class="reveal">功能够强，但不用把人推向技术细节。</h2>
+            <h2 class="reveal">强大功能，保持简单。</h2>
             <p class="section-lede reveal">
-                Mac Explorer 把高级能力做成普通操作：你仍然是在浏览文件，只是搜索更聪明、远程目录更像本地、压缩包更像文件夹、Git 状态更容易被看见。
+                熟悉的文件操作，带来更高效的体验。
             </p>
 
             <div class="feature-layout">
@@ -1558,42 +2307,42 @@
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">AI</span><span class="mini-badge">本地优先</span></div>
                         <h3>AI 图片与内容理解</h3>
-                        <p>自动分析图片中的人物、场景、地点与文字信息，为文件生成可搜索标签。找照片不必只靠文件名，也不必把隐私交给云端。</p>
+                        <p>识别人物、场景与文字，自动生成可搜索标签。</p>
                     </article>
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">FTS</span><span class="mini-badge">快速定位</span></div>
                         <h3>文件搜索与智能建议</h3>
-                        <p>首页可以像命令面板一样输入路径或关键词；目录内搜索会优先使用索引，也能回退到文件系统递归搜索。</p>
+                        <p>输入路径或关键词，即刻找到目标文件。</p>
                     </article>
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">Git</span><span class="mini-badge">图标标记</span></div>
                         <h3>Git 状态一眼可见</h3>
-                        <p>新增、修改、未跟踪等状态会叠加在文件图标上。浏览仓库时不用打开终端，也能知道哪些文件正在变化。</p>
+                        <p>新增、修改与未跟踪状态直接显示在文件图标上。</p>
                     </article>
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">SFTP</span><span class="mini-badge">远程目录</span></div>
                         <h3>SFTP 连接与远程编辑</h3>
-                        <p>保存服务器信息后即可浏览远程目录，支持密码或密钥认证、文件上传下载与远程编辑，体验更接近本地文件夹。</p>
+                        <p>连接、浏览、上传下载与编辑，操作如同本地目录。</p>
                     </article>
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">ZIP</span><span class="mini-badge">无需绕路</span></div>
                         <h3>压缩、解压与归档浏览</h3>
-                        <p>支持 ZIP、TAR、GZ、7Z 等常见格式。压缩任务在后台运行，压缩包也可以像文件夹一样进入查看。</p>
+                        <p>支持常见格式，并可直接浏览压缩包内容。</p>
                     </article>
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">QL</span><span class="mini-badge">原生能力</span></div>
                         <h3>Quick Look 与元数据面板</h3>
-                        <p>空格快速预览沿用 macOS 习惯，侧边信息面板展示大小、类型、修改时间、扩展属性、评分和图片预览。</p>
+                        <p>空格快速预览，侧边栏集中展示文件信息。</p>
                     </article>
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">DRAG</span><span class="mini-badge">批量操作</span></div>
                         <h3>多选拖放与冲突处理</h3>
-                        <p>框选、Shift 连选、Cmd 点选、批量拖放都按桌面习惯设计。复制或移动遇到冲突时，会提示你选择处理方式。</p>
+                        <p>支持多选、批量拖放和清晰的文件冲突提示。</p>
                     </article>
                     <article class="feature-card reveal">
                         <div class="feature-top"><span class="feature-mark">UI</span><span class="mini-badge">双主题</span></div>
                         <h3>毛玻璃窗口与紧凑工具栏</h3>
-                        <p>侧边栏、菜单、预览面板和任务面板都采用玻璃质感。浅色与深色主题不是简单反色，而是为长时间使用重新调过层次。</p>
+                        <p>精致的玻璃质感，并支持浅色与深色主题。</p>
                     </article>
                 </div>
             </div>
@@ -1601,9 +2350,9 @@
 
         <section class="section" id="workflows">
             <div class="section-kicker reveal">Workflows</div>
-            <h2 class="reveal">从本地文件夹到远程服务器，都保持同一种手感。</h2>
+            <h2 class="reveal">从本地到远程，一样顺手。</h2>
             <p class="section-lede reveal">
-                官网不需要把每个类库都说清楚，用户更关心的是：我能不能更快完成手上的事。下面这些场景，是 Mac Explorer 的重点。
+                为真实工作场景而设计。
             </p>
             <div class="workflow">
                 <article class="workflow-panel reveal">
@@ -1613,7 +2362,7 @@
                         <div class="remote-row"><span>上传 4 个文件</span><strong>排队中</strong></div>
                     </div>
                     <h3>管理服务器文件</h3>
-                    <p>用 SFTP 打开项目目录，上传构建产物、编辑配置文件、下载日志，不必在文件管理器和远程客户端之间来回切。</p>
+                    <p>直接浏览、编辑和传输远程文件。</p>
                 </article>
                 <article class="workflow-panel reveal">
                     <div class="panel-demo">
@@ -1622,7 +2371,7 @@
                         <div class="ai-row"><span>含文字截图</span><strong>17</strong></div>
                     </div>
                     <h3>整理照片和资料</h3>
-                    <p>AI 标签、图片预览、评分和元数据结合在一起，适合整理截图、照片、设计素材、工作文档和临时归档。</p>
+                    <p>用 AI 标签、预览与评分整理素材。</p>
                 </article>
                 <article class="workflow-panel reveal">
                     <div class="panel-demo">
@@ -1631,16 +2380,16 @@
                         <div class="archive-row"><span>任务面板</span><strong>72%</strong></div>
                     </div>
                     <h3>处理发布包</h3>
-                    <p>压缩、解压、进入归档、查看文件内容和后台进度都在同一处完成，适合软件发布、素材交付和批量打包。</p>
+                    <p>压缩、浏览归档与任务进度集中完成。</p>
                 </article>
             </div>
         </section>
 
         <section class="section" id="compare">
             <div class="section-kicker reveal">Compare</div>
-            <h2 class="reveal">保留 Finder 的直觉，补上高频工作的缺口。</h2>
+            <h2 class="reveal">熟悉的操作，更完整的能力。</h2>
             <p class="section-lede reveal">
-                Finder 很适合基础文件浏览。Mac Explorer 的目标不是替代所有系统能力，而是把高级用户每天会补装的工具整合进一个优雅入口。
+                在 Finder 的直觉之上，补齐搜索、开发与远程工作。
             </p>
             <div class="comparison reveal" role="table" aria-label="Mac Explorer 与 Finder 功能对比">
                 <div class="compare-row compare-head" role="row">
@@ -1650,28 +2399,28 @@
                 </div>
                 <div class="compare-row" role="row">
                     <div class="compare-cell">搜索</div>
-                    <div class="compare-cell highlight">文件名、索引、AI 标签和图片内容统一检索</div>
-                    <div class="compare-cell">主要依赖 Spotlight 与文件名结果</div>
+                    <div class="compare-cell highlight">文件名、内容与 AI 标签统一检索</div>
+                    <div class="compare-cell">Spotlight 与文件名搜索</div>
                 </div>
                 <div class="compare-row" role="row">
                     <div class="compare-cell">开发工作</div>
-                    <div class="compare-cell highlight">文件图标直接显示 Git 状态，适合浏览仓库</div>
-                    <div class="compare-cell">需要终端或第三方工具补充</div>
+                    <div class="compare-cell highlight">文件图标直接显示 Git 状态</div>
+                    <div class="compare-cell">依赖终端或其他工具</div>
                 </div>
                 <div class="compare-row" role="row">
                     <div class="compare-cell">远程目录</div>
-                    <div class="compare-cell highlight">SFTP 连接、浏览、上传下载与编辑放在同一窗口</div>
-                    <div class="compare-cell">通常需要额外远程文件客户端</div>
+                    <div class="compare-cell highlight">内置 SFTP 浏览、传输与编辑</div>
+                    <div class="compare-cell">需要远程文件客户端</div>
                 </div>
                 <div class="compare-row" role="row">
                     <div class="compare-cell">归档文件</div>
-                    <div class="compare-cell highlight">常见压缩格式、后台任务、归档内浏览</div>
-                    <div class="compare-cell">系统内置能力更偏基础 ZIP 操作</div>
+                    <div class="compare-cell highlight">多格式支持，可直接浏览归档</div>
+                    <div class="compare-cell">基础 ZIP 操作</div>
                 </div>
                 <div class="compare-row" role="row">
                     <div class="compare-cell">批量操作</div>
-                    <div class="compare-cell highlight">多选、拖放、冲突提示、进度面板围绕批量任务设计</div>
-                    <div class="compare-cell">基础操作稳定，但复杂任务反馈较少</div>
+                    <div class="compare-cell highlight">多选、拖放、冲突提示与任务进度</div>
+                    <div class="compare-cell">基础批量操作</div>
                 </div>
             </div>
         </section>
@@ -1680,8 +2429,8 @@
             <div class="download-card reveal">
                 <div>
                     <div class="section-kicker">Download</div>
-                    <h2>准备把文件管理变得更利落了吗？</h2>
-                    <p class="section-lede">Mac Explorer 免费开源，适用于 macOS 15.0 及以上版本。下载后拖入 Applications 文件夹即可开始使用。</p>
+                    <h2>让文件管理更利落。</h2>
+                    <p class="section-lede">免费开源，适用于 macOS 15.0+。</p>
                 </div>
                 <div class="download-actions">
                     <a class="button primary" href="https://github.com/3egirlsdream/Mac-Explorer/releases">下载最新版本</a>
