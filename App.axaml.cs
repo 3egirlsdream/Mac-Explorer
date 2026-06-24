@@ -58,7 +58,6 @@ public partial class App : Application
 
         if (OperatingSystem.IsMacOS())
         {
-            Platforms.MacCatalyst.Services.MacApplicationIconService.Apply();
             DispatcherTimer.RunOnce(
                 () => Services.GetRequiredService<Platforms.MacCatalyst.Services.MacDockMenuService>().Register(),
                 TimeSpan.FromSeconds(1));
