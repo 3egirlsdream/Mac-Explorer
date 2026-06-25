@@ -34,7 +34,7 @@ dotnet publish -c Release
 
 # 构建产物位于:
 # .app 包:  bin/Release/net10.0/Mac Explorer.app
-# .zip 包:  bin/Release/net10.0/MacExplorer-1.0.15-macos.zip
+# .zip 包:  bin/Release/net10.0/MacExplorer-1.0.16-macos.zip
 
 # 2. 安装：将 .app 拖入 /Applications 目录即可
 ```
@@ -56,7 +56,7 @@ dotnet publish -c Release
 dotnet publish -c Release
 
 # 2. 使用 xcrun notarytool 公证（推荐）
-xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.15-macos.zip \
+xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.16-macos.zip \
   --apple-id "your-apple-id@example.com" \
   --password "app-specific-password" \
   --team-id "TEAM_ID" \
@@ -64,7 +64,7 @@ xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.15-macos.zip \
 
 # 3. 使用 Transporter 或 xcrun 上传到 App Store Connect
 xcrun altool --upload-app \
-  -f bin/Release/net10.0/MacExplorer-1.0.15-macos.zip \
+  -f bin/Release/net10.0/MacExplorer-1.0.16-macos.zip \
   -t macos \
   -u "your-apple-id@example.com" \
   -p "app-specific-password"

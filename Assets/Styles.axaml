@@ -47,7 +47,6 @@
 
     <Style Selector="TextBlock.sidebar-section-title">
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
         <Setter Property="Padding" Value="18,4,18,4"/>
         <Setter Property="Margin" Value="0,0,0,2"/>
@@ -56,7 +55,6 @@
     <!-- Collapsible section title -->
     <Style Selector="TextBlock.sidebar-section-title-collapsible">
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
         <Setter Property="Padding" Value="18,4,18,4"/>
         <Setter Property="Margin" Value="0,8,0,2"/>

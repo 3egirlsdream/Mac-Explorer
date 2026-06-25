@@ -233,7 +233,7 @@
                           x:Name="RemoteServersHeader"
                           IsVisible="False">
                         <TextBlock Grid.Column="0" Text="远程服务器"
-                                   FontSize="13" FontWeight="SemiBold"
+                                   FontSize="13"
                                    Foreground="{DynamicResource ColorTextTertiary}"
                                    Padding="18,4,0,4"/>
                     </Grid>
@@ -288,7 +288,7 @@
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="AI 智能"
-                                   FontSize="13" FontWeight="SemiBold"
+                                   FontSize="13"
                                    Foreground="{DynamicResource ColorTextTertiary}"
                                    Padding="18,4,0,4"/>
                         <PathIcon Grid.Column="2" Data="{x:Static icons:Icons.ChevronRight}"
@@ -376,7 +376,7 @@
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto"
                           Margin="0,8,0,2">
                         <TextBlock Grid.Column="0" Text="收藏夹"
-                                   FontSize="13" FontWeight="SemiBold"
+                                   FontSize="13"
                                    Foreground="{DynamicResource ColorTextTertiary}"
                                    Padding="18,4,0,4"
                                    Cursor="Hand"

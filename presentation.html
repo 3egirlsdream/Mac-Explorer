@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mac Explorer 1.0.15 产品发布</title>
+    <meta name="description" content="Mac Explorer 产品发布演示">
+    <link rel="icon" href="Assets/appicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            color-scheme: dark;
+            --blue: #3b82f6;
+            --blue-deep: #2563eb;
+            --green: #2f9e64;
+            --amber: #d99000;
+            --orange: #f97316;
+            --purple: #7657e8;
+            --ink: #111318;
+            --muted: #687181;
+            --line: rgba(17, 19, 24, 0.1);
+            --paper: #f7f8fa;
+            --white: #fff;
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body {
+            display: grid;
+            place-items: center;
+            color: var(--white);
+            background: #050608;
+            font-family: Aptos, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: geometricPrecision;
+        }
+
+        button,
+        a {
+            font: inherit;
+        }
+
+        .stage {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            transform-origin: center;
+            background: #000;
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            display: none;
+            overflow: hidden;
+            padding: 92px 118px;
+            background: var(--paper);
+            color: var(--ink);
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        .slide.dark {
+            color: var(--white);
+            background: #090b10;
+        }
+
+        .slide.blue {
+            color: var(--white);
+            background: #0c46a8;
+        }
+
+        .slide::after {
+            content: attr(data-screen-label);
+            position: absolute;
+            right: 58px;
+            bottom: 38px;
+            color: currentColor;
+            opacity: 0.34;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .slide-grid {
+            position: absolute;
+            inset: 0;
+            opacity: 0.45;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(118, 129, 149, 0.09) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(118, 129, 149, 0.09) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: linear-gradient(180deg, black, transparent 88%);
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin: 0;
+            letter-spacing: 0;
+        }
+
+        h1 {
+            font-size: 132px;
+            line-height: 0.95;
+            font-weight: 800;
+        }
+
+        h2 {
+            max-width: 1420px;
+            font-size: 82px;
+            line-height: 1.06;
+            font-weight: 790;
+        }
+
+        h3 {
+            font-size: 34px;
+            line-height: 1.2;
+            font-weight: 760;
+        }
+
+        .kicker {
+            margin-bottom: 24px;
+            color: var(--blue);
+            font-size: 22px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .lede {
+            max-width: 1160px;
+            margin-top: 34px;
+            color: var(--muted);
+            font-size: 34px;
+            line-height: 1.45;
+            font-weight: 520;
+        }
+
+        .dark .lede,
+        .blue .lede {
+            color: rgba(255, 255, 255, 0.64);
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(34px);
+        }
+
+        .active .reveal {
+            animation: reveal 800ms var(--ease) forwards;
+            animation-delay: var(--delay, 80ms);
+        }
+
+        @keyframes reveal {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .brand-lockup {
+            display: inline-flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 28px;
+            font-weight: 760;
+        }
+
+        .app-icon {
+            width: 68px;
+            height: 68px;
+            border-radius: 15px;
+            box-shadow: 0 16px 36px rgba(198, 66, 171, 0.24);
+        }
+
+        .cover {
+            display: grid;
+            grid-template-columns: 1.08fr 0.92fr;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .cover::before {
+            content: "";
+            position: absolute;
+            width: 920px;
+            height: 920px;
+            right: -120px;
+            top: 40px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 38% 34%, rgba(91, 155, 255, 0.38), transparent 34%),
+                radial-gradient(circle at 68% 68%, rgba(47, 158, 100, 0.22), transparent 30%);
+            filter: blur(8px);
+        }
+
+        .cover-copy {
+            position: relative;
+            z-index: 2;
+        }
+
+        .cover .brand-lockup {
+            margin-bottom: 62px;
+        }
+
+        .cover h1 span {
+            display: block;
+            color: #7db1ff;
+        }
+
+        .cover h1 {
+            font-size: 116px;
+        }
+
+        .cover-meta {
+            display: flex;
+            gap: 28px;
+            margin-top: 54px;
+            color: rgba(255, 255, 255, 0.58);
+            font-size: 22px;
+            font-weight: 650;
+        }
+
+        .cover-art {
+            position: relative;
+            z-index: 2;
+            height: 820px;
+            display: grid;
+            place-items: center;
+        }
+
+        .giant-icon {
+            width: 440px;
+            height: 440px;
+            border-radius: 94px;
+            transform: rotate(3deg);
+            box-shadow:
+                0 70px 160px rgba(0, 0, 0, 0.48),
+                0 0 120px rgba(91, 155, 255, 0.16);
+        }
+
+        .problem-layout {
+            display: grid;
+            grid-template-columns: 0.82fr 1.18fr;
+            align-items: center;
+            height: 100%;
+            gap: 90px;
+        }
+
+        .tool-scatter {
+            position: relative;
+            height: 720px;
+        }
+
+        .problem-layout h2 {
+            font-size: 72px;
+        }
+
+        .problem-layout h2 span,
+        .feature-split h2 span {
+            display: block;
+        }
+
+        .tool-chip {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            min-width: 300px;
+            padding: 24px 30px;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 24px 60px rgba(44, 55, 75, 0.11);
+            font-size: 26px;
+            font-weight: 720;
+        }
+
+        .tool-chip i {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--chip);
+            box-shadow: 0 0 0 8px color-mix(in srgb, var(--chip) 13%, transparent);
+        }
+
+        .tool-chip:nth-child(1) { --chip: var(--blue); left: 40px; top: 30px; transform: rotate(-4deg); }
+        .tool-chip:nth-child(2) { --chip: var(--purple); right: 20px; top: 180px; transform: rotate(3deg); }
+        .tool-chip:nth-child(3) { --chip: var(--green); left: 0; top: 360px; transform: rotate(2deg); }
+        .tool-chip:nth-child(4) { --chip: var(--orange); right: 54px; bottom: 30px; transform: rotate(-3deg); }
+
+        .fragment-line {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 500px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(104, 113, 129, 0.28), transparent);
+            transform-origin: left;
+        }
+
+        .fragment-line:nth-of-type(5) { transform: rotate(30deg); }
+        .fragment-line:nth-of-type(6) { transform: rotate(145deg); }
+
+        .reveal-slide {
+            display: grid;
+            place-items: center;
+            text-align: center;
+        }
+
+        .reveal-slide h2 {
+            max-width: 1540px;
+            font-size: 106px;
+        }
+
+        .reveal-slide .accent {
+            display: block;
+            margin-top: 16px;
+            color: #77aaff;
+        }
+
+        .reveal-slide .app-icon {
+            width: 118px;
+            height: 118px;
+            margin-bottom: 48px;
+            border-radius: 26px;
+        }
+
+        .product-stage {
+            display: grid;
+            place-items: center;
+            height: 100%;
+        }
+
+        .real-shot {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(17, 19, 24, 0.12);
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 42px 110px rgba(29, 42, 62, 0.2);
+        }
+
+        .real-shot > img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        .real-shot.full {
+            width: 1230px;
+            height: 791px;
+        }
+
+        .real-shot.full > img {
+            object-fit: contain;
+        }
+
+        .real-shot.crop-files > img {
+            object-position: 55% 42%;
+        }
+
+        .real-shot.crop-info > img {
+            object-position: 100% 46%;
+        }
+
+        .real-shot.crop-sidebar > img {
+            object-position: 0 55%;
+        }
+
+        .shot-focus {
+            position: absolute;
+            border: 3px solid var(--blue);
+            border-radius: 14px;
+            box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.12);
+            pointer-events: none;
+        }
+
+        .shot-focus.info {
+            right: 25px;
+            top: 150px;
+            width: 365px;
+            height: 690px;
+        }
+
+        .shot-focus.git {
+            left: 300px;
+            top: 185px;
+            width: 640px;
+            height: 330px;
+        }
+
+        .actual-caption {
+            position: absolute;
+            left: 50%;
+            bottom: 52px;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            border: 1px solid rgba(17, 19, 24, 0.08);
+            border-radius: 999px;
+            color: #586171;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(16px);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .product-stage .real-shot.full {
+            position: absolute;
+            left: 50%;
+            top: 190px;
+            transform: translateX(-50%);
+        }
+
+        .product-window {
+            position: relative;
+            width: 1280px;
+            height: 730px;
+            overflow: hidden;
+            border: 1px solid rgba(17, 19, 24, 0.12);
+            border-radius: 20px;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 50px 120px rgba(29, 42, 62, 0.2);
+        }
+
+        .window-bar {
+            height: 58px;
+            display: grid;
+            grid-template-columns: 150px 1fr 250px;
+            align-items: center;
+            gap: 18px;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--line);
+            background: #f8f9fb;
+        }
+
+        .traffic {
+            display: flex;
+            gap: 10px;
+        }
+
+        .traffic i {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+        }
+
+        .traffic i:nth-child(1) { background: #ff5f57; }
+        .traffic i:nth-child(2) { background: #febc2e; }
+        .traffic i:nth-child(3) { background: #28c840; }
+
+        .path {
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(17, 19, 24, 0.08);
+            border-radius: 8px;
+            color: #606978;
+            font-size: 16px;
+            font-weight: 680;
+        }
+
+        .search {
+            height: 34px;
+            display: flex;
+            align-items: center;
+            padding: 0 13px;
+            border: 1px solid rgba(17, 19, 24, 0.08);
+            border-radius: 8px;
+            color: #939aa6;
+            font-size: 15px;
+        }
+
+        .window-body {
+            display: grid;
+            grid-template-columns: 210px 1fr;
+            height: calc(100% - 58px);
+        }
+
+        .file-sidebar {
+            padding: 26px 16px;
+            border-right: 1px solid var(--line);
+            background: #f4f6f9;
+        }
+
+        .side-label {
+            margin: 20px 12px 8px;
+            color: #8b93a0;
+            font-size: 13px;
+            font-weight: 750;
+        }
+
+        .side-label:first-child {
+            margin-top: 0;
+        }
+
+        .side-row {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 12px;
+            border-radius: 9px;
+            color: #525b69;
+            font-size: 15px;
+            font-weight: 650;
+        }
+
+        .side-row.active {
+            color: var(--ink);
+            background: rgba(59, 130, 246, 0.12);
+        }
+
+        .side-glyph {
+            width: 17px;
+            height: 14px;
+            border: 2px solid var(--blue);
+            border-radius: 4px;
+        }
+
+        .side-row.remote .side-glyph {
+            border-radius: 50%;
+            border-color: #11a69e;
+        }
+
+        .file-content {
+            position: relative;
+            padding: 18px 22px 28px;
+        }
+
+        .file-toolbar {
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tool {
+            height: 30px;
+            display: grid;
+            place-items: center;
+            padding: 0 12px;
+            border-radius: 7px;
+            color: #606978;
+            background: #f0f2f6;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 30px 20px;
+            margin-top: 30px;
+        }
+
+        .file {
+            min-width: 0;
+            display: grid;
+            justify-items: center;
+            gap: 11px;
+            color: #303642;
+            font-size: 14px;
+            font-weight: 650;
+        }
+
+        .file > span:last-child {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .folder {
+            position: relative;
+            width: 64px;
+            height: 46px;
+            border-radius: 7px 9px 9px;
+            background: linear-gradient(180deg, #ffca28, #f5b800);
+            box-shadow: inset 0 -8px 12px rgba(170, 106, 0, 0.08);
+        }
+
+        .folder::before {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: -8px;
+            width: 29px;
+            height: 13px;
+            border-radius: 7px 7px 0 0;
+            background: #ffca28;
+        }
+
+        .document {
+            position: relative;
+            width: 50px;
+            height: 60px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(17, 19, 24, 0.08);
+            border-radius: 7px 7px 10px 10px;
+            color: var(--blue-deep);
+            background: linear-gradient(180deg, #fff, #eaf0f7);
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .document.code {
+            color: #0b9b68;
+            background: linear-gradient(180deg, #effcf6, #d7f2e6);
+        }
+
+        .git-state {
+            position: absolute;
+            right: -8px;
+            bottom: -8px;
+            width: 22px;
+            height: 22px;
+            display: grid;
+            place-items: center;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            background: #1ab865;
+            font-size: 11px;
+            font-style: normal;
+            font-weight: 850;
+        }
+
+        .git-state.modified {
+            background: #e7a719;
+        }
+
+        .connected {
+            position: absolute;
+            right: 24px;
+            bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--green);
+            font-size: 14px;
+            font-weight: 760;
+        }
+
+        .connected::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .window-caption {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 76px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 24px;
+            font-weight: 650;
+        }
+
+        .feature-split {
+            display: grid;
+            grid-template-columns: 0.72fr 1.28fr;
+            align-items: center;
+            height: 100%;
+            gap: 80px;
+        }
+
+        .feature-split h2 {
+            font-size: 68px;
+        }
+
+        .feature-split.reverse {
+            grid-template-columns: 1.25fr 0.75fr;
+        }
+
+        .feature-points {
+            display: grid;
+            gap: 24px;
+            margin-top: 52px;
+        }
+
+        .point {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 26px;
+            font-weight: 650;
+        }
+
+        .point i {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #78adff;
+        }
+
+        .search-demo {
+            position: relative;
+            height: 720px;
+            display: grid;
+            place-items: center;
+        }
+
+        .search-panel {
+            width: 840px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.09);
+            backdrop-filter: blur(30px);
+            box-shadow: 0 44px 100px rgba(0, 0, 0, 0.28);
+        }
+
+        .search-field {
+            height: 88px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 0 28px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            font-size: 28px;
+            font-weight: 650;
+        }
+
+        .search-field::before {
+            content: "";
+            width: 26px;
+            height: 26px;
+            border: 3px solid rgba(255, 255, 255, 0.64);
+            border-radius: 50%;
+        }
+
+        .typing::after {
+            content: "";
+            animation: typing 6s steps(1) infinite;
+        }
+
+        @keyframes typing {
+            0%, 12% { content: "r"; }
+            18%, 28% { content: "re"; }
+            34%, 44% { content: "read"; }
+            50%, 100% { content: "readme"; }
+        }
+
+        .search-list {
+            padding: 16px;
+        }
+
+        .search-item {
+            display: grid;
+            grid-template-columns: 44px 1fr auto;
+            align-items: center;
+            gap: 18px;
+            padding: 17px 18px;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.76);
+            font-size: 21px;
+        }
+
+        .search-item:first-child {
+            color: #fff;
+            background: rgba(120, 173, 255, 0.18);
+        }
+
+        .search-item small {
+            display: block;
+            margin-top: 3px;
+            color: rgba(255, 255, 255, 0.42);
+            font-size: 15px;
+        }
+
+        .search-tag {
+            padding: 6px 10px;
+            border-radius: 999px;
+            color: #bcd5ff;
+            background: rgba(120, 173, 255, 0.16);
+            font-size: 15px;
+            font-weight: 750;
+        }
+
+        .ai-bubble {
+            position: absolute;
+            right: 20px;
+            bottom: 24px;
+            width: 300px;
+            padding: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 18px;
+            background: rgba(12, 24, 48, 0.88);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .ai-bubble strong {
+            display: block;
+            margin-bottom: 16px;
+            font-size: 19px;
+        }
+
+        .ai-progress {
+            height: 7px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .ai-progress i {
+            display: block;
+            width: 68%;
+            height: 100%;
+            border-radius: inherit;
+            background: #78adff;
+            animation: progress 5s var(--ease) infinite alternate;
+        }
+
+        @keyframes progress {
+            from { width: 24%; }
+            to { width: 88%; }
+        }
+
+        .dual-demo {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: stretch;
+            gap: 34px;
+            height: 660px;
+        }
+
+        .actual-feature-visual {
+            position: relative;
+            height: 700px;
+        }
+
+        .actual-feature-visual .real-shot {
+            position: absolute;
+            inset: 18px 0 0;
+            border-color: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.24);
+        }
+
+        .actual-feature-visual .real-shot > img {
+            filter: saturate(0.92);
+            object-position: 50% 50%;
+        }
+
+        .ai-mode-cloud {
+            position: absolute;
+            left: 30px;
+            right: 30px;
+            bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .ai-mode-cloud span {
+            padding: 9px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            color: #fff;
+            background: rgba(10, 29, 64, 0.84);
+            backdrop-filter: blur(14px);
+            font-size: 17px;
+            font-weight: 720;
+        }
+
+        .actual-dual {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 34px;
+            height: 650px;
+        }
+
+        .actual-pane {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 28px 70px rgba(34, 49, 72, 0.1);
+        }
+
+        .actual-pane .real-shot {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .actual-pane.git-shot .real-shot > img {
+            width: 1220px;
+            max-width: none;
+            object-fit: contain;
+            transform: translate(-240px, -8px);
+        }
+
+        .actual-pane.remote-shot .real-shot > img {
+            width: 980px;
+            max-width: none;
+            object-fit: contain;
+            transform: translate(-165px, 0);
+        }
+
+        .pane-label {
+            position: absolute;
+            left: 24px;
+            top: 24px;
+            z-index: 2;
+            padding: 10px 15px;
+            border-radius: 10px;
+            color: #fff;
+            background: rgba(15, 20, 28, 0.82);
+            backdrop-filter: blur(14px);
+            font-size: 20px;
+            font-weight: 760;
+        }
+
+        .actual-info-layout {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 54px;
+            align-items: center;
+            height: 100%;
+        }
+
+        .actual-info-layout .real-shot {
+            width: 1020px;
+            height: 720px;
+        }
+
+        .actual-info-layout .real-shot > img {
+            width: 1120px;
+            max-width: none;
+            object-fit: contain;
+            transform: translate(-100px, -2px);
+        }
+
+        .capability-list {
+            display: grid;
+            gap: 22px;
+            margin-top: 44px;
+        }
+
+        .capability {
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .capability strong {
+            display: block;
+            font-size: 26px;
+        }
+
+        .capability span {
+            display: block;
+            margin-top: 6px;
+            color: rgba(255, 255, 255, 0.52);
+            font-size: 19px;
+            line-height: 1.4;
+        }
+
+        .demo-pane {
+            padding: 38px;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 28px 70px rgba(34, 49, 72, 0.1);
+        }
+
+        .demo-pane h3 {
+            color: var(--pane);
+        }
+
+        .git-list,
+        .server-form {
+            margin-top: 38px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 22px;
+        }
+
+        .git-row {
+            height: 72px;
+            display: grid;
+            grid-template-columns: 34px 1fr auto;
+            align-items: center;
+            gap: 18px;
+            border-bottom: 1px solid var(--line);
+            font-size: 20px;
+            font-weight: 650;
+        }
+
+        .git-row:last-child {
+            border-bottom: 0;
+        }
+
+        .status-circle {
+            width: 27px;
+            height: 27px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            color: #fff;
+            background: var(--green);
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .status-circle.modified {
+            background: var(--amber);
+        }
+
+        .git-row small {
+            color: var(--muted);
+            font-size: 16px;
+        }
+
+        .server-saved {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px;
+            border-radius: 10px;
+            background: #f0f3f7;
+            font-size: 19px;
+            font-weight: 720;
+        }
+
+        .server-saved i {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #10a49c;
+        }
+
+        .server-saved small {
+            display: block;
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 560;
+        }
+
+        .form-field {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            margin-top: 14px;
+            padding: 0 16px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: #9098a5;
+            font-size: 16px;
+        }
+
+        .connect-button {
+            height: 52px;
+            display: grid;
+            place-items: center;
+            margin-top: 18px;
+            border-radius: 8px;
+            color: #fff;
+            background: #10a49c;
+            font-size: 17px;
+            font-weight: 760;
+        }
+
+        .efficiency-layout {
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 58px;
+        }
+
+        .efficiency-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+
+        .efficiency-item {
+            position: relative;
+            overflow: hidden;
+            min-height: 540px;
+            padding: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .efficiency-item h3 {
+            margin-top: 26px;
+            font-size: 38px;
+        }
+
+        .efficiency-item p {
+            margin-top: 16px;
+            color: rgba(255, 255, 255, 0.56);
+            font-size: 23px;
+            line-height: 1.42;
+        }
+
+        .efficiency-symbol {
+            width: 70px;
+            height: 70px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 16px;
+            color: #8bb9ff;
+            background: rgba(255, 255, 255, 0.08);
+            font-size: 28px;
+            font-weight: 850;
+        }
+
+        .quicklook-preview {
+            position: absolute;
+            left: 40px;
+            right: 40px;
+            bottom: 34px;
+            height: 235px;
+            border-radius: 14px;
+            background:
+                linear-gradient(145deg, rgba(75, 144, 255, 0.8), transparent 48%),
+                linear-gradient(35deg, rgba(47, 158, 100, 0.8), #f0b344);
+        }
+
+        .archive-stack {
+            position: absolute;
+            left: 52px;
+            bottom: 76px;
+            width: 300px;
+            height: 170px;
+        }
+
+        .archive-stack i {
+            position: absolute;
+            inset: 0;
+            border: 2px solid rgba(255, 255, 255, 0.18);
+            border-radius: 14px;
+            background: #202630;
+        }
+
+        .archive-stack i:nth-child(1) { transform: translate(42px, -34px); opacity: 0.45; }
+        .archive-stack i:nth-child(2) { transform: translate(21px, -17px); opacity: 0.7; }
+        .archive-stack i:nth-child(3) {
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-size: 26px;
+            font-style: normal;
+            font-weight: 780;
+        }
+
+        .task-demo {
+            position: absolute;
+            left: 40px;
+            right: 40px;
+            bottom: 55px;
+            padding: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .task-head {
+            display: flex;
+            justify-content: space-between;
+            font-size: 19px;
+            font-weight: 700;
+        }
+
+        .task-bar {
+            height: 8px;
+            margin-top: 22px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .task-bar i {
+            display: block;
+            width: 72%;
+            height: 100%;
+            border-radius: inherit;
+            background: #78adff;
+        }
+
+        .scenes-layout {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            height: 100%;
+            gap: 70px;
+        }
+
+        .scene-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 34px;
+        }
+
+        .scene {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 560px;
+            padding: 42px;
+            border-top: 2px solid var(--scene);
+            background: rgba(255, 255, 255, 0.68);
+        }
+
+        .scene-number {
+            color: var(--scene);
+            font-size: 20px;
+            font-weight: 850;
+        }
+
+        .scene h3 {
+            margin-top: 80px;
+            font-size: 46px;
+        }
+
+        .scene p {
+            margin-top: 22px;
+            color: var(--muted);
+            font-size: 24px;
+            line-height: 1.45;
+        }
+
+        .scene-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .scene-tags span {
+            padding: 8px 12px;
+            border-radius: 999px;
+            color: color-mix(in srgb, var(--scene) 82%, var(--ink));
+            background: color-mix(in srgb, var(--scene) 10%, transparent);
+            font-size: 17px;
+            font-weight: 740;
+        }
+
+        .compare-layout {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            height: 100%;
+            gap: 54px;
+        }
+
+        .compare-table {
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.76);
+        }
+
+        .compare-row {
+            display: grid;
+            grid-template-columns: 260px 1fr 1fr;
+            min-height: 102px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .compare-row:last-child {
+            border-bottom: 0;
+        }
+
+        .compare-row.header {
+            min-height: 80px;
+            color: var(--muted);
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .compare-cell {
+            display: flex;
+            align-items: center;
+            padding: 22px 32px;
+            border-right: 1px solid var(--line);
+            font-size: 22px;
+            font-weight: 650;
+        }
+
+        .compare-cell:last-child {
+            border-right: 0;
+        }
+
+        .compare-cell.highlight {
+            color: #1959c7;
+            background: rgba(59, 130, 246, 0.07);
+            font-weight: 760;
+        }
+
+        .release-layout {
+            height: 100%;
+            display: grid;
+            place-items: center;
+            text-align: center;
+        }
+
+        .release-layout .app-icon {
+            width: 132px;
+            height: 132px;
+            margin-bottom: 44px;
+            border-radius: 29px;
+        }
+
+        .release-layout h2 {
+            font-size: 110px;
+        }
+
+        .release-version {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 44px;
+            padding: 14px 22px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 999px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 23px;
+            font-weight: 720;
+        }
+
+        .release-version i {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #49c982;
+        }
+
+        .release-link {
+            display: block;
+            margin-top: 34px;
+            color: #82b5ff;
+            font-size: 25px;
+            font-weight: 680;
+            text-decoration: none;
+        }
+
+        .overview {
+            padding: 64px 78px;
+        }
+
+        .overview-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .overview-head h2 {
+            font-size: 58px;
+        }
+
+        .overview-head .brand-lockup {
+            font-size: 24px;
+        }
+
+        .overview-head .app-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 12px;
+        }
+
+        .overview-stage {
+            position: relative;
+            height: 820px;
+            margin-top: 32px;
+        }
+
+        .overview .product-window {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1000px;
+            height: 570px;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 34px 90px rgba(29, 42, 62, 0.17);
+        }
+
+        .overview-hero {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1080px;
+            height: 694px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 36px 100px rgba(29, 42, 62, 0.2);
+            transform: translate(-50%, -48%);
+        }
+
+        .overview-hero img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        .overview .window-bar {
+            height: 46px;
+            grid-template-columns: 120px 1fr 180px;
+        }
+
+        .overview .window-body {
+            grid-template-columns: 170px 1fr;
+            height: calc(100% - 46px);
+        }
+
+        .overview .file-sidebar {
+            padding: 16px 11px;
+        }
+
+        .overview .side-label {
+            margin: 12px 9px 5px;
+            font-size: 10px;
+        }
+
+        .overview .side-row {
+            height: 31px;
+            font-size: 11px;
+        }
+
+        .overview .file-content {
+            padding: 13px 16px 22px;
+        }
+
+        .overview .file-toolbar {
+            height: 34px;
+            padding-bottom: 9px;
+        }
+
+        .overview .tool {
+            height: 23px;
+            padding: 0 8px;
+            font-size: 9px;
+        }
+
+        .overview .file-grid {
+            gap: 20px 12px;
+            margin-top: 22px;
+        }
+
+        .overview .folder {
+            width: 48px;
+            height: 35px;
+        }
+
+        .overview .document {
+            width: 38px;
+            height: 46px;
+            font-size: 10px;
+        }
+
+        .overview .file {
+            gap: 7px;
+            font-size: 10px;
+        }
+
+        .overview .git-state {
+            width: 17px;
+            height: 17px;
+            right: -6px;
+            bottom: -6px;
+            font-size: 8px;
+        }
+
+        .overview-callout {
+            --callout: var(--blue);
+            position: absolute;
+            width: 270px;
+            padding: 22px;
+            border: 1px solid color-mix(in srgb, var(--callout) 20%, var(--line));
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 18px 44px rgba(37, 51, 75, 0.1);
+        }
+
+        .overview-chip {
+            --chip: var(--blue);
+            position: absolute;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 17px;
+            border: 1px solid color-mix(in srgb, var(--chip) 24%, var(--line));
+            border-radius: 999px;
+            color: color-mix(in srgb, var(--chip) 84%, var(--ink));
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 14px 34px rgba(37, 51, 75, 0.1);
+            font-size: 18px;
+            font-weight: 760;
+        }
+
+        .overview-chip::before {
+            content: "";
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--chip);
+        }
+
+        .overview-chip::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 74px;
+            border-top: 1px solid color-mix(in srgb, var(--chip) 42%, transparent);
+        }
+
+        .overview-chip.git { --chip: var(--purple); left: 20px; top: 104px; }
+        .overview-chip.preview { left: 0; top: 250px; }
+        .overview-chip.archive { --chip: var(--orange); left: 36px; bottom: 184px; }
+        .overview-chip.drag { --chip: var(--green); left: 178px; bottom: 54px; }
+        .overview-chip.ai { right: 28px; top: 96px; }
+        .overview-chip.search-all { --chip: var(--orange); right: 0; top: 235px; }
+        .overview-chip.sftp { --chip: #10a49c; right: 18px; bottom: 242px; }
+        .overview-chip.tasks { --chip: var(--green); right: 242px; bottom: 88px; }
+
+        .overview-chip.git::after,
+        .overview-chip.preview::after,
+        .overview-chip.archive::after,
+        .overview-chip.drag::after {
+            left: calc(100% + 8px);
+        }
+
+        .overview-chip.ai::after,
+        .overview-chip.search-all::after,
+        .overview-chip.sftp::after,
+        .overview-chip.tasks::after {
+            right: calc(100% + 8px);
+        }
+
+        .overview-footline {
+            position: absolute;
+            left: 50%;
+            bottom: 8px;
+            transform: translateX(-50%);
+            color: var(--muted);
+            font-size: 17px;
+            font-weight: 680;
+        }
+
+        .overview-callout h3 {
+            color: var(--callout);
+            font-size: 24px;
+        }
+
+        .overview-callout p {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 17px;
+            line-height: 1.36;
+        }
+
+        .overview-callout.git { --callout: var(--purple); left: 0; top: 70px; }
+        .overview-callout.sftp { --callout: #10a49c; left: 0; bottom: 82px; }
+        .overview-callout.ai { right: 0; top: 70px; }
+        .overview-callout.searching { --callout: var(--orange); right: 0; top: 300px; }
+
+        .download-qr {
+            position: absolute;
+            right: 0;
+            bottom: 14px;
+            width: 270px;
+            display: grid;
+            grid-template-columns: 112px 1fr;
+            align-items: center;
+            gap: 18px;
+            padding: 15px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 18px 44px rgba(37, 51, 75, 0.11);
+        }
+
+        .download-qr img {
+            width: 112px;
+            height: 112px;
+            image-rendering: pixelated;
+        }
+
+        .download-qr strong {
+            display: block;
+            font-size: 18px;
+        }
+
+        .download-qr span {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.25;
+            word-break: break-all;
+        }
+
+        .controls {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px;
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-radius: 12px;
+            background: rgba(12, 14, 18, 0.74);
+            backdrop-filter: blur(18px);
+            transform: translateX(-50%);
+            transition: opacity 240ms ease;
+        }
+
+        .controls button {
+            width: 38px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 0;
+            border-radius: 8px;
+            color: #fff;
+            background: transparent;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 780;
+        }
+
+        .controls button:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .controls button:disabled {
+            opacity: 0.28;
+            cursor: default;
+        }
+
+        .slide-counter {
+            min-width: 72px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            font-weight: 720;
+        }
+
+        .progress {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .progress i {
+            display: block;
+            width: 0;
+            height: 100%;
+            background: #6da7ff;
+            transition: width 450ms var(--ease);
+        }
+
+        .notes-panel {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 1200;
+            width: 380px;
+            max-height: calc(100vh - 92px);
+            display: none;
+            overflow: auto;
+            padding: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-radius: 14px;
+            color: #e9edf4;
+            background: rgba(12, 14, 18, 0.94);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+
+        .notes-panel.visible {
+            display: block;
+        }
+
+        .notes-panel strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #8bb9ff;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .speaker-note {
+            display: none;
+        }
+
+        .slide:not(.active) {
+            display: none;
+        }
+
+        .slide.active.cover,
+        .slide.active.problem-layout,
+        .slide.active.reveal-slide,
+        .slide.active.product-stage,
+        .slide.active.feature-split,
+        .slide.active.actual-info-layout,
+        .slide.active.efficiency-layout,
+        .slide.active.scenes-layout,
+        .slide.active.compare-layout,
+        .slide.active.release-layout {
+            display: grid;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 1ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 1ms !important;
+            }
+
+            .reveal {
+                opacity: 1;
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="stage" aria-live="polite">
+        <section class="slide dark cover" data-screen-label="01 Title">
+            <div class="cover-copy">
+                <div class="brand-lockup reveal"><img class="app-icon" src="Assets/appicon.svg" alt="">Mac Explorer</div>
+                <h1 class="reveal" style="--delay:180ms">重新认识<span>Mac 文件管理</span></h1>
+                <p class="lede reveal" style="--delay:320ms">一个窗口，连接本地文件、远程服务器与智能搜索。</p>
+                <div class="cover-meta reveal" style="--delay:430ms"><span>Version 1.0.15</span><span>macOS 15.0+</span><span>免费开源</span></div>
+            </div>
+            <div class="cover-art reveal" style="--delay:260ms"><img class="giant-icon" src="Assets/appicon.svg" alt="Mac Explorer 应用图标"></div>
+            <aside class="speaker-note">大家好，今天发布的是 Mac Explorer 1.0.15，一款为 macOS 设计的现代文件管理器。
+
+我们没有把目标定成“重新做一个 Finder”，而是重新思考今天的文件工作：本地文件、开发项目、远程服务器、图片资料和压缩归档，是否可以回到同一个连续的工作空间。
+
+接下来我会用几分钟介绍 Mac Explorer 为什么出现，以及它如何让这些高频工作变得更顺手。</aside>
+        </section>
+
+        <section class="slide problem-layout" data-screen-label="02 Problem">
+            <div class="slide-grid"></div>
+            <div>
+                <div class="kicker reveal">The problem</div>
+                <h2 class="reveal" style="--delay:150ms"><span>文件工作，</span><span>被拆进太多工具。</span></h2>
+                <p class="lede reveal" style="--delay:280ms">找文件、看 Git、连服务器、处理压缩包，每一步都在打断思路。</p>
+            </div>
+            <div class="tool-scatter">
+                <div class="tool-chip reveal" style="--delay:180ms"><i></i>文件搜索</div>
+                <div class="tool-chip reveal" style="--delay:260ms"><i></i>Git 状态</div>
+                <div class="tool-chip reveal" style="--delay:340ms"><i></i>远程连接</div>
+                <div class="tool-chip reveal" style="--delay:420ms"><i></i>压缩归档</div>
+                <span class="fragment-line"></span><span class="fragment-line"></span>
+            </div>
+            <aside class="speaker-note">现在处理文件时，我们经常需要在多个工具之间来回切换。
+
+找文件依赖搜索工具；确认代码改动要打开终端或 Git 客户端；管理服务器需要 SFTP 工具；压缩、预览和图片整理又各有自己的入口。
+
+真正消耗时间的不是某一次操作，而是不断切换上下文。Mac Explorer 要解决的核心问题，就是让文件工作重新保持连续。</aside>
+        </section>
+
+        <section class="slide dark reveal-slide" data-screen-label="03 Reveal">
+            <div>
+                <img class="app-icon reveal" src="Assets/appicon.svg" alt="">
+                <div class="kicker reveal" style="--delay:130ms">Introducing Mac Explorer</div>
+                <h2 class="reveal" style="--delay:230ms">一个窗口，<span class="accent">完成全部文件工作。</span></h2>
+                <p class="lede reveal" style="--delay:380ms">熟悉的 Mac 操作，加上真正需要的专业能力。</p>
+            </div>
+            <aside class="speaker-note">Mac Explorer 的答案很直接：仍然以文件夹为中心，但把真正需要的能力放回文件夹里。
+
+用户不需要学习新的文件概念，仍然可以用熟悉的前进后退、面包屑、多选、拖放和空格预览。
+
+变化在于，搜索更懂内容，代码状态可以直接看见，远程服务器像本地位置一样打开，压缩和批量任务也不再打断当前工作。</aside>
+        </section>
+
+        <section class="slide product-stage" data-screen-label="04 Product">
+            <div class="slide-grid"></div>
+            <div class="kicker reveal" style="position:absolute;left:118px;top:78px">The workspace</div>
+            <h2 class="reveal" style="position:absolute;left:118px;top:118px;font-size:58px">文件夹，仍然是中心。</h2>
+            <div class="real-shot full"><img src="Assets/mac-explorer-product.png" alt="Mac Explorer 实际软件界面截图"></div>
+            <div class="actual-caption reveal" style="--delay:430ms">真实软件界面 · 网格视图、信息面板、Git 状态与远程位置</div>
+            <aside class="speaker-note">这是 Mac Explorer 的实际软件界面。
+
+左侧保留了 macOS 用户熟悉的最近使用、桌面、文稿、下载、图片和音乐，同时加入磁盘、应用程序、废纸篓、远程服务器、AI 智能与收藏夹。
+
+中间仍然是文件列表或网格视图，支持排序、分组和多选操作。文件图标右下角的圆形徽标直接显示 Git 状态。
+
+右侧信息面板会跟随当前选择，展示文本、图片和文档预览，并提供文件信息、标签与快捷操作。整个产品始终围绕“正在浏览的文件夹”展开。</aside>
+        </section>
+
+        <section class="slide blue feature-split" data-screen-label="05 Search & AI">
+            <div>
+                <div class="kicker reveal" style="color:#bcd5ff">Search & AI</div>
+                <h2 class="reveal" style="--delay:150ms"><span>不只记住文件名，</span><span>也能记住内容。</span></h2>
+                <div class="feature-points reveal" style="--delay:290ms">
+                    <div class="point"><i></i>文件名、路径与全文索引</div>
+                    <div class="point"><i></i>人物、场景、地点与文字标签</div>
+                    <div class="point"><i></i>本地优先的图片分析</div>
+                </div>
+            </div>
+            <div class="actual-feature-visual reveal" style="--delay:230ms">
+                <div class="real-shot"><img src="Assets/mac-explorer-search.png" alt="Mac Explorer 实际全局搜索界面"></div>
+                <div class="ai-mode-cloud">
+                    <span>人物聚类</span><span>场景</span><span>物品与动物</span><span>地点</span><span>日期</span><span>图片文字</span>
+                </div>
+            </div>
+            <aside class="speaker-note">Mac Explorer 的搜索分为两个层次。
+
+画面中展示的是全局搜索：输入少量关键词，就能从不同目录中集中列出匹配文件，并显示完整路径，减少逐层翻找。底层通过 SQLite FTS5 索引文件名、路径和可检索内容；当索引不可用时，还可以回退到文件系统搜索。
+
+第二层是本地图片理解。应用使用 macOS Vision 能力在后台分析图片，识别人脸、场景、物品、动物、地点、日期以及图片中的文字，并把结果组织成人物、分类、地点、日期和文字搜索等虚拟文件夹。
+
+AI 分析可以在设置中关闭，任务会显示在后台任务面板中；图片资料仍留在用户自己的 Mac 上。</aside>
+        </section>
+
+        <section class="slide" data-screen-label="06 Git & SFTP">
+            <div class="kicker reveal">Built for real work</div>
+            <h2 class="reveal" style="--delay:140ms">开发工作，不必离开文件夹。</h2>
+            <div class="actual-dual reveal" style="--delay:260ms;margin-top:62px">
+                <article class="actual-pane git-shot">
+                    <span class="pane-label">Git 状态直接显示在文件图标上</span>
+                    <div class="real-shot"><img src="Assets/mac-explorer-product.png" alt="实际界面中的 Git 状态徽标"></div>
+                </article>
+                <article class="actual-pane remote-shot">
+                    <span class="pane-label">连接、保存并直接浏览远程目录</span>
+                    <div class="real-shot"><img src="Assets/mac-explorer-sftp.png" alt="Mac Explorer 实际 SFTP 连接与远程目录界面"></div>
+                </article>
+            </div>
+            <aside class="speaker-note">对于开发项目，Mac Explorer 把两个最常切换的能力带进文件管理器。
+
+第一是 Git 状态。应用会读取当前仓库状态，并用圆形徽标显示已提交、修改、新增或未跟踪等状态。浏览目录时不用先打开终端，就能知道哪些文件正在变化。
+
+第二是 SFTP。画面中可以看到实际的远程服务器连接窗口，以及连接后直接展示的服务器目录。远程服务器会作为侧边栏中的一种位置存在，可以保存多个服务器，使用密码或私钥认证，浏览、上传、下载和编辑远程文件。
+
+连接服务还会暴露断线、重连和重连失败状态，使远程目录更接近稳定的本地工作体验。</aside>
+        </section>
+
+        <section class="slide dark actual-info-layout" data-screen-label="07 Preview & Tasks">
+            <div class="real-shot crop-info reveal" style="--delay:180ms"><img src="Assets/mac-explorer-product.png" alt="Mac Explorer 实际信息面板"></div>
+            <div>
+                <div class="kicker reveal">Preview & actions</div>
+                <h2 class="reveal" style="--delay:140ms;font-size:66px">选中文件，信息与操作立即就位。</h2>
+                <div class="capability-list reveal" style="--delay:280ms">
+                    <div class="capability"><strong>多类型预览</strong><span>文本、图片、PDF、SVG 与系统文档缩略图。</span></div>
+                    <div class="capability"><strong>信息与标签</strong><span>基本信息、EXIF、系统标签和自定义标签。</span></div>
+                    <div class="capability"><strong>图片文字复制</strong><span>在预览面板中直接识别并复制图片文字。</span></div>
+                    <div class="capability"><strong>后台任务</strong><span>复制、移动、压缩、解压与 AI 分析统一显示进度。</span></div>
+                </div>
+            </div>
+            <aside class="speaker-note">实际使用中，很多文件并不需要打开应用才能判断内容。
+
+Mac Explorer 的信息面板可以直接预览文本、图片、PDF 首页、SVG 和系统可生成缩略图的文档。截图里选中 README.md 后，右侧会直接显示 Markdown 文本内容。
+
+面板同时提供文件大小、类型、创建与修改时间、图片 EXIF、系统标签和自定义标签。对于图片，还可以直接执行 OCR 并复制识别出的文字。
+
+压缩、解压、复制、移动和 AI 分析等长任务会进入统一后台任务面板，显示运行、完成和失败状态，并允许取消任务。这些功能共同减少了“打开别的应用确认一下”的次数。</aside>
+        </section>
+
+        <section class="slide scenes-layout" data-screen-label="08 Workflows">
+            <div>
+                <div class="kicker reveal">Three workflows</div>
+                <h2 class="reveal" style="--delay:140ms">从开发项目，到照片与资料。</h2>
+            </div>
+            <div class="scene-row">
+                <article class="scene reveal" style="--scene:var(--purple);--delay:220ms">
+                    <div><span class="scene-number">01</span><h3>浏览开发项目</h3><p>查看 Git 改动、搜索代码与整理发布文件。</p></div>
+                    <div class="scene-tags"><span>Git</span><span>全文搜索</span><span>归档</span></div>
+                </article>
+                <article class="scene reveal" style="--scene:#10a49c;--delay:300ms">
+                    <div><span class="scene-number">02</span><h3>管理远程服务器</h3><p>上传构建产物、编辑配置文件与下载日志。</p></div>
+                    <div class="scene-tags"><span>SFTP</span><span>上传下载</span><span>远程编辑</span></div>
+                </article>
+                <article class="scene reveal" style="--scene:var(--blue);--delay:380ms">
+                    <div><span class="scene-number">03</span><h3>整理照片资料</h3><p>通过预览、评分和 AI 标签快速归类。</p></div>
+                    <div class="scene-tags"><span>AI 标签</span><span>Quick Look</span><span>元数据</span></div>
+                </article>
+            </div>
+            <aside class="speaker-note">把这些能力放进真实场景，会更容易理解 Mac Explorer 的价值。
+
+开发者可以在项目目录里查看 Git 改动、全文搜索代码、预览文档，并直接整理发布归档。
+
+运维或开发团队可以连接远程服务器，上传构建产物、修改配置文件和下载日志，不必在本地文件管理器与 SFTP 客户端之间切换。
+
+设计师和内容用户则可以依靠缩略图、Quick Look、评分、标签和 AI 分类整理大量截图、照片与资料。</aside>
+        </section>
+
+        <section class="slide compare-layout" data-screen-label="09 Compare">
+            <div>
+                <div class="kicker reveal">A familiar upgrade</div>
+            <h2 class="reveal" style="--delay:140ms">不是替代 Finder，而是结束多工具切换。</h2>
+            </div>
+            <div class="compare-table reveal" style="--delay:260ms">
+                <div class="compare-row header"><div class="compare-cell">工作</div><div class="compare-cell highlight">Mac Explorer</div><div class="compare-cell">传统工作流</div></div>
+                <div class="compare-row"><div class="compare-cell">找文件</div><div class="compare-cell highlight">文件名、全文索引与 AI 分类</div><div class="compare-cell">文件管理器 + 搜索工具</div></div>
+                <div class="compare-row"><div class="compare-cell">开发项目</div><div class="compare-cell highlight">文件图标直接显示 Git 状态</div><div class="compare-cell">文件管理器 + 终端或 Git 客户端</div></div>
+                <div class="compare-row"><div class="compare-cell">远程目录</div><div class="compare-cell highlight">内置 SFTP 浏览、传输与编辑</div><div class="compare-cell">文件管理器 + SFTP 客户端</div></div>
+                <div class="compare-row"><div class="compare-cell">预览归档</div><div class="compare-cell highlight">信息面板、归档浏览与后台任务</div><div class="compare-cell">预览、压缩与任务工具分散</div></div>
+            </div>
+            <aside class="speaker-note">这里不是把 Mac Explorer 和 Finder 做简单的功能输赢比较。
+
+Finder 仍然是优秀的系统文件管理器。Mac Explorer 面向的是需要同时处理开发项目、远程目录、大量资料和复杂批量任务的用户。
+
+它真正替代的不是 Finder，而是“文件管理器加终端、加 Git 客户端、加 SFTP 客户端、加压缩工具、加图片整理工具”的多窗口工作流。
+
+产品价值可以概括为一句话：保留熟悉的文件操作，把散落的专业能力集中起来。</aside>
+        </section>
+
+        <section class="slide dark release-layout" data-screen-label="10 Release">
+            <div>
+                <img class="app-icon reveal" src="Assets/appicon.svg" alt="">
+                <div class="kicker reveal" style="--delay:100ms">Available now</div>
+                <h2 class="reveal" style="--delay:210ms">Mac Explorer<br>现已发布。</h2>
+                <div class="release-version reveal" style="--delay:340ms"><i></i>Version 1.0.15 · macOS 15.0+ · 免费开源</div>
+                <a class="release-link reveal" style="--delay:430ms" href="https://github.com/3egirlsdream/Mac-Explorer/releases">github.com/3egirlsdream/Mac-Explorer/releases</a>
+            </div>
+            <aside class="speaker-note">Mac Explorer 1.0.15 现在已经可以下载。
+
+当前版本面向 macOS 15.0 及以上系统，项目免费开源。用户可以从 GitHub Releases 下载压缩包，将应用拖入 Applications 文件夹即可开始使用。
+
+这是一个仍在持续完善的产品。我们也欢迎用户通过 GitHub 提交问题、建议和代码贡献，共同把 Mac 上的文件工作做得更好。</aside>
+        </section>
+
+        <section class="slide overview" data-screen-label="11 Overview">
+            <div class="slide-grid"></div>
+            <div class="overview-head">
+                <h2 class="reveal">一个窗口，管理每一种文件工作。</h2>
+                <div class="brand-lockup reveal" style="--delay:130ms"><img class="app-icon" src="Assets/appicon.svg" alt="">Mac Explorer 1.0.15</div>
+            </div>
+            <div class="overview-stage">
+                <div class="overview-hero"><img src="Assets/mac-explorer-product.png" alt="Mac Explorer 产品功能总览"></div>
+                <span class="overview-chip git reveal" style="--delay:220ms">Git 状态</span>
+                <span class="overview-chip preview reveal" style="--delay:270ms">信息面板与预览</span>
+                <span class="overview-chip archive reveal" style="--delay:320ms">压缩与归档浏览</span>
+                <span class="overview-chip drag reveal" style="--delay:370ms">多选与原生拖放</span>
+                <span class="overview-chip ai reveal" style="--delay:420ms">本地 AI 分类</span>
+                <span class="overview-chip search-all reveal" style="--delay:470ms">全文与图片文字搜索</span>
+                <span class="overview-chip sftp reveal" style="--delay:520ms">SFTP 远程文件</span>
+                <span class="overview-chip tasks reveal" style="--delay:570ms">统一后台任务</span>
+                <a class="download-qr reveal" style="--delay:500ms" href="https://github.com/3egirlsdream/Mac-Explorer/releases">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSA0NSIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj48cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNMCAwaDQ1djQ1SDB6Ii8+PHBhdGggc3Ryb2tlPSIjMTExMzE4IiBkPSJNMiAyLjVoN20xIDBoM20xIDBoM20yIDBoMW0xIDBoMm0xIDBoNG0xIDBoMW0zIDBoMW0yIDBoN00yIDMuNWgxbTUgMGgxbTEgMGgxbTMgMGgxbTEgMGgybTEgMGgzbTEgMGgzbTEgMGgzbTYgMGgxbTUgMGgxTTIgNC41aDFtMSAwaDNtMSAwaDFtMiAwaDFtMyAwaDNtMSAwaDFtMSAwaDFtMSAwaDNtMSAwaDFtMyAwaDFtNCAwaDFtMSAwaDNtMSAwaDFNMiA1LjVoMW0xIDBoM20xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMm0xIDBoMW0yIDBoM20xIDBoMm0xIDBoM20xIDBoMW0yIDBoMW0xIDBoMW0xIDBoM20xIDBoMU0yIDYuNWgxbTEgMGgzbTEgMGgxbTEgMGgxbTUgMGgxbTIgMGgybTMgMGgzbTEgMGgzbTEgMGgxbTMgMGgxbTEgMGgzbTEgMGgxTTIgNy41aDFtNSAwaDFtMSAwaDFtMyAwaDFtMyAwaDRtMSAwaDFtMyAwaDNtMSAwaDNtMiAwaDFtNSAwaDFNMiA4LjVoN20xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoMW0xIDBoN00xMiA5LjVoNG0yIDBoMm0yIDBoM20yIDBoMW0yIDBoM001IDEwLjVoMW0yIDBoMW0yIDBoMW0xIDBoM20xIDBoMW0xIDBoMW0xIDBoMW02IDBoMW0xIDBoMW0yIDBoMW0zIDBoM20xIDBoMk0yIDExLjVoMW0xIDBoM20zIDBoMW0yIDBoMW0xIDBoMm0yIDBoMW0xIDBoM202IDBoMm0yIDBoM20yIDBoMm0xIDBoMU0zIDEyLjVoMm0zIDBoMW02IDBoMm0xIDBoMW0xIDBoMW0zIDBoM20xIDBoMW0xIDBoNG0xIDBoMW0xIDBoNU0xMSAxMy41aDNtMSAwaDFtMSAwaDFtMSAwaDJtMSAwaDJtMiAwaDVtOSAwaDFtMSAwaDFNMiAxNC41aDFtMSAwaDNtMSAwaDFtMSAwaDFtMSAwaDNtMiAwaDRtNCAwaDJtNCAwaDFtMSAwaDFtMSAwaDNtMSAwaDFtMSAwaDFNNSAxNS41aDFtMSAwaDFtMSAwaDFtMSAwaDFtMSAwaDJtMSAwaDFtMiAwaDNtMiAwaDJtMSAwaDFtMSAwaDNtMSAwaDNtMSAwaDFtMyAwaDFNMiAxNi41aDExbTEgMGgxbTEgMGgybTIgMGgzbTIgMGgxbTIgMGgxbTIgMGgybTEgMGgxbTEgMGgxbTIgMGg0TTMgMTcuNWgxbTMgMGgxbTEgMGgxbTEgMGgzbTIgMGgxbTEgMGgxbTEgMGg1bTMgMGgybTEgMGgxbTEgMGgybTEgMGgxbTEgMGgxTTIgMTguNWgxbTEgMGgzbTEgMGgybTcgMGgxbTIgMGg1bTMgMGgxbTIgMGgxbTEgMGgxbTMgMGgxbTEgMGgxTTMgMTkuNWgxbTIgMGgxbTIgMGgybTEgMGgybTIgMGgzbTYgMGgzbTIgMGgybTQgMGgybTMgMGgyTTQgMjAuNWgybTIgMGgxbTIgMGgxbTEgMGgxbTIgMGgxbTMgMGgxbTEgMGgybTIgMGgxbTMgMGgybTQgMGgxbTEgMGg1TTIgMjEuNWgxbTIgMGgzbTEgMGgxbTEgMGgzbTEgMGgzbTEgMGg0bTEgMGgxbTIgMGgxbTIgMGgxbTMgMGgxbTIgMGgxbTMgMGgxTTMgMjIuNWg2bTUgMGgxbTEgMGgxbTIgMGgxbTIgMGgxbTEgMGgxbTIgMGgxbTMgMGgxbTMgMGgzbTIgMGgyTTYgMjMuNWgybTEgMGgxbTMgMGgxbTIgMGgybTEgMGgxbTEgMGgxbTQgMGgxbTMgMGgxbTMgMGgzbTIgMGgxbTEgMGgyTTIgMjQuNWgybTQgMGgzbTEgMGg0bTIgMGgybTEgMGgybTkgMGgybTQgMGgybTEgMGgxTTMgMjUuNWgxbTEgMGgxbTMgMGgxbTQgMGgxbTEgMGgxbTIgMGgzbTEgMGgxbTEgMGgxbTEgMGg0bTEgMGgxbTMgMGgzbTEgMGgxTTMgMjYuNWgybTEgMGgzbTIgMGgzbTMgMGgybTEgMGgzbTIgMGg0bTIgMGgxbTIgMGgxbTEgMGgxbTQgMGgyTTQgMjcuNWgzbTMgMGgxbTEgMGgxbTEgMGgxbTMgMGgxbTEgMGg1bTcgMGgybTEgMGgxbTMgMGgxbTEgMGgxTTIgMjguNWg0bTIgMGgxbTIgMGgxbTEgMGgzbTMgMGgybTIgMGgybTIgMGgybTEgMGgybTIgMGgxbTEgMGgxbTEgMGgxbTMgMGgxTTMgMjkuNWgxbTEgMGgxbTMgMGgxbTEgMGgxbTQgMGgxbTEgMGgybTEgMGgzbTIgMGgybTEgMGgxbTEgMGgxbTIgMGgxbTMgMGgxbTIgMGgyTTMgMzAuNWgxbTEgMGgybTEgMGgybTIgMGgxbTEgMGgybTMgMGgxbTMgMGgybTQgMGgxbTEgMGgxbTIgMGgyTTcgMzEuNWgxbTIgMGgybTEgMGgybTEgMGg4bTEgMGgzbTEgMGg0bTMgMGgxbTQgMGgyTTIgMzIuNWgxbTQgMGgzbTIgMGgxbTEgMGgxbTEgMGgxbTIgMGg0bTIgMGgybTIgMGgybTYgMGgzbTEgMGgyTTUgMzMuNWgybTMgMGgybTEgMGgzbTEgMGgybTMgMGgybTEgMGgybTEgMGgxbTIgMGgxbTEgMGgxbTEgMGgxbTIgMGgybTIgMGgxTTIgMzQuNWgxbTIgMGgxbTEgMGg0bTEgMGgxbTMgMGgybTIgMGgxbTIgMGgybTIgMGgxbTEgMGgxbTQgMGg1bTEgMGgzTTEwIDM1LjVoMm0xIDBoMW0yIDBoNG0xIDBoMW0yIDBoM20zIDBoMm0xIDBoMm0zIDBoMW0xIDBoM00yIDM2LjVoN20zIDBoM20zIDBoMW0yIDBoOG0xIDBoMW0xIDBoM20xIDBoMW0xIDBoMU0yIDM3LjVoMW01IDBoMW0yIDBoMW0xIDBoM20xIDBoMW0xIDBoMW0xIDBoM20xIDBoMW0xIDBoMW0yIDBoMW0xIDBoMW0xIDBoMW0zIDBoMW0xIDBoM00yIDM4LjVoMW0xIDBoM20xIDBoMW0yIDBoMm00IDBoMW0xIDBoMm0yIDBoM20yIDBoM20xIDBoMW0xIDBoNW0xIDBoMW0xIDBoMU0yIDM5LjVoMW0xIDBoM20xIDBoMW0xIDBoMm0xIDBoMW0yIDBoM20xIDBoMW0xIDBoMm0xIDBoMW0yIDBoMW0yIDBoM20xIDBoMm0xIDBoMk0yIDQwLjVoMW0xIDBoM20xIDBoMW02IDBoMW0yIDBoN20yIDBoMW0zIDBoMW0xIDBoMm0zIDBoMm0yIDBoMU0yIDQxLjVoMW01IDBoMW0yIDBoM20zIDBoMW0xIDBoM20xIDBoMm0xIDBoM20yIDBoMW0xIDBoMm0yIDBoMW0zIDBoMU0yIDQyLjVoN20yIDBoMm00IDBoMm0zIDBoMm0xIDBoMW01IDBoMW0yIDBoMm0xIDBoM20xIDBoMSIvPjwvc3ZnPgo=" alt="Mac Explorer 下载二维码">
+                    <span><strong>扫码下载</strong><span>github.com/3egirlsdream/<br>Mac-Explorer/releases</span></span>
+                </a>
+                <div class="overview-footline">macOS 15.0+ · Version 1.0.15 · 免费开源</div>
+            </div>
+            <aside class="speaker-note">最后用这一页回顾 Mac Explorer。
+
+它以真实文件夹界面为中心，把 Git 状态、信息面板与预览、压缩归档、原生拖放、本地 AI 分类、全文与图片文字搜索、SFTP 远程文件和统一后台任务放进同一个工作空间。
+
+Mac Explorer 1.0.15 支持 macOS 15.0 及以上版本，免费开源。
+
+大家可以扫描右下角二维码直接进入 GitHub Releases 下载。感谢大家。</aside>
+        </section>
+    </main>
+
+    <div class="controls" aria-label="演示控制">
+        <button id="prev" type="button" title="上一页（←）" aria-label="上一页">←</button>
+        <span class="slide-counter" id="counter">1 / 11</span>
+        <button id="next" type="button" title="下一页（→ 或空格）" aria-label="下一页">→</button>
+        <button id="fullscreen" type="button" title="全屏（F）" aria-label="切换全屏">⛶</button>
+        <button id="notes" type="button" title="演讲者备注（N）" aria-label="切换演讲者备注">N</button>
+    </div>
+    <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+    <aside class="notes-panel" id="notesPanel"><strong>Speaker notes</strong><span id="notesText"></span></aside>
+
+    <script>
+        const slides = Array.from(document.querySelectorAll(".slide"));
+        const stage = document.querySelector(".stage");
+        const counter = document.getElementById("counter");
+        const progressBar = document.getElementById("progressBar");
+        const prevButton = document.getElementById("prev");
+        const nextButton = document.getElementById("next");
+        const notesPanel = document.getElementById("notesPanel");
+        const notesText = document.getElementById("notesText");
+        const storageKey = "macExplorerPresentationSlide";
+        let current = Number.parseInt(localStorage.getItem(storageKey) || "0", 10);
+
+        function scaleStage() {
+            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        }
+
+        function showSlide(index) {
+            current = Math.max(0, Math.min(index, slides.length - 1));
+            slides.forEach((slide, slideIndex) => slide.classList.toggle("active", slideIndex === current));
+            counter.textContent = `${current + 1} / ${slides.length}`;
+            progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+            prevButton.disabled = current === 0;
+            nextButton.disabled = current === slides.length - 1;
+            localStorage.setItem(storageKey, String(current));
+            const note = slides[current].querySelector(".speaker-note");
+            notesText.textContent = note ? note.textContent.trim() : "本页没有备注。";
+            document.title = `${slides[current].dataset.screenLabel} · Mac Explorer 产品发布`;
+        }
+
+        function toggleFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                document.documentElement.requestFullscreen();
+            }
+        }
+
+        function toggleNotes() {
+            notesPanel.classList.toggle("visible");
+        }
+
+        prevButton.addEventListener("click", () => showSlide(current - 1));
+        nextButton.addEventListener("click", () => showSlide(current + 1));
+        document.getElementById("fullscreen").addEventListener("click", toggleFullscreen);
+        document.getElementById("notes").addEventListener("click", toggleNotes);
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " " || event.code === "Space") {
+                event.preventDefault();
+                showSlide(current + 1);
+            } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+                event.preventDefault();
+                showSlide(current - 1);
+            } else if (event.key === "Home") {
+                showSlide(0);
+            } else if (event.key === "End") {
+                showSlide(slides.length - 1);
+            } else if (event.key.toLowerCase() === "f") {
+                toggleFullscreen();
+            } else if (event.key.toLowerCase() === "n") {
+                toggleNotes();
+            } else if (event.key === "Escape" && notesPanel.classList.contains("visible")) {
+                notesPanel.classList.remove("visible");
+            }
+        });
+
+        window.addEventListener("resize", scaleStage);
+        scaleStage();
+        showSlide(Number.isFinite(current) ? current : 0);
+    </script>
+</body>
+</html>

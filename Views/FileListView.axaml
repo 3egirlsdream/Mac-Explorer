@@ -82,21 +82,25 @@
             <Setter Property="Width" Value="108"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ClipToBounds" Value="True"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <ContentPresenter Background="{TemplateBinding Background}"
-                                      BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="{TemplateBinding BorderThickness}"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                      CornerRadius="{TemplateBinding CornerRadius}"
-                                      HorizontalContentAlignment="Left"
-                                      Padding="{TemplateBinding Padding}"/>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            ClipToBounds="True">
+                        <ContentPresenter
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="Left"
+                            Padding="{TemplateBinding Padding}"/>
+                    </Border>
                 </ControlTemplate>
             </Setter>
             <Style Selector="^:pointerover">
@@ -237,16 +241,6 @@
             <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
         </Style>
         <Style Selector="ListBoxItem:selected Border.file-list-entry:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
-        </Style>
-
-        <Style Selector="Border.file-grid-content:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        </Style>
-        <Style Selector="ListBoxItem:selected Border.file-grid-content">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
-        </Style>
-        <Style Selector="ListBoxItem:selected Border.file-grid-content:pointerover">
             <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
         </Style>
 
