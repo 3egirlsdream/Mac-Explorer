@@ -26,17 +26,18 @@ dotnet clean
 
 ### 一、本地安装版本（直接运行，无需上架）
 
-适用于开发测试或直接分发给用户安装的场景。不需要 Apple 开发者账号。
+适用于开发测试或直接分发给用户安装的场景。不依赖 .NET 运行时，也无需 Apple 开发者账号。
 
 ```bash
-# 1. Release 构建（自动生成 .app 和 .dmg）
+# 1. Release 构建（自动生成 .app 和 .dmg，自包含发布无需安装 .NET）
 dotnet publish -c Release
 
 # 构建产物位于:
-# .app 包:  bin/Release/net10.0/Mac Explorer.app
-# .dmg 包:  bin/Release/net10.0/MacExplorer-1.0.16-macos.dmg
+# .app 包:  bin/Release/net10.0/osx-arm64/Mac Explorer.app
+# .dmg 包:  bin/Release/net10.0/osx-arm64/MacExplorer-1.0.16-macos.dmg
 
-# 2. 安装：打开 .dmg，将 Mac Explorer 拖入 Applications 文件夹即可
+# 2. 分发：将 .dmg 发给用户，打开后拖入 Applications 即可
+#    首次启动请右键 → 打开 以信任未签名应用（一次操作后永久信任）
 ```
 
 ### 二、发布到 App Store
@@ -56,7 +57,7 @@ dotnet publish -c Release
 dotnet publish -c Release
 
 # 2. 使用 xcrun notarytool 公证（推荐）
-xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.16-macos.dmg \
+xcrun notarytool submit bin/Release/net10.0/osx-arm64/MacExplorer-1.0.16-macos.dmg \
   --apple-id "your-apple-id@example.com" \
   --password "app-specific-password" \
   --team-id "TEAM_ID" \
@@ -64,7 +65,7 @@ xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.16-macos.dmg \
 
 # 3. 使用 Transporter 或 xcrun 上传到 App Store Connect
 xcrun altool --upload-app \
-  -f bin/Release/net10.0/MacExplorer-1.0.16-macos.dmg \
+  -f bin/Release/net10.0/osx-arm64/MacExplorer-1.0.16-macos.dmg \
   -t macos \
   -u "your-apple-id@example.com" \
   -p "app-specific-password"
