@@ -29,14 +29,14 @@ dotnet clean
 适用于开发测试或直接分发给用户安装的场景。不需要 Apple 开发者账号。
 
 ```bash
-# 1. Release 构建（自动生成 .app 和 .zip）
+# 1. Release 构建（自动生成 .app 和 .dmg）
 dotnet publish -c Release
 
 # 构建产物位于:
 # .app 包:  bin/Release/net10.0/Mac Explorer.app
-# .zip 包:  bin/Release/net10.0/MacExplorer-1.0.16-macos.zip
+# .dmg 包:  bin/Release/net10.0/MacExplorer-1.0.16-macos.dmg
 
-# 2. 安装：将 .app 拖入 /Applications 目录即可
+# 2. 安装：打开 .dmg，将 Mac Explorer 拖入 Applications 文件夹即可
 ```
 
 ### 二、发布到 App Store
@@ -56,7 +56,7 @@ dotnet publish -c Release
 dotnet publish -c Release
 
 # 2. 使用 xcrun notarytool 公证（推荐）
-xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.16-macos.zip \
+xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.16-macos.dmg \
   --apple-id "your-apple-id@example.com" \
   --password "app-specific-password" \
   --team-id "TEAM_ID" \
@@ -64,7 +64,7 @@ xcrun notarytool submit bin/Release/net10.0/MacExplorer-1.0.16-macos.zip \
 
 # 3. 使用 Transporter 或 xcrun 上传到 App Store Connect
 xcrun altool --upload-app \
-  -f bin/Release/net10.0/MacExplorer-1.0.16-macos.zip \
+  -f bin/Release/net10.0/MacExplorer-1.0.16-macos.dmg \
   -t macos \
   -u "your-apple-id@example.com" \
   -p "app-specific-password"

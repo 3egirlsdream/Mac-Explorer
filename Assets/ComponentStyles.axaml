@@ -126,6 +126,7 @@
         <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.icon">
         <Setter Property="MinWidth" Value="32"/>

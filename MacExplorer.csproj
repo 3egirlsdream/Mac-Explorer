@@ -101,15 +101,34 @@
     <Message Text="[macOS] .app bundle ready at: $(_AppBundleDir)" Importance="high" />
   </Target>
 
-  <Target Name="CreateMacOSReleaseArchive"
+  <Target Name="CreateMacOSReleaseDMG"
           AfterTargets="CreateMacOSBundle"
           Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(Configuration)' == 'Release'">
     <PropertyGroup>
       <_ReleaseAppBundle>$(OutputPath)Mac Explorer.app</_ReleaseAppBundle>
-      <_ReleaseArchive>$(OutputPath)MacExplorer-$(Version)-macos.zip</_ReleaseArchive>
+      <_ReleaseDMG>$(OutputPath)MacExplorer-$(Version)-macos.dmg</_ReleaseDMG>
+      <_DMGStaging>$(OutputPath)dmg-staging</_DMGStaging>
     </PropertyGroup>
-    <Delete Files="$(_ReleaseArchive)" Condition="Exists('$(_ReleaseArchive)')" />
-    <Exec Command="/usr/bin/ditto -c -k --sequesterRsrc --keepParent '$(_ReleaseAppBundle)' '$(_ReleaseArchive)'" />
-    <Message Text="[macOS] Release archive ready at: $(_ReleaseArchive)" Importance="high" />
+
+    <!-- Remove old DMG and staging dir -->
+    <Delete Files="$(_ReleaseDMG)" Condition="Exists('$(_ReleaseDMG)')" />
+    <RemoveDir Directories="$(_DMGStaging)" Condition="Exists('$(_DMGStaging)')" />
+
+    <!-- Create staging directory -->
+    <MakeDir Directories="$(_DMGStaging)" />
+
+    <!-- Copy .app to staging -->
+    <Exec Command="cp -R '$(_ReleaseAppBundle)' '$(_DMGStaging)/'" />
+
+    <!-- Create symlink to /Applications in staging (for drag-to-install) -->
+    <Exec Command="ln -s /Applications '$(_DMGStaging)/Applications'" />
+
+    <!-- Create DMG -->
+    <Exec Command="hdiutil create -volname 'Mac Explorer' -srcfolder '$(_DMGStaging)' -ov -format UDZO -imagekey zlib-level=9 '$(_ReleaseDMG)'" />
+
+    <!-- Clean up staging -->
+    <RemoveDir Directories="$(_DMGStaging)" Condition="Exists('$(_DMGStaging)')" />
+
+    <Message Text="[macOS] Release DMG ready at: $(_ReleaseDMG)" Importance="high" />
   </Target>
 </Project>
