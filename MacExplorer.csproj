@@ -10,6 +10,8 @@
     <ApplicationId>com.macexplorer.app</ApplicationId>
     <Version>1.0.16</Version>
     <Nullable>enable</Nullable>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
