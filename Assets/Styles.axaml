@@ -423,7 +423,7 @@
     <Style Selector="TextBlock.file-column-header">
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
@@ -431,7 +431,7 @@
     <Style Selector="TextBlock.file-group-header">
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
         <Setter Property="Margin" Value="14,12,14,4"/>
     </Style>
 
@@ -577,20 +577,6 @@
         <Setter Property="Foreground" Value="White"/>
     </Style>
 
-    <!-- ═══ Task Panel ═══ -->
-    <Style Selector="Border.task-panel">
-        <Setter Property="Background" Value="{DynamicResource GlassEffectBg}"/>
-        <Setter Property="CornerRadius" Value="12,12,0,0"/>
-        <Setter Property="Width" Value="360"/>
-        <Setter Property="MaxHeight" Value="400"/>
-    </Style>
-
-    <Style Selector="Border.task-panel-collapsed">
-        <Setter Property="Background" Value="{DynamicResource GlassEffectBg}"/>
-        <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="Padding" Value="12,8"/>
-        <Setter Property="Cursor" Value="Hand"/>
-    </Style>
 
     <!-- ═══ AI View ═══ -->
     <Style Selector="Border.ai-view-host">
@@ -613,6 +599,76 @@
     <Style Selector="Border.ai-search-box:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
         <Setter Property="BoxShadow" Value="0 8 24 -18 #2A000000, inset 0 0 0 1 #10000000"/>
+    </Style>
+
+    <!-- ═══ Task Overlay Panel ═══ -->
+
+    <Style Selector="Border.task-overlay-row">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="MinHeight" Value="32"/>
+    </Style>
+    <Style Selector="Border.task-overlay-row:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
+    </Style>
+
+    <Style Selector="Border.task-state-dot">
+        <Setter Property="Width" Value="8"/>
+        <Setter Property="Height" Value="8"/>
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Margin" Value="0,5,0,0"/>
+    </Style>
+    <Style Selector="Border.task-state-dot.running">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.task-state-dot.completed">
+        <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
+    </Style>
+    <Style Selector="Border.task-state-dot.failed">
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+    </Style>
+
+    <Style Selector="TextBlock.task-label">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.task-percent">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.task-status">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="ProgressBar.task-mini">
+        <Setter Property="Height" Value="3"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+    </Style>
+
+    <Style Selector="Button.task-row-close">
+        <Setter Property="MinWidth" Value="24"/>
+        <Setter Property="Width" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="Padding" Value="5"/>
+        <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="Button.task-row-close PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="Button.task-row-close:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+    </Style>
+    <Style Selector="Button.task-row-close:pointerover PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
     <!-- ═══ Home View ═══ -->

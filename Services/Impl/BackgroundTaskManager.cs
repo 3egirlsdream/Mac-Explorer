@@ -29,7 +29,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         return task;
     }
 
-    public void UpdateProgress(string taskId, double progress, string currentFile)
+    public void UpdateProgress(string taskId, double progress, string currentFile, string? label = null)
     {
         lock (_lock)
         {
@@ -37,6 +37,8 @@ public class BackgroundTaskManager : IBackgroundTaskManager
             if (task == null) return;
             task.Progress = progress;
             task.CurrentFile = currentFile;
+            if (!string.IsNullOrWhiteSpace(label))
+                task.Label = label;
         }
         RaiseTasksChanged();
     }

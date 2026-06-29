@@ -21,19 +21,42 @@ public class ArchiveService : IArchiveService
         return !string.IsNullOrEmpty(ext) && ArchiveExtensions.Contains(ext);
     }
 
+    public bool IsEncrypted(string archivePath)
+    {
+        try
+        {
+            using var archive = OpenArchive(archivePath, null);
+            var firstFile = archive.Entries.FirstOrDefault(e => !e.IsDirectory);
+            if (firstFile == null) return false;
+
+            using var stream = firstFile.OpenEntryStream();
+            _ = stream.ReadByte();
+            return false;
+        }
+        catch (SharpCompress.Common.CryptographicException)
+        {
+            return true;
+        }
+        catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public Task<IReadOnlyList<FileSystemEntry>> GetArchiveContentsAsync(
-        string archivePath, string internalPath = "")
+        string archivePath, string internalPath = "", string? password = null)
     {
         return Task.Run(() =>
         {
+            using var archive = OpenArchive(archivePath, password);
+
             var normalizedPrefix = NormalizePath(internalPath);
             if (!string.IsNullOrEmpty(normalizedPrefix) && !normalizedPrefix.EndsWith('/'))
                 normalizedPrefix += "/";
-
-            using var archive = ArchiveFactory.OpenArchive(archivePath, new ReaderOptions
-            {
-                ArchiveEncoding = CreateUtf8ArchiveEncoding()
-            });
 
             var allKeys = new HashSet<string>();
             var entryMap = new Dictionary<string, IArchiveEntry>();
@@ -121,14 +144,12 @@ public class ArchiveService : IArchiveService
     public async Task ExtractAsync(
         string archivePath, string destinationPath,
         IProgress<ArchiveProgress>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? password = null)
     {
         await Task.Run(() =>
         {
-            using var archive = ArchiveFactory.OpenArchive(archivePath, new ReaderOptions
-            {
-                ArchiveEncoding = CreateUtf8ArchiveEncoding()
-            });
+            using var archive = OpenArchive(archivePath, password);
 
             // Build rename map for root-level entries that conflict with existing items
             var rootNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -215,7 +236,7 @@ public class ArchiveService : IArchiveService
         }, ct);
     }
 
-    public async Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey)
+    public async Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey, string? password = null)
     {
         return await Task.Run(() =>
         {
@@ -224,14 +245,10 @@ public class ArchiveService : IArchiveService
             Directory.CreateDirectory(sessionDir);
 
             var normalizedKey = NormalizePath(entryKey);
-            // Remove trailing slash for file matching
             if (normalizedKey.EndsWith('/'))
                 normalizedKey = normalizedKey[..^1];
 
-            using var archive = ArchiveFactory.OpenArchive(archivePath, new ReaderOptions
-            {
-                ArchiveEncoding = CreateUtf8ArchiveEncoding()
-            });
+            using var archive = OpenArchive(archivePath, password);
 
             foreach (var entry in archive.Entries)
             {
@@ -300,41 +317,123 @@ public class ArchiveService : IArchiveService
                 }
             }
 
-            var writerOptions = new WriterOptions(compressionType)
+            var tempPath = outputPath + ".fkfinder-tmp";
+
+            // Use DotNetZip for password-protected ZIP (SharpCompress WriterOptions lacks Password)
+            if (options.Format == ArchiveFormat.Zip && !string.IsNullOrEmpty(options.Password))
             {
-                ArchiveEncoding = CreateUtf8ArchiveEncoding()
-            };
-
-            var stream = File.Create(outputPath + ".fkfinder-tmp");
-            var writer = WriterFactory.OpenWriter(stream, archiveType, writerOptions);
-
-            var total = filesToCompress.Count;
-            for (int i = 0; i < total; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-                var (fullPath, relativePath) = filesToCompress[i];
-                writer.Write(relativePath, fullPath);
-
-                progress?.Report(new ArchiveProgress
-                {
-                    IsActive = true,
-                    Percentage = total > 0 ? (double)(i + 1) / total * 100 : 0,
-                    CurrentFile = relativePath,
-                    OperationLabel = "正在压缩..."
-                });
+                WriteEncryptedZip(outputPath, tempPath, filesToCompress, options.Password, progress, ct);
+                return outputPath;
             }
 
-            // Flush and close archive before rename
-            writer.Dispose();
-            stream.Dispose();
-            File.Move(outputPath + ".fkfinder-tmp", outputPath);
-            return outputPath;
+            try
+            {
+                var writerOptions = new WriterOptions(compressionType)
+                {
+                    ArchiveEncoding = CreateUtf8ArchiveEncoding()
+                };
+
+                using (var stream = File.Create(tempPath))
+                using (var writer = WriterFactory.OpenWriter(stream, archiveType, writerOptions))
+                {
+                    var total = filesToCompress.Count;
+                    for (int i = 0; i < total; i++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var (fullPath, relativePath) = filesToCompress[i];
+                        writer.Write(relativePath, fullPath);
+
+                        progress?.Report(new ArchiveProgress
+                        {
+                            IsActive = true,
+                            Percentage = total > 0 ? (double)(i + 1) / total * 100 : 0,
+                            CurrentFile = relativePath,
+                            OperationLabel = "正在压缩..."
+                        });
+                    }
+                }
+
+                File.Move(tempPath, outputPath, overwrite: true);
+                return outputPath;
+            }
+            catch
+            {
+                TryDeleteFile(tempPath);
+                throw;
+            }
         }, ct);
+    }
+
+    private static void WriteEncryptedZip(
+        string outputPath,
+        string tempPath,
+        List<(string fullPath, string relativePath)> files,
+        string password,
+        IProgress<ArchiveProgress>? progress,
+        CancellationToken ct)
+    {
+        try
+        {
+            using (var zip = new Ionic.Zip.ZipFile(tempPath)
+            {
+                Password = password,
+                Encryption = Ionic.Zip.EncryptionAlgorithm.WinZipAes256
+            })
+            {
+                var total = files.Count;
+                for (int i = 0; i < total; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var (fullPath, relativePath) = files[i];
+                    zip.AddFile(fullPath, Path.GetDirectoryName(relativePath) ?? "");
+
+                    progress?.Report(new ArchiveProgress
+                    {
+                        IsActive = true,
+                        Percentage = total > 0 ? (double)(i + 1) / total * 100 : 0,
+                        CurrentFile = relativePath,
+                        OperationLabel = "正在压缩..."
+                    });
+                }
+
+                zip.Save();
+            }
+
+            File.Move(tempPath, outputPath, overwrite: true);
+        }
+        catch
+        {
+            TryDeleteFile(tempPath);
+            throw;
+        }
+    }
+
+    private static IArchive OpenArchive(string archivePath, string? password)
+    {
+        var options = new ReaderOptions
+        {
+            ArchiveEncoding = CreateUtf8ArchiveEncoding()
+        };
+        if (!string.IsNullOrEmpty(password))
+            options.Password = password;
+        return ArchiveFactory.OpenArchive(archivePath, options);
     }
 
     private static string NormalizePath(string path)
     {
         return path.Replace('\\', '/');
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+        }
     }
 
     private static ArchiveEncoding CreateUtf8ArchiveEncoding()
@@ -353,7 +452,6 @@ public class ArchiveService : IArchiveService
             return false;
         var relative = key[prefix.Length..];
         if (string.IsNullOrEmpty(relative)) return false;
-        // Remove trailing slash for directory entries
         var trimmed = relative.TrimEnd('/');
         return !trimmed.Contains('/');
     }
@@ -377,11 +475,10 @@ public class ArchiveService : IArchiveService
         var name = Path.GetFileNameWithoutExtension(path);
         var ext = Path.GetExtension(path);
 
-        // Handle double extensions like .tar.gz
         if (path.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
         {
             ext = ".tar.gz";
-            name = Path.GetFileNameWithoutExtension(path[..^3]); // remove .gz first, then get name without .tar
+            name = Path.GetFileNameWithoutExtension(path[..^3]);
             name = Path.GetFileNameWithoutExtension(name.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)
                 ? name : name);
         }

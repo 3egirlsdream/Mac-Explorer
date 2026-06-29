@@ -12,4 +12,5 @@ public class CompressOptions
     public string OutputDirectory { get; set; } = string.Empty;
     public IReadOnlyList<string> SourcePaths { get; set; } = [];
     public int? CollectionId { get; set; }
+    public string? Password { get; set; }
 }

@@ -56,6 +56,9 @@ public class AppWindow : Window
 
     public void ToggleMaximize()
     {
+        if (!CanMaximize)
+            return;
+
         WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal
             : WindowState.Maximized;
@@ -274,6 +277,8 @@ public class DialogWindow : AppWindow
     public DialogWindow()
     {
         CanResize = false;
+        CanMinimize = false;
+        CanMaximize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         KeyDown += (_, e) =>
         {

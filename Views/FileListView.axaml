@@ -141,17 +141,18 @@
                     </Grid>
                     <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Grid.Column="1" Text="{Binding DisplayName}"
                                VerticalAlignment="Center" Margin="8,0,0,0" FontSize="13"
-                               TextTrimming="CharacterEllipsis"/>
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource ColorTextPrimary}"/>
                     <TextBlock Grid.Column="2"
                                Text="{Binding LastModified, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
                                VerticalAlignment="Center" FontSize="12"
-                               Foreground="{DynamicResource ColorTextSecondary}"/>
+                               Foreground="{DynamicResource ColorTextPrimary}"/>
                     <TextBlock Grid.Column="3" Text="{Binding FormattedSize}"
                                VerticalAlignment="Center" FontSize="12"
-                               Foreground="{DynamicResource ColorTextSecondary}"/>
+                               Foreground="{DynamicResource ColorTextPrimary}"/>
                     <TextBlock Grid.Column="4" Text="{Binding KindText}"
                                VerticalAlignment="Center" FontSize="11"
-                               Foreground="{DynamicResource ColorTextTertiary}"/>
+                               Foreground="{DynamicResource ColorTextPrimary}"/>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -184,7 +185,7 @@
                                Foreground="{DynamicResource ColorTextPrimary}"/>
                     <TextBlock Text="{Binding VirtualCountText}" IsVisible="{Binding IsVirtual}"
                                FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"
-                               Foreground="{DynamicResource ColorTextTertiary}"/>
+                               Foreground="{DynamicResource ColorTextPrimary}"/>
                 </StackPanel>
             </Border>
         </DataTemplate>

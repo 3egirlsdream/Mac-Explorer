@@ -1,8 +1,11 @@
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MacExplorer.Views.Dialogs;
 using MacExplorer.Indexing;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -49,6 +52,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public ArchiveViewModel Archive => _archive;
 
+    public void SetOwnerWindow(Window? owner)
+    {
+        _topLevelWindow = owner;
+    }
+
     private bool _isRefreshingFromNotification;
     private FileSystemEntry? _lastClickedEntry;
     private string? _lastClickedPath;
@@ -62,6 +70,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _metadataLoadDebounceCts;
     private int _selectionPreviewSuppressionDepth;
     private bool _disposed;
+    private Window? _topLevelWindow;
 
     private const string LastDirectorySettingKey = "navigation_last_directory";
     private const string PreviewPaneVisibleSettingKey = "IsPreviewPaneVisible";
@@ -865,7 +874,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             try
             {
                 var (archPath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
-                var tempFile = await _archive.ExtractEntryToTempAsync(archPath, entryKey);
+                var tempFile = await _archive.ExtractEntryToTempWithPasswordAsync(
+                    archPath, entryKey, PromptPasswordAsync);
                 if (tempFile != null)
                     await _launcherService.OpenFileAsync(tempFile);
             }
@@ -940,30 +950,39 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task NavigateToArchiveAsync(string sentinelPath)
     {
-        CancelDirectoryWork();
-        _navigation.SetWatchedDirectory(null);
-        _navigation.IsHomePage = false;
-        _navigation.IsCollectionView = false;
-        _navigation.IsArchiveView = true;
-        _navigation.IsAiView = false;
-        _ai.Reset();
-        _navigation.IsSearchMode = false;
-
         var (archivePath, internalPath) = ArchivePathHelper.Parse(sentinelPath);
-        _navigation.CurrentArchivePath = archivePath;
-        _navigation.CurrentArchiveInternalPath = internalPath;
 
-        await _archive.NavigateToArchiveAsync(
+        var opened = await _archive.NavigateToArchiveAsync(
             archivePath,
             internalPath,
-            path => { _navigation.CurrentPath = path; },
+            path =>
+            {
+                CancelDirectoryWork();
+                _navigation.SetWatchedDirectory(null);
+                _navigation.IsHomePage = false;
+                _navigation.IsCollectionView = false;
+                _navigation.IsArchiveView = true;
+                _navigation.IsAiView = false;
+                _navigation.IsRemoteView = false;
+                _ai.Reset();
+                _navigation.IsSearchMode = false;
+                _navigation.CurrentArchivePath = archivePath;
+                _navigation.CurrentArchiveInternalPath = internalPath;
+                _navigation.CurrentPath = path;
+            },
             () => _navigation.UpdateBreadcrumbsForArchive(),
             entries => ApplyEntries(entries),
             msg => StatusText = msg,
-            loading => IsLoading = loading
+            loading => IsLoading = loading,
+            async () =>
+            {
+                var password = await PromptPasswordAsync();
+                return password;
+            }
         );
 
-        _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+        if (opened)
+            _navigation.UpdateHistoryForSentinelPath(sentinelPath);
     }
 
     // ── Remote Server Navigation ──
@@ -1136,7 +1155,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     () => { },
                     e => ApplyEntries(e),
                     msg => StatusText = msg,
-                    loading => { }
+                    loading => { },
+                    PromptPasswordAsync
                 );
             }
             catch (Exception ex) { StatusText = $"刷新失败: {ex.Message}"; }
@@ -2591,7 +2611,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             entry,
             _navigation.CurrentPath,
             msg => StatusText = msg,
-            async () => await RefreshAsync()
+            async () => await RefreshAsync(),
+            PromptPasswordAsync
         );
     }
 
@@ -2619,6 +2640,36 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     }
 
     public void CancelCompressDialog() => _archive.CancelCompressDialog();
+
+    private async Task<string?> PromptPasswordAsync()
+    {
+        return await RunOnUiThreadAsync(async () =>
+        {
+            if (_topLevelWindow == null) return null;
+            var dialog = new PasswordDialog();
+            return await dialog.ShowDialogAsync(_topLevelWindow);
+        });
+    }
+
+    private static async Task<T> RunOnUiThreadAsync<T>(Func<Task<T>> action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            return await action();
+
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                completion.SetResult(await action());
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+            }
+        });
+        return await completion.Task;
+    }
 
     // ── Search ──
 

@@ -45,7 +45,7 @@
                     <SolidColorBrush x:Key="ControlHoverBrush" Color="#0B0F172A"/>
                     <SolidColorBrush x:Key="ControlPressedBrush" Color="#120F172A"/>
                     <SolidColorBrush x:Key="SelectionBrush" Color="#163B82F6"/>
-                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#171A21"/>
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#4B5563"/>
                     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6270"/>
                     <SolidColorBrush x:Key="TextMutedBrush" Color="#7D8491"/>
                     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
@@ -73,7 +73,7 @@
                     <SolidColorBrush x:Key="ColorAccentHover" Color="#2563EB"/>
                     <SolidColorBrush x:Key="ColorAccentLight" Color="#163B82F6"/>
                     <SolidColorBrush x:Key="ColorAccentMedium" Color="#2A3B82F6"/>
-                    <SolidColorBrush x:Key="ColorTextPrimary" Color="#171A21"/>
+                    <SolidColorBrush x:Key="ColorTextPrimary" Color="#4B5563"/>
                     <SolidColorBrush x:Key="ColorTextSecondary" Color="#5B6270"/>
                     <SolidColorBrush x:Key="ColorTextTertiary" Color="#737B88"/>
                     <SolidColorBrush x:Key="ColorTextQuaternary" Color="#9298A4"/>

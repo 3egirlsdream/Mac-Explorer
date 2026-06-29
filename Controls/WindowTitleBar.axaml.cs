@@ -19,11 +19,30 @@ public partial class WindowTitleBar : UserControl
     {
         InitializeComponent();
         CloseButton.Click += (_, _) => OwnerWindow?.Close();
-        MinimizeButton.Click += (_, _) => SetWindowState(WindowState.Minimized);
+        MinimizeButton.Click += (_, _) =>
+        {
+            if (OwnerWindow is { CanMinimize: true })
+                SetWindowState(WindowState.Minimized);
+        };
         MaximizeButton.Click += (_, _) => OwnerWindow?.ToggleMaximize();
     }
 
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        UpdateWindowControlAvailability();
+    }
+
     private AppWindow? OwnerWindow => TopLevel.GetTopLevel(this) as AppWindow;
+
+    private void UpdateWindowControlAvailability()
+    {
+        if (OwnerWindow is not { } window)
+            return;
+
+        MinimizeButton.IsEnabled = window.CanMinimize;
+        MaximizeButton.IsEnabled = window.CanMaximize;
+    }
 
     private void SetWindowState(WindowState state)
     {
@@ -37,7 +56,8 @@ public partial class WindowTitleBar : UserControl
 
         if (e.ClickCount == 2)
         {
-            window.ToggleMaximize();
+            if (window.CanMaximize)
+                window.ToggleMaximize();
             e.Handled = true;
             return;
         }

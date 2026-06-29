@@ -1,8 +1,9 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
+        xmlns:icons="clr-namespace:MacExplorer.Assets"
         x:Class="MacExplorer.Views.Dialogs.CompressDialog"
-        Title="压缩文件" Width="450" Height="360"
+        Title="压缩文件" Width="450" Height="460"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource GlassEffectBg}">
@@ -40,6 +41,25 @@
                     <Button x:Name="BtnMaximum" Classes="secondary"
                             Click="OnLevelChanged" Tag="Maximum">最大</Button>
                 </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="4" x:Name="PasswordSection">
+                <TextBlock Text="密码（可选，仅 ZIP 格式）" FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox x:Name="PasswordBox" Grid.Column="0"
+                             PasswordChar="●"
+                             PlaceholderText="留空则不加密"
+                             VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" x:Name="TogglePasswordBtn"
+                            Width="36" Height="36"
+                            Classes="secondary"
+                            VerticalAlignment="Center" Margin="4,0,0,0"
+                            Click="TogglePasswordVisibility">
+                        <PathIcon Data="{x:Static icons:Icons.Eye}" Width="16" Height="16"/>
+                    </Button>
+                </Grid>
             </StackPanel>
         </StackPanel>
 

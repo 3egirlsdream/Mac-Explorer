@@ -8,7 +8,7 @@ public interface IBackgroundTaskManager
     event Action? TasksChanged;
 
     BackgroundTaskInfo AddTask(string label, Func<Task>? onCompleted = null);
-    void UpdateProgress(string taskId, double progress, string currentFile);
+    void UpdateProgress(string taskId, double progress, string currentFile, string? label = null);
     void CompleteTask(string taskId);
     void FailTask(string taskId, string error);
     void MinimizeTask(string taskId);

@@ -23,7 +23,6 @@ public partial class MainWindow : AppWindow
 {
     private bool _isRestoringSearch;
     private SettingsDialog? _settingsDialog;
-    private TaskPanel? _taskPanel;
     private MainWindowViewModel? _vm;
     private readonly NavigationBridge _navigationBridge;
     private readonly IDirectoryChangeNotifier _directoryChangeNotifier;
@@ -33,6 +32,15 @@ public partial class MainWindow : AppWindow
     private bool _initialized;
     private int _previousRunningTaskCount;
     private IServiceScope? _scope;
+
+    // Task overlay panel state machine
+    private enum PanelMode { None, Auto, Manual }
+    private PanelMode _taskPanelMode = PanelMode.None;
+    private bool _isTaskPanelAnimating;
+    private CancellationTokenSource? _taskPanelAnimCts;
+    private CancellationTokenSource? _autoCloseTimerCts;
+    private const double TaskPanelAnimDurationMs = 220;
+
     private bool _resizingPreview;
     private double _pendingPreviewWidth;
     private bool _previewResizeFramePending;
@@ -207,6 +215,7 @@ public partial class MainWindow : AppWindow
 
     private void RegisterViewModel(FileListViewModel vm)
     {
+        vm.SetOwnerWindow(this);
         _navigationBridge.Register(vm);
         _directoryChangeNotifier.Subscribe(vm);
         _dragDropBridge.Register(vm);
@@ -214,6 +223,7 @@ public partial class MainWindow : AppWindow
 
     private void UnregisterViewModel(FileListViewModel vm)
     {
+        vm.SetOwnerWindow(null);
         _navigationBridge.Unregister(vm);
         _directoryChangeNotifier.Unsubscribe(vm);
         _dragDropBridge.Unregister(vm);
@@ -246,6 +256,8 @@ public partial class MainWindow : AppWindow
     private void OnClosed(object? sender, EventArgs e)
     {
         _previewAnimationCts?.Cancel();
+        _taskPanelAnimCts?.Cancel();
+        _autoCloseTimerCts?.Cancel();
         _taskManager.TasksChanged -= OnTasksChanged;
         if (_vm != null)
         {
@@ -318,10 +330,27 @@ public partial class MainWindow : AppWindow
     {
         Dispatcher.UIThread.Post(() =>
         {
-            var runningCount = _taskManager.Tasks.Count(t => t.State == BackgroundTaskState.Running);
+            var tasks = _taskManager.Tasks.ToList();
+            var runningCount = tasks.Count(t => t.State == BackgroundTaskState.Running);
+
             UpdateTaskButton();
-            if (runningCount > 0 && _previousRunningTaskCount == 0)
-                OpenTaskPanel();
+            RebuildTaskPanelItems(tasks);
+
+            // Auto-open when first task starts running
+            if (runningCount > 0 && _previousRunningTaskCount == 0
+                && _taskPanelMode == PanelMode.None)
+            {
+                _taskPanelMode = PanelMode.Auto;
+                _ = SlideTaskPanelAsync(show: true);
+            }
+
+            // Auto-close when all tasks complete (Auto mode only, after delay)
+            if (runningCount == 0 && _previousRunningTaskCount > 0
+                && _taskPanelMode == PanelMode.Auto)
+            {
+                StartAutoCloseTimer();
+            }
+
             _previousRunningTaskCount = runningCount;
         });
     }
@@ -334,19 +363,271 @@ public partial class MainWindow : AppWindow
         TaskButtonText.Text = running > 0 ? $"后台任务 ({running})" : $"后台任务 ({tasks.Count})";
     }
 
-    private void OpenTaskPanel(object? sender, RoutedEventArgs e) => OpenTaskPanel();
+    // ──────────────────────────────────────────────
+    //  Task Overlay Panel
+    // ──────────────────────────────────────────────
 
-    private void OpenTaskPanel()
-    {
-        if (_taskPanel == null)
+    private static int GetTaskSortOrder(BackgroundTaskInfo task) =>
+        task.State switch
         {
-            _taskPanel = new TaskPanel();
-            _taskPanel.SetTaskManager(_taskManager);
-            _taskPanel.Closed += (_, _) => _taskPanel = null;
+            BackgroundTaskState.Running => 0,
+            BackgroundTaskState.Failed => 1,
+            BackgroundTaskState.Completed => 2,
+            _ => 3
+        };
+
+    private void ToggleTaskPanel(object? sender, RoutedEventArgs e) => ToggleTaskPanel();
+
+    private void ToggleTaskPanel()
+    {
+        if (_isTaskPanelAnimating) return;
+        CancelAutoCloseTimer();
+
+        if (TaskOverlayPanel.IsVisible)
+        {
+            _taskPanelMode = PanelMode.None;
+            _ = SlideTaskPanelAsync(show: false);
+        }
+        else
+        {
+            _taskPanelMode = PanelMode.Manual;
+            RebuildTaskPanelItems(_taskManager.Tasks.ToList());
+            _ = SlideTaskPanelAsync(show: true);
+        }
+    }
+
+    private void CloseTaskPanel(object? sender, RoutedEventArgs e)
+    {
+        if (_isTaskPanelAnimating) return;
+        CancelAutoCloseTimer();
+        _taskPanelMode = PanelMode.None;
+        _ = SlideTaskPanelAsync(show: false);
+    }
+
+    private async Task SlideTaskPanelAsync(bool show)
+    {
+        _taskPanelAnimCts?.Cancel();
+        _taskPanelAnimCts?.Dispose();
+        _taskPanelAnimCts = new CancellationTokenSource();
+        var token = _taskPanelAnimCts.Token;
+        _isTaskPanelAnimating = true;
+
+        var transform = (TranslateTransform)TaskOverlayPanel.RenderTransform!;
+        var startX = transform.X;
+        var targetX = show ? 0 : 380;
+        var stopwatch = Stopwatch.StartNew();
+
+        if (show)
+        {
+            TaskOverlayPanel.IsVisible = true;
+            TaskPanelTitle.Text = _taskManager.Tasks.Count > 0
+                ? $"后台任务 ({_taskManager.Tasks.Count(t => t.State == BackgroundTaskState.Running)} 个进行中)"
+                : "后台任务";
         }
 
-        if (!_taskPanel.IsVisible) _taskPanel.Show(this);
-        else _taskPanel.Activate();
+        try
+        {
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                var progress = Math.Min(1, stopwatch.Elapsed.TotalMilliseconds / TaskPanelAnimDurationMs);
+                var eased = 1 - Math.Pow(1 - progress, 3);
+                transform.X = startX + (targetX - startX) * eased;
+                if (progress >= 1) break;
+                await Task.Delay(16, token);
+            }
+            transform.X = targetX;
+        }
+        catch (OperationCanceledException) { }
+
+        if (!show)
+            TaskOverlayPanel.IsVisible = false;
+
+        _isTaskPanelAnimating = false;
+    }
+
+    private void StartAutoCloseTimer()
+    {
+        CancelAutoCloseTimer();
+        _autoCloseTimerCts = new CancellationTokenSource();
+        var token = _autoCloseTimerCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(3000, token);
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    if (_taskPanelMode == PanelMode.Auto)
+                    {
+                        _taskPanelMode = PanelMode.None;
+                        await SlideTaskPanelAsync(show: false);
+                    }
+                });
+            }
+            catch (OperationCanceledException) { }
+        }, token);
+    }
+
+    private void CancelAutoCloseTimer()
+    {
+        _autoCloseTimerCts?.Cancel();
+        _autoCloseTimerCts?.Dispose();
+        _autoCloseTimerCts = null;
+    }
+
+    private void RebuildTaskPanelItems(IReadOnlyList<BackgroundTaskInfo> tasks)
+    {
+        var runningCount = tasks.Count(t => t.State == BackgroundTaskState.Running);
+        var completedCount = tasks.Count(t => t.State == BackgroundTaskState.Completed);
+        var failedCount = tasks.Count(t => t.State == BackgroundTaskState.Failed);
+
+        TaskPanelTitle.Text = runningCount > 0
+            ? $"后台任务 ({runningCount} 个进行中)"
+            : tasks.Count > 0 ? "后台任务" : "没有任务";
+
+        ClearPanelButton.IsEnabled = tasks.Count > 0;
+        ClearCompletedButton.IsEnabled = completedCount + failedCount > 0;
+        PanelFooter.IsVisible = completedCount + failedCount > 0;
+
+        TaskItemsPanel.Children.Clear();
+        foreach (var task in tasks.OrderBy(GetTaskSortOrder))
+            TaskItemsPanel.Children.Add(CreateCompactTaskRow(task));
+    }
+
+    private Control CreateCompactTaskRow(BackgroundTaskInfo task)
+    {
+        var row = new Border();
+        row.Classes.Add("task-overlay-row");
+
+        var grid = new Grid { ColumnSpacing = 6, RowSpacing = 2 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition(14, GridUnitType.Pixel));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        if (task.State == BackgroundTaskState.Running)
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        // State dot
+        var dot = new Border();
+        dot.Classes.Add("task-state-dot");
+        dot.Classes.Add(task.State switch
+        {
+            BackgroundTaskState.Running => "running",
+            BackgroundTaskState.Completed => "completed",
+            BackgroundTaskState.Failed => "failed",
+            _ => "running"
+        });
+        Grid.SetColumn(dot, 0);
+        Grid.SetRow(dot, 0);
+        grid.Children.Add(dot);
+
+        // Label
+        var label = new TextBlock
+        {
+            Text = task.Label,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        label.Classes.Add("task-label");
+        Grid.SetColumn(label, 1);
+        Grid.SetRow(label, 0);
+        grid.Children.Add(label);
+
+        // Status (running: %, completed/failed: text)
+        var statusText = new TextBlock
+        {
+            Text = task.State switch
+            {
+                BackgroundTaskState.Running => $"{task.Progress:F0}%",
+                BackgroundTaskState.Completed => "已完成",
+                BackgroundTaskState.Failed => "失败",
+                _ => ""
+            },
+            TextAlignment = TextAlignment.Right
+        };
+        statusText.Classes.Add(task.State == BackgroundTaskState.Running ? "task-percent" : "task-status");
+        Grid.SetColumn(statusText, 2);
+        Grid.SetRow(statusText, 0);
+        grid.Children.Add(statusText);
+
+        // Close button
+        var closeBtn = CreateCompactCloseButton(task);
+        Grid.SetColumn(closeBtn, 3);
+        Grid.SetRow(closeBtn, 0);
+        grid.Children.Add(closeBtn);
+
+        // Progress bar for running tasks
+        if (task.State == BackgroundTaskState.Running)
+        {
+            var progress = new ProgressBar { Minimum = 0, Maximum = 100, Value = task.Progress };
+            progress.Classes.Add("task-mini");
+            Grid.SetColumn(progress, 1);
+            Grid.SetColumnSpan(progress, 3);
+            Grid.SetRow(progress, 1);
+            grid.Children.Add(progress);
+        }
+        else if (task.State == BackgroundTaskState.Failed
+                 && !string.IsNullOrWhiteSpace(task.ErrorMessage))
+        {
+            var errorText = new TextBlock
+            {
+                Text = task.ErrorMessage,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                FontSize = 10,
+                Foreground = Brush.Parse("#E5484D")
+            };
+            Grid.SetColumn(errorText, 1);
+            Grid.SetColumnSpan(errorText, 3);
+            Grid.SetRow(errorText, 1);
+            grid.Children.Add(errorText);
+        }
+
+        row.Child = grid;
+        return row;
+    }
+
+    private Button CreateCompactCloseButton(BackgroundTaskInfo task)
+    {
+        var button = new Button
+        {
+            Content = new PathIcon
+            {
+                Data = Geometry.Parse(Assets.Icons.Close),
+                Width = 9,
+                Height = 9
+            }
+        };
+        button.Classes.Add("ghost");
+        button.Classes.Add("task-row-close");
+        ToolTip.SetTip(button, task.State == BackgroundTaskState.Running ? "取消任务" : "移除任务");
+        button.Click += (_, _) =>
+        {
+            if (task.State == BackgroundTaskState.Running)
+                task.Cts.Cancel();
+            _taskManager.RemoveTask(task.Id);
+        };
+        return button;
+    }
+
+    private void ClearAllPanelTasks(object? sender, RoutedEventArgs e)
+    {
+        foreach (var task in _taskManager.Tasks.ToList())
+        {
+            if (task.State == BackgroundTaskState.Running)
+                task.Cts.Cancel();
+            _taskManager.RemoveTask(task.Id);
+        }
+    }
+
+    private void ClearCompletedPanel(object? sender, RoutedEventArgs e)
+    {
+        foreach (var task in _taskManager.Tasks
+                     .Where(t => t.State != BackgroundTaskState.Running)
+                     .ToList())
+        {
+            _taskManager.RemoveTask(task.Id);
+        }
     }
 
     private void UpdateContentVisibility(MainWindowViewModel vm)

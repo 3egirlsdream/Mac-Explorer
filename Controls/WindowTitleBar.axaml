@@ -28,6 +28,10 @@
         <Style Selector="Button.window-control:pressed">
             <Setter Property="RenderTransform" Value="scale(0.92)"/>
         </Style>
+        <Style Selector="Button.window-control:disabled">
+            <Setter Property="Opacity" Value="0.35"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
         <Style Selector="Button.window-control:focus-visible">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
             <Setter Property="BorderThickness" Value="2"/>
