@@ -54,35 +54,62 @@
                 <TextBlock Classes="label" Text="服务器名称"/>
                 <TextBox x:Name="NameBox" PlaceholderText="可选，显示在侧边栏"/>
 
-                <TextBlock Classes="label" Text="主机地址"/>
-                <TextBox x:Name="HostBox" PlaceholderText="IP 地址或域名"/>
-
-                <TextBlock Classes="label" Text="端口"/>
-                <TextBox x:Name="PortBox" PlaceholderText="22"/>
-
-                <TextBlock Classes="label" Text="用户名"/>
-                <TextBox x:Name="UsernameBox" PlaceholderText="root"/>
-
-                <TextBlock Classes="label" Text="认证方式"/>
+                <TextBlock Classes="label" Text="协议"/>
                 <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
-                    <RadioButton x:Name="PasswordRadio" Content="密码" IsChecked="True"
-                                 GroupName="Auth" Click="OnAuthMethodChanged"/>
-                    <RadioButton x:Name="KeyRadio" Content="密钥文件"
-                                 GroupName="Auth" Click="OnAuthMethodChanged"/>
+                    <RadioButton x:Name="SftpRadio" Content="SFTP" IsChecked="True"
+                                 GroupName="Protocol" Click="OnProtocolChanged"/>
+                    <RadioButton x:Name="OssRadio" Content="阿里云 OSS"
+                                 GroupName="Protocol" Click="OnProtocolChanged"/>
                 </StackPanel>
 
-                <StackPanel x:Name="PasswordPanel">
-                    <TextBlock Classes="label" Text="密码"/>
-                    <TextBox x:Name="PasswordBox" PlaceholderText="密码" PasswordChar="•"/>
+                <StackPanel x:Name="SftpPanel">
+                    <TextBlock Classes="label" Text="主机地址"/>
+                    <TextBox x:Name="HostBox" PlaceholderText="IP 地址或域名"/>
+
+                    <TextBlock Classes="label" Text="端口"/>
+                    <TextBox x:Name="PortBox" PlaceholderText="22"/>
+
+                    <TextBlock Classes="label" Text="用户名"/>
+                    <TextBox x:Name="UsernameBox" PlaceholderText="root"/>
+
+                    <TextBlock Classes="label" Text="认证方式"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+                        <RadioButton x:Name="PasswordRadio" Content="密码" IsChecked="True"
+                                     GroupName="Auth" Click="OnAuthMethodChanged"/>
+                        <RadioButton x:Name="KeyRadio" Content="密钥文件"
+                                     GroupName="Auth" Click="OnAuthMethodChanged"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="PasswordPanel">
+                        <TextBlock Classes="label" Text="密码"/>
+                        <TextBox x:Name="PasswordBox" PlaceholderText="密码" PasswordChar="•"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="KeyPanel" IsVisible="False">
+                        <TextBlock Classes="label" Text="私钥文件路径"/>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox x:Name="KeyPathBox" PlaceholderText="~/.ssh/id_rsa"/>
+                            <Button Grid.Column="1" Content="浏览" Click="OnBrowseKeyFile"
+                                    Padding="12,6" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                        </Grid>
+                    </StackPanel>
                 </StackPanel>
 
-                <StackPanel x:Name="KeyPanel" IsVisible="False">
-                    <TextBlock Classes="label" Text="私钥文件路径"/>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBox x:Name="KeyPathBox" PlaceholderText="~/.ssh/id_rsa"/>
-                        <Button Grid.Column="1" Content="浏览" Click="OnBrowseKeyFile"
-                                Padding="12,6" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
-                    </Grid>
+                <StackPanel x:Name="OssPanel" IsVisible="False">
+                    <TextBlock Classes="label" Text="Endpoint"/>
+                    <TextBox x:Name="EndpointBox" PlaceholderText="oss-cn-hangzhou.aliyuncs.com"/>
+
+                    <TextBlock Classes="label" Text="Bucket"/>
+                    <TextBox x:Name="BucketBox" PlaceholderText="my-bucket"/>
+
+                    <TextBlock Classes="label" Text="AccessKeyId"/>
+                    <TextBox x:Name="AccessKeyIdBox" PlaceholderText="LTAI..."/>
+
+                    <TextBlock Classes="label" Text="AccessKeySecret"/>
+                    <TextBox x:Name="AccessKeySecretBox" PlaceholderText="AccessKeySecret" PasswordChar="•"/>
+
+                    <TextBlock Text="建议使用只授权该 Bucket 的 RAM 子账号 AccessKey。"
+                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8"/>
                 </StackPanel>
 
                 <TextBlock Classes="label" Text="默认路径"/>

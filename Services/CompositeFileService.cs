@@ -90,10 +90,7 @@ public class CompositeFileService : IFileService
         if (!srcIsRemote && dstIsRemote)
         {
             // Local → Remote: upload with progress
-            var (_, remoteDest) = VirtualPath.ParseRemotePath(destinationDirectory);
-            var remoteClient = _remoteService.GetConnectedClient();
-            if (remoteClient == null) throw new InvalidOperationException("Remote server not connected");
-
+            var (destServerId, remoteDest) = VirtualPath.ParseRemotePath(destinationDirectory);
             var remoteFilePath = remoteDest.TrimEnd('/') + "/" + fileName;
             var fileSize = new FileInfo(sourcePath).Length;
             var label = $"上传 {fileName}";
@@ -101,11 +98,12 @@ public class CompositeFileService : IFileService
 
             try
             {
+                var remoteStream = await _remoteService.OpenWriteAsync(destServerId, remoteFilePath);
                 await Task.Run(() =>
                 {
-                    using var localStream = File.OpenRead(sourcePath);
-                    using var remoteStream = remoteClient.OpenWrite(remoteFilePath);
-                    CopyWithProgress(localStream, remoteStream, fileSize, task);
+                    using (remoteStream)
+                    using (var localStream = File.OpenRead(sourcePath))
+                        CopyWithProgress(localStream, remoteStream, fileSize, task);
                 });
 
                 if (task != null)
@@ -122,21 +120,19 @@ public class CompositeFileService : IFileService
 
         // Remote → Local: download with progress
         var (serverId, remoteSrc) = VirtualPath.ParseRemotePath(sourcePath);
-        var client = _remoteService.GetConnectedClient();
-        if (client == null) throw new InvalidOperationException("Remote server not connected");
-
         var localDestPath = Path.Combine(destinationDirectory, fileName);
-        var dlFileSize = GetRemoteFileSize(client, remoteSrc);
+        var dlFileSize = await _remoteService.GetFileSizeAsync(serverId, remoteSrc);
         var dlLabel = $"下载 {fileName}";
         var dlTask = _taskManager?.AddTask(dlLabel);
 
         try
         {
+            var sourceStream = await _remoteService.OpenReadAsync(serverId, remoteSrc);
             await Task.Run(() =>
             {
-                using var remoteStream = client.OpenRead(remoteSrc);
-                using var localStream = File.Create(localDestPath);
-                CopyWithProgress(remoteStream, localStream, dlFileSize, dlTask);
+                using (sourceStream)
+                using (var localStream = File.Create(localDestPath))
+                    CopyWithProgress(sourceStream, localStream, dlFileSize, dlTask);
             });
 
             if (dlTask != null)
@@ -147,18 +143,6 @@ public class CompositeFileService : IFileService
             if (dlTask != null)
                 _taskManager?.FailTask(dlTask.Id, ex.Message);
             throw;
-        }
-    }
-
-    private static long GetRemoteFileSize(Renci.SshNet.SftpClient client, string remotePath)
-    {
-        try
-        {
-            return client.GetAttributes(remotePath)?.Size ?? 0;
-        }
-        catch
-        {
-            return 0;
         }
     }
 
