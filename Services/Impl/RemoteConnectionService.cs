@@ -8,6 +8,7 @@ namespace MacExplorer.Services.Impl;
 public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 {
     private readonly Dictionary<string, SftpClient> _connections = new();
+    private readonly HashSet<string> _ossConnections = new(StringComparer.Ordinal);
     private readonly Dictionary<string, RemoteServerInfo> _servers = new();
     private readonly Dictionary<string, CancellationTokenSource> _reconnectTokens = new();
     private readonly string _configPath;
@@ -29,9 +30,15 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         LoadSavedServers();
     }
 
-    public async Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
+    public async Task ConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
     {
         Disconnect(server.Id);
+
+        if (server.IsOss)
+        {
+            await ConnectOssAsync(server, ct);
+            return;
+        }
 
         var client = CreateSftpClient(server);
 
@@ -44,15 +51,39 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         RegisterConnection(server, client);
 
         _logger?.LogInformation("Connected to {Server}", server.DisplayName);
-        return client;
     }
 
-    public async Task<SftpClient> GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
+    public async Task GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
     {
-        if (_connections.TryGetValue(server.Id, out var existing) && existing.IsConnected)
-            return existing;
+        if (IsConnected(server.Id)) return;
+        await ConnectAsync(server, ct);
+    }
 
-        return await ConnectAsync(server, ct);
+    /// <summary>
+    /// OSS is stateless HTTP, so "connecting" means proving the credentials can
+    /// reach the bucket — that is what makes a bad key fail in the dialog rather
+    /// than silently on the first listing.
+    /// </summary>
+    private async Task ConnectOssAsync(RemoteServerInfo server, CancellationToken ct)
+    {
+        // Normalise here too, so servers saved before this ran still connect.
+        server.Endpoint = OssClientFactory.NormalizeEndpoint(server.Endpoint);
+        server.Bucket = OssClientFactory.NormalizeBucket(server.Bucket);
+        server.DefaultPath = OssClientFactory.NormalizeDefaultPath(server.DefaultPath, server.Bucket);
+
+        await Task.Run(() =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var client = OssClientFactory.Create(server);
+            if (!client.DoesBucketExist(server.Bucket))
+                throw new InvalidOperationException($"Bucket 不存在或无访问权限：{server.Bucket}");
+        }, ct);
+
+        _ossConnections.Add(server.Id);
+        _servers[server.Id] = server;
+        server.IsConnected = true;
+
+        _logger?.LogInformation("Connected to OSS bucket {Bucket}", server.Bucket);
     }
 
     public void Disconnect(string serverId)
@@ -75,6 +106,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
             catch { }
             _connections.Remove(serverId);
         }
+        _ossConnections.Remove(serverId);
         if (_servers.TryGetValue(serverId, out var server))
         {
             server.IsConnected = false;
@@ -83,16 +115,20 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     public void DisconnectAll()
     {
-        foreach (var id in _connections.Keys.ToList())
+        foreach (var id in _connections.Keys.Concat(_ossConnections).Distinct().ToList())
             Disconnect(id);
     }
 
     public bool IsConnected(string serverId)
     {
+        if (_ossConnections.Contains(serverId)) return true;
         return _connections.TryGetValue(serverId, out var client) && client.IsConnected;
     }
 
-    public SftpClient? GetClient(string serverId)
+    public RemoteServerInfo? GetServer(string serverId)
+        => _servers.TryGetValue(serverId, out var server) ? server : null;
+
+    public SftpClient? GetSftpClient(string serverId)
     {
         return _connections.TryGetValue(serverId, out var client) && client.IsConnected ? client : null;
     }

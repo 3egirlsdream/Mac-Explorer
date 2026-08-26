@@ -28,20 +28,45 @@ public class SftpFileService : IRemoteFileService, IDisposable
     public void SetCurrentServer(string serverId) => _currentServerId = serverId;
 
     private SftpClient GetClient()
-    {
-        var id = _currentServerId ?? throw new InvalidOperationException("No remote server selected");
-        return _connectionService.GetClient(id) ?? throw new InvalidOperationException($"Server {id} is not connected");
-    }
+        => GetClient(_currentServerId ?? throw new InvalidOperationException("No remote server selected"));
+
+    private SftpClient GetClient(string serverId)
+        => _connectionService.GetSftpClient(serverId)
+           ?? throw new InvalidOperationException($"Server {serverId} is not connected");
 
     private string GetServerId() => _currentServerId ?? throw new InvalidOperationException("No remote server selected");
 
-    private string ToRemotePath(string path) => VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).RemotePath : path;
+    private static string ToRemotePath(string path) => RemotePathHelper.ToRemotePath(path);
 
-    public Renci.SshNet.SftpClient? GetConnectedClient()
+    public async Task<Stream> OpenReadAsync(string serverId, string remotePath, CancellationToken cancellationToken = default)
     {
-        var id = _currentServerId;
-        if (id == null) return null;
-        return _connectionService.GetClient(id);
+        var client = GetClient(serverId);
+        var path = ToRemotePath(remotePath);
+        return await Task.Run(() => (Stream)client.OpenRead(path), cancellationToken);
+    }
+
+    public async Task<Stream> OpenWriteAsync(string serverId, string remotePath, CancellationToken cancellationToken = default)
+    {
+        var client = GetClient(serverId);
+        var path = ToRemotePath(remotePath);
+        return await Task.Run(() => (Stream)client.OpenWrite(path), cancellationToken);
+    }
+
+    public async Task<long> GetFileSizeAsync(string serverId, string remotePath, CancellationToken cancellationToken = default)
+    {
+        var client = GetClient(serverId);
+        var path = ToRemotePath(remotePath);
+        return await Task.Run(() =>
+        {
+            try
+            {
+                return client.GetAttributes(path)?.Size ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }, cancellationToken);
     }
 
     public string HomeDirectory => "/";
@@ -267,36 +292,9 @@ public class SftpFileService : IRemoteFileService, IDisposable
         }
     }
 
-    public string GetParentPath(string path)
-    {
-        if (VirtualPath.IsRemotePath(path))
-        {
-            var (serverId, remotePath) = VirtualPath.ParseRemotePath(path);
-            if (string.IsNullOrEmpty(remotePath) || remotePath == "/")
-                return VirtualPath.BuildRemotePath(serverId, "/");
-            var normalized = remotePath.TrimEnd('/');
-            var lastSlash = normalized.LastIndexOf('/');
-            var parentRemote = lastSlash <= 0 ? "/" : normalized[..lastSlash];
-            return VirtualPath.BuildRemotePath(serverId, parentRemote);
-        }
-        if (string.IsNullOrEmpty(path) || path == "/") return "/";
-        var norm = path.TrimEnd('/');
-        var ls = norm.LastIndexOf('/');
-        return ls <= 0 ? "/" : norm[..ls];
-    }
+    public string GetParentPath(string path) => RemotePathHelper.GetParentPath(path);
 
-    public string CombinePath(string directory, string name)
-    {
-        if (VirtualPath.IsRemotePath(directory))
-        {
-            var (serverId, remotePath) = VirtualPath.ParseRemotePath(directory);
-            var combined = CombinePath(remotePath, name);
-            return VirtualPath.BuildRemotePath(serverId, combined);
-        }
-        if (string.IsNullOrEmpty(directory) || directory == "/")
-            return "/" + name;
-        return directory.TrimEnd('/') + "/" + name;
-    }
+    public string CombinePath(string directory, string name) => RemotePathHelper.CombinePath(directory, name);
 
     public IReadOnlyList<string> GetVolumes() => Array.Empty<string>();
 

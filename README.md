@@ -17,7 +17,7 @@
 <details open>
 <summary><b>中文</b></summary>
 
-Mac Explorer 是为 macOS 打造的现代文件管理器。它把本地浏览、全文搜索、AI 图片理解、SFTP 远程管理、压缩解压、Git 状态和 Quick Look 整合进一个优雅高效的工作台。
+Mac Explorer 是为 macOS 打造的现代文件管理器。它把本地浏览、全文搜索、AI 图片理解、SFTP / 阿里云 OSS 远程管理、压缩解压、Git 状态和 Quick Look 整合进一个优雅高效的工作台。
 
 ## 为什么选 Mac Explorer
 
@@ -32,6 +32,7 @@ macOS Finder 够用，但不够好用。Mac Explorer 补上了 Windows 文件管
 | 🤖 **AI 图片分析** | Apple Vision 本地识别面孔、场景、地点，完全离线 |
 | ⎇ **Git 状态标记** | 文件图标叠加 Git 状态——新增/修改/未跟踪一目了然 |
 | 🌐 **SFTP 远程管理** | SSH.NET 安全连接，像操作本地文件一样管理远程服务器 |
+| ☁️ **阿里云 OSS** | 填 Endpoint / Bucket / AccessKey 即可挂载 Bucket，浏览、上传、下载、改名一应俱全 |
 | 📦 **压缩解压** | ZIP/TAR/GZ/7Z，内浏览免解压，分卷 + 密码保护 |
 | 👁️ **Quick Look** | 空格键快速预览图片、文档、视频 |
 | ⭐ **文件评分** | 1–5 星评分，持久化存储，支持按评分排序 |
@@ -53,7 +54,7 @@ macOS Finder 够用，但不够好用。Mac Explorer 补上了 Windows 文件管
 <details>
 <summary><b>English</b></summary>
 
-Mac Explorer is a modern file manager built for macOS. It combines local browsing, full-text search, AI-powered image understanding, SFTP remote access, archive management, Git status, and Quick Look into one elegant, efficient workspace.
+Mac Explorer is a modern file manager built for macOS. It combines local browsing, full-text search, AI-powered image understanding, SFTP and Aliyun OSS remote access, archive management, Git status, and Quick Look into one elegant, efficient workspace.
 
 ## Why Mac Explorer
 
@@ -68,6 +69,7 @@ macOS Finder works, but it could be better. Mac Explorer brings the capabilities
 | 🤖 **AI Image Analysis** | On-device Apple Vision for face, scene, and landmark recognition — fully offline |
 | ⎇ **Git Status** | File icon overlays for Git status — added/modified/untracked at a glance |
 | 🌐 **SFTP Remote** | SSH.NET secure connections, manage remote servers like local folders |
+| ☁️ **Aliyun OSS** | Mount a bucket with endpoint / bucket / AccessKey — browse, upload, download, rename |
 | 📦 **Archives** | ZIP/TAR/GZ/7Z, browse without extracting, multi-volume + password protection |
 | 👁️ **Quick Look** | Press Space to preview images, documents, and video instantly |
 | ⭐ **File Rating** | 1–5 star ratings, persistent storage, sort by rating |
@@ -98,6 +100,7 @@ No .NET runtime required — 129 MB self-contained, native Apple Silicon.
 | Microsoft.Data.Sqlite | SQLite FTS5 全文索引 · Full-Text Index |
 | SharpCompress | 压缩解压 · Archive Handling |
 | SSH.NET | SFTP 远程 · Remote File Access |
+| Aliyun.OSS.SDK.NetCore | 阿里云 OSS · Object Storage |
 | Svg.Skia | SVG 图标渲染 · Icon Rendering |
 | Apple Vision | AI 图像分析 · Image Analysis |
 

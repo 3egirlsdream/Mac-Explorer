@@ -4,7 +4,7 @@ namespace MacExplorer.Services.Impl;
 
 public class RemoteFileEditService : IRemoteFileEditService, IDisposable
 {
-    private readonly IRemoteConnectionService _connectionService;
+    private readonly IRemoteFileService _remoteFileService;
     private readonly ILogger<RemoteFileEditService>? _logger;
     private readonly string _tempDir;
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new();
@@ -13,9 +13,9 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
     private readonly HashSet<string> _downloading = new();
     private readonly HashSet<string> _uploading = new();
 
-    public RemoteFileEditService(IRemoteConnectionService connectionService, ILogger<RemoteFileEditService>? logger = null)
+    public RemoteFileEditService(IRemoteFileService remoteFileService, ILogger<RemoteFileEditService>? logger = null)
     {
-        _connectionService = connectionService;
+        _remoteFileService = remoteFileService;
         _logger = logger;
         _tempDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -29,9 +29,6 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
 
     public async Task<string> DownloadForEditAsync(string remotePath, string serverId)
     {
-        var client = _connectionService.GetClient(serverId)
-            ?? throw new InvalidOperationException("Server not connected");
-
         var serverDir = Path.Combine(_tempDir, serverId);
         if (!Directory.Exists(serverDir))
             Directory.CreateDirectory(serverDir);
@@ -67,15 +64,18 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
             {
                 try
                 {
+                    var remoteStream = await _remoteFileService.OpenReadAsync(serverId, remotePath);
                     await Task.Run(() =>
                     {
-                        using var remoteStream = client.OpenRead(remotePath);
-                        using var localStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-                        var buffer = new byte[81920];
-                        int bytesRead;
-                        while ((bytesRead = remoteStream.Read(buffer, 0, buffer.Length)) > 0)
+                        using (remoteStream)
+                        using (var localStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
                         {
-                            localStream.Write(buffer, 0, bytesRead);
+                            var buffer = new byte[81920];
+                            int bytesRead;
+                            while ((bytesRead = remoteStream.Read(buffer, 0, buffer.Length)) > 0)
+                            {
+                                localStream.Write(buffer, 0, bytesRead);
+                            }
                         }
                     }, CancellationToken.None);
                     break;
@@ -124,18 +124,19 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
 
         try
         {
-            var client = _connectionService.GetClient(serverId)
-                ?? throw new InvalidOperationException("Server not connected");
+            var remoteStream = await _remoteFileService.OpenWriteAsync(serverId, remotePath);
 
             await Task.Run(() =>
             {
-                using var localStream = File.OpenRead(localPath);
-                using var remoteStream = client.OpenWrite(remotePath);
-                var buffer = new byte[81920];
-                int bytesRead;
-                while ((bytesRead = localStream.Read(buffer, 0, buffer.Length)) > 0)
+                using (remoteStream)
+                using (var localStream = File.OpenRead(localPath))
                 {
-                    remoteStream.Write(buffer, 0, bytesRead);
+                    var buffer = new byte[81920];
+                    int bytesRead;
+                    while ((bytesRead = localStream.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        remoteStream.Write(buffer, 0, bytesRead);
+                    }
                 }
             });
 

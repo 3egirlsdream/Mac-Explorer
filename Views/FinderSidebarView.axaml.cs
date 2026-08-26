@@ -322,10 +322,11 @@ public partial class FinderSidebarView : UserControl
             : null;
         var result = await dialog.ShowDialog<RemoteServerInfo?>(window);
         if (result != null && dialog.Connected && ViewModel != null)
-        {
             await ViewModel.ConnectToServerAsync(result);
-            RefreshRemoteServersList();
-        }
+
+        // Refresh unconditionally — a server that was saved but not connected
+        // still belongs in the sidebar.
+        RefreshRemoteServersList();
     }
 
     private async void OnRemoteServerPressed(object? sender, PointerPressedEventArgs e)

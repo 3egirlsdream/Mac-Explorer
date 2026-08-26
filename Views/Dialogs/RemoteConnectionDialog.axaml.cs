@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Views.Dialogs;
@@ -28,13 +29,21 @@ public partial class RemoteConnectionDialog : DialogWindow
         HostBox.Focus();
     }
 
+    private bool IsOssSelected => OssRadio.IsChecked == true;
+
+    private void OnProtocolChanged(object? sender, RoutedEventArgs e)
+    {
+        var isOss = IsOssSelected;
+        SftpPanel.IsVisible = !isOss;
+        OssPanel.IsVisible = isOss;
+        (isOss ? (Control)EndpointBox : HostBox).Focus();
+    }
+
     private void RefreshSavedServers()
     {
         var servers = _connectionService.GetSavedServers();
         SavedServersList.ItemsSource = servers;
-        var hasServers = servers.Count > 0;
-        if (SavedServersList.Parent is Border border)
-            border.IsVisible = hasServers;
+        SavedServersBorder.IsVisible = servers.Count > 0;
     }
 
     private void OnSavedServerSelected(object? sender, SelectionChangedEventArgs e)
@@ -48,6 +57,17 @@ public partial class RemoteConnectionDialog : DialogWindow
         DefaultPathBox.Text = server.DefaultPath;
         DeleteButton.IsVisible = true;
 
+        EndpointBox.Text = server.Endpoint;
+        BucketBox.Text = server.Bucket;
+        AccessKeyIdBox.Text = server.AccessKeyId;
+        AccessKeySecretBox.Text = server.AccessKeySecret;
+
+        if (server.Protocol == RemoteProtocol.AliyunOss)
+            OssRadio.IsChecked = true;
+        else
+            SftpRadio.IsChecked = true;
+        OnProtocolChanged(this, new RoutedEventArgs());
+
         if (server.AuthMethod == RemoteAuthMethod.PrivateKey)
         {
             KeyRadio.IsChecked = true;
@@ -58,6 +78,23 @@ public partial class RemoteConnectionDialog : DialogWindow
             PasswordRadio.IsChecked = true;
             PasswordBox.Text = server.Password;
         }
+    }
+
+    /// <summary>
+    /// The console shows a bucket as "my-bucket.oss-cn-hangzhou.aliyuncs.com", so
+    /// pasting that whole host fills in the endpoint instead of failing validation.
+    /// </summary>
+    private void OnBucketTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        var pasted = BucketBox.Text;
+        if (string.IsNullOrWhiteSpace(pasted) || !pasted.Contains('.')) return;
+
+        var endpoint = OssClientFactory.NormalizeEndpoint(pasted);
+        if (endpoint.Length == 0 || endpoint == OssClientFactory.NormalizeBucket(pasted)) return;
+
+        // Never clobber an endpoint the user typed themselves.
+        if (string.IsNullOrWhiteSpace(EndpointBox.Text))
+            EndpointBox.Text = endpoint;
     }
 
     private void OnAuthMethodChanged(object? sender, RoutedEventArgs e)
@@ -117,7 +154,7 @@ public partial class RemoteConnectionDialog : DialogWindow
                     Spacing = 12,
                     Children =
                     {
-                        new TextBlock { Text = $"无法连接到服务器：", FontSize = 13 },
+                        new TextBlock { Text = "无法连接到服务器：", FontSize = 13 },
                         new TextBlock { Text = ex.Message, FontSize = 12, TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
                                        Foreground = new global::Avalonia.Media.SolidColorBrush(global::Avalonia.Media.Color.Parse("#FF3B30")) },
                         new Button { Content = "确定", HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Right,
@@ -160,15 +197,37 @@ public partial class RemoteConnectionDialog : DialogWindow
 
     private RemoteServerInfo? BuildServerInfo()
     {
+        var server = _editingServer ?? new RemoteServerInfo();
+        server.Name = NameBox.Text?.Trim() ?? "";
+        server.DefaultPath = DefaultPathBox.Text?.Trim() ?? "/";
+
+        if (IsOssSelected)
+        {
+            var endpoint = EndpointBox.Text?.Trim();
+            var bucket = BucketBox.Text?.Trim();
+            var accessKeyId = AccessKeyIdBox.Text?.Trim();
+            var accessKeySecret = AccessKeySecretBox.Text?.Trim();
+            if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(bucket)
+                || string.IsNullOrEmpty(accessKeyId) || string.IsNullOrEmpty(accessKeySecret))
+                return null;
+
+            server.Protocol = RemoteProtocol.AliyunOss;
+            // Accept the console's copy-paste forms (bucket-prefixed host, oss:// path).
+            server.Endpoint = OssClientFactory.NormalizeEndpoint(endpoint);
+            server.Bucket = OssClientFactory.NormalizeBucket(bucket);
+            server.AccessKeyId = accessKeyId;
+            server.AccessKeySecret = accessKeySecret;
+            server.DefaultPath = OssClientFactory.NormalizeDefaultPath(server.DefaultPath, server.Bucket);
+            return server;
+        }
+
         var host = HostBox.Text?.Trim();
         if (string.IsNullOrEmpty(host)) return null;
 
-        var server = _editingServer ?? new RemoteServerInfo();
-        server.Name = NameBox.Text?.Trim() ?? "";
+        server.Protocol = RemoteProtocol.Sftp;
         server.Host = host;
         server.Port = int.TryParse(PortBox.Text?.Trim(), out var port) ? port : 22;
         server.Username = UsernameBox.Text?.Trim() ?? "root";
-        server.DefaultPath = DefaultPathBox.Text?.Trim() ?? "/";
         server.AuthMethod = PasswordRadio.IsChecked == true ? RemoteAuthMethod.Password : RemoteAuthMethod.PrivateKey;
         server.Password = PasswordBox.Text ?? "";
         server.PrivateKeyPath = KeyPathBox.Text?.Trim() ?? "";
@@ -184,8 +243,14 @@ public partial class RemoteConnectionDialog : DialogWindow
         UsernameBox.Text = "";
         PasswordBox.Text = "";
         KeyPathBox.Text = "";
+        EndpointBox.Text = "";
+        BucketBox.Text = "";
+        AccessKeyIdBox.Text = "";
+        AccessKeySecretBox.Text = "";
         DefaultPathBox.Text = "/";
         PasswordRadio.IsChecked = true;
+        SftpRadio.IsChecked = true;
+        OnProtocolChanged(this, new RoutedEventArgs());
         DeleteButton.IsVisible = false;
     }
 }

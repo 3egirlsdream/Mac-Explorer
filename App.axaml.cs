@@ -160,7 +160,11 @@ public partial class App : Application
         services.AddSingleton<Platforms.MacCatalyst.Services.MacFileService>(sp => new Platforms.MacCatalyst.Services.MacFileService(sp.GetRequiredService<SqliteFileIndex>()));
         services.AddSingleton<IRemoteConnectionService, Services.Impl.RemoteConnectionService>();
         services.AddSingleton<SftpFileService>();
-        services.AddSingleton<IRemoteFileService>(sp => sp.GetRequiredService<SftpFileService>());
+        services.AddSingleton<OssFileService>();
+        services.AddSingleton<IRemoteFileService>(sp => new Services.Impl.RemoteFileServiceRouter(
+            sp.GetRequiredService<IRemoteConnectionService>(),
+            sp.GetRequiredService<SftpFileService>(),
+            sp.GetRequiredService<OssFileService>()));
         services.AddSingleton<IRemoteFileEditService, Services.Impl.RemoteFileEditService>();
         services.AddSingleton<IFileService>(sp => new CompositeFileService(
             sp.GetRequiredService<Platforms.MacCatalyst.Services.MacFileService>(),

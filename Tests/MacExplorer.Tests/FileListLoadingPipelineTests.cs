@@ -498,7 +498,9 @@ public sealed class FileListLoadingPipelineTests
         }
 
         public void SetCurrentServer(string serverId) => CurrentServerId = serverId;
-        public SftpClient? GetConnectedClient() => null;
+        public Task<Stream> OpenReadAsync(string serverId, string remotePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Stream> OpenWriteAsync(string serverId, string remotePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<long> GetFileSizeAsync(string serverId, string remotePath, CancellationToken cancellationToken = default) => Task.FromResult(0L);
 
         public Task<IReadOnlyList<FileSystemEntry>> GetDirectoryContentsAsync(
             string path,
@@ -563,12 +565,13 @@ public sealed class FileListLoadingPipelineTests
             IsConnected = true,
         };
 
-        public Task<SftpClient> GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task ConnectAsync(RemoteServerInfo server, CancellationToken ct = default) => throw new NotSupportedException();
         public void Disconnect(string id) { }
         public void DisconnectAll() { }
         public bool IsConnected(string id) => string.Equals(id, serverId, StringComparison.Ordinal);
-        public SftpClient? GetClient(string id) => null;
+        public RemoteServerInfo? GetServer(string id) => string.Equals(id, serverId, StringComparison.Ordinal) ? _server : null;
+        public SftpClient? GetSftpClient(string id) => null;
         public IReadOnlyList<RemoteServerInfo> GetSavedServers() => [_server];
         public void SaveServer(RemoteServerInfo server) { }
         public void RemoveServer(string id) { }
