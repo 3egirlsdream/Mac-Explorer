@@ -47,6 +47,47 @@ public class OssFileServiceTests
         Assert.Equal(expected, OssClientFactory.NormalizeEndpoint(endpoint));
     }
 
+    [Theory]
+    [InlineData("my-bucket", "my-bucket")]
+    [InlineData("my-bucket.oss-cn-shenzhen.aliyuncs.com", "my-bucket")]
+    [InlineData("oss://my-bucket/", "my-bucket")]
+    [InlineData("https://my-bucket.oss-cn-shenzhen.aliyuncs.com", "my-bucket")]
+    [InlineData("  my-bucket  ", "my-bucket")]
+    [InlineData("", "")]
+    public void NormalizeBucket_StripsEndpointSuffixAndScheme(string bucket, string expected)
+    {
+        Assert.Equal(expected, OssClientFactory.NormalizeBucket(bucket));
+    }
+
+    [Theory]
+    [InlineData("my-bucket.oss-cn-shenzhen.aliyuncs.com", "oss-cn-shenzhen.aliyuncs.com")]
+    [InlineData("https://my-bucket.oss-cn-shenzhen.aliyuncs.com", "oss-cn-shenzhen.aliyuncs.com")]
+    [InlineData("oss-cn-shenzhen.aliyuncs.com", "oss-cn-shenzhen.aliyuncs.com")]
+    public void NormalizeEndpoint_StripsBucketPrefix(string endpoint, string expected)
+    {
+        Assert.Equal(expected, OssClientFactory.NormalizeEndpoint(endpoint));
+    }
+
+    [Theory]
+    [InlineData("oss://my-bucket/", "my-bucket", "/")]
+    [InlineData("oss://my-bucket/photos", "my-bucket", "/photos")]
+    [InlineData("oss://my-bucket/photos/2026/", "my-bucket", "/photos/2026")]
+    [InlineData("photos", "my-bucket", "/photos")]
+    [InlineData("/photos/", "my-bucket", "/photos")]
+    [InlineData("", "my-bucket", "/")]
+    [InlineData("/", "my-bucket", "/")]
+    public void NormalizeDefaultPath_YieldsBucketRelativePath(string path, string bucket, string expected)
+    {
+        Assert.Equal(expected, OssClientFactory.NormalizeDefaultPath(path, bucket));
+    }
+
+    [Fact]
+    public void NormalizeDefaultPath_KeepsSegmentThatIsNotTheBucket()
+    {
+        // A folder that happens to sit at the root must not be mistaken for the bucket.
+        Assert.Equal("/photos", OssClientFactory.NormalizeDefaultPath("oss://photos", "my-bucket"));
+    }
+
     [Fact]
     public void RemotePathHelper_RoundTripsSentinelPaths()
     {

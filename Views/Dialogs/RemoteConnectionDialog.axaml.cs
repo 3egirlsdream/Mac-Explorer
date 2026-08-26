@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Views.Dialogs;
@@ -42,9 +43,7 @@ public partial class RemoteConnectionDialog : DialogWindow
     {
         var servers = _connectionService.GetSavedServers();
         SavedServersList.ItemsSource = servers;
-        var hasServers = servers.Count > 0;
-        if (SavedServersList.Parent is Border border)
-            border.IsVisible = hasServers;
+        SavedServersBorder.IsVisible = servers.Count > 0;
     }
 
     private void OnSavedServerSelected(object? sender, SelectionChangedEventArgs e)
@@ -79,6 +78,23 @@ public partial class RemoteConnectionDialog : DialogWindow
             PasswordRadio.IsChecked = true;
             PasswordBox.Text = server.Password;
         }
+    }
+
+    /// <summary>
+    /// The console shows a bucket as "my-bucket.oss-cn-hangzhou.aliyuncs.com", so
+    /// pasting that whole host fills in the endpoint instead of failing validation.
+    /// </summary>
+    private void OnBucketTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        var pasted = BucketBox.Text;
+        if (string.IsNullOrWhiteSpace(pasted) || !pasted.Contains('.')) return;
+
+        var endpoint = OssClientFactory.NormalizeEndpoint(pasted);
+        if (endpoint.Length == 0 || endpoint == OssClientFactory.NormalizeBucket(pasted)) return;
+
+        // Never clobber an endpoint the user typed themselves.
+        if (string.IsNullOrWhiteSpace(EndpointBox.Text))
+            EndpointBox.Text = endpoint;
     }
 
     private void OnAuthMethodChanged(object? sender, RoutedEventArgs e)
@@ -196,10 +212,12 @@ public partial class RemoteConnectionDialog : DialogWindow
                 return null;
 
             server.Protocol = RemoteProtocol.AliyunOss;
-            server.Endpoint = endpoint;
-            server.Bucket = bucket;
+            // Accept the console's copy-paste forms (bucket-prefixed host, oss:// path).
+            server.Endpoint = OssClientFactory.NormalizeEndpoint(endpoint);
+            server.Bucket = OssClientFactory.NormalizeBucket(bucket);
             server.AccessKeyId = accessKeyId;
             server.AccessKeySecret = accessKeySecret;
+            server.DefaultPath = OssClientFactory.NormalizeDefaultPath(server.DefaultPath, server.Bucket);
             return server;
         }
 

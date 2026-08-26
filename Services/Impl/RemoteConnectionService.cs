@@ -66,6 +66,11 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
     /// </summary>
     private async Task ConnectOssAsync(RemoteServerInfo server, CancellationToken ct)
     {
+        // Normalise here too, so servers saved before this ran still connect.
+        server.Endpoint = OssClientFactory.NormalizeEndpoint(server.Endpoint);
+        server.Bucket = OssClientFactory.NormalizeBucket(server.Bucket);
+        server.DefaultPath = OssClientFactory.NormalizeDefaultPath(server.DefaultPath, server.Bucket);
+
         await Task.Run(() =>
         {
             ct.ThrowIfCancellationRequested();
