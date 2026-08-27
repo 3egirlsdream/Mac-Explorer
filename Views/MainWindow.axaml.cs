@@ -268,7 +268,7 @@ public partial class MainWindow : AppWindow
     public void ApplyAppearanceSettings()
     {
         var settings = App.Services.GetRequiredService<ISettingsService>();
-        var enabled = settings.Get("vibrancy_enabled", true);
+        var enabled = settings.Get("vibrancy_enabled", false);
         var opacity = Math.Clamp(settings.Get("vibrancy_alpha", 0.30), 0, 1);
 
         ApplyVibrancySurfaceResources(enabled);

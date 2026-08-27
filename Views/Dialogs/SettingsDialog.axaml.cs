@@ -114,7 +114,7 @@ public partial class SettingsDialog : DialogWindow
             FontSizePreset.Large => 2,
             _ => 1
         };
-        VibrancyToggle.IsChecked = _settingsService.Get("vibrancy_enabled", true);
+        VibrancyToggle.IsChecked = _settingsService.Get("vibrancy_enabled", false);
         VibrancySlider.Value = _settingsService.Get("vibrancy_alpha", 0.30);
         VibrancySlider.IsEnabled = VibrancyToggle.IsChecked == true;
         UpdateVibrancyLabel();
