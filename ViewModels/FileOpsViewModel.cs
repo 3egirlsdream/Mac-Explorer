@@ -138,7 +138,8 @@ public partial class FileOpsViewModel : ObservableObject
         string currentPath,
         bool isCollectionView,
         int? currentCollectionId,
-        Action<string>? setStatus = null)
+        Action<string>? setStatus = null,
+        FileListViewModel? refreshedViewModel = null)
     {
         if (selectedEntries.Count == 0) return;
         try
@@ -175,10 +176,14 @@ public partial class FileOpsViewModel : ObservableObject
                 .OfType<string>()
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
+            // The initiating view reloads itself immediately after this method
+            // returns. Exclude it from the debounced notification so the same
+            // list is not rebuilt a second time while the confirmation dialog
+            // is closing; other tabs and windows still receive the update.
             if (parentDirs.Length > 0)
-                _directoryChangeNotifier?.NotifyChanged(parentDirs, null);
+                _directoryChangeNotifier?.NotifyChanged(parentDirs, refreshedViewModel);
             else
-                _directoryChangeNotifier?.NotifyChanged([currentPath], null);
+                _directoryChangeNotifier?.NotifyChanged([currentPath], refreshedViewModel);
         }
         catch (Exception ex)
         {

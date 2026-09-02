@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using MacExplorer.Controls;
 using MacExplorer.Models;
@@ -20,6 +21,8 @@ namespace MacExplorer.Views.Dialogs;
 
 public partial class SettingsDialog : DialogWindow
 {
+    private sealed record SearchLocationRow(string Path, string DisplayPath);
+
     private readonly IDefaultAppService _defaultAppService;
     private readonly ISettingsService _settingsService;
     private readonly IThemeService _themeService;
@@ -27,12 +30,10 @@ public partial class SettingsDialog : DialogWindow
     private readonly IInteractionStyleService _interactionStyleService;
     private readonly IOpenWithAppService _openWithService;
     private readonly IAppUpdateService _appUpdateService;
+    private readonly IGlobalSearchScopeService _globalSearchScopeService;
     private readonly Dictionary<string, ToggleSwitch> _sidebarToggles = new(StringComparer.Ordinal);
     private List<OpenWithApp> _openWithApps = [];
     private List<AppListItem> _installedApps = [];
-    private VersionInfo? _availableVersion;
-    private readonly CancellationTokenSource _updateCancellation = new();
-    private UpdateState _updateState = UpdateState.Idle;
     private bool _initializing = true;
     private bool _updatingInteractionStyleSettings;
     private bool _installedAppsLoaded;
@@ -50,7 +51,8 @@ public partial class SettingsDialog : DialogWindow
             App.Services.GetRequiredService<ITypographyService>(),
             App.Services.GetRequiredService<IOpenWithAppService>(),
             App.Services.GetRequiredService<IAppUpdateService>(),
-            App.Services.GetRequiredService<IInteractionStyleService>())
+            App.Services.GetRequiredService<IInteractionStyleService>(),
+            App.Services.GetRequiredService<IGlobalSearchScopeService>())
     {
     }
 
@@ -61,7 +63,8 @@ public partial class SettingsDialog : DialogWindow
         ITypographyService typographyService,
         IOpenWithAppService openWithService,
         IAppUpdateService appUpdateService,
-        IInteractionStyleService? interactionStyleService = null)
+        IInteractionStyleService? interactionStyleService = null,
+        IGlobalSearchScopeService? globalSearchScopeService = null)
     {
         InitializeComponent();
         _defaultAppService = defaultAppService;
@@ -71,8 +74,9 @@ public partial class SettingsDialog : DialogWindow
         _interactionStyleService = interactionStyleService ?? new Services.Impl.InteractionStyleService(settingsService);
         _openWithService = openWithService;
         _appUpdateService = appUpdateService;
+        _globalSearchScopeService = globalSearchScopeService
+            ?? new Services.Impl.GlobalSearchScopeService(settingsService);
         Opened += OnOpened;
-        Closed += (_, _) => _updateCancellation.Cancel();
     }
 
     private async void OnOpened(object? sender, EventArgs e)
@@ -88,6 +92,7 @@ public partial class SettingsDialog : DialogWindow
         _initializing = true;
         _interactionStyleService.Initialize();
         LoadInteractionStyleSettings();
+        LoadSearchLocations();
 
         if (ViewModel == null) return;
 
@@ -120,6 +125,108 @@ public partial class SettingsDialog : DialogWindow
         UpdateVibrancyLabel();
 
         AboutVersion.Text = $"版本 {_appUpdateService.CurrentVersion}";
+    }
+
+    private void LoadSearchLocations()
+    {
+        if (SearchLocationsList == null || DefaultSearchLocationsList == null)
+            return;
+
+        var defaultPaths = Services.Impl.GlobalSearchScopeService.DefaultSearchFolders
+            .Select(NormalizeSearchLocation)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rows = _globalSearchScopeService.CustomFolders
+            .Select(path => new SearchLocationRow(path, FormatSearchLocation(path)))
+            .ToList();
+
+        var defaultRows = rows
+            .Where(row => defaultPaths.Contains(row.Path))
+            .ToList();
+        DefaultSearchLocationsList.ItemsSource = defaultRows;
+        DefaultSearchLocationsList.IsVisible = defaultRows.Count > 0;
+        var extraRows = rows
+            .Where(row => !defaultPaths.Contains(row.Path))
+            .ToList();
+        SearchLocationsList.ItemsSource = extraRows;
+        SearchLocationsList.IsVisible = extraRows.Count > 0;
+        DefaultSearchLocationsList.SelectedIndex = -1;
+        SearchLocationsList.SelectedIndex = -1;
+        UpdateSearchLocationButtons();
+    }
+
+    private void OnSearchLocationSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        UpdateSearchLocationButtons();
+    }
+
+    private void UpdateSearchLocationButtons()
+    {
+        if (RemoveSearchLocationButton != null)
+            RemoveSearchLocationButton.IsEnabled =
+                (SearchLocationsList?.SelectedIndex ?? -1) >= 0
+                || (DefaultSearchLocationsList?.SelectedIndex ?? -1) >= 0;
+    }
+
+    private async void OnAddSearchLocation(object? sender, RoutedEventArgs e)
+    {
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage == null)
+            return;
+
+        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "添加搜索位置",
+            AllowMultiple = true
+        });
+        var selected = folders
+            .Select(folder => folder.Path.LocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .ToArray();
+        if (selected.Length == 0)
+            return;
+
+        _globalSearchScopeService.SetCustomFolders(
+            _globalSearchScopeService.CustomFolders.Concat(selected));
+        LoadSearchLocations();
+    }
+
+    private void OnRemoveSearchLocation(object? sender, RoutedEventArgs e)
+    {
+        var selectedPath = SearchLocationsList?.SelectedItem is SearchLocationRow extraRow
+            ? extraRow.Path
+            : DefaultSearchLocationsList?.SelectedItem is SearchLocationRow defaultRow
+                ? defaultRow.Path
+                : null;
+        if (string.IsNullOrWhiteSpace(selectedPath))
+            return;
+
+        _globalSearchScopeService.SetCustomFolders(
+            _globalSearchScopeService.CustomFolders
+                .Where(path => !path.Equals(selectedPath, StringComparison.OrdinalIgnoreCase)));
+        LoadSearchLocations();
+    }
+
+    private static string NormalizeSearchLocation(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path.Trim());
+        }
+        catch (ArgumentException)
+        {
+            return path.Trim();
+        }
+    }
+
+    private static string FormatSearchLocation(string path)
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (path.Equals(home, StringComparison.OrdinalIgnoreCase))
+            return "~";
+        if (path.StartsWith(home + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return "~" + path[home.Length..];
+        return path;
     }
 
     private void OnDefaultManagerChanged(object? sender, RoutedEventArgs e)
@@ -541,160 +648,4 @@ public partial class SettingsDialog : DialogWindow
         catch { return null; }
     }
 
-    private async void OnUpdateButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (_updateState is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing)
-            return;
-
-        if (_availableVersion != null
-            && _updateState is UpdateState.UpdateAvailable or UpdateState.Error)
-        {
-            SetUpdateState(UpdateState.Downloading, "准备下载...");
-            using var progressLifetime = CancellationTokenSource.CreateLinkedTokenSource(
-                _updateCancellation.Token);
-            var progressToken = progressLifetime.Token;
-            try
-            {
-                var progress = new Progress<(double Progress, string Status)>(report =>
-                {
-                    if (progressToken.IsCancellationRequested)
-                        return;
-
-                    ApplyUpdateProgress(report);
-                });
-                await _appUpdateService.DownloadAndInstallAsync(
-                    _availableVersion,
-                    progress,
-                    _updateCancellation.Token);
-            }
-            catch (OperationCanceledException) when (_updateCancellation.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                SetUpdateState(UpdateState.Error, $"更新失败: {ex.Message}");
-            }
-            finally
-            {
-                progressLifetime.Cancel();
-            }
-            return;
-        }
-
-        _availableVersion = null;
-        ChangelogBorder.IsVisible = false;
-        SetUpdateState(UpdateState.Checking, "正在连接更新服务器...");
-        try
-        {
-            _availableVersion = await _appUpdateService.CheckVersionAsync(_updateCancellation.Token);
-            if (_availableVersion == null)
-            {
-                SetUpdateState(UpdateState.NoUpdate, "当前已是最新版本");
-            }
-            else
-            {
-                SetUpdateState(UpdateState.UpdateAvailable, $"发现新版本 {_availableVersion.Version}");
-                var releaseDate = DateTime.TryParse(_availableVersion.DateTime, out var parsedDate)
-                    ? parsedDate.ToString("yyyy-MM-dd")
-                    : _availableVersion.DateTime;
-                ChangelogTitle.Text = string.IsNullOrWhiteSpace(releaseDate)
-                    ? $"版本 {_availableVersion.Version} 更新内容"
-                    : $"版本 {_availableVersion.Version} · {releaseDate}";
-                ChangelogText.Text = _availableVersion.Memo;
-                ChangelogBorder.IsVisible = !string.IsNullOrWhiteSpace(_availableVersion.Memo);
-            }
-        }
-        catch (OperationCanceledException) when (_updateCancellation.IsCancellationRequested)
-        {
-            return;
-        }
-        catch (Exception ex)
-        {
-            SetUpdateState(UpdateState.Error, $"检查失败: {ex.Message}");
-        }
-    }
-
-    private void ApplyUpdateProgress((double Progress, string Status) report)
-    {
-        if (_updateState is not UpdateState.Downloading and not UpdateState.Installing)
-            return;
-
-        var installing = report.Status.Contains("解压", StringComparison.Ordinal)
-                         || report.Status.Contains("校验", StringComparison.Ordinal)
-                         || report.Status.Contains("安装", StringComparison.Ordinal)
-                         || report.Status.Contains("重启", StringComparison.Ordinal);
-        if (_updateState == UpdateState.Installing && !installing)
-            return;
-
-        var nextState = installing ? UpdateState.Installing : UpdateState.Downloading;
-        if (_updateState != nextState)
-            SetUpdateState(nextState, report.Status);
-        else
-            UpdateStatus.Text = report.Status;
-
-        UpdateProgress.IsIndeterminate = report.Progress < 0 || installing;
-        if (report.Progress >= 0)
-            UpdateProgress.Value = Math.Clamp(report.Progress, 0, 100);
-    }
-
-    private void SetUpdateState(UpdateState state, string status)
-    {
-        _updateState = state;
-        UpdateStatus.Text = status;
-        UpdateProgress.IsIndeterminate = false;
-
-        switch (state)
-        {
-            case UpdateState.Checking:
-                UpdateButton.IsVisible = true;
-                UpdateButton.IsEnabled = false;
-                UpdateButton.Content = "检查中...";
-                UpdateProgress.IsVisible = false;
-                break;
-            case UpdateState.UpdateAvailable:
-                UpdateButton.IsVisible = true;
-                UpdateButton.IsEnabled = true;
-                UpdateButton.Content = "立即更新";
-                UpdateProgress.IsVisible = false;
-                break;
-            case UpdateState.Downloading:
-                UpdateButton.IsVisible = false;
-                UpdateButton.IsEnabled = false;
-                UpdateProgress.IsVisible = true;
-                UpdateProgress.Value = 0;
-                break;
-            case UpdateState.Installing:
-                UpdateButton.IsVisible = false;
-                UpdateButton.IsEnabled = false;
-                UpdateProgress.IsVisible = true;
-                UpdateProgress.IsIndeterminate = true;
-                break;
-            case UpdateState.Error:
-                UpdateButton.IsVisible = true;
-                UpdateButton.IsEnabled = true;
-                UpdateButton.Content = _availableVersion == null ? "重新检查" : "重试更新";
-                UpdateProgress.IsVisible = false;
-                break;
-            case UpdateState.Idle:
-            case UpdateState.NoUpdate:
-            default:
-                UpdateButton.IsVisible = true;
-                UpdateButton.IsEnabled = true;
-                UpdateButton.Content = "检查更新";
-                UpdateProgress.IsVisible = false;
-                break;
-        }
-    }
-
-    private enum UpdateState
-    {
-        Idle,
-        Checking,
-        NoUpdate,
-        UpdateAvailable,
-        Downloading,
-        Installing,
-        Error,
-    }
 }

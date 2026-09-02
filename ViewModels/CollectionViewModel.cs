@@ -277,6 +277,21 @@ public partial class CollectionViewModel : ObservableObject
         return await _pinnedFolderService.IsPinnedAsync(path);
     }
 
+    public async Task ReorderPinnedFolderAsync(string sourcePath, string targetPath)
+    {
+        if (_pinnedFolderService == null || string.Equals(sourcePath, targetPath, StringComparison.Ordinal)) return;
+        var ordered = PinnedFolders.Select(folder => folder.FolderPath).ToList();
+        var sourceIndex = ordered.FindIndex(path => string.Equals(path, sourcePath, StringComparison.Ordinal));
+        var targetIndex = ordered.FindIndex(path => string.Equals(path, targetPath, StringComparison.Ordinal));
+        if (sourceIndex < 0 || targetIndex < 0) return;
+        var item = ordered[sourceIndex];
+        ordered.RemoveAt(sourceIndex);
+        targetIndex = ordered.FindIndex(path => string.Equals(path, targetPath, StringComparison.Ordinal));
+        ordered.Insert(targetIndex, item);
+        await _pinnedFolderService.ReorderAsync(ordered);
+        await LoadPinnedFoldersAsync();
+    }
+
     // ── Star Ratings ──
 
     public int GetRating(string filePath)

@@ -12,12 +12,33 @@ public class MacThumbnailService : IThumbnailService
     {
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp",
         ".heic", ".heif", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".orf",
-        ".rw2", ".pef", ".raw"
+        ".rw2", ".pef", ".raw", ".avif", ".jxl", ".jp2", ".j2k", ".jpf",
+        ".ppm", ".pgm", ".pbm", ".tga", ".dds", ".ico", ".icns"
     };
     private static readonly HashSet<string> QuickLookDocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-        ".pages", ".numbers", ".key", ".rtf", ".odt", ".ods", ".odp"
+        // Office, iWork and common publication formats. Availability still follows
+        // the Quick Look generators installed on the user's Mac.
+        ".pdf", ".doc", ".docx", ".docm", ".dot", ".dotx", ".xls", ".xlsx", ".xlsm", ".xlt", ".xltx",
+        ".ppt", ".pptx", ".pptm", ".pps", ".ppsx", ".pot", ".potx", ".pages", ".numbers", ".key",
+        ".rtf", ".odt", ".ods", ".odp", ".epub", ".ibooks", ".pub", ".vsd", ".vsdx", ".one", ".onepkg",
+        ".psd", ".psb",
+        // Text, markup, subtitles, configuration and source files can use a
+        // Quick Look text generator when one is available.
+        ".txt", ".text", ".md", ".markdown", ".csv", ".tsv", ".log", ".json", ".jsonl", ".xml",
+        ".yaml", ".yml", ".toml", ".ini", ".conf", ".config", ".properties", ".env", ".html", ".htm",
+        ".mht", ".mhtml", ".webarchive", ".css", ".scss", ".less", ".rst", ".tex", ".adoc", ".asciidoc",
+        ".org", ".nfo", ".srt", ".vtt", ".ass", ".ssa", ".lrc", ".cue", ".js", ".jsx", ".ts", ".tsx",
+        ".swift", ".c", ".h", ".cpp", ".hpp", ".cs", ".fs", ".vb", ".java", ".kt", ".kts", ".py", ".rb",
+        ".php", ".sh", ".zsh", ".bash", ".fish", ".ps1", ".sql", ".go", ".rs", ".lua", ".r", ".scala",
+        ".groovy", ".dart", ".ex", ".exs", ".erl", ".pl", ".pm", ".vim", ".asm", ".s", ".f", ".f90", ".pas",
+        ".d", ".zig", ".sol", ".vue", ".svelte", ".astro", ".ipynb", ".graphql", ".gql",
+        // Audio/video thumbnails are delegated to macOS Quick Look. A missing
+        // generator simply falls back to the existing generic file presentation.
+        ".mp3", ".m4a", ".aac", ".aiff", ".aif", ".wav", ".flac", ".ogg", ".opus", ".wma", ".amr",
+        ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm", ".wmv", ".flv",
+        ".3gp", ".mpeg", ".mpg", ".mts", ".m2ts", ".mxf", ".mpv", ".ogv", ".dv", ".asf", ".rm", ".rmvb",
+        ".vob", ".ts", ".m2v", ".dmg", ".iso"
     };
 
     private const int MaxMemoryEntries = 300;
@@ -58,6 +79,10 @@ public class MacThumbnailService : IThumbnailService
     public bool IsImageFile(string extension) =>
         !string.IsNullOrWhiteSpace(extension) && ImageExtensions.Contains(extension);
 
+    internal static bool SupportsThumbnailExtension(string extension) =>
+        !string.IsNullOrWhiteSpace(extension)
+        && (ImageExtensions.Contains(extension) || QuickLookDocumentExtensions.Contains(extension));
+
     public async Task<byte[]?> GetThumbnailAsync(
         string filePath,
         int maxPixelSize,
@@ -70,7 +95,7 @@ public class MacThumbnailService : IThumbnailService
         CancellationToken ct = default)
     {
         var extension = Path.GetExtension(filePath);
-        if (!File.Exists(filePath) || (!IsImageFile(extension) && !QuickLookDocumentExtensions.Contains(extension)))
+        if (!File.Exists(filePath) || !SupportsThumbnailExtension(extension))
             return null;
 
         var cacheKey = $"{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
@@ -306,6 +331,9 @@ public class MacThumbnailService : IThumbnailService
         Directory.CreateDirectory(outputDirectory);
         try
         {
+            var nativeResult = await GenerateWithNativeQuickLookAsync(sourcePath, cachePath, maxPixelSize, outputDirectory, ct);
+            if (nativeResult != null) return nativeResult;
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = "/usr/bin/qlmanage",
@@ -362,6 +390,61 @@ public class MacThumbnailService : IThumbnailService
         {
             try { Directory.Delete(outputDirectory, recursive: true); }
             catch { }
+        }
+    }
+
+    private static async Task<byte[]?> GenerateWithNativeQuickLookAsync(
+        string sourcePath,
+        string cachePath,
+        int maxPixelSize,
+        string outputDirectory,
+        CancellationToken ct)
+    {
+        var helperPath = Path.Combine(AppContext.BaseDirectory, "MacExplorer.Thumbnail");
+        if (!File.Exists(helperPath)) return null;
+
+        var generatedPath = Path.Combine(outputDirectory, "thumbnail.png");
+        Process? process = null;
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = helperPath,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add(sourcePath);
+            startInfo.ArgumentList.Add(generatedPath);
+            startInfo.ArgumentList.Add(Math.Max(128, maxPixelSize).ToString());
+            process = Process.Start(startInfo);
+            if (process == null) return null;
+            TrySetBelowNormalPriority(process);
+            var stdout = process.StandardOutput.ReadToEndAsync(ct);
+            var stderr = process.StandardError.ReadToEndAsync(ct);
+            await process.WaitForExitAsync(ct);
+            await Task.WhenAll(stdout, stderr);
+            if (process.ExitCode != 0 || !File.Exists(generatedPath)) return null;
+
+            PromoteTemporaryFile(generatedPath, cachePath);
+            var bytes = await File.ReadAllBytesAsync(cachePath, ct);
+            TouchCacheFile(cachePath);
+            return bytes;
+        }
+        catch (OperationCanceledException)
+        {
+            if (process != null) TryKillProcess(process);
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            process?.Dispose();
+            TryDelete(generatedPath);
         }
     }
 

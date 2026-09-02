@@ -12,7 +12,11 @@ public class ArchiveService : IArchiveService
 {
     private static readonly HashSet<string> ArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".tgz", ".zst"
+        // Container aliases are routed through SharpCompress. The parser still
+        // validates the actual file contents before the preview exposes it.
+        ".zip", ".zipx", ".cbz", ".jar", ".war", ".ear", ".apk", ".xpi", ".vsix",
+        ".rar", ".7z", ".tar", ".gz", ".gzip", ".tgz", ".taz", ".bz2", ".bzip2",
+        ".tbz", ".tbz2", ".tb2", ".xz", ".txz", ".zst", ".zstd", ".tzst"
     };
 
     public bool IsArchiveFile(string filePath)
@@ -25,7 +29,8 @@ public class ArchiveService : IArchiveService
     {
         try
         {
-            using var archive = OpenArchive(archivePath, null);
+            using var preparedArchive = PrepareArchive(archivePath);
+            using var archive = OpenArchive(preparedArchive.Path, null);
             var firstFile = archive.Entries.FirstOrDefault(e => !e.IsDirectory);
             if (firstFile == null) return false;
 
@@ -52,7 +57,8 @@ public class ArchiveService : IArchiveService
     {
         return Task.Run(() =>
         {
-            using var archive = OpenArchive(archivePath, password);
+            using var preparedArchive = PrepareArchive(archivePath);
+            using var archive = OpenArchive(preparedArchive.Path, password);
 
             var normalizedPrefix = NormalizePath(internalPath);
             if (!string.IsNullOrEmpty(normalizedPrefix) && !normalizedPrefix.EndsWith('/'))
@@ -149,7 +155,8 @@ public class ArchiveService : IArchiveService
     {
         await Task.Run(() =>
         {
-            using var archive = OpenArchive(archivePath, password);
+            using var preparedArchive = PrepareArchive(archivePath);
+            using var archive = OpenArchive(preparedArchive.Path, password);
 
             // Build rename map for root-level entries that conflict with existing items
             var rootNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -248,7 +255,8 @@ public class ArchiveService : IArchiveService
             if (normalizedKey.EndsWith('/'))
                 normalizedKey = normalizedKey[..^1];
 
-            using var archive = OpenArchive(archivePath, password);
+            using var preparedArchive = PrepareArchive(archivePath);
+            using var archive = OpenArchive(preparedArchive.Path, password);
 
             foreach (var entry in archive.Entries)
             {
@@ -416,7 +424,53 @@ public class ArchiveService : IArchiveService
         };
         if (!string.IsNullOrEmpty(password))
             options.Password = password;
+
         return ArchiveFactory.OpenArchive(archivePath, options);
+    }
+
+    private static PreparedArchive PrepareArchive(string archivePath)
+    {
+        if (!IsTarGZip(archivePath))
+            return new PreparedArchive(archivePath, null);
+
+        // The TAR reader needs a seekable stream, while gzip streams are
+        // sequential. Expand only the TAR payload into a private temporary
+        // file and remove it immediately after the archive operation finishes.
+        var temporaryPath = Path.Combine(
+            Path.GetTempPath(),
+            $"MacExplorer-targz-{Guid.NewGuid():N}.tar");
+        try
+        {
+            using var source = File.OpenRead(archivePath);
+            using var gzip = new System.IO.Compression.GZipStream(
+                source,
+                System.IO.Compression.CompressionMode.Decompress);
+            using var destination = File.Create(temporaryPath);
+            gzip.CopyTo(destination);
+            return new PreparedArchive(temporaryPath, temporaryPath);
+        }
+        catch
+        {
+            TryDeleteFile(temporaryPath);
+            throw;
+        }
+    }
+
+    private static bool IsTarGZip(string path)
+        => path.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".tar.gzip", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".taz", StringComparison.OrdinalIgnoreCase);
+
+    private sealed class PreparedArchive(string path, string? temporaryPath) : IDisposable
+    {
+        public string Path { get; } = path;
+
+        public void Dispose()
+        {
+            if (!string.IsNullOrWhiteSpace(temporaryPath))
+                TryDeleteFile(temporaryPath);
+        }
     }
 
     private static string NormalizePath(string path)

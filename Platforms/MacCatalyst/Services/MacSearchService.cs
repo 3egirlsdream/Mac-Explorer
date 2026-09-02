@@ -8,12 +8,17 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 /// Mac Catalyst implementation of ISearchService.
 /// Uses SQLite FTS5 index for fast search, falls back to file system enumeration.
 /// </summary>
-public class MacSearchService : ISearchService
+public class MacSearchService : ISearchService, IGlobalSearchService
 {
     private readonly IFileIndex _fileIndex;
     private readonly IFileService _fileService;
     private readonly IndexConfiguration _indexConfig;
     private readonly IAiTagService _aiTagService;
+    private readonly ISettingsService? _settingsService;
+    private static readonly HashSet<string> SystemFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".DS_Store", "Thumbs.db", "desktop.ini", ".Spotlight-V100", ".Trashes", ".fseventsd", ".localized"
+    };
     private static readonly HashSet<string> RecursiveSearchExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git",
@@ -30,18 +35,39 @@ public class MacSearchService : ISearchService
         "Library"
     };
 
-    public MacSearchService(IFileIndex fileIndex, IFileService fileService, IndexConfiguration indexConfig, IAiTagService aiTagService)
+    public MacSearchService(
+        IFileIndex fileIndex,
+        IFileService fileService,
+        IndexConfiguration indexConfig,
+        IAiTagService aiTagService,
+        ISettingsService? settingsService = null)
     {
         _fileIndex = fileIndex;
         _fileService = fileService;
         _indexConfig = indexConfig;
         _aiTagService = aiTagService;
+        _settingsService = settingsService;
     }
 
-    public async IAsyncEnumerable<FileSystemEntry> SearchAsync(
+    public IAsyncEnumerable<FileSystemEntry> SearchAsync(
         string directory,
         string pattern,
         int maxResults = 500,
+        CancellationToken cancellationToken = default) =>
+        SearchAsyncCore(directory, pattern, maxResults, skipRecursiveFallback: false, cancellationToken: cancellationToken);
+
+    public IAsyncEnumerable<FileSystemEntry> SearchGlobalAsync(
+        string directory,
+        string pattern,
+        int maxResults = 500,
+        CancellationToken cancellationToken = default) =>
+        SearchAsyncCore(directory, pattern, maxResults, skipRecursiveFallback: true, cancellationToken: cancellationToken);
+
+    private async IAsyncEnumerable<FileSystemEntry> SearchAsyncCore(
+        string directory,
+        string pattern,
+        int maxResults = 500,
+        bool skipRecursiveFallback = false,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(pattern))
@@ -50,6 +76,7 @@ public class MacSearchService : ISearchService
         var yieldedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var yieldedCount = 0;
         var limit = Math.Max(1, maxResults);
+        var indexSearchSucceeded = false;
         IReadOnlyList<FileSystemEntry>? rootEntries = null;
 
         try
@@ -70,6 +97,8 @@ public class MacSearchService : ISearchService
             foreach (var entry in rootEntries)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (!IsVisibleSearchEntry(entry, directory))
+                    continue;
                 if (entry.Name.Contains(pattern, StringComparison.OrdinalIgnoreCase)
                     && yieldedPaths.Add(entry.FullPath))
                 {
@@ -88,6 +117,7 @@ public class MacSearchService : ISearchService
             try
             {
                 indexResults = new List<FileSystemEntry>(await _fileIndex.SearchByNameAsync(pattern, limit));
+                indexSearchSucceeded = true;
             }
             catch (Exception ex)
             {
@@ -99,6 +129,8 @@ public class MacSearchService : ISearchService
                 foreach (var entry in indexResults)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (!IsVisibleSearchEntry(entry, directory))
+                        continue;
                     if (entry.Name.Contains(pattern, StringComparison.OrdinalIgnoreCase)
                         && IsPathWithinDirectory(entry.FullPath, directory)
                         && yieldedPaths.Add(entry.FullPath))
@@ -121,7 +153,12 @@ public class MacSearchService : ISearchService
             }
         }
 
-        // Fallback: recursive file system search
+        // Fallback: recursive file system search only when the index could not
+        // be queried. Recursing the whole startup disk after every keystroke
+        // makes global search feel slow and duplicates the indexed results.
+        if (indexSearchSucceeded || skipRecursiveFallback)
+            yield break;
+
         await foreach (var entry in SearchFileSystemRecursiveAsync(
                            directory,
                            pattern,
@@ -170,6 +207,9 @@ public class MacSearchService : ISearchService
             if (state.Remaining <= 0)
                 yield break;
 
+            if (!IsVisibleSearchEntry(entry, directory))
+                continue;
+
             if (entry.Name.Contains(pattern, StringComparison.OrdinalIgnoreCase)
                 && yieldedPaths.Add(entry.FullPath))
             {
@@ -193,11 +233,11 @@ public class MacSearchService : ISearchService
         }
     }
 
-    private static bool ShouldRecurseInto(FileSystemEntry entry)
+    private bool ShouldRecurseInto(FileSystemEntry entry)
     {
         return entry.IsDirectory
             && !entry.IsSymbolicLink
-            && !entry.Name.StartsWith('.')
+            && (!HideDotFolders || !entry.Name.StartsWith('.'))
             && !RecursiveSearchExcludedDirectories.Contains(entry.Name);
     }
 
@@ -226,13 +266,8 @@ public class MacSearchService : ISearchService
             cancellationToken.ThrowIfCancellationRequested();
             if (!IsPathWithinDirectory(path, directory))
                 continue;
-            if (!excludePaths.Add(path))
-                continue;
-            if (!File.Exists(path))
-                continue;
-
             var ext = Path.GetExtension(path);
-            yield return new FileSystemEntry
+            var aiEntry = new FileSystemEntry
             {
                 FullPath = path,
                 Name = Path.GetFileName(path),
@@ -240,7 +275,60 @@ public class MacSearchService : ISearchService
                 Extension = ext,
                 IconKey = SqliteFileIndex.ResolveIconKey(ext)
             };
+            if (!IsVisibleSearchEntry(aiEntry, directory))
+                continue;
+            if (!excludePaths.Add(path))
+                continue;
+            if (!File.Exists(path))
+                continue;
+
+            yield return aiEntry;
         }
+    }
+
+    private bool IsVisibleSearchEntry(FileSystemEntry entry, string searchRoot)
+    {
+        if (entry.Name.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (HideSystemFiles && SystemFileNames.Contains(entry.Name))
+            return false;
+        if (entry.Name.StartsWith('.')
+            && ((entry.IsDirectory && HideDotFolders) || (!entry.IsDirectory && HideDotFiles)))
+            return false;
+        if (!HideDotFolders)
+            return true;
+
+        // Indexed and AI-tagged results can come from a hidden directory even
+        // when the result's own name is ordinary. Mirror Finder's hidden-folder
+        // setting by checking the path between the search root and the result.
+        var normalizedRoot = NormalizePath(searchRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var current = entry.IsDirectory
+            ? NormalizePath(entry.FullPath)
+            : NormalizePath(Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath);
+        while (!string.Equals(current, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            var name = Path.GetFileName(current);
+            if (name.StartsWith('.'))
+                return false;
+
+            var parent = Path.GetDirectoryName(current);
+            if (string.IsNullOrWhiteSpace(parent) || string.Equals(parent, current, StringComparison.Ordinal))
+                break;
+            current = parent;
+        }
+
+        return true;
+    }
+
+    private bool HideSystemFiles => _settingsService?.Get("HideSystemFiles", true) ?? true;
+    private bool HideDotFiles => _settingsService?.Get("HideDotFiles", true) ?? true;
+    private bool HideDotFolders => _settingsService?.Get("HideDotFolders", true) ?? true;
+
+    private static string NormalizePath(string path)
+    {
+        try { return Path.GetFullPath(path); }
+        catch (ArgumentException) { return path; }
     }
 
     private sealed class SearchState(int remaining)

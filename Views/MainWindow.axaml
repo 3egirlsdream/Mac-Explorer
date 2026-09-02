@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MacExplorer.ViewModels"
         xmlns:icons="using:MacExplorer.Assets"
+        xmlns:models="using:MacExplorer.Models"
         xmlns:local="using:MacExplorer.Views"
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:chrome="using:Avalonia.Controls.Chrome"
@@ -95,6 +96,85 @@
         <Style Selector="controls|AppWindow:compact Border.title-search-surface">
             <Setter Property="Width" Value="180"/>
         </Style>
+        <Style Selector="ListBox.tab-strip">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem">
+            <Setter Property="MinWidth" Value="120"/>
+            <Setter Property="MaxWidth" Value="220"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="10,0,4,0"/>
+            <Setter Property="Margin" Value="0,0,3,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        </Style>
+        <Style Selector="Button.tab-close-button">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.tab-close-button:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
+        </Style>
+        <Style Selector="Button.layout-choice">
+            <Setter Property="Height" Value="66"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="6,5"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.layout-choice:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.layout-choice.selected">
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+        </Style>
+        <Style Selector="Button.layout-choice.selected controls|PaneLayoutIcon">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Button.layout-choice.selected TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Border.global-search-panel">
+            <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
+        </Style>
+        <Style Selector="ListBox.global-search-results">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.global-search-results ListBoxItem">
+            <Setter Property="Padding" Value="8,7"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="ListBox.global-search-results ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="ListBox.global-search-results ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        </Style>
     </controls:AppWindow.Styles>
 
     <Grid>
@@ -123,7 +203,7 @@
             </controls:SurfaceCard>
 
             <!-- Right: Navigation + Toolbar + Content -->
-            <Grid Grid.Column="1" RowDefinitions="40,Auto,*" Margin="4,0,0,0">
+            <Grid Grid.Column="1" RowDefinitions="40,34,Auto,*" Margin="4,0,0,0">
                 <!-- Row 0: navigation, breadcrumb and persistent search -->
                 <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16"
                       VerticalAlignment="Center"
@@ -193,8 +273,158 @@
                     </Grid>
                 </Grid>
 
-                <!-- Row 1: Toolbar — Liquid Glass card -->
-                <controls:SurfaceCard Grid.Row="1" CornerRadius="14" Padding="0"
+                <!-- Row 1: browser-style tabs. Every tab owns independent navigation state. -->
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="2,1,2,3">
+                    <ScrollViewer Grid.Column="0"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Disabled">
+                        <ListBox x:Name="TabList"
+                                 Classes="tab-strip"
+                                 ItemsSource="{Binding Tabs}"
+                                 SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
+                                 SelectionMode="Single">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ExplorerTabViewModel">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
+                                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Folder}"
+                                                  Width="13" Height="13"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="{DynamicResource FontSizeLabel}"
+                                                   VerticalAlignment="Center"
+                                                   ToolTip.Tip="{Binding Title}"/>
+                                        <Button Grid.Column="2" Classes="tab-close-button"
+                                                IsVisible="{Binding CanClose}"
+                                                Click="CloseTab"
+                                                ToolTip.Tip="关闭标签页 ⌘W"
+                                                AutomationProperties.Name="关闭标签页">
+                                            <PathIcon Data="{x:Static icons:Icons.Close}" Width="9" Height="9"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
+                    <Button Grid.Column="1" Classes="title-nav-button"
+                            Width="28" Height="28"
+                            Click="AddTab"
+                            ToolTip.Tip="新建标签页 ⌘T"
+                            AutomationProperties.Name="新建标签页">
+                        <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
+                    </Button>
+                    <Button Grid.Column="2" x:Name="PaneLayoutButton" Classes="title-nav-button"
+                            Width="28" Height="28" Margin="2,0,0,0"
+                            Click="TogglePaneLayoutPopup"
+                            ToolTip.Tip="窗格布局"
+                            AutomationProperties.Name="窗格布局">
+                        <PathIcon Data="{x:Static icons:Icons.List}" Width="13" Height="13"/>
+                    </Button>
+                    <Popup x:Name="PaneLayoutPopup" Placement="BottomEdgeAlignedRight"
+                           PlacementTarget="PaneLayoutButton" IsLightDismissEnabled="True">
+                        <Border Classes="context-menu-container" Padding="12" CornerRadius="16"
+                                Background="{DynamicResource GlassMenuBg}"
+                                BoxShadow="{DynamicResource WindowShadow}">
+                            <Grid RowDefinitions="Auto,*" Width="332">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="6,2,4,9">
+                                    <TextBlock Grid.Column="0" Text="窗格布局"
+                                               FontSize="16" FontWeight="{StaticResource FontWeightSemibold}"
+                                               VerticalAlignment="Center"/>
+                                    <Border Grid.Column="1" Width="20" Height="20" CornerRadius="10"
+                                            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1"
+                                            Margin="0,0,9,0" Opacity="0.55">
+                                        <TextBlock Text="i" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="2" Text="•••" FontSize="11" Opacity="0.45"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+                                </Grid>
+                                <UniformGrid Grid.Row="1" Columns="4" Rows="3">
+                                    <Button Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="单窗格">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="Single" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="1 个" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="左右双窗格">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="TwoColumns" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="左右" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="上下双窗格">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="TwoRows" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="上下" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="三列">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="ThreeColumns" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="三列" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="三行">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="ThreeRows" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="三行" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右二">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="左一右二" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左二右一">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="左二右一" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="四宫格">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="FourGrid" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="四宫格" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="四列">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="FourColumns" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="四列" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="四行">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="FourRows" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="四行" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右三">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="左一右三" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左三右一">
+                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                            <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="左三右一" FontSize="11" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </UniformGrid>
+                            </Grid>
+                        </Border>
+                    </Popup>
+                </Grid>
+
+                <!-- Row 2: Toolbar — Liquid Glass card -->
+                <controls:SurfaceCard Grid.Row="2" CornerRadius="14" Padding="0"
                                            Margin="0,0,0,4">
                     <controls:SurfaceCard.Content>
                         <Border CornerRadius="14" ClipToBounds="True">
@@ -203,8 +433,8 @@
                     </controls:SurfaceCard.Content>
                 </controls:SurfaceCard>
 
-                <!-- Row 2: Content + Status bar — single Liquid Glass card -->
-                <controls:SurfaceCard Grid.Row="2" CornerRadius="14" Padding="0">
+                <!-- Row 3: Content + Status bar — single Liquid Glass card -->
+                <controls:SurfaceCard Grid.Row="3" CornerRadius="14" Padding="0">
                     <controls:SurfaceCard.Content>
                         <Border CornerRadius="14" ClipToBounds="True">
                         <Grid RowDefinitions="*,Auto">
@@ -232,17 +462,7 @@
                                     </Grid>
                                 </SplitView.Pane>
                                 <SplitView.Content>
-                                    <Grid>
-                                        <local:FileListView x:Name="FileListControl"
-                                                            DataContext="{Binding FileList}"
-                                                            IsVisible="True"/>
-                                        <local:HomeView x:Name="HomeViewControl"
-                                                        DataContext="{Binding FileList}"
-                                                        IsVisible="False"/>
-                                        <local:AiView x:Name="AiViewControl"
-                                                      DataContext="{Binding FileList}"
-                                                      IsVisible="False"/>
-                                    </Grid>
+                                    <Grid x:Name="PaneLayoutRoot"/>
                                 </SplitView.Content>
                             </SplitView>
 
@@ -354,6 +574,172 @@
             </Border>
 	        </Grid>
 	    </Border>
+	    <!-- App-wide quick search. It stays above content but below actual modal dialogs. -->
+	    <Border x:Name="GlobalSearchOverlay"
+	            IsVisible="False"
+	            Background="{DynamicResource OverlayBrush}"
+	            PointerPressed="CloseGlobalSearchFromBackdrop">
+	        <Border x:Name="GlobalSearchPanel"
+	                Classes="global-search-panel"
+	                Width="860" MaxHeight="560"
+	                CornerRadius="16"
+	                Padding="16"
+	                HorizontalAlignment="Center"
+	                VerticalAlignment="Top"
+	                Margin="0,94,0,0">
+	                <Grid RowDefinitions="Auto,Auto,*,Auto">
+	                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="2,0,2,11">
+	                    <Border Grid.Column="0" Width="28" Height="28" CornerRadius="8"
+	                            Background="{DynamicResource InteractionSelectedBrush}">
+	                        <PathIcon Data="{x:Static icons:Icons.Search}" Width="15" Height="15"
+	                                  Foreground="{DynamicResource AccentBrush}"
+	                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+	                    </Border>
+	                    <TextBlock Grid.Column="1" Text="全局快速搜索" Margin="10,0,0,0"
+	                               VerticalAlignment="Center" FontSize="17"
+	                               FontWeight="{StaticResource FontWeightSemibold}"/>
+	                    <ComboBox Grid.Column="2" x:Name="GlobalSearchScopeCombo"
+	                              Width="150" Height="28" Margin="8,0,8,0"
+	                              SelectionChanged="OnGlobalSearchScopeChanged">
+	                        <ComboBoxItem Tag="CurrentFolder">当前文件夹</ComboBoxItem>
+	                        <ComboBoxItem Tag="ThisMac">这台 Mac</ComboBoxItem>
+	                        <ComboBoxItem Tag="CustomFolders">自定义位置…</ComboBoxItem>
+	                    </ComboBox>
+	                    <Button Grid.Column="3" x:Name="GlobalSearchAddFolderButton"
+	                            Classes="ghost compact" Content="＋" Width="28" Height="28"
+	                            IsVisible="False" ToolTip.Tip="添加搜索文件夹"
+	                            Click="OnAddGlobalSearchFolder"/>
+	                    <TextBlock Grid.Column="4" Text="⌘K  ·  Esc 关闭"
+	                               VerticalAlignment="Center" FontSize="11"
+	                               Foreground="{DynamicResource TextMutedBrush}"/>
+	                </Grid>
+	                <Border Grid.Row="1" CornerRadius="10" Padding="10,7"
+	                        Background="{DynamicResource SurfaceElevatedBrush}"
+	                        BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1">
+	                    <Grid ColumnDefinitions="Auto,*">
+	                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}" Width="16" Height="16"
+	                                  Margin="1,0,9,0" VerticalAlignment="Center"
+	                                  Foreground="{DynamicResource TextMutedBrush}"/>
+	                        <TextBox Grid.Column="1" x:Name="GlobalSearchBox"
+	                                 Classes="search-input omnibox-input"
+	                                 FontSize="16"
+	                                 PlaceholderText="输入文件名、文件夹名或路径中的几个字…"
+	                                 TextChanged="OnGlobalSearchTextChanged"
+	                                 KeyDown="OnGlobalSearchKeyDown"/>
+	                    </Grid>
+	                </Border>
+	                <Grid Grid.Row="2" ColumnDefinitions="*,220" ColumnSpacing="12" Margin="0,12,0,6">
+	                    <Grid Grid.Column="0">
+	                        <TextBlock x:Name="GlobalSearchEmptyHint"
+	                                   Text="输入内容即可搜索已索引的本地文件、收藏夹和最近位置"
+	                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+	                                   Foreground="{DynamicResource TextMutedBrush}"/>
+	                        <ListBox x:Name="GlobalSearchResults"
+	                                 Classes="global-search-results"
+	                                 IsVisible="False"
+	                                 SelectionChanged="OnGlobalSearchSelectionChanged">
+	                            <ListBox.ItemTemplate>
+	                                <DataTemplate>
+                                    <Grid ColumnDefinitions="34,*,Auto" DoubleTapped="OnGlobalSearchResultDoubleTapped">
+	                                        <Border Grid.Column="0" Width="30" Height="30" CornerRadius="7"
+	                                                Background="{DynamicResource ColorBgHover}">
+	                                            <PathIcon Data="{Binding IconData}" Width="16" Height="16"
+	                                                      Foreground="{Binding IconColor}"
+	                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+	                                        </Border>
+	                                        <StackPanel Grid.Column="1" Margin="8,0,8,0" Spacing="1"
+	                                                    VerticalAlignment="Center">
+	                                            <TextBlock Text="{Binding Title}" FontSize="14"
+	                                                       TextTrimming="CharacterEllipsis"/>
+	                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
+	                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+	                                                       TextTrimming="CharacterEllipsis"/>
+	                                        </StackPanel>
+	                                        <TextBlock Grid.Column="2" Text="↩" FontSize="12"
+	                                                   VerticalAlignment="Center"
+	                                                   Foreground="{DynamicResource TextMutedBrush}"/>
+	                                    </Grid>
+	                                </DataTemplate>
+	                            </ListBox.ItemTemplate>
+	                        </ListBox>
+	                    </Grid>
+	                    <Border Grid.Column="1" x:Name="GlobalSearchPreviewPanel"
+	                            CornerRadius="10" Padding="10"
+	                            Background="{DynamicResource SurfaceElevatedBrush}"
+	                            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1">
+	                        <Grid RowDefinitions="Auto,*,Auto">
+	                            <Grid ColumnDefinitions="*,Auto">
+	                                <TextBlock Text="预览" FontSize="12" VerticalAlignment="Center"
+	                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+	                                <ComboBox Grid.Column="1" x:Name="GlobalSearchPreviewSizeCombo"
+	                                          Width="70" Height="25"
+	                                          SelectionChanged="OnGlobalSearchPreviewSizeChanged">
+	                                    <ComboBoxItem Tag="Small">小</ComboBoxItem>
+	                                    <ComboBoxItem Tag="Medium">中</ComboBoxItem>
+	                                    <ComboBoxItem Tag="Large">大</ComboBoxItem>
+	                                </ComboBox>
+	                            </Grid>
+                            <Grid Grid.Row="1" Margin="0,8">
+                                <TextBlock x:Name="GlobalSearchPreviewPlaceholder"
+                                           Text="选择文件以预览"
+	                                           TextAlignment="Center"
+	                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+	                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                <Image x:Name="GlobalSearchPreviewImage"
+                                       IsVisible="False"
+                                       Width="180" Height="180"
+                                       Stretch="Uniform"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <ListBox x:Name="GlobalSearchFolderContents"
+                                         IsVisible="False"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Padding="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:FileSystemEntry">
+                                            <Grid ColumnDefinitions="38,*,Auto" ColumnSpacing="6"
+                                                  Margin="2,3" MinHeight="38"
+                                                  DoubleTapped="OnGlobalSearchFolderEntryDoubleTapped">
+                                                <Image Grid.Column="0" Width="32" Height="32"
+                                                       Stretch="Uniform"
+                                                       Loaded="OnGlobalSearchFolderImageLoaded"
+                                                       DataContextChanged="OnGlobalSearchFolderImageDataContextChanged"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                           FontSize="11" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding Name}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding KindText}"
+                                                           FontSize="9" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+	                            <StackPanel Grid.Row="2" Spacing="2">
+	                                <TextBlock x:Name="GlobalSearchPreviewTitle" FontSize="12"
+	                                           TextTrimming="CharacterEllipsis"/>
+	                                <TextBlock x:Name="GlobalSearchPreviewPath" FontSize="10"
+	                                           TextTrimming="CharacterEllipsis"
+	                                           Foreground="{DynamicResource TextMutedBrush}"/>
+	                            </StackPanel>
+	                        </Grid>
+	                    </Border>
+	                </Grid>
+	                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="2,7,2,0">
+	                    <TextBlock x:Name="GlobalSearchResultCount" Text="仅搜索 Mac Explorer 已获权限并建立索引的位置"
+	                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+	                    <TextBlock Grid.Column="1" Text="↑↓ 选择  ·  ↩ 打开"
+	                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+	                </Grid>
+	            </Grid>
+	        </Border>
+	    </Border>
+	    <!-- Finder-style in-window super preview. It sits above the active tab
+	         without changing its navigation state, and can browse folders and
+	         archive entries recursively. -->
+	    <local:SuperPreviewView x:Name="SuperPreviewControl"
+	                            IsVisible="False"/>
 	    <Border x:Name="ModalInteractionOverlay"
 	            IsVisible="False"
 	            Background="{DynamicResource OverlayBrush}"

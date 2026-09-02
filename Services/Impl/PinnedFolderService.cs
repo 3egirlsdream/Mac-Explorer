@@ -119,6 +119,29 @@ public class PinnedFolderService : IPinnedFolderService, IDisposable
         }
     }
 
+    public async Task ReorderAsync(IReadOnlyList<string> orderedFolderPaths)
+    {
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var transaction = _connection.BeginTransaction();
+            for (var index = 0; index < orderedFolderPaths.Count; index++)
+            {
+                using var cmd = _connection.CreateCommand();
+                cmd.Transaction = transaction;
+                cmd.CommandText = "UPDATE pinned_folders SET sort_order = @order WHERE folder_path = @path";
+                cmd.Parameters.AddWithValue("@order", index + 1);
+                cmd.Parameters.AddWithValue("@path", orderedFolderPaths[index]);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            transaction.Commit();
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+    }
+
     public void Dispose()
     {
         if (!_disposed)
