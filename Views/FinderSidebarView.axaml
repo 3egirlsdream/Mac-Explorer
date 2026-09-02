@@ -27,10 +27,51 @@
             <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
             <Setter Property="BorderThickness" Value="0,0,0,2"/>
         </Style>
+        <Style Selector="Border.sidebar-item">
+            <Setter Property="Focusable" Value="True"/>
+        </Style>
+        <Style Selector="Border.sidebar-item:focus-visible">
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.rail-text-hidden">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="Button.sidebar-item-action.rail-action-hidden">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ItemsControl.rail-secondary.rail-hidden">
+            <Setter Property="MaxHeight" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="TextBlock.rail-secondary.rail-hidden">
+            <Setter Property="MaxHeight" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="Grid.rail-secondary.rail-hidden">
+            <Setter Property="MaxHeight" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="StackPanel.rail-secondary.rail-hidden">
+            <Setter Property="MaxHeight" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
     </UserControl.Styles>
 
     <ScrollViewer>
-        <StackPanel Margin="4,8,4,4">
+        <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
                     <!-- ═══ 收藏 Favorites ═══ -->
                     <!-- <TextBlock Classes="sidebar-section-title" Text="收藏"/> -->
@@ -39,6 +80,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarUsername}"
                             x:Name="UsernameItem"
+                            ToolTip.Tip="{Binding UserName}"
+                            AutomationProperties.Name="{Binding UserName}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Person}"
@@ -53,6 +96,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarDesktop}"
                             x:Name="DesktopItem"
+                            ToolTip.Tip="{Binding DesktopName}"
+                            AutomationProperties.Name="桌面"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Desktop}"
@@ -67,6 +112,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarDocuments}"
                             x:Name="DocumentsItem"
+                            ToolTip.Tip="{Binding DocumentsName}"
+                            AutomationProperties.Name="文稿"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.FileText}"
@@ -81,6 +128,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarDownloads}"
                             x:Name="DownloadsItem"
+                            ToolTip.Tip="{Binding DownloadsName}"
+                            AutomationProperties.Name="下载"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Download}"
@@ -95,6 +144,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarPictures}"
                             x:Name="PicturesItem"
+                            ToolTip.Tip="{Binding PicturesName}"
+                            AutomationProperties.Name="图片"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Image}"
@@ -109,6 +160,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarMusic}"
                             x:Name="MusicItem"
+                            ToolTip.Tip="{Binding MusicName}"
+                            AutomationProperties.Name="音乐"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Music}"
@@ -120,7 +173,7 @@
                     </Border>
 
                     <!-- Pinned folders (kept from existing, already working) -->
-                    <ItemsControl x:Name="PinnedFoldersControl" Classes="sidebar-items"
+                    <ItemsControl x:Name="PinnedFoldersControl" Classes="sidebar-items rail-secondary"
                                   ItemsSource="{Binding PinnedFolders}"
                                   MinHeight="8"
                                   >
@@ -155,12 +208,14 @@
                     </ItemsControl>
 
                     <!-- ═══ 位置 Locations ═══ -->
-                    <TextBlock Classes="sidebar-section-title" Text="位置"/>
+                    <TextBlock Classes="sidebar-section-title rail-secondary" Text="位置"/>
 
                     <!-- Macintosh HD -->
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarMacintoshHd}"
                             x:Name="VolumeItem"
+                            ToolTip.Tip="{Binding VolumeName}"
+                            AutomationProperties.Name="Macintosh HD"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
@@ -172,7 +227,7 @@
                     </Border>
 
                     <!-- External volumes -->
-                    <ItemsControl Classes="sidebar-items"
+                    <ItemsControl Classes="sidebar-items rail-secondary"
                                   ItemsSource="{Binding ExternalVolumes}"
                                   IsVisible="{Binding ExternalVolumes, Converter={StaticResource IsNotEmpty}}">
                         <ItemsControl.ItemTemplate>
@@ -208,6 +263,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarApplications}"
                             x:Name="ApplicationsItem"
+                            ToolTip.Tip="{Binding ApplicationsName}"
+                            AutomationProperties.Name="应用程序"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Apps}"
@@ -222,6 +279,8 @@
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarTrash}"
                             x:Name="TrashItem"
+                            ToolTip.Tip="{Binding TrashName}"
+                            AutomationProperties.Name="废纸篓"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Trash}"
@@ -233,7 +292,7 @@
                     </Border>
 
                     <!-- ═══ 远程服务器 Remote Servers ═══ -->
-                    <Grid ColumnDefinitions="Auto,*"
+                    <Grid ColumnDefinitions="Auto,*" Classes="rail-secondary"
                           Margin="0,8,0,2"
                           x:Name="RemoteServersHeader"
                           IsVisible="False">
@@ -244,7 +303,7 @@
                     </Grid>
 
                     <!-- Remote server list -->
-                    <ItemsControl x:Name="RemoteServersList" Classes="sidebar-items" IsVisible="False">
+                    <ItemsControl x:Name="RemoteServersList" Classes="sidebar-items rail-secondary" IsVisible="False">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Classes="sidebar-item"
@@ -289,9 +348,8 @@
                     </ItemsControl>
 
                     <!-- ═══ AI 智能 AI ═══ -->
-                    <Grid ColumnDefinitions="Auto,*,Auto"
+                    <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header rail-secondary"
                           x:Name="AiSectionHeader"
-                          Classes="sidebar-section-header"
                           Margin="0,8,0,2"
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
@@ -307,7 +365,7 @@
                                   x:Name="AiChevron"/>
                     </Grid>
 
-                    <StackPanel IsVisible="{Binding !IsAiSectionCollapsed}"
+                    <StackPanel Classes="rail-secondary" IsVisible="{Binding !IsAiSectionCollapsed}"
                                 x:Name="AiPanel">
 
                         <!-- People -->
@@ -377,9 +435,8 @@
                     </StackPanel>
 
                     <!-- ═══ 收藏夹 Collections ═══ -->
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Classes="sidebar-section-header rail-secondary"
                           x:Name="CollectionsSectionHeader"
-                          Classes="sidebar-section-header"
                           Margin="0,8,0,2"
                           PointerPressed="OnToggleCollectionsCollapsed">
                         <TextBlock Grid.Column="0" Text="收藏夹"
@@ -407,7 +464,7 @@
                                   x:Name="CollChevron"/>
                     </Grid>
 
-                    <StackPanel IsVisible="{Binding !IsCollectionsSectionCollapsed}"
+                    <StackPanel Classes="rail-secondary" IsVisible="{Binding !IsCollectionsSectionCollapsed}"
                                 x:Name="CollectionsPanel">
 
                         <!-- Collection list -->
@@ -502,9 +559,8 @@
                     </StackPanel>
 
                     <!-- ═══ 标签 Tags ═══ -->
-                    <Grid ColumnDefinitions="Auto,*,Auto"
+                    <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header rail-secondary"
                           x:Name="TagsSectionHeader"
-                          Classes="sidebar-section-header"
                           Margin="0,8,0,2"
                           PointerPressed="OnToggleTagsCollapsed"
                           Cursor="Hand">
@@ -520,7 +576,7 @@
                                   x:Name="TagsChevron"/>
                     </Grid>
 
-                    <ItemsControl Classes="sidebar-items"
+                    <ItemsControl Classes="sidebar-items rail-secondary"
                                   ItemsSource="{Binding SidebarTags}"
                                   IsVisible="{Binding !IsTagsSectionCollapsed}"
                                   x:Name="TagsPanel">

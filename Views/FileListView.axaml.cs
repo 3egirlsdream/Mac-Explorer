@@ -1635,6 +1635,15 @@ public partial class FileListView : UserControl
         _rightPressedAnchor = null;
     }
 
+    public bool TryDismissContextMenu()
+    {
+        if (_openMenu == null && ViewModel?.IsContextMenuVisible != true)
+            return false;
+        DismissContextMenu();
+        Focus();
+        return true;
+    }
+
     private void CloseCurrentMenu()
     {
         var menu = _openMenu;
@@ -2455,6 +2464,16 @@ public partial class FileListView : UserControl
 
         Focus();
         var point = e.GetCurrentPoint(FileScroll);
+        if (point.Properties.IsLeftButtonPressed
+            && e.ClickCount == 2
+            && ViewModel.ViewMode == ViewMode.List
+            && FindDataContextInAncestors(sourceVisual) is FileSystemEntry doubleClickedEntry)
+        {
+            OpenEntryFromGesture(doubleClickedEntry);
+            e.Handled = true;
+            return;
+        }
+
         if (point.Properties.IsLeftButtonPressed)
         {
             // Nested ListBoxes can emit delayed SelectionChanged events while
@@ -3128,6 +3147,13 @@ public partial class FileListView : UserControl
     private void OnFileItemDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (sender is not Control { DataContext: FileSystemEntry entry } || ViewModel == null) return;
+        OpenEntryFromGesture(entry);
+        e.Handled = true;
+    }
+
+    private void OpenEntryFromGesture(FileSystemEntry entry)
+    {
+        if (ViewModel == null) return;
         CancelSlowRename();
         if (entry.IsDirectory)
         {
@@ -3135,7 +3161,6 @@ public partial class FileListView : UserControl
             _ = ViewModel.NavigateToAsync(entry.FullPath);
         }
         else _ = ViewModel.OpenEntryAsync(entry);
-        e.Handled = true;
     }
 
     private void OnFileListKeyDown(object? sender, KeyEventArgs e)

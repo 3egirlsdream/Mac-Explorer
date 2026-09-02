@@ -5,6 +5,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -24,11 +26,109 @@ public partial class FinderSidebarView : UserControl
     private bool _isCommittingCollectionEdit;
     private Border? _pinnedDropTarget;
     private FileListViewModel? _subscribedViewModel;
+    private readonly Dictionary<Border, RailCompactItemState> _railCompactItemStates = [];
+    private readonly Dictionary<Control, RailSecondaryState> _railSecondaryStates = [];
+    private bool _isRailMode;
+
+    internal bool IsRailMode => _isRailMode;
 
     public FinderSidebarView()
     {
         InitializeComponent();
+        AddHandler(KeyDownEvent, OnSidebarKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
     }
+
+    public void SetRailMode(bool railMode)
+    {
+        if (_isRailMode == railMode)
+            return;
+        _isRailMode = railMode;
+        foreach (var control in this.GetLogicalDescendants().OfType<Control>())
+        {
+            control.Classes.Set("rail-text-hidden", railMode && control is TextBlock);
+            var compactItem = control as Border;
+            var isCompactItem = compactItem?.Classes.Contains("sidebar-item") == true;
+            control.Classes.Set("rail-compact-item", railMode && isCompactItem);
+            control.Classes.Set("rail-action-hidden",
+                railMode && control is Button && control.Classes.Contains("sidebar-item-action"));
+            if (isCompactItem)
+                SetCompactItemRailMode(compactItem!, railMode);
+            if (!control.Classes.Contains("rail-secondary"))
+                continue;
+
+            if (railMode)
+            {
+                _railSecondaryStates.TryAdd(control, new RailSecondaryState(
+                    control.MinHeight,
+                    control.MaxHeight,
+                    control.Opacity,
+                    control.Margin,
+                    control.IsHitTestVisible));
+                control.MinHeight = 0;
+                control.MaxHeight = 0;
+                control.Opacity = 0;
+                control.Margin = default;
+                control.IsHitTestVisible = false;
+            }
+            else if (_railSecondaryStates.Remove(control, out var state))
+            {
+                control.MinHeight = state.MinHeight;
+                control.MaxHeight = state.MaxHeight;
+                control.Opacity = state.Opacity;
+                control.Margin = state.Margin;
+                control.IsHitTestVisible = state.IsHitTestVisible;
+            }
+        }
+    }
+
+    private void SetCompactItemRailMode(Border item, bool railMode)
+    {
+        if (railMode)
+        {
+            var contentPanel = item.Child as StackPanel;
+            _railCompactItemStates.TryAdd(item, new RailCompactItemState(
+                item.Width,
+                item.MinWidth,
+                item.MaxWidth,
+                item.Margin,
+                item.HorizontalAlignment,
+                contentPanel,
+                contentPanel?.HorizontalAlignment ?? HorizontalAlignment.Stretch));
+            item.Width = 40;
+            item.MinWidth = 40;
+            item.MaxWidth = 40;
+            item.Margin = new Thickness(0, 1);
+            item.HorizontalAlignment = HorizontalAlignment.Center;
+            if (contentPanel != null)
+                contentPanel.HorizontalAlignment = HorizontalAlignment.Center;
+        }
+        else if (_railCompactItemStates.Remove(item, out var state))
+        {
+            item.Width = state.Width;
+            item.MinWidth = state.MinWidth;
+            item.MaxWidth = state.MaxWidth;
+            item.Margin = state.Margin;
+            item.HorizontalAlignment = state.HorizontalAlignment;
+            if (state.ContentPanel != null)
+                state.ContentPanel.HorizontalAlignment = state.ContentHorizontalAlignment;
+        }
+    }
+
+    private readonly record struct RailCompactItemState(
+        double Width,
+        double MinWidth,
+        double MaxWidth,
+        Thickness Margin,
+        HorizontalAlignment HorizontalAlignment,
+        StackPanel? ContentPanel,
+        HorizontalAlignment ContentHorizontalAlignment);
+
+    private readonly record struct RailSecondaryState(
+        double MinHeight,
+        double MaxHeight,
+        double Opacity,
+        Thickness Margin,
+        bool IsHitTestVisible);
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
 
@@ -178,9 +278,29 @@ public partial class FinderSidebarView : UserControl
 
     private async void OnSidebarItemPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (ViewModel == null) return;
-        var border = sender as Border;
-        if (border == null) return;
+        if (sender is Border border)
+            await NavigateSidebarItemAsync(border);
+    }
+
+    private async void OnSidebarKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space))
+            return;
+
+        var border = e.Source as Border;
+        if (border?.Classes.Contains("sidebar-item") != true)
+            border = (e.Source as Visual)?.GetVisualAncestors().OfType<Border>()
+                .FirstOrDefault(candidate => candidate.Classes.Contains("sidebar-item"));
+        if (border == null || !await NavigateSidebarItemAsync(border))
+            return;
+
+        e.Handled = true;
+    }
+
+    private async Task<bool> NavigateSidebarItemAsync(Border border)
+    {
+        if (ViewModel == null)
+            return false;
 
         string? path = null;
         AiViewMode? aiMode = null;
@@ -199,11 +319,22 @@ public partial class FinderSidebarView : UserControl
         else if (border == AiLocationsItem) aiMode = AiViewMode.Locations;
         else if (border == AiDatesItem) aiMode = AiViewMode.Dates;
         else if (border == AiTextSearchItem) aiMode = AiViewMode.TextSearch;
+        else if (border.Tag is string taggedPath) path = taggedPath;
+        else if (border.Tag is VolumeInfo volume) path = volume.Path;
 
         if (path != null)
             await ViewModel.NavigateToCommand.ExecuteAsync(path);
         else if (aiMode.HasValue)
             await ViewModel.NavigateToAiViewAsync(aiMode.Value);
+        else if (border.Tag is Collection collection && !ReferenceEquals(border, _activeCollectionEditorRow))
+            await ViewModel.NavigateToCollectionAsync(collection.Id);
+        else if (border.Tag is FileTag tag)
+            await ViewModel.NavigateToTagAsync(tag);
+        else
+            return false;
+
+        UpdateActiveStates();
+        return true;
     }
 
     // ── Collapse toggles ──

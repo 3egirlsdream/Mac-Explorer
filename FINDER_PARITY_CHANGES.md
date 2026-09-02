@@ -2,7 +2,9 @@
 
 This source package keeps the existing Avalonia UI and service architecture while adding:
 
-- Browser/Finder-style tabs above the file toolbar.
+- Browser/Finder-style tabs in the same title-bar row as the macOS traffic lights;
+  the normal single-pane interface below keeps its original sidebar, navigation,
+  toolbar and content-card layout without a second tab-strip row.
   - `+` or Command-T opens a new tab at the current local folder.
   - Each tab has its own path, back/forward history, search results, view state and selection.
   - Clicking a tab switches without rebuilding its file-list model; Command-W closes the
@@ -14,8 +16,18 @@ This source package keeps the existing Avalonia UI and service architecture whil
     and large-primary-pane arrangements with two or three secondary panes.
   - Every pane is backed by an existing tab, so it keeps independent location,
     navigation history, search, view mode and selection state.
-  - Clicking anywhere in a pane makes it active; the main sidebar, toolbar, search,
-    status bar and info panel then operate on that pane.
+  - Every visible tab is now rendered as the same complete workspace: its own sidebar,
+    navigation, single breadcrumb, file toolbar, content, status bar and info panel.
+    Single-pane and split layouts no longer maintain separate page implementations.
+  - Clicking anywhere in a pane makes it active; window shortcuts, dialogs and global
+    overlays then route to that workspace. Selecting a hidden tab replaces the current
+    active slot instead of a fixed final slot.
+  - Split panes force the workspace's compact presentation: a 48-point sidebar rail
+    expands to a 220-point overlay, secondary toolbar actions share one overflow menu,
+    and the info panel switches from Inline to Overlay without replacing the tab model.
+  - A window-level live-preview coordinator releases the previous workspace preview
+    before activating the next, while each tab retains its own panel width and expanded
+    state. Invisible tabs release their workspace view but retain their scoped model.
   - Choosing a layout with more panes automatically creates the missing tabs at the
     current local folder. Closing tabs automatically reduces the layout when needed.
 - Rubber-band selection from empty file-list space in list, grouped-list and grid views.
