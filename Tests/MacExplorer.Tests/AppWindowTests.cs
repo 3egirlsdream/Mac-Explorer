@@ -27,7 +27,7 @@ public class AppWindowTests
     }
 
     [AvaloniaFact]
-    public void TitleBarWithContentUsesTwoRowsAndKeepsTitleVisible()
+    public void TitleBarWithContentSharesTheTrafficLightRowAndReplacesTheTitle()
     {
         var content = new Border();
         var window = new AppWindow
@@ -42,9 +42,10 @@ public class AppWindowTests
         var titleText = titleBar.FindControl<TextBlock>("TitleText")!;
         var contentRow = titleBar.FindControl<Border>("TitleBarContentRow")!;
 
-        Assert.Equal(80, titleBar.Bounds.Height);
+        Assert.Equal(40, titleBar.Bounds.Height);
         Assert.True(contentRow.IsVisible);
-        Assert.True(titleText.IsVisible);
+        Assert.True(contentRow.ClipToBounds);
+        Assert.False(titleText.IsVisible);
         Assert.Equal("文稿", titleText.Text);
         Assert.Same(content, titleBar.TitleBarContent);
         window.Close();

@@ -34,6 +34,21 @@ public partial class BreadcrumbBar : UserControl
         ActivateInput(PathInput, selectAll: true);
     }
 
+    public bool TryCloseTransientUi()
+    {
+        if (!PathSuggestionsPopup.IsOpen && _activeInput == null && !PathInput.IsVisible)
+            return false;
+
+        CloseSuggestions();
+        if (PathInput.IsVisible)
+            EndPathEditing();
+        else
+            _activeInput = null;
+        return true;
+    }
+
+    public void CloseTransientUi() => TryCloseTransientUi();
+
     private void OnInputGotFocus(object? sender, RoutedEventArgs e)
     {
         if (sender is TextBox input)

@@ -4,6 +4,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Indexing;
@@ -105,6 +106,68 @@ public sealed class FileListViewModelCreateTests
             $"Selected {viewModel.SelectedEntries.Count} rows from a blank-area marquee");
         window.MouseUp(end, MouseButton.Left, RawInputModifiers.None);
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task DoubleClickingBlankPartOfListRowOpensTheDirectory()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"fkfinder-row-double-click-{Guid.NewGuid():N}");
+        var child = Path.Combine(root, "child");
+        Directory.CreateDirectory(child);
+        try
+        {
+            var fileService = new FakeFileService(root);
+            using var viewModel = CreateViewModel(fileService);
+            var entry = new FileSystemEntry
+            {
+                FullPath = child,
+                Name = "child",
+                IsDirectory = true,
+                IconKey = "folder"
+            };
+            viewModel.Entries.Add(entry);
+
+            var view = new FileListView { DataContext = viewModel };
+            var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
+            var rowBorder = Assert.IsAssignableFrom<Border>(rowTemplate.Build(entry));
+            var listRow = new ListBoxItem
+            {
+                DataContext = entry,
+                Content = rowBorder,
+                Width = 800,
+                Height = 28,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+            };
+            view.FindControl<Grid>("FileScroll")!.Children.Add(listRow);
+            var window = new Window { Width = 900, Height = 520, Content = view };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var rowBackground = Assert.IsAssignableFrom<ISolidColorBrush>(rowBorder.Background);
+            Assert.Equal(0, rowBackground.Color.A);
+            var rowOrigin = listRow.TranslatePoint(default, window)!.Value;
+            var blankPoint = new Point(rowOrigin.X + 760, rowOrigin.Y + 14);
+            window.MouseDown(blankPoint, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(blankPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseDown(blankPoint, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(blankPoint, MouseButton.Left, RawInputModifiers.None);
+
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+            while (!string.Equals(viewModel.CurrentPath, child, StringComparison.Ordinal)
+                   && DateTime.UtcNow < deadline)
+            {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(10);
+            }
+
+            Assert.Equal(child, viewModel.CurrentPath);
+            window.Close();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [AvaloniaFact]
@@ -680,6 +743,226 @@ public sealed class FileListViewModelCreateTests
 
         foreach (var tab in tabs)
             tab.Dispose();
+    }
+
+    [Fact]
+    public void SelectingVisibleTabOnlyChangesActiveSlot()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var firstTab = window.SelectedTab!;
+        var secondTab = window.AddTab(second, select: false);
+        var thirdTab = window.AddTab(third, select: false);
+        window.SetPaneLayout(PaneLayout.ThreeColumns);
+        var original = window.VisiblePanes.ToArray();
+
+        window.SelectedTab = secondTab;
+
+        Assert.Equal(original, window.VisiblePanes);
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+        Assert.Same(secondTab, window.SelectedTab);
+
+        foreach (var tab in new[] { firstTab, secondTab, thirdTab })
+            tab.Dispose();
+    }
+
+    [Fact]
+    public void SelectingHiddenTabReplacesActiveSlotInsteadOfLastSlot()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        using var hidden = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var firstTab = window.SelectedTab!;
+        var secondTab = window.AddTab(second, select: false);
+        var thirdTab = window.AddTab(third, select: false);
+        var hiddenTab = window.AddTab(hidden, select: false);
+        window.SetPaneLayout(PaneLayout.ThreeColumns);
+        window.ActivatePane(secondTab);
+
+        window.SelectedTab = hiddenTab;
+
+        Assert.Equal(new[] { firstTab, hiddenTab, thirdTab }, window.VisiblePanes);
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+        Assert.Same(hiddenTab, window.SelectedTab);
+
+        foreach (var tab in new[] { firstTab, secondTab, thirdTab, hiddenTab })
+            tab.Dispose();
+    }
+
+    [Fact]
+    public void SamePaneCountLayoutChangePreservesSlotOrderAndActiveSlot()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var tabs = new[]
+        {
+            window.SelectedTab!,
+            window.AddTab(second, select: false),
+            window.AddTab(third, select: false)
+        };
+        window.SetPaneLayout(PaneLayout.ThreeColumns);
+        window.ActivatePane(tabs[1]);
+
+        window.SetPaneLayout(PaneLayout.MainRightTwoRowsLeft);
+
+        Assert.Equal(tabs, window.VisiblePanes);
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+        Assert.Same(tabs[1], window.SelectedTab);
+
+        foreach (var tab in tabs)
+            tab.Dispose();
+    }
+
+    [Fact]
+    public void PaneCountShrinkAndExpandPreserveActiveTabAtNormalizedSlot()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        using var fourth = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var tabs = new[]
+        {
+            window.SelectedTab!,
+            window.AddTab(second, select: false),
+            window.AddTab(third, select: false),
+            window.AddTab(fourth, select: false)
+        };
+        window.SetPaneLayout(PaneLayout.FourGrid);
+        window.ActivatePane(tabs[3]);
+
+        window.SetPaneLayout(PaneLayout.TwoRows);
+
+        Assert.Equal(2, window.VisiblePanes.Count);
+        Assert.Same(tabs[3], window.VisiblePanes[1]);
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+
+        window.SetPaneLayout(PaneLayout.FourRows);
+        Assert.Equal(4, window.VisiblePanes.Count);
+        Assert.Equal(4, window.VisiblePanes.Distinct().Count());
+        Assert.Same(tabs[3], window.VisiblePanes[1]);
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+
+        foreach (var tab in tabs)
+            tab.Dispose();
+    }
+
+    [Fact]
+    public void ClosingActiveVisibleTabRefillsSameSlotAndKeepsItActive()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        using var fourth = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var firstTab = window.SelectedTab!;
+        var secondTab = window.AddTab(second, select: false);
+        var thirdTab = window.AddTab(third, select: false);
+        var fourthTab = window.AddTab(fourth, select: false);
+        window.SetPaneLayout(PaneLayout.ThreeColumns);
+        window.ActivatePane(secondTab);
+
+        Assert.True(window.RemoveTab(secondTab));
+
+        Assert.Equal(new[] { firstTab, fourthTab, thirdTab }, window.VisiblePanes);
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+        Assert.Same(fourthTab, window.SelectedTab);
+
+        foreach (var tab in new[] { firstTab, secondTab, thirdTab, fourthTab })
+            tab.Dispose();
+    }
+
+    [Fact]
+    public void ClosingHiddenOrNonActiveTabDoesNotMoveActiveSlot()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        using var hidden = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var firstTab = window.SelectedTab!;
+        var secondTab = window.AddTab(second, select: false);
+        var thirdTab = window.AddTab(third, select: false);
+        var hiddenTab = window.AddTab(hidden, select: false);
+        window.SetPaneLayout(PaneLayout.ThreeColumns);
+        window.ActivatePane(secondTab);
+        var visible = window.VisiblePanes.ToArray();
+
+        Assert.True(window.RemoveTab(hiddenTab));
+
+        Assert.Equal(visible, window.VisiblePanes);
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+        Assert.Same(secondTab, window.SelectedTab);
+
+        Assert.True(window.RemoveTab(firstTab));
+        Assert.Equal(1, window.ActivePaneSlotIndex);
+        Assert.Same(secondTab, window.SelectedTab);
+
+        foreach (var tab in new[] { firstTab, secondTab, thirdTab, hiddenTab })
+            tab.Dispose();
+    }
+
+    [Fact]
+    public void ClosingBelowPaneCountChoosesCanonicalFallbackLayout()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        using var fourth = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var tabs = new[]
+        {
+            window.SelectedTab!,
+            window.AddTab(second, select: false),
+            window.AddTab(third, select: false),
+            window.AddTab(fourth, select: false)
+        };
+        window.SetPaneLayout(PaneLayout.FourGrid);
+
+        Assert.True(window.RemoveTab(tabs[3]));
+
+        Assert.Equal(PaneLayout.MainLeftTwoRowsRight, window.PaneLayout);
+        Assert.Equal(3, window.VisiblePanes.Count);
+        Assert.Equal(3, window.VisiblePanes.Distinct().Count());
+
+        foreach (var tab in tabs)
+            tab.Dispose();
+    }
+
+    [Fact]
+    public void TwelveLayoutDefinitionsMatchDocumentedStableSlotCoordinates()
+    {
+        var expected = new Dictionary<PaneLayout, PaneSlotPlacement[]>
+        {
+            [PaneLayout.Single] = [new(0, 0)],
+            [PaneLayout.TwoColumns] = [new(0, 0), new(0, 1)],
+            [PaneLayout.TwoRows] = [new(0, 0), new(1, 0)],
+            [PaneLayout.ThreeColumns] = [new(0, 0), new(0, 1), new(0, 2)],
+            [PaneLayout.ThreeRows] = [new(0, 0), new(1, 0), new(2, 0)],
+            [PaneLayout.MainLeftTwoRowsRight] = [new(0, 0, 2), new(0, 1), new(1, 1)],
+            [PaneLayout.MainRightTwoRowsLeft] = [new(0, 1, 2), new(0, 0), new(1, 0)],
+            [PaneLayout.FourGrid] = [new(0, 0), new(0, 1), new(1, 0), new(1, 1)],
+            [PaneLayout.FourColumns] = [new(0, 0), new(0, 1), new(0, 2), new(0, 3)],
+            [PaneLayout.FourRows] = [new(0, 0), new(1, 0), new(2, 0), new(3, 0)],
+            [PaneLayout.MainLeftThreeRowsRight] = [new(0, 0, 3), new(0, 1), new(1, 1), new(2, 1)],
+            [PaneLayout.MainRightThreeRowsLeft] = [new(0, 1, 3), new(0, 0), new(1, 0), new(2, 0)]
+        };
+
+        foreach (var (layout, placements) in expected)
+            Assert.Equal(placements, MainWindowViewModel.GetPaneLayoutDefinition(layout).Slots);
     }
 
     private static FileListViewModel CreateViewModel(

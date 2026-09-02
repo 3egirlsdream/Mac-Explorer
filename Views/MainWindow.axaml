@@ -69,33 +69,6 @@
             <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
-        <Style Selector="Grid.title-search-host">
-            <Setter Property="Width" Value="220"/>
-            <Setter Property="Height" Value="30"/>
-        </Style>
-        <Style Selector="Grid.title-search-expanded">
-            <Setter Property="Width" Value="220"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="IsHitTestVisible" Value="True"/>
-        </Style>
-        <Style Selector="Border.title-search-surface">
-            <Setter Property="Opacity" Value="1"/>
-            <Setter Property="RenderTransform" Value="none"/>
-        </Style>
-        <Style Selector="Grid.title-search-content">
-            <Setter Property="Opacity" Value="1"/>
-            <Setter Property="RenderTransform" Value="none"/>
-        </Style>
-
-        <Style Selector="controls|AppWindow:compact Grid.title-search-host">
-            <Setter Property="Width" Value="180"/>
-        </Style>
-        <Style Selector="controls|AppWindow:compact Grid.title-search-expanded">
-            <Setter Property="Width" Value="180"/>
-        </Style>
-        <Style Selector="controls|AppWindow:compact Border.title-search-surface">
-            <Setter Property="Width" Value="180"/>
-        </Style>
         <Style Selector="ListBox.tab-strip">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -177,105 +150,13 @@
         </Style>
     </controls:AppWindow.Styles>
 
-    <Grid>
-    <Border x:Name="RootLayout" CornerRadius="0">
-        <Grid ColumnDefinitions="Auto,*" Margin="8 0 8 8">
-            <!-- Left: Sidebar (full height) — Liquid Glass -->
-            <controls:SurfaceCard x:Name="SidebarHost" Grid.Column="0" Width="260" CornerRadius="16" Padding="0"
-                                       Margin="0,0,4,0">
-                <controls:SurfaceCard.Content>
-                    <Grid RowDefinitions="*,Auto">
-                        <local:FinderSidebarView Grid.Row="0"
-                                                  x:Name="SidebarControl"
-                                                  DataContext="{Binding FileList}"/>
-                        <Button Grid.Row="1" x:Name="SettingsButton"
-                                Margin="8,4,8,8"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left" Padding="10,6"
-                                Classes="ghost glass-btn-ghost">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
-                                <TextBlock Text="设置" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-                </controls:SurfaceCard.Content>
-            </controls:SurfaceCard>
-
-            <!-- Right: Navigation + Toolbar + Content -->
-            <Grid Grid.Column="1" RowDefinitions="40,34,Auto,*" Margin="4,0,0,0">
-                <!-- Row 0: navigation, breadcrumb and persistent search -->
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16"
-                      VerticalAlignment="Center"
-                      chrome:WindowDecorationProperties.ElementRole="TitleBar">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Left"
-                                chrome:WindowDecorationProperties.ElementRole="User">
-                        <Button x:Name="SidebarToggleButton" Classes="title-nav-button"
-                                ToolTip.Tip="显示或隐藏侧栏" AutomationProperties.Name="显示或隐藏侧栏"
-                                IsVisible="False" Click="ToggleSidebar">
-                            <PathIcon Data="{x:Static icons:Icons.List}"/>
-                        </Button>
-                        <Button x:Name="BackButton" Classes="title-nav-button"
-                                ToolTip.Tip="后退 ⌘[" AutomationProperties.Name="后退"
-                                Click="NavigateBack" IsEnabled="{Binding FileList.CanGoBack}">
-                            <PathIcon Data="{x:Static icons:Icons.Back}"/>
-                        </Button>
-                        <Button x:Name="ForwardButton" Classes="title-nav-button"
-                                ToolTip.Tip="前进 ⌘]" AutomationProperties.Name="前进"
-                                Click="NavigateForward" IsEnabled="{Binding FileList.CanGoForward}">
-                            <PathIcon Data="{x:Static icons:Icons.Forward}"/>
-                        </Button>
-                        <Button Classes="title-nav-button" ToolTip.Tip="上级目录 ⌘↑" Click="NavigateUp"
-                                IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
-                            <PathIcon Data="{x:Static icons:Icons.Up}"/>
-                        </Button>
-                        <Button Classes="title-nav-button" ToolTip.Tip="刷新 ⌘R" Click="RefreshView">
-                            <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
-                        </Button>
-                    </StackPanel>
-
-                    <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
-                                         DataContext="{Binding FileList}"
-                                         HorizontalAlignment="Stretch"
-                                         MinWidth="280"
-                                         VerticalAlignment="Center"
-                                         chrome:WindowDecorationProperties.ElementRole="User"/>
-
-                    <Grid Grid.Column="2" x:Name="SearchHost" Classes="title-search-host"
-                          HorizontalAlignment="Right" VerticalAlignment="Center"
-                          chrome:WindowDecorationProperties.ElementRole="User">
-                        <Grid Classes="title-search-expanded" HorizontalAlignment="Right">
-                            <Border Classes="breadcrumb-bar title-search-surface"
-                                    Padding="4,2"
-                                    Background="{DynamicResource SurfaceElevatedBrush}">
-                                <Grid Classes="title-search-content" ColumnDefinitions="Auto,*,Auto" Margin="6,0">
-                                    <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
-                                              Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"
-                                              Foreground="{DynamicResource TextMutedBrush}"/>
-                                    <TextBox Grid.Column="1" x:Name="SearchBox"
-                                             Classes="search-input omnibox-input"
-                                             FontSize="{DynamicResource FontSizeLabel}"
-                                             Foreground="{DynamicResource TextPrimaryBrush}"
-                                             PlaceholderText="搜索..."
-                                             Text="{Binding FileList.SearchQuery, Mode=OneWay}"
-                                             TextChanged="OnSearchTextChanged"
-                                             KeyDown="OnSearchKeyDown"/>
-                                    <Button Grid.Column="2" x:Name="SearchClearBtn" Content="✕"
-                                            Classes="ghost close-btn search-clear-btn"
-                                            VerticalContentAlignment="Center"
-                                            HorizontalContentAlignment="Center"
-                                            Width="20" Height="20" Padding="0" Background="Transparent" FontSize="{DynamicResource FontSizeCaption}"
-                                            Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"
-                                            Click="ClearSearch"/>
-                                </Grid>
-                            </Border>
-                        </Grid>
-                    </Grid>
-                </Grid>
-
-                <!-- Row 1: browser-style tabs. Every tab owns independent navigation state. -->
-                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="2,1,2,3">
-                    <ScrollViewer Grid.Column="0"
+    <controls:AppWindow.TitleBarContent>
+        <!-- Browser-style tabs share the native traffic-light row. -->
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,4,0,4"
+              chrome:WindowDecorationProperties.ElementRole="TitleBar">
+                    <ScrollViewer Grid.Column="0" x:Name="TabScrollViewer"
+                                  chrome:WindowDecorationProperties.ElementRole="User"
+                                  HorizontalAlignment="Left" MaxWidth="720"
                                   HorizontalScrollBarVisibility="Hidden"
                                   VerticalScrollBarVisibility="Disabled">
                         <ListBox x:Name="TabList"
@@ -421,97 +302,50 @@
                             </Grid>
                         </Border>
                     </Popup>
-                </Grid>
-
-                <!-- Row 2: Toolbar — Liquid Glass card -->
-                <controls:SurfaceCard Grid.Row="2" CornerRadius="14" Padding="0"
-                                           Margin="0,0,0,4">
-                    <controls:SurfaceCard.Content>
-                        <Border CornerRadius="14" ClipToBounds="True">
-                            <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
-                        </Border>
-                    </controls:SurfaceCard.Content>
-                </controls:SurfaceCard>
-
-                <!-- Row 3: Content + Status bar — single Liquid Glass card -->
-                <controls:SurfaceCard Grid.Row="3" CornerRadius="14" Padding="0">
-                    <controls:SurfaceCard.Content>
-                        <Border CornerRadius="14" ClipToBounds="True">
-                        <Grid RowDefinitions="*,Auto">
-                            <SplitView x:Name="InfoDrawer"
-                                       DisplayMode="Inline"
-                                       PanePlacement="Right"
-                                       PaneBackground="Transparent"
-                                       OpenPaneLength="380"
-                                       CompactPaneLength="0"
-                                       IsPaneOpen="False">
-                                <SplitView.Pane>
-                                    <Grid x:Name="InfoPanelPane" ClipToBounds="True">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="6"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" x:Name="InfoPanelResizeHandle" Background="Transparent"
-                                                Cursor="SizeWestEast"
-                                                PointerPressed="OnInfoPanelResizePressed"
-                                                PointerMoved="OnInfoPanelResizeMoved"
-                                                PointerReleased="OnInfoPanelResizeReleased"/>
-                                        <local:InfoPanelView Grid.Column="1"
-                                                             x:Name="InfoPanelControl"
-                                                             DataContext="{Binding FileList}"/>
-                                    </Grid>
-                                </SplitView.Pane>
-                                <SplitView.Content>
-                                    <Grid x:Name="PaneLayoutRoot"/>
-                                </SplitView.Content>
-                            </SplitView>
-
-                            <!-- Status bar -->
-                            <Border Grid.Row="1" Height="32">
-                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,0">
-                                    <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
-                                               FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextMutedBrush}"/>
-                                    <Grid Grid.Column="1" ColumnDefinitions="Auto,*" Margin="8,0,12,0"
-                                          IsVisible="{Binding FileList.HasStatusMessage}">
-                                        <TextBlock Grid.Column="0" Text="·" FontSize="{DynamicResource FontSizeCaption}"
-                                                   Margin="0,0,5,0" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding FileList.StatusText}"
-                                                   FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   ToolTip.Tip="{Binding FileList.StatusText}"
-                                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                                    </Grid>
-                                    <Button Grid.Column="2" x:Name="TaskButton" IsVisible="False"
-                                            Classes="ghost glass-btn-ghost" Padding="8,3" Margin="0,2,8,2"
-                                            Click="ToggleTaskPanel">
-                                        <TextBlock x:Name="TaskButtonText" Text="后台任务" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center"/>
-                                    </Button>
-                                    <Border Grid.Column="3" IsVisible="{Binding FileList.HasLocationStatus}"
-                                            VerticalAlignment="Center"
-                                            ToolTip.Tip="{Binding FileList.LocationStatusTooltip}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <Ellipse Width="6" Height="6"
-                                                     IsVisible="{Binding FileList.IsRemoteLocationConnected}"
-                                                     Fill="{DynamicResource ColorSuccess}"
-                                                     VerticalAlignment="Center"/>
-                                            <Ellipse Width="6" Height="6"
-                                                     IsVisible="{Binding FileList.IsRemoteLocationDisconnected}"
-                                                     Fill="{DynamicResource TextDisabledBrush}"
-                                                     VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding FileList.LocationStatusText}"
-                                                       FontSize="{DynamicResource FontSizeMeta}" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-                            </Border>
+                    <Button Grid.Column="3" x:Name="TaskButton" IsVisible="False"
+                            Classes="title-nav-button" Margin="2,0,0,0"
+                            Click="ToggleTaskPanel" ToolTip.Tip="后台任务"
+                            AutomationProperties.Name="后台任务">
+                        <Grid>
+                            <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="13" Height="13"/>
+                            <TextBlock x:Name="TaskButtonText" IsVisible="False"/>
                         </Grid>
+                    </Button>
+                    <Button Grid.Column="4" x:Name="WindowMoreButton" Classes="title-nav-button"
+                            Margin="2,0,0,0" Click="ToggleWindowMorePopup"
+                            ToolTip.Tip="窗口更多" AutomationProperties.Name="窗口更多">
+                        <PathIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="13" Height="13"/>
+                    </Button>
+                    <Popup x:Name="WindowMorePopup" Placement="BottomEdgeAlignedRight"
+                           PlacementTarget="WindowMoreButton" IsLightDismissEnabled="True">
+                        <Border Classes="context-menu-container" MinWidth="180" Padding="6"
+                                Background="{DynamicResource GlassMenuBg}"
+                                BoxShadow="{DynamicResource WindowShadow}">
+                            <StackPanel>
+                                <Button Classes="toolbar-popup-item" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left" Click="OpenTaskPanelFromWindowMenu">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="14" Height="14"/>
+                                        <TextBlock Text="后台任务"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="toolbar-popup-item" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left" Click="OpenSettingsFromWindowMenu">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
+                                        <TextBlock Text="设置"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
                         </Border>
-                    </controls:SurfaceCard.Content>
-                </controls:SurfaceCard>
-            </Grid>
+                    </Popup>
+        </Grid>
+    </controls:AppWindow.TitleBarContent>
+
+    <Grid>
+    <Border x:Name="RootLayout" CornerRadius="0">
+        <Grid Margin="8 0 8 8">
+            <Grid x:Name="PaneLayoutRoot"/>
         </Grid>
     </Border>
     <!-- Task overlay panel — bottom-right overlay (before DialogHost so dialogs paint above it) -->

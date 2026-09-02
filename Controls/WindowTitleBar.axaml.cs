@@ -86,7 +86,12 @@ public partial class WindowTitleBar : UserControl
 
     private void OnOwnerActivationChanged(object? sender, EventArgs e) => UpdateWindowControlState();
 
-    private void UpdateTitleBarContentState() => TitleBarContentRow.IsVisible = TitleBarContent is not null;
+    private void UpdateTitleBarContentState()
+    {
+        var hasContent = TitleBarContent is not null;
+        TitleBarContentRow.IsVisible = hasContent;
+        TitleText.IsVisible = !hasContent;
+    }
 
     private void UpdateWindowControlState()
     {

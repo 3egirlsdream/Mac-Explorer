@@ -119,6 +119,8 @@
         <DataTemplate x:Key="ListEntryTemplate" x:DataType="models:FileSystemEntry">
             <Border Classes="file-list-entry entry-selection-bounds" Classes.selected="{Binding IsSelected}"
                     CornerRadius="{DynamicResource InteractionCornerRadius}" Padding="12,3"
+                    Background="Transparent"
+                    DoubleTapped="OnFileItemDoubleTapped"
                     Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}">
                 <Grid Classes="file-list-row-grid" ColumnDefinitions="22,420,170,110,110,*"
                       AttachedToVisualTree="OnFileListRowAttachedToVisualTree">

@@ -13,12 +13,28 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Views;
 
+public enum ToolbarMenuKind
+{
+    New,
+    Sort,
+    More
+}
+
 public partial class FinderToolbar : UserControl
 {
+    public static readonly StyledProperty<bool> IsCompactProperty =
+        AvaloniaProperty.Register<FinderToolbar, bool>(nameof(IsCompact));
+
     private FileListViewModel? _subscribedViewModel;
 
     // Callback to open settings dialog via MainWindow
     public Action? OpenSettingsCallback { get; set; }
+
+    public bool IsCompact
+    {
+        get => GetValue(IsCompactProperty);
+        set => SetValue(IsCompactProperty, value);
+    }
 
     public FinderToolbar()
     {
@@ -36,13 +52,16 @@ public partial class FinderToolbar : UserControl
 
     private async Task UpdateOfficeTemplateVisibilityAsync()
     {
-        var contextMenu = App.Services.GetRequiredService<IContextMenuService>();
         NewWordButton.IsVisible = false;
         NewExcelButton.IsVisible = false;
         NewPowerPointButton.IsVisible = false;
         NewPagesButton.IsVisible = false;
         NewNumbersButton.IsVisible = false;
         NewKeynoteButton.IsVisible = false;
+
+        var contextMenu = App.Services?.GetService<IContextMenuService>();
+        if (contextMenu == null)
+            return;
 
         var availability = await Task.Run(() =>
         {
@@ -70,6 +89,13 @@ public partial class FinderToolbar : UserControl
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsCompactProperty)
+            PseudoClasses.Set(":compact", change.GetNewValue<bool>());
+    }
 
     private void ToggleNewDropdown(object? sender, RoutedEventArgs e)
     {
@@ -203,6 +229,46 @@ public partial class FinderToolbar : UserControl
         NewDropdown.IsOpen = false;
         SortDropdown.IsOpen = false;
         MoreDropdown.IsOpen = false;
+    }
+
+    public void ToggleMenu(ToolbarMenuKind kind)
+    {
+        var popup = kind switch
+        {
+            ToolbarMenuKind.New => NewDropdown,
+            ToolbarMenuKind.Sort => SortDropdown,
+            ToolbarMenuKind.More => MoreDropdown,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+        };
+        var shouldOpen = !popup.IsOpen;
+        CloseDropdowns();
+        popup.IsOpen = shouldOpen;
+    }
+
+    public bool TryCloseDropdown()
+    {
+        if (MoreDropdown.IsOpen)
+        {
+            MoreDropdown.IsOpen = false;
+            MoreBtn.Focus();
+            return true;
+        }
+
+        if (SortDropdown.IsOpen)
+        {
+            SortDropdown.IsOpen = false;
+            SortButton.Focus();
+            return true;
+        }
+
+        if (NewDropdown.IsOpen)
+        {
+            NewDropdown.IsOpen = false;
+            NewBtn.Focus();
+            return true;
+        }
+
+        return false;
     }
 
     public void CloseDropdownsFromPointerSource(object? source)
