@@ -52,8 +52,56 @@ public static class SvgIconCache
 
     private static Bitmap RenderFolderIcon(int size)
     {
+        var finderIcon = TryRenderFinderFolderIcon(size);
+        if (finderIcon != null)
+            return finderIcon;
+
         var svg = FileIconRenderer.RenderFolder(size);
         return RenderSvgToBitmap(svg, size);
+    }
+
+    private static Bitmap? TryRenderFinderFolderIcon(int size)
+    {
+        if (!OperatingSystem.IsMacOS())
+            return null;
+
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "MacExplorer.Folder.png");
+        if (!File.Exists(iconPath))
+            return null;
+
+        try
+        {
+            using var source = SKBitmap.Decode(iconPath);
+            if (source == null || source.Width <= 0 || source.Height <= 0)
+                return null;
+
+            var info = new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.Transparent);
+            var scale = Math.Min((float)size / source.Width, (float)size / source.Height);
+            var width = source.Width * scale;
+            var height = source.Height * scale;
+            var destination = new SKRect(
+                (size - width) / 2,
+                (size - height) / 2,
+                (size + width) / 2,
+                (size + height) / 2);
+            using var paint = new SKPaint { IsAntialias = true };
+            using var sourceImage = SKImage.FromBitmap(source);
+            canvas.DrawImage(
+                sourceImage,
+                destination,
+                new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
+                paint);
+            using var image = surface.Snapshot();
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            return new Bitmap(data.AsStream());
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static Bitmap RenderAiIcon(string iconKey, int size)

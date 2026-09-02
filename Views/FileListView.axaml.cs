@@ -226,6 +226,11 @@ public partial class FileListView : UserControl
     private FileSystemEntry? _dragOverTargetEntry;
     private FileSystemEntry? _rightPressedEntry;
     private Control? _rightPressedAnchor;
+    private FileSystemEntry[]? _rightClickSelectionSnapshot;
+    // Avalonia's ListBox can raise a deferred SelectionChanged after a secondary
+    // click has already been released. Keep a guard for the whole context-menu
+    // interaction instead of only while the pointer is physically pressed.
+    private bool _contextMenuSelectionGuard;
     private bool _selectionSyncQueued;
     private bool _entriesVisualRefreshQueued;
     private Vector _pendingEntriesScrollOffset;
@@ -236,6 +241,19 @@ public partial class FileListView : UserControl
     private bool _restoringNavigationSelectionToTop;
     private bool _allowRestoreBringIntoView;
     private DateTime _ignoreEmptySelectionUntilUtc;
+    private Point? _marqueeStart;
+    private bool _marqueeActive;
+    private bool _suppressControlSelectionDuringMarquee;
+    private KeyModifiers _marqueeModifiers;
+    private HashSet<FileSystemEntry> _marqueeBaseSelection = [];
+    // An entry can have several separate Finder-style hit regions (icon, name,
+    // modified date, size and kind). Keeping those rectangles separate prevents
+    // the whitespace between columns, or to the right of a row, from selecting
+    // an unrelated item merely because it shares the same vertical row.
+    private readonly Dictionary<FileSystemEntry, List<Rect>> _marqueeEntryBounds = [];
+    private readonly DispatcherTimer _marqueeScrollTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+    private Point _marqueeCurrentViewportPoint;
+    private ScrollViewer? _marqueeScrollViewer;
 
     public FileListView()
     {
@@ -250,6 +268,13 @@ public partial class FileListView : UserControl
         AddHandler(PointerPressedEvent, OnDismissClick, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerReleasedEvent, OnGlobalPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(Control.RequestBringIntoViewEvent, OnRequestBringIntoView, RoutingStrategies.Bubble, handledEventsToo: true);
+        // Track the complete gesture at the view root. On macOS, pointer capture can
+        // reroute subsequent moves above the inner ListBox/FileScroll control; root
+        // tunnel handlers keep the press -> move -> release chain intact.
+        AddHandler(PointerPressedEvent, OnEmptyAreaPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerMovedEvent, OnMarqueePointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, OnMarqueePointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+        _marqueeScrollTimer.Tick += (_, _) => OnMarqueeScrollTick();
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
@@ -521,7 +546,10 @@ public partial class FileListView : UserControl
         image.Tag = state;
         try
         {
-            if (entry.IconKey == "file-image" && string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
+            // The macOS thumbnail service supports both images and Quick Look documents.
+            // Do not gate it on the icon classification: that prevented PDF, text and
+            // Office documents from ever reaching the service.
+            if (!entry.IsDirectory && !entry.IsVirtual && string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
             {
                 var thumbnailService = App.Services.GetService<IThumbnailService>();
                 var thumbnail = thumbnailService == null
@@ -576,7 +604,7 @@ public partial class FileListView : UserControl
         state.Entry.PropertyChanged -= state.Handler;
     }
 
-    private static async System.Threading.Tasks.Task<Bitmap?> GetEntryBitmapAsync(
+    internal static async System.Threading.Tasks.Task<Bitmap?> GetEntryBitmapAsync(
         string source,
         CancellationToken cancellationToken = default)
     {
@@ -714,6 +742,17 @@ public partial class FileListView : UserControl
         for (var column = 1; column <= 4 && column < grid.ColumnDefinitions.Count; column++)
             grid.ColumnDefinitions[column].Width = new GridLength(
                 _effectiveColumnWidths[(FileListColumn)(column - 1)]);
+
+        // A left-aligned name hit target sizes to its text. Without updating its
+        // constraint when columns shrink, a long filename can extend over the date
+        // column both visually and for pointer hit testing. Keep an 8-point gutter
+        // at each side and clip the target to the effective Name column width.
+        var nameTargetWidth = Math.Max(
+            0,
+            _effectiveColumnWidths[FileListColumn.Name] - 16);
+        foreach (var target in grid.GetVisualDescendants().OfType<Control>()
+                     .Where(control => control.Classes.Contains("list-name-hit")))
+            target.MaxWidth = nameTargetWidth;
     }
 
     private double GetAvailableDataWidth()
@@ -1085,13 +1124,26 @@ public partial class FileListView : UserControl
         var label = this.GetVisualDescendants()
             .OfType<TextBlock>()
             .FirstOrDefault(text => IsEntryNameLabelFor(text, entry));
-        if (label?.Parent is not Panel parent) return;
+        if (label?.Parent is not Control labelHost)
+            return;
 
-        var index = parent.Children.IndexOf(label);
-        if (index < 0) return;
+        // List view keeps the name inside a clipped Border so the rest of the
+        // Name column remains canvas for marquee selection. Grid is still a
+        // Panel, while Border is a Decorator; support both hosts when swapping
+        // the label for the inline editor.
+        var parent = labelHost as Panel;
+        var decorator = labelHost as Decorator;
+        if (parent == null && decorator == null)
+            return;
+
+        var layoutParent = parent ?? labelHost.FindAncestorOfType<Panel>();
+
+        var index = parent?.Children.IndexOf(label) ?? -1;
+        if (parent != null && index < 0)
+            return;
 
         var isGridIconLabel = label.FindAncestorOfType<Border>()?.Classes.Contains("file-grid-content") == true;
-        var editorWidth = GetInlineRenameEditorWidth(label, parent, isGridIconLabel);
+        var editorWidth = GetInlineRenameEditorWidth(label, layoutParent, isGridIconLabel);
         var editor = new TextBox
         {
             Text = entry.Name,
@@ -1116,8 +1168,15 @@ public partial class FileListView : UserControl
             Grid.SetRowSpan(editor, Grid.GetRowSpan(label));
         }
 
-        parent.Children.RemoveAt(index);
-        parent.Children.Insert(index, editor);
+        if (parent != null)
+        {
+            parent.Children.RemoveAt(index);
+            parent.Children.Insert(index, editor);
+        }
+        else
+        {
+            decorator!.Child = editor;
+        }
         _renameEditor = editor;
         _renameLabel = label;
         _activeRenamePath = entry.FullPath;
@@ -1146,15 +1205,21 @@ public partial class FileListView : UserControl
         });
     }
 
-    private static double GetInlineRenameEditorWidth(TextBlock label, Panel parent, bool isGridIconLabel)
+    private static double GetInlineRenameEditorWidth(TextBlock label, Panel? parent, bool isGridIconLabel)
     {
+        var parentWidth = parent?.Bounds.Width ?? 0;
         if (isGridIconLabel)
-            return parent.Bounds.Width > 0 ? parent.Bounds.Width : 84;
+            return parentWidth > 0 ? parentWidth : 84;
 
         var availableWidth = 320d;
         if (parent is Grid grid)
         {
-            var column = Grid.GetColumn(label);
+            // In list view the label is inside the clipped name Border, so the
+            // attached Grid column belongs to that Border rather than the label.
+            var columnHost = label.Parent as Control;
+            var column = columnHost?.Parent is Grid
+                ? Grid.GetColumn(columnHost)
+                : Grid.GetColumn(label);
             if (column >= 0 && column < grid.ColumnDefinitions.Count)
             {
                 var columnWidth = grid.ColumnDefinitions[column].ActualWidth;
@@ -1165,9 +1230,9 @@ public partial class FileListView : UserControl
                 }
             }
         }
-        else if (parent.Bounds.Width > 0)
+        else if (parentWidth > 0)
         {
-            availableWidth = parent.Bounds.Width - label.Margin.Left - label.Margin.Right;
+            availableWidth = parentWidth - label.Margin.Left - label.Margin.Right;
         }
 
         const double minimumWidth = 72;
@@ -1227,11 +1292,20 @@ public partial class FileListView : UserControl
         _renameLabel = null;
         _activeRenamePath = null;
 
-        if (editor?.Parent is not Panel parent || label == null) return;
-        var index = parent.Children.IndexOf(editor);
-        if (index < 0) return;
-        parent.Children.RemoveAt(index);
-        parent.Children.Insert(index, label);
+        if (editor == null || label == null)
+            return;
+
+        if (editor.Parent is Panel parent)
+        {
+            var index = parent.Children.IndexOf(editor);
+            if (index < 0) return;
+            parent.Children.RemoveAt(index);
+            parent.Children.Insert(index, label);
+        }
+        else if (editor.Parent is Decorator decorator)
+        {
+            decorator.Child = label;
+        }
     }
 
     private void SuppressImmediateSlowRename(string path)
@@ -1551,6 +1625,14 @@ public partial class FileListView : UserControl
         _menuRequestVersion++;
         CloseCurrentMenu();
         ViewModel?.CloseContextMenu();
+        // The menu is no longer consuming pointer/selection events. Release the
+        // secondary-click guard so keyboard and subsequent ListBox selection can
+        // resume normally even when the menu was dismissed with Escape or by an
+        // action rather than by a new left click.
+        _contextMenuSelectionGuard = false;
+        _rightClickSelectionSnapshot = null;
+        _rightPressedEntry = null;
+        _rightPressedAnchor = null;
     }
 
     private void CloseCurrentMenu()
@@ -1573,6 +1655,9 @@ public partial class FileListView : UserControl
         menu.Closing -= OnContextMenuClosing;
         DisposeOwnedMenuBitmaps();
         ViewModel?.CloseContextMenu();
+        _contextMenuSelectionGuard = false;
+        _rightClickSelectionSnapshot = null;
+        _rightPressedEntry = null;
     }
 
     private void DisposeOwnedMenuBitmaps()
@@ -1589,6 +1674,8 @@ public partial class FileListView : UserControl
         {
             _rightPressedEntry = null;
             _rightPressedAnchor = null;
+            _rightClickSelectionSnapshot = null;
+            _contextMenuSelectionGuard = false;
             DismissContextMenu();
             return;
         }
@@ -1603,15 +1690,25 @@ public partial class FileListView : UserControl
             return;
         _rightPressedEntry = entry;
         _rightPressedAnchor = entry == null ? FileScroll : FindEntryAnchor(sourceVisual) ?? FileScroll;
+        _contextMenuSelectionGuard = true;
         if (entry != null && !ViewModel.IsEntrySelected(entry))
         {
             ViewModel.SelectEntryForContextMenu(entry);
             QueueSelectionSynchronization();
         }
-        else if (entry == null)
+        _rightClickSelectionSnapshot = entry == null
+            ? []
+            : ViewModel.SelectedEntries.ToArray();
+        if (entry == null)
         {
             ViewModel.ClearSelection();
         }
+
+        // Prevent the nested ListBox from applying its default left-click-style
+        // selection policy to a secondary (right) click. Finder keeps an existing
+        // multi-selection when the context menu is opened on one of its members.
+        e.Handled = true;
+        ScheduleRightClickSelectionRestore();
     }
 
     private static Control? FindEntryAnchor(Visual? visual)
@@ -1647,6 +1744,12 @@ public partial class FileListView : UserControl
         if (sender is not Control control || control.DataContext is not FileSystemEntry entry || ViewModel == null)
             return;
 
+        // A virtualized ListBox can finish dispatching a SelectionChanged event
+        // after the previous marquee has already been released. A real item press
+        // starts a new interaction, so it is the safe point to resume the normal
+        // control -> view-model selection flow.
+        _suppressControlSelectionDuringMarquee = false;
+
         var owner = control.FindAncestorOfType<ListBox>();
         owner?.Focus();
         var point = e.GetCurrentPoint(control);
@@ -1657,9 +1760,13 @@ public partial class FileListView : UserControl
             ViewModel.NotifyTransientInteractionStarted();
             _rightPressedEntry = entry;
             _rightPressedAnchor = control;
+            _contextMenuSelectionGuard = true;
             if (!ViewModel.IsEntrySelected(entry))
                 ViewModel.SelectEntryForContextMenu(entry);
+            _rightClickSelectionSnapshot = ViewModel.SelectedEntries.ToArray();
             QueueSelectionSynchronization();
+            e.Handled = true;
+            ScheduleRightClickSelectionRestore();
             return;
         }
 
@@ -1667,6 +1774,8 @@ public partial class FileListView : UserControl
         {
             _rightPressedEntry = null;
             _rightPressedAnchor = null;
+            _rightClickSelectionSnapshot = null;
+            _contextMenuSelectionGuard = false;
             CancelSlowRename();
             DismissContextMenu();
             var modifiers = e.KeyModifiers;
@@ -2072,11 +2181,51 @@ public partial class FileListView : UserControl
 
         var contextAnchor = _rightPressedAnchor;
         var hasSelection = _rightPressedEntry != null;
+        RestoreRightClickSelection();
         _rightPressedAnchor = null;
-        _rightPressedEntry = null;
         e.Handled = true;
         ResetDragState();
         await ShowMenuAsync(contextAnchor, hasSelection);
+        // Keep the guard and snapshot until the next real pointer interaction.
+        // This covers a virtualized ListBox callback that arrives after the
+        // PointerReleased event and after the menu has been opened.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_contextMenuSelectionGuard)
+                RestoreRightClickSelection();
+        }, DispatcherPriority.Input);
+    }
+
+    private void ScheduleRightClickSelectionRestore()
+    {
+        if (!_contextMenuSelectionGuard || _rightPressedEntry == null)
+            return;
+
+        var contextEntry = _rightPressedEntry;
+        Dispatcher.UIThread.Post(() =>
+        {
+            // The pointer may already have been released or replaced by another
+            // context click. Only restore the snapshot belonging to this press.
+            if (!ReferenceEquals(_rightPressedEntry, contextEntry))
+                return;
+            RestoreRightClickSelection();
+        }, DispatcherPriority.Input);
+    }
+
+    private void RestoreRightClickSelection()
+    {
+        if (ViewModel == null || _rightClickSelectionSnapshot is not { } snapshot)
+            return;
+
+        var currentPaths = ViewModel.SelectedEntries
+            .Select(entry => entry.FullPath)
+            .ToArray();
+        var snapshotPaths = snapshot
+            .Select(entry => entry.FullPath)
+            .ToArray();
+        if (!currentPaths.SequenceEqual(snapshotPaths, StringComparer.Ordinal))
+            ViewModel.SetSelection(snapshot, snapshot.LastOrDefault());
+        QueueSelectionSynchronization();
     }
 
     private void ResetDragState()
@@ -2285,25 +2434,420 @@ public partial class FileListView : UserControl
         if (ViewModel == null) return;
         CancelSlowRename();
 
-        var hit = FileScroll.InputHitTest(e.GetPosition(FileScroll));
-        if (hit is Visual visual && FindDataContextInAncestors(visual) is FileSystemEntry)
+        var sourceVisual = e.Source as Visual;
+        if (!IsWithinVisual(sourceVisual, FileScroll))
+            return;
+        // The list intentionally leaves the transparent remainder of a row as
+        // marquee canvas for left-button drags. A secondary click is different:
+        // Finder treats any point inside that row as the row's context target.
+        // Let OnDismissClick keep the existing multi-selection instead of letting
+        // this canvas handler turn a right-click on row whitespace into a blank
+        // background click.
+        if (e.GetCurrentPoint(FileScroll).Properties.IsRightButtonPressed
+            && FindDataContextInAncestors(sourceVisual) is FileSystemEntry)
+            return;
+        // A ListBoxItem owns the complete layout cell, including the transparent
+        // spacing around an icon. Finder treats that spacing as canvas: only the
+        // visible entry card starts an item click/drag; its surrounding gap starts
+        // a marquee gesture.
+        if (FindEntryContentInAncestors(sourceVisual) is not null)
             return;
 
         Focus();
         var point = e.GetCurrentPoint(FileScroll);
         if (point.Properties.IsLeftButtonPressed)
         {
+            // Nested ListBoxes can emit delayed SelectionChanged events while
+            // their visual selection is being cleared. Those events describe the
+            // previous selection and must not feed it back into the shared model
+            // during the new rubber-band gesture.
+            _suppressControlSelectionDuringMarquee = true;
             _rightPressedEntry = null;
             _rightPressedAnchor = null;
-            ViewModel.ClearSelection();
+            _marqueeScrollViewer = GetActiveFileScrollViewer();
+            _marqueeCurrentViewportPoint = e.GetPosition(FileScroll);
+            _marqueeStart = ViewportToContent(_marqueeCurrentViewportPoint);
+            _marqueeModifiers = e.KeyModifiers;
+            _marqueeBaseSelection = ViewModel.SelectedEntries.ToHashSet();
+            _marqueeEntryBounds.Clear();
+            CaptureRealizedEntryBounds();
+            if (!HasAdditiveSelectionModifier(_marqueeModifiers))
+                ViewModel.ClearSelection();
             DismissContextMenu();
+            e.Pointer.Capture(this);
+            e.Handled = true;
         }
         else if (point.Properties.IsRightButtonPressed)
         {
             _rightPressedEntry = null;
             _rightPressedAnchor = FileScroll;
+            _contextMenuSelectionGuard = true;
+            _rightClickSelectionSnapshot = [];
             ViewModel.ClearSelection();
+            e.Handled = true;
         }
+    }
+
+    private void OnMarqueePointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_marqueeStart == null || ViewModel == null) return;
+
+        // The pointer is captured by FileListView from the left-button press.
+        // On macOS, subsequent captured PointerMoved events can legitimately
+        // arrive without IsLeftButtonPressed set (the native event's button mask
+        // is not repeated after capture). Treating that as a release makes a
+        // drag started in the Name-column whitespace look like a click. The
+        // matching PointerReleased handler is the authoritative end of capture.
+
+        _marqueeCurrentViewportPoint = e.GetPosition(FileScroll);
+        var clampedViewport = ClampToFileArea(_marqueeCurrentViewportPoint);
+        var current = ViewportToContent(clampedViewport);
+        var start = _marqueeStart.Value;
+        if (!_marqueeActive && Math.Abs(current.X - start.X) < 4 && Math.Abs(current.Y - start.Y) < 4)
+            return;
+
+        _marqueeActive = true;
+        UpdateMarqueeSelection(current);
+        UpdateMarqueeScrollTimer();
+        e.Handled = true;
+    }
+
+    private void OnMarqueePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_marqueeStart == null) return;
+        EndMarquee(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void EndMarquee(IPointer pointer)
+    {
+        pointer.Capture(null);
+        _marqueeStart = null;
+        _marqueeActive = false;
+        _marqueeBaseSelection.Clear();
+        _marqueeEntryBounds.Clear();
+        _marqueeScrollViewer = null;
+        _marqueeScrollTimer.Stop();
+        SelectionMarquee.IsVisible = false;
+        // Keep suppressing delayed nested-ListBox callbacks until the next real
+        // pointer interaction. Some recycled containers report their old
+        // selection after ApplicationIdle; releasing the guard too early would
+        // re-add those stale entries to the final marquee result.
+    }
+
+    private static bool HasAdditiveSelectionModifier(KeyModifiers modifiers) =>
+        modifiers.HasFlag(KeyModifiers.Meta) || modifiers.HasFlag(KeyModifiers.Control) || modifiers.HasFlag(KeyModifiers.Shift);
+
+    private Point ClampToFileArea(Point point) => new(
+        Math.Clamp(point.X, 0, Math.Max(0, FileScroll.Bounds.Width)),
+        Math.Clamp(point.Y, 0, Math.Max(0, FileScroll.Bounds.Height)));
+
+    private static Rect RectFromPoints(Point first, Point second) => new(
+        Math.Min(first.X, second.X), Math.Min(first.Y, second.Y),
+        Math.Abs(second.X - first.X), Math.Abs(second.Y - first.Y));
+
+    private void CaptureRealizedEntryBounds()
+    {
+        var offset = _marqueeScrollViewer?.Offset ?? default;
+        var realizedBounds = new Dictionary<FileSystemEntry, List<Rect>>();
+        foreach (var control in FileScroll.GetVisualDescendants().OfType<Control>()
+                     .Where(control => control.DataContext is FileSystemEntry
+                                       && control.Classes.Contains("entry-content")
+                                       && IsInActivePresentation(control)))
+        {
+            var origin = control.TranslatePoint(default, FileScroll);
+            if (origin is { } point && control.DataContext is FileSystemEntry entry)
+            {
+                var bounds = new Rect(
+                    new Point(point.X + offset.X, point.Y + offset.Y),
+                    control.Bounds.Size);
+                if (bounds.Width <= 0 || bounds.Height <= 0)
+                    continue;
+                if (!realizedBounds.TryGetValue(entry, out var entryBounds))
+                    realizedBounds[entry] = entryBounds = [];
+                entryBounds.Add(bounds);
+            }
+        }
+
+        // Replace rather than append: virtualized controls are recycled while
+        // scrolling, so their translated rectangles must follow the current item.
+        foreach (var (entry, bounds) in realizedBounds)
+            _marqueeEntryBounds[entry] = bounds;
+        var realizedEntries = realizedBounds.Keys.ToHashSet();
+
+        // Virtualization may provide data items before it materializes their visual
+        // templates (especially on the first drag after navigation). Finder list rows
+        // are uniform, so fill any missing logical bounds from the list index instead
+        // of treating the gesture as a background click with zero hits.
+        if (FileItemsList.IsVisible && ViewModel != null
+            && FileItemsList.TranslatePoint(default, FileScroll) is { } listOrigin)
+        {
+            var entryIndexes = ViewModel.Entries
+                .Select((entry, index) => (entry, index))
+                .ToDictionary(item => item.entry, item => item.index);
+            var realizedRows = FileItemsList.GetVisualDescendants()
+                .OfType<ListBoxItem>()
+                .Select(row =>
+                {
+                    var origin = row.TranslatePoint(default, FileScroll);
+                    return (row, origin);
+                })
+                .Where(item => item.origin is not null
+                               && item.row.DataContext is FileSystemEntry entry
+                               && entryIndexes.ContainsKey(entry))
+                .Select(item =>
+                {
+                    var entry = (FileSystemEntry)item.row.DataContext!;
+                    return (entry, index: entryIndexes[entry],
+                        top: item.origin!.Value.Y + offset.Y,
+                        height: item.row.Bounds.Height);
+                })
+                .OrderBy(item => item.index)
+                .ToArray();
+
+            // Derive the pitch from the actual virtualized ListBoxItem positions.
+            // The inner hit targets are shorter than a row and are not suitable
+            // for this measurement; using their height caused cumulative drift at
+            // the bottom of large folders.
+            var measuredPitches = realizedRows
+                .Zip(realizedRows.Skip(1), (first, second) =>
+                    (second.top - first.top) / Math.Max(1, second.index - first.index))
+                .Where(pitch => pitch > 0.1)
+                .OrderBy(pitch => pitch)
+                .ToArray();
+            var rowHeight = measuredPitches.Length > 0
+                ? measuredPitches[measuredPitches.Length / 2]
+                : realizedRows.Select(row => row.height).Where(height => height > 0)
+                    .DefaultIfEmpty(30).Max() + 2;
+            rowHeight = Math.Max(1, rowHeight);
+
+            var logicalOriginY = realizedRows.Length > 0
+                ? realizedRows.Average(row => row.top - row.index * rowHeight)
+                : listOrigin.Y + offset.Y;
+            var fallbackX = listOrigin.X + 12;
+            var fallbackWidth = 22 + Math.Max(0, _effectiveColumnWidths[FileListColumn.Name]);
+            for (var index = 0; index < ViewModel.Entries.Count; index++)
+            {
+                var entry = ViewModel.Entries[index];
+                // Rebuild every row on each pass. A recycled row may still expose
+                // its previous visual bounds for one layout turn after scrolling;
+                // the logical row model is authoritative for marquee selection.
+                _marqueeEntryBounds[entry] = [new Rect(
+                    fallbackX + offset.X,
+                    logicalOriginY + index * rowHeight,
+                    fallbackWidth,
+                    rowHeight)];
+            }
+        }
+
+        if (GridViewItems.IsVisible && ViewModel != null
+            && GridViewItems.TranslatePoint(default, FileScroll) is { } gridOrigin)
+        {
+            const double cellWidth = 120;
+            const double cellHeight = 116;
+            const double cardInsetX = 10;
+            const double cardInsetY = 6;
+            const double cardWidth = 100;
+            const double cardHeight = 104;
+            var columns = Math.Max(1, _gridColumnCount > 0 ? _gridColumnCount : CalculateGridColumnCount());
+            if (ViewModel.GroupField == GroupField.None)
+            {
+                for (var index = 0; index < ViewModel.Entries.Count; index++)
+                {
+                    var entry = ViewModel.Entries[index];
+                    if (!realizedEntries.Contains(entry))
+                        _marqueeEntryBounds[entry] = [new Rect(
+                            gridOrigin.X + offset.X + index % columns * cellWidth + cardInsetX,
+                            gridOrigin.Y + offset.Y + index / columns * cellHeight + cardInsetY,
+                            cardWidth,
+                            cardHeight)];
+                }
+            }
+            else
+            {
+                var y = gridOrigin.Y;
+                foreach (var row in _gridRows)
+                {
+                    if (row.IsGroupHeader)
+                    {
+                        y += 32;
+                        continue;
+                    }
+                    for (var column = 0; column < row.Entries.Count; column++)
+                    {
+                        var entry = row.Entries[column];
+                        if (!realizedEntries.Contains(entry))
+                            _marqueeEntryBounds[entry] = [new Rect(
+                                gridOrigin.X + offset.X + column * cellWidth + cardInsetX,
+                                y + offset.Y + cardInsetY,
+                                cardWidth,
+                                cardHeight)];
+                    }
+                    y += cellHeight;
+                }
+            }
+        }
+
+        if (GroupedListItems.IsVisible
+            && GroupedListItems.TranslatePoint(default, FileScroll) is { } groupedOrigin)
+        {
+            var y = groupedOrigin.Y;
+            foreach (var row in _groupedListRows)
+            {
+                if (row.IsGroupHeader)
+                {
+                    y += 32;
+                    continue;
+                }
+                if (row.Entry is { } entry && !realizedEntries.Contains(entry))
+                    _marqueeEntryBounds[entry] = [new Rect(
+                        groupedOrigin.X + offset.X + 12,
+                        y + offset.Y,
+                        22 + Math.Max(0, _effectiveColumnWidths[FileListColumn.Name]),
+                        30)];
+                y += 30;
+            }
+        }
+    }
+
+    private ScrollViewer? GetActiveFileScrollViewer() => FileScroll.GetVisualDescendants()
+        .OfType<ScrollViewer>()
+        .FirstOrDefault(viewer => viewer.IsVisible);
+
+    /// <summary>
+    /// Hidden presentation hosts remain in Avalonia's visual tree when the user
+    /// switches between list and icon modes. Their recycled item containers still
+    /// have coordinates, but must never participate in the current marquee hit
+    /// test. Walk up to the presentation host instead of relying on the child's
+    /// local IsVisible value (which can remain true under a hidden ancestor).
+    /// </summary>
+    private bool IsInActivePresentation(Visual visual)
+    {
+        for (Visual? current = visual; current != null && !ReferenceEquals(current, FileScroll); current = current.GetVisualParent())
+        {
+            if (ReferenceEquals(current, FileItemsList))
+                return FileItemsList.IsVisible;
+            if (ReferenceEquals(current, GroupedListItems))
+                return GroupedListItems.IsVisible;
+            if (ReferenceEquals(current, GridViewItems))
+                return GridViewItems.IsVisible;
+        }
+
+        return false;
+    }
+
+    private bool IsListMarqueePresentation =>
+        FileItemsList.IsVisible || GroupedListItems.IsVisible;
+
+    private Point ViewportToContent(Point point)
+    {
+        var offset = _marqueeScrollViewer?.Offset ?? default;
+        return new Point(point.X + offset.X, point.Y + offset.Y);
+    }
+
+    private void UpdateMarqueeSelection(Point currentContentPoint)
+    {
+        if (_marqueeStart == null || ViewModel == null) return;
+        CaptureRealizedEntryBounds();
+        var rectangle = RectFromPoints(_marqueeStart.Value, currentContentPoint);
+        var offset = _marqueeScrollViewer?.Offset ?? default;
+        var visibleContent = new Rect(offset.X, offset.Y, FileScroll.Bounds.Width, FileScroll.Bounds.Height);
+        var visibleRectangle = IntersectRects(rectangle, visibleContent);
+        if (visibleRectangle.Width > 0 && visibleRectangle.Height > 0)
+        {
+            SelectionMarquee.Margin = new Thickness(
+                visibleRectangle.X - offset.X,
+                visibleRectangle.Y - offset.Y,
+                0, 0);
+            SelectionMarquee.Width = visibleRectangle.Width;
+            SelectionMarquee.Height = visibleRectangle.Height;
+            SelectionMarquee.IsVisible = true;
+        }
+        else
+        {
+            SelectionMarquee.IsVisible = false;
+        }
+
+        // Finder's list view treats the row as the selectable unit: a drag may
+        // start in the blank part of the Name column and still select rows by
+        // their vertical centers. Icon view uses the center of a visible card,
+        // so grazing an adjacent card at an edge does not select it.
+        var hits = _marqueeEntryBounds
+            .Where(item => IsListMarqueePresentation
+                ? item.Value.Any(bounds => rectangle.Top <= bounds.Center.Y
+                                           && bounds.Center.Y <= rectangle.Bottom)
+                : item.Value.Any(bounds => rectangle.Contains(bounds.Center)))
+            .Select(item => item.Key)
+            .ToHashSet();
+        IEnumerable<FileSystemEntry> selection;
+        var command = _marqueeModifiers.HasFlag(KeyModifiers.Meta) || _marqueeModifiers.HasFlag(KeyModifiers.Control);
+        if (command)
+            selection = _marqueeBaseSelection.Where(entry => !hits.Contains(entry))
+                .Concat(hits.Where(entry => !_marqueeBaseSelection.Contains(entry)));
+        else if (_marqueeModifiers.HasFlag(KeyModifiers.Shift))
+            selection = _marqueeBaseSelection.Concat(hits);
+        else
+            selection = hits;
+        ViewModel.SetSelection(selection);
+        QueueSelectionSynchronization();
+    }
+
+    private static Rect IntersectRects(Rect first, Rect second)
+    {
+        var left = Math.Max(first.Left, second.Left);
+        var top = Math.Max(first.Top, second.Top);
+        var right = Math.Min(first.Right, second.Right);
+        var bottom = Math.Min(first.Bottom, second.Bottom);
+        return right > left && bottom > top ? new Rect(left, top, right - left, bottom - top) : default;
+    }
+
+    private void UpdateMarqueeScrollTimer()
+    {
+        const double edge = 36;
+        var shouldScroll = _marqueeCurrentViewportPoint.Y < edge
+                           || _marqueeCurrentViewportPoint.Y > FileScroll.Bounds.Height - edge;
+        if (shouldScroll && _marqueeActive)
+            _marqueeScrollTimer.Start();
+        else
+            _marqueeScrollTimer.Stop();
+    }
+
+    private void OnMarqueeScrollTick()
+    {
+        if (!_marqueeActive || _marqueeStart == null || _marqueeScrollViewer == null)
+        {
+            _marqueeScrollTimer.Stop();
+            return;
+        }
+
+        const double edge = 36;
+        var distance = _marqueeCurrentViewportPoint.Y < edge
+            ? _marqueeCurrentViewportPoint.Y - edge
+            : _marqueeCurrentViewportPoint.Y > FileScroll.Bounds.Height - edge
+                ? _marqueeCurrentViewportPoint.Y - (FileScroll.Bounds.Height - edge)
+                : 0;
+        if (distance == 0)
+        {
+            _marqueeScrollTimer.Stop();
+            return;
+        }
+
+        var speed = Math.Clamp(Math.Abs(distance) * 0.35, 4, 28) * Math.Sign(distance);
+        var maxOffset = Math.Max(0, _marqueeScrollViewer.Extent.Height - _marqueeScrollViewer.Viewport.Height);
+        var nextY = Math.Clamp(_marqueeScrollViewer.Offset.Y + speed, 0, maxOffset);
+        if (Math.Abs(nextY - _marqueeScrollViewer.Offset.Y) < 0.01)
+        {
+            _marqueeScrollTimer.Stop();
+            return;
+        }
+
+        _marqueeScrollViewer.Offset = new Vector(_marqueeScrollViewer.Offset.X, nextY);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_marqueeActive) return;
+            var current = ViewportToContent(ClampToFileArea(_marqueeCurrentViewportPoint));
+            UpdateMarqueeSelection(current);
+        }, DispatcherPriority.Render);
     }
 
     private static object? FindDataContextInAncestors(Visual? visual)
@@ -2314,9 +2858,30 @@ public partial class FileListView : UserControl
         return null;
     }
 
+    internal static FileSystemEntry? FindEntryContentInAncestors(Visual? visual)
+    {
+        for (; visual != null; visual = visual.GetVisualParent())
+            if (visual is Control { DataContext: FileSystemEntry entry } control
+                && control.Classes.Contains("entry-content"))
+                return entry;
+        return null;
+    }
+
     private void OnControlSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_syncingSelection || sender is not ListBox listBox || ViewModel == null)
+        if (_contextMenuSelectionGuard)
+        {
+            // A ListBox may still raise SelectionChanged after the tunnel handler
+            // consumed the secondary-click press. Never feed that transient,
+            // single-item control state back into the shared multi-selection.
+            RestoreRightClickSelection();
+            e.Handled = true;
+            return;
+        }
+
+        if (_syncingSelection || _suppressControlSelectionDuringMarquee
+            || _marqueeStart != null
+            || sender is not ListBox listBox || ViewModel == null)
             return;
 
         var selected = listBox.SelectedItems?.OfType<FileSystemEntry>().ToList() ?? [];
@@ -2483,7 +3048,7 @@ public partial class FileListView : UserControl
     }
 
     private int CalculateGridColumnCount()
-        => Math.Max(1, (int)Math.Floor(Math.Max(108, Bounds.Width - 16) / 108));
+        => Math.Max(1, (int)Math.Floor(Math.Max(120, Bounds.Width - 16) / 120));
 
     private void RebuildGridRowsIfColumnCountChanged()
     {
@@ -2575,6 +3140,13 @@ public partial class FileListView : UserControl
 
     private void OnFileListKeyDown(object? sender, KeyEventArgs e)
     {
+        // EndMarquee intentionally holds this guard through one idle turn to
+        // absorb stale virtualized ListBox callbacks. A keyboard gesture is a
+        // new, intentional selection interaction and must release that guard;
+        // otherwise Arrow/Shift+Arrow selection would remain disabled until the
+        // user clicked an item again.
+        if (!IsTextInputSource(e.Source))
+            _suppressControlSelectionDuringMarquee = false;
         TryHandleFileShortcut(e);
     }
 

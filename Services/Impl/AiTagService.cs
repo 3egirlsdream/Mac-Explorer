@@ -322,56 +322,58 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<string>> SearchByTagAsync(string tagValue, string? tagType = null, int limit = 200)
     {
-        using var connectionLock = await AcquireConnectionAsync();
-        var paths = new List<string>();
-        using var cmd = _connection.CreateCommand();
+        tagValue = tagValue?.Trim() ?? string.Empty;
+        if (tagValue.Length == 0 || limit <= 0)
+            return [];
 
-        // Try FTS5 first
+        using var connectionLock = await AcquireConnectionAsync();
+        var paths = new List<string>(limit);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // FTS is fast for token/prefix matches, but it is not reliable for every
+        // OCR language or for a query occurring in the middle of a recognized
+        // line. Keep it as the first pass and always supplement it with LIKE.
         if (tagType == null)
         {
-            cmd.CommandText = """
-                SELECT DISTINCT a.file_path FROM ai_tags a
-                INNER JOIN ai_tags_fts f ON a.id = f.rowid
-                WHERE ai_tags_fts MATCH @query
-                LIMIT @limit
-                """;
-        }
-        else
-        {
-            cmd.CommandText = """
-                SELECT DISTINCT file_path FROM ai_tags
-                WHERE tag_type = @type AND tag_value LIKE @query
-                LIMIT @limit
-                """;
-            cmd.Parameters.AddWithValue("@type", tagType);
-        }
-
-        cmd.Parameters.AddWithValue("@query", tagType == null ? $"{tagValue}*" : $"%{tagValue}%");
-        cmd.Parameters.AddWithValue("@limit", limit);
-
-        try
-        {
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-                paths.Add(reader.GetString(0));
-        }
-        catch
-        {
-            // FTS5 may fail, fall back to LIKE
-            if (tagType == null)
+            try
             {
-                paths.Clear();
-                using var fallback = _connection.CreateCommand();
-                fallback.CommandText = """
-                    SELECT DISTINCT file_path FROM ai_tags
-                    WHERE tag_value LIKE @query LIMIT @limit
+                using var fts = _connection.CreateCommand();
+                fts.CommandText = """
+                    SELECT DISTINCT a.file_path FROM ai_tags a
+                    INNER JOIN ai_tags_fts f ON a.id = f.rowid
+                    WHERE ai_tags_fts MATCH @query
+                    LIMIT @limit
                     """;
-                fallback.Parameters.AddWithValue("@query", $"%{tagValue}%");
-                fallback.Parameters.AddWithValue("@limit", limit);
-                using var reader2 = await fallback.ExecuteReaderAsync();
-                while (await reader2.ReadAsync())
-                    paths.Add(reader2.GetString(0));
+                fts.Parameters.AddWithValue("@query", $"{tagValue}*");
+                fts.Parameters.AddWithValue("@limit", limit);
+                using var reader = await fts.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var path = reader.GetString(0);
+                    if (seen.Add(path)) paths.Add(path);
+                }
             }
+            catch
+            {
+                // LIKE below is the authoritative fallback when FTS is absent
+                // or the query contains punctuation unsupported by MATCH.
+            }
+        }
+
+        using var like = _connection.CreateCommand();
+        like.CommandText = tagType == null
+            ? "SELECT DISTINCT file_path FROM ai_tags WHERE tag_value LIKE @query LIMIT @limit"
+            : "SELECT DISTINCT file_path FROM ai_tags WHERE tag_type = @type AND tag_value LIKE @query LIMIT @limit";
+        like.Parameters.AddWithValue("@query", $"%{tagValue}%");
+        like.Parameters.AddWithValue("@limit", limit);
+        if (tagType != null)
+            like.Parameters.AddWithValue("@type", tagType);
+
+        using var likeReader = await like.ExecuteReaderAsync();
+        while (await likeReader.ReadAsync() && paths.Count < limit)
+        {
+            var path = likeReader.GetString(0);
+            if (seen.Add(path)) paths.Add(path);
         }
 
         return paths;

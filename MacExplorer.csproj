@@ -8,7 +8,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
     <ApplicationId>com.macexplorer.app</ApplicationId>
-    <Version>1.0.22</Version>
+    <Version>1.0.33</Version>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -51,8 +51,18 @@
     <Exec Command="clang++ -fobjc-arc -dynamiclib 'Platforms/MacOS/NativeFileDrag.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
+  <Target Name="BuildMacOSThumbnailHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <Exec Command="xcrun swiftc -O 'Platforms/MacOS/ThumbnailHelper.swift' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers -o '$(OutputPath)MacExplorer.Thumbnail'" />
+  </Target>
+
   <Target Name="CopyMacOSAppIconToOutput" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <Copy SourceFiles="$(MSBuildProjectDirectory)/Assets/appicon.icns" DestinationFolder="$(OutputPath)" Condition="Exists('$(MSBuildProjectDirectory)/Assets/appicon.icns')" />
+  </Target>
+
+  <!-- Render the folder artwork supplied by the installed macOS version. This keeps
+       folder icons identical to Finder instead of shipping a hand-drawn imitation. -->
+  <Target Name="BuildMacOSFinderFolderIcon" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <Exec Command="/usr/bin/sips -s format png -z 512 512 '/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFolderIcon.icns' --out '$(OutputPath)MacExplorer.Folder.png'" Condition="Exists('/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFolderIcon.icns')" />
   </Target>
 
   <Target Name="CreateMacOSBundle" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
@@ -94,10 +104,13 @@
       <_NativeLibs Include="$(OutputPath)runtimes/osx-arm64/native/*.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.ImageAnalysis" />
       <_NativeHelpers Include="$(OutputPath)libMacExplorerNativeDrag.dylib" />
+      <_NativeHelpers Include="$(OutputPath)MacExplorer.Thumbnail" />
+      <_RuntimeArtwork Include="$(OutputPath)MacExplorer.Folder.png" />
     </ItemGroup>
     <Copy SourceFiles="@(_BundleFiles)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_NativeLibs)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_NativeHelpers)" DestinationFolder="$(_MacOSDir)" />
+    <Copy SourceFiles="@(_RuntimeArtwork)" DestinationFolder="$(_MacOSDir)" Condition="Exists('%(Identity)')" />
 
     <!-- Codesign (ad-hoc) so the bundle is not quarantined (deep signs all embedded binaries). -->
     <Exec Command="codesign --force --deep --sign - '$(_AppBundleDir)'" />
@@ -105,7 +118,7 @@
     <Message Text="[macOS] .app bundle ready at: $(_AppBundleDir)" Importance="high" />
   </Target>
 
-  <Target Name="CreateMacOSReleaseDMG" AfterTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(Configuration)' == 'Release'">
+  <Target Name="CreateMacOSReleaseDMG" AfterTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(Configuration)' == 'Release' and '$(SkipMacOSReleaseDMG)' != 'true'">
     <PropertyGroup>
       <_ReleaseAppBundle>$(OutputPath)Mac Explorer.app</_ReleaseAppBundle>
       <_ReleaseDMG>$(OutputPath)MacExplorer-$(Version)-macos.dmg</_ReleaseDMG>

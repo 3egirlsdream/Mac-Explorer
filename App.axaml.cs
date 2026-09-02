@@ -54,7 +54,12 @@ public partial class App : Application
         var frequentFolderService = Services.GetService<IFrequentFolderService>();
         OmniboxService.RegisterProvider(new PathOmniboxProvider());
         OmniboxService.RegisterProvider(new CommandOmniboxProvider());
-        OmniboxService.RegisterProvider(new SearchOmniboxProvider());
+        // Search suggestions are backed by the app-wide FTS index, so the omnibox
+        // reuses the same pipeline as in-window search, including OCR/AI tags.
+        OmniboxService.RegisterProvider(new SearchOmniboxProvider(
+            Services.GetService<IFileIndex>(), Services.GetService<IGlobalSearchScopeService>(),
+            Services.GetService<ISearchService>()));
+        OmniboxService.RegisterProvider(new PinnedFolderOmniboxProvider(Services.GetService<IPinnedFolderService>()));
         OmniboxService.RegisterProvider(new RecentDirectoryOmniboxProvider(frequentFolderService));
     }
 
@@ -179,6 +184,7 @@ public partial class App : Application
         services.AddSingleton<IDragDropService, Platforms.MacCatalyst.Services.MacDragDropBridge>();
         services.AddSingleton<ISearchService, Platforms.MacCatalyst.Services.MacSearchService>();
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<IGlobalSearchScopeService, Services.Impl.GlobalSearchScopeService>();
         services.AddSingleton<FileListColumnLayoutService>();
         services.AddSingleton<WindowPlacementService>();
         services.AddSingleton<IRatingService, Services.Impl.RatingService>();

@@ -9,6 +9,7 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False"
              Focusable="True"
+             FocusAdorner="{x:Null}"
              KeyDown="OnFileListKeyDown">
 
     <UserControl.Resources>
@@ -79,55 +80,54 @@
         </ControlTheme>
 
         <ControlTheme x:Key="FileGridItemTheme" TargetType="ListBoxItem">
-            <Setter Property="Width" Value="108"/>
+            <Setter Property="Width" Value="120"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="Margin" Value="1"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+            <Setter Property="Margin" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="ClipToBounds" Value="True"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+            <Setter Property="ClipToBounds" Value="False"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}"
-                            ClipToBounds="True">
-                        <ContentPresenter
-                            Content="{TemplateBinding Content}"
-                            ContentTemplate="{TemplateBinding ContentTemplate}"
-                            HorizontalContentAlignment="Left"
-                            Padding="{TemplateBinding Padding}"/>
-                    </Border>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="Left"
+                                      Padding="{TemplateBinding Padding}"/>
                 </ControlTemplate>
             </Setter>
+            <!-- Selection is drawn only by the compact icon/name hit targets in
+                 GridEntryTemplate. The outer cell must remain Finder canvas. -->
             <Style Selector="^:pointerover">
-                <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
             </Style>
             <Style Selector="^:selected">
-                <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
             </Style>
             <Style Selector="^:selected:pointerover">
-                <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
             </Style>
             <Style Selector="^:focus-visible">
-                <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
             </Style>
         </ControlTheme>
 
         <DataTemplate x:Key="ListEntryTemplate" x:DataType="models:FileSystemEntry">
-            <Border Classes="file-list-entry entry-content" Classes.selected="{Binding IsSelected}"
+            <Border Classes="file-list-entry entry-selection-bounds" Classes.selected="{Binding IsSelected}"
                     CornerRadius="{DynamicResource InteractionCornerRadius}" Padding="12,3"
-                    Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}"
-                    PointerPressed="OnListItemPointerPressed"
-                    PointerMoved="OnItemPointerMoved"
-                    PointerReleased="OnItemPointerReleased"
-                    DoubleTapped="OnFileItemDoubleTapped">
+                    Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}">
                 <Grid Classes="file-list-row-grid" ColumnDefinitions="22,420,170,110,110,*"
                       AttachedToVisualTree="OnFileListRowAttachedToVisualTree">
-                    <Grid Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center">
+                    <Grid Grid.Column="0" Classes="list-entry-hit entry-content"
+                          Width="22" Height="22" VerticalAlignment="Center"
+                          PointerPressed="OnListItemPointerPressed"
+                          PointerMoved="OnItemPointerMoved"
+                          PointerReleased="OnItemPointerReleased"
+                          DoubleTapped="OnFileItemDoubleTapped">
                         <Image Classes="entry-icon-image"
                                Source="{Binding ., Converter={StaticResource FileIconConverter}, ConverterParameter=24}"
                                Loaded="OnEntryImageLoaded" DataContextChanged="OnEntryImageDataContextChanged"
@@ -141,51 +141,78 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
-                    <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Grid.Column="1" Text="{Binding DisplayName}"
-                               VerticalAlignment="Center" Margin="8,0,0,0" FontSize="{DynamicResource FontSizeBody}"
-                               TextTrimming="CharacterEllipsis"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Grid.Column="2"
-                               Text="{Binding LastModified, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
-                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Grid.Column="3" Text="{Binding FormattedSize}"
-                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Grid.Column="4" Text="{Binding KindText}"
-                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Border Grid.Column="1" Classes="list-entry-hit list-name-hit entry-content"
+                            HorizontalAlignment="Left" MaxWidth="404" Margin="8,0,8,0" ClipToBounds="True"
+                            PointerPressed="OnListItemPointerPressed"
+                            PointerMoved="OnItemPointerMoved"
+                            PointerReleased="OnItemPointerReleased"
+                            DoubleTapped="OnFileItemDoubleTapped">
+                        <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Text="{Binding DisplayName}"
+                                   VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Border>
+                    <Border Grid.Column="2" Classes="list-entry-hit entry-content" HorizontalAlignment="Left"
+                            PointerPressed="OnListItemPointerPressed" PointerMoved="OnItemPointerMoved"
+                            PointerReleased="OnItemPointerReleased" DoubleTapped="OnFileItemDoubleTapped">
+                        <TextBlock Text="{Binding LastModified, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                   VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Border>
+                    <Border Grid.Column="3" Classes="list-entry-hit entry-content" HorizontalAlignment="Left"
+                            PointerPressed="OnListItemPointerPressed" PointerMoved="OnItemPointerMoved"
+                            PointerReleased="OnItemPointerReleased" DoubleTapped="OnFileItemDoubleTapped">
+                        <TextBlock Text="{Binding FormattedSize}" VerticalAlignment="Center"
+                                   FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Border>
+                    <Border Grid.Column="4" Classes="list-entry-hit entry-content" HorizontalAlignment="Left"
+                            PointerPressed="OnListItemPointerPressed" PointerMoved="OnItemPointerMoved"
+                            PointerReleased="OnItemPointerReleased" DoubleTapped="OnFileItemDoubleTapped">
+                        <TextBlock Text="{Binding KindText}" VerticalAlignment="Center"
+                                   FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="GridEntryTemplate" x:DataType="models:FileSystemEntry">
-            <Border Classes="file-grid-content entry-content" Classes.selected="{Binding IsSelected}"
-                    Width="100" Margin="4"
-                    Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}"
-                    PointerPressed="OnGridItemPointerPressed"
-                    PointerMoved="OnItemPointerMoved"
-                    PointerReleased="OnItemPointerReleased"
-                    DoubleTapped="OnFileItemDoubleTapped">
-                <StackPanel HorizontalAlignment="Center" Width="84">
-                    <Grid Width="64" Height="64" HorizontalAlignment="Center">
-                        <Image Classes="entry-icon-image"
-                               Source="{Binding ., Converter={StaticResource FileIconConverter}, ConverterParameter=256}"
-                               Loaded="OnEntryImageLoaded" DataContextChanged="OnEntryImageDataContextChanged"
-                               Width="56" Height="56" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality"/>
-                        <Border Classes="git-badge" Width="16" Height="16" CornerRadius="8"
-                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                BorderBrush="White" BorderThickness="1.5" IsVisible="{Binding HasGitBadge}"
-                                Background="{Binding GitBadgeColor}">
-                            <TextBlock Text="{Binding GitBadgeText}" FontSize="{StaticResource FontSizeIconGlyph}" FontWeight="{StaticResource FontWeightBold}" Foreground="{DynamicResource TextOnAccentBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </Grid>
-                    <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Text="{Binding IconDisplayName}"
-                               TextWrapping="Wrap"
-                               FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Margin="0,6,0,0"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <Border Classes="file-grid-content" Width="100" Margin="10,6"
+                    Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}">
+                <StackPanel HorizontalAlignment="Center" Width="100">
+                    <Border Classes="file-grid-hit-target file-grid-icon-target entry-content"
+                            Classes.selected="{Binding IsSelected}"
+                            Width="72" Height="72" HorizontalAlignment="Center"
+                            PointerPressed="OnGridItemPointerPressed"
+                            PointerMoved="OnItemPointerMoved"
+                            PointerReleased="OnItemPointerReleased"
+                            DoubleTapped="OnFileItemDoubleTapped">
+                        <Grid Width="64" Height="64" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Image Classes="entry-icon-image"
+                                   Source="{Binding ., Converter={StaticResource FileIconConverter}, ConverterParameter=256}"
+                                   Loaded="OnEntryImageLoaded" DataContextChanged="OnEntryImageDataContextChanged"
+                                   Width="56" Height="56" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                            <Border Classes="git-badge" Width="16" Height="16" CornerRadius="8"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    BorderBrush="White" BorderThickness="1.5" IsVisible="{Binding HasGitBadge}"
+                                    Background="{Binding GitBadgeColor}">
+                                <TextBlock Text="{Binding GitBadgeText}" FontSize="{StaticResource FontSizeIconGlyph}" FontWeight="{StaticResource FontWeightBold}" Foreground="{DynamicResource TextOnAccentBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <Border Classes="file-grid-hit-target file-grid-name-target entry-content"
+                            Classes.selected="{Binding IsSelected}"
+                            HorizontalAlignment="Center" MaxWidth="100" Margin="0,4,0,0" Padding="4,1"
+                            PointerPressed="OnGridItemPointerPressed"
+                            PointerMoved="OnItemPointerMoved"
+                            PointerReleased="OnItemPointerReleased"
+                            DoubleTapped="OnFileItemDoubleTapped">
+                        <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Text="{Binding IconDisplayName}"
+                                   TextWrapping="Wrap" MaxWidth="92"
+                                   FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Border>
                     <TextBlock Text="{Binding VirtualCountText}" IsVisible="{Binding IsVirtual}"
                                FontSize="{DynamicResource FontSizeMeta}" HorizontalAlignment="Center" Margin="0,2,0,0"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -265,15 +292,21 @@
         </Style>
         <Style Selector="Border.file-grid-content">
             <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.file-grid-hit-target">
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         </Style>
-        <Style Selector="Border.file-grid-content:pointerover">
+        <Style Selector="Border.file-grid-name-target">
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="Border.file-grid-hit-target:pointerover">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
-        <Style Selector="Border.file-grid-content.selected">
+        <Style Selector="Border.file-grid-hit-target.selected">
             <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         </Style>
-        <Style Selector="Border.file-grid-content.selected:pointerover">
+        <Style Selector="Border.file-grid-hit-target.selected:pointerover">
             <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
         </Style>
 
@@ -326,8 +359,8 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" x:Name="FileScroll" Background="{DynamicResource ColorBgContent}"
-              PointerPressed="OnEmptyAreaPressed">
+        <Grid Grid.Row="1" x:Name="FileScroll" Background="{DynamicResource ColorBgContent}" ClipToBounds="True"
+              >
                 <StackPanel x:Name="EmptyState" IsVisible="False"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
                             Margin="0,80,0,0">
@@ -339,6 +372,8 @@
 
                 <ListBox x:Name="FileItemsList" Classes="file-list file-scroll-host"
                          Background="{DynamicResource ColorBgContent}"
+                         BorderBrush="Transparent" BorderThickness="0"
+                         FocusAdorner="{x:Null}"
                          ItemsSource="{Binding Entries}" ItemTemplate="{StaticResource ListEntryTemplate}"
                          ItemContainerTheme="{StaticResource FileListItemTheme}"
                          SelectionMode="Multiple" SelectionChanged="OnControlSelectionChanged"
@@ -351,6 +386,8 @@
 
                 <ListBox x:Name="GroupedListItems" Classes="presentation-rows file-scroll-host" IsVisible="False"
                          Background="{DynamicResource ColorBgContent}"
+                         BorderBrush="Transparent" BorderThickness="0"
+                         FocusAdorner="{x:Null}"
                          SelectionMode="Single" ItemContainerTheme="{StaticResource PresentationRowItemTheme}"
                          SelectionChanged="OnPresentationRowSelectionChanged"
                          ItemTemplate="{StaticResource GroupedListRowTemplate}">
@@ -361,6 +398,8 @@
 
                 <ListBox x:Name="GridViewItems" Classes="presentation-rows file-scroll-host" IsVisible="False"
                          Background="{DynamicResource ColorBgContent}"
+                         BorderBrush="Transparent" BorderThickness="0"
+                         FocusAdorner="{x:Null}"
                          ItemTemplate="{StaticResource GridRowTemplate}" SelectionMode="Single"
                          ItemContainerTheme="{StaticResource PresentationRowItemTheme}"
                          SelectionChanged="OnPresentationRowSelectionChanged">
@@ -381,6 +420,10 @@
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </Border>
+                <Border x:Name="SelectionMarquee" IsVisible="False" IsHitTestVisible="False"
+                        ZIndex="100" HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Background="#263B82F6" BorderBrush="{DynamicResource ColorAccent}"
+                        BorderThickness="1" CornerRadius="2"/>
         </Grid>
     </Grid>
 </UserControl>

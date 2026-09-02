@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Specialized;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -21,6 +22,8 @@ public partial class FinderSidebarView : UserControl
     private Border? _activeCollectionEditorRow;
     private TextBox? _activeCollectionInput;
     private bool _isCommittingCollectionEdit;
+    private Border? _pinnedDropTarget;
+    private FileListViewModel? _subscribedViewModel;
 
     public FinderSidebarView()
     {
@@ -31,19 +34,36 @@ public partial class FinderSidebarView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        if (_subscribedViewModel != null)
+        {
+            _subscribedViewModel.PinnedFolders.CollectionChanged -= OnSidebarCollectionChanged;
+            _subscribedViewModel.Collections.CollectionChanged -= OnSidebarCollectionChanged;
+            _subscribedViewModel.SidebarTags.CollectionChanged -= OnSidebarCollectionChanged;
+            _subscribedViewModel.ExternalVolumes.CollectionChanged -= OnSidebarCollectionChanged;
+            _subscribedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+
         base.OnDataContextChanged(e);
         if (ViewModel != null)
         {
-            ViewModel.PinnedFolders.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
-            ViewModel.Collections.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
-            ViewModel.SidebarTags.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
-            ViewModel.ExternalVolumes.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
-            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _subscribedViewModel = ViewModel;
+            _subscribedViewModel.PinnedFolders.CollectionChanged += OnSidebarCollectionChanged;
+            _subscribedViewModel.Collections.CollectionChanged += OnSidebarCollectionChanged;
+            _subscribedViewModel.SidebarTags.CollectionChanged += OnSidebarCollectionChanged;
+            _subscribedViewModel.ExternalVolumes.CollectionChanged += OnSidebarCollectionChanged;
+            _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
             UpdateActiveStates();
             UpdateChevronState();
             RefreshRemoteServersList();
         }
+        else
+        {
+            _subscribedViewModel = null;
+        }
     }
+
+    private void OnSidebarCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => Dispatcher.UIThread.Post(UpdateActiveStates);
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -213,6 +233,73 @@ public partial class FinderSidebarView : UserControl
     private void OnUnpinPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         e.Handled = true;
+    }
+
+    private void OnPinnedFoldersDragOver(object? sender, DragEventArgs e)
+    {
+        ClearPinnedDropTarget();
+        var paths = GetDroppedPaths(e.DataTransfer);
+        if (paths.Length == 0 || paths.Any(path => !Directory.Exists(path)))
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        _pinnedDropTarget = FindPinnedFolderBorder(e.Source as Visual);
+        _pinnedDropTarget?.Classes.Add("pin-drop-target");
+        e.DragEffects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private void OnPinnedFoldersDragLeave(object? sender, RoutedEventArgs e) => ClearPinnedDropTarget();
+
+    private async void OnPinnedFoldersDrop(object? sender, DragEventArgs e)
+    {
+        var targetPath = _pinnedDropTarget?.Tag as string;
+        ClearPinnedDropTarget();
+        if (ViewModel == null) return;
+
+        var paths = GetDroppedPaths(e.DataTransfer)
+            .Where(Directory.Exists)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        foreach (var path in paths)
+        {
+            if (!await ViewModel.IsFolderPinnedAsync(path))
+                await ViewModel.PinFolderAsync(path, new DirectoryInfo(path).Name);
+            if (!string.IsNullOrWhiteSpace(targetPath))
+                await ViewModel.ReorderPinnedFolderAsync(path, targetPath);
+        }
+        e.Handled = true;
+    }
+
+    private static string[] GetDroppedPaths(IDataTransfer data) => data.TryGetFiles()?
+        .Select(item => item.Path.LocalPath)
+        .Where(path => !string.IsNullOrWhiteSpace(path))
+        .ToArray() ?? [];
+
+    private Border? FindPinnedFolderBorder(Visual? visual)
+    {
+        for (; visual != null; visual = visual.GetVisualParent())
+        {
+            if (ReferenceEquals(visual, PinnedFoldersControl)) break;
+            if (visual is Border { Tag: string } border && IsDescendantOf(border, PinnedFoldersControl))
+                return border;
+        }
+        return null;
+    }
+
+    private static bool IsDescendantOf(Visual visual, Visual ancestor)
+    {
+        for (Visual? current = visual; current != null; current = current.GetVisualParent())
+            if (ReferenceEquals(current, ancestor)) return true;
+        return false;
+    }
+
+    private void ClearPinnedDropTarget()
+    {
+        _pinnedDropTarget?.Classes.Remove("pin-drop-target");
+        _pinnedDropTarget = null;
     }
 
     // ── ListBox selection handlers ──

@@ -6,6 +6,12 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 
 public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
 {
+    private static readonly HashSet<string> HiddenSystemVolumeNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Macintosh HD", "Preboot", "Recovery", "Update", "VM",
+        ".timemachine", ".migration-timemachine"
+    };
+
     private readonly IAiTagService? _aiTagService;
     private readonly ILogger<MacVolumeMonitorService>? _logger;
     private readonly object _sync = new();
@@ -66,7 +72,7 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
                 foreach (var dir in Directory.GetDirectories("/Volumes"))
                 {
                     var name = Path.GetFileName(dir);
-                    if (name is "Macintosh HD" or "Preboot" or "Recovery" or "Update" or ".timemachine")
+                    if (!ShouldShowInSidebar(name))
                         continue;
                     volumes.Add(new VolumeInfo
                     {
@@ -102,6 +108,16 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
         {
             _logger?.LogWarning(ex, "Failed to refresh volumes");
         }
+    }
+
+    internal static bool ShouldShowInSidebar(string? volumeName)
+    {
+        if (string.IsNullOrWhiteSpace(volumeName)
+            || volumeName.StartsWith(".", StringComparison.Ordinal)
+            || volumeName.StartsWith("com.apple.", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return !HiddenSystemVolumeNames.Contains(volumeName);
     }
 
     private async Task CleanupRemovedVolumeAsync(string volumePath)

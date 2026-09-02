@@ -1,13 +1,390 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MacExplorer.Indexing;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.ViewModels;
+using MacExplorer.Views;
 using Xunit;
 
 namespace MacExplorer.Tests;
 
 public sealed class FileListViewModelCreateTests
 {
+    [AvaloniaFact]
+    public void EmptyAreaDragCreatesMarqueeAndSelectsMultipleRows()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        for (var index = 0; index < 6; index++)
+        {
+            viewModel.Entries.Add(new FileSystemEntry
+            {
+                FullPath = $"/tmp/FKFinderTests/file-{index}.txt",
+                Name = $"file-{index}.txt",
+                Extension = ".txt",
+                IconKey = "file-text"
+            });
+        }
+
+        var view = new FileListView { DataContext = viewModel };
+        var window = new Window { Width = 760, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        window.MouseDown(new Point(720, 480), MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(new Point(20, 55), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        var realized = view.GetVisualDescendants().OfType<Control>()
+            .Where(control => control.Classes.Contains("entry-content"))
+            .Select(control => $"{control.DataContext?.GetType().Name}:{control.Bounds}")
+            .ToArray();
+        Assert.True(viewModel.SelectedEntries.Count > 1,
+            $"Selected {viewModel.SelectedEntries.Count}; realized: {string.Join(" | ", realized)}");
+
+        window.MouseUp(new Point(20, 55), MouseButton.Left, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        Assert.True(viewModel.SelectedEntries.Count > 1);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void DragBeginningInBlankPartOfListRowStartsMarquee()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var viewModel = CreateViewModel(fileService);
+        for (var index = 0; index < 10; index++)
+        {
+            viewModel.Entries.Add(new FileSystemEntry
+            {
+                FullPath = $"/tmp/FKFinderTests/list-gap-{index}.txt",
+                Name = $"list-gap-{index}.txt",
+                Extension = ".txt",
+                IconKey = "file-text"
+            });
+        }
+
+        var view = new FileListView { DataContext = viewModel };
+        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
+        var firstRow = Assert.IsAssignableFrom<Border>(rowTemplate.Build(viewModel.Entries[0]));
+        firstRow.DataContext = viewModel.Entries[0];
+        firstRow.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        view.FindControl<Grid>("FileScroll")!.Children.Add(firstRow);
+        var window = new Window { Width = 900, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var rowOrigin = firstRow.TranslatePoint(default, window)!.Value;
+        var rowMidY = rowOrigin.Y + firstRow.Bounds.Height / 2;
+        var hitRects = firstRow.GetVisualDescendants().OfType<Control>()
+            .Where(control => control.Classes.Contains("list-entry-hit"))
+            .Select(control => new Rect(control.TranslatePoint(default, window)!.Value, control.Bounds.Size))
+            .ToArray();
+        var blankX = Enumerable.Range(1, Math.Max(1, (int)firstRow.Bounds.Width - 2))
+            .Select(offset => rowOrigin.X + firstRow.Bounds.Width - offset)
+            .First(x => hitRects.All(rect => !rect.Contains(new Point(x, rowMidY))));
+        var start = new Point(blankX, rowMidY);
+        var end = new Point(8, Math.Min(window.Bounds.Height - 8, rowMidY + 90));
+
+        window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        Assert.True(viewModel.SelectedEntries.Count > 1,
+            $"Selected {viewModel.SelectedEntries.Count} rows from a blank-area marquee");
+        window.MouseUp(end, MouseButton.Left, RawInputModifiers.None);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void ListMarqueeThroughRightHandWhitespaceSelectsRowsByVerticalBand()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        viewModel.Entries.Add(new FileSystemEntry
+        {
+            FullPath = "/tmp/FKFinderTests/list-whitespace.txt",
+            Name = "list-whitespace.txt",
+            Extension = ".txt",
+            IconKey = "file-text"
+        });
+
+        var view = new FileListView { DataContext = viewModel };
+        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
+        var row = Assert.IsAssignableFrom<Border>(rowTemplate.Build(viewModel.Entries[0]));
+        row.DataContext = viewModel.Entries[0];
+        row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        view.FindControl<Grid>("FileScroll")!.Children.Add(row);
+        var window = new Window { Width = 1100, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var entryTargets = view.GetVisualDescendants().OfType<Control>()
+            .Where(control => control.Classes.Contains("entry-content"))
+            .Select(control => new Rect(control.TranslatePoint(default, window)!.Value, control.Bounds.Size))
+            .ToArray();
+        Assert.NotEmpty(entryTargets);
+        var x = Math.Min(window.Bounds.Width - 8, entryTargets.Max(rect => rect.Right) + 24);
+        var rowBounds = new Rect(row.TranslatePoint(default, window)!.Value, row.Bounds.Size);
+        var firstY = rowBounds.Top + 1;
+        var lastY = rowBounds.Bottom + 1;
+
+        window.MouseDown(new Point(x, firstY), MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(new Point(x + 4, lastY), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        Assert.Single(viewModel.SelectedEntries);
+        Assert.Same(viewModel.Entries[0], viewModel.SelectedEntries[0]);
+        window.MouseUp(new Point(x + 4, lastY), MouseButton.Left, RawInputModifiers.None);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void RightClickingASelectedMarqueeEntryKeepsTheMultiSelection()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        for (var index = 0; index < 4; index++)
+        {
+            viewModel.Entries.Add(new FileSystemEntry
+            {
+                FullPath = $"/tmp/FKFinderTests/context-{index}.txt",
+                Name = $"context-{index}.txt",
+                Extension = ".txt",
+                IconKey = "file-text"
+            });
+        }
+
+        var view = new FileListView { DataContext = viewModel };
+        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
+        var fileScroll = view.FindControl<Grid>("FileScroll")!;
+        var rows = new List<Border>();
+        for (var index = 0; index < viewModel.Entries.Count; index++)
+        {
+            var row = Assert.IsAssignableFrom<Border>(rowTemplate.Build(viewModel.Entries[index]));
+            row.DataContext = viewModel.Entries[index];
+            row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+            row.Margin = new Thickness(0, index * 30, 0, 0);
+            fileScroll.Children.Add(row);
+            rows.Add(row);
+        }
+
+        var window = new Window { Width = 900, Height = 360, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var firstOrigin = rows[0].TranslatePoint(default, window)!.Value;
+        var lastOrigin = rows[^1].TranslatePoint(default, window)!.Value;
+        var blankX = window.Bounds.Width - 16;
+        var start = new Point(blankX, firstOrigin.Y + 1);
+        var end = new Point(blankX, lastOrigin.Y + rows[^1].Bounds.Height - 1);
+        window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        var selectedBeforeContextMenu = viewModel.SelectedEntries
+            .Select(entry => entry.FullPath)
+            .ToArray();
+        Assert.Equal(4, selectedBeforeContextMenu.Length);
+
+        var targetOrigin = rows[1].TranslatePoint(default, window)!.Value;
+        // Use the transparent right-hand part of the list row. It is a marquee
+        // canvas for left drags, but a right-click there must still target the
+        // row and preserve the multi-selection.
+        var targetPoint = new Point(
+            Math.Max(targetOrigin.X + 1, Math.Min(window.Bounds.Width - 16, targetOrigin.X + rows[1].Bounds.Width - 4)),
+            targetOrigin.Y + rows[1].Bounds.Height / 2);
+        window.MouseDown(targetPoint, MouseButton.Right, RawInputModifiers.RightMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(selectedBeforeContextMenu, viewModel.SelectedEntries.Select(entry => entry.FullPath));
+
+        // A virtualized ListBox can report a transient single/empty selection
+        // after the secondary click. The view must restore the context-menu
+        // snapshot instead of feeding that callback back into the view model.
+        var list = view.FindControl<ListBox>("FileItemsList")!;
+        Assert.NotNull(list.SelectedItems);
+        list.SelectedItems!.Clear();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(selectedBeforeContextMenu, viewModel.SelectedEntries.Select(entry => entry.FullPath));
+
+        window.MouseUp(targetPoint, MouseButton.Right, RawInputModifiers.None);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void EmptyAreaDragCreatesMarqueeAndSelectsMultipleGridItems()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.Grid };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        for (var index = 0; index < 12; index++)
+        {
+            viewModel.Entries.Add(new FileSystemEntry
+            {
+                FullPath = $"/tmp/FKFinderTests/grid-{index}.txt",
+                Name = $"grid-{index}.txt",
+                Extension = ".txt",
+                IconKey = "file-text"
+            });
+        }
+
+        var view = new FileListView { DataContext = viewModel };
+        var window = new Window { Width = 760, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        window.MouseDown(new Point(730, 490), MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(new Point(10, 10), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        Assert.True(viewModel.SelectedEntries.Count > 1);
+        window.MouseUp(new Point(10, 10), MouseButton.Left, RawInputModifiers.None);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SwitchingFromListToGridIgnoresHiddenListHitRegions()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        for (var index = 0; index < 12; index++)
+        {
+            viewModel.Entries.Add(new FileSystemEntry
+            {
+                FullPath = $"/tmp/FKFinderTests/switch-{index}.txt",
+                Name = $"switch-{index}.txt",
+                Extension = ".txt",
+                IconKey = "file-text"
+            });
+        }
+
+        var view = new FileListView { DataContext = viewModel };
+        var window = new Window { Width = 760, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var list = view.FindControl<ListBox>("FileItemsList")!;
+        Assert.True(list.IsVisible);
+
+        sortFilter.ViewMode = ViewMode.Grid;
+        Dispatcher.UIThread.RunJobs();
+        var grid = view.FindControl<ListBox>("GridViewItems")!;
+        Assert.False(list.IsVisible);
+        Assert.True(grid.IsVisible);
+
+        // Start in the canvas gap above the first row, then sweep across the
+        // third and fourth cards. The hidden list rows occupy the same visual
+        // tree but must not add their old row centers to this grid marquee.
+        var fileScroll = view.FindControl<Grid>("FileScroll")!;
+        var areaOrigin = fileScroll.TranslatePoint(default, window)!.Value;
+        var start = new Point(areaOrigin.X + 225, areaOrigin.Y + 1);
+        var end = new Point(areaOrigin.X + 455, areaOrigin.Y + 80);
+        window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(
+            [viewModel.Entries[2].FullPath, viewModel.Entries[3].FullPath],
+            viewModel.SelectedEntries.Select(entry => entry.FullPath));
+
+        window.MouseUp(end, MouseButton.Left, RawInputModifiers.None);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void DragBeginningInGridCellGapStartsMarqueeInsteadOfItemClick()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.Grid };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        for (var index = 0; index < 12; index++)
+        {
+            viewModel.Entries.Add(new FileSystemEntry
+            {
+                FullPath = $"/tmp/FKFinderTests/gap-{index}.txt",
+                Name = $"gap-{index}.txt",
+                Extension = ".txt",
+                IconKey = "file-text"
+            });
+        }
+
+        var view = new FileListView { DataContext = viewModel };
+        var window = new Window { Width = 760, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        // Each card is 100 points wide inside a 120-point cell. x=115 is
+        // the genuine canvas gap between the first and second cards.
+        window.MouseDown(new Point(115, 50), MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(new Point(430, 230), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        Assert.True(viewModel.SelectedEntries.Count > 1);
+        window.MouseUp(new Point(430, 230), MouseButton.Left, RawInputModifiers.None);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void GridMarqueeAroundOneIconSelectsOnlyThatEntry()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.Grid };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        viewModel.Entries.Add(new FileSystemEntry
+        {
+            FullPath = "/tmp/FKFinderTests/grid-precise.txt",
+            Name = "grid-precise.txt",
+            Extension = ".txt",
+            IconKey = "file-text"
+        });
+
+        var view = new FileListView { DataContext = viewModel };
+        var gridTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["GridEntryTemplate"]);
+        var card = Assert.IsAssignableFrom<Border>(gridTemplate.Build(viewModel.Entries[0]));
+        card.DataContext = viewModel.Entries[0];
+        card.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        card.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        view.FindControl<Grid>("FileScroll")!.Children.Add(card);
+        var window = new Window { Width = 760, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var targetEntry = viewModel.Entries[0];
+        var icon = view.GetVisualDescendants().OfType<Control>()
+            .Single(control => ReferenceEquals(control.DataContext, targetEntry)
+                               && control.Classes.Contains("file-grid-icon-target"));
+        var origin = icon.TranslatePoint(default, window)!.Value;
+        var start = new Point(origin.X - 3, origin.Y - 3);
+        var end = new Point(origin.X + icon.Bounds.Width + 3, origin.Y + icon.Bounds.Height + 3);
+
+        window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        Assert.Equal([targetEntry.FullPath], viewModel.SelectedEntries.Select(entry => entry.FullPath));
+        window.MouseUp(end, MouseButton.Left, RawInputModifiers.None);
+        window.Close();
+    }
+
     [Fact]
     public async Task CreateNewFileAsync_ReloadsDirectoryThenSelectsCreatedEntryAndRequestsRename()
     {
@@ -213,10 +590,103 @@ public sealed class FileListViewModelCreateTests
         Assert.True(titleChanged);
     }
 
+    [Fact]
+    public void TabsSwitchIndependentFileListInstancesAndSelectAdjacentTabOnClose()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+
+        var firstTab = Assert.Single(window.Tabs);
+        var secondTab = window.AddTab(second, select: true);
+
+        Assert.Same(secondTab, window.SelectedTab);
+        Assert.Same(second, window.FileList);
+        Assert.True(firstTab.CanClose);
+        Assert.True(secondTab.CanClose);
+
+        Assert.True(window.RemoveTab(secondTab));
+        secondTab.Dispose();
+
+        Assert.Same(firstTab, window.SelectedTab);
+        Assert.Same(first, window.FileList);
+        Assert.False(firstTab.CanClose);
+        Assert.False(window.RemoveTab(firstTab));
+        firstTab.Dispose();
+    }
+
+    [Fact]
+    public void RelativeTabSelectionWrapsInBothDirections()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var firstTab = window.SelectedTab!;
+        var secondTab = window.AddTab(second, select: true);
+
+        Assert.Same(firstTab, window.SelectRelativeTab(1));
+        Assert.Same(secondTab, window.SelectRelativeTab(-1));
+
+        firstTab.Dispose();
+        secondTab.Dispose();
+    }
+
+    [Fact]
+    public void TwelvePaneLayoutsExposeTheExpectedOneToFourVisiblePanes()
+    {
+        var layouts = Enum.GetValues<PaneLayout>();
+        Assert.Equal(12, layouts.Length);
+        Assert.Equal(1, MainWindowViewModel.GetPaneCount(PaneLayout.Single));
+        Assert.Equal(2, MainWindowViewModel.GetPaneCount(PaneLayout.TwoColumns));
+        Assert.Equal(2, MainWindowViewModel.GetPaneCount(PaneLayout.TwoRows));
+        Assert.All(layouts.Where(layout => layout.ToString().StartsWith("Three", StringComparison.Ordinal)
+                                           || layout is PaneLayout.MainLeftTwoRowsRight
+                                               or PaneLayout.MainRightTwoRowsLeft),
+            layout => Assert.Equal(3, MainWindowViewModel.GetPaneCount(layout)));
+        Assert.All(layouts.Where(layout => MainWindowViewModel.GetPaneCount(layout) == 4),
+            layout => Assert.Equal(4, MainWindowViewModel.GetPaneCount(layout)));
+    }
+
+    [Fact]
+    public void MultiPaneLayoutKeepsActiveTabVisibleAndRestoresSinglePane()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        using var first = CreateViewModel(fileService);
+        using var second = CreateViewModel(fileService);
+        using var third = CreateViewModel(fileService);
+        using var fourth = CreateViewModel(fileService);
+        var window = new MainWindowViewModel(first);
+        var tabs = new[]
+        {
+            window.SelectedTab!,
+            window.AddTab(second, select: false),
+            window.AddTab(third, select: false),
+            window.AddTab(fourth, select: false)
+        };
+
+        window.SetPaneLayout(PaneLayout.FourGrid);
+        Assert.Equal(4, window.VisiblePanes.Count);
+        Assert.Equal(tabs, window.VisiblePanes);
+
+        window.SelectedTab = tabs[3];
+        Assert.Contains(tabs[3], window.VisiblePanes);
+        Assert.True(tabs[3].IsActive);
+
+        window.SetPaneLayout(PaneLayout.Single);
+        Assert.Single(window.VisiblePanes);
+        Assert.Same(tabs[3], window.VisiblePanes[0]);
+
+        foreach (var tab in tabs)
+            tab.Dispose();
+    }
+
     private static FileListViewModel CreateViewModel(
         FakeFileService fileService,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
-        NavigationViewModel? navigation = null)
+        NavigationViewModel? navigation = null,
+        SortFilterViewModel? sortFilter = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -236,7 +706,7 @@ public sealed class FileListViewModelCreateTests
             new ArchiveViewModel(fileService: fileService),
             new AiViewModel(fileIndex: index),
             new CollectionViewModel(fileIndex: index, fileService: fileService),
-            new SortFilterViewModel(),
+            sortFilter ?? new SortFilterViewModel(),
             fileService,
             index,
             writer,

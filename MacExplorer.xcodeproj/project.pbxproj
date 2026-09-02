@@ -1,0 +1,57 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+		A10000000000000000000001 = {
+			isa = PBXProject;
+			attributes = { BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 1600; };
+			buildConfigurationList = A10000000000000000000002;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			knownRegions = (en, Base, zh_Hans);
+			mainGroup = A10000000000000000000003;
+			productRefGroup = A1000000000000000000000E;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A10000000000000000000004);
+		};
+		A10000000000000000000003 = { isa = PBXGroup; children = (A10000000000000000000005, A10000000000000000000006, A1000000000000000000000E); sourceTree = "<group>"; };
+		A1000000000000000000000E = { isa = PBXGroup; children = (A1000000000000000000000F); name = Products; sourceTree = "<group>"; };
+		A10000000000000000000005 = { isa = PBXFileReference; lastKnownFileType = text.xml; path = MacExplorer.csproj; sourceTree = "<group>"; };
+		A10000000000000000000006 = { isa = PBXGroup; children = (A10000000000000000000007); path = Xcode; sourceTree = "<group>"; };
+		A10000000000000000000007 = { isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "build-mac-explorer.sh"; sourceTree = "<group>"; };
+		A1000000000000000000000F = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mac Explorer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000004 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000008;
+			buildPhases = (A10000000000000000000010);
+			buildRules = ();
+			dependencies = ();
+			name = MacExplorer;
+			productName = "Mac Explorer";
+			productReference = A1000000000000000000000F;
+			productType = "com.apple.product-type.application";
+		};
+		A10000000000000000000010 = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Build .NET macOS App";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/MacOS/MacExplorer");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -e\n\"${PROJECT_DIR}/Xcode/build-mac-explorer.sh\"\nSOURCE_APP=\"${PROJECT_DIR}/bin/${CONFIGURATION}/net10.0/osx-arm64/Mac Explorer.app\"\nDEST_APP=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\n/bin/rm -rf \"${DEST_APP}\"\n/usr/bin/ditto \"${SOURCE_APP}\" \"${DEST_APP}\"\n/usr/bin/codesign --force --deep --sign - \"${DEST_APP}\"\necho \"Xcode product ready: ${DEST_APP}\"\n";
+		};
+		A10000000000000000000002 = { isa = XCConfigurationList; buildConfigurations = (A10000000000000000000009, A1000000000000000000000A); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A10000000000000000000008 = { isa = XCConfigurationList; buildConfigurations = (A1000000000000000000000B, A1000000000000000000000C); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A10000000000000000000009 = { isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
+		A1000000000000000000000A = { isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
+		A1000000000000000000000B = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; EXECUTABLE_NAME = MacExplorer; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Platforms/MacOS/Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.macexplorer.app; PRODUCT_NAME = "Mac Explorer"; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; }; name = Debug; };
+		A1000000000000000000000C = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; EXECUTABLE_NAME = MacExplorer; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Platforms/MacOS/Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.macexplorer.app; PRODUCT_NAME = "Mac Explorer"; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; }; name = Release; };
+	};
+	rootObject = A10000000000000000000001;
+}

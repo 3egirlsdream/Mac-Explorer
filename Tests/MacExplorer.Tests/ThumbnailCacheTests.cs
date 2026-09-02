@@ -8,6 +8,32 @@ namespace MacExplorer.Tests;
 
 public sealed class ThumbnailCacheTests
 {
+    [Theory]
+    [InlineData(".psd")]
+    [InlineData(".PSD")]
+    [InlineData(".psb")]
+    public void PhotoshopFilesAreEligibleForQuickLookThumbnails(string extension)
+    {
+        Assert.True(MacThumbnailService.SupportsThumbnailExtension(extension));
+    }
+
+    [Theory]
+    [InlineData(".epub")]
+    [InlineData(".webarchive")]
+    [InlineData(".docm")]
+    [InlineData(".xlsm")]
+    [InlineData(".pptm")]
+    [InlineData(".avif")]
+    [InlineData(".jxl")]
+    [InlineData(".srt")]
+    [InlineData(".toml")]
+    [InlineData(".flac")]
+    [InlineData(".vob")]
+    public void ExpandedSuperPreviewFormatsAreEligibleForThumbnails(string extension)
+    {
+        Assert.True(MacThumbnailService.SupportsThumbnailExtension(extension));
+    }
+
     private static readonly byte[] OnePixelPng = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
 

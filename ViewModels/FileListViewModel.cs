@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Security.Cryptography;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MacExplorer.Views.Dialogs;
@@ -2002,6 +2004,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             actions.Add(new ContextMenuAction { Label = "批量重命名", IconSvg = Icons.Rename, Execute = () => { RaiseRequestBatchRename(); return Task.CompletedTask; } });
         }
 
+        var contextEntries = GetContextEntries(entry);
+        var canUseLocalFileTools = !isRemote
+            && !entry.IsVirtual
+            && !IsArchiveView
+            && contextEntries.All(IsUsableLocalEntry);
+
+        actions.Add(BuildMoveToContextMenuAction(entry, canUseLocalFileTools));
+
         actions.Add(new ContextMenuAction
         {
             Label = "删除",
@@ -2014,6 +2024,22 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ShowDeleteConfirmDialogCommand.Execute(null);
             return Task.CompletedTask;
         }
+        });
+
+        actions.Add(new ContextMenuAction
+        {
+            Label = "永久删除",
+            IconSvg = Icons.Trash,
+            IsEnabled = canUseLocalFileTools,
+            Execute = () => PermanentlyDeleteContextEntriesAsync(entry)
+        });
+
+        actions.Add(new ContextMenuAction
+        {
+            Label = "哈希校验",
+            IconSvg = Icons.Info,
+            IsEnabled = canUseLocalFileTools && contextEntries.All(item => !item.IsDirectory),
+            Execute = () => CopySha256HashesAsync(entry)
         });
 
         actions.Add(ContextMenuAction.Separator);
@@ -2228,17 +2254,213 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             {
                 Label = "永久删除",
                 IconSvg = Icons.Delete,
-                Execute = async () =>
-                {
-                    var paths = _selectedEntriesSet.Contains(entry)
-                        ? SelectedEntries.Select(item => item.FullPath).ToList()
-                        : [entry.FullPath];
-                    foreach (var path in paths)
-                        await _fileService.DeletePermanentlyAsync(path);
-                    await LoadDirectoryContentsAsync(forceRefresh: true);
-                }
+                Execute = () => PermanentlyDeleteContextEntriesAsync(entry)
             }
         ];
+    }
+
+    private IReadOnlyList<FileSystemEntry> GetContextEntries(FileSystemEntry entry)
+        => _selectedEntriesSet.Contains(entry) && SelectedEntries.Count > 0
+            ? SelectedEntries.ToArray()
+            : [entry];
+
+    private static bool IsUsableLocalEntry(FileSystemEntry entry)
+        => !string.IsNullOrWhiteSpace(entry.FullPath)
+            && !entry.IsVirtual
+            && !VirtualPath.IsRemotePath(entry.FullPath);
+
+    private ContextMenuAction BuildMoveToContextMenuAction(FileSystemEntry entry, bool isEnabled)
+    {
+        var destinations = BuildMoveDestinationActions(entry, isEnabled);
+        return new ContextMenuAction
+        {
+            Label = "移动到",
+            IconSvg = Icons.Folder,
+            IsEnabled = isEnabled,
+            SubItems = destinations
+        };
+    }
+
+    private IReadOnlyList<ContextMenuAction> BuildMoveDestinationActions(FileSystemEntry entry, bool isEnabled)
+    {
+        if (!isEnabled)
+            return [new ContextMenuAction { Label = "此项目无法移动", IsEnabled = false }];
+
+        var selectedEntries = GetContextEntries(entry);
+        var destinations = new List<(string Path, string DisplayName)>();
+
+        foreach (var pinnedFolder in PinnedFolders)
+            AddMoveDestination(destinations, pinnedFolder.FolderPath, pinnedFolder.DisplayName);
+
+        var home = _fileService.HomeDirectory;
+        AddMoveDestination(destinations, Path.Combine(home, "Desktop"), "桌面");
+        AddMoveDestination(destinations, Path.Combine(home, "Documents"), "文稿");
+        AddMoveDestination(destinations, Path.Combine(home, "Downloads"), "下载");
+
+        var actions = destinations
+            .Where(destination => CanMoveEntriesTo(selectedEntries, destination.Path))
+            .GroupBy(destination => destination.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Select(destination => new ContextMenuAction
+            {
+                Label = destination.DisplayName,
+                IconSvg = Icons.Folder,
+                Execute = () => MoveContextEntriesToAsync(entry, destination.Path)
+            })
+            .ToList();
+
+        if (actions.Count > 0)
+            actions.Add(ContextMenuAction.Separator);
+
+        actions.Add(new ContextMenuAction
+        {
+            Label = "选取…",
+            IconSvg = Icons.Folder,
+            Execute = () => PickMoveDestinationAsync(entry)
+        });
+
+        return actions;
+    }
+
+    private static void AddMoveDestination(
+        ICollection<(string Path, string DisplayName)> destinations,
+        string path,
+        string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return;
+
+        destinations.Add((path, string.IsNullOrWhiteSpace(displayName) ? Path.GetFileName(path) : displayName));
+    }
+
+    private static bool CanMoveEntriesTo(IReadOnlyList<FileSystemEntry> entries, string targetPath)
+    {
+        var normalizedTarget = Path.GetFullPath(targetPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return entries.All(entry =>
+        {
+            var normalizedSource = Path.GetFullPath(entry.FullPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (string.Equals(normalizedSource, normalizedTarget, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            return !entry.IsDirectory
+                || !normalizedTarget.StartsWith(normalizedSource + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private async Task PickMoveDestinationAsync(FileSystemEntry entry)
+    {
+        var storage = _topLevelWindow?.StorageProvider;
+        if (storage == null)
+        {
+            StatusText = "无法打开文件夹选择器";
+            return;
+        }
+
+        IsContextMenuVisible = false;
+        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "移动到",
+            AllowMultiple = false
+        });
+        var targetPath = folders.FirstOrDefault()?.Path.LocalPath;
+        if (string.IsNullOrWhiteSpace(targetPath))
+            return;
+
+        await MoveContextEntriesToAsync(entry, targetPath);
+    }
+
+    private async Task MoveContextEntriesToAsync(FileSystemEntry entry, string targetPath)
+    {
+        var entries = GetContextEntries(entry);
+        if (!Directory.Exists(targetPath) || !CanMoveEntriesTo(entries, targetPath))
+        {
+            StatusText = "无法移动到这个位置";
+            return;
+        }
+
+        IsContextMenuVisible = false;
+        await MoveEntriesAsync(entries, new FileSystemEntry
+        {
+            FullPath = targetPath,
+            Name = Path.GetFileName(targetPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+            IsDirectory = true,
+            IconKey = "folder"
+        });
+    }
+
+    private async Task PermanentlyDeleteContextEntriesAsync(FileSystemEntry entry)
+    {
+        var entries = GetContextEntries(entry);
+        if (entries.Count == 0 || entries.Any(item => !IsUsableLocalEntry(item)))
+        {
+            StatusText = "此项目无法永久删除";
+            return;
+        }
+
+        IsContextMenuVisible = false;
+        if (_topLevelWindow == null)
+        {
+            StatusText = "无法显示永久删除确认窗口";
+            return;
+        }
+
+        var dialog = new DeleteConfirmDialog();
+        var subject = entries.Count == 1 ? $"“{entries[0].Name}”" : $"选中的 {entries.Count} 个项目";
+        dialog.Configure("永久删除", $"{subject} 将被永久删除，且无法恢复。", "永久删除");
+        if (!await dialog.ShowDialogAsync(_topLevelWindow))
+            return;
+
+        try
+        {
+            foreach (var item in entries)
+                await _fileService.DeletePermanentlyAsync(item.FullPath);
+
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            await LoadDirectoryContentsAsync(forceRefresh: true);
+            StatusText = "已永久删除";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"永久删除失败: {ex.Message}";
+        }
+    }
+
+    private async Task CopySha256HashesAsync(FileSystemEntry entry)
+    {
+        var entries = GetContextEntries(entry);
+        if (entries.Count == 0 || entries.Any(item => !IsUsableLocalEntry(item) || item.IsDirectory))
+        {
+            StatusText = "哈希校验仅支持本地文件";
+            return;
+        }
+
+        IsContextMenuVisible = false;
+        try
+        {
+            var resultLines = new List<string> { "SHA-256" };
+            foreach (var item in entries)
+            {
+                await using var stream = new FileStream(item.FullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var hash = await SHA256.HashDataAsync(stream);
+                resultLines.Add($"{Convert.ToHexString(hash)}  {item.Name}");
+            }
+
+            var result = string.Join(Environment.NewLine, resultLines);
+            if (_clipboardService != null)
+                await _clipboardService.CopyTextAsync(result);
+
+            StatusText = entries.Count == 1
+                ? $"SHA-256 已复制: {resultLines[1].Split("  ")[0]}"
+                : $"已将 {entries.Count} 个文件的 SHA-256 哈希值复制到剪贴板";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"哈希校验失败: {ex.Message}";
+        }
     }
 
     private List<ContextMenuAction> BuildTrashBackgroundContextMenu()
@@ -2503,16 +2725,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
-                    Execute = async () =>
-                    {
-                        var pathsToDelete = _selectedEntriesSet.Contains(entry)
-                            ? SelectedEntries.Select(e => e.FullPath).ToList()
-                            : [entry.FullPath];
-                        foreach (var p in pathsToDelete)
-                            await _fileService.DeletePermanentlyAsync(p);
-                        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-                        await LoadDirectoryContentsAsync(forceRefresh: true);
-                    }
+                    Execute = () => PermanentlyDeleteContextEntriesAsync(entry)
                 });
             }
             else { result.Add(action); }
@@ -2846,7 +3059,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 _navigation.CurrentPath,
                 IsCollectionView,
                 _navigation.CurrentCollectionId,
-                msg => StatusText = msg
+                msg => StatusText = msg,
+                this
             );
 
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
@@ -3689,6 +3903,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         return _quickLookService.PreviewFileAsync(SelectedEntries[0].FullPath);
     }
 
+    /// <summary>
+    /// Lets in-window preview surfaces reuse the same archive password prompt
+    /// as normal archive navigation.
+    /// </summary>
+    public Task<string?> RequestArchivePasswordAsync() => PromptPasswordAsync();
+
     public Task<byte[]?> GetPreviewThumbnailAsync(
         FileSystemEntry entry,
         int maxPixelSize = 512,
@@ -3742,6 +3962,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         await _fileOps.UnpinFolderAsync(path);
         await _collection.LoadPinnedFoldersAsync();
     }
+
+    public Task ReorderPinnedFolderAsync(string sourcePath, string targetPath)
+        => _collection.ReorderPinnedFolderAsync(sourcePath, targetPath);
 
     public bool IsCollectionNameDuplicate(string name, int? excludeId = null)
     {

@@ -1,0 +1,149 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:MacExplorer.Models"
+             xmlns:icons="using:MacExplorer.Assets"
+             xmlns:converters="using:MacExplorer.Converters"
+             x:Class="MacExplorer.Views.SuperPreviewView"
+             Focusable="True"
+             KeyDown="OnSuperPreviewKeyDown">
+    <UserControl.Resources>
+        <converters:FileEntryToIconConverter x:Key="FileIconConverter"/>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="Border.super-preview-shell">
+            <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
+        </Style>
+        <Style Selector="ListBox.super-preview-items">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+        <Style Selector="ListBox.super-preview-items ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="ListBox.super-preview-items ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="ListBox.super-preview-items ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Background="{DynamicResource OverlayBrush}" Padding="18">
+        <Border x:Name="Shell" Classes="super-preview-shell" CornerRadius="16" MaxWidth="1400" MaxHeight="900"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True">
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12,12,8">
+                    <Button Grid.Column="0" x:Name="BackButton" Classes="ghost compact" Width="30" Height="30"
+                            Padding="6" Click="GoBack" ToolTip.Tip="返回上一层">
+                        <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
+                    </Button>
+                    <StackPanel Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="TitleText" Text="超级预览" FontSize="18"
+                                   FontWeight="{StaticResource FontWeightSemibold}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="BreadcrumbText" Text="" FontSize="11"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" x:Name="ItemCountText" VerticalAlignment="Center"
+                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
+                    <Button Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="6"
+                            Click="ClosePreview" ToolTip.Tip="关闭超级预览（Esc）">
+                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
+                    </Button>
+                </Grid>
+
+                <Border Grid.Row="1" Height="1" Background="{DynamicResource ColorDivider}"/>
+
+                <Grid Grid.Row="2" ColumnDefinitions="310,6,*" Margin="12,10,12,10">
+                    <Border Grid.Column="0" Classes="card" CornerRadius="10" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12,10,10,6">
+                                <TextBlock Text="内容" FontSize="13" FontWeight="{StaticResource FontWeightSemibold}"/>
+                                <TextBlock Grid.Column="1" x:Name="ListHintText" Text="双击进入" FontSize="10"
+                                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                            </Grid>
+                            <ListBox Grid.Row="1" x:Name="ItemsList" Classes="super-preview-items"
+                                     SelectionMode="Single" SelectionChanged="OnItemSelectionChanged"
+                                     DoubleTapped="OnItemDoubleTapped">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:FileSystemEntry">
+                                        <Border Padding="9,7">
+                                            <Grid ColumnDefinitions="30,*,Auto" ColumnSpacing="8">
+                                                <Image Grid.Column="0" Width="26" Height="26" Stretch="Uniform"
+                                                       Source="{Binding ., Converter={StaticResource FileIconConverter}, ConverterParameter=32}"
+                                                       Loaded="OnPreviewEntryImageLoaded"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12"
+                                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                                                    <TextBlock Text="{Binding FormattedSize}" FontSize="10"
+                                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </StackPanel>
+                                                <PathIcon Grid.Column="2" x:Name="EntryChevron" Data="{x:Static icons:Icons.Forward}"
+                                                          Width="10" Height="10" VerticalAlignment="Center"
+                                                          IsVisible="{Binding IsDirectory}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+                    <Border Grid.Column="1" Background="{DynamicResource ColorDivider}" Width="1" HorizontalAlignment="Center"/>
+                    <Border Grid.Column="2" Classes="card" CornerRadius="10" Padding="18" ClipToBounds="True">
+                        <Grid RowDefinitions="*,Auto">
+                            <Grid Grid.Row="0" x:Name="PreviewHost">
+                                <TextBlock x:Name="PreviewPlaceholder" Text="选择文件或文件夹以预览"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="14"
+                                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
+                                <Image x:Name="PreviewImage" IsVisible="False" Stretch="Uniform"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       MaxWidth="900" MaxHeight="650"/>
+                                <ScrollViewer x:Name="PreviewTextScroll" IsVisible="False"
+                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                    <TextBox x:Name="PreviewText" IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="NoWrap" BorderThickness="0" Background="Transparent"
+                                             FontFamily="{StaticResource FontFamilyMono}" FontSize="13"
+                                             Padding="8" HorizontalContentAlignment="Left"
+                                             VerticalContentAlignment="Top"/>
+                                </ScrollViewer>
+                                <StackPanel x:Name="FolderSummary" IsVisible="False" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" Spacing="8">
+                                    <PathIcon x:Name="FolderSummaryIcon" Data="{x:Static icons:Icons.Folder}" Width="72" Height="72"
+                                              Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="FolderSummaryTitle" FontSize="20" FontWeight="{StaticResource FontWeightSemibold}"
+                                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="500"/>
+                                    <TextBlock x:Name="FolderSummaryDetails" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    <TextBlock Text="双击左侧文件夹或压缩包继续浏览" FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                                <TextBlock x:Name="PreviewMetaText" Text="" FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                <Button Grid.Column="1" x:Name="QuickLookButton" Classes="ghost compact"
+                                        Content="用系统 Quick Look" IsVisible="False" Click="OpenWithQuickLook"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="16,0,16,12">
+                    <TextBlock x:Name="StatusText" Text="空格关闭 · Esc 退出 · 双击进入文件夹或压缩包"
+                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                    <TextBlock Grid.Column="1" Text="超级预览" FontSize="11"
+                               Foreground="{DynamicResource AccentBrush}"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Border>
+</UserControl>

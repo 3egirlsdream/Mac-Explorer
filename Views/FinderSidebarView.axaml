@@ -6,7 +6,11 @@
              xmlns:converters="using:MacExplorer.Converters"
              x:Class="MacExplorer.Views.FinderSidebarView"
              x:DataType="vm:FileListViewModel"
-             x:CompileBindings="False">
+             x:CompileBindings="False"
+             DragDrop.AllowDrop="True"
+             DragDrop.DragOver="OnPinnedFoldersDragOver"
+             DragDrop.DragLeave="OnPinnedFoldersDragLeave"
+             DragDrop.Drop="OnPinnedFoldersDrop">
 
     <UserControl.Resources>
         <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
@@ -17,6 +21,11 @@
         <Style Selector="PathIcon.sidebar-icon">
             <Setter Property="Width" Value="15"/>
             <Setter Property="Height" Value="15"/>
+        </Style>
+        <Style Selector="Border.sidebar-item.pin-drop-target">
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
         </Style>
     </UserControl.Styles>
 
@@ -111,9 +120,10 @@
                     </Border>
 
                     <!-- Pinned folders (kept from existing, already working) -->
-                    <ItemsControl Classes="sidebar-items"
+                    <ItemsControl x:Name="PinnedFoldersControl" Classes="sidebar-items"
                                   ItemsSource="{Binding PinnedFolders}"
-                                  IsVisible="{Binding PinnedFolders, Converter={StaticResource IsNotEmpty}}">
+                                  MinHeight="8"
+                                  >
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:PinnedFolder">
                                 <Border Classes="sidebar-item"
