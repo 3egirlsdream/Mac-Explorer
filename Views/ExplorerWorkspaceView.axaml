@@ -1,0 +1,261 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:local="using:MacExplorer.Views"
+             xmlns:controls="using:MacExplorer.Controls"
+             xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Views.ExplorerWorkspaceView"
+             x:DataType="vm:ExplorerTabViewModel"
+             x:CompileBindings="False"
+             Focusable="True">
+    <UserControl.Styles>
+        <Style Selector="Border.workspace-surface">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.workspace-surface.active">
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        </Style>
+        <Style Selector="local|ExplorerWorkspaceView:split Border.workspace-surface">
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}"/>
+        </Style>
+        <Style Selector="Button.workspace-nav-button">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="MinWidth" Value="30"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.workspace-nav-button PathIcon">
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+        </Style>
+        <Style Selector="Button.workspace-nav-button:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.workspace-nav-button:pressed">
+            <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
+        </Style>
+        <Style Selector="Button.workspace-nav-button:focus-visible">
+            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Grid.workspace-search-host">
+            <Setter Property="Width" Value="220"/>
+            <Setter Property="Height" Value="30"/>
+        </Style>
+        <Style Selector="local|ExplorerWorkspaceView:compact Grid.workspace-search-host">
+            <Setter Property="Width" Value="180"/>
+        </Style>
+        <Style Selector="local|ExplorerWorkspaceView:compact local|BreadcrumbBar">
+            <Setter Property="MinWidth" Value="80"/>
+        </Style>
+        <Style Selector="local|ExplorerWorkspaceView:compact TextBlock.workspace-status-detail">
+            <Setter Property="MaxWidth" Value="120"/>
+        </Style>
+        <Style Selector="Border.inactive-preview-placeholder">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}"/>
+            <Setter Property="Opacity" Value="0.96"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border x:Name="WorkspaceSurface" Classes="workspace-surface" ClipToBounds="True">
+        <SplitView x:Name="SidebarSplitView"
+                   PanePlacement="Left"
+                   PaneBackground="Transparent"
+                   IsPaneOpen="True"
+                   DisplayMode="Inline"
+                   OpenPaneLength="260"
+                   CompactPaneLength="0">
+            <SplitView.Pane>
+                <controls:SurfaceCard x:Name="SidebarSurface" CornerRadius="16" Padding="0" Margin="0,0,4,0">
+                    <controls:SurfaceCard.Content>
+                        <local:FinderSidebarView x:Name="SidebarControl" DataContext="{Binding FileList}"/>
+                    </controls:SurfaceCard.Content>
+                </controls:SurfaceCard>
+            </SplitView.Pane>
+
+            <SplitView.Content>
+                <Grid RowDefinitions="40,Auto,*" Margin="4,0,0,0">
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16"
+                          VerticalAlignment="Center">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
+                            <Button x:Name="SidebarToggleButton" Classes="workspace-nav-button"
+                                    ToolTip.Tip="展开侧栏" AutomationProperties.Name="展开侧栏"
+                                    IsVisible="False" Click="OnToggleSidebar">
+                                <PathIcon Data="{x:Static icons:Icons.List}"/>
+                            </Button>
+                            <Button Classes="workspace-nav-button" ToolTip.Tip="后退 ⌘["
+                                    AutomationProperties.Name="后退" Click="NavigateBack"
+                                    IsEnabled="{Binding FileList.CanGoBack}">
+                                <PathIcon Data="{x:Static icons:Icons.Back}"/>
+                            </Button>
+                            <Button Classes="workspace-nav-button" ToolTip.Tip="前进 ⌘]"
+                                    AutomationProperties.Name="前进" Click="NavigateForward"
+                                    IsEnabled="{Binding FileList.CanGoForward}">
+                                <PathIcon Data="{x:Static icons:Icons.Forward}"/>
+                            </Button>
+                            <Button Classes="workspace-nav-button" ToolTip.Tip="上级目录 ⌘↑"
+                                    AutomationProperties.Name="上级目录" Click="NavigateUp"
+                                    IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                                <PathIcon Data="{x:Static icons:Icons.Up}"/>
+                            </Button>
+                            <Button Classes="workspace-nav-button" ToolTip.Tip="刷新 ⌘R"
+                                    AutomationProperties.Name="刷新" Click="RefreshView">
+                                <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
+                            </Button>
+                        </StackPanel>
+
+                        <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
+                                             DataContext="{Binding FileList}"
+                                             HorizontalAlignment="Stretch"
+                                             MinWidth="280"
+                                             VerticalAlignment="Center"/>
+
+                        <Grid Grid.Column="2">
+                            <Button x:Name="SearchToggleButton" Classes="workspace-nav-button"
+                                    IsVisible="False" Click="OnTogglePageSearch"
+                                    ToolTip.Tip="页面内搜索" AutomationProperties.Name="页面内搜索">
+                                <PathIcon Data="{x:Static icons:Icons.Search}"/>
+                            </Button>
+                            <Grid x:Name="SearchHost" Classes="workspace-search-host"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Border Classes="breadcrumb-bar" Padding="4,2"
+                                        Background="{DynamicResource SurfaceElevatedBrush}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,0">
+                                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                                                  Width="13" Height="13" Margin="0,0,6,0"
+                                                  VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBox Grid.Column="1" x:Name="SearchBox"
+                                                 Classes="search-input omnibox-input"
+                                                 FontSize="{DynamicResource FontSizeLabel}"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                                 PlaceholderText="搜索..."
+                                                 Text="{Binding FileList.SearchQuery, Mode=OneWay}"
+                                                 TextChanged="OnSearchTextChanged"
+                                                 KeyDown="OnSearchKeyDown"/>
+                                        <Button Grid.Column="2" x:Name="SearchClearButton" Content="✕"
+                                                Classes="ghost close-btn search-clear-btn"
+                                                Width="20" Height="20" Padding="0"
+                                                Background="Transparent"
+                                                Foreground="{DynamicResource TextMutedBrush}"
+                                                IsVisible="False" Click="ClearSearch"
+                                                AutomationProperties.Name="清除页面搜索"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+
+                    <controls:SurfaceCard Grid.Row="1" CornerRadius="14" Padding="0" Margin="0,0,0,4">
+                        <controls:SurfaceCard.Content>
+                            <Border CornerRadius="14" ClipToBounds="True">
+                                <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
+                            </Border>
+                        </controls:SurfaceCard.Content>
+                    </controls:SurfaceCard>
+
+                    <controls:SurfaceCard Grid.Row="2" CornerRadius="14" Padding="0">
+                        <controls:SurfaceCard.Content>
+                            <Border CornerRadius="14" ClipToBounds="True">
+                            <Grid RowDefinitions="*,Auto">
+                                <SplitView x:Name="InfoDrawer"
+                                           Grid.Row="0"
+                                           DisplayMode="Inline"
+                                           PanePlacement="Right"
+                                           PaneBackground="{DynamicResource ColorBgContent}"
+                                           OpenPaneLength="{Binding InfoPanelWidth, Mode=TwoWay}"
+                                           CompactPaneLength="0"
+                                           IsPaneOpen="False">
+                                    <SplitView.Pane>
+                                        <Grid x:Name="InfoPanelPane" ClipToBounds="True"
+                                              Background="{DynamicResource ColorBgContent}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="6"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" x:Name="InfoPanelResizeHandle"
+                                                    Background="Transparent" Cursor="SizeWestEast"
+                                                    PointerPressed="OnInfoPanelResizePressed"
+                                                    PointerMoved="OnInfoPanelResizeMoved"
+                                                    PointerReleased="OnInfoPanelResizeReleased"/>
+                                            <local:InfoPanelView Grid.Column="1" x:Name="InfoPanelControl"
+                                                                 DataContext="{Binding FileList}"/>
+                                            <Border Grid.Column="1" x:Name="InactivePreviewPlaceholder"
+                                                    Classes="inactive-preview-placeholder"
+                                                    IsVisible="True"
+                                                    Focusable="True"
+                                                    AutomationProperties.Name="激活窗格并加载预览"
+                                                    PointerPressed="OnInactivePreviewPressed">
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                                                    <PathIcon Data="{x:Static icons:Icons.Info}" Width="18" Height="18"
+                                                              HorizontalAlignment="Center"
+                                                              Foreground="{DynamicResource TextMutedBrush}"/>
+                                                    <TextBlock Text="激活窗格以加载预览"
+                                                               FontSize="{DynamicResource FontSizeLabel}"
+                                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </SplitView.Pane>
+                                    <SplitView.Content>
+                                        <Grid x:Name="WorkspaceContentRoot">
+                                            <local:FileListView x:Name="FileListControl" DataContext="{Binding FileList}"/>
+                                            <local:HomeView x:Name="HomeViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
+                                            <local:AiView x:Name="AiViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
+                                        </Grid>
+                                    </SplitView.Content>
+                                </SplitView>
+
+                                <Border Grid.Row="1" Height="32">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
+                                        <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="1" Classes="workspace-status-detail"
+                                                   Text="{Binding FileList.StatusText}"
+                                                   IsVisible="{Binding FileList.HasStatusMessage}"
+                                                   Margin="8,0,12,0"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding FileList.StatusText}"
+                                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <Border Grid.Column="2" IsVisible="{Binding FileList.HasLocationStatus}"
+                                                VerticalAlignment="Center"
+                                                ToolTip.Tip="{Binding FileList.LocationStatusTooltip}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Ellipse Width="6" Height="6"
+                                                         IsVisible="{Binding FileList.IsRemoteLocationConnected}"
+                                                         Fill="{DynamicResource ColorSuccess}"/>
+                                                <Ellipse Width="6" Height="6"
+                                                         IsVisible="{Binding FileList.IsRemoteLocationDisconnected}"
+                                                         Fill="{DynamicResource TextDisabledBrush}"/>
+                                                <TextBlock Text="{Binding FileList.LocationStatusText}"
+                                                           FontSize="{DynamicResource FontSizeMeta}"
+                                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                            </Border>
+                        </controls:SurfaceCard.Content>
+                    </controls:SurfaceCard>
+                </Grid>
+            </SplitView.Content>
+        </SplitView>
+    </Border>
+</UserControl>

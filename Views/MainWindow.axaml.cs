@@ -49,12 +49,14 @@ public partial class MainWindow : AppWindow
         ("SurfaceElevatedBrush", "GlassElevatedTint")
     ];
 
-    private bool _isRestoringSearch;
     private SettingsDialog? _settingsDialog;
     private MainWindowViewModel? _vm;
     private FileListViewModel? _activeFileList;
     private readonly Dictionary<ExplorerTabViewModel, IServiceScope?> _tabScopes = [];
-    private readonly Dictionary<ExplorerTabViewModel, ExplorerPaneView> _paneViews = [];
+    private readonly Dictionary<ExplorerTabViewModel, ExplorerWorkspaceView> _workspaceViews = [];
+    private readonly Dictionary<ExplorerTabViewModel, Task> _workspaceDetachTasks = [];
+    private readonly SemaphoreSlim _paneLayoutGate = new(1, 1);
+    private readonly LivePreviewCoordinator _livePreviewCoordinator;
     private readonly NavigationBridge _navigationBridge;
     private readonly IDirectoryChangeNotifier _directoryChangeNotifier;
     private readonly IDragDropBridge _dragDropBridge;
@@ -86,18 +88,13 @@ public partial class MainWindow : AppWindow
     private CancellationTokenSource? _autoCloseTimerCts;
     private const double TaskPanelAnimDurationMs = 220;
 
-    private bool _resizingPreview;
-    private double _pendingPreviewWidth;
-    private bool _previewResizeFramePending;
-    private double _normalPreviewWidth = 380;
-    private bool _isPreviewExpanded;
-    private CancellationTokenSource? _previewAnimationCts;
-    private bool _isCompactLayout;
-    private bool _isSidebarCollapsed;
+    private long _paneLayoutGeneration;
+    private bool _shutdownStarted;
+    private bool _shutdownCompleted;
 
-    private ExplorerPaneView? ActivePaneView
-        => _vm?.SelectedTab != null && _paneViews.TryGetValue(_vm.SelectedTab, out var pane)
-            ? pane
+    private ExplorerWorkspaceView? ActiveWorkspace
+        => _vm?.SelectedTab != null && _workspaceViews.TryGetValue(_vm.SelectedTab, out var workspace)
+            ? workspace
             : null;
 
     public string? InitialNavigationPath { get; init; }
@@ -110,9 +107,15 @@ public partial class MainWindow : AppWindow
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
         _taskManager = App.Services.GetRequiredService<IBackgroundTaskManager>();
         _globalSearchScopeService = App.Services.GetRequiredService<IGlobalSearchScopeService>();
+        _livePreviewCoordinator = new LivePreviewCoordinator(workspace =>
+            workspace is ExplorerWorkspaceView view
+            && ReferenceEquals(view, ActiveWorkspace)
+            && view.Tab != null
+            && _vm?.VisiblePanes.Contains(view.Tab) == true);
         DataContextChanged += OnDataContextChanged;
         Opened += OnOpened;
         Activated += OnActivated;
+        Closing += OnClosing;
         Closed += OnClosed;
         Application.Current?.ActualThemeVariantChanged += OnActualThemeVariantChanged;
         _taskManager.TasksChanged += OnTasksChanged;
@@ -120,15 +123,9 @@ public partial class MainWindow : AppWindow
         AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
 
-        // Wire up settings button in sidebar footer
-        SettingsButton.Click += (_, _) => OpenSettings();
-        ToolbarControl.OpenSettingsCallback = OpenSettings;
-        InfoPanelControl.PreviewExpandedChanged += OnPreviewExpandedChanged;
         SuperPreviewControl.RequestClose += OnSuperPreviewClosed;
-        SizeChanged += OnWindowSizeChanged;
-        PositionChanged += (_, _) => ToolbarControl.CloseDropdowns();
-        Deactivated += (_, _) => ToolbarControl.CloseDropdowns();
-        UpdateResponsiveLayout(Width);
+        PositionChanged += (_, _) => ActiveWorkspace?.CloseTransientUi(null);
+        Deactivated += (_, _) => ActiveWorkspace?.CloseTransientUi(null);
         GlobalSearchResults.ItemsSource = _globalSearchSuggestions;
         GlobalSearchFolderContents.ItemsSource = _globalSearchFolderEntries;
 
@@ -167,8 +164,10 @@ public partial class MainWindow : AppWindow
             return;
         }
 
-        ActivePaneView?.FileListView.DismissContextMenu();
-        ToolbarControl.CloseDropdownsFromPointerSource(e.Source);
+        ActiveWorkspace?.CloseTransientUi(e.Source);
+        if (!IsInsideVisual(e.Source as Visual, WindowMoreButton)
+            && !IsInsideVisual(e.Source as Visual, WindowMorePopup.Child as Visual))
+            WindowMorePopup.IsOpen = false;
         ClearTextInputFocusFromPointerSource(e.Source);
     }
 
@@ -213,6 +212,13 @@ public partial class MainWindow : AppWindow
             return;
         }
 
+        if (e.Key == Key.Escape && SuperPreviewControl.IsVisible)
+        {
+            e.Handled = true;
+            SuperPreviewControl.Close();
+            return;
+        }
+
         if (GlobalSearchOverlay.IsVisible)
         {
             if (e.Key == Key.Escape)
@@ -246,11 +252,26 @@ public partial class MainWindow : AppWindow
 
         if (e.Key == Key.Space
             && !IsInsideTextInput(e.Source as Visual)
-            && ActivePaneView?.FileListView.IsVisible == true
+            && ActiveWorkspace?.FileListView.IsVisible == true
             && _vm?.FileList.SelectedEntries.Count == 1)
         {
             e.Handled = true;
             _ = OpenSuperPreviewAsync(_vm.FileList.SelectedEntries[0]);
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta)
+            && !e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            && e.Key == Key.F)
+        {
+            e.Handled = true;
+            ActiveWorkspace?.TogglePageSearch();
+            return;
+        }
+
+        if (e.Key == Key.Escape && ActiveWorkspace?.TryHandleEscape() == true)
+        {
+            e.Handled = true;
             return;
         }
 
@@ -295,7 +316,7 @@ public partial class MainWindow : AppWindow
             if (_vm.Tabs.Count == 1)
                 Close();
             else
-                CloseTabCore(_vm.SelectedTab);
+                _ = CloseTabCoreAsync(_vm.SelectedTab);
             return;
         }
 
@@ -318,12 +339,11 @@ public partial class MainWindow : AppWindow
         if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.L)
         {
             e.Handled = true;
-            BreadcrumbControl.FocusPathInput();
+            ActiveWorkspace?.FocusPathInput();
             return;
         }
 
-        if (ActivePaneView?.FileListView.IsVisible == true)
-            ActivePaneView.FileListView.TryHandleFileShortcut(e);
+        ActiveWorkspace?.TryHandleFileShortcut(e);
     }
 
     public IDisposable BlockModalParentInteraction()
@@ -349,8 +369,8 @@ public partial class MainWindow : AppWindow
 
         if (blocked)
         {
-            ToolbarControl.CloseDropdowns();
-            ActivePaneView?.FileListView.DismissContextMenu();
+            ActiveWorkspace?.CloseTransientUi(null);
+            WindowMorePopup.IsOpen = false;
         }
     }
 
@@ -456,7 +476,7 @@ public partial class MainWindow : AppWindow
             vm.PropertyChanged += OnMainWindowViewModelPropertyChanged;
             vm.VisiblePanes.CollectionChanged += OnVisiblePanesChanged;
             ActivateFileList(vm.FileList);
-            RebuildPaneLayout();
+            SchedulePaneLayoutRebuild();
         }
         else
         {
@@ -474,11 +494,14 @@ public partial class MainWindow : AppWindow
         else if (e.PropertyName is nameof(MainWindowViewModel.PaneLayout)
                  or nameof(MainWindowViewModel.PaneCount)
                  or nameof(MainWindowViewModel.IsMultiPane))
-            RebuildPaneLayout();
+            SchedulePaneLayoutRebuild();
+        else if (e.PropertyName is nameof(MainWindowViewModel.SelectedTab)
+                 or nameof(MainWindowViewModel.ActivePaneSlotIndex))
+            _ = ActivateSelectedWorkspaceAsync();
     }
 
     private void OnVisiblePanesChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => RebuildPaneLayout();
+        => SchedulePaneLayoutRebuild();
 
     private void ActivateFileList(FileListViewModel fileList)
     {
@@ -489,8 +512,6 @@ public partial class MainWindow : AppWindow
         _activeFileList = fileList;
         fileList.PropertyChanged += OnFileListPropertyChanged;
         RegisterViewModel(fileList);
-        UpdateContentVisibility(_vm!);
-        UpdateInfoPanelVisibility(_vm!);
         UpdateTaskButton();
         WireCommandPaletteEvents(fileList);
         _navigationBridge.SetActive(fileList);
@@ -510,20 +531,6 @@ public partial class MainWindow : AppWindow
     private void OnFileListPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_vm == null) return;
-        if (e.PropertyName == nameof(_vm.FileList.IsHomePage) ||
-            e.PropertyName == nameof(_vm.FileList.IsAiView) ||
-            e.PropertyName == nameof(_vm.FileList.AiViewMode))
-        {
-            UpdateContentVisibility(_vm);
-            UpdateInfoPanelVisibility(_vm);
-        }
-        else if (e.PropertyName is nameof(FileListViewModel.IsPreviewPaneVisible)
-                 or nameof(FileListViewModel.IsMetadataPanelVisible)
-                 or nameof(FileListViewModel.IsInfoPanelVisible))
-        {
-            UpdateInfoPanelVisibility(_vm);
-        }
-
         if (e.PropertyName is nameof(FileListViewModel.IsPasteConfirmDialogVisible)
             or nameof(FileListViewModel.IsMoveConfirmDialogVisible)
             or nameof(FileListViewModel.IsDeleteConfirmDialogVisible)
@@ -627,6 +634,7 @@ public partial class MainWindow : AppWindow
         var path = !string.IsNullOrEmpty(pendingPath) ? pendingPath : restorePath;
         if (!string.IsNullOrEmpty(path))
             await _vm.FileList.NavigateToAsync(path);
+        SchedulePaneLayoutRebuild();
     }
 
     private void OnActivated(object? sender, EventArgs e)
@@ -634,13 +642,81 @@ public partial class MainWindow : AppWindow
         if (_vm == null) return;
         _navigationBridge.SetActive(_vm.FileList);
         _dragDropBridge.SetActive(_vm.FileList);
+        _ = ActivateSelectedWorkspaceAsync();
+    }
+
+    private async void OnClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (_shutdownCompleted)
+            return;
+
+        e.Cancel = true;
+        if (_shutdownStarted)
+            return;
+        _shutdownStarted = true;
+        try
+        {
+            await ShutdownWorkspaceStateAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed while shutting down workspace state: {ex}");
+        }
+        finally
+        {
+            _shutdownCompleted = true;
+            Close();
+        }
+    }
+
+    private async Task ShutdownWorkspaceStateAsync()
+    {
+        if (_vm != null)
+        {
+            _vm.PropertyChanged -= OnMainWindowViewModelPropertyChanged;
+            _vm.VisiblePanes.CollectionChanged -= OnVisiblePanesChanged;
+        }
+
+        try
+        {
+            foreach (var tab in _workspaceViews.Keys.ToArray())
+            {
+                try
+                {
+                    await DetachWorkspaceAsync(tab, "window-closing");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to detach workspace while closing: {ex}");
+                }
+            }
+
+            try
+            {
+                await _livePreviewCoordinator.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to dispose live preview coordinator: {ex}");
+            }
+        }
+        finally
+        {
+            DeactivateFileList();
+            foreach (var tab in _vm?.Tabs ?? [])
+                tab.Dispose();
+            foreach (var scope in _tabScopes.Values)
+                scope?.Dispose();
+            _tabScopes.Clear();
+            _scope?.Dispose();
+            _scope = null;
+        }
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
         if (Application.Current != null)
             Application.Current.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
-        _previewAnimationCts?.Cancel();
         _taskPanelAnimCts?.Cancel();
         _autoCloseTimerCts?.Cancel();
         _globalSearchCts?.Cancel();
@@ -654,20 +730,7 @@ public partial class MainWindow : AppWindow
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
         _taskManager.TasksChanged -= OnTasksChanged;
-        if (_vm != null)
-        {
-            _vm.PropertyChanged -= OnMainWindowViewModelPropertyChanged;
-            _vm.VisiblePanes.CollectionChanged -= OnVisiblePanesChanged;
-        }
-        DeactivateFileList();
-        ClearPaneViews();
-        foreach (var tab in _vm?.Tabs ?? [])
-            tab.Dispose();
-        foreach (var scope in _tabScopes.Values)
-            scope?.Dispose();
-        _tabScopes.Clear();
-        _scope?.Dispose();
-        _scope = null;
+        _paneLayoutGate.Dispose();
     }
 
     private void OnActualThemeVariantChanged(object? sender, EventArgs e) => ApplyAppearanceSettings();
@@ -1139,155 +1202,6 @@ public partial class MainWindow : AppWindow
         }
     }
 
-    private void UpdateContentVisibility(MainWindowViewModel vm)
-        => ActivePaneView?.RefreshState();
-
-    private void UpdateInfoPanelVisibility(MainWindowViewModel vm)
-    {
-        var canShowPanel = !vm.FileList.IsHomePage && !vm.FileList.IsAiView;
-        InfoDrawer.IsPaneOpen = canShowPanel && vm.FileList.IsInfoPanelVisible;
-    }
-
-    private void OnInfoPanelResizePressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (_isPreviewExpanded) return;
-        if (sender is not Control handle || !e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed) return;
-        _resizingPreview = true;
-        e.Pointer.Capture(handle);
-        e.Handled = true;
-    }
-
-    private async void OnPreviewExpandedChanged(object? sender, bool expanded)
-    {
-        if (expanded)
-            _normalPreviewWidth = InfoDrawer.OpenPaneLength;
-        _isPreviewExpanded = expanded;
-        InfoPanelResizeHandle.IsVisible = !expanded;
-        if (expanded)
-            InfoPanelPane.ColumnDefinitions[0].Width = new GridLength(0);
-        InfoPanelControl.SetExpandedChrome(expanded);
-        await AnimatePreviewWidthAsync(expanded, expanded
-            ? (_isCompactLayout ? GetInfoPanelMaxWidth() : Math.Max(380, InfoDrawer.Bounds.Width))
-            : Math.Clamp(_normalPreviewWidth, 280, GetInfoPanelMaxWidth()));
-        if (!expanded && _isPreviewExpanded == expanded)
-            InfoPanelPane.ColumnDefinitions[0].Width = new GridLength(6);
-    }
-
-    private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        UpdateResponsiveLayout(e.NewSize.Width);
-        if (_isPreviewExpanded && InfoDrawer.Bounds.Width > 0)
-            InfoDrawer.OpenPaneLength = _isCompactLayout
-                ? GetInfoPanelMaxWidth()
-                : InfoDrawer.Bounds.Width;
-    }
-
-    private void UpdateResponsiveLayout(double width)
-    {
-        var layout = ResponsiveWindowLayout.Resolve(width);
-        var compact = layout.IsCompact;
-        if (_isCompactLayout != compact)
-        {
-            _isCompactLayout = compact;
-            PseudoClasses.Set(":compact", compact);
-            SidebarToggleButton.IsVisible = compact;
-            InfoDrawer.DisplayMode = layout.InfoPanelDisplayMode;
-        }
-
-        SidebarHost.Width = layout.SidebarWidth;
-        SidebarHost.IsVisible = !compact || !_isSidebarCollapsed;
-        InfoDrawer.OpenPaneLength = Math.Clamp(InfoDrawer.OpenPaneLength, 280, GetInfoPanelMaxWidth());
-    }
-
-    private double GetInfoPanelMaxWidth()
-    {
-        var availableWidth = InfoDrawer.Bounds.Width > 0 ? InfoDrawer.Bounds.Width : Bounds.Width;
-        return _isCompactLayout
-            ? Math.Max(280, availableWidth - 64)
-            : Math.Max(280, Bounds.Width * 0.5);
-    }
-
-    private void ToggleSidebar(object? sender, RoutedEventArgs e)
-    {
-        if (!_isCompactLayout)
-            return;
-
-        if (!_isSidebarCollapsed
-            && FocusManager?.GetFocusedElement() is Visual focused
-            && IsInsideVisual(focused, SidebarHost))
-            SidebarToggleButton.Focus();
-
-        _isSidebarCollapsed = !_isSidebarCollapsed;
-        SidebarHost.IsVisible = !_isSidebarCollapsed;
-        ToolTip.SetTip(SidebarToggleButton, _isSidebarCollapsed ? "显示侧栏" : "隐藏侧栏");
-    }
-
-    private async Task AnimatePreviewWidthAsync(bool expanded, double targetWidth)
-    {
-        _previewAnimationCts?.Cancel();
-        _previewAnimationCts?.Dispose();
-        _previewAnimationCts = new CancellationTokenSource();
-        var token = _previewAnimationCts.Token;
-        var startWidth = InfoDrawer.OpenPaneLength;
-        InfoDrawer.DisplayMode = _isCompactLayout
-            ? SplitViewDisplayMode.Overlay
-            : SplitViewDisplayMode.Inline;
-        var stopwatch = Stopwatch.StartNew();
-        const double durationMilliseconds = 180;
-
-        try
-        {
-            while (true)
-            {
-                var progress = Math.Min(1, stopwatch.Elapsed.TotalMilliseconds / durationMilliseconds);
-                var eased = 1 - Math.Pow(1 - progress, 3);
-                InfoDrawer.OpenPaneLength = startWidth + (targetWidth - startWidth) * eased;
-                if (progress >= 1) break;
-                await Task.Delay(16, token);
-            }
-
-            InfoDrawer.OpenPaneLength = targetWidth;
-            InfoPanelControl.CompletePreviewTransition(expanded);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private void OnInfoPanelResizeMoved(object? sender, PointerEventArgs e)
-    {
-        if (!_resizingPreview || sender is not Control handle || e.Pointer.Captured != handle) return;
-        _pendingPreviewWidth = Math.Clamp(
-            InfoDrawer.Bounds.Width - e.GetPosition(InfoDrawer).X,
-            280,
-            GetInfoPanelMaxWidth());
-        if (!_previewResizeFramePending)
-        {
-            _previewResizeFramePending = true;
-            Dispatcher.UIThread.Post(() =>
-            {
-                _previewResizeFramePending = false;
-                if (_resizingPreview)
-                    InfoDrawer.OpenPaneLength = _pendingPreviewWidth;
-            }, DispatcherPriority.Render);
-        }
-        e.Handled = true;
-    }
-
-    private void OnInfoPanelResizeReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (!_resizingPreview) return;
-        _resizingPreview = false;
-        e.Pointer.Capture(null);
-        e.Handled = true;
-    }
-
-    private async void NavigateBack(object? sender, RoutedEventArgs e)
-    {
-        if (_vm?.FileList.CanGoBack == true)
-            await _vm.FileList.NavigateBackAsync();
-    }
-
     private async void AddTab(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -1328,29 +1242,21 @@ public partial class MainWindow : AppWindow
         }
     }
 
-    private void CloseTab(object? sender, RoutedEventArgs e)
+    private async void CloseTab(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
         if (sender is Button { DataContext: ExplorerTabViewModel tab })
-            CloseTabCore(tab);
+            await CloseTabCoreAsync(tab);
     }
 
-    private void CloseTabCore(ExplorerTabViewModel tab)
+    private async Task CloseTabCoreAsync(ExplorerTabViewModel tab)
     {
-        if (_vm?.RemoveTab(tab) != true)
+        if (_vm == null || _vm.Tabs.Count <= 1 || !_vm.Tabs.Contains(tab))
             return;
 
-        if (_vm.Tabs.Count < _vm.PaneCount)
-        {
-            var fallback = _vm.Tabs.Count switch
-            {
-                1 => PaneLayout.Single,
-                2 => PaneLayout.TwoColumns,
-                3 => PaneLayout.MainLeftTwoRowsRight,
-                _ => _vm.PaneLayout
-            };
-            _vm.SetPaneLayout(fallback);
-        }
+        await DetachWorkspaceAsync(tab, "tab-close");
+        if (_vm.RemoveTab(tab) != true)
+            return;
 
         tab.Dispose();
         if (_tabScopes.Remove(tab, out var scope))
@@ -1362,6 +1268,27 @@ public partial class MainWindow : AppWindow
         PaneLayoutPopup.IsOpen = !PaneLayoutPopup.IsOpen;
         if (PaneLayoutPopup.IsOpen)
             Dispatcher.UIThread.Post(UpdatePaneLayoutPickerSelection);
+        e.Handled = true;
+    }
+
+    private void ToggleWindowMorePopup(object? sender, RoutedEventArgs e)
+    {
+        WindowMorePopup.IsOpen = !WindowMorePopup.IsOpen;
+        e.Handled = true;
+    }
+
+    private void OpenTaskPanelFromWindowMenu(object? sender, RoutedEventArgs e)
+    {
+        WindowMorePopup.IsOpen = false;
+        if (!TaskOverlayPanel.IsVisible)
+            ToggleTaskPanel();
+        e.Handled = true;
+    }
+
+    private void OpenSettingsFromWindowMenu(object? sender, RoutedEventArgs e)
+    {
+        WindowMorePopup.IsOpen = false;
+        OpenSettings();
         e.Handled = true;
     }
 
@@ -1402,182 +1329,164 @@ public partial class MainWindow : AppWindow
         _vm.SetPaneLayout(layout);
     }
 
-    private void OnPaneActivated(ExplorerTabViewModel tab)
+    private async void OnWorkspaceActivated(ExplorerTabViewModel tab)
     {
-        if (_vm != null && !ReferenceEquals(_vm.SelectedTab, tab))
-            _vm.SelectedTab = tab;
-    }
-
-    private void RebuildPaneLayout()
-    {
-        if (_vm == null || PaneLayoutRoot == null)
+        if (_vm == null || !_vm.VisiblePanes.Contains(tab))
             return;
 
-        PaneLayoutRoot.Children.Clear();
-        PaneLayoutRoot.RowDefinitions.Clear();
-        PaneLayoutRoot.ColumnDefinitions.Clear();
-
-        var visible = _vm.VisiblePanes.Take(_vm.PaneCount).ToArray();
-        var visibleSet = visible.ToHashSet();
-        foreach (var removed in _paneViews.Keys.Where(tab => !visibleSet.Contains(tab)).ToArray())
-        {
-            var pane = _paneViews[removed];
-            pane.PaneActivated -= OnPaneActivated;
-            pane.DataContext = null;
-            _paneViews.Remove(removed);
-        }
-
-        ExplorerPaneView GetPane(ExplorerTabViewModel tab)
-        {
-            if (_paneViews.TryGetValue(tab, out var existing))
-                return existing;
-
-            var pane = new ExplorerPaneView { DataContext = tab, Margin = new Thickness(2) };
-            pane.PaneActivated += OnPaneActivated;
-            _paneViews[tab] = pane;
-            return pane;
-        }
-
-        void Configure(int rows, int columns, double[]? rowWeights = null, double[]? columnWeights = null)
-        {
-            for (var row = 0; row < rows; row++)
-                PaneLayoutRoot.RowDefinitions.Add(new RowDefinition(
-                    new GridLength(rowWeights?[row] ?? 1, GridUnitType.Star)));
-            for (var column = 0; column < columns; column++)
-                PaneLayoutRoot.ColumnDefinitions.Add(new ColumnDefinition(
-                    new GridLength(columnWeights?[column] ?? 1, GridUnitType.Star)));
-        }
-
-        void Add(int index, int row, int column, int rowSpan = 1, int columnSpan = 1)
-        {
-            if (index >= visible.Length)
-                return;
-            var pane = GetPane(visible[index]);
-            pane.SetHeaderVisible(_vm.IsMultiPane);
-            Grid.SetRow(pane, row);
-            Grid.SetColumn(pane, column);
-            Grid.SetRowSpan(pane, rowSpan);
-            Grid.SetColumnSpan(pane, columnSpan);
-            PaneLayoutRoot.Children.Add(pane);
-        }
-
-        switch (_vm.PaneLayout)
-        {
-            case PaneLayout.Single:
-                Configure(1, 1); Add(0, 0, 0); break;
-            case PaneLayout.TwoColumns:
-                Configure(1, 2); Add(0, 0, 0); Add(1, 0, 1); break;
-            case PaneLayout.TwoRows:
-                Configure(2, 1); Add(0, 0, 0); Add(1, 1, 0); break;
-            case PaneLayout.ThreeColumns:
-                Configure(1, 3); Add(0, 0, 0); Add(1, 0, 1); Add(2, 0, 2); break;
-            case PaneLayout.ThreeRows:
-                Configure(3, 1); Add(0, 0, 0); Add(1, 1, 0); Add(2, 2, 0); break;
-            case PaneLayout.MainLeftTwoRowsRight:
-                Configure(2, 2, columnWeights: [2, 1]);
-                Add(0, 0, 0, 2); Add(1, 0, 1); Add(2, 1, 1); break;
-            case PaneLayout.MainRightTwoRowsLeft:
-                Configure(2, 2, columnWeights: [1, 2]);
-                Add(0, 0, 1, 2); Add(1, 0, 0); Add(2, 1, 0); break;
-            case PaneLayout.FourGrid:
-                Configure(2, 2);
-                Add(0, 0, 0); Add(1, 0, 1); Add(2, 1, 0); Add(3, 1, 1); break;
-            case PaneLayout.FourColumns:
-                Configure(1, 4);
-                Add(0, 0, 0); Add(1, 0, 1); Add(2, 0, 2); Add(3, 0, 3); break;
-            case PaneLayout.FourRows:
-                Configure(4, 1);
-                Add(0, 0, 0); Add(1, 1, 0); Add(2, 2, 0); Add(3, 3, 0); break;
-            case PaneLayout.MainLeftThreeRowsRight:
-                Configure(3, 2, columnWeights: [2, 1]);
-                Add(0, 0, 0, 3); Add(1, 0, 1); Add(2, 1, 1); Add(3, 2, 1); break;
-            case PaneLayout.MainRightThreeRowsLeft:
-                Configure(3, 2, columnWeights: [1, 2]);
-                Add(0, 0, 1, 3); Add(1, 0, 0); Add(2, 1, 0); Add(3, 2, 0); break;
-        }
+        _vm.ActivatePane(tab);
+        await ActivateSelectedWorkspaceAsync();
     }
 
-    private void ClearPaneViews()
+    private void SchedulePaneLayoutRebuild()
     {
-        foreach (var pane in _paneViews.Values)
-        {
-            pane.PaneActivated -= OnPaneActivated;
-            pane.DataContext = null;
-        }
-        _paneViews.Clear();
-        PaneLayoutRoot?.Children.Clear();
+        var generation = Interlocked.Increment(ref _paneLayoutGeneration);
+        _ = RebuildPaneLayoutAsync(generation);
     }
 
-    private async void NavigateForward(object? sender, RoutedEventArgs e)
+    private async Task RebuildPaneLayoutAsync(long generation)
     {
-        if (_vm?.FileList.CanGoForward == true)
-            await _vm.FileList.NavigateForwardAsync();
-    }
-
-    private async void NavigateUp(object? sender, RoutedEventArgs e)
-    {
-        if (_vm?.FileList == null) return;
-        var current = _vm.FileList.CurrentPath;
-        if (!string.IsNullOrEmpty(current) && current != "/")
-        {
-            var parent = System.IO.Path.GetDirectoryName(current);
-            if (!string.IsNullOrEmpty(parent))
-                await _vm.FileList.NavigateToAsync(parent);
-            else
-                await _vm.FileList.NavigateToAsync("/");
-        }
-    }
-
-    private async void RefreshView(object? sender, RoutedEventArgs e)
-    {
-        if (_vm?.FileList == null) return;
-        await _vm.FileList.RefreshCommand.ExecuteAsync(null);
-    }
-
-    private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (_vm?.FileList == null) return;
-        if (e.Key == Key.Enter && !string.IsNullOrWhiteSpace(SearchBox.Text))
-        {
-            await _vm.FileList.SearchCommand.ExecuteAsync(SearchBox.Text);
-            SearchClearBtn.IsVisible = true;
-        }
-        else if (e.Key == Key.Escape)
-        {
-            SearchBox.Text = "";
-            await RestoreSearchOriginAsync();
-            e.Handled = true;
-        }
-    }
-
-    private async void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
-    {
-        var hasQuery = !string.IsNullOrWhiteSpace(SearchBox.Text);
-        SearchClearBtn.IsVisible = hasQuery;
-        if (!hasQuery && _vm?.FileList.IsSearchMode == true)
-            await RestoreSearchOriginAsync();
-    }
-
-    private async void ClearSearch(object? sender, RoutedEventArgs e)
-    {
-        SearchBox.Text = "";
-        SearchClearBtn.IsVisible = false;
-        await RestoreSearchOriginAsync();
-    }
-
-    private async Task RestoreSearchOriginAsync()
-    {
-        if (_isRestoringSearch || _vm?.FileList.IsSearchMode != true)
-            return;
-
-        _isRestoringSearch = true;
+        await _paneLayoutGate.WaitAsync();
         try
         {
-            await _vm.FileList.ExitSearchAsync();
+            if (_vm == null || generation != Volatile.Read(ref _paneLayoutGeneration))
+                return;
+
+            var visible = _vm.VisiblePanes.Take(_vm.PaneCount).ToArray();
+            var visibleSet = visible.ToHashSet();
+            foreach (var removed in _workspaceViews.Keys.Where(tab => !visibleSet.Contains(tab)).ToArray())
+                await DetachWorkspaceAsync(removed, "pane-layout");
+
+            if (_vm == null || generation != Volatile.Read(ref _paneLayoutGeneration))
+                return;
+
+            var definition = MainWindowViewModel.GetPaneLayoutDefinition(_vm.PaneLayout);
+            PaneLayoutRoot.Children.Clear();
+            PaneLayoutRoot.RowDefinitions.Clear();
+            PaneLayoutRoot.ColumnDefinitions.Clear();
+            for (var row = 0; row < definition.Rows; row++)
+                PaneLayoutRoot.RowDefinitions.Add(new RowDefinition(new GridLength(
+                    definition.RowWeights?[row] ?? 1, GridUnitType.Star)));
+            for (var column = 0; column < definition.Columns; column++)
+                PaneLayoutRoot.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(
+                    definition.ColumnWeights?[column] ?? 1, GridUnitType.Star)));
+
+            for (var index = 0; index < Math.Min(visible.Length, definition.Slots.Count); index++)
+            {
+                var workspace = await GetOrCreateWorkspaceAsync(visible[index]);
+                var slot = definition.Slots[index];
+                workspace.ForceCompact = _vm.IsMultiPane;
+                workspace.Margin = _vm.IsMultiPane ? new Thickness(2) : default;
+                Grid.SetRow(workspace, slot.Row);
+                Grid.SetColumn(workspace, slot.Column);
+                Grid.SetRowSpan(workspace, slot.RowSpan);
+                Grid.SetColumnSpan(workspace, slot.ColumnSpan);
+                PaneLayoutRoot.Children.Add(workspace);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to rebuild workspace layout: {ex}");
         }
         finally
         {
-            _isRestoringSearch = false;
+            _paneLayoutGate.Release();
+        }
+
+        if (generation == Volatile.Read(ref _paneLayoutGeneration))
+            await ActivateSelectedWorkspaceAsync();
+    }
+
+    private async Task<ExplorerWorkspaceView> GetOrCreateWorkspaceAsync(ExplorerTabViewModel tab)
+    {
+        if (_workspaceDetachTasks.TryGetValue(tab, out var detachTask))
+        {
+            await detachTask;
+            if (_workspaceDetachTasks.TryGetValue(tab, out var completed)
+                && ReferenceEquals(completed, detachTask))
+                _workspaceDetachTasks.Remove(tab);
+        }
+        if (_workspaceViews.TryGetValue(tab, out var existing))
+            return existing;
+
+        var workspace = new ExplorerWorkspaceView
+        {
+            DataContext = tab
+        };
+        workspace.WorkspaceActivated += OnWorkspaceActivated;
+        _workspaceViews.Add(tab, workspace);
+        return workspace;
+    }
+
+    private async Task ActivateSelectedWorkspaceAsync()
+    {
+        if (_vm?.SelectedTab == null
+            || !_workspaceViews.TryGetValue(_vm.SelectedTab, out var workspace))
+            return;
+
+        foreach (var inactive in _workspaceViews.Values.Where(candidate => !ReferenceEquals(candidate, workspace)))
+            inactive.DeactivateTransientUi();
+
+        _navigationBridge.SetActive(_vm.FileList);
+        _dragDropBridge.SetActive(_vm.FileList);
+        await _livePreviewCoordinator.ActivateAsync(workspace);
+    }
+
+    private Task DetachWorkspaceAsync(ExplorerTabViewModel tab, string reason)
+    {
+        if (_workspaceDetachTasks.TryGetValue(tab, out var pending))
+        {
+            if (!pending.IsCompleted)
+                return pending;
+            _workspaceDetachTasks.Remove(tab);
+        }
+        if (!_workspaceViews.TryGetValue(tab, out var workspace))
+            return Task.CompletedTask;
+
+        var task = DetachWorkspaceCoreAsync(tab, workspace, reason);
+        _workspaceDetachTasks.Add(tab, task);
+        _ = RemoveDetachTaskWhenCompleteAsync(tab, task);
+        return task;
+    }
+
+    private async Task DetachWorkspaceCoreAsync(
+        ExplorerTabViewModel tab,
+        ExplorerWorkspaceView workspace,
+        string reason)
+    {
+        workspace.MarkDetaching();
+        try
+        {
+            await _livePreviewCoordinator.DeactivateAndReleaseAsync(workspace);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to release workspace preview during {reason}: {ex}");
+        }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                PaneLayoutRoot.Children.Remove(workspace);
+                workspace.WorkspaceActivated -= OnWorkspaceActivated;
+                if (_workspaceViews.TryGetValue(tab, out var registered) && ReferenceEquals(registered, workspace))
+                    _workspaceViews.Remove(tab);
+                workspace.DataContext = null;
+                workspace.Dispose();
+            });
+        }
+    }
+
+    private async Task RemoveDetachTaskWhenCompleteAsync(ExplorerTabViewModel tab, Task task)
+    {
+        try
+        {
+            await task;
+        }
+        finally
+        {
+            if (_workspaceDetachTasks.TryGetValue(tab, out var registered) && ReferenceEquals(registered, task))
+                _workspaceDetachTasks.Remove(tab);
         }
     }
 
@@ -1586,8 +1495,8 @@ public partial class MainWindow : AppWindow
         if (_vm?.FileList == null || IsModalInteractionBlocked)
             return;
 
-        ToolbarControl.CloseDropdowns();
-        ActivePaneView?.FileListView.DismissContextMenu();
+        ActiveWorkspace?.CloseTransientUi(null);
+        WindowMorePopup.IsOpen = false;
         GlobalSearchOverlay.IsVisible = true;
         _changingGlobalSearchScope = true;
         try

@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
+             xmlns:local="using:MacExplorer.Views"
              x:Class="MacExplorer.Views.FinderToolbar"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
@@ -16,6 +17,12 @@
             <Setter Property="Height" Value="18"/>
             <Setter Property="Stretch" Value="Uniform"/>
         </Style>
+        <Style Selector="local|FinderToolbar:compact Button.toolbar-regular-action, local|FinderToolbar:compact Separator.toolbar-regular-action">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="local|FinderToolbar:not(:compact) Button.compact-overflow-item, local|FinderToolbar:not(:compact) Separator.compact-overflow-item">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
     </UserControl.Styles>
 
     <Border Classes="finder-toolbar">
@@ -23,10 +30,10 @@
 
             <!-- New button + Dropdown Popup -->
             <Button Grid.Column="0" Classes="ghost toolbar-btn w32" ToolTip.Tip="新建"
-                    x:Name="NewBtn" Click="ToggleNewDropdown">
+                    AutomationProperties.Name="新建" x:Name="NewBtn" Click="ToggleNewDropdown">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Plus}"/>
-                    <TextBlock Text="新建" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
+                    <TextBlock Classes="compact-label" Text="新建" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
 
@@ -98,40 +105,40 @@
                 </Border>
             </Popup>
 
-            <Separator Grid.Column="1" Classes="toolbar-separator"/>
+            <Separator Grid.Column="1" Classes="toolbar-separator toolbar-regular-action"/>
 
             <!-- Clipboard -->
-            <Button Grid.Column="2" Classes="ghost toolbar-btn w32" ToolTip.Tip="剪切 ⌘X" Click="CutSelected">
+            <Button Grid.Column="2" x:Name="CutButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="剪切 ⌘X" AutomationProperties.Name="剪切" Click="CutSelected">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
             </Button>
-            <Button Grid.Column="3" Classes="ghost toolbar-btn w32" ToolTip.Tip="复制 ⌘C" Click="CopySelected">
+            <Button Grid.Column="3" x:Name="CopyButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="复制 ⌘C" AutomationProperties.Name="复制" Click="CopySelected">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
             </Button>
-            <Button Grid.Column="4" Classes="ghost toolbar-btn w32" ToolTip.Tip="粘贴 ⌘V" Click="PasteItems">
+            <Button Grid.Column="4" x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="粘贴 ⌘V" AutomationProperties.Name="粘贴" Click="PasteItems">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
             </Button>
-            <Button Grid.Column="5" Classes="ghost toolbar-btn w32" ToolTip.Tip="删除 ⌘⌫" Click="DeleteSelected">
+            <Button Grid.Column="5" x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="删除 ⌘⌫" AutomationProperties.Name="删除" Click="DeleteSelected">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
             </Button>
 
-            <Button Grid.Column="6" Classes="ghost toolbar-btn w32" ToolTip.Tip="首页 ⌘H" Click="GoHome">
+            <Button Grid.Column="6" x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="首页 ⌘H" AutomationProperties.Name="首页" Click="GoHome">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
             </Button>
 
-            <Separator Grid.Column="7" Classes="toolbar-separator"/>
+            <Separator Grid.Column="7" Classes="toolbar-separator toolbar-regular-action"/>
 
             <!-- View mode toggle -->
             <Border Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented">
                 <StackPanel Orientation="Horizontal">
                     <ToggleButton x:Name="GridViewToggle" Classes="view-mode-toggle"
-                                  ToolTip.Tip="图标视图" Click="ToggleGridView">
+                                  ToolTip.Tip="图标视图" AutomationProperties.Name="图标视图" Click="ToggleGridView">
                         <Border Classes="view-mode-toggle-surface">
                             <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Grid}"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ToggleButton>
                     <ToggleButton x:Name="ListViewToggle" Classes="view-mode-toggle"
-                                  ToolTip.Tip="列表视图" Click="ToggleListView">
+                                  ToolTip.Tip="列表视图" AutomationProperties.Name="列表视图" Click="ToggleListView">
                         <Border Classes="view-mode-toggle-surface">
                             <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.List}"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -140,13 +147,13 @@
                 </StackPanel>
             </Border>
 
-            <Separator Grid.Column="10" Classes="toolbar-separator"/>
+            <Separator Grid.Column="10" Classes="toolbar-separator toolbar-regular-action"/>
 
             <!-- Sort & Group -->
-            <Button Grid.Column="11" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="排序和分组" Click="ToggleSortDropdown">
+            <Button Grid.Column="11" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="排序和分组" AutomationProperties.Name="排序和分组" Click="ToggleSortDropdown">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.SortUpDown}"/>
-                    <TextBlock Text="排序" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
+                    <TextBlock Classes="compact-label" Text="排序" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
             <Popup x:Name="SortDropdown" Placement="BottomEdgeAlignedLeft" PlacementTarget="SortButton"
@@ -176,13 +183,13 @@
             <Border Grid.Column="12"/>
 
             <!-- Info panel toggle -->
-            <Button Grid.Column="13" Classes="ghost toolbar-btn w32" ToolTip.Tip="信息面板 ⌘I" Click="ToggleInfoPanel">
+            <Button Grid.Column="13" Classes="ghost toolbar-btn w32" ToolTip.Tip="信息面板 ⌘I" AutomationProperties.Name="信息面板" Click="ToggleInfoPanel">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Info}"/>
             </Button>
 
             <!-- More button -->
             <Button Grid.Column="14" Classes="ghost toolbar-btn w32" ToolTip.Tip="更多"
-                    x:Name="MoreBtn" Click="ToggleMoreDropdown">
+                    AutomationProperties.Name="更多" x:Name="MoreBtn" Click="ToggleMoreDropdown">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.MoreHorizontal}"/>
             </Button>
 
@@ -193,6 +200,52 @@
                    Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
                 <Border Classes="toolbar-popup" MinWidth="180">
                     <StackPanel>
+                        <Button x:Name="CutOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                                ToolTip.Tip="剪切 ⌘X"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="CutSelected">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
+                                <TextBlock Text="剪切" FontSize="{DynamicResource FontSizeBody}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="CopyOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                                ToolTip.Tip="复制 ⌘C"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="CopySelected">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
+                                <TextBlock Text="复制" FontSize="{DynamicResource FontSizeBody}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="PasteOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                                ToolTip.Tip="粘贴 ⌘V"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="PasteItems">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
+                                <TextBlock Text="粘贴" FontSize="{DynamicResource FontSizeBody}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="DeleteOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                                ToolTip.Tip="删除 ⌘⌫"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="DeleteSelected">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
+                                <TextBlock Text="删除" FontSize="{DynamicResource FontSizeBody}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="HomeOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                                ToolTip.Tip="首页 ⌘H"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="GoHome">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
+                                <TextBlock Text="返回首页" FontSize="{DynamicResource FontSizeBody}"/>
+                            </StackPanel>
+                        </Button>
+                        <Separator Classes="compact-overflow-item"/>
                         <Button Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="OnBatchRename">

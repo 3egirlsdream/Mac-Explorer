@@ -25,6 +25,9 @@ namespace MacExplorer.Views;
 
 public partial class InfoPanelView : UserControl
 {
+    public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
+        AvaloniaProperty.Register<InfoPanelView, bool>(nameof(IsLivePreviewEnabled));
+
     private static readonly HashSet<string> TextPreviewExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".txt", ".md", ".markdown", ".log", ".csv", ".tsv", ".json", ".jsonl", ".xml", ".yaml", ".yml",
@@ -40,7 +43,8 @@ public partial class InfoPanelView : UserControl
     };
     private const long MaxTextPreviewBytes = 2L * 1024 * 1024;
     private FileListViewModel? _subscribedViewModel;
-    private int _previewGeneration;
+    private long _previewRequestGeneration;
+    private long _activationGeneration;
     private int _tagWriteGeneration;
     private readonly IImageAnalysisService? _imageAnalysisService;
     private readonly IClipboardService? _clipboardService;
@@ -58,8 +62,18 @@ public partial class InfoPanelView : UserControl
     private byte[]? _ocrPreviewBytes;
     private CancellationTokenSource? _ocrCts;
     private CancellationTokenSource? _panelUpdateDebounceCts;
+    private Task? _previewLoadTask;
+    private PreviewSelectionIdentity? _currentPreviewSelection;
 
     public event EventHandler<bool>? PreviewExpandedChanged;
+
+    public bool IsLivePreviewEnabled
+    {
+        get => GetValue(IsLivePreviewEnabledProperty);
+        private set => SetValue(IsLivePreviewEnabledProperty, value);
+    }
+
+    internal long PreviewRequestGeneration => _previewRequestGeneration;
 
     // macOS Finder tag names as shown in the user's Finder sidebar.
     private static readonly (string Name, string Color)[] FinderTagColors =
@@ -90,10 +104,10 @@ public partial class InfoPanelView : UserControl
     public InfoPanelView()
     {
         InitializeComponent();
-        _imageAnalysisService = App.Services.GetService<IImageAnalysisService>();
-        _clipboardService = App.Services.GetService<IClipboardService>();
-        _directoryChangeNotifier = App.Services.GetService<IDirectoryChangeNotifier>();
-        _fileTagService = App.Services.GetService<IFileTagService>();
+        _imageAnalysisService = App.Services?.GetService<IImageAnalysisService>();
+        _clipboardService = App.Services?.GetService<IClipboardService>();
+        _directoryChangeNotifier = App.Services?.GetService<IDirectoryChangeNotifier>();
+        _fileTagService = App.Services?.GetService<IFileTagService>();
         RenderOptions.SetBitmapInterpolationMode(
             PreviewImage,
             global::Avalonia.Media.Imaging.BitmapInterpolationMode.MediumQuality);
@@ -101,6 +115,62 @@ public partial class InfoPanelView : UserControl
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
+
+    public async Task SetLivePreviewStateAsync(bool enabled, long activationGeneration)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+            throw new InvalidOperationException("Live preview state must be changed on the UI thread.");
+
+        _activationGeneration = activationGeneration;
+        IsLivePreviewEnabled = enabled;
+        if (!enabled)
+        {
+            await CancelAndReleaseLivePreviewAsync();
+            if (ViewModel?.IsInfoPanelVisible == true)
+                ResetPreviewContent("激活窗格以加载预览");
+            return;
+        }
+
+        await ReloadLivePreviewAsync(activationGeneration);
+    }
+
+    public async Task ReloadLivePreviewAsync(long activationGeneration)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+            throw new InvalidOperationException("Live preview reload must run on the UI thread.");
+        if (!IsLivePreviewEnabled || activationGeneration != _activationGeneration)
+            return;
+
+        CancelQueuedPanelUpdate();
+        await UpdatePanelAsync();
+    }
+
+    public async Task CancelAndReleaseLivePreviewAsync()
+    {
+        CancelQueuedPanelUpdate();
+        CancelPanelLoad();
+        var loadTask = _previewLoadTask;
+        if (loadTask != null)
+        {
+            try
+            {
+                await loadTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                // Teardown must continue even if a preview producer failed.
+            }
+        }
+
+        _previewLoadTask = null;
+        _currentPreviewSelection = null;
+        ResetPreviewContent(ViewModel?.IsInfoPanelVisible == true
+            ? "激活窗格以加载预览"
+            : "选择文件以预览");
+    }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -203,12 +273,8 @@ public partial class InfoPanelView : UserControl
             return;
         }
 
-        _panelLoadCts = new CancellationTokenSource();
-        var cancellationToken = _panelLoadCts.Token;
-        var generation = ++_previewGeneration;
         var entry = viewModel.SelectedEntries[0];
         _currentFilePath = entry.FullPath;
-        ResetPreviewContent(entry.IsDirectory ? "文件夹无法预览" : "正在生成预览…");
 
         // Basic info
         InfoPath.Text = Path.GetDirectoryName(entry.FullPath) ?? "/";
@@ -225,13 +291,34 @@ public partial class InfoPanelView : UserControl
         // starting that work — especially while a large directory is still arriving in batches.
         if (entry.IsDirectory)
         {
+            ResetPreviewContent("文件夹无法预览");
             UpdateExifTab(null);
             UpdateTagsFromMetadata(entry.FullPath, []);
             return;
         }
 
         ApplyCurrentMetadata();
-        StartPreviewLoad(entry, viewModel, _isPreviewExpanded, generation, cancellationToken);
+        if (!IsLivePreviewEnabled)
+        {
+            ResetPreviewContent("激活窗格以加载预览");
+            return;
+        }
+
+        _panelLoadCts = new CancellationTokenSource();
+        var cancellationToken = _panelLoadCts.Token;
+        var requestGeneration = ++_previewRequestGeneration;
+        var activationGeneration = _activationGeneration;
+        var selectionIdentity = PreviewSelectionIdentity.From(entry);
+        _currentPreviewSelection = selectionIdentity;
+        ResetPreviewContent("正在生成预览…");
+        StartPreviewLoad(
+            entry,
+            viewModel,
+            _isPreviewExpanded,
+            activationGeneration,
+            requestGeneration,
+            selectionIdentity,
+            cancellationToken);
     }
 
     private void ApplyCurrentMetadata()
@@ -253,10 +340,12 @@ public partial class InfoPanelView : UserControl
         FileSystemEntry entry,
         FileListViewModel viewModel,
         bool isPreviewExpanded,
-        int generation,
+        long activationGeneration,
+        long requestGeneration,
+        PreviewSelectionIdentity selectionIdentity,
         CancellationToken cancellationToken)
     {
-        _ = Task.Factory.StartNew(async () =>
+        _previewLoadTask = Task.Factory.StartNew(async () =>
         {
             PreviewLoadResult? result = null;
             try
@@ -264,7 +353,11 @@ public partial class InfoPanelView : UserControl
                 Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
                 result = await BuildPreviewResultAsync(entry, viewModel, isPreviewExpanded, cancellationToken)
                     .ConfigureAwait(false);
-                if (result == null || generation != _previewGeneration || cancellationToken.IsCancellationRequested)
+                if (result == null || !IsPreviewRequestCurrent(
+                        activationGeneration,
+                        requestGeneration,
+                        selectionIdentity,
+                        cancellationToken))
                 {
                     result?.Dispose();
                     return;
@@ -272,7 +365,11 @@ public partial class InfoPanelView : UserControl
 
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (generation != _previewGeneration || cancellationToken.IsCancellationRequested)
+                    if (!IsPreviewRequestCurrent(
+                            activationGeneration,
+                            requestGeneration,
+                            selectionIdentity,
+                            cancellationToken))
                     {
                         result.Dispose();
                         return;
@@ -290,11 +387,33 @@ public partial class InfoPanelView : UserControl
                 result?.Dispose();
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (generation == _previewGeneration && !cancellationToken.IsCancellationRequested)
+                    if (IsPreviewRequestCurrent(
+                            activationGeneration,
+                            requestGeneration,
+                            selectionIdentity,
+                            cancellationToken))
                         PreviewPlaceholder.Text = "预览生成失败";
                 }, DispatcherPriority.Background);
             }
         }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
+    }
+
+    private bool IsPreviewRequestCurrent(
+        long activationGeneration,
+        long requestGeneration,
+        PreviewSelectionIdentity selectionIdentity,
+        CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested
+            || !IsLivePreviewEnabled
+            || activationGeneration != _activationGeneration
+            || requestGeneration != _previewRequestGeneration
+            || _currentPreviewSelection != selectionIdentity)
+            return false;
+
+        var selected = ViewModel?.SelectedEntries;
+        return selected?.Count == 1
+               && PreviewSelectionIdentity.From(selected[0]) == selectionIdentity;
     }
 
     private async Task<PreviewLoadResult?> BuildPreviewResultAsync(
@@ -427,7 +546,8 @@ public partial class InfoPanelView : UserControl
         _panelLoadCts?.Cancel();
         _panelLoadCts?.Dispose();
         _panelLoadCts = null;
-        _previewGeneration++;
+        _previewRequestGeneration++;
+        _currentPreviewSelection = null;
     }
 
     private void CancelQueuedPanelUpdate()
@@ -525,6 +645,16 @@ public partial class InfoPanelView : UserControl
     }
 
     private readonly record struct TextPreviewResult(bool IsBinary, string Text);
+
+    private readonly record struct PreviewSelectionIdentity(
+        string FullPath,
+        long Size,
+        DateTime LastModified,
+        bool IsDirectory)
+    {
+        public static PreviewSelectionIdentity From(FileSystemEntry entry)
+            => new(entry.FullPath, entry.Size, entry.LastModified, entry.IsDirectory);
+    }
 
     private static async Task<byte[]?> BuildFallbackPreviewBytesAsync(
         FileSystemEntry entry,
@@ -1418,7 +1548,7 @@ if (!ok) {
         _ocrCts?.Dispose();
         _ocrCts = new CancellationTokenSource();
         var token = _ocrCts.Token;
-        var generation = _previewGeneration;
+        var generation = _previewRequestGeneration;
         var tempPath = Path.Combine(Path.GetTempPath(), $"macexplorer-ocr-{Guid.NewGuid():N}.png");
         CopyImageTextBtn.IsEnabled = false;
         CopyImageTextBtn.Content = "正在识别…";
@@ -1427,7 +1557,7 @@ if (!ok) {
         {
             await File.WriteAllBytesAsync(tempPath, _ocrPreviewBytes, token);
             var result = await _imageAnalysisService.AnalyzeImageAsync(tempPath, token);
-            if (generation != _previewGeneration || token.IsCancellationRequested) return;
+            if (generation != _previewRequestGeneration || token.IsCancellationRequested || !IsLivePreviewEnabled) return;
 
             var text = string.Join(Environment.NewLine,
                 result.RecognizedTexts
@@ -1454,7 +1584,7 @@ if (!ok) {
         }
         catch
         {
-            if (generation == _previewGeneration)
+            if (generation == _previewRequestGeneration)
                 CopyImageTextBtn.Content = "识别失败";
         }
         finally
@@ -1462,10 +1592,10 @@ if (!ok) {
             try { File.Delete(tempPath); }
             catch { }
 
-            if (generation == _previewGeneration && !token.IsCancellationRequested)
+            if (generation == _previewRequestGeneration && !token.IsCancellationRequested)
             {
                 await Task.Delay(1600);
-                if (generation == _previewGeneration)
+                if (generation == _previewRequestGeneration)
                 {
                     CopyImageTextBtn.IsEnabled = true;
                     CopyImageTextBtn.Content = "复制图片文字";
@@ -1478,6 +1608,9 @@ if (!ok) {
     {
         SetPreviewExpanded(!_isPreviewExpanded, notify: true);
     }
+
+    public void RestorePreviewExpanded(bool expanded)
+        => SetPreviewExpanded(expanded, notify: false);
 
     private void SetPreviewExpanded(bool expanded, bool notify)
     {
