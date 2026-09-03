@@ -233,6 +233,7 @@ public partial class FileListView : UserControl
     private bool _contextMenuSelectionGuard;
     private bool _selectionSyncQueued;
     private bool _entriesVisualRefreshQueued;
+    private bool _sizeRefreshQueued;
     private Vector _pendingEntriesScrollOffset;
     private int _scrollRestoreVersion;
     private int _savedScrollOffsetAppliedVersion;
@@ -245,6 +246,7 @@ public partial class FileListView : UserControl
     private bool _marqueeActive;
     private bool _suppressControlSelectionDuringMarquee;
     private KeyModifiers _marqueeModifiers;
+    private FileSystemEntry? _marqueeClickEntry;
     private HashSet<FileSystemEntry> _marqueeBaseSelection = [];
     // An entry can have several separate Finder-style hit regions (icon, name,
     // modified date, size and kind). Keeping those rectangles separate prevents
@@ -262,8 +264,14 @@ public partial class FileListView : UserControl
         GridViewItems.ItemsSource = _gridRows;
         SizeChanged += (_, _) =>
         {
-            RebuildGridRowsIfColumnCountChanged();
-            ApplyListColumnWidths();
+            if (_sizeRefreshQueued) return;
+            _sizeRefreshQueued = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _sizeRefreshQueued = false;
+                RebuildGridRowsIfColumnCountChanged();
+                ApplyListColumnWidths();
+            }, DispatcherPriority.Render);
         };
         AddHandler(PointerPressedEvent, OnDismissClick, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerReleasedEvent, OnGlobalPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
@@ -2464,10 +2472,12 @@ public partial class FileListView : UserControl
 
         Focus();
         var point = e.GetCurrentPoint(FileScroll);
+        var rowEntry = ViewModel.ViewMode == ViewMode.List
+            ? FindDataContextInAncestors(sourceVisual) as FileSystemEntry
+            : null;
         if (point.Properties.IsLeftButtonPressed
             && e.ClickCount == 2
-            && ViewModel.ViewMode == ViewMode.List
-            && FindDataContextInAncestors(sourceVisual) is FileSystemEntry doubleClickedEntry)
+            && rowEntry is { } doubleClickedEntry)
         {
             OpenEntryFromGesture(doubleClickedEntry);
             e.Handled = true;
@@ -2487,6 +2497,7 @@ public partial class FileListView : UserControl
             _marqueeCurrentViewportPoint = e.GetPosition(FileScroll);
             _marqueeStart = ViewportToContent(_marqueeCurrentViewportPoint);
             _marqueeModifiers = e.KeyModifiers;
+            _marqueeClickEntry = rowEntry;
             _marqueeBaseSelection = ViewModel.SelectedEntries.ToHashSet();
             _marqueeEntryBounds.Clear();
             CaptureRealizedEntryBounds();
@@ -2498,6 +2509,7 @@ public partial class FileListView : UserControl
         }
         else if (point.Properties.IsRightButtonPressed)
         {
+            _marqueeClickEntry = null;
             _rightPressedEntry = null;
             _rightPressedAnchor = FileScroll;
             _contextMenuSelectionGuard = true;
@@ -2534,7 +2546,16 @@ public partial class FileListView : UserControl
     private void OnMarqueePointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_marqueeStart == null) return;
+        var clickEntry = !_marqueeActive ? _marqueeClickEntry : null;
+        var modifiers = _marqueeModifiers;
         EndMarquee(e.Pointer);
+        if (clickEntry != null && ViewModel != null)
+        {
+            var hasCommandModifier = modifiers.HasFlag(KeyModifiers.Meta)
+                                     || modifiers.HasFlag(KeyModifiers.Control);
+            ViewModel.SelectEntry(clickEntry, hasCommandModifier, modifiers.HasFlag(KeyModifiers.Shift));
+            QueueSelectionSynchronization();
+        }
         e.Handled = true;
     }
 
@@ -2543,6 +2564,7 @@ public partial class FileListView : UserControl
         pointer.Capture(null);
         _marqueeStart = null;
         _marqueeActive = false;
+        _marqueeClickEntry = null;
         _marqueeBaseSelection.Clear();
         _marqueeEntryBounds.Clear();
         _marqueeScrollViewer = null;

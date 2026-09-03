@@ -75,31 +75,118 @@
             <Setter Property="Padding" Value="0"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem">
-            <Setter Property="MinWidth" Value="120"/>
-            <Setter Property="MaxWidth" Value="220"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="Padding" Value="10,0,4,0"/>
-            <Setter Property="Margin" Value="0,0,3,0"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="MaxWidth" Value="260"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="0"/>
+            <!-- Chromium overlaps adjacent tab slots so the active tab's
+                 extension feet cover the neighboring separator cleanly. -->
+            <Setter Property="Margin" Value="0,0,-6,0"/>
+            <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="ZIndex" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:last-child">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="controls|ChromiumTabShape.chromium-tab-shape">
+            <Setter Property="Fill" Value="Transparent"/>
+            <Setter Property="Mode" Value="Highlight"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Fill" Duration="0:0:0.14" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.browser-tab-divider">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.1" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="ZIndex" Value="2"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover controls|ChromiumTabShape.chromium-tab-shape">
+            <Setter Property="Fill" Value="{DynamicResource InteractionHoverBrush}"/>
+            <Setter Property="Mode" Value="Highlight"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover Border.browser-tab-divider">
+            <Setter Property="Opacity" Value="0"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem:selected">
-            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="ZIndex" Value="3"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:selected /template/ ContentPresenter,
+                         ListBox.tab-strip ListBoxItem:selected:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:selected controls|ChromiumTabShape.chromium-tab-shape,
+                         ListBox.tab-strip ListBoxItem:selected:pointerover controls|ChromiumTabShape.chromium-tab-shape">
+            <Setter Property="Fill" Value="{DynamicResource ColorBgContent}"/>
+            <Setter Property="Mode" Value="Active"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:selected Border.browser-tab-divider,
+                         ListBox.tab-strip ListBoxItem:selected:pointerover Border.browser-tab-divider">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.tab-strip ListBoxItem:selected:pointerover">
+            <Setter Property="ZIndex" Value="3"/>
         </Style>
         <Style Selector="Button.tab-close-button">
-            <Setter Property="Width" Value="20"/>
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="MinWidth" Value="22"/>
+            <Setter Property="MinHeight" Value="22"/>
+            <Setter Property="Padding" Value="6"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      Padding="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="Button.tab-close-button:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.tab-close-button:pressed">
             <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
         </Style>
         <Style Selector="Button.layout-choice">
@@ -152,11 +239,11 @@
 
     <controls:AppWindow.TitleBarContent>
         <!-- Browser-style tabs share the native traffic-light row. -->
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,4,0,4"
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,4,0,0"
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
                     <ScrollViewer Grid.Column="0" x:Name="TabScrollViewer"
                                   chrome:WindowDecorationProperties.ElementRole="User"
-                                  HorizontalAlignment="Left" MaxWidth="720"
+                                  HorizontalAlignment="Left" MaxWidth="840"
                                   HorizontalScrollBarVisibility="Hidden"
                                   VerticalScrollBarVisibility="Disabled">
                         <ListBox x:Name="TabList"
@@ -171,22 +258,32 @@
                             </ListBox.ItemsPanel>
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ExplorerTabViewModel">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
-                                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Folder}"
-                                                  Width="13" Height="13"
-                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding Title}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   FontSize="{DynamicResource FontSizeLabel}"
-                                                   VerticalAlignment="Center"
-                                                   ToolTip.Tip="{Binding Title}"/>
-                                        <Button Grid.Column="2" Classes="tab-close-button"
-                                                IsVisible="{Binding CanClose}"
-                                                Click="CloseTab"
-                                                ToolTip.Tip="关闭标签页 ⌘W"
-                                                AutomationProperties.Name="关闭标签页">
-                                            <PathIcon Data="{x:Static icons:Icons.Close}" Width="9" Height="9"/>
-                                        </Button>
+                                    <Grid ClipToBounds="False">
+                                        <controls:ChromiumTabShape Classes="chromium-tab-shape"
+                                                                   IsHitTestVisible="False"/>
+                                        <Border Classes="browser-tab-divider"
+                                                Width="1" Height="20" Margin="0,0,0,4"
+                                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Background="{DynamicResource ColorBorderSubtle}"
+                                                IsHitTestVisible="False"/>
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7"
+                                              Margin="22,0">
+                                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Folder}"
+                                                      Width="14" Height="14"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Title}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontSize="{DynamicResource FontSizeBody}"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip.Tip="{Binding Title}"/>
+                                            <Button Grid.Column="2" Classes="tab-close-button"
+                                                    IsVisible="{Binding CanClose}"
+                                                    Click="CloseTab"
+                                                    ToolTip.Tip="关闭标签页 ⌘W"
+                                                    AutomationProperties.Name="关闭标签页">
+                                                <PathIcon Data="{x:Static icons:Icons.Close}" Width="9" Height="9"/>
+                                            </Button>
+                                        </Grid>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -343,7 +440,8 @@
     </controls:AppWindow.TitleBarContent>
 
     <Grid>
-    <Border x:Name="RootLayout" CornerRadius="0">
+    <Border x:Name="RootLayout" CornerRadius="0"
+            Background="{DynamicResource ColorBgContent}">
         <Grid Margin="8 0 8 8">
             <Grid x:Name="PaneLayoutRoot"/>
         </Grid>

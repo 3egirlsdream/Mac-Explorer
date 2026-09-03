@@ -34,6 +34,9 @@ public partial class SettingsDialog : DialogWindow
     private readonly Dictionary<string, ToggleSwitch> _sidebarToggles = new(StringComparer.Ordinal);
     private List<OpenWithApp> _openWithApps = [];
     private List<AppListItem> _installedApps = [];
+    private VersionInfo? _availableVersion;
+    private readonly CancellationTokenSource _updateCancellation = new();
+    private UpdateState _updateState = UpdateState.Idle;
     private bool _initializing = true;
     private bool _updatingInteractionStyleSettings;
     private bool _installedAppsLoaded;
@@ -77,6 +80,7 @@ public partial class SettingsDialog : DialogWindow
         _globalSearchScopeService = globalSearchScopeService
             ?? new Services.Impl.GlobalSearchScopeService(settingsService);
         Opened += OnOpened;
+        Closed += (_, _) => _updateCancellation.Cancel();
     }
 
     private async void OnOpened(object? sender, EventArgs e)
@@ -648,4 +652,160 @@ public partial class SettingsDialog : DialogWindow
         catch { return null; }
     }
 
+    private async void OnUpdateButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (_updateState is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing)
+            return;
+
+        if (_availableVersion != null
+            && _updateState is UpdateState.UpdateAvailable or UpdateState.Error)
+        {
+            SetUpdateState(UpdateState.Downloading, "准备下载...");
+            using var progressLifetime = CancellationTokenSource.CreateLinkedTokenSource(
+                _updateCancellation.Token);
+            var progressToken = progressLifetime.Token;
+            try
+            {
+                var progress = new Progress<(double Progress, string Status)>(report =>
+                {
+                    if (progressToken.IsCancellationRequested)
+                        return;
+
+                    ApplyUpdateProgress(report);
+                });
+                await _appUpdateService.DownloadAndInstallAsync(
+                    _availableVersion,
+                    progress,
+                    _updateCancellation.Token);
+            }
+            catch (OperationCanceledException) when (_updateCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                SetUpdateState(UpdateState.Error, $"更新失败: {ex.Message}");
+            }
+            finally
+            {
+                progressLifetime.Cancel();
+            }
+            return;
+        }
+
+        _availableVersion = null;
+        ChangelogBorder.IsVisible = false;
+        SetUpdateState(UpdateState.Checking, "正在连接更新服务器...");
+        try
+        {
+            _availableVersion = await _appUpdateService.CheckVersionAsync(_updateCancellation.Token);
+            if (_availableVersion == null)
+            {
+                SetUpdateState(UpdateState.NoUpdate, "当前已是最新版本");
+            }
+            else
+            {
+                SetUpdateState(UpdateState.UpdateAvailable, $"发现新版本 {_availableVersion.Version}");
+                var releaseDate = DateTime.TryParse(_availableVersion.DateTime, out var parsedDate)
+                    ? parsedDate.ToString("yyyy-MM-dd")
+                    : _availableVersion.DateTime;
+                ChangelogTitle.Text = string.IsNullOrWhiteSpace(releaseDate)
+                    ? $"版本 {_availableVersion.Version} 更新内容"
+                    : $"版本 {_availableVersion.Version} · {releaseDate}";
+                ChangelogText.Text = _availableVersion.Memo;
+                ChangelogBorder.IsVisible = !string.IsNullOrWhiteSpace(_availableVersion.Memo);
+            }
+        }
+        catch (OperationCanceledException) when (_updateCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            SetUpdateState(UpdateState.Error, $"检查失败: {ex.Message}");
+        }
+    }
+
+    private void ApplyUpdateProgress((double Progress, string Status) report)
+    {
+        if (_updateState is not UpdateState.Downloading and not UpdateState.Installing)
+            return;
+
+        var installing = report.Status.Contains("解压", StringComparison.Ordinal)
+                         || report.Status.Contains("校验", StringComparison.Ordinal)
+                         || report.Status.Contains("安装", StringComparison.Ordinal)
+                         || report.Status.Contains("重启", StringComparison.Ordinal);
+        if (_updateState == UpdateState.Installing && !installing)
+            return;
+
+        var nextState = installing ? UpdateState.Installing : UpdateState.Downloading;
+        if (_updateState != nextState)
+            SetUpdateState(nextState, report.Status);
+        else
+            UpdateStatus.Text = report.Status;
+
+        UpdateProgress.IsIndeterminate = report.Progress < 0 || installing;
+        if (report.Progress >= 0)
+            UpdateProgress.Value = Math.Clamp(report.Progress, 0, 100);
+    }
+
+    private void SetUpdateState(UpdateState state, string status)
+    {
+        _updateState = state;
+        UpdateStatus.Text = status;
+        UpdateProgress.IsIndeterminate = false;
+
+        switch (state)
+        {
+            case UpdateState.Checking:
+                UpdateButton.IsVisible = true;
+                UpdateButton.IsEnabled = false;
+                UpdateButton.Content = "检查中...";
+                UpdateProgress.IsVisible = false;
+                break;
+            case UpdateState.UpdateAvailable:
+                UpdateButton.IsVisible = true;
+                UpdateButton.IsEnabled = true;
+                UpdateButton.Content = "立即更新";
+                UpdateProgress.IsVisible = false;
+                break;
+            case UpdateState.Downloading:
+                UpdateButton.IsVisible = false;
+                UpdateButton.IsEnabled = false;
+                UpdateProgress.IsVisible = true;
+                UpdateProgress.Value = 0;
+                break;
+            case UpdateState.Installing:
+                UpdateButton.IsVisible = false;
+                UpdateButton.IsEnabled = false;
+                UpdateProgress.IsVisible = true;
+                UpdateProgress.IsIndeterminate = true;
+                break;
+            case UpdateState.Error:
+                UpdateButton.IsVisible = true;
+                UpdateButton.IsEnabled = true;
+                UpdateButton.Content = _availableVersion == null ? "重新检查" : "重试更新";
+                UpdateProgress.IsVisible = false;
+                break;
+            case UpdateState.Idle:
+            case UpdateState.NoUpdate:
+            default:
+                UpdateButton.IsVisible = true;
+                UpdateButton.IsEnabled = true;
+                UpdateButton.Content = "检查更新";
+                UpdateProgress.IsVisible = false;
+                break;
+        }
+    }
+
+    private enum UpdateState
+    {
+        Idle,
+        Checking,
+        NoUpdate,
+        UpdateAvailable,
+        Downloading,
+        Installing,
+        Error,
+    }
 }

@@ -4,7 +4,7 @@
              xmlns:chrome="using:Avalonia.Controls.Chrome"
              x:Class="MacExplorer.Controls.WindowTitleBar"
              x:Name="TitleBarRoot"
-             MinHeight="40">
+             MinHeight="44">
     <UserControl.Styles>
         <Style Selector="Button.window-control">
             <Setter Property="Width" Value="20"/>
@@ -58,7 +58,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid Height="40" Background="Transparent">
+    <Grid Height="44" Background="{DynamicResource TitleBarBackgroundBrush}">
         <Grid x:Name="TitleRow" Background="Transparent"
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
             <Border x:Name="WindowControlsReserve" Padding="14,0,12,0"

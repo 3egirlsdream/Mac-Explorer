@@ -78,7 +78,7 @@
                    OpenPaneLength="260"
                    CompactPaneLength="0">
             <SplitView.Pane>
-                <controls:SurfaceCard x:Name="SidebarSurface" CornerRadius="16" Padding="0" Margin="0,0,4,0">
+                <controls:SurfaceCard x:Name="SidebarSurface" CornerRadius="16" Padding="0" Margin="0,4,4,0">
                     <controls:SurfaceCard.Content>
                         <local:FinderSidebarView x:Name="SidebarControl" DataContext="{Binding FileList}"/>
                     </controls:SurfaceCard.Content>

@@ -210,18 +210,25 @@
         </Style>
 
         <Style Selector="Button.settings-location-action">
-            <Setter Property="Width" Value="42"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="FontSize" Value="24"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="7"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="Button.settings-location-action:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+
+        <Style Selector="Button.settings-location-action PathIcon">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
         </Style>
     </Window.Styles>
 
@@ -296,7 +303,17 @@
                 </TabItem.Header>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Classes="settings-page">
-                        <TextBlock Classes="settings-title" Text="位置"/>
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+                            <TextBlock Classes="settings-title" Text="位置" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    x:Name="AddSearchLocationButton"
+                                    Classes="settings-location-action"
+                                    ToolTip.Tip="添加搜索位置"
+                                    AutomationProperties.Name="添加搜索位置"
+                                    Click="OnAddSearchLocation">
+                                <PathIcon Data="{x:Static icons:Icons.Plus}"/>
+                            </Button>
+                        </Grid>
                         <StackPanel Spacing="7">
                             <TextBlock Classes="settings-section-title"
                                        Text="要搜索应用程序和扩展的文件夹："/>
@@ -341,24 +358,18 @@
                                     </ListBox>
                                 </StackPanel>
                             </Border>
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Margin="0,4,0,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="AddSearchLocationButton"
-                                            Classes="settings-location-action"
-                                            Content="＋"
-                                            ToolTip.Tip="添加文件夹"
-                                            Click="OnAddSearchLocation"/>
-                                    <Button x:Name="RemoveSearchLocationButton"
-                                            Classes="settings-location-action"
-                                            Content="−"
-                                            Margin="-1,0,0,0"
-                                            ToolTip.Tip="移除选中的文件夹"
-                                            Click="OnRemoveSearchLocation"/>
-                                </StackPanel>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
+                                <Button x:Name="RemoveSearchLocationButton"
+                                        Classes="settings-location-action"
+                                        ToolTip.Tip="移除选中的搜索位置"
+                                        AutomationProperties.Name="移除选中的搜索位置"
+                                        Click="OnRemoveSearchLocation">
+                                    <PathIcon Data="{x:Static icons:Icons.Subtract}"/>
+                                </Button>
                                 <TextBlock Grid.Column="1"
                                            Classes="settings-description"
                                            VerticalAlignment="Center"
-                                           Text="按“＋”添加一个文件夹进行应用程序搜索。按“−”移除选中的文件夹。"/>
+                                           Text="选中列表中的文件夹后可将其从搜索位置中移除。"/>
                             </Grid>
                         </StackPanel>
                     </StackPanel>
@@ -707,6 +718,31 @@
                                     <TextBlock Text="为 macOS 重新设计的文件浏览体验。" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"/>
                                 </StackPanel>
                             </Grid>
+                        </Border>
+
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-row settings-divider">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="软件更新"/>
+                                            <TextBlock x:Name="UpdateStatus" FontSize="{DynamicResource FontSizeLabel}" Margin="0,3,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="UpdateButton" Classes="primary about-update-btn" Content="检查更新" Click="OnUpdateButtonClick"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Padding="14,10">
+                            <ProgressBar x:Name="UpdateProgress" IsVisible="False" Minimum="0" Maximum="100" Height="4"/>
+                        </Border>
+
+                        <Border x:Name="ChangelogBorder" IsVisible="False" Classes="settings-group" Padding="14,12">
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Name="ChangelogTitle" Text="更新日志" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock x:Name="ChangelogText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
                         </Border>
 
                         <TextBlock Text="Copyright 2024-2026 MacExplorer" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}"/>

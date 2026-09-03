@@ -19,7 +19,7 @@ public class AppWindowTests
         var titleText = titleBar.FindControl<TextBlock>("TitleText")!;
         var contentRow = titleBar.FindControl<Border>("TitleBarContentRow")!;
 
-        Assert.Equal(40, titleBar.Bounds.Height);
+        Assert.Equal(44, titleBar.Bounds.Height);
         Assert.False(contentRow.IsVisible);
         Assert.True(titleText.IsVisible);
         Assert.Equal("设置", titleText.Text);
@@ -42,7 +42,7 @@ public class AppWindowTests
         var titleText = titleBar.FindControl<TextBlock>("TitleText")!;
         var contentRow = titleBar.FindControl<Border>("TitleBarContentRow")!;
 
-        Assert.Equal(40, titleBar.Bounds.Height);
+        Assert.Equal(44, titleBar.Bounds.Height);
         Assert.True(contentRow.IsVisible);
         Assert.True(contentRow.ClipToBounds);
         Assert.False(titleText.IsVisible);

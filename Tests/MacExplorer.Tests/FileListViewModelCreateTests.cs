@@ -109,6 +109,65 @@ public sealed class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
+    public void ClickingBlankPartOfListRowsSelectsFilesAndFolders()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
+        using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        viewModel.Entries.Add(new FileSystemEntry
+        {
+            FullPath = "/tmp/FKFinderTests/blank-row-file.txt",
+            Name = "blank-row-file.txt",
+            Extension = ".txt",
+            IconKey = "file-text"
+        });
+        viewModel.Entries.Add(new FileSystemEntry
+        {
+            FullPath = "/tmp/FKFinderTests/blank-row-folder",
+            Name = "blank-row-folder",
+            IsDirectory = true,
+            IconKey = "folder"
+        });
+
+        var view = new FileListView { DataContext = viewModel };
+        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
+        var fileScroll = view.FindControl<Grid>("FileScroll")!;
+        var rows = viewModel.Entries.Select((entry, index) =>
+        {
+            var row = Assert.IsAssignableFrom<Border>(rowTemplate.Build(entry));
+            row.DataContext = entry;
+            row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+            row.Margin = new Thickness(0, index * 30, 0, 0);
+            fileScroll.Children.Add(row);
+            return row;
+        }).ToArray();
+        var window = new Window { Width = 900, Height = 520, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        for (var index = 0; index < rows.Length; index++)
+        {
+            var row = rows[index];
+            var rowOrigin = row.TranslatePoint(default, window)!.Value;
+            var hitRects = row.GetVisualDescendants().OfType<Control>()
+                .Where(control => control.Classes.Contains("list-entry-hit"))
+                .Select(control => new Rect(control.TranslatePoint(default, window)!.Value, control.Bounds.Size))
+                .ToArray();
+            var point = new Point(rowOrigin.X + row.Bounds.Width - 4, rowOrigin.Y + row.Bounds.Height / 2);
+            Assert.All(hitRects, rect => Assert.False(rect.Contains(point)));
+
+            window.MouseDown(point, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(viewModel.SelectedEntries);
+            Assert.Same(viewModel.Entries[index], viewModel.SelectedEntries[0]);
+        }
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task DoubleClickingBlankPartOfListRowOpensTheDirectory()
     {
         var root = Path.Combine(Path.GetTempPath(), $"fkfinder-row-double-click-{Guid.NewGuid():N}");

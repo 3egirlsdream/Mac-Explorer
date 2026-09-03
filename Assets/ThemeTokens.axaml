@@ -30,6 +30,7 @@
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <BoxShadows x:Key="ShadowSm">0 0 2 0 #16000000</BoxShadows>
+                    <BoxShadows x:Key="SurfaceCardShadow">0 0 8 -3 #2E000000, 0 0 3 -1 #20000000</BoxShadows>
                     <BoxShadows x:Key="ShadowMd">0 0 34 -10 #30000000</BoxShadows>
                     <BoxShadows x:Key="WindowShadow">0 0 32 -6 #40000000</BoxShadows>
                     <BoxShadows x:Key="InsetHairlineShadow">inset 0 0 0 1 #06000000</BoxShadows>
@@ -38,6 +39,7 @@
                     <BoxShadows x:Key="HomeSearchFocusShadow">0 0 42 -24 #30000000, inset 0 0 0 1 #10000000</BoxShadows>
                     <BoxShadows x:Key="ViewModeToggleShadow">0 1 2 0 #14000000</BoxShadows>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FAFAFA"/>
+                    <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#E7E0DB"/>
                     <SolidColorBrush x:Key="WindowBorderBrush" Color="#18000000"/>
                     <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#FAFAFA"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
@@ -163,6 +165,7 @@
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <BoxShadows x:Key="ShadowSm">0 0 2 0 #70000000</BoxShadows>
+                    <BoxShadows x:Key="SurfaceCardShadow">0 0 8 -3 #70000000, 0 0 3 -1 #58000000, inset 0 0 0 1 #18FFFFFF</BoxShadows>
                     <BoxShadows x:Key="ShadowMd">0 0 34 -10 #90000000</BoxShadows>
                     <BoxShadows x:Key="WindowShadow">0 0 32 -6 #A8000000</BoxShadows>
                     <BoxShadows x:Key="InsetHairlineShadow">inset 0 0 0 1 #36000000</BoxShadows>
@@ -171,6 +174,7 @@
                     <BoxShadows x:Key="HomeSearchFocusShadow">0 0 42 -24 #A0000000, inset 0 0 0 1 #42000000</BoxShadows>
                     <BoxShadows x:Key="ViewModeToggleShadow">0 1 2 0 #76000000</BoxShadows>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#181A1F"/>
+                    <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#302B28"/>
                     <SolidColorBrush x:Key="WindowBorderBrush" Color="#22000000"/>
                     <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#14161A"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#F21E2026"/>

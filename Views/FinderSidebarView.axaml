@@ -227,7 +227,8 @@
                     </Border>
 
                     <!-- External volumes -->
-                    <ItemsControl Classes="sidebar-items rail-secondary"
+                    <ItemsControl x:Name="ExternalVolumesControl"
+                                  Classes="sidebar-items rail-secondary"
                                   ItemsSource="{Binding ExternalVolumes}"
                                   IsVisible="{Binding ExternalVolumes, Converter={StaticResource IsNotEmpty}}">
                         <ItemsControl.ItemTemplate>

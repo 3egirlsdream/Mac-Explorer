@@ -4,7 +4,6 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Security.Cryptography;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MacExplorer.Views.Dialogs;
@@ -2026,22 +2025,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         });
 
-        actions.Add(new ContextMenuAction
-        {
-            Label = "永久删除",
-            IconSvg = Icons.Trash,
-            IsEnabled = canUseLocalFileTools,
-            Execute = () => PermanentlyDeleteContextEntriesAsync(entry)
-        });
-
-        actions.Add(new ContextMenuAction
-        {
-            Label = "哈希校验",
-            IconSvg = Icons.Info,
-            IsEnabled = canUseLocalFileTools && contextEntries.All(item => !item.IsDirectory),
-            Execute = () => CopySha256HashesAsync(entry)
-        });
-
         actions.Add(ContextMenuAction.Separator);
 
         // Archive (skip for remote paths)
@@ -2426,40 +2409,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             StatusText = $"永久删除失败: {ex.Message}";
-        }
-    }
-
-    private async Task CopySha256HashesAsync(FileSystemEntry entry)
-    {
-        var entries = GetContextEntries(entry);
-        if (entries.Count == 0 || entries.Any(item => !IsUsableLocalEntry(item) || item.IsDirectory))
-        {
-            StatusText = "哈希校验仅支持本地文件";
-            return;
-        }
-
-        IsContextMenuVisible = false;
-        try
-        {
-            var resultLines = new List<string> { "SHA-256" };
-            foreach (var item in entries)
-            {
-                await using var stream = new FileStream(item.FullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var hash = await SHA256.HashDataAsync(stream);
-                resultLines.Add($"{Convert.ToHexString(hash)}  {item.Name}");
-            }
-
-            var result = string.Join(Environment.NewLine, resultLines);
-            if (_clipboardService != null)
-                await _clipboardService.CopyTextAsync(result);
-
-            StatusText = entries.Count == 1
-                ? $"SHA-256 已复制: {resultLines[1].Split("  ")[0]}"
-                : $"已将 {entries.Count} 个文件的 SHA-256 哈希值复制到剪贴板";
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"哈希校验失败: {ex.Message}";
         }
     }
 

@@ -56,7 +56,7 @@ public class AppUpdateTests
     }
 
     [AvaloniaFact]
-    public void SettingsDialogDoesNotExposeUpdateControls()
+    public void FailedValidationCannotBeOverwrittenByQueuedProgress()
     {
         var updateService = new FailingUpdateService();
         var dialog = new SettingsDialog(
@@ -66,10 +66,22 @@ public class AppUpdateTests
             new TypographyServiceStub(),
             new OpenWithAppServiceStub(),
             updateService);
+        var updateButton = dialog.FindControl<Button>("UpdateButton")!;
+        var updateStatus = dialog.FindControl<TextBlock>("UpdateStatus")!;
 
-        Assert.Null(dialog.FindControl<Button>("UpdateButton"));
-        Assert.Null(dialog.FindControl<ProgressBar>("UpdateProgress"));
-        Assert.Equal(0, updateService.InstallAttempts);
+        updateButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.Equal("立即更新", updateButton.Content);
+
+        updateButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("重试更新", updateButton.Content);
+        Assert.True(updateButton.IsEnabled);
+        Assert.Contains("模拟签名校验失败", updateStatus.Text);
+
+        updateButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(2, updateService.InstallAttempts);
     }
 
     private static async Task<string> RunProcessAsync(

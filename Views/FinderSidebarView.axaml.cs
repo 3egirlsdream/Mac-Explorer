@@ -26,7 +26,6 @@ public partial class FinderSidebarView : UserControl
     private bool _isCommittingCollectionEdit;
     private Border? _pinnedDropTarget;
     private FileListViewModel? _subscribedViewModel;
-    private readonly Dictionary<Border, RailCompactItemState> _railCompactItemStates = [];
     private readonly Dictionary<Control, RailSecondaryState> _railSecondaryStates = [];
     private bool _isRailMode;
 
@@ -81,19 +80,11 @@ public partial class FinderSidebarView : UserControl
         }
     }
 
-    private void SetCompactItemRailMode(Border item, bool railMode)
+    private static void SetCompactItemRailMode(Border item, bool railMode)
     {
+        var contentPanel = item.Child as StackPanel;
         if (railMode)
         {
-            var contentPanel = item.Child as StackPanel;
-            _railCompactItemStates.TryAdd(item, new RailCompactItemState(
-                item.Width,
-                item.MinWidth,
-                item.MaxWidth,
-                item.Margin,
-                item.HorizontalAlignment,
-                contentPanel,
-                contentPanel?.HorizontalAlignment ?? HorizontalAlignment.Stretch));
             item.Width = 40;
             item.MinWidth = 40;
             item.MaxWidth = 40;
@@ -101,27 +92,16 @@ public partial class FinderSidebarView : UserControl
             item.HorizontalAlignment = HorizontalAlignment.Center;
             if (contentPanel != null)
                 contentPanel.HorizontalAlignment = HorizontalAlignment.Center;
+            return;
         }
-        else if (_railCompactItemStates.Remove(item, out var state))
-        {
-            item.Width = state.Width;
-            item.MinWidth = state.MinWidth;
-            item.MaxWidth = state.MaxWidth;
-            item.Margin = state.Margin;
-            item.HorizontalAlignment = state.HorizontalAlignment;
-            if (state.ContentPanel != null)
-                state.ContentPanel.HorizontalAlignment = state.ContentHorizontalAlignment;
-        }
-    }
 
-    private readonly record struct RailCompactItemState(
-        double Width,
-        double MinWidth,
-        double MaxWidth,
-        Thickness Margin,
-        HorizontalAlignment HorizontalAlignment,
-        StackPanel? ContentPanel,
-        HorizontalAlignment ContentHorizontalAlignment);
+        item.ClearValue(WidthProperty);
+        item.ClearValue(MinWidthProperty);
+        item.ClearValue(MaxWidthProperty);
+        item.ClearValue(MarginProperty);
+        item.ClearValue(HorizontalAlignmentProperty);
+        contentPanel?.ClearValue(HorizontalAlignmentProperty);
+    }
 
     private readonly record struct RailSecondaryState(
         double MinHeight,
