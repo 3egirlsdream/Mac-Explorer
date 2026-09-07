@@ -133,4 +133,4 @@ open "bin/Debug/net10.0/Mac Explorer.app"
 
 ## License
 
-[MIT](LICENSE) © 2026 Mac Explorer
+This project is licensed under the [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later).
