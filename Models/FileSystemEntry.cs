@@ -11,6 +11,9 @@ public class FileSystemEntry : INotifyPropertyChanged
     private string? _thumbnailUrl;
     private bool _isCut;
     private bool _isSelected;
+    private GitFileStatus _gitStatus;
+    private bool _hasGitChanges;
+    private string? _modifiedText;
     public string FullPath { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public bool IsDirectory { get; init; }
@@ -26,14 +29,25 @@ public class FileSystemEntry : INotifyPropertyChanged
     public string? IconUrl
     {
         get => _iconUrl;
-        set => SetField(ref _iconUrl, value);
+        set
+        {
+            if (!SetField(ref _iconUrl, value)) return;
+            RaiseIconBindingChanged();
+        }
     }
 
     public string? ThumbnailUrl
     {
         get => _thumbnailUrl;
-        set => SetField(ref _thumbnailUrl, value);
+        set
+        {
+            if (!SetField(ref _thumbnailUrl, value)) return;
+            GeneratedThumbnailPixelSize = 0;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GridIconSource)));
+        }
     }
+
+    internal int GeneratedThumbnailPixelSize { get; set; }
 
     public bool IsCut
     {
@@ -52,8 +66,33 @@ public class FileSystemEntry : INotifyPropertyChanged
     public string? VirtualFolderType { get; init; }
     public string? VirtualFolderKey { get; init; }
     public int VirtualItemCount { get; init; }
-    public GitFileStatus GitStatus { get; init; }
-    public bool HasGitChanges { get; init; }
+    public GitFileStatus GitStatus
+    {
+        get => _gitStatus;
+        set
+        {
+            if (!SetField(ref _gitStatus, value)) return;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasGitBadge)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitBadgeText)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitBadgeColor)));
+        }
+    }
+
+    public bool HasGitChanges
+    {
+        get => _hasGitChanges;
+        set
+        {
+            if (!SetField(ref _hasGitChanges, value)) return;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasGitBadge)));
+        }
+    }
+
+    // Value descriptors keep icon invalidation independent of selection, cut and Git
+    // notifications. These properties perform no I/O and do not own UI resources.
+    public FileIconSource DetailsIconSource => new(IconKey, Extension, IsDirectory, IconUrl);
+    public FileIconSource GridIconSource => new(IconKey, Extension, IsDirectory, string.IsNullOrWhiteSpace(ThumbnailUrl) ? IconUrl : ThumbnailUrl);
+    public string ModifiedText => _modifiedText ??= LastModified.ToString("yyyy-MM-dd HH:mm");
 
     public string DisplayName => IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
     public string IconDisplayName => AbbreviateForIconView(DisplayName);
@@ -96,15 +135,21 @@ public class FileSystemEntry : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
-    /// Force bindings that use {Binding .} to re-evaluate (e.g. icon converter).
+    /// Invalidates only icon bindings after an asynchronous cache fill. Kept as a
+    /// compatibility entry point for the existing native application-icon service.
     /// </summary>
-    public void RaiseIconBindingChanged() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(""));
-
-    private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    public void RaiseIconBindingChanged()
     {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DetailsIconSource)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GridIconSource)));
+    }
+
+    private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
     }
 
     private static string FormatSize(long bytes, bool isDirectory)

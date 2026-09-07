@@ -49,10 +49,10 @@
 
     <Style Selector="TextBlock.sidebar-section-title">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
-        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightCaption}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="Padding" Value="18,4,18,4"/>
         <Setter Property="Margin" Value="0,0,0,2"/>
     </Style>
@@ -60,10 +60,10 @@
     <!-- Collapsible section title -->
     <Style Selector="TextBlock.sidebar-section-title-collapsible">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
-        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightCaption}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="Padding" Value="18,4,18,4"/>
         <Setter Property="Margin" Value="0,8,0,2"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -127,7 +127,7 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
     </Style>
 
-    <Style Selector="Button.sidebar-item-action.pinned-unpin">
+    <Style Selector="Button.sidebar-item-action.pinned-unpin:not(:focus-visible)">
         <Setter Property="Opacity" Value="0"/>
     </Style>
 
@@ -138,6 +138,8 @@
     <Style Selector="ItemsControl.sidebar-items ContentPresenter">
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
     </Style>
+
+
 
     <!-- Sidebar item — non-ListBox, for single items with inline buttons -->
     <Style Selector="Border.sidebar-item">
@@ -184,12 +186,12 @@
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
-    <Style Selector="Border.sidebar-item:pointerover Button.sidebar-item-action">
+    <Style Selector="Border.sidebar-item:pointerover Button.sidebar-item-action, Border.sidebar-item:focus-within Button.sidebar-item-action">
         <Setter Property="Opacity" Value="1"/>
         <Setter Property="IsHitTestVisible" Value="True"/>
     </Style>
 
-    <Style Selector="Grid.sidebar-section-header:pointerover Button.sidebar-header-action">
+    <Style Selector="Grid.sidebar-section-header:pointerover Button.sidebar-header-action, Grid.sidebar-section-header:focus-within Button.sidebar-header-action">
         <Setter Property="Opacity" Value="1"/>
         <Setter Property="IsHitTestVisible" Value="True"/>
     </Style>
@@ -231,7 +233,7 @@
     <Style Selector="Border.finder-toolbar">
         <Setter Property="Height" Value="40"/>
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="Padding" Value="12,0"/>
     </Style>
 
     <Style Selector="Border.finder-navbar">
@@ -354,7 +356,7 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource PopupShadow}"/>
     </Style>
 
     <Style Selector="Button.toolbar-popup-item">
@@ -378,13 +380,10 @@
         <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
 
-    <Style Selector="Button.toolbar-popup-item:focus-visible">
-        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-    </Style>
+
 
     <Style Selector="Button.toolbar-btn.dropdown-open">
-        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 
@@ -393,8 +392,8 @@
     </Style>
 
     <Style Selector="Button.toolbar-btn PathIcon">
-        <Setter Property="Width" Value="14"/>
-        <Setter Property="Height" Value="14"/>
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
     </Style>
 
     <Style Selector="Button.toolbar-btn.active">
@@ -417,7 +416,7 @@
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="Cursor" Value="IBeam"/>
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="BoxShadow" Value="{DynamicResource SurfaceCardShadow}"/>
+        <Setter Property="BoxShadow" Value="none"/>
     </Style>
     <Style Selector="TextBox.breadcrumb-input">
         <Setter Property="Height" Value="30"/>
@@ -431,10 +430,13 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
-    <Style Selector="TextBox.breadcrumb-input:focus">
-        <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
+    <Style Selector="Border.breadcrumb-bar:focus-within">
+        <Setter Property="BoxShadow" Value="{DynamicResource FocusOutlineShadow}"/>
+    </Style>
+    <Style Selector="Border.breadcrumb-bar.home-location">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BoxShadow" Value="none"/>
+        <Setter Property="Cursor" Value="Arrow"/>
     </Style>
 
     <Style Selector="TextBox.omnibox-input">
@@ -468,7 +470,7 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource PopupShadow}"/>
     </Style>
 
     <Style Selector="ListBox.omnibox-suggestions">
@@ -521,7 +523,7 @@
 
     <Style Selector="Border.search-bar:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Width" Value="252"/>
         <Setter Property="BoxShadow" Value="{DynamicResource InputFocusShadow}"/>
@@ -775,7 +777,7 @@
 
     <Style Selector="Border.ai-search-box:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BoxShadow" Value="{DynamicResource InputFocusShadow}"/>
     </Style>
@@ -859,31 +861,18 @@
     </Style>
 
     <Style Selector="Border.home-search-box">
-        <Setter Property="Height" Value="48"/>
-        <Setter Property="Width" Value="520"/>
-        <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
-        <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="BoxShadow" Value="{DynamicResource HomeSearchShadow}"/>
-        <Setter Property="Transitions">
-            <Transitions>
-                <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseOut"/>
-                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" Easing="CubicEaseOut"/>
-            </Transitions>
-        </Setter>
     </Style>
-
-    <Style Selector="Border.home-search-box:focus-within">
-        <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Width" Value="560"/>
-        <Setter Property="BoxShadow" Value="{DynamicResource HomeSearchFocusShadow}"/>
-    </Style>
-
     <Style Selector="Border.home-search-box:pointerover">
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="Border.home-search-box:focus-within">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
     </Style>
 
     <Style Selector="TextBox.home-search-input">
@@ -902,8 +891,8 @@
     </Style>
 
     <Style Selector="Button.home-shortcut">
-        <Setter Property="Width" Value="132"/>
-        <Setter Property="Height" Value="126"/>
+        <Setter Property="Width" Value="136"/>
+        <Setter Property="Height" Value="44"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>

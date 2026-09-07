@@ -18,11 +18,13 @@
                          Classes="search-input"
                          PlaceholderText="搜索图片中识别的文字..."
                          KeyDown="OnAiSearchKeyDown"/>
-                <Button Grid.Column="2" x:Name="ClearSearchButton" Content="✕"
+                <Button Grid.Column="2" x:Name="ClearSearchButton" AutomationProperties.Name="清除文字搜索" ToolTip.Tip="清除文字搜索"
                         Classes="ghost close-btn"
-                        Width="24" Height="24" IsVisible="False"
+                        Width="28" Height="28" MinHeight="28" IsVisible="False"
                         Background="Transparent" BorderThickness="0"
-                        Click="ClearSearch"/>
+                        Click="ClearSearch">
+                    <PathIcon Data="{x:Static icons:Icons.Close}" Width="16" Height="16"/>
+                </Button>
             </Grid>
             </Border>
         </Border>
@@ -41,10 +43,10 @@
                                 HorizontalAlignment="Center" Spacing="8">
                         <PathIcon Data="{x:Static icons:Icons.FileText}" Width="48" Height="48"
                                   Opacity="0.3" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="EmptyTitle" Text="还没有识别到文字内容"
+                        <TextBlock x:Name="EmptyTitle" Text="还没有可搜索的识别内容"
                                    HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock x:Name="EmptyHint" Text="浏览包含图片的文件夹后会自动建立文字索引"
+                        <TextBlock x:Name="EmptyHint" Text="开启 AI 智能分析后，浏览图片文件夹以建立文字索引"
                                    FontSize="{DynamicResource FontSizeLabel}" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextMutedBrush}"/>
                     </StackPanel>

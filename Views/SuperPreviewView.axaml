@@ -40,7 +40,7 @@
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True">
             <Grid RowDefinitions="Auto,Auto,*,Auto">
                 <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12,12,8">
-                    <Button Grid.Column="0" x:Name="BackButton" Classes="ghost compact" Width="30" Height="30"
+                    <Button AutomationProperties.Name="返回上一层" Grid.Column="0" x:Name="BackButton" Classes="ghost compact" Width="30" Height="30"
                             Padding="6" Click="GoBack" ToolTip.Tip="返回上一层">
                         <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
                     </Button>
@@ -54,7 +54,7 @@
                     </StackPanel>
                     <TextBlock Grid.Column="2" x:Name="ItemCountText" VerticalAlignment="Center"
                                FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
-                    <Button Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="6"
+                    <Button AutomationProperties.Name="关闭超级预览（Esc）" Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="6"
                             Click="ClosePreview" ToolTip.Tip="关闭超级预览（Esc）">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
                     </Button>

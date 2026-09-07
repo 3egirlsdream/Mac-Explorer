@@ -19,12 +19,12 @@ public sealed class InteractionStyleServiceTests
 
         service.Initialize();
 
-        Assert.Equal("#F0F1F3", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Light));
-        Assert.Equal("#202329", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark));
-        Assert.Equal("#163B82F6", service.GetColor(InteractionStyleToken.Selected, InteractionThemeVariant.Light));
-        Assert.Equal("#304C8DFF", service.GetColor(InteractionStyleToken.Selected, InteractionThemeVariant.Dark));
-        Assert.Equal("#253B82F6", service.GetColor(InteractionStyleToken.SelectedHover, InteractionThemeVariant.Light));
-        Assert.Equal("#405B9BFF", service.GetColor(InteractionStyleToken.SelectedHover, InteractionThemeVariant.Dark));
+        Assert.Equal("#ECEEF2", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Light));
+        Assert.Equal("#2B3038", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark));
+        Assert.Equal("#E5EEFC", service.GetColor(InteractionStyleToken.Selected, InteractionThemeVariant.Light));
+        Assert.Equal("#283E61", service.GetColor(InteractionStyleToken.Selected, InteractionThemeVariant.Dark));
+        Assert.Equal("#D8E6FA", service.GetColor(InteractionStyleToken.SelectedHover, InteractionThemeVariant.Light));
+        Assert.Equal("#324C74", service.GetColor(InteractionStyleToken.SelectedHover, InteractionThemeVariant.Dark));
 
         Assert.True(service.TrySetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Light, "#123456"));
         Assert.True(service.TrySetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark, "#654321"));
@@ -50,9 +50,9 @@ public sealed class InteractionStyleServiceTests
         AssertColorResource("ButtonBackgroundPointerOver", "#FF123456");
         AssertColorResource("TextControlBackgroundPointerOver", "#FF123456");
         AssertColorResource("InteractionSelectedBrush", "#FF112233");
-        AssertColorResource("FocusRingBrush", "#FF112233");
-        AssertColorResource("TextControlBorderBrushFocused", "#FF112233");
-        AssertColorResource("ComboBoxBackgroundBorderBrushFocused", "#FF112233");
+        AssertColorResource("FocusRingBrush", "#FF2463D4");
+        AssertColorResource("TextControlBorderBrushFocused", "#FF2463D4");
+        AssertColorResource("ComboBoxBackgroundBorderBrushFocused", "#FF2463D4");
         AssertColorResource("InteractionSelectedHoverBrush", "#FF223344");
         AssertColorResource("ListBoxItemBackgroundSelectedPointerOver", "#FF223344");
         AssertColorResource("InteractionTextHighlightBrush", "#FF334455");
@@ -64,9 +64,9 @@ public sealed class InteractionStyleServiceTests
         AssertColorResource("ButtonBackgroundPointerOver", "#FF654321");
         AssertColorResource("TextControlBackgroundPointerOver", "#FF654321");
         AssertColorResource("InteractionSelectedBrush", "#FF445566");
-        AssertColorResource("FocusRingBrush", "#FF445566");
-        AssertColorResource("TextControlBorderBrushFocused", "#FF445566");
-        AssertColorResource("ComboBoxBackgroundBorderBrushFocused", "#FF445566");
+        AssertColorResource("FocusRingBrush", "#FF8AB4FF");
+        AssertColorResource("TextControlBorderBrushFocused", "#FF8AB4FF");
+        AssertColorResource("ComboBoxBackgroundBorderBrushFocused", "#FF8AB4FF");
         AssertColorResource("InteractionSelectedHoverBrush", "#FF556677");
         AssertColorResource("ListBoxItemBackgroundSelectedPointerOver", "#FF556677");
         AssertColorResource("InteractionTextHighlightBrush", "#FF667788");
@@ -74,8 +74,8 @@ public sealed class InteractionStyleServiceTests
 
         service.ResetColors(InteractionThemeVariant.Dark);
         Assert.Equal("#123456", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Light));
-        Assert.Equal("#202329", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark));
-        AssertColorResource("InteractionHoverBrush", "#FF202329");
+        Assert.Equal("#2B3038", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark));
+        AssertColorResource("InteractionHoverBrush", "#FF2B3038");
 
         application.RequestedThemeVariant = ThemeVariant.Light;
         Dispatcher.UIThread.RunJobs();
@@ -90,7 +90,7 @@ public sealed class InteractionStyleServiceTests
         service.Initialize();
 
         Assert.False(service.TrySetColor(InteractionStyleToken.Pressed, InteractionThemeVariant.Dark, "not-a-color"));
-        Assert.Equal("#30343B", service.GetColor(InteractionStyleToken.Pressed, InteractionThemeVariant.Dark));
+        Assert.Equal("#363D48", service.GetColor(InteractionStyleToken.Pressed, InteractionThemeVariant.Dark));
     }
 
     [AvaloniaFact]

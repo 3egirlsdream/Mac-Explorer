@@ -14,7 +14,8 @@ let outputURL = URL(fileURLWithPath: CommandLine.arguments[2])
 let request = QLThumbnailGenerator.Request(
     fileAt: inputURL,
     size: CGSize(width: max(32, size), height: max(32, size)),
-    scale: 2,
+    // The caller already passes physical pixels (including display scaling).
+    scale: 1,
     representationTypes: .thumbnail
 )
 
@@ -46,7 +47,7 @@ QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { represent
     exitCode = 0
 }
 
-if semaphore.wait(timeout: .now() + 30) == .timedOut {
+if semaphore.wait(timeout: .now() + 3) == .timedOut {
     fputs("Quick Look thumbnail generation timed out\n", stderr)
     exit(3)
 }

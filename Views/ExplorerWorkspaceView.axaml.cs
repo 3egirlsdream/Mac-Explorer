@@ -50,7 +50,6 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             RoutingStrategies.Bubble, handledEventsToo: true);
         SizeChanged += OnWorkspaceSizeChanged;
         InfoPanelControl.PreviewExpandedChanged += OnPreviewExpandedChanged;
-        ApplyResponsiveLayout(Bounds.Width);
     }
 
     public ExplorerTabViewModel? Tab => DataContext as ExplorerTabViewModel;
@@ -150,6 +149,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         FileListControl.IsVisible = fileList != null && !fileList.IsHomePage && !showAiSearch;
         HomeViewControl.IsVisible = fileList?.IsHomePage == true;
         AiViewControl.IsVisible = showAiSearch;
+        UpdatePageSearchPresentation();
     }
 
     private void UpdateInfoPanelVisibility()
@@ -185,7 +185,13 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             WorkspaceActivated?.Invoke(_tab);
     }
 
-    public void FocusPathInput() => BreadcrumbControl.FocusPathInput();
+    public void FocusPathInput()
+    {
+        if (_tab?.FileList.IsHomePage == true)
+            HomeViewControl.FocusOmnibox();
+        else
+            BreadcrumbControl.FocusPathInput();
+    }
 
     public void ToggleSidebar()
     {
@@ -214,6 +220,11 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     public void TogglePageSearch()
     {
+        if (_tab?.FileList.IsHomePage == true)
+        {
+            HomeViewControl.FocusOmnibox();
+            return;
+        }
         if (!IsCompact)
         {
             SearchBox.Focus();
@@ -238,8 +249,14 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     private void UpdatePageSearchPresentation()
     {
-        SearchToggleButton.IsVisible = IsCompact && !_isPageSearchExpanded;
-        SearchHost.IsVisible = !IsCompact || _isPageSearchExpanded;
+        var isHome = _tab?.FileList.IsHomePage == true;
+        var expanded = !isHome && IsCompact && _isPageSearchExpanded;
+        Grid.SetColumn(SearchControls, expanded ? 1 : 2);
+        Grid.SetColumnSpan(SearchControls, expanded ? 2 : 1);
+        SearchHost.Classes.Set("expanded", expanded);
+        SearchToggleButton.IsVisible = !isHome && IsCompact && !_isPageSearchExpanded;
+        SearchHost.IsVisible = !isHome && (!IsCompact || _isPageSearchExpanded);
+        BreadcrumbControl.IsVisible = isHome || !IsCompact || !_isPageSearchExpanded;
     }
 
     public void ToggleToolbarMenu(ToolbarMenuKind kind) => ToolbarControl.ToggleMenu(kind);
@@ -328,8 +345,20 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             InfoDrawer.OpenPaneLength = GetInfoPanelMaxWidth();
     }
 
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        // Choose the initial mode before measuring the sidebar/template. Bounds
+        // is still zero here for a new tab and is not a compact window size.
+        if (double.IsFinite(availableSize.Width))
+            ApplyResponsiveLayout(availableSize.Width);
+        return base.MeasureOverride(availableSize);
+    }
+
     private void ApplyResponsiveLayout(double width)
     {
+        if (width <= 0 && !ForceCompact)
+            return;
+
         var layout = ResponsiveWorkspaceLayout.Resolve(width, ForceCompact);
         if (IsCompact != layout.IsCompact)
         {
@@ -358,8 +387,9 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         SidebarSplitView.OpenPaneLength = layout.SidebarOpenPaneLength;
         SidebarSplitView.CompactPaneLength = layout.SidebarCompactPaneLength;
         InfoDrawer.DisplayMode = layout.InfoPanelDisplayMode;
-        InfoDrawer.OpenPaneLength = ClampInfoPanelWidth(
-            _tab?.InfoPanelWidth ?? InfoDrawer.OpenPaneLength);
+        if (Bounds.Width > 0)
+            InfoDrawer.OpenPaneLength = ClampInfoPanelWidth(
+                _tab?.InfoPanelWidth ?? InfoDrawer.OpenPaneLength);
     }
 
     private double GetInfoPanelMaxWidth()

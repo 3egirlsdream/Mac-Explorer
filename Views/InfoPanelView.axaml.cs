@@ -276,8 +276,14 @@ public partial class InfoPanelView : UserControl
         var entry = viewModel.SelectedEntries[0];
         _currentFilePath = entry.FullPath;
 
+        DetailsPanel.IsVisible = !_isPreviewExpanded;
+        SelectedFileName.Text = entry.DisplayName;
+        ToolTip.SetTip(SelectedFileName, entry.DisplayName);
+        SelectedFileSummary.Text = $"{entry.KindText} · {entry.FormattedSize}";
+
         // Basic info
         InfoPath.Text = Path.GetDirectoryName(entry.FullPath) ?? "/";
+        ToolTip.SetTip(InfoPath, InfoPath.Text);
         InfoSize.Text = entry.FormattedSize;
         InfoType.Text = entry.KindText;
         InfoModified.Text = entry.LastModified.ToString("yyyy-MM-dd HH:mm");
@@ -291,7 +297,7 @@ public partial class InfoPanelView : UserControl
         // starting that work — especially while a large directory is still arriving in batches.
         if (entry.IsDirectory)
         {
-            ResetPreviewContent("文件夹无法预览");
+            ShowFileIcon("文件夹");
             UpdateExifTab(null);
             UpdateTagsFromMetadata(entry.FullPath, []);
             return;
@@ -353,11 +359,9 @@ public partial class InfoPanelView : UserControl
                 Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
                 result = await BuildPreviewResultAsync(entry, viewModel, isPreviewExpanded, cancellationToken)
                     .ConfigureAwait(false);
-                if (result == null || !IsPreviewRequestCurrent(
-                        activationGeneration,
-                        requestGeneration,
-                        selectionIdentity,
-                        cancellationToken))
+                // Avalonia properties and the selected collection belong to the UI
+                // thread. Validate them only inside the dispatcher callback below.
+                if (cancellationToken.IsCancellationRequested)
                 {
                     result?.Dispose();
                     return;
@@ -371,11 +375,14 @@ public partial class InfoPanelView : UserControl
                             selectionIdentity,
                             cancellationToken))
                     {
-                        result.Dispose();
+                        result?.Dispose();
                         return;
                     }
 
-                    ApplyPreviewResult(result);
+                    if (result == null)
+                        ShowFileIcon("暂时无法预览此文件：无法读取此文件", canRetry: true);
+                    else
+                        ApplyPreviewResult(result);
                 }, DispatcherPriority.Background);
             }
             catch (OperationCanceledException)
@@ -392,7 +399,7 @@ public partial class InfoPanelView : UserControl
                             requestGeneration,
                             selectionIdentity,
                             cancellationToken))
-                        PreviewPlaceholder.Text = "预览生成失败";
+                        ShowFileIcon("暂时无法预览此文件", canRetry: true);
                 }, DispatcherPriority.Background);
             }
         }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
@@ -404,6 +411,7 @@ public partial class InfoPanelView : UserControl
         PreviewSelectionIdentity selectionIdentity,
         CancellationToken cancellationToken)
     {
+        Dispatcher.UIThread.VerifyAccess();
         if (cancellationToken.IsCancellationRequested
             || !IsLivePreviewEnabled
             || activationGeneration != _activationGeneration
@@ -448,7 +456,7 @@ public partial class InfoPanelView : UserControl
             }
             catch
             {
-                return PreviewLoadResult.ForPlaceholder("无法读取文本内容");
+                return PreviewLoadResult.ForPlaceholder("暂时无法预览此文件：无法读取文本内容", canRetry: true);
             }
         }
 
@@ -464,10 +472,11 @@ public partial class InfoPanelView : UserControl
                 .ConfigureAwait(false);
             if (bytes == null)
             {
-                var placeholder = DocumentPreviewExtensions.Contains(extension)
-                    ? "系统无法为此文档生成预览"
-                    : "暂不支持此文件类型";
-                return PreviewLoadResult.ForPlaceholder(placeholder);
+                var isKnownFormat = DocumentPreviewExtensions.Contains(extension)
+                    || (App.Services?.GetService<IThumbnailService>()?.IsImageFile(extension) ?? false);
+                return PreviewLoadResult.ForPlaceholder(
+                    isKnownFormat ? "系统无法为此文件生成预览" : "暂不支持此格式的预览",
+                    canRetry: isKnownFormat);
             }
 
             var bitmap = await Task.Run(() =>
@@ -489,7 +498,7 @@ public partial class InfoPanelView : UserControl
         }
         catch
         {
-            return PreviewLoadResult.ForPlaceholder("预览生成失败");
+            return PreviewLoadResult.ForPlaceholder("暂时无法预览此文件", canRetry: true);
         }
     }
 
@@ -513,7 +522,7 @@ public partial class InfoPanelView : UserControl
     {
         if (!string.IsNullOrEmpty(result.Placeholder))
         {
-            PreviewPlaceholder.Text = result.Placeholder;
+            ShowFileIcon(result.Placeholder, result.CanRetry);
             return;
         }
 
@@ -605,9 +614,32 @@ public partial class InfoPanelView : UserControl
         PreviewImage.IsVisible = false;
         PreviewText.Text = string.Empty;
         PreviewText.IsVisible = false;
+        PreviewFileIcon.Source = null;
+        PreviewFileIcon.IsVisible = false;
         PreviewKindBadge.IsVisible = false;
+        PreviewFeedback.IsVisible = false;
         PreviewPlaceholder.Text = placeholder;
         PreviewPlaceholder.IsVisible = true;
+    }
+
+    private void ShowFileIcon(string reason, bool canRetry = false)
+    {
+        ResetPreviewContent(reason);
+        if (ViewModel?.SelectedEntries is not { Count: 1 } selected) return;
+        var entry = selected[0];
+        // This separate Image borrows cached artwork; ResetPreviewContent must
+        // never dispose the shared bitmap used by file-list icons.
+        PreviewFileIcon.Source = new MacExplorer.Converters.FileEntryToIconConverter()
+            .Convert(entry.DetailsIconSource, typeof(IImage), 128,
+                System.Globalization.CultureInfo.InvariantCulture) as IImage;
+        PreviewFileIcon.IsVisible = true;
+        PreviewPlaceholder.IsVisible = false;
+        ToolTip.SetTip(PreviewFileIcon, reason);
+        PreviewFeedback.IsVisible = !entry.IsDirectory;
+        PreviewFeedbackText.Text = reason;
+        RetryPreviewButton.IsVisible = canRetry && IsLivePreviewEnabled;
+        OpenPreviewFileButton.IsEnabled = App.Services?.GetService<IApplicationLauncherService>() != null;
+
     }
 
     private void ShowPreviewBadge(string text)
@@ -726,13 +758,14 @@ public partial class InfoPanelView : UserControl
         }
 
         public string? Placeholder { get; private init; }
+        public bool CanRetry { get; private init; }
         public string? Text { get; private init; }
         public string? Badge { get; private init; }
         public global::Avalonia.Media.Imaging.Bitmap? Bitmap { get; set; }
         public byte[]? OcrBytes { get; private init; }
 
-        public static PreviewLoadResult ForPlaceholder(string placeholder)
-            => new() { Placeholder = placeholder };
+        public static PreviewLoadResult ForPlaceholder(string placeholder, bool canRetry = false)
+            => new() { Placeholder = placeholder, CanRetry = canRetry };
 
         public static PreviewLoadResult ForText(string text, string badge)
             => new() { Text = text, Badge = badge };
@@ -806,6 +839,9 @@ public partial class InfoPanelView : UserControl
     {
         CancelQueuedPanelUpdate();
         _currentFilePath = null;
+        DetailsPanel.IsVisible = false;
+        SelectedFileName.Text = string.Empty;
+        SelectedFileSummary.Text = string.Empty;
         _selectedSystemTags.Clear();
         InfoPath.Text = "—";
         InfoSize.Text = "—";
@@ -915,17 +951,13 @@ public partial class InfoPanelView : UserControl
             var tagBtn = new Button
             {
                 Width = 24, Height = 24,
-                Background = tagBrush,
+                Background = Brushes.Transparent,
                 CornerRadius = new CornerRadius(999),
                 Padding = new Thickness(0),
                 Tag = name,
                 BorderThickness = new Thickness(0),
                 Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Hand)
             };
-            // Fluent paints pointer states on the template presenter. Keep those
-            // state resources local so hovering never replaces the tag's color.
-            tagBtn.Resources["ButtonBackgroundPointerOver"] = tagBrush;
-            tagBtn.Resources["ButtonBackgroundPressed"] = tagBrush;
             tagBtn.Classes.Add("system-tag-dot");
             ToolTip.SetTip(tagBtn, name);
 
@@ -940,7 +972,12 @@ public partial class InfoPanelView : UserControl
                 IsVisible = false,
                 Tag = "check"
             }, AppTypography.IconGlyph);
-            tagBtn.Content = checkmark;
+            global::Avalonia.Automation.AutomationProperties.SetName(tagBtn, $"切换{name}标签");
+            tagBtn.Content = new Border
+            {
+                Width = 14, Height = 14, Background = tagBrush, CornerRadius = new CornerRadius(7),
+                Child = checkmark
+            };
             tagBtn.Click += OnSystemTagClick;
             SystemTagsPanel.Children.Add(tagBtn);
         }
@@ -958,9 +995,10 @@ public partial class InfoPanelView : UserControl
     {
         foreach (var child in SystemTagsPanel.Children)
         {
-            if (child is Button btn && btn.Tag is string name && btn.Content is TextBlock check)
+            if (child is Button btn && btn.Tag is string name && btn.Content is Border { Child: TextBlock check })
             {
                 check.IsVisible = _selectedSystemTags.Contains(name);
+                global::Avalonia.Automation.AutomationProperties.SetItemStatus(btn, check.IsVisible ? "已选中" : "未选中");
             }
         }
     }
@@ -1511,6 +1549,20 @@ if (!ok) {
         }
     }
 
+    private async void RetryPreview(object? sender, RoutedEventArgs e)
+    {
+        if (!IsLivePreviewEnabled || ViewModel?.SelectedEntries is not { Count: 1 } selected)
+            return;
+        App.Services?.GetService<IThumbnailService>()?.EvictFromCache(selected[0].FullPath);
+        await ReloadLivePreviewAsync(_activationGeneration);
+    }
+
+    private async void OpenPreviewFile(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.SelectedEntries is { Count: 1 } selected)
+            await ViewModel.OpenEntryAsync(selected[0]);
+    }
+
     // ── Quick Actions ──
 
     private async void CopyPath(object? sender, RoutedEventArgs e)
@@ -1615,12 +1667,13 @@ if (!ok) {
     private void SetPreviewExpanded(bool expanded, bool notify)
     {
         _isPreviewExpanded = expanded;
-        DetailsPanel.IsVisible = !expanded;
+        DetailsPanel.IsVisible = !expanded && ViewModel?.SelectedEntries.Count == 1;
         PanelTitle.Text = _isPreviewExpanded ? "文件预览" : "信息";
         ExpandPreviewBtn.SetValue(ToolTip.TipProperty, _isPreviewExpanded ? "收起预览" : "展开预览");
+        global::Avalonia.Automation.AutomationProperties.SetName(ExpandPreviewBtn, _isPreviewExpanded ? "收起预览" : "展开预览");
         ExpandPreviewIcon.Data = Geometry.Parse(_isPreviewExpanded
-            ? "M4 8.5H8.5V4H10V10H4V8.5ZM14 4H15.5V8.5H20V10H14V4ZM4 14H10V20H8.5V15.5H4V14ZM14 14H20V15.5H15.5V20H14V14Z"
-            : "M4 4H10V5.5H5.5V10H4V4ZM14 4H20V10H18.5V5.5H14V4ZM4 14H5.5V18.5H10V20H4V14ZM18.5 14H20V20H14V18.5H18.5V14Z");
+            ? MacExplorer.Assets.Icons.CollapsePreview
+            : MacExplorer.Assets.Icons.ExpandPreview);
         PreviewImageArea.MinHeight = expanded ? Math.Max(360, Bounds.Height - 76) : 160;
         if (notify)
             PreviewExpandedChanged?.Invoke(this, _isPreviewExpanded);
@@ -1629,7 +1682,7 @@ if (!ok) {
     public void CompletePreviewTransition(bool expanded)
     {
         if (_isPreviewExpanded != expanded) return;
-        DetailsPanel.IsVisible = !expanded;
+        DetailsPanel.IsVisible = !expanded && ViewModel?.SelectedEntries.Count == 1;
     }
 
     public void SetExpandedChrome(bool expanded)

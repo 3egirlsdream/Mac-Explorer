@@ -5,14 +5,17 @@ using MacExplorer.ViewModels;
 
 namespace MacExplorer.Controls;
 
-/// <summary>Small Finder-style diagram used by the pane layout picker.</summary>
+/// <summary>Filled vector preview of the actual workspace pane arrangement.</summary>
 public sealed class PaneLayoutIcon : Control
 {
     public static readonly StyledProperty<PaneLayout> LayoutProperty =
         AvaloniaProperty.Register<PaneLayoutIcon, PaneLayout>(nameof(Layout));
 
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
-        AvaloniaProperty.Register<PaneLayoutIcon, IBrush?>(nameof(Foreground), Brushes.White);
+        AvaloniaProperty.Register<PaneLayoutIcon, IBrush?>(nameof(Foreground), Brushes.LightGray);
+
+    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
+        AvaloniaProperty.Register<PaneLayoutIcon, IBrush?>(nameof(BorderBrush));
 
     public PaneLayout Layout
     {
@@ -26,76 +29,52 @@ public sealed class PaneLayoutIcon : Control
         set => SetValue(ForegroundProperty, value);
     }
 
+    public IBrush? BorderBrush
+    {
+        get => GetValue(BorderBrushProperty);
+        set => SetValue(BorderBrushProperty, value);
+    }
+
     static PaneLayoutIcon()
     {
-        AffectsRender<PaneLayoutIcon>(LayoutProperty, ForegroundProperty);
+        AffectsRender<PaneLayoutIcon>(LayoutProperty, ForegroundProperty, BorderBrushProperty);
     }
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (Foreground == null || Bounds.Width <= 0 || Bounds.Height <= 0)
-            return;
+        var pen = BorderBrush is { } border ? new Pen(border, 0.75) : null;
+        foreach (var pane in GetPaneRects(Layout, Bounds.Size))
+            context.DrawRectangle(Foreground, pen, pane, 1.5, 1.5);
+    }
 
-        const double gap = 4;
-        var area = new Rect(1, 1, Bounds.Width - 2, Bounds.Height - 2);
-        var pen = new Pen(Foreground, 2);
+    internal static IReadOnlyList<Rect> GetPaneRects(PaneLayout layout, Size size)
+    {
+        if (size.Width <= 2 || size.Height <= 2)
+            return [];
 
-        void Outline(Rect rect) => context.DrawRectangle(null, pen, rect, 0.7, 0.7);
-        void Fill(Rect rect) => context.DrawRectangle(Foreground, null, rect, 0.7, 0.7);
+        var definition = MainWindowViewModel.GetPaneLayoutDefinition(layout);
+        var area = new Rect(1, 1, size.Width - 2, size.Height - 2);
+        var gap = Math.Min(2, Math.Min(area.Width / definition.Columns, area.Height / definition.Rows) / 3);
+        var totalColumnWeight = definition.ColumnWeights?.Sum() ?? definition.Columns;
+        var totalRowWeight = definition.RowWeights?.Sum() ?? definition.Rows;
+        var unitWidth = (area.Width - gap * (definition.Columns - 1)) / totalColumnWeight;
+        var unitHeight = (area.Height - gap * (definition.Rows - 1)) / totalRowWeight;
+        var panes = new List<Rect>(definition.Slots.Count);
 
-        void Columns(int count)
+        foreach (var slot in definition.Slots)
         {
-            var width = (area.Width - gap * (count - 1)) / count;
-            for (var index = 0; index < count; index++)
-                Outline(new Rect(area.X + index * (width + gap), area.Y, width, area.Height));
+            var precedingColumns = definition.ColumnWeights?.Take(slot.Column).Sum() ?? slot.Column;
+            var precedingRows = definition.RowWeights?.Take(slot.Row).Sum() ?? slot.Row;
+            var columnWeight = definition.ColumnWeights?.Skip(slot.Column).Take(slot.ColumnSpan).Sum() ?? slot.ColumnSpan;
+            var rowWeight = definition.RowWeights?.Skip(slot.Row).Take(slot.RowSpan).Sum() ?? slot.RowSpan;
+            panes.Add(new Rect(
+                area.X + precedingColumns * unitWidth + slot.Column * gap,
+                area.Y + precedingRows * unitHeight + slot.Row * gap,
+                columnWeight * unitWidth + (slot.ColumnSpan - 1) * gap,
+                rowWeight * unitHeight + (slot.RowSpan - 1) * gap));
         }
 
-        void Rows(int count)
-        {
-            var height = (area.Height - gap * (count - 1)) / count;
-            for (var index = 0; index < count; index++)
-                Outline(new Rect(area.X, area.Y + index * (height + gap), area.Width, height));
-        }
-
-        void MainWithStack(bool mainOnLeft, int secondaryCount)
-        {
-            var mainWidth = area.Width * 0.35;
-            var secondaryX = mainOnLeft ? area.X + mainWidth + gap * 1.5 : area.X;
-            var secondaryWidth = area.Width - mainWidth - gap * 1.5;
-            var mainX = mainOnLeft ? area.X : area.Right - mainWidth;
-            Fill(new Rect(mainX, area.Y, mainWidth, area.Height));
-
-            var height = (area.Height - gap * (secondaryCount - 1)) / secondaryCount;
-            for (var index = 0; index < secondaryCount; index++)
-                Outline(new Rect(secondaryX, area.Y + index * (height + gap), secondaryWidth, height));
-        }
-
-        switch (Layout)
-        {
-            case PaneLayout.Single:
-                Outline(new Rect(area.X + area.Width * 0.3, area.Y + area.Height * 0.2,
-                    area.Width * 0.4, area.Height * 0.6));
-                break;
-            case PaneLayout.TwoColumns: Columns(2); break;
-            case PaneLayout.TwoRows: Rows(2); break;
-            case PaneLayout.ThreeColumns: Columns(3); break;
-            case PaneLayout.ThreeRows: Rows(3); break;
-            case PaneLayout.MainLeftTwoRowsRight: MainWithStack(true, 2); break;
-            case PaneLayout.MainRightTwoRowsLeft: MainWithStack(false, 2); break;
-            case PaneLayout.FourGrid:
-            {
-                var width = (area.Width - gap) / 2;
-                var height = (area.Height - gap) / 2;
-                for (var row = 0; row < 2; row++)
-                    for (var column = 0; column < 2; column++)
-                        Outline(new Rect(area.X + column * (width + gap), area.Y + row * (height + gap), width, height));
-                break;
-            }
-            case PaneLayout.FourColumns: Columns(4); break;
-            case PaneLayout.FourRows: Rows(4); break;
-            case PaneLayout.MainLeftThreeRowsRight: MainWithStack(true, 3); break;
-            case PaneLayout.MainRightThreeRowsLeft: MainWithStack(false, 3); break;
-        }
+        return panes;
     }
 }

@@ -7,21 +7,23 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
-    <Border Classes="breadcrumb-bar" Padding="4,2">
+    <Border Classes="breadcrumb-bar" Classes.home-location="{Binding IsHomePage}" Padding="4,2">
         <Grid ColumnDefinitions="*">
-            <!-- Home Page Mode -->
+            <TextBlock Text="首页" IsVisible="{Binding IsHomePage}" Margin="8,0"
+                       FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+            <!-- The workspace routes home shortcuts to the central omnibox. -->
             <TextBox Grid.Column="0"
                      x:Name="HomePathInput"
                      Classes="breadcrumb-input omnibox-input"
                      PlaceholderText="输入路径、URL 或搜索内容..."
-                     IsVisible="{Binding IsHomePage}"
+                     IsVisible="False"
                      GotFocus="OnInputGotFocus"
                      KeyDown="OnInputKeyDown"
                      TextChanged="OnInputTextChanged"
                      LostFocus="OnInputLostFocus"/>
 
             <!-- Browse Mode: BreadcrumbBar -->
-            <ScrollViewer Grid.Column="1"
+            <ScrollViewer Grid.Column="0"
                           x:Name="BrowseModePanel"
                           IsVisible="{Binding IsHomePage, Converter={StaticResource BoolNotConverter}}"
                           DoubleTapped="OnBrowseModeDoubleTapped"

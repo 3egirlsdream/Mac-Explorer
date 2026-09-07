@@ -25,7 +25,7 @@
             <Setter Property="MinHeight" Value="36"/>
             <Setter Property="MinWidth" Value="138"/>
             <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="10 5"/>
@@ -33,7 +33,7 @@
         
         <Style Selector="TabControl.settings-shell > TabItem:selected /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
             <Setter Property="Padding" Value="5"/>
         </Style>
 
@@ -87,7 +87,6 @@
             <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="BoxShadow" Value="{DynamicResource ShadowSm}"/>
             <Setter Property="ClipToBounds" Value="True"/>
         </Style>
 
@@ -115,7 +114,7 @@
 
         <Style Selector="TextBlock.settings-label">
             <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+            <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
@@ -138,7 +137,6 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="22,20"/>
-            <Setter Property="BoxShadow" Value="{DynamicResource ShadowSm}"/>
         </Style>
 
         <Style Selector="ToggleSwitch.settings-toggle">
@@ -153,7 +151,7 @@
             <Setter Property="Padding" Value="7"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         </Style>
 
         <Style Selector="Button.openwith-delete:pointerover">
@@ -247,7 +245,7 @@
                     Classes="settings-shell"
                     TabStripPlacement="Left"
                     Margin="10,58,24,22">
-            <TabItem>
+            <TabItem AutomationProperties.Name="通用">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Settings}"/>
@@ -294,7 +292,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem>
+            <TabItem AutomationProperties.Name="位置">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Folder}"/>
@@ -376,7 +374,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem>
+            <TabItem AutomationProperties.Name="文件显示">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.List}"/>
@@ -428,7 +426,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem>
+            <TabItem AutomationProperties.Name="侧边栏">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Folder}"/>
@@ -480,7 +478,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem>
+            <TabItem AutomationProperties.Name="外观">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Image}"/>
@@ -572,7 +570,7 @@
                                                 <Button Grid.Row="1" x:Name="InteractionSelectedColorButton" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
                                                     <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
                                                         <Border x:Name="InteractionSelectedColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="选中、已勾选或焦点" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                        <TextBlock Grid.Column="1" Text="选中或已勾选" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                         <TextBlock Grid.Column="2" x:Name="InteractionSelectedColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     </Grid>
                                                 </Button>
@@ -659,7 +657,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem>
+            <TabItem AutomationProperties.Name="打开方式">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Apps}"/>
@@ -696,7 +694,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem>
+            <TabItem AutomationProperties.Name="关于">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Info}"/>

@@ -9,8 +9,12 @@
 
     <Grid Background="{DynamicResource ColorBgContent}" x:Name="HomeRoot">
         <Grid.ContextMenu><ContextMenu x:Name="HomeCtxMenu"/></Grid.ContextMenu>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Spacing="34" Margin="32" MaxWidth="720">
+        <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    Spacing="16" Margin="24" MaxWidth="560">
+            <StackPanel Spacing="6">
+                <TextBlock Text="打开位置或搜索文件" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightMedium}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="输入路径直接打开，或搜索索引中的文件。⌘K 打开全局搜索。" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
             <Grid>
                 <Border x:Name="HomeSearchContainer" Classes="home-search-box">
                     <Grid ColumnDefinitions="Auto,*">
@@ -19,7 +23,7 @@
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                         <TextBox Grid.Column="1" x:Name="HomeSearchBox"
                                  Classes="home-search-input omnibox-input"
-                                 PlaceholderText="输入路径、URL、文件名或 AI 关键词..."
+                                 PlaceholderText="输入路径、网址或文件名" AutomationProperties.Name="打开位置或搜索文件"
                                  GotFocus="OnHomeSearchGotFocus"
                                  TextChanged="OnHomeSearchTextChanged"
                                  LostFocus="OnHomeSearchLostFocus"
@@ -65,35 +69,26 @@
                 </Popup>
             </Grid>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="30">
-                <Button Classes="ghost home-shortcut" Click="NavigateHomeDirectory">
-                    <StackPanel Spacing="10">
-                        <Border Classes="home-shortcut-icon">
-                            <PathIcon Data="{x:Static icons:Icons.Home}" Width="46" Height="46"
-                                      Foreground="#54A3F7"/>
-                        </Border>
-                        <TextBlock Text="主目录" HorizontalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
+            <WrapPanel HorizontalAlignment="Left" Margin="-6,0">
+                <Button Classes="ghost home-shortcut" Click="NavigateHomeDirectory" AutomationProperties.Name="打开主目录" Margin="6,0,6,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Data="{x:Static icons:Icons.Home}" Width="24" Height="24" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="主目录" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
                     </StackPanel>
                 </Button>
-                <Button Classes="ghost home-shortcut" Click="NavigateDesktop">
-                    <StackPanel Spacing="10">
-                        <Border Classes="home-shortcut-icon">
-                            <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="46" Height="46"
-                                      Foreground="#54A3F7"/>
-                        </Border>
-                        <TextBlock Text="桌面" HorizontalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
+                <Button Classes="ghost home-shortcut" Click="NavigateDesktop" AutomationProperties.Name="打开桌面" Margin="6,0,6,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="24" Height="24" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="桌面" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
                     </StackPanel>
                 </Button>
-                <Button Classes="ghost home-shortcut" Click="NavigateMacintoshHd">
-                    <StackPanel Spacing="10">
-                        <Border Classes="home-shortcut-icon">
-                            <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="46" Height="46"
-                                      Foreground="#22D3EE"/>
-                        </Border>
-                        <TextBlock Text="Macintosh HD" HorizontalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
+                <Button Classes="ghost home-shortcut" Click="NavigateMacintoshHd" AutomationProperties.Name="打开Macintosh HD" Margin="6,0,6,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="24" Height="24" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="Macintosh HD" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
                     </StackPanel>
                 </Button>
-            </StackPanel>
+            </WrapPanel>
         </StackPanel>
     </Grid>
 </UserControl>

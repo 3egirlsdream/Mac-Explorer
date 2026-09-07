@@ -31,7 +31,7 @@ public sealed class PerformancePipelineTests
         entry.IsCut = true;
         entry.IsSelected = true;
 
-        Assert.Equal([nameof(FileSystemEntry.ThumbnailUrl), nameof(FileSystemEntry.IsCut), nameof(FileSystemEntry.IsSelected)], changed);
+        Assert.Equal([nameof(FileSystemEntry.ThumbnailUrl), nameof(FileSystemEntry.GridIconSource), nameof(FileSystemEntry.IsCut), nameof(FileSystemEntry.IsSelected)], changed);
     }
 
     [Fact]

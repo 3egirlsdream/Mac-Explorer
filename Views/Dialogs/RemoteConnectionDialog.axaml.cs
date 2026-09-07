@@ -161,11 +161,16 @@ public partial class RemoteConnectionDialog : DialogWindow
     private RemoteServerInfo? BuildServerInfo()
     {
         var host = HostBox.Text?.Trim();
-        if (string.IsNullOrEmpty(host)) return null;
+        HostError.IsVisible = string.IsNullOrEmpty(host);
+        if (HostError.IsVisible)
+        {
+            HostBox.Focus();
+            return null;
+        }
 
         var server = _editingServer ?? new RemoteServerInfo();
         server.Name = NameBox.Text?.Trim() ?? "";
-        server.Host = host;
+        server.Host = host!;
         server.Port = int.TryParse(PortBox.Text?.Trim(), out var port) ? port : 22;
         server.Username = UsernameBox.Text?.Trim() ?? "root";
         server.DefaultPath = DefaultPathBox.Text?.Trim() ?? "/";

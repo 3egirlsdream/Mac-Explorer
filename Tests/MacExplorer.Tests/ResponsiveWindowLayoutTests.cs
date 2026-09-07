@@ -30,7 +30,7 @@ public class ResponsiveWorkspaceLayoutTests
 
         Assert.False(layout.IsCompact);
         Assert.Equal(SplitViewDisplayMode.Inline, layout.SidebarDisplayMode);
-        Assert.Equal(260, layout.SidebarOpenPaneLength);
+        Assert.Equal(240, layout.SidebarOpenPaneLength);
         Assert.Equal(0, layout.SidebarCompactPaneLength);
         Assert.Equal(SplitViewDisplayMode.Inline, layout.InfoPanelDisplayMode);
     }

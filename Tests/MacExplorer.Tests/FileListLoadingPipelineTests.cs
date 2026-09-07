@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using Avalonia.Headless.XUnit;
 using MacExplorer.Indexing;
 using MacExplorer.Models;
 using MacExplorer.Platforms.MacCatalyst.Services;
@@ -14,8 +15,8 @@ public sealed class FileListLoadingPipelineTests
 {
     private const string TestHome = "/tmp/FKFinderPipelineTests";
 
-    [Fact]
-    public async Task RefreshAsync_LargeDirectory_StreamsIncrementalBatchesIntoSortedCollection()
+    [AvaloniaFact]
+    public async Task RefreshAsync_LargeDirectory_PublishesCompleteSortedCollectionOnce()
     {
         const int totalEntries = 40 * 256;
         var all = new List<FileSystemEntry>(totalEntries);
@@ -44,11 +45,12 @@ public sealed class FileListLoadingPipelineTests
 
         await viewModel.RefreshAsync();
 
-        // First batch replaces the collection once; every later batch arrives as Add events.
+        // No partial membership or per-file notifications reach the visible list.
         Assert.Equal(totalEntries, viewModel.Entries.Count);
-        Assert.InRange(entriesPropertyChanges, 1, 2);
+        Assert.Equal(1, entriesPropertyChanges);
         Assert.Equal(0, streamedResets);
-        Assert.Equal(totalEntries - 256, streamedAddedEntries.Count);
+        Assert.Empty(streamedAddedEntries);
+        Assert.Equal(0, streamedAdds);
         Assert.All(streamedAddedEntries, e => Assert.False(string.IsNullOrEmpty(e.FullPath)));
 
         var expected = all
@@ -76,8 +78,8 @@ public sealed class FileListLoadingPipelineTests
         }
     }
 
-    [Fact]
-    public async Task RemoteNavigationAndRefresh_UseBatchApiAndExposeFirstBatchBeforeCompletion()
+    [AvaloniaFact]
+    public async Task RemoteNavigationAndRefresh_UseBatchApiAndPublishOnlyAfterCompletion()
     {
         var testCancellation = TestContext.Current.CancellationToken;
         const string serverId = "test-server";
@@ -96,7 +98,7 @@ public sealed class FileListLoadingPipelineTests
         await initialScenario.AfterFirstBatch.Task.WaitAsync(TimeSpan.FromSeconds(2), testCancellation);
 
         Assert.False(navigation.IsCompleted);
-        Assert.Equal(256, viewModel.Entries.Count);
+        Assert.Empty(viewModel.Entries);
         Assert.Equal(1, remote.BatchCallCount);
         Assert.Equal(0, remote.FullCallCount);
 
@@ -116,7 +118,7 @@ public sealed class FileListLoadingPipelineTests
         Assert.Equal(refreshed.Select(entry => entry.FullPath).Order(), viewModel.Entries.Select(entry => entry.FullPath).Order());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RemoteDirectorySwitch_CancelsOldProducerWithoutPollutingNewDirectory()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -147,7 +149,7 @@ public sealed class FileListLoadingPipelineTests
         Assert.False(viewModel.IsLoading);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RemoteRefresh_RestoresSelectionThatArrivesAfterFirstBatch()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -180,7 +182,7 @@ public sealed class FileListLoadingPipelineTests
         Assert.Contains(restored, viewModel.Entries);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RemoteNavigation_ConsumesPendingSelectionOnlyAfterLaterBatchArrives()
     {
         var testCancellation = TestContext.Current.CancellationToken;

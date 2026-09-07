@@ -25,6 +25,12 @@ public partial class HomeView : UserControl
         HomeCtxMenu.Opened += OnContextMenuOpened;
     }
 
+    public void FocusOmnibox()
+    {
+        HomeSearchBox.Focus();
+        HomeSearchBox.SelectAll();
+    }
+
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
 
     private async void OnContextMenuOpened(object? sender, EventArgs e)
