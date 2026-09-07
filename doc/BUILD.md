@@ -91,16 +91,22 @@ xcrun stapler staple MacExplorer-x.x.x-macos.dmg
 
 ## 图标生成
 
-SVG 源文件：`Assets/appicon.svg`（全出血 456×456 设计，macOS 自动施加 squircle 圆角蒙版）
+SVG 源文件：`Assets/appicon.svg`（1024×1024 透明画布，居中的 824×824 圆角图案，四边各留白 100px）。圆角和透明留白必须保留在导出的图标中，不能依赖系统自动裁切。
 
 ```bash
-# 浏览器渲染 SVG → 10 个 PNG（16~1024px，含 @2x）
-# → iconutil 打包为 .icns → 复制到 Assets/
+# 使用支持 SVG luminance mask 的渲染器（如浏览器或 resvg）导出透明 PNG
+# → 生成 16、32、128、256、512 的 @1x / @2x PNG，按 Apple iconset 命名
+# → iconutil -c icns appicon.iconset -o Assets/appicon.icns
+# → 同步生成 Assets/appicon.ico（16、24、32、48、64、128、256px）
+# → 将 SVG 同步到 docs/Assets/appicon.svg
 ```
 
 笔记：
-- 不要在 SVG 内预制圆角——macOS 系统层面自动圆角化
-- 不要在运行时调用 `setApplicationIconImage:`——会绕过系统圆角蒙版
+- 背景轮廓使用 Apple 连续圆角曲线，源自 `RoundedRectangle(cornerRadius: 102, style: .continuous)` 在 456×456 区域生成的路径；不要替换为普通 `rect rx`，以免直边与圆角衔接生硬。曲线已固化为 SVG，不增加运行时依赖。
+- 传统 `.icns` 在旧版 macOS 的 Finder、Dock、Launchpad 中可能直接按素材显示；新版系统的自动蒙版不能作为兼容性保证。
+- 每个尺寸都必须保留透明通道，不能添加不透明底色；应检查四角透明，并分别预览浅色和深色背景。
+- `.icns` 用于应用包图标，`.ico` 也用于设置页；两个文件应来自同一份 SVG。
+- 替换已安装应用后，如果仍显示旧图标，先退出并重新打开应用；Finder、Dock、Launchpad 的图标缓存可能需要注销后重新登录才更新。
 
 ## App Store 上架
 
@@ -211,16 +217,22 @@ xcrun stapler staple MacExplorer-x.x.x-macos.dmg
 
 ## Icon Generation
 
-SVG source: `Assets/appicon.svg` (full-bleed 456×456 design — macOS applies the squircle mask automatically).
+SVG source: `Assets/appicon.svg` (1024×1024 transparent canvas with centered 824×824 rounded artwork and 100px margins). Preserve the rounded corners and transparency in exported icons instead of relying on system masking.
 
 ```bash
-# Browser renders SVG → 10 PNGs (16–1024px, @2x variants)
-# → iconutil packages into .icns → copied to Assets/
+# Render transparent PNGs with SVG luminance mask support (e.g. a browser or resvg)
+# → Generate 16, 32, 128, 256, 512 at @1x / @2x using Apple iconset filenames
+# → iconutil -c icns appicon.iconset -o Assets/appicon.icns
+# → Also generate Assets/appicon.ico (16, 24, 32, 48, 64, 128, 256px)
+# → Copy the SVG to docs/Assets/appicon.svg
 ```
 
 Notes:
-- Do **not** pre-round corners in the SVG — macOS applies the system squircle mask
-- Do **not** call `setApplicationIconImage:` at runtime — it bypasses the system mask
+- The background uses Apple's continuous corner path, exported from `RoundedRectangle(cornerRadius: 102, style: .continuous)` in a 456×456 rectangle. Keep this path instead of a plain `rect rx` so curvature transitions smoothly from the straight edges. It is baked into the SVG and adds no runtime dependency.
+- Legacy `.icns` resources can appear exactly as supplied in Finder, Dock, and Launchpad on older macOS versions; automatic masking on newer systems is not a compatibility guarantee.
+- Keep the alpha channel at every size without adding an opaque background. Check transparent corners and preview on both light and dark backgrounds.
+- The app bundle uses `.icns`, while the settings page also uses `.ico`; generate both from the same SVG.
+- If an installed app still shows its old icon after replacement, quit and reopen it first. Finder, Dock, and Launchpad caches may require logging out and back in to refresh.
 
 ## App Store Distribution
 
