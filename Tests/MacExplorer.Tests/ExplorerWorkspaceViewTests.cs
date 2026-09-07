@@ -11,6 +11,44 @@ namespace MacExplorer.Tests;
 public sealed class ExplorerWorkspaceViewTests
 {
     [AvaloniaFact]
+    public void NewWideWorkspaceNeverClosesItsSidebarDuringFirstLayout()
+    {
+        using var workspace = new ExplorerWorkspaceView();
+        var sidebar = workspace.FindControl<SplitView>("SidebarSplitView")!;
+        Assert.False(workspace.IsCompact);
+        Assert.True(sidebar.IsPaneOpen);
+        var closedCount = 0;
+        sidebar.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == SplitView.IsPaneOpenProperty && !sidebar.IsPaneOpen)
+                closedCount++;
+        };
+        var window = new Window { Width = 1280, Height = 800, Content = workspace };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(workspace.IsCompact);
+        Assert.True(sidebar.IsPaneOpen);
+        Assert.Equal(0, closedCount);
+        window.Close();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1000, false, true)]
+    [InlineData(1280, false, false)]
+    [InlineData(1280, true, true)]
+    public void FirstMeasureAlreadyUsesTheFinalSidebarMode(double width, bool forceCompact, bool compact)
+    {
+        using var workspace = new ExplorerWorkspaceView { ForceCompact = forceCompact };
+        workspace.Measure(new Size(width, 800));
+
+        Assert.Equal(compact, workspace.IsCompact);
+        var sidebar = workspace.FindControl<SplitView>("SidebarSplitView")!;
+        Assert.Equal(!compact, sidebar.IsPaneOpen);
+        Assert.Equal(compact, workspace.FindControl<FinderSidebarView>("SidebarControl")!.IsRailMode);
+    }
+
+    [AvaloniaFact]
     public void BreakpointAndForceCompactUseTheSameWorkspaceAndDataContext()
     {
         var dataContext = new object();
@@ -51,7 +89,7 @@ public sealed class ExplorerWorkspaceViewTests
         var originalVolumeMargin = volumeItem.Margin;
         var originalVolumeContentAlignment = Assert.IsType<StackPanel>(volumeItem.Child).HorizontalAlignment;
         Assert.Equal(SplitViewDisplayMode.Inline, splitView.DisplayMode);
-        Assert.Equal(260, splitView.OpenPaneLength);
+        Assert.Equal(240, splitView.OpenPaneLength);
         Assert.True(splitView.IsPaneOpen);
 
         window.Width = 1000;
@@ -87,7 +125,7 @@ public sealed class ExplorerWorkspaceViewTests
         window.Width = 1280;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(SplitViewDisplayMode.Inline, splitView.DisplayMode);
-        Assert.Equal(260, splitView.OpenPaneLength);
+        Assert.Equal(240, splitView.OpenPaneLength);
         Assert.True(splitView.IsPaneOpen);
         Assert.Same(sidebar, workspace.FindControl<FinderSidebarView>("SidebarControl"));
 

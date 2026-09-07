@@ -13,6 +13,9 @@ public class AppWindow : Window
     public static readonly StyledProperty<Control?> TitleBarContentProperty =
         AvaloniaProperty.Register<AppWindow, Control?>(nameof(TitleBarContent));
 
+    public static readonly StyledProperty<Control?> TitleBarBackgroundContentProperty =
+        AvaloniaProperty.Register<AppWindow, Control?>(nameof(TitleBarBackgroundContent));
+
     public static readonly StyledProperty<bool> IsModalInteractionBlockedProperty =
         AvaloniaProperty.Register<AppWindow, bool>(nameof(IsModalInteractionBlocked));
 
@@ -20,6 +23,12 @@ public class AppWindow : Window
     {
         get => GetValue(TitleBarContentProperty);
         set => SetValue(TitleBarContentProperty, value);
+    }
+
+    public Control? TitleBarBackgroundContent
+    {
+        get => GetValue(TitleBarBackgroundContentProperty);
+        set => SetValue(TitleBarBackgroundContentProperty, value);
     }
 
     public bool IsModalInteractionBlocked

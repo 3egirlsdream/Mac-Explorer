@@ -1,5 +1,6 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:icons="using:MacExplorer.Assets"
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.RemoteConnectionDialog"
         Title="连接远程服务器"
@@ -10,7 +11,7 @@
 
     <Window.Styles>
         <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         </Style>
         <Style Selector="TextBox">
             <Setter Property="Margin" Value="0,0,0,8"/>
@@ -23,7 +24,7 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="20,12">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <!-- Saved servers list -->
         <Border Grid.Row="0" IsVisible="{Binding HasSavedServers}" Margin="0,0,0,12">
             <StackPanel>
@@ -35,7 +36,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="4,2">
-                                <PathIcon Data="M20,18C20,19.1 20.9,20 22,20V20H24V20C24,18.34 22.66,17 21,17H20V18M14,20C14,21.1 14.9,22 16,22V22H18V22C18,20.34 16.66,19 15,19H14V20M8,22C8,23.1 8.9,24 10,24V24H12V24C12,22.34 10.66,21 9,21H8V22M20,12C20,13.1 20.9,14 22,14V14H24V14C24,12.34 22.66,11 21,11H20V12Z"
+                                <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
                                           Width="16" Height="16" Foreground="{DynamicResource AccentBrush}"/>
                                 <StackPanel>
                                     <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource FontSizeBody}"/>
@@ -55,7 +56,8 @@
                 <TextBox x:Name="NameBox" PlaceholderText="可选，显示在侧边栏"/>
 
                 <TextBlock Classes="label" Text="主机地址"/>
-                <TextBox x:Name="HostBox" PlaceholderText="IP 地址或域名"/>
+                <TextBox x:Name="HostBox" PlaceholderText="IP 地址或域名" AutomationProperties.Name="主机地址"/>
+                <TextBlock x:Name="HostError" IsVisible="False" Text="请输入主机地址" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource DangerBrush}" Margin="0,0,0,8"/>
 
                 <TextBlock Classes="label" Text="端口"/>
                 <TextBox x:Name="PortBox" PlaceholderText="22"/>
@@ -90,15 +92,12 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-            <Button x:Name="DeleteButton" Content="删除" Classes="danger"
-                    Click="OnDeleteServer" IsVisible="False" Padding="16,8"/>
-            <Button x:Name="ConnectButton" Content="连接" Classes="primary"
-                    Click="OnConnect" Padding="24,8"/>
-            <Button x:Name="SaveButton" Content="保存" Classes="secondary"
-                    Click="OnSave" Padding="16,8"/>
-            <Button Content="取消" Click="OnCancel" Padding="16,8"/>
-        </StackPanel>
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,16,0,0">
+            <Button x:Name="DeleteButton" Content="删除" Classes="ghost" Foreground="{DynamicResource DangerBrush}"
+                    Click="OnDeleteServer" IsVisible="False" Padding="16,6"/>
+            <Button Grid.Column="2" Content="取消" Classes="secondary" Click="OnCancel" Padding="16,6"/>
+            <Button Grid.Column="3" x:Name="SaveButton" Content="保存" Classes="secondary" Click="OnSave" Padding="16,6"/>
+            <Button Grid.Column="4" x:Name="ConnectButton" Content="连接" Classes="primary" Click="OnConnect" Padding="24,6"/>
+        </Grid>
     </Grid>
 </controls:DialogWindow>

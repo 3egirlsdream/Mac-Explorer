@@ -9,25 +9,25 @@
     <Border x:Name="InfoPanelRoot" Classes="info-panel" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
                 <!-- Header with preview controls -->
-                <DockPanel Grid.Row="0" Margin="14,12,14,0" LastChildFill="True">
-                    <Button DockPanel.Dock="Right" x:Name="ClosePanelBtn"
+                <DockPanel Grid.Row="0" Margin="16,0" MinHeight="40" LastChildFill="True">
+                    <Button DockPanel.Dock="Right" x:Name="ClosePanelBtn" AutomationProperties.Name="关闭信息面板" ToolTip.Tip="关闭信息面板"
                             Classes="ghost info-panel-icon"
                             Padding="0" Click="ClosePanel" HorizontalAlignment="Right"
-                            VerticalAlignment="Top">
-                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="10" Height="10"
+                            VerticalAlignment="Center">
+                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="16" Height="16"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Button>
-                    <Button DockPanel.Dock="Right" x:Name="ExpandPreviewBtn"
+                    <Button DockPanel.Dock="Right" x:Name="ExpandPreviewBtn" AutomationProperties.Name="展开预览"
                             Classes="ghost info-panel-icon" Margin="0,0,6,0"
                             Padding="0" Click="TogglePreviewExpanded"
                             ToolTip.Tip="展开预览" HorizontalAlignment="Right"
-                            VerticalAlignment="Top">
+                            VerticalAlignment="Center">
                         <PathIcon x:Name="ExpandPreviewIcon"
-                                  Data="M4 4H10V5.5H5.5V10H4V4ZM14 4H20V10H18.5V5.5H14V4ZM4 14H5.5V18.5H10V20H4V14ZM18.5 14H20V20H14V18.5H18.5V14Z"
-                                  Width="13" Height="13"
+                                  Data="{x:Static icons:Icons.ExpandPreview}"
+                                  Width="16" Height="16"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Button>
-                    <TextBlock x:Name="PanelTitle" Text="信息" FontWeight="{StaticResource FontWeightSemibold}" FontSize="{DynamicResource FontSizeBodyLarge}"
+                    <TextBlock x:Name="PanelTitle" Text="信息" FontWeight="{StaticResource FontWeightMedium}" FontSize="{DynamicResource FontSizeBodyLarge}"
                                Foreground="{DynamicResource TextPrimaryBrush}"
                                VerticalAlignment="Center"/>
                 </DockPanel>
@@ -36,15 +36,17 @@
               <StackPanel Spacing="0">
                 <!-- Type-aware preview host -->
                 <Border x:Name="PreviewImageArea" Margin="14,10,14,0" CornerRadius="10"
-                        Background="{DynamicResource ColorBgHover}" MinHeight="160"
+                        Background="{DynamicResource SurfaceMutedBrush}" MinHeight="160"
                         ClipToBounds="True">
                     <Panel>
                         <Image x:Name="PreviewImage" Stretch="Uniform"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image x:Name="PreviewFileIcon" IsVisible="False" Width="96" Height="96"
+                               Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <TextBox x:Name="PreviewText"
                                  IsVisible="False" IsReadOnly="True" AcceptsReturn="True"
                                  TextWrapping="NoWrap" FontFamily="{StaticResource FontFamilyMono}"
-                                 FontSize="{DynamicResource FontSizeLabel}" Padding="12" BorderThickness="0"
+                                 FontSize="{DynamicResource FontSizeLabel}" Padding="12,32,12,12" BorderThickness="0"
                                  Background="Transparent"
                                  VerticalContentAlignment="Top"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -59,62 +61,71 @@
                                 Background="#B8202024">
                             <TextBlock x:Name="PreviewKindText" FontSize="{DynamicResource FontSizeMeta}" Foreground="{DynamicResource TextOnAccentBrush}"/>
                         </Border>
-                        <Button x:Name="CopyImageTextBtn" IsVisible="False"
+                        <Button AutomationProperties.Name="使用 macOS Vision 识别并复制文字" x:Name="CopyImageTextBtn" IsVisible="False"
                                 Classes="ghost compact" Click="CopyImageText"
                                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                 Margin="8" Padding="9,5" CornerRadius="{DynamicResource InteractionCornerRadius}"
                                 Background="#D9202024" Foreground="{DynamicResource TextOnAccentBrush}"
-                                Content="复制图片文字" FontSize="{DynamicResource FontSizeCaption}"
+                                Content="复制图片文字" FontSize="{DynamicResource FontSizeLabel}"
                                 ToolTip.Tip="使用 macOS Vision 识别并复制文字">
                         </Button>
                     </Panel>
                 </Border>
 
-                <StackPanel x:Name="DetailsPanel" Spacing="0">
+                <StackPanel x:Name="PreviewFeedback" Margin="16,10" Spacing="8" IsVisible="False">
+                    <TextBlock x:Name="PreviewFeedbackText" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <WrapPanel>
+                        <Button x:Name="RetryPreviewButton" Content="重试" Classes="secondary compact" Click="RetryPreview" Margin="0,0,8,4"/>
+                        <Button x:Name="OpenPreviewFileButton" Content="使用默认应用打开" Classes="secondary compact" Click="OpenPreviewFile" Margin="0,0,0,4"/>
+                    </WrapPanel>
+                </StackPanel>
+                <StackPanel x:Name="DetailsPanel" Spacing="0" IsVisible="False">
+                    <TextBlock x:Name="SelectedFileName" Margin="16,12,16,0" FontSize="{DynamicResource FontSizeBodyLarge}" FontWeight="{StaticResource FontWeightMedium}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="SelectedFileSummary" Margin="16,4,16,0" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <!-- Tabs -->
                 <Grid Margin="14,12,14,0" ColumnDefinitions="*,*">
                     <Button Grid.Column="0" x:Name="TabBasicBtn" Content="基本信息"
                             Classes="ghost info-tab-active" Click="SwitchToBasicTab"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Padding="0,6"/>
+                            Height="32" Padding="0,4"/>
                     <Button Grid.Column="1" x:Name="TabExifBtn" Content="EXIF 信息"
                             Classes="ghost info-tab" Click="SwitchToExifTab"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Padding="0,6"/>
+                            Height="32" Padding="0,4"/>
                 </Grid>
 
                 <!-- Tab: Basic Info -->
                 <StackPanel x:Name="BasicTabContent" Margin="14,10,14,0" Spacing="8">
                     <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="位置" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="位置" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" x:Name="InfoPath" Text="—" FontSize="{DynamicResource FontSizeLabel}"
                                    TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
                     <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="大小" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="大小" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" x:Name="InfoSize" Text="—" FontSize="{DynamicResource FontSizeLabel}"
                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
                     <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="类型" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="类型" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" x:Name="InfoType" Text="—" FontSize="{DynamicResource FontSizeLabel}"
                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
                     <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="修改时间" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="修改时间" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" x:Name="InfoModified" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
                     <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="创建时间" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="创建时间" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" x:Name="InfoCreated" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
                     <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="访问时间" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="访问时间" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" x:Name="InfoAccessed" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
                 </StackPanel>
 
@@ -128,17 +139,17 @@
                 <!-- Tags Section -->
                 <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="14,12"/>
                 <StackPanel Margin="14,0,14,0" Spacing="10">
-                    <TextBlock Text="标签" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="标签" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                     <!-- System color tags (Apple style) -->
-                    <StackPanel x:Name="SystemTagsPanel" Spacing="8" Orientation="Horizontal"/>
+                    <StackPanel x:Name="SystemTagsPanel" Spacing="6" Orientation="Horizontal"/>
 
                     <!-- Custom tags -->
                     <WrapPanel x:Name="CustomTagsPanel"/>
 
                     <!-- Add tag input -->
-                    <Border Classes="card" CornerRadius="8" Padding="2" Margin="0,2,0,0">
-                        <TextBox x:Name="TagInput"
+                    <Border Margin="0,2,0,0">
+                        <TextBox x:Name="TagInput" AutomationProperties.Name="添加标签"
                                  PlaceholderText="添加标签，回车确认"
                                  KeyDown="OnTagInputKeyDown"/>
                     </Border>
@@ -147,37 +158,37 @@
                 <!-- Quick Actions -->
                 <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="14,12"/>
                 <StackPanel Margin="14,0,14,14" Spacing="8">
-                    <TextBlock Text="快速操作" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <Border Classes="sidebar-item" PointerPressed="CopyPath">
+                    <TextBlock Text="快速操作" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Button Classes="ghost info-quick-action" Click="CopyPath" AutomationProperties.Name="复制路径" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">
                         <Grid ColumnDefinitions="24,*">
                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.CopyPath}"
-                                      Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"
+                                      Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"
                                       VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="复制路径" FontSize="{DynamicResource FontSizeBody}"
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </Grid>
-                    </Border>
-                    <Border Classes="sidebar-item" PointerPressed="OpenInTerminal">
+                    </Button>
+                    <Button Classes="ghost info-quick-action" Click="OpenInTerminal" AutomationProperties.Name="在终端中打开" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">
                         <Grid ColumnDefinitions="24,*">
                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Terminal}"
-                                      Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"
+                                      Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"
                                       VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="在终端中打开" FontSize="{DynamicResource FontSizeBody}"
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </Grid>
-                    </Border>
-                    <Border Classes="sidebar-item" PointerPressed="CompressFile">
+                    </Button>
+                    <Button Classes="ghost info-quick-action" Click="CompressFile" AutomationProperties.Name="压缩" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">
                         <Grid ColumnDefinitions="24,*">
                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Compress}"
-                                      Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"
+                                      Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"
                                       VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="压缩" FontSize="{DynamicResource FontSizeBody}"
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </Grid>
-                    </Border>
+                    </Button>
                 </StackPanel>
                 </StackPanel>
             </StackPanel>

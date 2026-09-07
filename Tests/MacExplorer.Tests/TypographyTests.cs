@@ -138,13 +138,13 @@ public sealed class TypographyTests
 
         Assert.Equal(13, fileName.FontSize);
         Assert.StartsWith("System Font", fileName.FontFamily.Name);
-        Assert.Equal(Color.Parse("#444648"), Assert.IsType<SolidColorBrush>(fileName.Foreground).Color);
+        Assert.Equal(Color.Parse("#252830"), Assert.IsType<SolidColorBrush>(fileName.Foreground).Color);
         Assert.Equal(12, groupHeader.FontSize);
-        Assert.Equal(13, sidebarTitle.FontSize);
+        Assert.Equal(11, sidebarTitle.FontSize);
         Assert.Equal("PingFang SC", sidebarTitle.FontFamily.Name);
-        Assert.Equal(FontWeight.Light, sidebarTitle.FontWeight);
+        Assert.Equal(FontWeight.Medium, sidebarTitle.FontWeight);
         Assert.Equal(FontWeight.Light, sidebarItemText.FontWeight);
-        Assert.Equal(Color.Parse("#989A9E"), Assert.IsType<SolidColorBrush>(sidebarTitle.Foreground).Color);
+        Assert.Equal(Color.Parse("#565D67"), Assert.IsType<SolidColorBrush>(sidebarTitle.Foreground).Color);
         Assert.Equal(14, remoteAddress.FontSize);
         Assert.Equal(13, remoteStatus.FontSize);
         Assert.Equal(0, remoteAction.Opacity);
@@ -155,7 +155,7 @@ public sealed class TypographyTests
 
         Assert.Equal(15, fileName.FontSize);
         Assert.Equal(14, groupHeader.FontSize);
-        Assert.Equal(15, sidebarTitle.FontSize);
+        Assert.Equal(12.5, sidebarTitle.FontSize);
         Assert.Equal(16, remoteAddress.FontSize);
         Assert.Equal(15, remoteStatus.FontSize);
         Assert.Equal(32, groupContainer.MinHeight);

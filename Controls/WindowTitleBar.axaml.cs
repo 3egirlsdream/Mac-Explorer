@@ -14,6 +14,15 @@ public partial class WindowTitleBar : UserControl
     public static readonly StyledProperty<Control?> TitleBarContentProperty =
         AvaloniaProperty.Register<WindowTitleBar, Control?>(nameof(TitleBarContent));
 
+    public static readonly StyledProperty<Control?> TitleBarBackgroundContentProperty =
+        AvaloniaProperty.Register<WindowTitleBar, Control?>(nameof(TitleBarBackgroundContent));
+
+    public Control? TitleBarBackgroundContent
+    {
+        get => GetValue(TitleBarBackgroundContentProperty);
+        set => SetValue(TitleBarBackgroundContentProperty, value);
+    }
+
     public string? Title
     {
         get => GetValue(TitleProperty);
@@ -107,6 +116,7 @@ public partial class WindowTitleBar : UserControl
         var fullScreenLabel = isFullScreen ? "退出全屏" : "进入全屏";
         ToolTip.SetTip(FullScreenButton, fullScreenLabel);
         AutomationProperties.SetName(FullScreenButton, fullScreenLabel);
+        PseudoClasses.Set(":fullscreen", isFullScreen);
         PseudoClasses.Set(":inactive", !window.IsActive);
         PseudoClasses.Set(":modal-blocked", blocked);
     }

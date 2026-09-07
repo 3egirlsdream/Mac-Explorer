@@ -47,6 +47,7 @@ public class MacThumbnailService : IThumbnailService
     private const double DefaultDiskTargetRatio = 0.8;
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
     private readonly ConcurrentQueue<string> _cacheOrder = new();
+    private readonly ConcurrentDictionary<string, DateTime> _failedThumbnails = new();
     private readonly SemaphoreSlim _generationGate = new(1);
     private readonly string _diskCacheDirectory;
     private readonly long _maxDiskBytes;
@@ -99,6 +100,8 @@ public class MacThumbnailService : IThumbnailService
             return null;
 
         var cacheKey = $"{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
+        if (_failedThumbnails.TryGetValue(cacheKey, out var retryAfter) && retryAfter > DateTime.UtcNow)
+            return null;
         var cachePath = GetCachePath(cacheKey);
         if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes))
         {
@@ -159,8 +162,29 @@ public class MacThumbnailService : IThumbnailService
                 return new ThumbnailResult(cached, cachePath);
             }
 
-            var generated = await GenerateThumbnailAsync(filePath, cachePath, maxPixelSize, ct);
-            if (generated == null) return null;
+            if (_failedThumbnails.TryGetValue(cacheKey, out retryAfter) && retryAfter > DateTime.UtcNow)
+                return null;
+
+            // A stalled Quick Look generator must release the shared queue. Start
+            // the timeout after acquiring the slot, not while waiting for it.
+            using var generationCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            generationCts.CancelAfter(TimeSpan.FromSeconds(5));
+            byte[]? generated;
+            try
+            {
+                generated = await GenerateThumbnailAsync(filePath, cachePath, maxPixelSize, generationCts.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                generated = null;
+            }
+            if (generated == null)
+            {
+                if (_failedThumbnails.Count >= MaxMemoryEntries) _failedThumbnails.Clear();
+                _failedThumbnails[cacheKey] = DateTime.UtcNow.AddMinutes(1);
+                return null;
+            }
+            _failedThumbnails.TryRemove(cacheKey, out _);
             AddToMemory(cacheKey, generated);
             TrimDiskCache(cachePath);
             return new ThumbnailResult(generated, cachePath);
@@ -273,11 +297,14 @@ public class MacThumbnailService : IThumbnailService
     {
         foreach (var key in _memoryCache.Keys.Where(key => key.Contains(filePath, StringComparison.Ordinal)))
             RemoveFromMemory(key);
+        foreach (var key in _failedThumbnails.Keys.Where(key => key.StartsWith(filePath + ":", StringComparison.Ordinal)))
+            _failedThumbnails.TryRemove(key, out _);
     }
 
     public void ClearCache()
     {
         _memoryCache.Clear();
+        _failedThumbnails.Clear();
         Interlocked.Exchange(ref _memoryBytes, 0);
         while (_cacheOrder.TryDequeue(out _)) { }
     }
@@ -342,7 +369,7 @@ public class MacThumbnailService : IThumbnailService
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
-            foreach (var argument in new[] { "-t", "-s", Math.Max(128, maxPixelSize).ToString(), "-o", outputDirectory, sourcePath })
+            foreach (var argument in new[] { "-t", "-s", Math.Max(32, maxPixelSize).ToString(), "-o", outputDirectory, sourcePath })
                 startInfo.ArgumentList.Add(argument);
 
             using var process = Process.Start(startInfo);
@@ -417,7 +444,7 @@ public class MacThumbnailService : IThumbnailService
             };
             startInfo.ArgumentList.Add(sourcePath);
             startInfo.ArgumentList.Add(generatedPath);
-            startInfo.ArgumentList.Add(Math.Max(128, maxPixelSize).ToString());
+            startInfo.ArgumentList.Add(Math.Max(32, maxPixelSize).ToString());
             process = Process.Start(startInfo);
             if (process == null) return null;
             TrySetBelowNormalPriority(process);

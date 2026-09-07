@@ -1,10 +1,15 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Indexing;
@@ -16,8 +21,82 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed class FileListViewModelCreateTests
+public sealed partial class FileListViewModelCreateTests
 {
+    [AvaloniaTheory]
+    [InlineData(ViewMode.List, GroupField.None, false)]
+    [InlineData(ViewMode.List, GroupField.Type, false)]
+    [InlineData(ViewMode.Grid, GroupField.None, false)]
+    [InlineData(ViewMode.Grid, GroupField.Type, false)]
+    [InlineData(ViewMode.List, GroupField.None, true)]
+    [InlineData(ViewMode.List, GroupField.Type, true)]
+    [InlineData(ViewMode.Grid, GroupField.None, true)]
+    [InlineData(ViewMode.Grid, GroupField.Type, true)]
+    public void ScrollBarInteractionScrollsWithoutStartingMarqueeOrChangingSelection(
+        ViewMode viewMode, GroupField groupField, bool clickTrack)
+    {
+        var application = Assert.IsAssignableFrom<Application>(Application.Current);
+        var fluentTheme = new FluentTheme();
+        application.Styles.Insert(0, fluentTheme);
+        using var viewModel = CreateViewModel(new FakeFileService("/tmp/FKFinderTests"),
+            sortFilter: new SortFilterViewModel { ViewMode = viewMode, GroupField = groupField });
+        Window? window = null;
+
+        try
+        {
+            for (var index = 0; index < 120; index++)
+                viewModel.Entries.Add(new FileSystemEntry
+                {
+                    FullPath = $"/tmp/FKFinderTests/scroll-{index}.txt",
+                    Name = $"scroll-{index}.txt",
+                    Extension = ".txt",
+                    IconKey = "file-text"
+                });
+            if (groupField != GroupField.None)
+                viewModel.Groups.Add(new FileGroup { Name = "Text", Entries = viewModel.Entries.ToList() });
+
+            var view = new FileListView { DataContext = viewModel };
+            view.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
+            window = new Window { Width = 760, Height = 520, Content = view };
+            window.Show();
+            viewModel.SelectEntry(viewModel.Entries[0], false, false);
+            viewModel.SelectEntry(viewModel.Entries[1], true, false);
+            Dispatcher.UIThread.RunJobs();
+
+            var selected = viewModel.SelectedEntries.ToArray();
+            var host = view.FindControl<ListBox>(viewMode == ViewMode.Grid ? "GridViewItems"
+                : groupField == GroupField.None ? "FileItemsList" : "GroupedListItems")!;
+            var scrollBar = host.GetVisualDescendants().OfType<ScrollBar>()
+                .Single(bar => bar.IsEffectivelyVisible && bar.Orientation == Orientation.Vertical);
+            var scrollViewer = scrollBar.FindAncestorOfType<ScrollViewer>()!;
+            var track = scrollBar.GetVisualDescendants().OfType<Track>().Single();
+            var thumb = track.Thumb!;
+            var start = clickTrack
+                ? track.TranslatePoint(new Point(track.Bounds.Width / 2, track.Bounds.Height - 8), window)!.Value
+                : thumb.TranslatePoint(new Point(thumb.Bounds.Width / 2, thumb.Bounds.Height / 2), window)!.Value;
+            var end = clickTrack ? start : start + new Vector(-2, 100);
+            var initialOffset = scrollViewer.Offset.Y;
+
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+            Assert.Equal(selected, viewModel.SelectedEntries);
+
+            window.MouseUp(end, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+            Assert.Equal(selected, viewModel.SelectedEntries);
+            Assert.True(scrollViewer.Offset.Y > initialOffset, "The scroll bar must move the file viewport.");
+        }
+        finally
+        {
+            window?.Close();
+            application.Styles.Remove(fluentTheme);
+        }
+    }
+
     [AvaloniaFact]
     public void EmptyAreaDragCreatesMarqueeAndSelectsMultipleRows()
     {
@@ -507,7 +586,7 @@ public sealed class FileListViewModelCreateTests
         window.Close();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task CreateNewFileAsync_ReloadsDirectoryThenSelectsCreatedEntryAndRequestsRename()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -531,7 +610,7 @@ public sealed class FileListViewModelCreateTests
         Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ConfirmDeleteSelectedAsync_ReloadsDirectoryAfterDelete()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -566,7 +645,7 @@ public sealed class FileListViewModelCreateTests
         Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RenameEntryAsync_ReloadsDirectoryAndReselectsRenamedEntry()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -597,7 +676,7 @@ public sealed class FileListViewModelCreateTests
         Assert.Same(viewModel, notifier.ExcludedViewModel);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RefreshAsync_ReplacesCollectionWithFreshEntries()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -628,7 +707,7 @@ public sealed class FileListViewModelCreateTests
         Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task NavigateToAsync_KeepsOverlayHiddenUntilNewDirectoryIsReady()
     {
         var root = Path.Combine(Path.GetTempPath(), $"fkfinder-navigation-{Guid.NewGuid():N}");
@@ -1028,7 +1107,9 @@ public sealed class FileListViewModelCreateTests
         FakeFileService fileService,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
         NavigationViewModel? navigation = null,
-        SortFilterViewModel? sortFilter = null)
+        SortFilterViewModel? sortFilter = null,
+        IThumbnailService? thumbnailService = null,
+        ISettingsService? settingsService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1053,6 +1134,8 @@ public sealed class FileListViewModelCreateTests
             index,
             writer,
             new IndexConfiguration(),
+            settingsService: settingsService,
+            thumbnailService: thumbnailService,
             directoryChangeNotifier: directoryChangeNotifier);
     }
 

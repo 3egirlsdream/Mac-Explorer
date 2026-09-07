@@ -5,88 +5,172 @@
              x:Class="MacExplorer.Controls.WindowTitleBar"
              x:Name="TitleBarRoot"
              MinHeight="44">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="TrafficLightInactiveBrush" Color="#C8C8C8"/>
+                    <SolidColorBrush x:Key="TrafficLightOutlineBrush" Color="#24000000"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="TrafficLightInactiveBrush" Color="#555555"/>
+                    <SolidColorBrush x:Key="TrafficLightOutlineBrush" Color="#30000000"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <SolidColorBrush x:Key="TrafficLightCloseSymbolBrush" Color="#760E08"/>
+            <SolidColorBrush x:Key="TrafficLightMinimizeSymbolBrush" Color="#805400"/>
+            <SolidColorBrush x:Key="TrafficLightFullScreenSymbolBrush" Color="#075D13"/>
+            <SolidColorBrush x:Key="TrafficLightClosePressedBrush" Color="#E04A43"/>
+            <SolidColorBrush x:Key="TrafficLightMinimizePressedBrush" Color="#DEA123"/>
+            <SolidColorBrush x:Key="TrafficLightFullScreenPressedBrush" Color="#20AD35"/>
+            <StreamGeometry x:Key="TrafficLightEnterFullScreenGeometry">M3,3 H7 L3,7 Z M9,9 H5 L9,5 Z</StreamGeometry>
+            <StreamGeometry x:Key="TrafficLightExitFullScreenGeometry">M5.25,5.25 H2.75 L5.25,2.75 Z M6.75,6.75 H9.25 L6.75,9.25 Z</StreamGeometry>
+            <ControlTheme x:Key="TrafficLightButtonTheme" TargetType="Button">
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Grid Background="Transparent">
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding Content}"
+                                              HorizontalContentAlignment="Center"
+                                              VerticalContentAlignment="Center"/>
+                            <Ellipse x:Name="FocusRing" Width="22" Height="22"
+                                     Stroke="{DynamicResource AccentBrush}" StrokeThickness="2"
+                                     IsHitTestVisible="False"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^ /template/ Ellipse#FocusRing">
+                    <Setter Property="Opacity" Value="0"/>
+                </Style>
+                <Style Selector="^:focus-visible /template/ Ellipse#FocusRing">
+                    <Setter Property="Opacity" Value="1"/>
+                </Style>
+            </ControlTheme>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Button.window-control">
-            <Setter Property="Width" Value="20"/>
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="MinWidth" Value="20"/>
-            <Setter Property="MinHeight" Value="20"/>
-            <Setter Property="Padding" Value="3.25"/>
+            <Setter Property="Theme" Value="{StaticResource TrafficLightButtonTheme}"/>
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="MinWidth" Value="24"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Arrow"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
+            <Setter Property="Transitions" Value="{x:Null}"/>
         </Style>
         <Style Selector="Button.window-control:pointerover">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="RenderTransform" Value="scale(1.04)"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
         <Style Selector="Button.window-control:pressed">
-            <Setter Property="RenderTransform" Value="scale(0.92)"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
         <Style Selector="Button.window-control:disabled">
-            <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Opacity" Value="1"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
         <Style Selector="Button.window-control:focus-visible">
-            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="BorderThickness" Value="0"/>
         </Style>
-        <Style Selector="TextBlock.window-control-symbol">
+        <Style Selector="Ellipse.traffic-light">
+            <Setter Property="Stroke" Value="{DynamicResource TrafficLightOutlineBrush}"/>
+            <Setter Property="StrokeThickness" Value="0.5"/>
+        </Style>
+        <Style Selector="Ellipse.traffic-close">
+            <Setter Property="Fill" Value="{DynamicResource WindowCloseBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.traffic-minimize">
+            <Setter Property="Fill" Value="{DynamicResource WindowMinimizeBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.traffic-fullscreen">
+            <Setter Property="Fill" Value="{DynamicResource WindowMaximizeBrush}"/>
+        </Style>
+        <Style Selector="Path.window-control-symbol">
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="Stretch" Value="None"/>
             <Setter Property="Opacity" Value="0"/>
-            <Setter Property="FontSize" Value="{StaticResource FontSizeIconGlyph}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightBold}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="IsHitTestVisible" Value="False"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.08" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
         </Style>
-        <Style Selector="StackPanel.window-controls:pointerover TextBlock.window-control-symbol">
+        <Style Selector="Path.fullscreen-symbol">
+            <Setter Property="Data" Value="{StaticResource TrafficLightEnterFullScreenGeometry}"/>
+        </Style>
+        <Style Selector="local|WindowTitleBar:fullscreen Path.fullscreen-symbol">
+            <Setter Property="Data" Value="{StaticResource TrafficLightExitFullScreenGeometry}"/>
+        </Style>
+        <Style Selector="StackPanel.window-controls:pointerover Button.window-control:not(:disabled) Path.window-control-symbol,
+                         Button.window-control:not(:disabled):focus-visible Path.window-control-symbol">
             <Setter Property="Opacity" Value="1"/>
         </Style>
-        <Style Selector="local|WindowTitleBar:inactive Ellipse.traffic-light">
-            <Setter Property="Fill" Value="#A8A8A8"/>
+        <Style Selector="local|WindowTitleBar:inactive StackPanel.window-controls:not(:pointerover) Ellipse.traffic-light,
+                         Button.window-control:disabled Ellipse.traffic-light">
+            <Setter Property="Fill" Value="{DynamicResource TrafficLightInactiveBrush}"/>
+        </Style>
+        <Style Selector="Button.window-control:pressed Ellipse.traffic-close">
+            <Setter Property="Fill" Value="{DynamicResource TrafficLightClosePressedBrush}"/>
+        </Style>
+        <Style Selector="Button.window-control:pressed Ellipse.traffic-minimize">
+            <Setter Property="Fill" Value="{DynamicResource TrafficLightMinimizePressedBrush}"/>
+        </Style>
+        <Style Selector="Button.window-control:pressed Ellipse.traffic-fullscreen">
+            <Setter Property="Fill" Value="{DynamicResource TrafficLightFullScreenPressedBrush}"/>
         </Style>
     </UserControl.Styles>
 
     <Grid Height="44" Background="{DynamicResource TitleBarBackgroundBrush}">
+        <ContentPresenter Content="{Binding #TitleBarRoot.TitleBarBackgroundContent}"
+                          HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                          IsHitTestVisible="False"/>
         <Grid x:Name="TitleRow" Background="Transparent"
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
             <Border x:Name="WindowControlsReserve" Padding="14,0,12,0"
                     HorizontalAlignment="Left" VerticalAlignment="Stretch"
                     chrome:WindowDecorationProperties.ElementRole="User">
-                <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="6"
+                <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="0" Background="Transparent"
                             VerticalAlignment="Center"
                             chrome:WindowDecorationProperties.ElementRole="User">
                     <Button x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
                             AutomationProperties.Name="关闭窗口">
-                        <Grid Width="13.5" Height="13.5">
-                            <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowCloseBrush}"/>
-                            <TextBlock Classes="window-control-symbol" Text="×" Foreground="#5C1A17" Margin="0,-1,0,0"/>
-                        </Grid>
+                        <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                            <Grid Width="12" Height="12">
+                                <Ellipse Classes="traffic-light traffic-close"/>
+                                <Path Classes="window-control-symbol" Data="M3.75,3.75 L8.25,8.25 M8.25,3.75 L3.75,8.25"
+                                      Stroke="{DynamicResource TrafficLightCloseSymbolBrush}"
+                                      StrokeThickness="1.25" StrokeLineCap="Round"/>
+                            </Grid>
+                        </Viewbox>
                     </Button>
                     <Button x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
                             AutomationProperties.Name="最小化窗口">
-                        <Grid Width="13.5" Height="13.5">
-                            <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMinimizeBrush}"/>
-                            <TextBlock Classes="window-control-symbol" Text="−" Foreground="#654200" Margin="0,-2,0,0"/>
-                        </Grid>
+                        <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                            <Grid Width="12" Height="12">
+                                <Ellipse Classes="traffic-light traffic-minimize"/>
+                                <Path Classes="window-control-symbol" Data="M3,6 H9"
+                                      Stroke="{DynamicResource TrafficLightMinimizeSymbolBrush}"
+                                      StrokeThickness="1.25" StrokeLineCap="Round"/>
+                            </Grid>
+                        </Viewbox>
                     </Button>
                     <Button x:Name="FullScreenButton" Classes="window-control" ToolTip.Tip="进入全屏"
                             AutomationProperties.Name="进入全屏">
-                        <Grid Width="13.5" Height="13.5">
-                            <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMaximizeBrush}"/>
-                            <TextBlock Classes="window-control-symbol" Text="+" Foreground="#0C551C" Margin="0,-1,0,0"/>
-                        </Grid>
+                        <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                            <Grid Width="12" Height="12">
+                                <Ellipse Classes="traffic-light traffic-fullscreen"/>
+                                <Path Classes="window-control-symbol fullscreen-symbol"
+                                      Fill="{DynamicResource TrafficLightFullScreenSymbolBrush}"/>
+                            </Grid>
+                        </Viewbox>
                     </Button>
                 </StackPanel>
             </Border>

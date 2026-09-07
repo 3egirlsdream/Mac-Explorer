@@ -21,7 +21,7 @@ namespace MacExplorer.Tests;
 public sealed class FinderSidebarInteractionTests
 {
     [AvaloniaFact]
-    public void SectionHeaderEmptySpaceRevealsRightSideActionsOnlyOnHover()
+    public void SectionHeaderRevealsChevronsOnHoverAndKeepsCollectionCreationDiscoverable()
     {
         var sidebar = new FinderSidebarView();
         AddApplicationStyles(sidebar);
@@ -49,7 +49,7 @@ public sealed class FinderSidebarInteractionTests
         Assert.Equal(0, aiChevron.Opacity);
         Assert.Equal(0, collectionsChevron.Opacity);
         Assert.Equal(0, tagsChevron.Opacity);
-        Assert.Equal(0, addCollectionButton.Opacity);
+        Assert.Equal(1, addCollectionButton.Opacity);
 
         MoveToEmptyHeaderSpace(window, collectionsHeader);
 

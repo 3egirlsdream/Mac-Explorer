@@ -10,10 +10,10 @@ public sealed class ComboBoxStyleTests
     [AvaloniaFact]
     public void LightThemeUsesTheSidebarActionMenuSurfaceForComboBoxes()
     {
-        AssertResourceBrush("ComboBoxDropDownBackground", "#F7FFFFFF");
-        AssertResourceBrush("ComboBoxDropDownBorderBrush", "#E6E8ED");
+        AssertResourceBrush("ComboBoxDropDownBackground", "#FFFFFF");
+        AssertResourceBrush("ComboBoxDropDownBorderBrush", "#E1E4E9");
         AssertResourceBrush("ComboBoxItemBackgroundSelected", "Transparent");
-        AssertResourceBrush("ComboBoxItemBackgroundPointerOver", "#F0F1F3");
+        AssertResourceBrush("ComboBoxItemBackgroundPointerOver", "#ECEEF2");
     }
 
     private static void AssertResourceBrush(string key, string expected)

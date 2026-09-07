@@ -15,19 +15,22 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="Border.workspace-surface.active">
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         </Style>
         <Style Selector="local|ExplorerWorkspaceView:split Border.workspace-surface">
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
+        <Style Selector="local|ExplorerWorkspaceView:split Border.workspace-surface.active">
+            <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
         </Style>
         <Style Selector="Button.workspace-nav-button">
-            <Setter Property="Width" Value="30"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="MinWidth" Value="30"/>
-            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinWidth" Value="32"/>
+            <Setter Property="MinHeight" Value="32"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -37,8 +40,8 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="Button.workspace-nav-button PathIcon">
-            <Setter Property="Width" Value="14"/>
-            <Setter Property="Height" Value="14"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
         </Style>
         <Style Selector="Button.workspace-nav-button:pointerover">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
@@ -46,22 +49,30 @@
         <Style Selector="Button.workspace-nav-button:pressed">
             <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
         </Style>
-        <Style Selector="Button.workspace-nav-button:focus-visible">
-            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
+
         <Style Selector="Grid.workspace-search-host">
             <Setter Property="Width" Value="220"/>
-            <Setter Property="Height" Value="30"/>
+            <Setter Property="Height" Value="32"/>
         </Style>
         <Style Selector="local|ExplorerWorkspaceView:compact Grid.workspace-search-host">
             <Setter Property="Width" Value="180"/>
+        </Style>
+        <Style Selector="Grid.workspace-search-host.expanded">
+            <Setter Property="Width" Value="NaN"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="local|BreadcrumbBar">
+            <Setter Property="MinWidth" Value="280"/>
         </Style>
         <Style Selector="local|ExplorerWorkspaceView:compact local|BreadcrumbBar">
             <Setter Property="MinWidth" Value="80"/>
         </Style>
         <Style Selector="local|ExplorerWorkspaceView:compact TextBlock.workspace-status-detail">
             <Setter Property="MaxWidth" Value="120"/>
+        </Style>
+        <Style Selector="Border.workspace-surface:not(.active) Border.file-list-entry.selected, Border.workspace-surface:not(.active) Border.file-grid-hit-target.selected">
+            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource InactiveSelectionOutlineShadow}"/>
         </Style>
         <Style Selector="Border.inactive-preview-placeholder">
             <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}"/>
@@ -75,19 +86,21 @@
                    PaneBackground="Transparent"
                    IsPaneOpen="True"
                    DisplayMode="Inline"
-                   OpenPaneLength="260"
+                   OpenPaneLength="240"
                    CompactPaneLength="0">
             <SplitView.Pane>
-                <controls:SurfaceCard x:Name="SidebarSurface" CornerRadius="16" Padding="0" Margin="0,4,4,0">
-                    <controls:SurfaceCard.Content>
+                <Border x:Name="SidebarSurface" Background="{DynamicResource ColorBgSidebar}"
+                        CornerRadius="{StaticResource RadiusLg}" ClipToBounds="True"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
                         <local:FinderSidebarView x:Name="SidebarControl" DataContext="{Binding FileList}"/>
-                    </controls:SurfaceCard.Content>
-                </controls:SurfaceCard>
+                </Border>
             </SplitView.Pane>
 
             <SplitView.Content>
-                <Grid RowDefinitions="40,Auto,*" Margin="4,0,0,0">
-                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16"
+                <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource SurfaceBrush}">
+                    <Grid Grid.Row="0" x:Name="NavigationRow" Height="40"
+                          IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}"
+                          ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="12,0"
                           VerticalAlignment="Center">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
                             <Button x:Name="SidebarToggleButton" Classes="workspace-nav-button"
@@ -119,17 +132,16 @@
                         <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
                                              DataContext="{Binding FileList}"
                                              HorizontalAlignment="Stretch"
-                                             MinWidth="280"
                                              VerticalAlignment="Center"/>
 
-                        <Grid Grid.Column="2">
+                        <Grid Grid.Column="2" x:Name="SearchControls">
                             <Button x:Name="SearchToggleButton" Classes="workspace-nav-button"
                                     IsVisible="False" Click="OnTogglePageSearch"
                                     ToolTip.Tip="页面内搜索" AutomationProperties.Name="页面内搜索">
                                 <PathIcon Data="{x:Static icons:Icons.Search}"/>
                             </Button>
                             <Grid x:Name="SearchHost" Classes="workspace-search-host"
-                                  HorizontalAlignment="Right" VerticalAlignment="Center">
+                                  VerticalAlignment="Center">
                                 <Border Classes="breadcrumb-bar" Padding="4,2"
                                         Background="{DynamicResource SurfaceElevatedBrush}">
                                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,0">
@@ -141,37 +153,43 @@
                                                  Classes="search-input omnibox-input"
                                                  FontSize="{DynamicResource FontSizeLabel}"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"
-                                                 PlaceholderText="搜索..."
+                                                 PlaceholderText="搜索此位置的文件" AutomationProperties.Name="搜索此位置的文件"
                                                  Text="{Binding FileList.SearchQuery, Mode=OneWay}"
                                                  TextChanged="OnSearchTextChanged"
                                                  KeyDown="OnSearchKeyDown"/>
-                                        <Button Grid.Column="2" x:Name="SearchClearButton" Content="✕"
+                                        <Button Grid.Column="2" x:Name="SearchClearButton"
                                                 Classes="ghost close-btn search-clear-btn"
-                                                Width="20" Height="20" Padding="0"
+                                                Width="28" Height="28" MinWidth="28" MinHeight="28" Padding="0"
                                                 Background="Transparent"
                                                 Foreground="{DynamicResource TextMutedBrush}"
                                                 IsVisible="False" Click="ClearSearch"
-                                                AutomationProperties.Name="清除页面搜索"/>
+                                                AutomationProperties.Name="清除页面搜索" ToolTip.Tip="清除搜索">
+                                            <PathIcon Data="{x:Static icons:Icons.Close}" Width="14" Height="14"/>
+                                        </Button>
                                     </Grid>
                                 </Border>
                             </Grid>
                         </Grid>
                     </Grid>
 
-                    <controls:SurfaceCard Grid.Row="1" CornerRadius="14" Padding="0" Margin="0,0,0,4">
-                        <controls:SurfaceCard.Content>
-                            <Border CornerRadius="14" ClipToBounds="True">
-                                <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
-                            </Border>
-                        </controls:SurfaceCard.Content>
-                    </controls:SurfaceCard>
+                    <Border Grid.Row="1" x:Name="ToolbarSurface" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                            IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                        <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
+                    </Border>
 
-                    <controls:SurfaceCard Grid.Row="2" CornerRadius="14" Padding="0">
-                        <controls:SurfaceCard.Content>
-                            <Border CornerRadius="14" ClipToBounds="True">
-                            <Grid RowDefinitions="*,Auto">
+                    <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}">
+                            <Grid RowDefinitions="Auto,*,Auto">
+                                <Border Grid.Row="0" IsVisible="{Binding FileList.IsSearchMode}" Padding="12,8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="{Binding FileList.SearchQuery, StringFormat='搜索：{0}'}" FontSize="{DynamicResource FontSizeBody}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding FileList.SearchScopePath, StringFormat='范围：{0}（包含已索引子文件夹）'}" ToolTip.Tip="{Binding FileList.SearchScopePath}" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="清除搜索" Classes="ghost compact" Click="ClearSearch"/>
+                                    </Grid>
+                                </Border>
                                 <SplitView x:Name="InfoDrawer"
-                                           Grid.Row="0"
+                                           Grid.Row="1"
                                            DisplayMode="Inline"
                                            PanePlacement="Right"
                                            PaneBackground="{DynamicResource ColorBgContent}"
@@ -218,7 +236,8 @@
                                     </SplitView.Content>
                                 </SplitView>
 
-                                <Border Grid.Row="1" Height="32">
+                                <Border Grid.Row="2" x:Name="StatusBar" MinHeight="28" Padding="0,4" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                                        IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
                                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
                                         <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
                                                    FontSize="{DynamicResource FontSizeCaption}"
@@ -244,16 +263,14 @@
                                                          IsVisible="{Binding FileList.IsRemoteLocationDisconnected}"
                                                          Fill="{DynamicResource TextDisabledBrush}"/>
                                                 <TextBlock Text="{Binding FileList.LocationStatusText}"
-                                                           FontSize="{DynamicResource FontSizeMeta}"
+                                                           FontSize="{DynamicResource FontSizeCaption}"
                                                            Foreground="{DynamicResource TextMutedBrush}"/>
                                             </StackPanel>
                                         </Border>
                                     </Grid>
                                 </Border>
                             </Grid>
-                            </Border>
-                        </controls:SurfaceCard.Content>
-                    </controls:SurfaceCard>
+                    </Border>
                 </Grid>
             </SplitView.Content>
         </SplitView>

@@ -91,8 +91,10 @@ public partial class AiView : UserControl
         else
         {
             EmptyState.IsVisible = ViewModel?.TextTokens.Count == 0;
-            EmptyTitle.Text = "还没有识别到文字内容";
-            EmptyHint.Text = "浏览包含图片的文件夹后会自动建立文字索引";
+            EmptyTitle.Text = "还没有可搜索的识别内容";
+            EmptyHint.Text = ViewModel?.IsAiAnalysisEnabled == true
+                ? "浏览图片文件夹，完成识别后可在这里搜索文字"
+                : "AI 智能分析已关闭，可在设置中开启后浏览图片文件夹";
         }
     }
 

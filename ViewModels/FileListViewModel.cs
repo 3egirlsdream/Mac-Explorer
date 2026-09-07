@@ -99,6 +99,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _statusText = string.Empty;
 
+    [ObservableProperty]
+    private string _readErrorMessage = string.Empty;
+
+    [ObservableProperty]
+    private string _searchScopePath = string.Empty;
+
     private string _locationStatusText = string.Empty;
     private string _locationStatusTooltip = string.Empty;
     private bool _isRemoteLocation;
@@ -472,12 +478,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (_fileTagService != null)
             _fileTagService.TagsChanged += OnTagsChanged;
 
-        // Load persisted user preferences
+        // Restore without invoking the setters that persist user changes.
         if (_settingsService != null)
         {
-            IsPreviewPaneVisible = _settingsService.Get(PreviewPaneVisibleSettingKey, false);
-            IsMetadataPanelVisible = _settingsService.Get(MetadataPanelVisibleSettingKey, false);
-            IsInfoPanelVisible = _settingsService.Get("IsInfoPanelVisible", false);
+            _isPreviewPaneVisible = _settingsService.Get(PreviewPaneVisibleSettingKey, false);
+            _isMetadataPanelVisible = _settingsService.Get(MetadataPanelVisibleSettingKey, false);
+            _isInfoPanelVisible = _settingsService.Get("IsInfoPanelVisible", false);
         }
 
         _ = LoadSidebarDataDeferredAsync(_startupSidebarCts.Token);
@@ -843,6 +849,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (e.PropertyName == nameof(NavigationViewModel.CurrentPath))
         {
             StatusText = string.Empty;
+            ReadErrorMessage = string.Empty;
             OnPropertyChanged(nameof(IsTagView));
             OnPropertyChanged(nameof(CurrentTag));
         }
@@ -3376,6 +3383,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var wasHomePage = IsHomePage;
         var searchCurrentPath = wasHomePage || IsTagView ? null : _navigation.CurrentPath;
         var searchRoot = string.IsNullOrEmpty(searchCurrentPath) ? HomeDirectory : searchCurrentPath;
+        SearchScopePath = searchRoot;
         CancelDirectoryWork();
         _search.EnterSearchMode(wasHomePage);
         _navigation.SetWatchedDirectory(null);
@@ -3445,6 +3453,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.RemoveCurrentSearchHistory();
         _navigation.IsSearchMode = false;
         _navigation.SearchQuery = string.Empty;
+        SearchScopePath = string.Empty;
+        StatusText = string.Empty;
 
         if (wasHomePage)
         {
@@ -3461,6 +3471,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         CancelDirectoryWork();
         _navigation.SetWatchedDirectory(null);
         _search.RestoreSearchMode(entry.SearchQuery, entry.WasHomePageBeforeSearch);
+        SearchScopePath = entry.SearchRootPath ?? entry.Path;
         _navigation.IsHomePage = false;
         _navigation.IsArchiveView = false;
         _navigation.IsCollectionView = false;
@@ -3869,6 +3880,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         return _thumbnailService.GetThumbnailAsync(entry.FullPath, maxPixelSize, cancellationToken);
     }
 
+    internal Task<ThumbnailResult?> GetListThumbnailAsync(FileSystemEntry entry, int pixelSize, CancellationToken ct)
+        => _thumbnailService?.GetThumbnailResultAsync(entry.FullPath, pixelSize, ct)
+           ?? Task.FromResult<ThumbnailResult?>(null);
+
     partial void OnIsPreviewPaneVisibleChanged(bool value)
     {
         _settingsService?.Set(PreviewPaneVisibleSettingKey, value);
@@ -3925,27 +3940,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private async Task LoadDirectoryContentsAsync(bool forceRefresh = false)
     {
         var work = BeginDirectoryWork();
+        ReadErrorMessage = string.Empty;
         var selectionState = CaptureEntryLoadSelectionState();
         IReadOnlyList<FileSystemEntry> entries;
-        try
-        {
-            // Skip index for /Applications paths because they need to merge /System/Applications counterpart
-            // This ensures Utilities and other folders show both user and system applications
-            var shouldUseIndex = !IsApplicationsPath(_navigation.CurrentPath);
-            if (!forceRefresh && shouldUseIndex && _fileIndex != null && _indexConfig.ShouldIndex(_navigation.CurrentPath))
-            {
-                entries = await _fileIndex.GetDirectoryContentsAsync(_navigation.CurrentPath);
-                if (!IsCurrentDirectoryWork(work)) return;
-                if (entries.Count > 0)
-                {
-                    ApplyEntriesCore(entries);
-                    FinalizeEntriesLoad(selectionState, completed: false);
-                    StartDirectoryBackgroundWork(entries, work, includeAnalysis: false);
-                }
-            }
-        }
-        catch (Exception ex) { _logger?.LogError(ex, "Failed to load directory contents from index for {Path}", _navigation.CurrentPath); }
-
+        // The search index may be stale. Showing it before the directory snapshot
+        // causes a second visible replacement, even when both are already sorted.
         try
         {
             entries = await StreamDirectoryEntriesAsync(
@@ -3957,6 +3956,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException)
         {
             return;
+        }
+        catch (Exception ex)
+        {
+            if (IsCurrentDirectoryWork(work))
+                ReadErrorMessage = ex.Message;
+            throw;
         }
         if (!IsCurrentDirectoryWork(work)) return;
 
@@ -4002,11 +4007,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         try
         {
-            await _fileService.ResolveAppIconsAsync(entries, () =>
-            {
-                if (IsCurrentDirectoryWork(work))
-                    OnPropertyChanged(nameof(Entries));
-            }, work.Token);
+            // IconUrl notifies the realized images directly; replacing/rebuilding
+            // the list for icon-only changes would make rows flash again.
+            await _fileService.ResolveAppIconsAsync(entries, cancellationToken: work.Token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _logger?.LogError(ex, "Failed to resolve app icons"); }
@@ -4034,44 +4037,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         DirectoryWork work,
         EntryLoadSelectionState selectionState)
     {
-        var accumulated = new List<FileSystemEntry>();
-        var receivedBatch = false;
-        await foreach (var batch in service.EnumerateDirectoryBatchesAsync(path, 256, work.Token))
-        {
-            if (!IsCurrentDirectoryWork(work))
-                throw new OperationCanceledException(work.Token);
-
-            accumulated.AddRange(batch);
-            _sortFilter.SetRawEntries(accumulated);
-            if (!receivedBatch)
-            {
-                ScrollBehaviorAfterLoad = selectionState.ScrollBehavior;
-                ApplyEntriesCore(accumulated);
-                FinalizeEntriesLoad(selectionState, completed: false);
-                receivedBatch = true;
-            }
-            else if (receivedBatch)
-            {
-                _sortFilter.InsertBatch(batch, Entries);
-                FinalizeEntriesLoad(selectionState, completed: false);
-            }
-        }
-
-        if (!IsCurrentDirectoryWork(work))
-            throw new OperationCanceledException(work.Token);
-
-        if (receivedBatch)
-        {
-            FinalizeEntriesLoad(selectionState, completed: true);
-        }
-        else
-        {
-            ScrollBehaviorAfterLoad = selectionState.ScrollBehavior;
-            ApplyEntriesCore(accumulated);
-            FinalizeEntriesLoad(selectionState, completed: true);
-        }
-
-        return accumulated;
+        return await StreamDirectorySnapshotsAsync(service, path, work, selectionState);
     }
 
     private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries)
@@ -4221,7 +4187,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
 
             if (changed && IsCurrentDirectoryWork(work))
-                ApplyEntriesPreservingSelection(snapshot);
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (!IsCurrentDirectoryWork(work)) return;
+                    Performance.FileListPerformanceMetrics.GitItemsUpdated(
+                        FileGitPresentationUpdater.Apply(Entries, snapshot));
+                });
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _logger?.LogWarning(ex, "Git status resolve failed"); }

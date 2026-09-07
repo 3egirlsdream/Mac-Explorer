@@ -102,6 +102,7 @@ public partial class MainWindow : AppWindow
     public MainWindow()
     {
         InitializeComponent();
+        TabSurface.TabStrip = TabList;
         _navigationBridge = App.Services.GetRequiredService<NavigationBridge>();
         _directoryChangeNotifier = App.Services.GetRequiredService<IDirectoryChangeNotifier>();
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
@@ -125,7 +126,11 @@ public partial class MainWindow : AppWindow
 
         SuperPreviewControl.RequestClose += OnSuperPreviewClosed;
         PositionChanged += (_, _) => ActiveWorkspace?.CloseTransientUi(null);
-        Deactivated += (_, _) => ActiveWorkspace?.CloseTransientUi(null);
+        Deactivated += (_, _) =>
+        {
+            ActiveWorkspace?.CloseTransientUi(null);
+            PaneLayoutPopup.IsOpen = false;
+        };
         GlobalSearchResults.ItemsSource = _globalSearchSuggestions;
         GlobalSearchFolderContents.ItemsSource = _globalSearchFolderEntries;
 
@@ -165,9 +170,12 @@ public partial class MainWindow : AppWindow
         }
 
         ActiveWorkspace?.CloseTransientUi(e.Source);
-        if (!IsInsideVisual(e.Source as Visual, WindowMoreButton)
-            && !IsInsideVisual(e.Source as Visual, WindowMorePopup.Child as Visual))
-            WindowMorePopup.IsOpen = false;
+        // Keep the layout picker open during native title-bar dragging. Popup light-dismiss
+        // closes on window movement, so dismiss outside clicks in the window instead.
+        var isTitleBarPress = e.GetPosition(this).Y < (RootLayout.TranslatePoint(default, this)?.Y ?? 0);
+        if (IsInsideVisual(e.Source as Visual, TabScrollViewer)
+            || (!isTitleBarPress && !IsInsideVisual(e.Source as Visual, PaneLayoutPopup.Child as Visual)))
+            PaneLayoutPopup.IsOpen = false;
         ClearTextInputFocusFromPointerSource(e.Source);
     }
 
@@ -209,6 +217,14 @@ public partial class MainWindow : AppWindow
         {
             if (!IsInsideVisual(e.Source as Visual, DialogHost))
                 e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && PaneLayoutPopup.IsOpen)
+        {
+            PaneLayoutPopup.IsOpen = false;
+            PaneLayoutButton.Focus();
+            e.Handled = true;
             return;
         }
 
@@ -370,7 +386,7 @@ public partial class MainWindow : AppWindow
         if (blocked)
         {
             ActiveWorkspace?.CloseTransientUi(null);
-            WindowMorePopup.IsOpen = false;
+            PaneLayoutPopup.IsOpen = false;
         }
     }
 
@@ -1271,23 +1287,8 @@ public partial class MainWindow : AppWindow
         e.Handled = true;
     }
 
-    private void ToggleWindowMorePopup(object? sender, RoutedEventArgs e)
+    private void OpenSettingsFromTitleBar(object? sender, RoutedEventArgs e)
     {
-        WindowMorePopup.IsOpen = !WindowMorePopup.IsOpen;
-        e.Handled = true;
-    }
-
-    private void OpenTaskPanelFromWindowMenu(object? sender, RoutedEventArgs e)
-    {
-        WindowMorePopup.IsOpen = false;
-        if (!TaskOverlayPanel.IsVisible)
-            ToggleTaskPanel();
-        e.Handled = true;
-    }
-
-    private void OpenSettingsFromWindowMenu(object? sender, RoutedEventArgs e)
-    {
-        WindowMorePopup.IsOpen = false;
         OpenSettings();
         e.Handled = true;
     }
@@ -1304,6 +1305,8 @@ public partial class MainWindow : AppWindow
                            && Enum.TryParse<PaneLayout>(value, out var layout)
                            && layout == _vm.PaneLayout;
             button.Classes.Set("selected", selected);
+            if (selected)
+                button.Focus(NavigationMethod.Pointer);
         }
     }
 
@@ -1496,7 +1499,6 @@ public partial class MainWindow : AppWindow
             return;
 
         ActiveWorkspace?.CloseTransientUi(null);
-        WindowMorePopup.IsOpen = false;
         GlobalSearchOverlay.IsVisible = true;
         _changingGlobalSearchScope = true;
         try

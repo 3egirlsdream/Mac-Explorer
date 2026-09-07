@@ -42,8 +42,11 @@ public partial class FinderToolbar : UserControl
         DataContextChanged += OnDataContextChanged;
         SubscribeToViewModel(ViewModel);
         SyncViewModeToggles();
+        PointerEntered += (_, _) => UpdateActionAvailability();
+        GotFocus += (_, _) => UpdateActionAvailability();
         AttachedToVisualTree += (_, _) =>
         {
+            SubscribeToViewModel(ViewModel);
             _ = UpdateOfficeTemplateVisibilityAsync();
             SyncViewModeToggles();
         };
@@ -158,6 +161,9 @@ public partial class FinderToolbar : UserControl
     {
         if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(FileListViewModel.ViewMode))
             Dispatcher.UIThread.Post(SyncViewModeToggles);
+        if (e.PropertyName is nameof(FileListViewModel.StatusSummaryText) or nameof(FileListViewModel.CutPaths)
+            or nameof(FileListViewModel.IsHomePage) or nameof(FileListViewModel.CurrentPath))
+            Dispatcher.UIThread.Post(UpdateActionAvailability);
     }
 
     private void SyncViewModeToggles()
@@ -165,6 +171,17 @@ public partial class FinderToolbar : UserControl
         var viewMode = ViewModel?.ViewMode;
         GridViewToggle.IsChecked = viewMode == ViewMode.Grid;
         ListViewToggle.IsChecked = viewMode == ViewMode.List;
+        UpdateActionAvailability();
+    }
+
+    private void UpdateActionAvailability()
+    {
+        var hasSelection = ViewModel?.SelectedEntries.Count > 0;
+        CutButton.IsEnabled = CutOverflowButton.IsEnabled = hasSelection;
+        CopyButton.IsEnabled = CopyOverflowButton.IsEnabled = hasSelection;
+        DeleteButton.IsEnabled = DeleteOverflowButton.IsEnabled = hasSelection;
+        PasteButton.IsEnabled = PasteOverflowButton.IsEnabled = ViewModel != null
+            && (App.Services?.GetService<IClipboardService>()?.HasClipboardFiles ?? false);
     }
 
     private void ToggleSortDirection(object? sender, RoutedEventArgs e)

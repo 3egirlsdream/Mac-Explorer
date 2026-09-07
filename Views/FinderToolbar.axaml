@@ -9,8 +9,11 @@
 
     <UserControl.Styles>
         <Style Selector="PathIcon.toolbar-icon">
-            <Setter Property="Width" Value="14"/>
-            <Setter Property="Height" Value="14"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+        </Style>
+        <Style Selector="Button#DeleteButton:pointerover PathIcon, Button#DeleteOverflowButton:pointerover PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
         </Style>
         <Style Selector="Image.new-item-icon">
             <Setter Property="Width" Value="18"/>
@@ -26,7 +29,7 @@
     </UserControl.Styles>
 
     <Border Classes="finder-toolbar">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="0,0">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4" Margin="0,0">
 
             <!-- New button + Dropdown Popup -->
             <Button Grid.Column="0" Classes="ghost toolbar-btn w32" ToolTip.Tip="新建"
@@ -44,7 +47,7 @@
                    Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
                 <Border Classes="toolbar-popup" MinWidth="200">
                     <StackPanel>
-                        <Button Classes="toolbar-popup-item"
+                        <Button AutomationProperties.Name="新建文件夹" Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="NewFolder">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -52,7 +55,7 @@
                                 <TextBlock Text="新建文件夹" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button Classes="toolbar-popup-item"
+                        <Button AutomationProperties.Name="新建文本文件" Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".txt" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -60,7 +63,7 @@
                                 <TextBlock Text="新建文本文件" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button Classes="toolbar-popup-item"
+                        <Button AutomationProperties.Name="新建 Markdown" Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".md" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -68,7 +71,7 @@
                                 <TextBlock Text="新建 Markdown" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button Classes="toolbar-popup-item"
+                        <Button AutomationProperties.Name="新建 JSON 文件" Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".json" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -77,27 +80,27 @@
                             </StackPanel>
                         </Button>
                         <Separator/>
-                        <Button x:Name="NewWordButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        <Button AutomationProperties.Name="新建 Word 文稿" x:Name="NewWordButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".docx" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Word}"/><TextBlock Text="新建 Word 文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
-                        <Button x:Name="NewExcelButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        <Button AutomationProperties.Name="新建 Excel 表格" x:Name="NewExcelButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".xlsx" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Excel}"/><TextBlock Text="新建 Excel 表格" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
-                        <Button x:Name="NewPowerPointButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        <Button AutomationProperties.Name="新建 PowerPoint 演示文稿" x:Name="NewPowerPointButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".pptx" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.PowerPoint}"/><TextBlock Text="新建 PowerPoint 演示文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
-                        <Button x:Name="NewPagesButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        <Button AutomationProperties.Name="新建 Pages 文稿" x:Name="NewPagesButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".pages" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Pages}"/><TextBlock Text="新建 Pages 文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
-                        <Button x:Name="NewNumbersButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        <Button AutomationProperties.Name="新建 Numbers 表格" x:Name="NewNumbersButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".numbers" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Numbers}"/><TextBlock Text="新建 Numbers 表格" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
-                        <Button x:Name="NewKeynoteButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        <Button AutomationProperties.Name="新建 Keynote 演示文稿" x:Name="NewKeynoteButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".key" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Keynote}"/><TextBlock Text="新建 Keynote 演示文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
@@ -125,7 +128,7 @@
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
             </Button>
 
-            <Separator Grid.Column="7" Classes="toolbar-separator toolbar-regular-action"/>
+            <Border Grid.Column="7" MinWidth="12"/>
 
             <!-- View mode toggle -->
             <Border Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented">
@@ -163,7 +166,7 @@
                 <Border Classes="toolbar-popup" MinWidth="190">
                     <StackPanel>
                         <TextBlock Text="排序方式" Classes="toolbar-popup-header"/>
-                        <Button Content="名称" Tag="Name" Classes="toolbar-popup-item" Click="SelectSortField"/>
+                        <Button AutomationProperties.Name="分组方式" Content="名称" Tag="Name" Classes="toolbar-popup-item" Click="SelectSortField"/>
                         <Button Content="修改日期" Tag="Modified" Classes="toolbar-popup-item" Click="SelectSortField"/>
                         <Button Content="大小" Tag="Size" Classes="toolbar-popup-item" Click="SelectSortField"/>
                         <Button Content="类型" Tag="Type" Classes="toolbar-popup-item" Click="SelectSortField"/>
@@ -178,9 +181,6 @@
                     </StackPanel>
                 </Border>
             </Popup>
-
-            <!-- Spacer -->
-            <Border Grid.Column="12"/>
 
             <!-- Info panel toggle -->
             <Button Grid.Column="13" Classes="ghost toolbar-btn w32" ToolTip.Tip="信息面板 ⌘I" AutomationProperties.Name="信息面板" Click="ToggleInfoPanel">
@@ -200,7 +200,7 @@
                    Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
                 <Border Classes="toolbar-popup" MinWidth="180">
                     <StackPanel>
-                        <Button x:Name="CutOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                        <Button x:Name="CutOverflowButton" AutomationProperties.Name="剪切" Classes="toolbar-popup-item compact-overflow-item"
                                 ToolTip.Tip="剪切 ⌘X"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="CutSelected">
@@ -209,7 +209,7 @@
                                 <TextBlock Text="剪切" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="CopyOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                        <Button x:Name="CopyOverflowButton" AutomationProperties.Name="复制" Classes="toolbar-popup-item compact-overflow-item"
                                 ToolTip.Tip="复制 ⌘C"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="CopySelected">
@@ -218,7 +218,7 @@
                                 <TextBlock Text="复制" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="PasteOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                        <Button x:Name="PasteOverflowButton" AutomationProperties.Name="粘贴" Classes="toolbar-popup-item compact-overflow-item"
                                 ToolTip.Tip="粘贴 ⌘V"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="PasteItems">
@@ -227,7 +227,7 @@
                                 <TextBlock Text="粘贴" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="DeleteOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                        <Button x:Name="DeleteOverflowButton" AutomationProperties.Name="删除" Classes="toolbar-popup-item compact-overflow-item"
                                 ToolTip.Tip="删除 ⌘⌫"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="DeleteSelected">
@@ -236,7 +236,7 @@
                                 <TextBlock Text="删除" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="HomeOverflowButton" Classes="toolbar-popup-item compact-overflow-item"
+                        <Button x:Name="HomeOverflowButton" AutomationProperties.Name="返回首页" Classes="toolbar-popup-item compact-overflow-item"
                                 ToolTip.Tip="首页 ⌘H"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="GoHome">
@@ -248,7 +248,7 @@
                         <Separator Classes="compact-overflow-item"/>
                         <Button Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                Click="OnBatchRename">
+                                AutomationProperties.Name="批量重命名" Click="OnBatchRename">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Rename}"/>
                                 <TextBlock Text="批量重命名" FontSize="{DynamicResource FontSizeBody}"/>
@@ -256,7 +256,7 @@
                         </Button>
                         <Button Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                Click="OnConnectRemoteServer">
+                                AutomationProperties.Name="连接远程服务器" Click="OnConnectRemoteServer">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.ExternalDrive}"/>
                                 <TextBlock Text="连接远程服务器" FontSize="{DynamicResource FontSizeBody}"/>

@@ -49,16 +49,17 @@ public partial class SortFilterViewModel : ObservableObject
         _settingsService = settingsService;
         _logger = logger;
 
-        // Load persisted user preferences
+        // Restore fields directly: property setters persist user changes and
+        // would synchronously write these same settings for every new tab.
         if (_settingsService != null)
         {
-            ViewMode = _settingsService.Get<ViewMode>("ViewMode", ViewMode.List);
-            SortField = _settingsService.Get<SortField>("SortField", SortField.Name);
-            SortAscending = _settingsService.Get<bool>("SortAscending", true);
-            GroupField = _settingsService.Get<GroupField>("GroupField", GroupField.None);
-            HideSystemFiles = _settingsService.Get<bool>("HideSystemFiles", true);
-            HideDotFiles = _settingsService.Get<bool>("HideDotFiles", true);
-            HideDotFolders = _settingsService.Get<bool>("HideDotFolders", true);
+            _viewMode = _settingsService.Get<ViewMode>("ViewMode", ViewMode.List);
+            _sortField = _settingsService.Get<SortField>("SortField", SortField.Name);
+            _sortAscending = _settingsService.Get<bool>("SortAscending", true);
+            _groupField = _settingsService.Get<GroupField>("GroupField", GroupField.None);
+            _hideSystemFiles = _settingsService.Get<bool>("HideSystemFiles", true);
+            _hideDotFiles = _settingsService.Get<bool>("HideDotFiles", true);
+            _hideDotFolders = _settingsService.Get<bool>("HideDotFolders", true);
         }
     }
 

@@ -30,8 +30,7 @@ public sealed class InteractionStyleService : IInteractionStyleService
             [InteractionStyleToken.Selected] = new(
                 "interaction.selected",
                 "InteractionSelectedBrush",
-                ["SelectionBrush", "ListBoxItemBackgroundSelected", "ComboBoxItemBackgroundSelected", "FocusRingBrush",
-                    "TextControlBorderBrushFocused", "ComboBoxBackgroundBorderBrushFocused"]),
+                ["SelectionBrush", "ColorBgSelected", "ColorAccentLight", "ListBoxItemBackgroundSelected", "ComboBoxItemBackgroundSelected"]),
             [InteractionStyleToken.SelectedHover] = new(
                 "interaction.selected_hover",
                 "InteractionSelectedHoverBrush",

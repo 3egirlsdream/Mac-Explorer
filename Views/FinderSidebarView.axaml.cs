@@ -267,6 +267,18 @@ public partial class FinderSidebarView : UserControl
         if (e.Key is not (Key.Enter or Key.Space))
             return;
 
+        // Child editors and buttons own their own Enter/Space behavior.
+        if (e.Source is TextBox or Button)
+            return;
+        if (e.Source is Grid header && ViewModel != null)
+        {
+            if (header == AiSectionHeader) ViewModel.ToggleAiCollapsedCommand.Execute(null);
+            else if (header == CollectionsSectionHeader) ViewModel.ToggleCollectionsCollapsedCommand.Execute(null);
+            else if (header == TagsSectionHeader) ViewModel.ToggleTagsCollapsedCommand.Execute(null);
+            else return;
+            e.Handled = true;
+            return;
+        }
         var border = e.Source as Border;
         if (border?.Classes.Contains("sidebar-item") != true)
             border = (e.Source as Visual)?.GetVisualAncestors().OfType<Border>()
@@ -310,6 +322,11 @@ public partial class FinderSidebarView : UserControl
             await ViewModel.NavigateToCollectionAsync(collection.Id);
         else if (border.Tag is FileTag tag)
             await ViewModel.NavigateToTagAsync(tag);
+        else if (border.Tag is RemoteServerInfo server)
+        {
+            await ViewModel.ConnectToServerAsync(server);
+            RefreshRemoteServersList();
+        }
         else
             return false;
 

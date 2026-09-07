@@ -260,6 +260,7 @@ public partial class FileListView : UserControl
     public FileListView()
     {
         InitializeComponent();
+        InitializeSnapshotAnchoring();
         GroupedListItems.ItemsSource = _groupedListRows;
         GridViewItems.ItemsSource = _gridRows;
         SizeChanged += (_, _) =>
@@ -426,7 +427,8 @@ public partial class FileListView : UserControl
             }, DispatcherPriority.Loaded);
         }
 
-        if (e.PropertyName == nameof(FileListViewModel.IsLoading))
+        if (e.PropertyName is nameof(FileListViewModel.IsLoading) or nameof(FileListViewModel.ReadErrorMessage)
+            or nameof(FileListViewModel.SearchQuery) or nameof(FileListViewModel.SearchScopePath) or nameof(FileListViewModel.IsSearchMode) or nameof(FileListViewModel.StatusText))
             UpdateEmptyState();
 
         if (e.PropertyName == nameof(FileListViewModel.CutPaths))
@@ -494,7 +496,18 @@ public partial class FileListView : UserControl
     private void OnEntryImageLoaded(object? sender, RoutedEventArgs e)
     {
         if (sender is Image image)
+        {
+            ObserveEntryImage(image);
             _ = LoadEntryImageAsync(image);
+        }
+    }
+
+    private void OnEntryImageUnloaded(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Image image) return;
+        CancelEntryImageLoad(image);
+        DetachThumbnailAwait(image);
+        image.Tag = null;
     }
 
     private void OnEntryImageDataContextChanged(object? sender, EventArgs e)
@@ -503,21 +516,36 @@ public partial class FileListView : UserControl
         CancelEntryImageLoad(image);
         DetachThumbnailAwait(image);
         image.Tag = null;
-        Dispatcher.UIThread.Post(() => _ = LoadEntryImageAsync(image), DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!image.IsLoaded) return;
+            ObserveEntryImage(image);
+            _ = LoadEntryImageAsync(image);
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void ObserveEntryImage(Image image)
+    {
+        DetachThumbnailAwait(image);
+        if (image.DataContext is not FileSystemEntry entry) return;
+        PropertyChangedEventHandler handler = (_, args) =>
+        {
+            if (args.PropertyName is not (nameof(FileSystemEntry.ThumbnailUrl) or nameof(FileSystemEntry.IconUrl))) return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (image.IsLoaded && ReferenceEquals(image.DataContext, entry))
+                    _ = LoadEntryImageAsync(image);
+            }, DispatcherPriority.Loaded);
+        };
+        entry.PropertyChanged += handler;
+        image.SetValue(ThumbnailAwaitProperty, new EntryThumbnailAwaitState { Entry = entry, Handler = handler });
     }
 
     private async System.Threading.Tasks.Task LoadEntryImageAsync(Image image)
     {
-        if (image.DataContext is not FileSystemEntry entry) return;
+        if (!image.IsLoaded || !image.IsEffectivelyVisible || image.DataContext is not FileSystemEntry entry) return;
         var entryPath = entry.FullPath;
         var source = !string.IsNullOrWhiteSpace(entry.IconUrl) ? entry.IconUrl : null;
-
-        if (entry.ThumbnailUrl is { Length: > 0 } thumbnailUrl
-            && Path.IsPathFullyQualified(thumbnailUrl)
-            && !File.Exists(thumbnailUrl))
-        {
-            entry.ThumbnailUrl = null;
-        }
 
         if (image.Tag is EntryImageLoadState activeState
             && !activeState.Cancellation.IsCancellationRequested
@@ -525,48 +553,46 @@ public partial class FileListView : UserControl
             return;
 
         source = !string.IsNullOrWhiteSpace(entry.ThumbnailUrl) ? entry.ThumbnailUrl : source;
+        var pixelSize = GetEntryThumbnailPixelSize(image);
+        var needsLargerThumbnail = entry.GeneratedThumbnailPixelSize > 0
+            && entry.GeneratedThumbnailPixelSize < pixelSize;
 
-        // If thumbnail not yet available for a virtual entry, listen for it
-        if (string.IsNullOrWhiteSpace(source) && entry.IsVirtual)
-        {
-            // Detach a previous await first so recycled containers never accumulate handlers.
-            DetachThumbnailAwait(image);
-            PropertyChangedEventHandler? handler = null;
-            handler = (_, args) =>
-            {
-                if (args.PropertyName == nameof(FileSystemEntry.ThumbnailUrl)
-                    && !string.IsNullOrWhiteSpace(entry.ThumbnailUrl)
-                    && ReferenceEquals(image.DataContext, entry))
-                {
-                    DetachThumbnailAwait(image);
-                    Dispatcher.UIThread.Post(() => _ = LoadEntryImageAsync(image), DispatcherPriority.Loaded);
-                }
-            };
-            entry.PropertyChanged += handler;
-            image.SetValue(ThumbnailAwaitProperty, new EntryThumbnailAwaitState { Entry = entry, Handler = handler });
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(source) && (entry.IsVirtual || entry.IsDirectory)) return;
 
-        if (image.Tag is string currentSource && currentSource == source && image.Source != null) return;
+        if (!needsLargerThumbnail && image.Tag is string currentSource && currentSource == source && image.Source != null) return;
 
         var cts = new CancellationTokenSource();
         var state = new EntryImageLoadState { Source = entryPath, Cancellation = cts };
         image.Tag = state;
         try
         {
+            // Briefly defer cold work: recycled rows cancel before starting a helper.
+            await Task.Delay(100, cts.Token);
+            if (!image.IsLoaded || !image.IsEffectivelyVisible) return;
+            if (entry.ThumbnailUrl is { Length: > 0 } thumbnailUrl
+                && Path.IsPathFullyQualified(thumbnailUrl)
+                && !await Task.Run(() => File.Exists(thumbnailUrl), cts.Token))
+            {
+                entry.ThumbnailUrl = null;
+                source = entry.IconUrl;
+            }
             // The macOS thumbnail service supports both images and Quick Look documents.
             // Do not gate it on the icon classification: that prevented PDF, text and
             // Office documents from ever reaching the service.
-            if (!entry.IsDirectory && !entry.IsVirtual && string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
+            if (!entry.IsDirectory && !entry.IsVirtual
+                && (string.IsNullOrWhiteSpace(entry.ThumbnailUrl) || needsLargerThumbnail))
             {
-                var thumbnailService = App.Services.GetService<IThumbnailService>();
-                var thumbnail = thumbnailService == null
+                var viewModel = ViewModel;
+                var thumbnail = viewModel == null
                     ? null
-                    : await thumbnailService.GetThumbnailResultAsync(entry.FullPath, 256, cts.Token);
+                    : await Task.Run(() => viewModel.GetListThumbnailAsync(entry, pixelSize, cts.Token), cts.Token);
                 if (thumbnail is { Bytes.Length: > 0 })
                 {
-                    if (ReferenceEquals(image.DataContext, entry) && entry.FullPath == entryPath)
+                    if (!cts.IsCancellationRequested && ReferenceEquals(image.DataContext, entry) && entry.FullPath == entryPath)
+                    {
                         entry.ThumbnailUrl = thumbnail.CachePath;
+                        entry.GeneratedThumbnailPixelSize = pixelSize;
+                    }
                 }
             }
 
@@ -581,7 +607,7 @@ public partial class FileListView : UserControl
                 && ReferenceEquals(image.Tag, state)
                 && !cts.IsCancellationRequested)
             {
-                image.Source = bitmap;
+                image.SetCurrentValue(Image.SourceProperty, bitmap);
                 image.Tag = source;
             }
         }
@@ -2454,6 +2480,10 @@ public partial class FileListView : UserControl
         var sourceVisual = e.Source as Visual;
         if (!IsWithinVisual(sourceVisual, FileScroll))
             return;
+        // Scrollbar presses must reach the thumb/track before this tunnel handler
+        // captures the pointer for a canvas marquee.
+        if (sourceVisual is ScrollBar || sourceVisual?.FindAncestorOfType<ScrollBar>() != null)
+            return;
         // The list intentionally leaves the transparent remainder of a row as
         // marquee canvas for left-button drags. A secondary click is different:
         // Finder treats any point inside that row as the row's context target.
@@ -3147,11 +3177,31 @@ public partial class FileListView : UserControl
     private string GetHeaderText(string label, SortField field)
         => ViewModel?.SortField == field ? $"{label} {(ViewModel.SortAscending ? "▲" : "▼")}" : label;
 
+    private async void ClearEmptySearch(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel != null)
+            await ViewModel.ExitSearchAsync();
+    }
+
     private void UpdateEmptyState()
     {
         if (ViewModel == null) return;
         EmptyState.IsVisible = !ViewModel.IsLoading && ViewModel.Entries.Count == 0;
-        EmptyStateText.Text = ViewModel.IsSearchMode ? "没有找到匹配的项目" : "此文件夹为空";
+        var readFailed = !string.IsNullOrWhiteSpace(ViewModel.ReadErrorMessage) && !ViewModel.IsSearchMode;
+        var searchFailed = ViewModel.IsSearchMode && ViewModel.StatusText.StartsWith("搜索失败:", StringComparison.Ordinal);
+        var disconnected = ViewModel.IsRemoteView && ViewModel.StatusText == "服务器未连接";
+        EmptyStateText.Text = readFailed ? "无法读取此位置"
+            : searchFailed ? "无法完成搜索"
+            : disconnected ? "未连接"
+            : ViewModel.IsSearchMode ? "未找到匹配的文件" : "此文件夹为空";
+        EmptyStateHint.Text = readFailed ? ViewModel.ReadErrorMessage
+            : searchFailed ? ViewModel.StatusText
+            : disconnected ? "请从侧栏或“连接远程服务器”入口连接"
+            : ViewModel.IsSearchMode ? $"“{ViewModel.SearchQuery}”\n范围：{ViewModel.SearchScopePath}（包含已索引子文件夹）"
+            : string.Empty;
+        EmptyStateHint.IsVisible = !string.IsNullOrEmpty(EmptyStateHint.Text);
+        ClearEmptySearchButton.IsVisible = ViewModel.IsSearchMode;
+        RetryReadButton.IsVisible = readFailed;
     }
 
     private void OnSortByName(object? sender, PointerPressedEventArgs e) => SetSortFromHeader(SortField.Name, e);

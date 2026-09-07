@@ -394,7 +394,7 @@ public partial class SettingsDialog : DialogWindow
     {
         InteractionStyleToken.Hover => "悬停",
         InteractionStyleToken.Pressed => "按下",
-        InteractionStyleToken.Selected => "选中、已勾选或焦点",
+        InteractionStyleToken.Selected => "选中或已勾选",
         InteractionStyleToken.SelectedHover => "选中时悬停",
         InteractionStyleToken.TextHighlight => "文本高亮",
         _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)

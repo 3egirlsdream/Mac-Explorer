@@ -17,26 +17,28 @@ public class FileEntryToIconConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not FileSystemEntry entry)
+        // Keep legacy preview bindings working while FileListView binds a small
+        // value descriptor. Neither route is permitted to perform file I/O.
+        FileIconSource source;
+        if (value is FileIconSource descriptor)
+            source = descriptor;
+        else if (value is FileSystemEntry entry)
+            source = entry.GridIconSource;
+        else
             return null;
 
         var size = ParseIconSize(parameter, culture);
-
-        // Return thumbnail if available (e.g. face crop for AI face clusters).
-        // Bindings re-evaluate on any entry property change, so never touch the disk
-        // here; misses fall through to the vector icon and the async image loader in
-        // FileListView populates the cache for the next evaluation.
-        if (!string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
+        if (!string.IsNullOrWhiteSpace(source.CachedImagePath))
         {
-            var cached = FileListView.TryGetCachedEntryImage(entry.ThumbnailUrl);
+            var cached = FileListView.TryGetCachedEntryImage(source.CachedImagePath);
             if (cached != null) return cached;
         }
 
-        if (!entry.IsDirectory)
-            return SvgIconCache.GetFileIcon(entry.IconKey, entry.Extension, size);
+        if (!source.IsDirectory)
+            return SvgIconCache.GetFileIcon(source.IconKey, source.Extension, size);
 
-        return entry.IconKey is { Length: > 3 } && entry.IconKey.StartsWith("ai-")
-            ? SvgIconCache.GetAiIcon(entry.IconKey, size)
+        return source.IconKey is { Length: > 3 } && source.IconKey.StartsWith("ai-")
+            ? SvgIconCache.GetAiIcon(source.IconKey, size)
             : SvgIconCache.GetFolderIcon(size);
     }
 

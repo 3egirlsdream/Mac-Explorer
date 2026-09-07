@@ -22,7 +22,7 @@ internal readonly record struct ResponsiveWorkspaceLayout(
             : new ResponsiveWorkspaceLayout(
                 false,
                 SplitViewDisplayMode.Inline,
-                260,
+                240,
                 0,
                 SplitViewDisplayMode.Inline);
 }

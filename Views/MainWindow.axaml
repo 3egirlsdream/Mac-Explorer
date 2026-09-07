@@ -50,8 +50,8 @@
             </Setter>
         </Style>
         <Style Selector="Button.title-nav-button PathIcon">
-            <Setter Property="Width" Value="14"/>
-            <Setter Property="Height" Value="14"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
         </Style>
         <Style Selector="Button.title-nav-button:pointerover">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
@@ -60,10 +60,7 @@
             <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
             <Setter Property="RenderTransform" Value="scale(0.94)"/>
         </Style>
-        <Style Selector="Button.title-nav-button:focus-visible">
-            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
+
         <Style Selector="Button.title-nav-button:disabled">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
@@ -99,12 +96,11 @@
             <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Margin" Value="0"/>
         </Style>
-        <Style Selector="controls|ChromiumTabShape.chromium-tab-shape">
-            <Setter Property="Fill" Value="Transparent"/>
-            <Setter Property="Mode" Value="Highlight"/>
+        <Style Selector="Border.tab-hover-surface">
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Transitions">
                 <Transitions>
-                    <BrushTransition Property="Fill" Duration="0:0:0.14" Easing="CubicEaseOut"/>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
                 </Transitions>
             </Setter>
         </Style>
@@ -124,9 +120,8 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
-        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover controls|ChromiumTabShape.chromium-tab-shape">
-            <Setter Property="Fill" Value="{DynamicResource InteractionHoverBrush}"/>
-            <Setter Property="Mode" Value="Highlight"/>
+        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover Border.tab-hover-surface">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem:pointerover Border.browser-tab-divider">
             <Setter Property="Opacity" Value="0"/>
@@ -141,10 +136,8 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
-        <Style Selector="ListBox.tab-strip ListBoxItem:selected controls|ChromiumTabShape.chromium-tab-shape,
-                         ListBox.tab-strip ListBoxItem:selected:pointerover controls|ChromiumTabShape.chromium-tab-shape">
-            <Setter Property="Fill" Value="{DynamicResource ColorBgContent}"/>
-            <Setter Property="Mode" Value="Active"/>
+        <Style Selector="ListBox.tab-strip ListBoxItem:selected Border.tab-hover-surface">
+            <Setter Property="IsVisible" Value="False"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem:selected Border.browser-tab-divider,
                          ListBox.tab-strip ListBoxItem:selected:pointerover Border.browser-tab-divider">
@@ -190,26 +183,39 @@
             <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
         </Style>
         <Style Selector="Button.layout-choice">
-            <Setter Property="Height" Value="66"/>
-            <Setter Property="Margin" Value="3"/>
-            <Setter Property="Padding" Value="6,5"/>
-            <Setter Property="CornerRadius" Value="9"/>
-            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="Height" Value="64"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="5,4"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style Selector="Button.layout-choice:pointerover">
+        <Style Selector="Button.layout-choice controls|PaneLayoutIcon">
+            <Setter Property="Width" Value="52"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Foreground" Value="{DynamicResource PanePreviewFillBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PanePreviewBorderBrush}"/>
+        </Style>
+        <Style Selector="Button.layout-choice TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="Button.layout-choice:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
         <Style Selector="Button.layout-choice.selected">
             <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
+        </Style>
+        <Style Selector="Button.layout-choice.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
         </Style>
         <Style Selector="Button.layout-choice.selected controls|PaneLayoutIcon">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PanePreviewSelectedFillBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PanePreviewSelectedBorderBrush}"/>
         </Style>
         <Style Selector="Button.layout-choice.selected TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
@@ -237,10 +243,15 @@
         </Style>
     </controls:AppWindow.Styles>
 
+    <controls:AppWindow.TitleBarBackgroundContent>
+        <controls:ChromiumTabStripSurface x:Name="TabSurface" Fill="{DynamicResource ColorBgContent}"/>
+    </controls:AppWindow.TitleBarBackgroundContent>
+
     <controls:AppWindow.TitleBarContent>
         <!-- Browser-style tabs share the native traffic-light row. -->
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,4,0,0"
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,4,0,0"
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <Grid Grid.Column="0" ColumnDefinitions="*,Auto" HorizontalAlignment="Left">
                     <ScrollViewer Grid.Column="0" x:Name="TabScrollViewer"
                                   chrome:WindowDecorationProperties.ElementRole="User"
                                   HorizontalAlignment="Left" MaxWidth="840"
@@ -259,15 +270,17 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ExplorerTabViewModel">
                                     <Grid ClipToBounds="False">
-                                        <controls:ChromiumTabShape Classes="chromium-tab-shape"
-                                                                   IsHitTestVisible="False"/>
+                                        <Border Classes="tab-hover-surface" Margin="16,4,16,5"
+                                                CornerRadius="10" IsHitTestVisible="False"/>
                                         <Border Classes="browser-tab-divider"
                                                 Width="1" Height="20" Margin="0,0,0,4"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center"
                                                 Background="{DynamicResource ColorBorderSubtle}"
                                                 IsHitTestVisible="False"/>
+                                        <!-- Account for the 16-DIP contour inset, close-button padding,
+                                             and 2-DIP content join when balancing the visible spacing. -->
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7"
-                                              Margin="22,0">
+                                              Margin="28,0,22,2">
                                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Folder}"
                                                       Width="14" Height="14"
                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -289,109 +302,101 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </ScrollViewer>
-                    <Button Grid.Column="1" Classes="title-nav-button"
+                    <Button Grid.Column="1" x:Name="NewTabButton" Classes="title-nav-button"
                             Width="28" Height="28"
                             Click="AddTab"
                             ToolTip.Tip="新建标签页 ⌘T"
                             AutomationProperties.Name="新建标签页">
                         <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
                     </Button>
-                    <Button Grid.Column="2" x:Name="PaneLayoutButton" Classes="title-nav-button"
-                            Width="28" Height="28" Margin="2,0,0,0"
+            </Grid>
+                    <Button Grid.Column="1" x:Name="PaneLayoutButton" Classes="title-nav-button"
+                            Margin="2,0,0,0"
                             Click="TogglePaneLayoutPopup"
                             ToolTip.Tip="窗格布局"
                             AutomationProperties.Name="窗格布局">
-                        <PathIcon Data="{x:Static icons:Icons.List}" Width="13" Height="13"/>
+                        <PathIcon Data="{x:Static icons:Icons.SplitVertical}"/>
                     </Button>
                     <Popup x:Name="PaneLayoutPopup" Placement="BottomEdgeAlignedRight"
-                           PlacementTarget="PaneLayoutButton" IsLightDismissEnabled="True">
-                        <Border Classes="context-menu-container" Padding="12" CornerRadius="16"
-                                Background="{DynamicResource GlassMenuBg}"
-                                BoxShadow="{DynamicResource WindowShadow}">
-                            <Grid RowDefinitions="Auto,*" Width="332">
-                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="6,2,4,9">
-                                    <TextBlock Grid.Column="0" Text="窗格布局"
-                                               FontSize="16" FontWeight="{StaticResource FontWeightSemibold}"
-                                               VerticalAlignment="Center"/>
-                                    <Border Grid.Column="1" Width="20" Height="20" CornerRadius="10"
-                                            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1"
-                                            Margin="0,0,9,0" Opacity="0.55">
-                                        <TextBlock Text="i" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                                    </Border>
-                                    <TextBlock Grid.Column="2" Text="•••" FontSize="11" Opacity="0.45"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
-                                </Grid>
+                           PlacementTarget="PaneLayoutButton" IsLightDismissEnabled="False"
+                           ShouldUseOverlayLayer="True"
+                           WindowManagerAddShadowHint="False">
+                        <Border Classes="toolbar-popup" Padding="10" CornerRadius="12">
+                            <Grid RowDefinitions="Auto,*" Width="320"
+                                  KeyboardNavigation.TabNavigation="Cycle">
+                                <TextBlock Grid.Row="0" Text="窗格布局" Margin="5,2,0,8"
+                                           FontSize="12" FontWeight="{StaticResource FontWeightSemibold}"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <UniformGrid Grid.Row="1" Columns="4" Rows="3">
-                                    <Button Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="单窗格">
+                                    <Button Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="单窗格" AutomationProperties.Name="单窗格">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="Single" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="1 个" FontSize="11" HorizontalAlignment="Center"/>
+                                            <controls:PaneLayoutIcon Layout="Single"/>
+                                            <TextBlock Text="单窗格" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="左右双窗格">
+                                    <Button Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="左右双窗格" AutomationProperties.Name="左右双窗格">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="TwoColumns" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="左右" FontSize="11" HorizontalAlignment="Center"/>
+                                            <controls:PaneLayoutIcon Layout="TwoColumns"/>
+                                            <TextBlock Text="左右双窗格" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="上下双窗格">
+                                    <Button Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="上下双窗格" AutomationProperties.Name="上下双窗格">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="TwoRows" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="上下" FontSize="11" HorizontalAlignment="Center"/>
+                                            <controls:PaneLayoutIcon Layout="TwoRows"/>
+                                            <TextBlock Text="上下双窗格" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="三列">
+                                    <Button Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="三列" AutomationProperties.Name="三列">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="ThreeColumns" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="ThreeColumns"/>
                                             <TextBlock Text="三列" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="三行">
+                                    <Button Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="三行" AutomationProperties.Name="三行">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="ThreeRows" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="ThreeRows"/>
                                             <TextBlock Text="三行" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右二">
+                                    <Button Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右二" AutomationProperties.Name="左一右二">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight"/>
                                             <TextBlock Text="左一右二" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左二右一">
+                                    <Button Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左二右一" AutomationProperties.Name="左二右一">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft"/>
                                             <TextBlock Text="左二右一" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="四宫格">
+                                    <Button Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="四宫格" AutomationProperties.Name="四宫格">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="FourGrid" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="FourGrid"/>
                                             <TextBlock Text="四宫格" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="四列">
+                                    <Button Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="四列" AutomationProperties.Name="四列">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="FourColumns" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="FourColumns"/>
                                             <TextBlock Text="四列" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="四行">
+                                    <Button Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="四行" AutomationProperties.Name="四行">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="FourRows" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="FourRows"/>
                                             <TextBlock Text="四行" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右三">
+                                    <Button Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右三" AutomationProperties.Name="左一右三">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight"/>
                                             <TextBlock Text="左一右三" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左三右一">
+                                    <Button Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左三右一" AutomationProperties.Name="左三右一">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft" Width="30" Height="21" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft"/>
                                             <TextBlock Text="左三右一" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
@@ -399,50 +404,27 @@
                             </Grid>
                         </Border>
                     </Popup>
-                    <Button Grid.Column="3" x:Name="TaskButton" IsVisible="False"
+                    <Button Grid.Column="2" x:Name="TaskButton" IsVisible="False"
                             Classes="title-nav-button" Margin="2,0,0,0"
                             Click="ToggleTaskPanel" ToolTip.Tip="后台任务"
                             AutomationProperties.Name="后台任务">
                         <Grid>
-                            <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="13" Height="13"/>
+                            <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
                             <TextBlock x:Name="TaskButtonText" IsVisible="False"/>
                         </Grid>
                     </Button>
-                    <Button Grid.Column="4" x:Name="WindowMoreButton" Classes="title-nav-button"
-                            Margin="2,0,0,0" Click="ToggleWindowMorePopup"
-                            ToolTip.Tip="窗口更多" AutomationProperties.Name="窗口更多">
-                        <PathIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="13" Height="13"/>
+                    <Button Grid.Column="3" x:Name="WindowSettingsButton" Classes="title-nav-button"
+                            Margin="2,0,0,0" Click="OpenSettingsFromTitleBar"
+                            ToolTip.Tip="设置" AutomationProperties.Name="设置">
+                        <PathIcon Data="{x:Static icons:Icons.Settings}"/>
                     </Button>
-                    <Popup x:Name="WindowMorePopup" Placement="BottomEdgeAlignedRight"
-                           PlacementTarget="WindowMoreButton" IsLightDismissEnabled="True">
-                        <Border Classes="context-menu-container" MinWidth="180" Padding="6"
-                                Background="{DynamicResource GlassMenuBg}"
-                                BoxShadow="{DynamicResource WindowShadow}">
-                            <StackPanel>
-                                <Button Classes="toolbar-popup-item" HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Left" Click="OpenTaskPanelFromWindowMenu">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="14" Height="14"/>
-                                        <TextBlock Text="后台任务"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Classes="toolbar-popup-item" HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Left" Click="OpenSettingsFromWindowMenu">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
-                                        <TextBlock Text="设置"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </Border>
-                    </Popup>
         </Grid>
     </controls:AppWindow.TitleBarContent>
 
     <Grid>
     <Border x:Name="RootLayout" CornerRadius="0"
             Background="{DynamicResource ColorBgContent}">
-        <Grid Margin="8 0 8 8">
+        <Grid Margin="8">
             <Grid x:Name="PaneLayoutRoot"/>
         </Grid>
     </Border>
@@ -537,7 +519,7 @@
 	                        <ComboBoxItem Tag="ThisMac">这台 Mac</ComboBoxItem>
 	                        <ComboBoxItem Tag="CustomFolders">自定义位置…</ComboBoxItem>
 	                    </ComboBox>
-	                    <Button Grid.Column="3" x:Name="GlobalSearchAddFolderButton"
+	                    <Button AutomationProperties.Name="添加搜索文件夹" Grid.Column="3" x:Name="GlobalSearchAddFolderButton"
 	                            Classes="ghost compact" Content="＋" Width="28" Height="28"
 	                            IsVisible="False" ToolTip.Tip="添加搜索文件夹"
 	                            Click="OnAddGlobalSearchFolder"/>

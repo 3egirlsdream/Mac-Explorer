@@ -13,10 +13,12 @@
                             BorderThickness="0"
                             CornerRadius="{DynamicResource RadiusXl}"
                             ClipToBounds="True">
+                        <VisualLayerManager Name="PART_VisualLayerManager">
                         <Grid RowDefinitions="Auto,*">
                             <local:WindowTitleBar x:Name="WindowTitleBar"
                                                   Grid.Row="0"
                                                   Title="{TemplateBinding Title}"
+                                                  TitleBarBackgroundContent="{TemplateBinding TitleBarBackgroundContent}"
                                                   TitleBarContent="{TemplateBinding TitleBarContent}"/>
                             <ContentPresenter Grid.Row="1"
                                               Content="{TemplateBinding Content}"
@@ -29,6 +31,7 @@
                                     IsHitTestVisible="True"
                                     IsVisible="False"/>
                         </Grid>
+                        </VisualLayerManager>
                     </Border>
                 </ControlTemplate>
             </Setter>
