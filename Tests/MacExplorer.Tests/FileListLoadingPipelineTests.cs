@@ -98,6 +98,7 @@ public sealed class FileListLoadingPipelineTests
         await initialScenario.AfterFirstBatch.Task.WaitAsync(TimeSpan.FromSeconds(2), testCancellation);
 
         Assert.False(navigation.IsCompleted);
+        Assert.True(viewModel.IsDirectoryLoading);
         Assert.Empty(viewModel.Entries);
         Assert.Equal(1, remote.BatchCallCount);
         Assert.Equal(0, remote.FullCallCount);
@@ -105,6 +106,7 @@ public sealed class FileListLoadingPipelineTests
         initialScenario.Release.TrySetResult();
         await navigation.WaitAsync(TimeSpan.FromSeconds(2), testCancellation);
         Assert.Equal(600, viewModel.Entries.Count);
+        Assert.False(viewModel.IsDirectoryLoading);
 
         var refreshed = Enumerable.Range(0, 300)
             .Select(i => MakeRemoteEntry(serverId, remotePath, $"fresh-{i:D4}.txt"))
@@ -147,6 +149,7 @@ public sealed class FileListLoadingPipelineTests
         Assert.Equal(freshEntries.Select(entry => entry.FullPath).Order(), viewModel.Entries.Select(entry => entry.FullPath).Order());
         Assert.DoesNotContain(viewModel.Entries, entry => entry.Name.StartsWith("old-", StringComparison.Ordinal));
         Assert.False(viewModel.IsLoading);
+        Assert.False(viewModel.IsDirectoryLoading);
     }
 
     [AvaloniaFact]

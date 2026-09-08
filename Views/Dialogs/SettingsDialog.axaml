@@ -385,6 +385,19 @@
                     <StackPanel Classes="settings-page">
                         <TextBlock Classes="settings-title" Text="文件显示"/>
 
+                        <Border Classes="settings-group">
+                            <Border Classes="settings-row">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <StackPanel>
+                                        <TextBlock Classes="settings-label" Text="高性能文件列表（试用）"/>
+                                        <TextBlock Classes="settings-description" Text="用于明细、分组和图标视图；需要逐项屏幕阅读时请关闭"/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" x:Name="FastFileListToggle" Classes="settings-toggle"
+                                                  IsCheckedChanged="OnFastFileListChanged"/>
+                                </Grid>
+                            </Border>
+                        </Border>
+
                         <StackPanel Spacing="7">
                             <TextBlock Classes="settings-section-title" Text="可见性"/>
                             <Border Classes="settings-group">

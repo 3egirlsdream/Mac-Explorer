@@ -88,13 +88,23 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private ObservableCollection<FileSystemEntry> _entries = [];
 
     [ObservableProperty]
-    private ObservableCollection<FileSystemEntry> _selectedEntries = [];
+    private ObservableCollection<FileSystemEntry> _selectedEntries = new MacExplorer.Collections.RangeObservableCollection<FileSystemEntry>();
+
+    internal const string UseFastFileListSettingKey = "UseFastFileList";
+    [ObservableProperty]
+    private bool _useFastFileList;
+
+    partial void OnUseFastFileListChanged(bool value) => _settingsService?.Set(UseFastFileListSettingKey, value);
+    internal string? SelectionAnchorPath => _lastClickedPath;
 
     private readonly HashSet<FileSystemEntry> _selectedEntriesSet = [];
     private readonly HashSet<FileSystemEntry> _selectionFlaggedEntries = [];
 
     [ObservableProperty]
     private bool _isLoading;
+
+    [ObservableProperty]
+    private bool _isDirectoryLoading;
 
     [ObservableProperty]
     private string _statusText = string.Empty;
@@ -442,6 +452,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _clipboardService = clipboardService;
         _launcherService = launcherService;
         _settingsService = settingsService;
+        _useFastFileList = settingsService?.Get(UseFastFileListSettingKey, true) ?? true;
         _archiveService = archiveService;
         _dragDropBridge = dragDropBridge;
         _directoryChangeNotifier = directoryChangeNotifier;
@@ -537,8 +548,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StatusSummaryText));
     }
 
+    private int _locationStatusGeneration;
+    private Task<IReadOnlyList<DriveSpaceSnapshot>>? _driveSpaceTask;
+
     private void RefreshLocationStatus()
     {
+        var generation = ++_locationStatusGeneration;
         if (_navigation.IsRemoteView && !string.IsNullOrWhiteSpace(_navigation.CurrentRemoteServerId))
         {
             var serverId = _navigation.CurrentRemoteServerId;
@@ -575,11 +590,22 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
+        _ = RefreshLocalLocationStatusAsync(_navigation.CurrentPath, generation);
+    }
+
+    private async Task RefreshLocalLocationStatusAsync(string path, int generation)
+    {
+        LocationStatus? status = null;
         try
         {
-            var status = FileListStatusFormatter.GetLocalLocationStatus(
-                _navigation.CurrentPath,
-                GetDriveSpaceSnapshots());
+            if (_driveSpaceTask == null || _driveSpaceTask.IsCompleted)
+                _driveSpaceTask = Task.Run(GetDriveSpaceSnapshots);
+            status = FileListStatusFormatter.GetLocalLocationStatus(path, await _driveSpaceTask);
+        }
+        catch { }
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (_disposed || generation != _locationStatusGeneration) return;
             if (status is { } value)
             {
                 LocationStatusText = value.Text;
@@ -589,11 +615,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             {
                 ClearLocationStatus();
             }
-        }
-        catch
-        {
-            ClearLocationStatus();
-        }
+        });
     }
 
     private void SetLocationRemoteServer(RemoteServerInfo? server)
@@ -1015,23 +1037,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
         }
 
-        // Validate that the path exists
-        if (path != _fileService.TrashDirectory && !Directory.Exists(path))
-        {
-            StatusText = $"路径不存在: {path}";
-            return;
-        }
-
         if (_navigation.CurrentPath == path && Entries.Count > 0
             && string.IsNullOrEmpty(PendingSelectFileName)
             && !_navigation.IsCollectionView && !_navigation.IsAiView && !_navigation.IsArchiveView && !_navigation.IsRemoteView) return;
-
-        // Keep the current directory visually stable while the next directory is
-        // produced in the background. Showing the loading overlay over an existing
-        // list paints an unnecessary intermediate frame before the first new batch.
-        var showLoadingOverlay = Entries.Count == 0;
-        if (showLoadingOverlay)
-            IsLoading = true;
 
         CancelQueuedMetadataLoad();
         _metadataLoadGeneration++;
@@ -1045,13 +1053,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         try
         {
-            await LoadDirectoryContentsAsync();
+            await LoadDirectoryContentsAsync(showPlaceholder: true);
         }
-        catch (Exception ex) { StatusText = $"无法访问: {ex.Message}"; }
-        finally
+        catch (Exception ex)
         {
-            if (showLoadingOverlay)
-                IsLoading = false;
+            if (CurrentPath == path) StatusText = $"无法访问: {ex.Message}";
         }
 
         if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
@@ -1201,18 +1207,19 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 _navigation.CurrentRemoteServerId = null;
                 _ai.Reset();
                 _navigation.UpdateBreadcrumbs();
-                IsLoading = true;
                 try
                 {
-                    await LoadDirectoryContentsAsync();
+                    await LoadDirectoryContentsAsync(showPlaceholder: true);
                     if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
                     {
                         _navigation.SetWatchedDirectory(path);
                         _settingsService?.Set(LastDirectorySettingKey, path);
                     }
                 }
-                catch (Exception ex) { StatusText = $"无法访问: {ex.Message}"; }
-                finally { IsLoading = false; }
+                catch (Exception ex)
+                {
+                    if (CurrentPath == path) StatusText = $"无法访问: {ex.Message}";
+                }
             }
         }
         finally
@@ -1313,7 +1320,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!IsCollectionView && !IsTagView && !IsRemoteView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
+        if (!entry.IsDirectory && !IsCollectionView && !IsTagView && !IsRemoteView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
         {
             StatusText = $"项目不存在，已刷新: {entry.Name}";
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
@@ -1352,38 +1359,43 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private async Task NavigateToArchiveAsync(string sentinelPath)
     {
         var (archivePath, internalPath) = ArchivePathHelper.Parse(sentinelPath);
-
-        var opened = await _archive.NavigateToArchiveAsync(
-            archivePath,
-            internalPath,
-            path =>
+        var work = BeginDirectoryWork();
+        _navigation.SetWatchedDirectory(null);
+        _navigation.IsHomePage = false;
+        _navigation.IsCollectionView = false;
+        _navigation.IsArchiveView = true;
+        _navigation.IsAiView = false;
+        _navigation.IsRemoteView = false;
+        _ai.Reset();
+        _navigation.IsSearchMode = false;
+        _navigation.CurrentArchivePath = archivePath;
+        _navigation.CurrentArchiveInternalPath = internalPath;
+        _navigation.CurrentPath = sentinelPath;
+        _navigation.UpdateBreadcrumbsForArchive();
+        if (!IsRestoringNavigation && string.IsNullOrEmpty(PendingSelectFileName)) ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+        IsDirectoryLoading = IsLoading = true;
+        ClearSelection();
+        try
+        {
+            var opened = await _archive.NavigateToArchiveAsync(
+                archivePath, internalPath,
+                _ => { }, () => { },
+                entries => { if (IsCurrentDirectoryWork(work)) ApplyEntries(entries); },
+                msg => { if (IsCurrentDirectoryWork(work)) StatusText = msg; },
+                _ => { },
+                () => IsCurrentDirectoryWork(work) ? PromptPasswordAsync() : Task.FromResult<string?>(null));
+            if (!IsCurrentDirectoryWork(work)) return;
+            if (opened) _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+            else
             {
-                CancelDirectoryWork();
-                _navigation.SetWatchedDirectory(null);
-                _navigation.IsHomePage = false;
-                _navigation.IsCollectionView = false;
-                _navigation.IsArchiveView = true;
-                _navigation.IsAiView = false;
-                _navigation.IsRemoteView = false;
-                _ai.Reset();
-                _navigation.IsSearchMode = false;
-                _navigation.CurrentArchivePath = archivePath;
-                _navigation.CurrentArchiveInternalPath = internalPath;
-                _navigation.CurrentPath = path;
-            },
-            () => _navigation.UpdateBreadcrumbsForArchive(),
-            entries => ApplyEntries(entries),
-            msg => StatusText = msg,
-            loading => IsLoading = loading,
-            async () =>
-            {
-                var password = await PromptPasswordAsync();
-                return password;
+                ReadErrorMessage = string.IsNullOrEmpty(StatusText) ? "无法读取归档" : StatusText;
+                ApplyEntries([]);
             }
-        );
-
-        if (opened)
-            _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+        }
+        finally
+        {
+            if (IsCurrentDirectoryWork(work)) IsDirectoryLoading = IsLoading = false;
+        }
     }
 
     // ── Remote Server Navigation ──
@@ -1416,16 +1428,20 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _ai.Reset();
         _navigation.IsSearchMode = false;
 
-        IsLoading = true;
+        IsDirectoryLoading = IsLoading = true;
         _navigation.CurrentPath = sentinelPath;
         _navigation.UpdateBreadcrumbsForRemote(remotePath);
+        ClearSelection();
 
         try
         {
             if (!_remoteConnectionService.IsConnected(serverId))
             {
                 if (IsCurrentDirectoryWork(work))
+                {
                     StatusText = "服务器未连接";
+                    ApplyEntries([]);
+                }
                 return;
             }
 
@@ -1443,13 +1459,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             if (IsCurrentDirectoryWork(work))
+            {
                 StatusText = $"无法访问远程目录: {ex.Message}";
+                ReadErrorMessage = ex.Message;
+                ApplyEntries([]);
+            }
             _logger?.LogError(ex, "Failed to navigate to remote path {Path}", sentinelPath);
         }
         finally
         {
             if (IsCurrentDirectoryWork(work))
-                IsLoading = false;
+                IsDirectoryLoading = IsLoading = false;
         }
     }
 
@@ -1466,6 +1486,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         var work = BeginDirectoryWork();
         var selectionState = CaptureEntryLoadSelectionState();
+        showLoadingOverlay |= IsDirectoryLoading;
         if (showLoadingOverlay)
             IsLoading = true;
         try
@@ -1490,7 +1511,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         finally
         {
             if (showLoadingOverlay && IsCurrentDirectoryWork(work))
-                IsLoading = false;
+                IsDirectoryLoading = IsLoading = false;
         }
     }
 
@@ -1520,28 +1541,54 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task HandleAiNavigationAsync(string sentinelPath)
     {
-        CancelDirectoryWork();
+        var work = BeginDirectoryWork();
         _navigation.SetWatchedDirectory(null);
         _navigation.IsHomePage = false;
         _navigation.IsCollectionView = false;
         _navigation.IsArchiveView = false;
+        _navigation.IsRemoteView = false;
         _navigation.IsAiView = true;
         _navigation.IsSearchMode = false;
-
-        await _ai.HandleAiNavigationAsync(
-            sentinelPath,
-            path => { _navigation.CurrentPath = path; },
-            () => _navigation.UpdateBreadcrumbsForAi(
-                AiPathHelper.GetModeName(_ai.AiViewMode),
-                AiPathHelper.GetTopLevelPath(_ai.AiViewMode),
-                _ai.CurrentAiContextLabel),
-            entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
-            msg => StatusText = msg,
-            loading => IsLoading = loading,
-            () => OnPropertyChanged(nameof(Entries))
-        );
-
-        _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+        _navigation.CurrentPath = sentinelPath;
+        var info = AiPathHelper.Parse(sentinelPath);
+        _navigation.UpdateBreadcrumbsForAi(AiPathHelper.GetModeName(info.Mode), AiPathHelper.GetTopLevelPath(info.Mode), info.TagValue);
+        if (!IsRestoringNavigation) ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+        IsDirectoryLoading = IsLoading = true;
+        ClearSelection();
+        var applied = false;
+        try
+        {
+            await _ai.HandleAiNavigationAsync(
+                sentinelPath,
+                _ => { },
+                () =>
+                {
+                    if (IsCurrentDirectoryWork(work))
+                        _navigation.UpdateBreadcrumbsForAi(AiPathHelper.GetModeName(_ai.AiViewMode),
+                            AiPathHelper.GetTopLevelPath(_ai.AiViewMode), _ai.CurrentAiContextLabel);
+                },
+                entries =>
+                {
+                    if (!IsCurrentDirectoryWork(work)) return;
+                    applied = true;
+                    ApplyEntries(entries);
+                    ResolveRealEntries(entries, work);
+                },
+                msg => { if (IsCurrentDirectoryWork(work)) StatusText = msg; },
+                _ => { },
+                () => { if (IsCurrentDirectoryWork(work)) OnPropertyChanged(nameof(Entries)); });
+            if (!IsCurrentDirectoryWork(work)) return;
+            if (!applied)
+            {
+                if (StatusText.StartsWith("加载 AI 视图失败:", StringComparison.Ordinal)) ReadErrorMessage = StatusText;
+                ApplyEntries([]);
+            }
+            _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+        }
+        finally
+        {
+            if (IsCurrentDirectoryWork(work)) IsDirectoryLoading = IsLoading = false;
+        }
     }
 
     // ── Refresh ──
@@ -1620,6 +1667,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (IsCollectionView && _navigation.CurrentCollectionId != null)
         {
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await _collection.NavigateToCollectionAsync(
                 _navigation.CurrentCollectionId.Value,
                 v => _navigation.IsHomePage = v,
@@ -1641,15 +1689,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var showLoadingOverlay = Entries.Count == 0;
-        if (showLoadingOverlay)
-            IsLoading = true;
         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-        try { await LoadDirectoryContentsAsync(forceRefresh: true); }
-        finally
+        var path = CurrentPath;
+        try
         {
-            if (showLoadingOverlay)
-                IsLoading = false;
+            await LoadDirectoryContentsAsync(forceRefresh: true, showPlaceholder: !string.IsNullOrWhiteSpace(ReadErrorMessage));
+        }
+        catch (Exception ex)
+        {
+            if (CurrentPath == path) StatusText = $"刷新失败: {ex.Message}";
         }
     }
 
@@ -1658,7 +1706,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private IReadOnlyList<FileSystemEntry> GetSelectableEntries() =>
         GroupField != GroupField.None
             ? Groups.SelectMany(g => g.Entries).ToList()
-            : Entries.ToList();
+            : Entries;
 
     private static int FindEntryIndexByPath(IReadOnlyList<FileSystemEntry> list, string fullPath)
     {
@@ -1683,7 +1731,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (e.OldItems != null)
             foreach (FileSystemEntry item in e.OldItems) _selectedEntriesSet.Remove(item);
         if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+        {
             _selectedEntriesSet.Clear();
+            _selectedEntriesSet.UnionWith(SelectedEntries);
+        }
 
         UpdateEntrySelectionFlags();
         OnPropertyChanged(nameof(StatusSummaryText));
@@ -1733,7 +1784,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private void ReplaceSelection(IEnumerable<FileSystemEntry> entries, FileSystemEntry? anchor = null)
     {
         var replacement = entries.Distinct().ToList();
-        if (SelectedEntries.Count == replacement.Count)
+        if (SelectedEntries is MacExplorer.Collections.RangeObservableCollection<FileSystemEntry> range)
+        {
+            range.ReplaceAll(replacement);
+        }
+        else if (SelectedEntries.Count == replacement.Count)
         {
             for (var i = 0; i < replacement.Count; i++)
             {
@@ -1791,6 +1846,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var endIdx = FindEntryIndexByPath(list, entry.FullPath);
             if (startIdx < 0 || endIdx < 0) return;
 
+            var anchor = list[startIdx];
+
             if (startIdx > endIdx) (startIdx, endIdx) = (endIdx, startIdx);
 
             var range = new List<FileSystemEntry>(endIdx - startIdx + 1);
@@ -1799,19 +1856,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
             if (cmdKey)
             {
-                // Cmd+Shift: 把范围追加到现有选择中（不创建新集合）
-                foreach (var e in range)
-                {
-                    if (!_selectedEntriesSet.Contains(e))
-                    {
-                        _selectedEntriesSet.Add(e);
-                        SelectedEntries.Add(e);
-                    }
-                }
+                ReplaceSelection(SelectedEntries.Concat(range), anchor);
             }
             else
             {
-                ReplaceSelection(range, list[startIdx]);
+                ReplaceSelection(range, anchor);
             }
         }
         else if (cmdKey)
@@ -1830,6 +1879,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         else
         {
+            SetSelectionAnchor(entry);
             if (SelectedEntries.Count == 1 && SelectedEntries[0] == entry)
                 return;
 
@@ -1849,6 +1899,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void SelectAll()
     {
+        if (IsDirectoryLoading) return;
         var selectable = GetSelectableEntries();
         if (selectable.Count == 0)
         {
@@ -3502,7 +3553,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        CancelDirectoryWork();
+        var work = BeginDirectoryWork();
         _navigation.SetWatchedDirectory(null);
         _navigation.IsHomePage = false;
         _navigation.IsArchiveView = false;
@@ -3524,28 +3575,35 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.UpdateBreadcrumbs();
         if (recordHistory)
             _navigation.UpdateHistoryForSentinelPath(sentinelPath);
-        ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+        var showPlaceholder = recordHistory || IsDirectoryLoading || Entries.Count == 0;
+        ScrollBehaviorAfterLoad = recordHistory ? ScrollMode.ResetToTop : ScrollMode.PreservePosition;
+        IsDirectoryLoading = showPlaceholder;
         IsLoading = true;
+        if (showPlaceholder) ClearSelection();
 
         try
         {
             var paths = await _fileTagService.FindFilePathsAsync(tag);
             var entries = new List<FileSystemEntry>(Math.Min(paths.Count, 2000));
-            foreach (var path in paths.Distinct(StringComparer.Ordinal).Take(2000))
+            await Task.Run(async () =>
             {
-                if (!File.Exists(path) && !Directory.Exists(path))
-                    continue;
+                foreach (var path in paths.Distinct(StringComparer.Ordinal).Take(2000))
+                {
+                    work.Token.ThrowIfCancellationRequested();
+                    if (!File.Exists(path) && !Directory.Exists(path))
+                        continue;
 
-                var entry = await _fileService.GetEntryAsync(path);
-                if (entry != null)
-                    entries.Add(entry);
-            }
+                    var entry = await _fileService.GetEntryAsync(path);
+                    if (entry != null)
+                        entries.Add(entry);
+                }
+            }, work.Token);
 
-            if (!string.Equals(_navigation.CurrentPath, sentinelPath, StringComparison.Ordinal))
+            if (!IsCurrentDirectoryWork(work))
                 return;
 
             ApplyEntries(entries);
-            ResolveRealEntries(entries);
+            ResolveRealEntries(entries, work);
             StatusText = $"标签“{tag.Name}” · {entries.Count} 项";
         }
         catch (OperationCanceledException)
@@ -3553,13 +3611,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
+            if (!IsCurrentDirectoryWork(work)) return;
             StatusText = $"加载标签失败: {ex.Message}";
+            ReadErrorMessage = ex.Message;
+            if (showPlaceholder) ApplyEntries([]);
             _logger?.LogError(ex, "Failed to load tag {Tag}", tag.Name);
         }
         finally
         {
-            if (string.Equals(_navigation.CurrentPath, sentinelPath, StringComparison.Ordinal))
-                IsLoading = false;
+            if (IsCurrentDirectoryWork(work)) IsDirectoryLoading = IsLoading = false;
         }
     }
 
@@ -3627,29 +3687,54 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task NavigateToCollectionAsync(int collectionId)
     {
-        CancelDirectoryWork();
+        var work = BeginDirectoryWork();
+        var applied = false;
+        _navigation.IsArchiveView = false;
+        _navigation.IsRemoteView = false;
+        IsDirectoryLoading = IsLoading = true;
+        ClearSelection();
+        ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
         _navigation.SetWatchedDirectory(null);
         // Clear current path so sidebar folder items deselect properly
         _navigation.CurrentPath = "";
 
-        await _collection.NavigateToCollectionAsync(
-            collectionId,
-            v => _navigation.IsHomePage = v,
-            v => _navigation.IsCollectionView = v,
-            v => _navigation.IsAiView = v,
-            v => _ai.CurrentFaceClusterId = v,
-            v => _ai.CurrentAiContextLabel = v,
-            v => _navigation.CurrentArchivePath = v,
-            v => _navigation.CurrentArchiveInternalPath = v,
-            v => _navigation.IsSearchMode = v,
-            v => _navigation.CurrentCollectionId = v,
-            v => _navigation.CurrentCollectionName = v,
-            v => IsLoading = v,
-            entries => { ApplyEntries(entries); ResolveRealEntries(entries); },
-            msg => StatusText = msg,
-            () => _navigation.UpdateBreadcrumbs(),
-            folders => { }
-        );
+        try
+        {
+            await _collection.NavigateToCollectionAsync(
+                collectionId,
+                v => _navigation.IsHomePage = v,
+                v => _navigation.IsCollectionView = v,
+                v => _navigation.IsAiView = v,
+                v => _ai.CurrentFaceClusterId = v,
+                v => _ai.CurrentAiContextLabel = v,
+                v => _navigation.CurrentArchivePath = v,
+                v => _navigation.CurrentArchiveInternalPath = v,
+                v => _navigation.IsSearchMode = v,
+                v => { if (IsCurrentDirectoryWork(work)) _navigation.CurrentCollectionId = v; },
+                v => _navigation.CurrentCollectionName = v,
+                _ => { },
+                entries =>
+                {
+                    if (!IsCurrentDirectoryWork(work)) return;
+                    applied = true;
+                    ApplyEntries(entries);
+                    ResolveRealEntries(entries, work);
+                },
+                msg => { if (IsCurrentDirectoryWork(work)) StatusText = msg; },
+                () => { if (IsCurrentDirectoryWork(work)) _navigation.UpdateBreadcrumbs(); },
+                folders => { },
+                work.Token
+            );
+            if (IsCurrentDirectoryWork(work) && !applied)
+            {
+                ReadErrorMessage = StatusText;
+                ApplyEntries([]);
+            }
+        }
+        finally
+        {
+            if (IsCurrentDirectoryWork(work)) IsDirectoryLoading = IsLoading = false;
+        }
     }
 
     public async Task RenameCollectionAsync(int id, string newName)
@@ -3881,8 +3966,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     }
 
     internal Task<ThumbnailResult?> GetListThumbnailAsync(FileSystemEntry entry, int pixelSize, CancellationToken ct)
-        => _thumbnailService?.GetThumbnailResultAsync(entry.FullPath, pixelSize, ct)
-           ?? Task.FromResult<ThumbnailResult?>(null);
+        => !entry.IsVirtual && Path.IsPathRooted(entry.FullPath)
+            ? _thumbnailService?.GetThumbnailResultAsync(entry.FullPath, pixelSize, ct)
+                ?? Task.FromResult<ThumbnailResult?>(null)
+            : Task.FromResult<ThumbnailResult?>(null);
 
     partial void OnIsPreviewPaneVisibleChanged(bool value)
     {
@@ -3937,19 +4024,31 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     // ── Load Directory Contents ──
 
-    private async Task LoadDirectoryContentsAsync(bool forceRefresh = false)
+    private async Task LoadDirectoryContentsAsync(bool forceRefresh = false, bool showPlaceholder = false)
     {
         var work = BeginDirectoryWork();
+        var path = _navigation.CurrentPath;
+        showPlaceholder |= IsDirectoryLoading;
         ReadErrorMessage = string.Empty;
         var selectionState = CaptureEntryLoadSelectionState();
+        if (showPlaceholder)
+        {
+            IsDirectoryLoading = true;
+            ClearSelection();
+        }
+        IsLoading = showPlaceholder || Entries.Count == 0;
         IReadOnlyList<FileSystemEntry> entries;
         // The search index may be stale. Showing it before the directory snapshot
         // causes a second visible replacement, even when both are already sorted.
         try
         {
+            if (showPlaceholder && path != _fileService.TrashDirectory
+                && !await Task.Run(() => Directory.Exists(path), work.Token))
+                throw new DirectoryNotFoundException($"路径不存在: {path}");
+            EnsureSnapshotWorkIsCurrent(work);
             entries = await StreamDirectoryEntriesAsync(
                 _fileService,
-                _navigation.CurrentPath,
+                path,
                 work,
                 selectionState);
         }
@@ -3959,9 +4058,18 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            if (IsCurrentDirectoryWork(work))
-                ReadErrorMessage = ex.Message;
+            if (!IsCurrentDirectoryWork(work)) return;
+            ReadErrorMessage = ex.Message;
+            if (showPlaceholder) ApplyEntries([]);
             throw;
+        }
+        finally
+        {
+            if (IsCurrentDirectoryWork(work))
+            {
+                IsDirectoryLoading = false;
+                IsLoading = false;
+            }
         }
         if (!IsCurrentDirectoryWork(work)) return;
 
@@ -4024,10 +4132,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         );
     }
 
-    private void ResolveRealEntries(IReadOnlyList<FileSystemEntry> entries)
+    private void ResolveRealEntries(IReadOnlyList<FileSystemEntry> entries, DirectoryWork? existingWork = null)
     {
         if (!entries.Any(e => !e.IsVirtual)) return;
-        var work = BeginDirectoryWork();
+        var work = existingWork ?? BeginDirectoryWork();
         _ = ResolveIconsInBackgroundAsync(entries, work);
     }
 
@@ -4043,8 +4151,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries)
     {
         var selectionState = CaptureEntryLoadSelectionState();
+        SnapshotApplying?.Invoke();
         ApplyEntriesCore(entries);
         FinalizeEntriesLoad(selectionState, completed: true);
+        SnapshotApplied?.Invoke();
     }
 
     private void ApplyEntriesCore(IReadOnlyList<FileSystemEntry> entries)
@@ -4263,6 +4373,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _directoryWorkGeneration++;
         }
         IsLoading = false;
+        IsDirectoryLoading = false;
     }
 
     private bool IsCurrentDirectoryWork(DirectoryWork work)

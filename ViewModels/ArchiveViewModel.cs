@@ -51,7 +51,7 @@ public partial class ArchiveViewModel : ObservableObject
 
         try
         {
-            var entries = _archiveService.IsEncrypted(archivePath)
+            var entries = await Task.Run(() => _archiveService.IsEncrypted(archivePath))
                 ? await TryNavigateWithPasswordAsync(archivePath, internalPath, setStatus, promptPassword)
                 : await TryNavigateToArchiveAsync(archivePath, internalPath);
             if (entries == null) return false;

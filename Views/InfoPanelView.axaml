@@ -14,7 +14,7 @@
                             Classes="ghost info-panel-icon"
                             Padding="0" Click="ClosePanel" HorizontalAlignment="Right"
                             VerticalAlignment="Center">
-                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="16" Height="16"
+                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="14" Height="14"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Button>
                     <Button DockPanel.Dock="Right" x:Name="ExpandPreviewBtn" AutomationProperties.Name="展开预览"
@@ -24,7 +24,7 @@
                             VerticalAlignment="Center">
                         <PathIcon x:Name="ExpandPreviewIcon"
                                   Data="{x:Static icons:Icons.ExpandPreview}"
-                                  Width="16" Height="16"
+                                  Width="14" Height="14"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Button>
                     <TextBlock x:Name="PanelTitle" Text="信息" FontWeight="{StaticResource FontWeightMedium}" FontSize="{DynamicResource FontSizeBodyLarge}"

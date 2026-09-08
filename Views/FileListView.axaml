@@ -5,6 +5,7 @@
              xmlns:models="using:MacExplorer.Models"
              xmlns:converters="using:MacExplorer.Converters"
              xmlns:local="using:MacExplorer.Views"
+             xmlns:controls="using:MacExplorer.Controls"
              x:Class="MacExplorer.Views.FileListView"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="True"
@@ -371,9 +372,8 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" x:Name="FileScroll" Background="{DynamicResource ColorBgContent}" ClipToBounds="True"
-              >
-                <StackPanel x:Name="EmptyState" IsVisible="False"
+        <Grid Grid.Row="1" x:Name="FileScroll" Background="{DynamicResource ColorBgContent}" ClipToBounds="True">
+                <StackPanel x:Name="EmptyState" IsVisible="False" ZIndex="1"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
                             Margin="24" Spacing="10">
                     <PathIcon Data="{x:Static icons:Icons.Folder}" Width="48" Height="48"
@@ -389,7 +389,7 @@
                          Background="{DynamicResource ColorBgContent}"
                          BorderBrush="Transparent" BorderThickness="0"
                          FocusAdorner="{x:Null}"
-                         ItemsSource="{Binding Entries}" ItemTemplate="{StaticResource ListEntryTemplate}"
+                         ItemTemplate="{StaticResource ListEntryTemplate}"
                          ItemContainerTheme="{StaticResource FileListItemTheme}"
                          SelectionMode="Multiple" SelectionChanged="OnControlSelectionChanged"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -398,6 +398,25 @@
                         <ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1"/></ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
                 </ListBox>
+
+                <ScrollViewer x:Name="FastListHost" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <controls:FastFileList x:Name="FastList"
+                        Background="{DynamicResource ColorBgContent}"
+                        Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextSecondaryBrush}"
+                        Hover="{DynamicResource InteractionHoverBrush}" Selected="{DynamicResource InteractionSelectedBrush}"
+                        SelectedHover="{DynamicResource InteractionSelectedHoverBrush}" DropBrush="{DynamicResource ColorAccentLight}"
+                        FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}"
+                        FontWeight="{StaticResource FontWeightLight}"
+                        DetailFontSize="{DynamicResource FontSizeLabel}" RowCornerRadius="{DynamicResource InteractionCornerRadius}"
+                        CaptionFontSize="{DynamicResource FontSizeCaption}" MetaFontSize="{DynamicResource FontSizeMeta}"
+                        GroupMinHeight="{DynamicResource TypographyListRowMinHeight}"
+                        Muted="{DynamicResource TextMutedBrush}" Divider="{DynamicResource ColorDivider}"
+                        FocusRing="{DynamicResource FocusRingBrush}"
+                        SelectionOutline="{DynamicResource SelectionOutlineShadow}" FocusOutline="{DynamicResource FocusOutlineShadow}"
+                        AutomationProperties.Name="文件列表"/>
+                </ScrollViewer>
+                <Canvas x:Name="FastRenameOverlay" ZIndex="90"/>
 
                 <ListBox x:Name="GroupedListItems" Classes="presentation-rows file-scroll-host" IsVisible="False"
                          Background="{DynamicResource ColorBgContent}"
@@ -423,14 +442,6 @@
                     </ListBox.ItemsPanel>
                 </ListBox>
 
-                <Border IsVisible="{Binding IsLoading}" IsHitTestVisible="False"
-                        HorizontalAlignment="Right" VerticalAlignment="Top"
-                        Margin="12" Padding="10,6" CornerRadius="4"
-                        Background="{DynamicResource ColorBgContent}">
-                    <TextBlock Text="正在读取文件…"
-                               FontSize="{DynamicResource FontSizeLabel}"
-                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                </Border>
                 <Border x:Name="SelectionMarquee" IsVisible="False" IsHitTestVisible="False"
                         ZIndex="100" HorizontalAlignment="Left" VerticalAlignment="Top"
                         Background="#263B82F6" BorderBrush="{DynamicResource ColorAccent}"

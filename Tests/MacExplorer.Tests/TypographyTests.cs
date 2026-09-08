@@ -144,6 +144,7 @@ public sealed class TypographyTests
         Assert.Equal("PingFang SC", sidebarTitle.FontFamily.Name);
         Assert.Equal(FontWeight.Medium, sidebarTitle.FontWeight);
         Assert.Equal(FontWeight.Light, sidebarItemText.FontWeight);
+        Assert.Equal(sidebarItemText.FontWeight, fileName.FontWeight);
         Assert.Equal(Color.Parse("#565D67"), Assert.IsType<SolidColorBrush>(sidebarTitle.Foreground).Color);
         Assert.Equal(14, remoteAddress.FontSize);
         Assert.Equal(13, remoteStatus.FontSize);

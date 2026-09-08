@@ -78,7 +78,8 @@ public partial class CollectionViewModel : ObservableObject
         Action<ObservableCollection<FileSystemEntry>> applyEntries,
         Action<string> setStatus,
         Action updateBreadcrumbs,
-        Action<ObservableCollection<PinnedFolder>> setPinnedFolders)
+        Action<ObservableCollection<PinnedFolder>> setPinnedFolders,
+        CancellationToken cancellationToken = default)
     {
         if (_collectionService == null || _fileIndex == null) return;
 
@@ -102,56 +103,60 @@ public partial class CollectionViewModel : ObservableObject
             var entries = new List<FileSystemEntry>();
             int removed = 0;
 
-            foreach (var path in filePaths)
+            await Task.Run(async () =>
             {
-                if (File.Exists(path) || Directory.Exists(path))
+                foreach (var path in filePaths)
                 {
-                    var entry = await _fileIndex.GetEntryAsync(path);
-                    if (entry != null)
-                        entries.Add(entry);
-                    else
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (File.Exists(path) || Directory.Exists(path))
                     {
-                        var isDir = Directory.Exists(path);
-                        if (isDir)
-                        {
-                            var di = new DirectoryInfo(path);
-                            entries.Add(new FileSystemEntry
-                            {
-                                FullPath = path,
-                                Name = di.Name,
-                                Extension = di.Extension,
-                                Size = 0,
-                                LastModified = di.LastWriteTime,
-                                Created = di.CreationTime,
-                                IsDirectory = true,
-                                IconKey = Indexing.SqliteFileIndex.ResolveBundleIconKey(di.Extension)
-                            });
-                        }
+                        var entry = await _fileIndex.GetEntryAsync(path);
+                        if (entry != null)
+                            entries.Add(entry);
                         else
                         {
-                            var fi = new FileInfo(path);
-                            if (fi.Exists)
+                            var isDir = Directory.Exists(path);
+                            if (isDir)
                             {
+                                var di = new DirectoryInfo(path);
                                 entries.Add(new FileSystemEntry
                                 {
                                     FullPath = path,
-                                    Name = fi.Name,
-                                    Extension = fi.Extension,
-                                    Size = fi.Length,
-                                    LastModified = fi.LastWriteTime,
-                                    Created = fi.CreationTime,
-                                    IsDirectory = false,
-                                    IconKey = Indexing.SqliteFileIndex.ResolveIconKey(fi.Extension)
+                                    Name = di.Name,
+                                    Extension = di.Extension,
+                                    Size = 0,
+                                    LastModified = di.LastWriteTime,
+                                    Created = di.CreationTime,
+                                    IsDirectory = true,
+                                    IconKey = Indexing.SqliteFileIndex.ResolveBundleIconKey(di.Extension)
                                 });
+                            }
+                            else
+                            {
+                                var fi = new FileInfo(path);
+                                if (fi.Exists)
+                                {
+                                    entries.Add(new FileSystemEntry
+                                    {
+                                        FullPath = path,
+                                        Name = fi.Name,
+                                        Extension = fi.Extension,
+                                        Size = fi.Length,
+                                        LastModified = fi.LastWriteTime,
+                                        Created = fi.CreationTime,
+                                        IsDirectory = false,
+                                        IconKey = Indexing.SqliteFileIndex.ResolveIconKey(fi.Extension)
+                                    });
+                                }
                             }
                         }
                     }
+                    else
+                    {
+                        removed++;
+                    }
                 }
-                else
-                {
-                    removed++;
-                }
-            }
+            }, cancellationToken);
 
             setCurrentCollectionId(collectionId);
             updateBreadcrumbs();

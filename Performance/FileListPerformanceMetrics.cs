@@ -13,9 +13,16 @@ public static class FileListPerformanceMetrics
     private static readonly Counter<long> Commits = Meter.CreateCounter<long>("filelist.collection.snapshot.committed");
     private static readonly Histogram<double> CommitDuration = Meter.CreateHistogram<double>("filelist.ui.commit.duration_ms", "ms");
     private static readonly Counter<long> GitUpdates = Meter.CreateCounter<long>("filelist.git.items.updated");
+    private static readonly Histogram<double> FastRenderDuration = Meter.CreateHistogram<double>("filelist.fast.render.duration_ms", "ms");
+    private static readonly Histogram<int> FastRenderRows = Meter.CreateHistogram<int>("filelist.fast.render.rows");
 
     public static void BatchReceived() => Batches.Add(1);
     public static void SnapshotPublished(int count) { Snapshots.Add(1); SnapshotItems.Record(count); }
     public static void SnapshotCommitted(double milliseconds) { Commits.Add(1); CommitDuration.Record(milliseconds); }
     public static void GitItemsUpdated(int count) => GitUpdates.Add(count);
+    public static void FastListRendered(double milliseconds, int rows)
+    {
+        FastRenderDuration.Record(milliseconds);
+        FastRenderRows.Record(rows);
+    }
 }

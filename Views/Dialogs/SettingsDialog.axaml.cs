@@ -105,6 +105,7 @@ public partial class SettingsDialog : DialogWindow
         HideSystemFilesToggle.IsChecked = ViewModel.HideSystemFiles;
         HideDotFilesToggle.IsChecked = ViewModel.HideDotFiles;
         HideDotFoldersToggle.IsChecked = ViewModel.HideDotFolders;
+        FastFileListToggle.IsChecked = ViewModel.UseFastFileList;
         UsernameSettingLabel.Text = ViewModel.UserName;
 
         _sidebarToggles.Clear();
@@ -129,6 +130,12 @@ public partial class SettingsDialog : DialogWindow
         UpdateVibrancyLabel();
 
         AboutVersion.Text = $"版本 {_appUpdateService.CurrentVersion}";
+    }
+
+    private void OnFastFileListChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_initializing && ViewModel != null)
+            ViewModel.UseFastFileList = FastFileListToggle.IsChecked == true;
     }
 
     private void LoadSearchLocations()

@@ -32,14 +32,17 @@ public sealed partial class FileListViewModelCreateTests
     [InlineData(ViewMode.List, GroupField.Type, true)]
     [InlineData(ViewMode.Grid, GroupField.None, true)]
     [InlineData(ViewMode.Grid, GroupField.Type, true)]
+    [InlineData(ViewMode.List, GroupField.None, false, true)]
+    [InlineData(ViewMode.List, GroupField.None, true, true)]
     public void ScrollBarInteractionScrollsWithoutStartingMarqueeOrChangingSelection(
-        ViewMode viewMode, GroupField groupField, bool clickTrack)
+        ViewMode viewMode, GroupField groupField, bool clickTrack, bool useFast = false)
     {
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
         var fluentTheme = new FluentTheme();
         application.Styles.Insert(0, fluentTheme);
         using var viewModel = CreateViewModel(new FakeFileService("/tmp/FKFinderTests"),
             sortFilter: new SortFilterViewModel { ViewMode = viewMode, GroupField = groupField });
+        viewModel.UseFastFileList = useFast;
         Window? window = null;
 
         try
@@ -64,7 +67,7 @@ public sealed partial class FileListViewModelCreateTests
             Dispatcher.UIThread.RunJobs();
 
             var selected = viewModel.SelectedEntries.ToArray();
-            var host = view.FindControl<ListBox>(viewMode == ViewMode.Grid ? "GridViewItems"
+            var host = useFast ? (Control)view.FindControl<ScrollViewer>("FastListHost")! : view.FindControl<ListBox>(viewMode == ViewMode.Grid ? "GridViewItems"
                 : groupField == GroupField.None ? "FileItemsList" : "GroupedListItems")!;
             var scrollBar = host.GetVisualDescendants().OfType<ScrollBar>()
                 .Single(bar => bar.IsEffectivelyVisible && bar.Orientation == Orientation.Vertical);
@@ -465,6 +468,7 @@ public sealed partial class FileListViewModelCreateTests
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
         using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
+        viewModel.UseFastFileList = false;
         for (var index = 0; index < 12; index++)
         {
             viewModel.Entries.Add(new FileSystemEntry
@@ -708,7 +712,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
-    public async Task NavigateToAsync_KeepsOverlayHiddenUntilNewDirectoryIsReady()
+    public async Task NavigateToAsync_ShowsDestinationAndPlaceholderBeforeListingCompletes()
     {
         var root = Path.Combine(Path.GetTempPath(), $"fkfinder-navigation-{Guid.NewGuid():N}");
         var sourcePath = Path.Combine(root, "source");
@@ -733,6 +737,13 @@ public sealed partial class FileListViewModelCreateTests
             };
             viewModel.Entries.Add(oldEntry);
             fileService.Seed(newEntry);
+            var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            fileService.BeforeEnumerate = async (_, token) =>
+            {
+                started.TrySetResult();
+                await release.Task.WaitAsync(token);
+            };
             var overlayBecameVisible = false;
             viewModel.PropertyChanged += (_, args) =>
             {
@@ -740,10 +751,18 @@ public sealed partial class FileListViewModelCreateTests
                     overlayBecameVisible = true;
             };
 
-            await viewModel.NavigateToAsync(targetPath);
+            var navigation = viewModel.NavigateToAsync(targetPath);
+            Assert.Equal(targetPath, viewModel.CurrentPath);
+            Assert.True(viewModel.IsDirectoryLoading);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(navigation.IsCompleted);
+            Assert.True(viewModel.IsLoading);
+            release.TrySetResult();
+            await navigation.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.False(overlayBecameVisible);
+            Assert.True(overlayBecameVisible);
             Assert.False(viewModel.IsLoading);
+            Assert.False(viewModel.IsDirectoryLoading);
             Assert.Equal(targetPath, viewModel.CurrentPath);
             Assert.Equal(newEntry.FullPath, Assert.Single(viewModel.Entries).FullPath);
         }
@@ -1109,7 +1128,8 @@ public sealed partial class FileListViewModelCreateTests
         NavigationViewModel? navigation = null,
         SortFilterViewModel? sortFilter = null,
         IThumbnailService? thumbnailService = null,
-        ISettingsService? settingsService = null)
+        ISettingsService? settingsService = null,
+        IArchiveService? archiveService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1126,7 +1146,7 @@ public sealed partial class FileListViewModelCreateTests
             navigation,
             fileOps,
             new SearchViewModel(),
-            new ArchiveViewModel(fileService: fileService),
+            new ArchiveViewModel(archiveService: archiveService, fileService: fileService),
             new AiViewModel(fileIndex: index),
             new CollectionViewModel(fileIndex: index, fileService: fileService),
             sortFilter ?? new SortFilterViewModel(),
@@ -1144,6 +1164,7 @@ public sealed partial class FileListViewModelCreateTests
         private readonly Dictionary<string, FileSystemEntry> _entries = new(StringComparer.Ordinal);
 
         public int EnumerateDirectoryCallCount { get; private set; }
+        public Func<string, CancellationToken, Task>? BeforeEnumerate { get; set; }
         public string HomeDirectory { get; } = homeDirectory;
         public string RootDirectory => "/";
         public string TrashDirectory => Path.Combine(HomeDirectory, ".Trash");
@@ -1159,6 +1180,7 @@ public sealed partial class FileListViewModelCreateTests
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             EnumerateDirectoryCallCount++;
+            if (BeforeEnumerate != null) await BeforeEnumerate(path, cancellationToken);
             await Task.Yield();
             var entries = _entries.Values
                 .Where(entry => string.Equals(Path.GetDirectoryName(entry.FullPath), path, StringComparison.Ordinal))

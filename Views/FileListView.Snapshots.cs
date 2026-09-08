@@ -50,9 +50,18 @@ public partial class FileListView
         _snapshotAnchorVersion++;
         _snapshotAnchor = null;
         var vm = _snapshotOwner;
-        if (vm == null || vm.ViewMode != ViewMode.List || vm.GroupField != GroupField.None
-            || vm.ScrollBehaviorAfterLoad != FileListViewModel.ScrollMode.PreservePosition
+        if (vm == null || vm.ScrollBehaviorAfterLoad != FileListViewModel.ScrollMode.PreservePosition
             || vm.Entries.Count == 0 || GetActiveScrollViewer() is not { } scroll) return;
+
+        if (FastListActive)
+        {
+            var first = FastList.VisibleRange.First;
+            if (first < FastList.Rows.Count)
+                _snapshotAnchor = new FileListScrollAnchor(FastList.Rows[first].FullPath,
+                    FastList.RowBounds(first).Y, scroll.Offset.Y);
+            return;
+        }
+        if (vm.ViewMode != ViewMode.List || vm.GroupField != GroupField.None) return;
 
         var index = Math.Clamp((int)Math.Floor(scroll.Offset.Y / FileListScrollAnchor.DetailsRowHeight), 0, vm.Entries.Count - 1);
         // At most one realized-container lookup. No traversal of all files/visual descendants.
@@ -76,8 +85,15 @@ public partial class FileListView
             if (!_snapshotHooksAttached || version != _snapshotAnchorVersion
                 || inputVersion != _snapshotInputVersion || !ReferenceEquals(owner, ViewModel)
                 || !string.Equals(path, owner.CurrentPath, StringComparison.Ordinal)
-                || owner.ViewMode != ViewMode.List || owner.GroupField != GroupField.None
                 || GetActiveScrollViewer() is not { } scroll) return;
+            if (FastListActive)
+            {
+                var index = FastList.IndexOfPath(anchor.ItemPath);
+                if (index >= 0) FastList.ScrollToEntry(FastList.Rows[index], anchor.ItemViewportY);
+                else FastList.ScrollToOffset(anchor.AbsoluteOffsetFallback);
+                return;
+            }
+            if (owner.ViewMode != ViewMode.List || owner.GroupField != GroupField.None) return;
             scroll.Offset = new Vector(0, anchor.Resolve(owner.Entries, scroll.Viewport.Height));
         }, DispatcherPriority.Loaded);
     }

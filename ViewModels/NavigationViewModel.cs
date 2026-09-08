@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
 
@@ -34,6 +35,7 @@ public partial class NavigationViewModel : ObservableObject
     private bool _isNavigatingHistory;
     private readonly Dictionary<string, string?> _pathSelectedEntries = new();
     private string? _watchedDirectory;
+    private readonly Dictionary<string, string> _localizedNames = new(StringComparer.Ordinal);
 
     [ObservableProperty]
     private string _currentPath = "";
@@ -109,7 +111,7 @@ public partial class NavigationViewModel : ObservableObject
     }
 
     private string Localize(string fullPath, string fallback)
-        => _displayNameService?.GetDisplayName(fullPath) ?? fallback;
+        => _localizedNames.GetValueOrDefault(fullPath, fallback);
 
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
     {
@@ -129,12 +131,7 @@ public partial class NavigationViewModel : ObservableObject
         // AI sentinel paths are handled by FileListViewModel.HandleAiNavigationAsync
         if (AiPathHelper.IsAiPath(path)) return;
 
-        // Validate that the path exists on the filesystem
-        // Skip validation for trash directory (macOS SIP blocks .NET Directory.Exists)
-        if (path != _fileService.TrashDirectory && !Directory.Exists(path))
-        {
-            return; // Coordinator will set status
-        }
+        // The coordinator validates off-thread while the destination shows its placeholder.
 
         if (CurrentPath == path && !IsSearchMode) return;
 
@@ -471,6 +468,34 @@ public partial class NavigationViewModel : ObservableObject
             }
         }
         Breadcrumbs = new ObservableCollection<BreadcrumbSegment>(segments);
+        _ = LocalizeBreadcrumbsAsync(Breadcrumbs);
+    }
+
+    private async Task LocalizeBreadcrumbsAsync(ObservableCollection<BreadcrumbSegment> breadcrumbs)
+    {
+        if (_displayNameService == null) return;
+        var pending = breadcrumbs.Where(segment => Path.IsPathRooted(segment.FullPath)
+            && !_localizedNames.ContainsKey(segment.FullPath)).ToArray();
+        if (pending.Length == 0) return;
+        var names = await Task.Run(() => pending.Select(segment =>
+        {
+            try { return _displayNameService.GetDisplayName(segment.FullPath); }
+            catch { return segment.DisplayName; }
+        }).ToArray());
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            for (var i = 0; i < pending.Length; i++)
+                _localizedNames[pending[i].FullPath] = string.IsNullOrWhiteSpace(names[i]) ? pending[i].DisplayName : names[i];
+            if (!ReferenceEquals(Breadcrumbs, breadcrumbs)) return;
+            Breadcrumbs = new ObservableCollection<BreadcrumbSegment>(breadcrumbs.Select(segment => new BreadcrumbSegment
+            {
+                Name = segment.Name,
+                DisplayName = Localize(segment.FullPath, segment.DisplayName),
+                FullPath = segment.FullPath,
+                HasDropdown = segment.HasDropdown,
+                Siblings = segment.Siblings
+            }));
+        });
     }
 
     public void UpdateBreadcrumbsForAi(string modeName, string modePath, string? contextLabel)

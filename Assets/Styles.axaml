@@ -392,8 +392,8 @@
     </Style>
 
     <Style Selector="Button.toolbar-btn PathIcon">
-        <Setter Property="Width" Value="16"/>
-        <Setter Property="Height" Value="16"/>
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="Height" Value="14"/>
     </Style>
 
     <Style Selector="Button.toolbar-btn.active">
@@ -578,6 +578,10 @@
         <Setter Property="Margin" Value="0"/>
     </Style>
 
+    <Style Selector="Border.file-list-entry TextBlock, Border.file-grid-content TextBlock">
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+    </Style>
+
     <Style Selector="TextBlock.file-column-header">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
         <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
@@ -601,6 +605,7 @@
 
     <Style Selector="TextBlock.file-group-count">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="Margin" Value="6,0,0,0"/>
