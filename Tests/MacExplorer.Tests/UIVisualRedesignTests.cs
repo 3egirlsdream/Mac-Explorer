@@ -154,12 +154,14 @@ public sealed partial class FileListViewModelCreateTests
 public sealed class UIVisualButtonTests
 {
     [AvaloniaTheory]
-    [InlineData("primary", "AccentHoverBrush", "AccentPressedBrush", false)]
-    [InlineData("primary", "AccentHoverBrush", "AccentPressedBrush", true)]
-    [InlineData("danger", "DangerHoverBrush", "DangerPressedBrush", false)]
-    [InlineData("danger", "DangerHoverBrush", "DangerPressedBrush", true)]
+    [InlineData("ghost", "InteractionHoverBrush", false)]
+    [InlineData("ghost", "InteractionHoverBrush", true)]
+    [InlineData("primary", "AccentHoverBrush", false)]
+    [InlineData("primary", "AccentHoverBrush", true)]
+    [InlineData("danger", "DangerHoverBrush", false)]
+    [InlineData("danger", "DangerHoverBrush", true)]
     public void SemanticButtonColorsReachTheFluentPresenterWithoutFocusLayoutShift(
-        string buttonClass, string hoverResource, string pressedResource, bool dark)
+        string buttonClass, string hoverResource, bool dark)
     {
         var button = new Button { Content = "确认", Width = 120, Height = 36 };
         button.Classes.Add(buttonClass);
@@ -187,7 +189,7 @@ public sealed class UIVisualButtonTests
             AssertBrush(window, hoverResource, presenter.Background);
             window.MouseDown(point, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
-            AssertBrush(window, pressedResource, presenter.Background);
+            AssertBrush(window, hoverResource, presenter.Background);
             window.MouseUp(point, MouseButton.Left);
         }
         finally { window.Close(); }

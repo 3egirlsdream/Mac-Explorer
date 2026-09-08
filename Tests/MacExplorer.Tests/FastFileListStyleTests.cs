@@ -1,7 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -15,6 +18,74 @@ namespace MacExplorer.Tests;
 
 public sealed partial class FileListViewModelCreateTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void FastListRowWhitespaceKeepsItsBackgroundUntilClickRelease(bool selected, bool dark)
+    {
+        using var theme = new FastListTestTheme();
+        using var vm = CreateViewModel(new FakeFileService("/tmp/FastStyleTests"));
+        foreach (var index in Enumerable.Range(0, 10)) vm.Entries.Add(FastFileListTests.Entry(index));
+        var view = new FileListView { DataContext = vm };
+        var window = new Window
+        {
+            Width = 900, Height = 600, Content = view,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
+        };
+        var fast = view.FindControl<FastFileList>("FastList")!;
+        try
+        {
+            window.Show();
+            if (selected) vm.SelectEntry(vm.Entries[1]);
+            Dispatcher.UIThread.RunJobs();
+            var point = new Point(fast.Bounds.Width - 30, 45);
+            var whitespace = fast.TranslatePoint(point, window)!.Value;
+            window.MouseMove(whitespace);
+            Dispatcher.UIThread.RunJobs();
+            var hover = selected ? fast.SelectedHover : fast.Hover;
+            Assert.Equal(hover, BackgroundAt(point));
+            window.MouseDown(whitespace, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(hover, BackgroundAt(point));
+            window.MouseUp(whitespace, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(vm.Entries[1], Assert.Single(vm.SelectedEntries));
+            Assert.Equal(fast.SelectedHover, BackgroundAt(point));
+
+            // Captured marquee moves are handled by the parent, but the hover
+            // must still follow the pointer and clear after leaving the rows.
+            var marqueeStart = fast.TranslatePoint(new Point(point.X, 75), window)!.Value;
+            window.MouseMove(marqueeStart);
+            window.MouseDown(marqueeStart, MouseButton.Left);
+            var nextPoint = new Point(point.X, 105);
+            var nextWhitespace = fast.TranslatePoint(nextPoint, window)!.Value;
+            window.MouseMove(nextWhitespace);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.Entries[3].IsSelected);
+            Assert.Equal(fast.SelectedHover, BackgroundAt(nextPoint));
+            window.MouseUp(nextWhitespace, MouseButton.Left);
+            window.MouseMove(fast.TranslatePoint(new Point(point.X, 450), window)!.Value);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(fast.Selected, BackgroundAt(nextPoint));
+        }
+        finally { window.Close(); }
+
+        IBrush? BackgroundAt(Point point)
+        {
+            // DrawingGroup cannot record bitmaps; keep this assertion on row fills.
+            var images = (FastFileListImages)typeof(FastFileList)
+                .GetField("_images", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(fast)!;
+            images.Clear();
+            var drawing = new DrawingGroup();
+            using (var context = drawing.Open()) fast.Render(context);
+            return drawing.Children.OfType<GeometryDrawing>()
+                .LastOrDefault(child => child.Brush != null && child.Geometry!.Bounds.Contains(point))?.Brush;
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(false, false)]
     [InlineData(false, true)]
@@ -79,7 +150,8 @@ public sealed partial class FileListViewModelCreateTests
                 Assert.Equal(fontWeight, fast.FontWeight);
                 Assert.Equal(12 * scale, fast.DetailFontSize);
                 Assert.Equal(10 * scale, fast.MetaFontSize);
-                Assert.NotEqual(default, fast.SelectionOutline);
+                Assert.Equal(default, fast.SelectionOutline);
+                Assert.NotEqual(default, fast.FocusOutline);
             }
         }
         finally { window.Close(); Application.Current!.Styles.Remove(styles); }

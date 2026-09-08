@@ -7,7 +7,6 @@ namespace MacExplorer.Services;
 public enum InteractionStyleToken
 {
     Hover,
-    Pressed,
     Selected,
     SelectedHover,
     TextHighlight

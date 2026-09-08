@@ -49,7 +49,6 @@
     </Style>
     <Style Selector="Button:pressed">
         <Setter Property="RenderTransform" Value="scale(0.98)"/>
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
     <Style Selector="Button:pointerover">
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
@@ -118,9 +117,6 @@
     <Style Selector="Button.info-panel-icon:pointerover">
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
-    <Style Selector="Button.info-panel-icon:pressed">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-    </Style>
     <Style Selector="Button.info-panel-icon:focus-visible">
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
@@ -149,9 +145,6 @@
         <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
     </Style>
-    <Style Selector="Button:pressed:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-    </Style>
     <Style Selector="Button.primary:pointerover">
         <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
@@ -161,19 +154,19 @@
         <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
     </Style>
     <Style Selector="Button.primary:pressed">
-        <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
     </Style>
     <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
     </Style>
     <Style Selector="Button.primary:pressed:pointerover">
-        <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
     </Style>
     <Style Selector="Button.primary:pressed:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
     </Style>
     <Style Selector="Button.danger:pointerover">
@@ -185,19 +178,19 @@
         <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
     </Style>
     <Style Selector="Button.danger:pressed">
-        <Setter Property="Background" Value="{DynamicResource DangerPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
     </Style>
     <Style Selector="Button.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource DangerPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
     </Style>
     <Style Selector="Button.danger:pressed:pointerover">
-        <Setter Property="Background" Value="{DynamicResource DangerPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
     </Style>
     <Style Selector="Button.danger:pressed:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource DangerPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
     </Style>
     <Style Selector="Button.icon">
@@ -293,9 +286,6 @@
     <Style Selector="ListBoxItem:pointerover">
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
-    <Style Selector="ListBoxItem:pressed:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-    </Style>
     <Style Selector="ListBoxItem:selected">
         <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
     </Style>
@@ -308,9 +298,6 @@
     </Style>
     <Style Selector="ToggleButton:pointerover">
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-    </Style>
-    <Style Selector="ToggleButton:pressed:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
     <Style Selector="CheckBox:disabled, RadioButton:disabled, ToggleSwitch:disabled">
         <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>

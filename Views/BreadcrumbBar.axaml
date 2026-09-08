@@ -7,6 +7,16 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
+    <UserControl.Styles>
+        <Style Selector="TextBlock.breadcrumb-segment-label">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="ItemsControl.breadcrumb-segments > ContentPresenter:nth-last-child(1) TextBlock.breadcrumb-segment-label">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+        </Style>
+    </UserControl.Styles>
+
     <Border Classes="breadcrumb-bar" Classes.home-location="{Binding IsHomePage}" Padding="4,2">
         <Grid ColumnDefinitions="*">
             <TextBlock Text="首页" IsVisible="{Binding IsHomePage}" Margin="8,0"
@@ -29,7 +39,7 @@
                           DoubleTapped="OnBrowseModeDoubleTapped"
                           HorizontalScrollBarVisibility="Hidden"
                           VerticalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding Breadcrumbs}">
+                <ItemsControl Classes="breadcrumb-segments" ItemsSource="{Binding Breadcrumbs}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" Spacing="0"/>
@@ -52,10 +62,9 @@
                                         Background="Transparent"
                                         PointerPressed="OnSegmentClicked"
                                         Tag="{Binding FullPath}">
-                                    <TextBlock Text="{Binding DisplayName}"
+                                    <TextBlock Classes="breadcrumb-segment-label" Text="{Binding DisplayName}"
                                                FontSize="{DynamicResource FontSizeLabel}"
-                                               VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                               VerticalAlignment="Center"/>
                                 </Border>
                             </StackPanel>
                         </DataTemplate>

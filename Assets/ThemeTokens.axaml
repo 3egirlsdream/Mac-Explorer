@@ -54,23 +54,28 @@
                     <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#F3F4F6"/>
                     <SolidColorBrush x:Key="ButtonPrimaryForegroundBrush" Color="#FFFFFF"/>
-                    <SolidColorBrush x:Key="AccentPressedBrush" Color="#194795"/>
                     <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="DangerHoverBrush" Color="#A32E38"/>
-                    <SolidColorBrush x:Key="DangerPressedBrush" Color="#892630"/>
-                    <BoxShadows x:Key="SelectionOutlineShadow">inset 0 0 0 1 #2463D4</BoxShadows>
+                    <BoxShadows x:Key="SelectionOutlineShadow">none</BoxShadows>
                     <BoxShadows x:Key="FocusOutlineShadow">inset 0 0 0 2 #2463D4</BoxShadows>
-                    <BoxShadows x:Key="InactiveSelectionOutlineShadow">inset 0 0 0 1 #7C8491</BoxShadows>
+                    <BoxShadows x:Key="InactiveSelectionOutlineShadow">none</BoxShadows>
                     <BoxShadows x:Key="PopupShadow">0 8 24 -8 #26000000</BoxShadows>
                     <!-- Semantic interaction tokens. Fluent compatibility resources are bridged at runtime. -->
                     <SolidColorBrush x:Key="InteractionHoverBrush" Color="#ECEEF2"/>
-                    <SolidColorBrush x:Key="InteractionPressedBrush" Color="#E0E4EA"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#E5EEFC"/>
                     <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="#D8E6FA"/>
                     <SolidColorBrush x:Key="InteractionTextHighlightBrush" Color="#22000000"/>
                     <!-- Fluent Button template source. -->
                     <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#ECEEF2"/>
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#E0E4EA"/>
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#ECEEF2"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundPointerOver" Color="#ECEEF2"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundPressed" Color="#ECEEF2"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundSelectedPointerOver" Color="#D8E6FA"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundSelectedPressed" Color="#D8E6FA"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#ECEEF2"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#ECEEF2"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#D8E6FA"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#D8E6FA"/>
                     <!-- Fluent input template source. -->
                     <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#2463D4"/>
@@ -94,7 +99,7 @@
                     <!-- ComboBox popups use the same compact surface as sidebar action menus. -->
                     <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushFocused" Color="#2463D4"/>
-                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#E0E4EA"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="ComboBoxBackgroundUnfocused" Color="#F3F4F6"/>
                     <SolidColorBrush x:Key="ComboBoxForeground" Color="#252830"/>
                     <SolidColorBrush x:Key="ComboBoxForegroundFocused" Color="#252830"/>
@@ -117,12 +122,11 @@
                     <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPressed" Color="#252830"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackground" Color="Transparent"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#ECEEF2"/>
-                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#E0E4EA"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="Transparent"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="Transparent"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="Transparent"/>
                     <SolidColorBrush x:Key="ControlHoverBrush" Color="#ECEEF2"/>
-                    <SolidColorBrush x:Key="ControlPressedBrush" Color="#E0E4EA"/>
                     <SolidColorBrush x:Key="SelectionBrush" Color="#E5EEFC"/>
                     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#252830"/>
                     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#565D67"/>
@@ -202,23 +206,28 @@
                     <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#292D34"/>
                     <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#24272D"/>
                     <SolidColorBrush x:Key="ButtonPrimaryForegroundBrush" Color="#17253D"/>
-                    <SolidColorBrush x:Key="AccentPressedBrush" Color="#BDD5FF"/>
                     <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#381A20"/>
                     <SolidColorBrush x:Key="DangerHoverBrush" Color="#FFA6AC"/>
-                    <SolidColorBrush x:Key="DangerPressedBrush" Color="#FFBBC0"/>
-                    <BoxShadows x:Key="SelectionOutlineShadow">inset 0 0 0 1 #8AB4FF</BoxShadows>
+                    <BoxShadows x:Key="SelectionOutlineShadow">none</BoxShadows>
                     <BoxShadows x:Key="FocusOutlineShadow">inset 0 0 0 2 #8AB4FF</BoxShadows>
-                    <BoxShadows x:Key="InactiveSelectionOutlineShadow">inset 0 0 0 1 #A4AAB5</BoxShadows>
+                    <BoxShadows x:Key="InactiveSelectionOutlineShadow">none</BoxShadows>
                     <BoxShadows x:Key="PopupShadow">0 8 24 -8 #90000000</BoxShadows>
                     <!-- Semantic interaction tokens. Fluent compatibility resources are bridged at runtime. -->
                     <SolidColorBrush x:Key="InteractionHoverBrush" Color="#2B3038"/>
-                    <SolidColorBrush x:Key="InteractionPressedBrush" Color="#363D48"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#283E61"/>
                     <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="#324C74"/>
                     <SolidColorBrush x:Key="InteractionTextHighlightBrush" Color="#33FFFFFF"/>
                     <!-- Fluent Button template source. -->
                     <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#2B3038"/>
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#363D48"/>
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#2B3038"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundPointerOver" Color="#2B3038"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundPressed" Color="#2B3038"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundSelectedPointerOver" Color="#324C74"/>
+                    <SolidColorBrush x:Key="ListBoxItemBackgroundSelectedPressed" Color="#324C74"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#2B3038"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#2B3038"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#324C74"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#324C74"/>
                     <!-- Fluent input template source. -->
                     <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#2B3038"/>
                     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#8AB4FF"/>
@@ -240,7 +249,7 @@
                     <TransformOperations x:Key="HorizontalSmallScrollThumbScaleTransform">scaleY(0.75) translateY(-1px)</TransformOperations>
                     <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#2B3038"/>
                     <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushFocused" Color="#8AB4FF"/>
-                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#363D48"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#2B3038"/>
                     <SolidColorBrush x:Key="ComboBoxBackgroundUnfocused" Color="#24272D"/>
                     <SolidColorBrush x:Key="ComboBoxForeground" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="ComboBoxForegroundFocused" Color="#ECEEF2"/>
@@ -263,12 +272,11 @@
                     <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPressed" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackground" Color="Transparent"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#2B3038"/>
-                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#363D48"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#2B3038"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="Transparent"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="Transparent"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="Transparent"/>
                     <SolidColorBrush x:Key="ControlHoverBrush" Color="#2B3038"/>
-                    <SolidColorBrush x:Key="ControlPressedBrush" Color="#363D48"/>
                     <SolidColorBrush x:Key="SelectionBrush" Color="#283E61"/>
                     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B8BEC8"/>

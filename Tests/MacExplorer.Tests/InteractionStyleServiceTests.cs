@@ -15,6 +15,8 @@ public sealed class InteractionStyleServiceTests
     public void ColorsAreConfiguredAndAppliedIndependentlyForEachTheme()
     {
         var settings = new MemorySettingsService();
+        settings.Set("interaction.pressed.light", "#FFFFFF");
+        settings.Set("interaction.pressed.dark", "#FFFFFF");
         var service = new InteractionStyleService(settings);
 
         service.Initialize();
@@ -48,6 +50,9 @@ public sealed class InteractionStyleServiceTests
         Dispatcher.UIThread.RunJobs();
         AssertColorResource("InteractionHoverBrush", "#FF123456");
         AssertColorResource("ButtonBackgroundPointerOver", "#FF123456");
+        AssertColorResource("ButtonBackgroundPressed", "#FF123456");
+        AssertColorResource("ListBoxItemBackgroundPressed", "#FF123456");
+        AssertColorResource("ToggleButtonBackgroundPressed", "#FF123456");
         AssertColorResource("TextControlBackgroundPointerOver", "#FF123456");
         AssertColorResource("InteractionSelectedBrush", "#FF112233");
         AssertColorResource("FocusRingBrush", "#FF2463D4");
@@ -55,6 +60,8 @@ public sealed class InteractionStyleServiceTests
         AssertColorResource("ComboBoxBackgroundBorderBrushFocused", "#FF2463D4");
         AssertColorResource("InteractionSelectedHoverBrush", "#FF223344");
         AssertColorResource("ListBoxItemBackgroundSelectedPointerOver", "#FF223344");
+        AssertColorResource("ListBoxItemBackgroundSelectedPressed", "#FF223344");
+        AssertColorResource("ToggleButtonBackgroundCheckedPressed", "#FF223344");
         AssertColorResource("InteractionTextHighlightBrush", "#FF334455");
         AssertColorResource("TextControlSelectionHighlightColor", "#FF334455");
 
@@ -62,6 +69,9 @@ public sealed class InteractionStyleServiceTests
         Dispatcher.UIThread.RunJobs();
         AssertColorResource("InteractionHoverBrush", "#FF654321");
         AssertColorResource("ButtonBackgroundPointerOver", "#FF654321");
+        AssertColorResource("ButtonBackgroundPressed", "#FF654321");
+        AssertColorResource("ListBoxItemBackgroundPressed", "#FF654321");
+        AssertColorResource("ToggleButtonBackgroundPressed", "#FF654321");
         AssertColorResource("TextControlBackgroundPointerOver", "#FF654321");
         AssertColorResource("InteractionSelectedBrush", "#FF445566");
         AssertColorResource("FocusRingBrush", "#FF8AB4FF");
@@ -69,6 +79,8 @@ public sealed class InteractionStyleServiceTests
         AssertColorResource("ComboBoxBackgroundBorderBrushFocused", "#FF8AB4FF");
         AssertColorResource("InteractionSelectedHoverBrush", "#FF556677");
         AssertColorResource("ListBoxItemBackgroundSelectedPointerOver", "#FF556677");
+        AssertColorResource("ListBoxItemBackgroundSelectedPressed", "#FF556677");
+        AssertColorResource("ToggleButtonBackgroundCheckedPressed", "#FF556677");
         AssertColorResource("InteractionTextHighlightBrush", "#FF667788");
         AssertColorResource("TextControlSelectionHighlightColor", "#FF667788");
 
@@ -89,8 +101,8 @@ public sealed class InteractionStyleServiceTests
         var service = new InteractionStyleService(new MemorySettingsService());
         service.Initialize();
 
-        Assert.False(service.TrySetColor(InteractionStyleToken.Pressed, InteractionThemeVariant.Dark, "not-a-color"));
-        Assert.Equal("#363D48", service.GetColor(InteractionStyleToken.Pressed, InteractionThemeVariant.Dark));
+        Assert.False(service.TrySetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark, "not-a-color"));
+        Assert.Equal("#2B3038", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark));
     }
 
     [AvaloniaFact]

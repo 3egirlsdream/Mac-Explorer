@@ -5,7 +5,7 @@ namespace MacExplorer.Models;
 
 public class FileSystemEntry : INotifyPropertyChanged
 {
-    private const int IconDisplayNameMaxLength = 13;
+    private const int IconDisplayNameMaxLength = 28;
 
     private string? _iconUrl;
     private string? _thumbnailUrl;

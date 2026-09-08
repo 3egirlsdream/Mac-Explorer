@@ -103,7 +103,7 @@ public sealed class FileListViewLayoutTests
     }
 
     [AvaloniaFact]
-    public void GridEntryDisplaysTheMiddleAbbreviatedFileName()
+    public void GridEntryUsesTwoLinesBeforeAbbreviatingTheFileName()
     {
         var entry = File("a-very-long-file-name.csproj");
         var view = new FileListView();
@@ -117,7 +117,8 @@ public sealed class FileListViewLayoutTests
 
         var fileName = card.GetVisualDescendants().OfType<TextBlock>()
             .Single(text => text.Classes.Contains("entry-name-text"));
-        Assert.Equal("a-very…csproj", fileName.Text);
+        Assert.Equal(entry.DisplayName, fileName.Text);
+        Assert.Equal(2, fileName.MaxLines);
 
         window.Close();
     }

@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
@@ -8,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Icons = MacExplorer.Assets.Icons;
@@ -76,15 +76,15 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private readonly Dictionary<string, int> _indices = new(StringComparer.Ordinal);
     private readonly Dictionary<string, LinkedListNode<RowText>> _texts = new(StringComparer.Ordinal);
     private readonly LinkedList<RowText> _textLru = new();
-    private readonly Dictionary<(FileListColumn Column, string Value), FormattedText> _cellTexts = [];
+    private readonly Dictionary<(FileListColumn Column, string Value), CachedText> _cellTexts = [];
     private readonly Queue<(FileListColumn Column, string Value)> _cellTextOrder = new();
     private readonly HashSet<FileSystemEntry> _observed = [];
-    private readonly Dictionary<string, FormattedText> _badges = [];
+    private readonly Dictionary<string, CachedText> _badges = [];
     private readonly FastFileListImages _images = new();
     private readonly FastFileListLayout _layout = new();
     private IReadOnlyList<FastFileListGroup> _groups = [];
-    private readonly Dictionary<string, (FormattedText Title, FormattedText Count)> _headerTexts = [];
-    private readonly Dictionary<string, FormattedText> _gridNames = [];
+    private readonly Dictionary<string, (CachedText Title, CachedText Count)> _headerTexts = [];
+    private readonly Dictionary<string, CachedText> _gridNames = [];
     private Dictionary<string, double> _gridNameHeights = [];
     private bool _hasVirtualRows;
     private readonly Geometry _fileFallback = Geometry.Parse(Icons.File);
@@ -163,7 +163,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     {
         _rows = rows;
         _groups = groups;
-        _headerTexts.Clear();
+        ClearHeaderTexts();
         _hasVirtualRows = rows.Any(entry => entry.IsVirtual);
         _indices.Clear();
         for (var i = 0; i < rows.Count; i++) _indices[rows[i].FullPath] = i;
@@ -181,7 +181,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         double? countHeight = null;
         _layout.Build(_rows.Count, _groups, IsGrid, Bounds.Width, _hasVirtualRows,
             IsGrid ? EntryHeight : null, GroupMinHeight + 6);
-        _headerTexts.Clear();
+        ClearHeaderTexts();
 
         double EntryHeight(int index)
         {
@@ -193,8 +193,13 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 _gridNameHeights[name] = height;
             }
             // Keep only compact metrics for this directory; formatted text stays bounded to the viewport cache.
-            return 106 + height + (entry.IsVirtual
-                ? 2 + (countHeight ??= Math.Ceiling(Format("0 张照片", MetaFontSize, Foreground, 100).Height)) : 0);
+            if (entry.IsVirtual && countHeight == null)
+            {
+                var count = Format("0 张照片", MetaFontSize, Foreground, 100);
+                countHeight = Math.Ceiling(count.Height);
+                count.Release();
+            }
+            return 106 + height + (entry.IsVirtual ? 2 + countHeight!.Value : 0);
         }
     }
 
@@ -337,11 +342,15 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     internal Rect GridNameTargetBounds(int index) => NameBounds(index).Inflate(new Thickness(4, 1));
 
-    private FormattedText GridName(FileSystemEntry entry)
+    private CachedText GridName(FileSystemEntry entry)
     {
         var name = entry.IconDisplayName;
         if (_gridNames.TryGetValue(name, out var text)) return text;
-        if (_gridNames.Count >= TextCacheLimit) _gridNames.Clear();
+        if (_gridNames.Count >= TextCacheLimit)
+        {
+            foreach (var cached in _gridNames.Values) cached.Release();
+            _gridNames.Clear();
+        }
         return _gridNames[name] = Format(name, DetailFontSize, Foreground, 92, 2);
     }
 
@@ -408,8 +417,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        _pointerPosition = e.GetPosition(this);
-        ToolTip.SetTip(this, EditingPath == null ? EntryAt(_pointerPosition.Value)?.DisplayName : null);
+        var position = e.GetPosition(this);
+        UpdatePointerPosition(position);
+        ToolTip.SetTip(this, EditingPath == null ? EntryAt(position)?.DisplayName : null);
+    }
+
+    internal void UpdatePointerPosition(Point point)
+    {
+        _pointerPosition = point;
         InvalidateVisual();
     }
     protected override void OnPointerExited(PointerEventArgs e)
@@ -507,15 +522,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
             var label = $"{section.Name} · {section.Count} 项";
             if (!_headerTexts.TryGetValue(label, out var text))
             {
-                if (_headerTexts.Count >= TextCacheLimit) _headerTexts.Clear();
-                var title = Format(section.Name!, DetailFontSize, Foreground, Math.Max(1, Bounds.Width - 28));
-                title.SetFontWeight(FontWeight.SemiBold);
+                if (_headerTexts.Count >= TextCacheLimit) ClearHeaderTexts();
+                var title = Format(section.Name!, DetailFontSize, Foreground, Math.Max(1, Bounds.Width - 28), weight: FontWeight.SemiBold);
                 _headerTexts[label] = text = (title, Format($"· {section.Count} 项", CaptionFontSize, Muted, Math.Max(1, Bounds.Width - 28)));
             }
             var y = section.Top - _offset + 6;
-            context.DrawText(text.Title, new Point(14, y + Math.Round((GroupMinHeight - Math.Ceiling(text.Title.Height)) / 2)));
+            text.Title.Draw(context, new Point(14, y + Math.Round((GroupMinHeight - Math.Ceiling(text.Title.Height)) / 2)));
             var countX = 14 + Math.Ceiling(text.Title.Width) + 6;
-            context.DrawText(text.Count, new Point(countX, y + Math.Round((GroupMinHeight - Math.Ceiling(text.Count.Height)) / 2)));
+            text.Count.Draw(context, new Point(countX, y + Math.Round((GroupMinHeight - Math.Ceiling(text.Count.Height)) / 2)));
             var lineX = countX + Math.Ceiling(text.Count.Width) + 10;
             if (lineX < Bounds.Width - 14)
                 context.DrawRectangle(Divider, null, new Rect(lineX, y + Math.Round((GroupMinHeight - 1) / 2), Bounds.Width - 14 - lineX, 1));
@@ -546,7 +560,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             DrawText(text.Modified, modifiedX);
             DrawText(text.Size, modifiedX + _columns.Modified + _columns.Size - 12 - Math.Ceiling(text.Size.Width));
             DrawText(text.Kind, modifiedX + _columns.Modified + _columns.Size);
-            void DrawText(FormattedText value, double x) => context.DrawText(value,
+            void DrawText(CachedText value, double x) => value.Draw(context,
                 new Point(Math.Round(x), row.Y + Math.Round((RowHeight - Math.Ceiling(value.Height)) / 2)));
         }
         LastRenderedRowCount = end - first;
@@ -570,9 +584,9 @@ public sealed class FastFileList : Control, ILogicalScrollable
         if (entry.FullPath != EditingPath) DrawTarget(GridNameTargetBounds(index), new CornerRadius(4));
         DrawIcon(context, entry, new Rect(row.Center.X - 28, row.Y + 22, 56, 56));
         var text = Texts(entry);
-        if (entry.FullPath != EditingPath) context.DrawText(text.Name, name.Position);
+        if (entry.FullPath != EditingPath) text.Name.Draw(context, name.Position);
         if (entry.IsVirtual)
-            context.DrawText(text.Size, new Point(Math.Round(row.Center.X - Math.Ceiling(text.Size.Width) / 2), name.Bottom + 3));
+            text.Size.Draw(context, new Point(Math.Round(row.Center.X - Math.Ceiling(text.Size.Width) / 2), name.Bottom + 3));
 
         void DrawTarget(Rect target, CornerRadius radius)
         {
@@ -606,9 +620,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
         context.DrawRectangle(Brush.Parse(entry.GitBadgeColor), new Pen(Brushes.White, stroke),
             badge.Deflate(stroke / 2), (badgeSize - stroke) / 2, (badgeSize - stroke) / 2);
         if (!_badges.TryGetValue(entry.GitBadgeText, out var glyph))
-            _badges[entry.GitBadgeText] = glyph = new FormattedText(entry.GitBadgeText, CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight, new Typeface(FontFamily, weight: FontWeight.Bold), IsGrid ? 9 : 6, Brushes.White);
-        context.DrawText(glyph, new Point(Math.Round(badge.Center.X - Math.Ceiling(glyph.Width) / 2), Math.Round(badge.Center.Y - Math.Ceiling(glyph.Height) / 2)));
+            _badges[entry.GitBadgeText] = glyph = Format(entry.GitBadgeText, IsGrid ? 9 : 6, Brushes.White, double.PositiveInfinity, weight: FontWeight.Bold);
+        glyph.Draw(context, new Point(Math.Round(badge.Center.X - Math.Ceiling(glyph.Width) / 2), Math.Round(badge.Center.Y - Math.Ceiling(glyph.Height) / 2)));
     }
 
     private RowText Texts(FileSystemEntry entry)
@@ -623,39 +636,70 @@ public sealed class FastFileList : Control, ILogicalScrollable
             }
             _texts.Remove(entry.FullPath);
             _textLru.Remove(node);
+            node.Value.Release();
         }
         var text = new RowText(entry,
-            IsGrid ? GridName(entry) : Format(entry.DisplayName, FontSize, Foreground, _columns.Name - 16),
-            CellText(FileListColumn.Modified, IsGrid ? "" : entry.ModifiedText, _columns.Modified - 8),
-            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Foreground, 100) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12),
-            CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8));
+            IsGrid ? GridName(entry).Retain() : Format(entry.DisplayName, FontSize, Foreground, _columns.Name - 16),
+            CellText(FileListColumn.Modified, IsGrid ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
+            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Foreground, 100) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
+            CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8).Retain());
         _texts[entry.FullPath] = _textLru.AddFirst(text);
         if (_texts.Count > TextCacheLimit && _textLru.Last is { } last)
         {
             _texts.Remove(last.Value.Entry.FullPath);
             _textLru.RemoveLast();
+            last.Value.Release();
         }
         return text;
     }
-    private FormattedText Format(string value, double size, IBrush? foreground, double width, int lines = 1) => new(
-        value, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(FontFamily, weight: FontWeight), size, foreground)
-    { MaxTextWidth = Math.Max(1, width), MaxLineCount = lines, Trimming = lines > 1 ? TextTrimming.None : TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Left };
-    private FormattedText CellText(FileListColumn column, string value, double width)
+    private CachedText Format(string value, double size, IBrush? foreground, double width, int lines = 1, FontWeight? weight = null)
+        => new(new TextLayout(value, new Typeface(FontFamily, weight: weight ?? FontWeight), size, foreground,
+            textWrapping: lines > 1 ? TextWrapping.Wrap : TextWrapping.NoWrap,
+            textTrimming: lines > 1 ? TextTrimming.None : TextTrimming.CharacterEllipsis,
+            maxWidth: Math.Max(1, width), maxLines: lines));
+    private CachedText CellText(FileListColumn column, string value, double width)
     {
         var key = (column, value);
         if (_cellTexts.TryGetValue(key, out var text)) return text;
         text = Format(value, DetailFontSize, Secondary, width);
-        if (_cellTexts.Count >= TextCacheLimit) _cellTexts.Remove(_cellTextOrder.Dequeue());
+        if (_cellTexts.Count >= TextCacheLimit && _cellTexts.Remove(_cellTextOrder.Dequeue(), out var expired))
+            expired.Release();
         _cellTexts.Add(key, text);
         _cellTextOrder.Enqueue(key);
         return text;
     }
+    private void ClearHeaderTexts()
+    {
+        foreach (var (title, count) in _headerTexts.Values) { title.Release(); count.Release(); }
+        _headerTexts.Clear();
+    }
+
     private void ClearTexts()
     {
-        _texts.Clear(); _textLru.Clear(); _cellTexts.Clear(); _cellTextOrder.Clear(); _badges.Clear(); _headerTexts.Clear(); _gridNames.Clear();
+        foreach (var row in _textLru) row.Release();
+        foreach (var text in _cellTexts.Values) text.Release();
+        foreach (var text in _badges.Values) text.Release();
+        foreach (var text in _gridNames.Values) text.Release();
+        ClearHeaderTexts();
+        _texts.Clear(); _textLru.Clear(); _cellTexts.Clear(); _cellTextOrder.Clear(); _badges.Clear(); _gridNames.Clear();
     }
-    private sealed record RowText(FileSystemEntry Entry, FormattedText Name, FormattedText Modified, FormattedText Size, FormattedText Kind)
+
+    // FormattedText reshapes lines on each DrawText. TextLayout retains the shaped
+    // runs; shared labels stay alive until both the row and value caches release them.
+    private sealed class CachedText(TextLayout layout)
     {
+        private int _references = 1;
+        public double Width => layout.Width;
+        public double WidthIncludingTrailingWhitespace => layout.WidthIncludingTrailingWhitespace;
+        public double Height => layout.Height;
+        public void Draw(DrawingContext context, Point origin) => layout.Draw(context, origin);
+        public CachedText Retain() { _references++; return this; }
+        public void Release() { if (--_references == 0) layout.Dispose(); }
+    }
+
+    private sealed record RowText(FileSystemEntry Entry, CachedText Name, CachedText Modified, CachedText Size, CachedText Kind)
+    {
+        public void Release() { Name.Release(); Modified.Release(); Size.Release(); Kind.Release(); }
         public bool Matches(FileSystemEntry other) => Entry.Name == other.Name && Entry.Size == other.Size
             && Entry.LastModified == other.LastModified && Entry.Extension == other.Extension
             && Entry.IsDirectory == other.IsDirectory && Entry.IconKey == other.IconKey

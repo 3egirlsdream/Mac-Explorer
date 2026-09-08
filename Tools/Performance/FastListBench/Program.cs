@@ -178,9 +178,18 @@ public sealed class BenchApp : Application
             }
             await Task.Delay(16);
         }
-        listener.Dispose();
         var sampleDurations = durations.ToArray();
         var sampleRows = rowCounts.ToArray();
+        list.ScrollToOffset(0);
+        await Task.Delay(100);
+        durations.Clear();
+        for (var frame = 1; frame <= 180; frame++)
+        {
+            list.ScrollToOffset(frame * 3.5);
+            await Task.Delay(16);
+        }
+        var continuousDurations = durations.Order().ToArray();
+        listener.Dispose();
         var checkedRows = 0;
         var blankRows = 0;
         // Separate image checks from timing; every complete visible name row must contain ink.
@@ -223,6 +232,10 @@ public sealed class BenchApp : Application
             renderSamples = sampleDurations.Length,
             renderP50Ms = Percentile(sampleDurations, .50), renderP95Ms = Percentile(sampleDurations, .95),
             renderMaxMs = sampleDurations.LastOrDefault(),
+            continuousRenderSamples = continuousDurations.Length,
+            continuousRenderP50Ms = Percentile(continuousDurations, .50),
+            continuousRenderP95Ms = Percentile(continuousDurations, .95),
+            continuousRenderMaxMs = continuousDurations.LastOrDefault(),
             minVisibleRows = sampleRows.DefaultIfEmpty().Min(), maxVisibleRows = sampleRows.DefaultIfEmpty().Max(),
             refreshCostsMs = refreshCosts, checkedRows, blankRows,
             scope = "Native Avalonia/Skia, synthetic 100k rows and type icons. Render CPU cost and sampled raster checks; excludes disk enumeration, Quick Look and presentation FPS."

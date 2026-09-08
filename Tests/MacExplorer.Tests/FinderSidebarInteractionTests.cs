@@ -46,9 +46,9 @@ public sealed class FinderSidebarInteractionTests
         Assert.NotNull(aiHeader.Background);
         Assert.NotNull(collectionsHeader.Background);
         Assert.NotNull(tagsHeader.Background);
-        Assert.Equal(0, aiChevron.Opacity);
-        Assert.Equal(0, collectionsChevron.Opacity);
-        Assert.Equal(0, tagsChevron.Opacity);
+        Assert.Equal(0.65, aiChevron.Opacity);
+        Assert.Equal(0.65, collectionsChevron.Opacity);
+        Assert.Equal(0.65, tagsChevron.Opacity);
         Assert.Equal(1, addCollectionButton.Opacity);
 
         MoveToEmptyHeaderSpace(window, collectionsHeader);
@@ -56,8 +56,8 @@ public sealed class FinderSidebarInteractionTests
         Assert.True(collectionsHeader.IsPointerOver);
         Assert.Equal(1, collectionsChevron.Opacity);
         Assert.Equal(1, addCollectionButton.Opacity);
-        Assert.Equal(0, aiChevron.Opacity);
-        Assert.Equal(0, tagsChevron.Opacity);
+        Assert.Equal(0.65, aiChevron.Opacity);
+        Assert.Equal(0.65, tagsChevron.Opacity);
 
         window.Close();
     }

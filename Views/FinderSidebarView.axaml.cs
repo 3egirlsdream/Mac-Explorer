@@ -2,6 +2,7 @@ using System;
 using System.Collections.Specialized;
 using System.Linq;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
@@ -204,6 +205,12 @@ public partial class FinderSidebarView : UserControl
     private void UpdateActiveStates()
     {
         if (ViewModel == null) return;
+        var hasCollections = ViewModel.Collections.Count > 0;
+        CollectionsSectionTitle.Text = hasCollections ? "收藏夹" : "添加收藏夹";
+        CollectionsSectionHeader.Margin = new Thickness(0, hasCollections ? 16 : 8, 0, 2);
+        AutomationProperties.SetName(CollectionsSectionHeader, hasCollections ? "展开或收起收藏夹" : "添加收藏夹");
+        CollChevron.IsVisible = hasCollections;
+        TagsSectionHeader.IsVisible = ViewModel.SidebarTags.Count > 0;
         var current = ViewModel.CurrentPath;
         var home = ViewModel.HomeDirectory;
 
@@ -273,7 +280,11 @@ public partial class FinderSidebarView : UserControl
         if (e.Source is Grid header && ViewModel != null)
         {
             if (header == AiSectionHeader) ViewModel.ToggleAiCollapsedCommand.Execute(null);
-            else if (header == CollectionsSectionHeader) ViewModel.ToggleCollectionsCollapsedCommand.Execute(null);
+            else if (header == CollectionsSectionHeader)
+            {
+                if (ViewModel.Collections.Count == 0) StartNewCollection(sender, e);
+                else ViewModel.ToggleCollectionsCollapsedCommand.Execute(null);
+            }
             else if (header == TagsSectionHeader) ViewModel.ToggleTagsCollapsedCommand.Execute(null);
             else return;
             e.Handled = true;
@@ -343,7 +354,8 @@ public partial class FinderSidebarView : UserControl
 
     private void OnToggleCollectionsCollapsed(object? sender, PointerPressedEventArgs e)
     {
-        ViewModel?.ToggleCollectionsCollapsedCommand.Execute(null);
+        if (ViewModel?.Collections.Count == 0) StartNewCollection(sender, e);
+        else ViewModel?.ToggleCollectionsCollapsedCommand.Execute(null);
     }
 
     private void OnToggleTagsCollapsed(object? sender, PointerPressedEventArgs e)

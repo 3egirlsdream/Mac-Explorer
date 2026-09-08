@@ -1674,6 +1674,7 @@ if (!ok) {
         ExpandPreviewIcon.Data = Geometry.Parse(_isPreviewExpanded
             ? MacExplorer.Assets.Icons.CollapsePreview
             : MacExplorer.Assets.Icons.ExpandPreview);
+        PreviewImageArea.MaxHeight = expanded ? double.PositiveInfinity : 220;
         PreviewImageArea.MinHeight = expanded ? Math.Max(360, Bounds.Height - 76) : 160;
         if (notify)
             PreviewExpandedChanged?.Invoke(this, _isPreviewExpanded);

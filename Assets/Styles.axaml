@@ -87,7 +87,7 @@
     </Style>
 
     <Style Selector="Grid.sidebar-section-header PathIcon.sidebar-header-reveal">
-        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="Opacity" Value="0.65"/>
         <Setter Property="IsHitTestVisible" Value="False"/>
     </Style>
 
@@ -335,12 +335,6 @@
         <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
     </Style>
 
-    <Style Selector="ToggleButton.view-mode-toggle:pressed Border.view-mode-toggle-surface">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-    </Style>
-    <Style Selector="ToggleButton.view-mode-toggle:checked:pressed Border.view-mode-toggle-surface">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-    </Style>
 
     <Style Selector="TextBlock.toolbar-popup-header">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
@@ -376,14 +370,11 @@
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
-    <Style Selector="Button.toolbar-popup-item:pressed">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-    </Style>
 
 
 
     <Style Selector="Button.toolbar-btn.dropdown-open">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 
@@ -866,10 +857,10 @@
     </Style>
 
     <Style Selector="Border.home-search-box">
-        <Setter Property="Height" Value="44"/>
+        <Setter Property="Height" Value="48"/>
         <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
-        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
     <Style Selector="Border.home-search-box:pointerover">
@@ -878,6 +869,7 @@
     <Style Selector="Border.home-search-box:focus-within">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource FocusOutlineShadow}"/>
     </Style>
 
     <Style Selector="TextBox.home-search-input">
@@ -1023,9 +1015,6 @@
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
-    <Style Selector="Button.glass-btn:pressed">
-        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-    </Style>
 
     <Style Selector="Button.glass-btn:disabled">
         <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>

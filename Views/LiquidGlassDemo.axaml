@@ -26,9 +26,6 @@
         <Style Selector="Button.glass-btn:pointerover">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
-        <Style Selector="Button.glass-btn:pressed">
-            <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
-        </Style>
         <Style Selector="Button.glass-btn-cancel">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>

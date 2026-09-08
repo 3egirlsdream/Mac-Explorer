@@ -116,6 +116,46 @@ public sealed class FastFileListTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public void ScrollingReusesShapedGlyphsAndThemeChangesReplaceThem(bool grid)
+    {
+        var list = new FastFileList { IsGrid = grid };
+        list.SetRows(Enumerable.Range(0, 50).Select(Entry).ToArray());
+        list.Measure(new Size(900, 280));
+        list.Arrange(new Rect(0, 0, 900, 280));
+        var first = RenderGlyphs();
+        Assert.NotEmpty(first);
+        var range = list.VisibleRange;
+
+        list.Offset = new Vector(0, 1);
+        Assert.Equal(range, list.VisibleRange);
+        var scrolled = RenderGlyphs();
+        Assert.Equal(first.Length, scrolled.Length);
+        for (var i = 0; i < first.Length; i++) Assert.Same(first[i], scrolled[i]);
+
+        list.Foreground = Brushes.Blue;
+        var themed = RenderGlyphs();
+        Assert.Equal(first.Length, themed.Length);
+        for (var i = 0; i < first.Length; i++) Assert.NotSame(first[i], themed[i]);
+
+        GlyphRun[] RenderGlyphs()
+        {
+            var drawing = new DrawingGroup();
+            using (var context = drawing.Open()) list.Render(context);
+            return Glyphs(drawing).ToArray();
+        }
+
+        static IEnumerable<GlyphRun> Glyphs(Drawing drawing)
+        {
+            if (drawing is GlyphRunDrawing glyph) yield return glyph.GlyphRun!;
+            if (drawing is DrawingGroup group)
+                foreach (var child in group.Children)
+                foreach (var run in Glyphs(child)) yield return run;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task HidingRowsOrShowingSkeletonCancelsThumbnailRequests(bool loading)
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

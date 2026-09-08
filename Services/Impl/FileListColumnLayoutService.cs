@@ -94,8 +94,15 @@ internal sealed class FileListColumnLayoutService
         double availableWidth)
     {
         var effective = Clamp(preferred);
-        if (!double.IsFinite(availableWidth) || availableWidth <= 0 || effective.Total <= availableWidth)
+        if (!double.IsFinite(availableWidth) || availableWidth <= 0)
             return effective;
+
+        // The default name column fills the window; an explicitly resized name
+        // keeps its preferred width. Double-clicking its divider restores fill.
+        if (effective.Total <= availableWidth)
+            return preferred.Name == Defaults.Name
+                ? effective.With(FileListColumn.Name, effective.Name + availableWidth - effective.Total)
+                : effective;
 
         var overflow = effective.Total - availableWidth;
         effective = Shrink(effective, FileListColumn.Name, Minimums.Name, ref overflow);
@@ -116,6 +123,8 @@ internal sealed class FileListColumnLayoutService
         if (double.IsFinite(availableWidth) && availableWidth > 0)
         {
             var otherColumns = effective.Total - effective[column];
+            if (column != FileListColumn.Name)
+                otherColumns -= Math.Max(0, effective.Name - Minimums.Name);
             maximum = Math.Min(maximum, Math.Max(minimum, availableWidth - otherColumns));
         }
 

@@ -57,7 +57,6 @@
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
         <Style Selector="Button.title-nav-button:pressed">
-            <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
             <Setter Property="RenderTransform" Value="scale(0.94)"/>
         </Style>
 
@@ -178,9 +177,6 @@
         </Style>
         <Style Selector="Button.tab-close-button:pointerover">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-        <Style Selector="Button.tab-close-button:pressed">
-            <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
         </Style>
         <Style Selector="Button.layout-choice">
             <Setter Property="Height" Value="64"/>

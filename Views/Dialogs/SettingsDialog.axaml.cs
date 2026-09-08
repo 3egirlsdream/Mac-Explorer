@@ -376,7 +376,6 @@ public partial class SettingsDialog : DialogWindow
         try
         {
             UpdateInteractionColorRow(InteractionStyleToken.Hover, InteractionHoverColorPreview, InteractionHoverColorValue, InteractionHoverColorButton);
-            UpdateInteractionColorRow(InteractionStyleToken.Pressed, InteractionPressedColorPreview, InteractionPressedColorValue, InteractionPressedColorButton);
             UpdateInteractionColorRow(InteractionStyleToken.Selected, InteractionSelectedColorPreview, InteractionSelectedColorValue, InteractionSelectedColorButton);
             UpdateInteractionColorRow(InteractionStyleToken.SelectedHover, InteractionSelectedHoverColorPreview, InteractionSelectedHoverColorValue, InteractionSelectedHoverColorButton);
             UpdateInteractionColorRow(InteractionStyleToken.TextHighlight, InteractionTextHighlightColorPreview, InteractionTextHighlightColorValue, InteractionTextHighlightColorButton);
@@ -400,7 +399,6 @@ public partial class SettingsDialog : DialogWindow
     private static string GetInteractionTokenName(InteractionStyleToken token) => token switch
     {
         InteractionStyleToken.Hover => "悬停",
-        InteractionStyleToken.Pressed => "按下",
         InteractionStyleToken.Selected => "选中或已勾选",
         InteractionStyleToken.SelectedHover => "选中时悬停",
         InteractionStyleToken.TextHighlight => "文本高亮",
@@ -416,14 +414,13 @@ public partial class SettingsDialog : DialogWindow
         token = value switch
         {
             "hover" => InteractionStyleToken.Hover,
-            "pressed" => InteractionStyleToken.Pressed,
             "selected" => InteractionStyleToken.Selected,
             "selected-hover" => InteractionStyleToken.SelectedHover,
             "text-highlight" => InteractionStyleToken.TextHighlight,
             _ => default
         };
 
-        return value is "hover" or "pressed" or "selected" or "selected-hover" or "text-highlight";
+        return value is "hover" or "selected" or "selected-hover" or "text-highlight";
     }
 
     private void OnVibrancyChanged(object? sender, RoutedEventArgs e)

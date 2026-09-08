@@ -2605,7 +2605,9 @@ public partial class FileListView : UserControl
             if (rowEntry == null && !HasAdditiveSelectionModifier(_marqueeModifiers))
                 ViewModel.ClearSelection();
             DismissContextMenu();
-            e.Pointer.Capture(this);
+            // Keep the fast list under the pointer while waiting to distinguish
+            // a row-whitespace click from a marquee, so its hover does not flash off.
+            e.Pointer.Capture(FastListActive ? FastList : this);
             e.Handled = true;
         }
         else if (point.Properties.IsRightButtonPressed)
@@ -2623,8 +2625,9 @@ public partial class FileListView : UserControl
     private void OnMarqueePointerMoved(object? sender, PointerEventArgs e)
     {
         if (_marqueeStart == null || ViewModel == null) return;
+        if (FastListActive) FastList.UpdatePointerPosition(e.GetPosition(FastList));
 
-        // The pointer is captured by FileListView from the left-button press.
+        // The file surface captures the pointer from the left-button press.
         // On macOS, subsequent captured PointerMoved events can legitimately
         // arrive without IsLeftButtonPressed set (the native event's button mask
         // is not repeated after capture). Treating that as a release makes a

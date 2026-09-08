@@ -508,7 +508,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         LoadSidebarVisibility();
 
         // Load collapse states from settings
-        IsAiSectionCollapsed = _settingsService?.Get("sidebar_ai_collapsed", false) ?? false;
+        _isAiCollapsed = _settingsService?.Get("sidebar_ai_collapsed", true) ?? true;
         IsCollectionsSectionCollapsed = _settingsService?.Get("sidebar_collections_collapsed", false) ?? false;
         IsTagsSectionCollapsed = _settingsService?.Get("sidebar_tags_collapsed", false) ?? false;
 

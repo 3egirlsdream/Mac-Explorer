@@ -22,11 +22,9 @@ public sealed class InteractionStyleService : IInteractionStyleService
                 "interaction.hover",
                 "InteractionHoverBrush",
                 ["ButtonBackgroundPointerOver", "ComboBoxBackgroundPointerOver", "ComboBoxItemBackgroundPointerOver",
-                    "TextControlBackgroundPointerOver"]),
-            [InteractionStyleToken.Pressed] = new(
-                "interaction.pressed",
-                "InteractionPressedBrush",
-                ["ButtonBackgroundPressed", "ComboBoxBackgroundPressed", "ComboBoxItemBackgroundPressed"]),
+                    "TextControlBackgroundPointerOver", "ButtonBackgroundPressed", "ComboBoxBackgroundPressed",
+                    "ComboBoxItemBackgroundPressed", "ListBoxItemBackgroundPointerOver", "ListBoxItemBackgroundPressed",
+                    "ToggleButtonBackgroundPointerOver", "ToggleButtonBackgroundPressed"]),
             [InteractionStyleToken.Selected] = new(
                 "interaction.selected",
                 "InteractionSelectedBrush",
@@ -34,7 +32,9 @@ public sealed class InteractionStyleService : IInteractionStyleService
             [InteractionStyleToken.SelectedHover] = new(
                 "interaction.selected_hover",
                 "InteractionSelectedHoverBrush",
-                ["ListBoxItemBackgroundSelectedPointerOver", "ComboBoxItemBackgroundSelectedPointerOver"]),
+                ["ListBoxItemBackgroundSelectedPointerOver", "ListBoxItemBackgroundSelectedPressed",
+                    "ComboBoxItemBackgroundSelectedPointerOver", "ComboBoxItemBackgroundSelectedPressed",
+                    "ToggleButtonBackgroundCheckedPointerOver", "ToggleButtonBackgroundCheckedPressed"]),
             [InteractionStyleToken.TextHighlight] = new(
                 "interaction.text_highlight",
                 "InteractionTextHighlightBrush",

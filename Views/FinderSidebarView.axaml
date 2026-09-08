@@ -31,7 +31,7 @@
         <Style Selector="Border.sidebar-item">
             <Setter Property="Focusable" Value="True"/>
         </Style>
-        <Style Selector="Border.sidebar-item:focus-visible">
+        <Style Selector="Border.sidebar-item:focus-visible, Border.sidebar-item.active:focus-visible">
             <Setter Property="BoxShadow" Value="{DynamicResource FocusOutlineShadow}"/>
         </Style>
         <Style Selector="Border.sidebar-item.active PathIcon.sidebar-icon">
@@ -218,7 +218,7 @@
                           x:Name="CollectionsSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起收藏夹"
                           Margin="0,8,0,2"
                           PointerPressed="OnToggleCollectionsCollapsed">
-                        <TextBlock Grid.Column="0" Text="收藏夹"
+                        <TextBlock Grid.Column="0" x:Name="CollectionsSectionTitle" Text="收藏夹"
                                    Classes="sidebar-section-title"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Padding="18,4,0,4"
@@ -481,7 +481,7 @@
                     <!-- ═══ AI 智能 AI ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header rail-secondary"
                           x:Name="AiSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起AI 智能"
-                          Margin="0,8,0,2"
+                          Margin="0,16,0,2"
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="AI 智能"
@@ -568,7 +568,7 @@
                     <!-- ═══ 标签 Tags ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header rail-secondary"
                           x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起标签"
-                          Margin="0,8,0,2"
+                          Margin="0,16,0,2"
                           PointerPressed="OnToggleTagsCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="标签"

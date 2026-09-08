@@ -15,7 +15,7 @@ public sealed class FileListColumnLayoutServiceTests
     }
 
     [Fact]
-    public void WideLayoutKeepsUserPreferencesAndLeavesTrailingSpace()
+    public void WideLayoutKeepsExplicitNameWidth()
     {
         var preferred = new FileListColumnWidths(500, 180, 120, 130);
 
@@ -23,6 +23,33 @@ public sealed class FileListColumnLayoutServiceTests
 
         Assert.Equal(preferred, effective);
         Assert.Equal(930, effective.Total);
+    }
+
+    [Fact]
+    public void DefaultNameFillsWideWindowsAndGivesSpaceBackToPreview()
+    {
+        var preferred = FileListColumnLayoutService.Defaults;
+        var wide = FileListColumnLayoutService.CalculateEffective(preferred, 1300);
+        var preview = FileListColumnLayoutService.CalculateEffective(preferred, 900);
+
+        Assert.Equal(910, wide.Name);
+        Assert.Equal(1300, wide.Total);
+        Assert.Equal(510, preview.Name);
+        Assert.Equal(preferred.Modified, wide.Modified);
+        Assert.Equal(preferred.Size, wide.Size);
+        Assert.Equal(preferred.Type, wide.Type);
+    }
+
+    [Fact]
+    public void MetadataColumnCanGrowByBorrowingSpaceFromName()
+    {
+        var filled = FileListColumnLayoutService.CalculateEffective(FileListColumnLayoutService.Defaults, 1000);
+        var width = FileListColumnLayoutService.ClampInteractiveWidth(FileListColumn.Modified, 220, filled, 1000);
+
+        Assert.Equal(220, width);
+        var resized = FileListColumnLayoutService.CalculateEffective(FileListColumnLayoutService.Defaults.With(FileListColumn.Modified, width), 1000);
+        Assert.Equal(560, resized.Name);
+        Assert.Equal(1000, resized.Total);
     }
 
     [Fact]

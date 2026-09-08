@@ -10,9 +10,9 @@
     <Grid Background="{DynamicResource ColorBgContent}" x:Name="HomeRoot">
         <Grid.ContextMenu><ContextMenu x:Name="HomeCtxMenu"/></Grid.ContextMenu>
         <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                    Spacing="16" Margin="24" MaxWidth="560">
+                    Spacing="20" Margin="24,24,24,80" MaxWidth="560">
             <StackPanel Spacing="6">
-                <TextBlock Text="打开位置或搜索文件" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightMedium}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="打开位置或搜索文件" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="输入路径直接打开，或搜索索引中的文件。⌘K 打开全局搜索。" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
             </StackPanel>
             <Grid>

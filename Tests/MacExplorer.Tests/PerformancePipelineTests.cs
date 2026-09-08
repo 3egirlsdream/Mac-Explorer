@@ -15,9 +15,14 @@ public sealed class PerformancePipelineTests
             Name = "a-very-long-file-name.csproj"
         };
 
-        Assert.Equal("a-very…csproj", entry.IconDisplayName);
+        Assert.Equal(entry.Name, entry.IconDisplayName);
         Assert.Equal("a-very-long-file-name.csproj", entry.DisplayName);
         Assert.Equal("a-very-long-file-name.csproj", entry.Name);
+
+        entry = new FileSystemEntry { Name = "a-much-longer-file-name-with-a-distinct-ending.csproj" };
+        Assert.StartsWith("a-much-longer", entry.IconDisplayName);
+        Assert.EndsWith("csproj", entry.IconDisplayName);
+        Assert.Contains("…", entry.IconDisplayName);
     }
 
     [Fact]

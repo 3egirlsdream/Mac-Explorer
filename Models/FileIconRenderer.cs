@@ -66,7 +66,7 @@ public static class FileIconRenderer
 
     static string Doc(string tint = "#E8ECF0") =>
         $@"<rect x=""3"" y=""3"" width=""28"" height=""28"" rx=""5"" fill=""#000"" opacity=""0.04""/>" +
-        $@"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""5"" fill=""#FAFBFC""/>" +
+        $@"<rect x=""2"" y=""2"" width=""28"" height=""28"" rx=""5"" fill=""#FAFBFC"" stroke=""#CAD2DC"" stroke-width=""0.65""/>" +
         $@"<path d=""M22 2h3c2.76 0 5 2.24 5 5v0h-5c-1.66 0-3-1.34-3-3V2z"" fill=""{tint}""/>";
 
     static string Card(string fill, string tint) =>
@@ -102,7 +102,7 @@ public static class FileIconRenderer
     // ── Icon types ──
 
     static string GenericFile() =>
-        Doc() + TextLines(8, 12, 16, 4, "#94A3B8", 0.2);
+        Doc("#D5DCE5") + TextLines(8, 12, 16, 4, "#8492A6", 0.65);
 
     static string TextFile(string ext) =>
         Doc("#CBD5E1") +

@@ -23,7 +23,8 @@
 
         <Style Selector="TabControl.settings-shell > TabItem">
             <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="MinWidth" Value="138"/>
+            <Setter Property="MinWidth" Value="146"/>
+            <Setter Property="Margin" Value="0,0,20,0"/>
             <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
             <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
@@ -64,7 +65,7 @@
 
         <Style Selector="StackPanel.settings-page">
             <Setter Property="MaxWidth" Value="560"/>
-            <Setter Property="Margin" Value="34,0,0,14"/>
+            <Setter Property="Margin" Value="24,0,0,16"/>
             <Setter Property="Spacing" Value="20"/>
         </Style>
 
@@ -79,7 +80,7 @@
             <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
             <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-            <Setter Property="Margin" Value="4,0,0,8"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
         <Style Selector="Border.settings-group">
@@ -93,7 +94,7 @@
         <Style Selector="Border.settings-row">
             <Setter Property="Padding" Value="16,12"/>
             <Setter Property="MinHeight" Value="{DynamicResource TypographySettingsRowMinHeight}"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+            <Setter Property="CornerRadius" Value="0"/>
         </Style>
 
         <Style Selector="Border.settings-row.settings-divider">
@@ -565,7 +566,7 @@
                                                 <TextBlock Classes="settings-label" Text="交互状态颜色"/>
                                                 <TextBlock Classes="settings-description" Text="选择状态后从调色盘取色，应用于按钮、列表、菜单、标签页和输入控件。"/>
                                             </StackPanel>
-                                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
                                                 <Button x:Name="InteractionHoverColorButton" Classes="interaction-token-row" Tag="hover" Click="OnInteractionTokenSelected">
                                                     <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
                                                         <Border x:Name="InteractionHoverColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
@@ -573,28 +574,21 @@
                                                         <TextBlock Grid.Column="2" x:Name="InteractionHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     </Grid>
                                                 </Button>
-                                                <Button Grid.Column="1" x:Name="InteractionPressedColorButton" Classes="interaction-token-row" Tag="pressed" Click="OnInteractionTokenSelected">
-                                                    <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
-                                                        <Border x:Name="InteractionPressedColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="按下" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
-                                                        <TextBlock Grid.Column="2" x:Name="InteractionPressedColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </Grid>
-                                                </Button>
-                                                <Button Grid.Row="1" x:Name="InteractionSelectedColorButton" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
+                                                <Button Grid.Column="1" x:Name="InteractionSelectedColorButton" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
                                                     <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
                                                         <Border x:Name="InteractionSelectedColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="选中或已勾选" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                         <TextBlock Grid.Column="2" x:Name="InteractionSelectedColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     </Grid>
                                                 </Button>
-                                                <Button Grid.Row="1" Grid.Column="1" x:Name="InteractionSelectedHoverColorButton" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
+                                                <Button Grid.Row="1" x:Name="InteractionSelectedHoverColorButton" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
                                                     <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
                                                         <Border x:Name="InteractionSelectedHoverColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="选中时悬停" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                         <TextBlock Grid.Column="2" x:Name="InteractionSelectedHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     </Grid>
                                                 </Button>
-                                                <Button Grid.Row="2" Grid.ColumnSpan="2" x:Name="InteractionTextHighlightColorButton" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
+                                                <Button Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorButton" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
                                                     <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
                                                         <Border x:Name="InteractionTextHighlightColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="文本高亮" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
