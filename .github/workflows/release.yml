@@ -234,7 +234,6 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "Mac Explorer ${TAG}" \
             --generate-notes \
-            --fail-on-no-commits \
             --latest
 
           release_json=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets)
