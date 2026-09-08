@@ -165,7 +165,7 @@ jobs:
 
       - name: Run tests
         shell: bash
-        run: dotnet test "$TEST_PROJECT" -c Release --no-restore
+        run: dotnet test "$TEST_PROJECT" -c Release --no-restore -p:SkipMacOSReleaseDMG=true
 
       - name: Publish application
         shell: bash
