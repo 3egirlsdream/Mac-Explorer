@@ -1,2499 +1,1093 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN" data-theme="light">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Explorer - 更顺手的 macOS 文件管理器</title>
-    <meta name="description" content="Mac Explorer 是为 macOS 打造的现代文件管理器。它把浏览、搜索、AI 图片理解、SFTP、压缩解压、Git 状态和 Quick Look 放进一个优雅高效的工作台。">
-    <meta name="keywords" content="Mac Explorer, macOS 文件管理器, Finder 增强, 文件搜索, SFTP, Git 状态, Quick Look, Avalonia">
-    <meta property="og:title" content="Mac Explorer - 更顺手的 macOS 文件管理器">
-    <meta property="og:description" content="一个把本地文件、远程目录、AI 搜索和批量操作放在一起的现代 macOS 文件管理器。">
-    <meta property="og:type" content="website">
-    <meta name="theme-color" content="#f6f7fb">
-    <link rel="icon" href="Assets/appicon.svg" type="image/svg+xml">
-    <script>document.documentElement.classList.add("js");</script>
-    <style>
-        :root {
-            color-scheme: light;
-            --blue: #3b82f6;
-            --blue-strong: #2563eb;
-            --blue-soft: rgba(59, 130, 246, 0.12);
-            --green: #2f9e64;
-            --amber: #d99000;
-            --orange: #f97316;
-            --red: #e5484d;
-            --ink: #12151c;
-            --ink-2: #303642;
-            --muted: #626b79;
-            --soft: #8b94a3;
-            --line: rgba(18, 21, 28, 0.11);
-            --line-soft: rgba(18, 21, 28, 0.07);
-            --page: #f5f6f9;
-            --page-2: #ffffff;
-            --panel: rgba(255, 255, 255, 0.78);
-            --panel-solid: #ffffff;
-            --panel-muted: #eef1f6;
-            --glass: rgba(255, 255, 255, 0.68);
-            --shadow-sm: 0 1px 2px rgba(18, 21, 28, 0.04), 0 1px 8px rgba(18, 21, 28, 0.04);
-            --shadow-md: 0 18px 44px rgba(42, 51, 66, 0.10);
-            --shadow-lg: 0 30px 80px rgba(30, 41, 59, 0.16);
-            --radius-xs: 6px;
-            --radius-sm: 8px;
-            --radius-md: 14px;
-            --radius-lg: 18px;
-            --radius-xl: 24px;
-            --ease: cubic-bezier(0.16, 1, 0.3, 1);
-            --wrap: min(1180px, calc(100vw - 40px));
-        }
-
-        html[data-theme="dark"] {
-            color-scheme: dark;
-            --blue: #6aa7ff;
-            --blue-strong: #8ab9ff;
-            --blue-soft: rgba(106, 167, 255, 0.16);
-            --green: #58d68d;
-            --amber: #f4bd4a;
-            --orange: #ff9a5c;
-            --red: #ff7378;
-            --ink: #f7f8fb;
-            --ink-2: #d5dae4;
-            --muted: #a6afbe;
-            --soft: #798393;
-            --line: rgba(255, 255, 255, 0.14);
-            --line-soft: rgba(255, 255, 255, 0.09);
-            --page: #111318;
-            --page-2: #181b22;
-            --panel: rgba(29, 32, 39, 0.76);
-            --panel-solid: #1f232b;
-            --panel-muted: #262b35;
-            --glass: rgba(29, 32, 39, 0.66);
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18), 0 1px 8px rgba(0, 0, 0, 0.12);
-            --shadow-md: 0 18px 44px rgba(0, 0, 0, 0.28);
-            --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.42);
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-            -webkit-font-smoothing: antialiased;
-            text-rendering: geometricPrecision;
-        }
-
-        body {
-            margin: 0;
-            font-family: Aptos, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-            font-size: 17px;
-            line-height: 1.65;
-            color: var(--ink);
-            background:
-                radial-gradient(circle at 18% 8%, rgba(59, 130, 246, 0.13), transparent 26rem),
-                radial-gradient(circle at 88% 10%, rgba(47, 158, 100, 0.10), transparent 25rem),
-                linear-gradient(180deg, var(--page), var(--page-2) 44rem, var(--page));
-            overflow-x: hidden;
-            text-wrap: pretty;
-        }
-
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            opacity: 0.58;
-            background-image:
-                linear-gradient(rgba(128, 143, 166, 0.08) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(128, 143, 166, 0.08) 1px, transparent 1px);
-            background-size: 48px 48px;
-            mask-image: linear-gradient(180deg, black 0, transparent 44rem);
-        }
-
-        ::selection {
-            background: var(--blue-soft);
-        }
-
-        a {
-            color: inherit;
-        }
-
-        .progress {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 80;
-            width: 100%;
-            height: 2px;
-            transform-origin: left;
-            transform: scaleX(0);
-            background: var(--blue);
-        }
-
-        .nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 70;
-            border-bottom: 1px solid var(--line-soft);
-            background: color-mix(in srgb, var(--page) 78%, transparent);
-            backdrop-filter: saturate(180%) blur(24px);
-            -webkit-backdrop-filter: saturate(180%) blur(24px);
-        }
-
-        .nav-inner {
-            width: var(--wrap);
-            height: 64px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 18px;
-        }
-
-        .brand {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            font-weight: 720;
-            letter-spacing: 0;
-            white-space: nowrap;
-        }
-
-        .brand-mark {
-            width: 32px;
-            height: 32px;
-            border-radius: 9px;
-            display: grid;
-            place-items: center;
-            overflow: hidden;
-            background: var(--panel-solid);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .brand-mark img {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 24px;
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-
-        .nav-links a {
-            color: var(--muted);
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 620;
-            transition: color 160ms ease;
-        }
-
-        .nav-links a:hover,
-        .nav-links a.is-active {
-            color: var(--ink);
-        }
-
-        .nav-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .icon-button,
-        .button {
-            border: 1px solid var(--line);
-            border-radius: var(--radius-sm);
-            min-height: 40px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            color: var(--ink);
-            background: var(--glass);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            box-shadow: var(--shadow-sm);
-            text-decoration: none;
-            font: inherit;
-            font-size: 14px;
-            font-weight: 690;
-            cursor: pointer;
-            transition: transform 160ms var(--ease), border-color 160ms ease, background 160ms ease, color 160ms ease;
-        }
-
-        .icon-button {
-            width: 40px;
-            padding: 0;
-        }
-
-        .button {
-            padding: 0 16px;
-        }
-
-        .button.primary {
-            color: #fff;
-            background: linear-gradient(180deg, var(--blue), var(--blue-strong));
-            border-color: color-mix(in srgb, var(--blue) 78%, black);
-            box-shadow: 0 12px 28px rgba(59, 130, 246, 0.24);
-        }
-
-        .button:hover,
-        .icon-button:hover {
-            transform: translateY(-1px);
-            border-color: color-mix(in srgb, var(--blue) 38%, var(--line));
-        }
-
-        .button:active,
-        .icon-button:active {
-            transform: translateY(0);
-        }
-
-        .theme-symbol {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: var(--ink);
-            box-shadow: inset -5px -4px 0 var(--page);
-        }
-
-        main {
-            position: relative;
-            z-index: 1;
-        }
-
-        .hero {
-            width: min(1380px, calc(100vw - 40px));
-            margin: 0 auto;
-            padding: 116px 0 68px;
-            display: grid;
-            grid-template-columns: minmax(390px, 0.72fr) minmax(680px, 1.28fr);
-            align-items: center;
-            gap: clamp(28px, 3vw, 54px);
-        }
-
-        .eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 9px;
-            margin-bottom: 22px;
-            padding: 7px 11px;
-            border: 1px solid var(--line);
-            border-radius: 999px;
-            color: var(--muted);
-            background: var(--glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--green);
-            box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 14%, transparent);
-        }
-
-        h1,
-        h2,
-        h3,
-        p {
-            margin: 0;
-        }
-
-        h1 {
-            max-width: 720px;
-            font-size: clamp(44px, 5.3vw, 66px);
-            line-height: 0.94;
-            letter-spacing: 0;
-            font-weight: 820;
-        }
-
-        h1 .line {
-            display: block;
-            white-space: nowrap;
-        }
-
-        .hero-lede {
-            max-width: 610px;
-            margin-top: 28px;
-            color: var(--muted);
-            font-size: clamp(18px, 2vw, 22px);
-            line-height: 1.65;
-        }
-
-        .hero-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 34px;
-        }
-
-        .hero-notes {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .note {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            color: var(--soft);
-            font-size: 13px;
-            font-weight: 650;
-        }
-
-        .note::before {
-            content: "";
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .hero-visual {
-            position: relative;
-            min-width: 0;
-        }
-
-        .app-window {
-            position: relative;
-            overflow: hidden;
-            border: 1px solid var(--line);
-            border-radius: 24px;
-            background: var(--panel);
-            backdrop-filter: saturate(165%) blur(26px);
-            -webkit-backdrop-filter: saturate(165%) blur(26px);
-            box-shadow: var(--shadow-lg);
-            aspect-ratio: 1.45;
-        }
-
-        .app-window::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), transparent 36%);
-            z-index: 5;
-        }
-
-        .chrome {
-            height: 44px;
-            display: grid;
-            grid-template-columns: 240px 1fr 220px;
-            align-items: center;
-            gap: 10px;
-            padding: 0 14px;
-            border-bottom: 1px solid var(--line-soft);
-        }
-
-        .traffic {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .traffic span {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
-        .traffic span:nth-child(1) { background: #ff5f57; }
-        .traffic span:nth-child(2) { background: #febc2e; }
-        .traffic span:nth-child(3) { background: #28c840; }
-
-        .pathbar {
-            justify-self: center;
-            width: min(430px, 100%);
-            height: 28px;
-            border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            color: var(--muted);
-            background: color-mix(in srgb, var(--panel-solid) 56%, transparent);
-            font-size: 12px;
-            font-weight: 690;
-        }
-
-        .search-pill {
-            justify-self: end;
-            width: min(198px, 100%);
-            height: 28px;
-            border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            color: var(--soft);
-            background: color-mix(in srgb, var(--panel-solid) 48%, transparent);
-            display: flex;
-            align-items: center;
-            padding: 0 10px;
-            font-size: 12px;
-        }
-
-        .app-body {
-            height: calc(100% - 44px);
-            display: grid;
-            grid-template-columns: 210px 1fr 186px;
-        }
-
-        .sidebar,
-        .inspector {
-            padding: 16px 14px;
-            background: color-mix(in srgb, var(--panel-muted) 44%, transparent);
-        }
-
-        .sidebar {
-            border-right: 1px solid var(--line-soft);
-        }
-
-        .inspector {
-            border-left: 1px solid var(--line-soft);
-        }
-
-        .side-title,
-        .mini-label {
-            color: var(--soft);
-            font-size: 11px;
-            font-weight: 760;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .side-list {
-            display: grid;
-            gap: 5px;
-            margin-top: 10px;
-        }
-
-        .side-item {
-            height: 30px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            padding: 0 9px;
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 680;
-        }
-
-        .side-item.active {
-            color: var(--ink);
-            background: var(--blue-soft);
-        }
-
-        .mini-icon {
-            width: 16px;
-            height: 13px;
-            border-radius: 4px 4px 3px 3px;
-            background: currentColor;
-            opacity: 0.52;
-            position: relative;
-        }
-
-        .mini-icon::before {
-            content: "";
-            position: absolute;
-            top: -3px;
-            left: 2px;
-            width: 8px;
-            height: 4px;
-            border-radius: 3px 3px 0 0;
-            background: currentColor;
-        }
-
-        .file-area {
-            padding: 14px;
-            background: color-mix(in srgb, var(--panel-solid) 72%, transparent);
-            min-width: 0;
-        }
-
-        .toolbar-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            height: 34px;
-        }
-
-        .segmented {
-            display: flex;
-            gap: 3px;
-            padding: 3px;
-            border: 1px solid var(--line-soft);
-            border-radius: 9px;
-            background: color-mix(in srgb, var(--panel-muted) 60%, transparent);
-        }
-
-        .segmented span {
-            width: 28px;
-            height: 24px;
-            border-radius: 7px;
-            display: grid;
-            place-items: center;
-            color: var(--muted);
-            font-size: 11px;
-            font-weight: 800;
-        }
-
-        .segmented span.active {
-            color: var(--ink);
-            background: var(--panel-solid);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .file-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
-            margin-top: 14px;
-        }
-
-        .file-card {
-            min-width: 0;
-            border: 1px solid transparent;
-            border-radius: 12px;
-            padding: 10px 8px;
-            display: grid;
-            place-items: center;
-            gap: 7px;
-            color: var(--muted);
-            background: transparent;
-        }
-
-        .file-card.active,
-        .file-card:hover {
-            border-color: color-mix(in srgb, var(--blue) 36%, transparent);
-            background: var(--blue-soft);
-        }
-
-        .file-icon {
-            position: relative;
-            width: 44px;
-            height: 36px;
-            border-radius: 8px;
-            background: linear-gradient(180deg, #8fc2ff, #4f8fea);
-            box-shadow: inset 0 -8px 14px rgba(0, 0, 0, 0.08);
-        }
-
-        .file-icon.doc {
-            border-radius: 8px 8px 10px 10px;
-            background: linear-gradient(180deg, #f7fafc, #dbe5f1);
-        }
-
-        .file-icon.photo {
-            background: linear-gradient(135deg, #78d3b2, #3b82f6);
-        }
-
-        .git-badge {
-            position: absolute;
-            right: -4px;
-            bottom: -4px;
-            width: 16px;
-            height: 16px;
-            border: 2px solid var(--panel-solid);
-            border-radius: 50%;
-            background: var(--orange);
-        }
-
-        .git-badge.green {
-            background: var(--green);
-        }
-
-        .file-name {
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-size: 11px;
-            font-weight: 680;
-            color: var(--ink-2);
-        }
-
-        .task-float {
-            position: absolute;
-            left: 242px;
-            bottom: 16px;
-            width: 260px;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            background: color-mix(in srgb, var(--panel-solid) 80%, transparent);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            box-shadow: var(--shadow-md);
-            padding: 12px;
-            display: grid;
-            gap: 8px;
-            z-index: 6;
-        }
-
-        .task-title {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            color: var(--ink);
-            font-size: 12px;
-            font-weight: 760;
-        }
-
-        .task-title span:last-child {
-            color: var(--muted);
-        }
-
-        .bar {
-            height: 6px;
-            border-radius: 999px;
-            background: color-mix(in srgb, var(--blue) 14%, var(--panel-muted));
-            overflow: hidden;
-        }
-
-        .bar span {
-            display: block;
-            width: 72%;
-            height: 100%;
-            border-radius: inherit;
-            background: var(--blue);
-        }
-
-        .preview-tile {
-            margin-top: 12px;
-            border: 1px solid var(--line-soft);
-            border-radius: 14px;
-            overflow: hidden;
-            background: var(--panel-solid);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .preview-image {
-            height: 116px;
-            background:
-                linear-gradient(140deg, rgba(59, 130, 246, 0.68), transparent 55%),
-                linear-gradient(40deg, rgba(47, 158, 100, 0.72), rgba(244, 189, 74, 0.74));
-        }
-
-        .meta-list {
-            display: grid;
-            gap: 9px;
-            margin-top: 14px;
-        }
-
-        .meta {
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-            color: var(--muted);
-            font-size: 11px;
-            font-weight: 640;
-        }
-
-        .stars {
-            color: var(--amber);
-            letter-spacing: 1px;
-        }
-
-        .floating-card {
-            position: absolute;
-            right: -18px;
-            bottom: -28px;
-            width: 300px;
-            border: 1px solid var(--line);
-            border-radius: 18px;
-            background: var(--glass);
-            backdrop-filter: blur(22px) saturate(165%);
-            -webkit-backdrop-filter: blur(22px) saturate(165%);
-            box-shadow: var(--shadow-md);
-            padding: 16px;
-        }
-
-        .floating-card strong {
-            display: block;
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
-
-        .tag-cloud {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-        }
-
-        .tag {
-            padding: 5px 8px;
-            border-radius: 999px;
-            color: var(--muted);
-            background: color-mix(in srgb, var(--panel-solid) 62%, transparent);
-            border: 1px solid var(--line-soft);
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .tag.hot {
-            color: var(--blue-strong);
-            background: var(--blue-soft);
-        }
-
-        .showcase-stage {
-            position: relative;
-            min-width: 680px;
-            height: 590px;
-            isolation: isolate;
-        }
-
-        .showcase-window {
-            position: absolute;
-            z-index: 2;
-            top: 104px;
-            left: 50%;
-            width: 72%;
-            height: 382px;
-            overflow: hidden;
-            transform: translateX(-50%);
-            border: 1px solid color-mix(in srgb, var(--line) 92%, var(--blue));
-            border-radius: 15px;
-            background: color-mix(in srgb, var(--panel-solid) 94%, transparent);
-            box-shadow:
-                0 28px 70px rgba(44, 65, 98, 0.17),
-                0 4px 16px rgba(44, 65, 98, 0.08);
-        }
-
-        .showcase-window::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            border-radius: inherit;
-            box-shadow: inset 0 1px rgba(255, 255, 255, 0.8);
-        }
-
-        .showcase-titlebar {
-            height: 36px;
-            display: grid;
-            grid-template-columns: 76px 1fr 118px;
-            align-items: center;
-            gap: 8px;
-            padding: 0 11px;
-            border-bottom: 1px solid var(--line-soft);
-            background: color-mix(in srgb, var(--panel-solid) 82%, var(--panel-muted));
-        }
-
-        .showcase-traffic {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .showcase-traffic span {
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-        }
-
-        .showcase-traffic span:nth-child(1) { background: #ff5f57; }
-        .showcase-traffic span:nth-child(2) { background: #febc2e; }
-        .showcase-traffic span:nth-child(3) { background: #28c840; }
-
-        .showcase-path {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 0;
-            height: 24px;
-            border: 1px solid var(--line-soft);
-            border-radius: 7px;
-            color: var(--muted);
-            background: color-mix(in srgb, var(--panel-solid) 76%, transparent);
-            font-size: 9px;
-            font-weight: 680;
-            white-space: nowrap;
-        }
-
-        .showcase-search {
-            display: flex;
-            align-items: center;
-            height: 24px;
-            padding: 0 8px;
-            border: 1px solid var(--line-soft);
-            border-radius: 7px;
-            color: var(--soft);
-            font-size: 9px;
-        }
-
-        .showcase-body {
-            display: grid;
-            grid-template-columns: 114px 1fr;
-            height: calc(100% - 36px);
-        }
-
-        .showcase-sidebar {
-            padding: 13px 9px;
-            border-right: 1px solid var(--line-soft);
-            background: color-mix(in srgb, var(--panel-muted) 48%, transparent);
-        }
-
-        .showcase-group + .showcase-group {
-            margin-top: 13px;
-        }
-
-        .showcase-group-title {
-            margin: 0 7px 5px;
-            color: var(--soft);
-            font-size: 8px;
-            font-weight: 760;
-        }
-
-        .showcase-side-row {
-            height: 23px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 0 7px;
-            border-radius: 6px;
-            color: var(--muted);
-            font-size: 8.5px;
-            font-weight: 650;
-        }
-
-        .showcase-side-row.active {
-            color: var(--ink);
-            background: color-mix(in srgb, var(--blue) 11%, transparent);
-        }
-
-        .showcase-side-icon {
-            width: 12px;
-            height: 9px;
-            flex: 0 0 auto;
-            border: 1.5px solid currentColor;
-            border-radius: 3px;
-            color: var(--blue);
-            opacity: 0.82;
-        }
-
-        .showcase-side-row.remote .showcase-side-icon {
-            color: #12a59e;
-            border-radius: 5px;
-        }
-
-        .showcase-files {
-            position: relative;
-            min-width: 0;
-            padding: 9px 12px 20px;
-            background: color-mix(in srgb, var(--panel-solid) 90%, transparent);
-        }
-
-        .showcase-toolbar {
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-bottom: 7px;
-            border-bottom: 1px solid var(--line-soft);
-            color: var(--muted);
-            font-size: 9px;
-            font-weight: 680;
-        }
-
-        .showcase-tools,
-        .showcase-view-tools {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .showcase-tool {
-            min-width: 20px;
-            height: 19px;
-            display: grid;
-            place-items: center;
-            padding: 0 4px;
-            border: 1px solid transparent;
-            border-radius: 5px;
-            color: var(--muted);
-            background: color-mix(in srgb, var(--panel-muted) 56%, transparent);
-            font-size: 8px;
-        }
-
-        .showcase-tool.wide {
-            min-width: 36px;
-        }
-
-        .showcase-grid {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            column-gap: 7px;
-            row-gap: 11px;
-            margin-top: 13px;
-        }
-
-        .showcase-file {
-            min-width: 0;
-            display: grid;
-            justify-items: center;
-            gap: 5px;
-            color: var(--ink-2);
-            font-size: 7.5px;
-            font-weight: 650;
-            text-align: center;
-        }
-
-        .showcase-file > span:last-child {
-            width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .folder-icon {
-            position: relative;
-            width: 34px;
-            height: 25px;
-            border-radius: 4px 5px 5px 5px;
-            background: linear-gradient(180deg, #ffc928, #f6b900);
-            box-shadow: inset 0 -5px 8px rgba(179, 116, 0, 0.08);
-        }
-
-        .folder-icon::before {
-            content: "";
-            position: absolute;
-            top: -4px;
-            left: 2px;
-            width: 15px;
-            height: 7px;
-            border-radius: 4px 4px 0 0;
-            background: #ffc928;
-        }
-
-        .doc-icon {
-            position: relative;
-            width: 27px;
-            height: 32px;
-            display: grid;
-            place-items: center;
-            border: 1px solid var(--line-soft);
-            border-radius: 4px 4px 6px 6px;
-            color: var(--blue-strong);
-            background: linear-gradient(180deg, #fff, #edf2f8);
-            font-size: 7px;
-            font-weight: 850;
-        }
-
-        .doc-icon.code {
-            color: #0b9b68;
-            background: linear-gradient(180deg, #effcf6, #d8f3e7);
-        }
-
-        .file-state {
-            position: absolute;
-            right: -4px;
-            bottom: -4px;
-            width: 12px;
-            height: 12px;
-            display: grid;
-            place-items: center;
-            border: 1.5px solid #fff;
-            border-radius: 50%;
-            color: #fff;
-            background: #18b866;
-            font-size: 7px;
-            line-height: 1;
-        }
-
-        .file-state.modified {
-            background: #f0aa16;
-        }
-
-        .showcase-status {
-            position: absolute;
-            right: 13px;
-            bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            color: #18a95d;
-            font-size: 8px;
-            font-weight: 760;
-        }
-
-        .showcase-status::before {
-            content: "";
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .spotlight {
-            --spot: var(--blue);
-            position: absolute;
-            z-index: 4;
-            width: 184px;
-            overflow: hidden;
-            border: 1px solid color-mix(in srgb, var(--spot) 18%, var(--line));
-            border-radius: 15px;
-            background: color-mix(in srgb, var(--panel-solid) 88%, transparent);
-            backdrop-filter: blur(20px) saturate(150%);
-            -webkit-backdrop-filter: blur(20px) saturate(150%);
-            box-shadow:
-                0 18px 36px rgba(44, 65, 98, 0.12),
-                0 2px 8px rgba(44, 65, 98, 0.05);
-            padding: 13px;
-        }
-
-        .spotlight::after {
-            content: "";
-            position: absolute;
-            width: 54px;
-            border-top: 1px dashed color-mix(in srgb, var(--spot) 72%, transparent);
-            pointer-events: none;
-        }
-
-        .spotlight-git {
-            --spot: #7657e8;
-            top: 9px;
-            left: 0;
-            height: 190px;
-        }
-
-        .spotlight-git::after {
-            right: -54px;
-            bottom: 39px;
-        }
-
-        .spotlight-remote {
-            --spot: #12a59e;
-            left: 0;
-            bottom: 0;
-            height: 218px;
-        }
-
-        .spotlight-remote::after {
-            right: -54px;
-            top: 65px;
-        }
-
-        .spotlight-ai {
-            --spot: #2583f7;
-            top: 9px;
-            right: 0;
-            height: 204px;
-        }
-
-        .spotlight-ai::after {
-            left: -54px;
-            bottom: 51px;
-        }
-
-        .spotlight-search-card {
-            --spot: #f47c20;
-            right: 0;
-            bottom: 0;
-            height: 226px;
-        }
-
-        .spotlight-search-card::after {
-            left: -54px;
-            top: 58px;
-        }
-
-        .spotlight h3 {
-            margin: 0;
-            color: var(--spot);
-            font-size: 15px;
-            line-height: 1.2;
-        }
-
-        .spotlight > p {
-            margin-top: 4px;
-            color: var(--muted);
-            font-size: 9px;
-            line-height: 1.35;
-        }
-
-        .spotlight-ui {
-            margin-top: 10px;
-            border: 1px solid var(--line-soft);
-            border-radius: 9px;
-            background: color-mix(in srgb, var(--panel-solid) 92%, var(--panel-muted));
-            box-shadow: var(--shadow-sm);
-        }
-
-        .git-status-list {
-            display: grid;
-            gap: 7px;
-            padding: 10px;
-        }
-
-        .git-status-row {
-            display: grid;
-            grid-template-columns: 15px 1fr;
-            align-items: center;
-            gap: 7px;
-            color: var(--ink-2);
-            font-size: 8.5px;
-            font-weight: 680;
-        }
-
-        .git-dot {
-            width: 14px;
-            height: 14px;
-            display: grid;
-            place-items: center;
-            border-radius: 50%;
-            color: #fff;
-            background: #1ab865;
-            font-size: 7px;
-        }
-
-        .git-dot.modified {
-            background: #e7a719;
-        }
-
-        .remote-panel {
-            padding: 8px;
-        }
-
-        .saved-server {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            margin-bottom: 7px;
-            padding: 6px;
-            border-radius: 6px;
-            color: var(--ink-2);
-            background: color-mix(in srgb, var(--panel-muted) 68%, transparent);
-            font-size: 8px;
-            font-weight: 720;
-        }
-
-        .server-signal {
-            width: 15px;
-            height: 15px;
-            display: grid;
-            place-items: center;
-            color: var(--spot);
-            font-size: 10px;
-        }
-
-        .server-meta {
-            display: grid;
-            gap: 1px;
-        }
-
-        .server-meta small {
-            color: var(--soft);
-            font-size: 6.5px;
-            font-weight: 600;
-        }
-
-        .remote-input {
-            height: 24px;
-            display: flex;
-            align-items: center;
-            margin-top: 5px;
-            padding: 0 7px;
-            border: 1px solid var(--line-soft);
-            border-radius: 5px;
-            color: var(--soft);
-            font-size: 7px;
-        }
-
-        .remote-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 5px;
-            margin-top: 7px;
-        }
-
-        .remote-actions span {
-            height: 23px;
-            display: grid;
-            place-items: center;
-            border: 1px solid var(--line-soft);
-            border-radius: 5px;
-            color: var(--muted);
-            font-size: 7px;
-            font-weight: 760;
-        }
-
-        .remote-actions .connect {
-            color: #fff;
-            border-color: var(--spot);
-            background: var(--spot);
-        }
-
-        .ai-panel {
-            padding: 8px;
-        }
-
-        .ai-summary {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 4px;
-        }
-
-        .ai-metric {
-            padding: 6px 3px;
-            border: 1px solid var(--line-soft);
-            border-radius: 6px;
-            text-align: center;
-        }
-
-        .ai-metric strong {
-            display: block;
-            color: var(--ink);
-            font-size: 11px;
-            line-height: 1.1;
-        }
-
-        .ai-metric span {
-            color: var(--soft);
-            font-size: 6.5px;
-        }
-
-        .ai-task {
-            margin-top: 7px;
-            padding: 7px;
-            border: 1px solid var(--line-soft);
-            border-radius: 6px;
-        }
-
-        .ai-task-title {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            color: var(--ink-2);
-            font-size: 7.5px;
-            font-weight: 730;
-        }
-
-        .ai-task-title i {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--spot);
-        }
-
-        .ai-progress {
-            height: 3px;
-            margin-top: 8px;
-            overflow: hidden;
-            border-radius: 999px;
-            background: var(--panel-muted);
-        }
-
-        .ai-progress span {
-            display: block;
-            width: 64%;
-            height: 100%;
-            border-radius: inherit;
-            background: var(--spot);
-        }
-
-        .spotlight-search-ui {
-            margin-top: 9px;
-        }
-
-        .spotlight-search-input {
-            height: 27px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 0 8px;
-            border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            color: var(--ink-2);
-            background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
-            font-size: 8px;
-            font-weight: 650;
-        }
-
-        .spotlight-search-input::before {
-            content: "";
-            width: 8px;
-            height: 8px;
-            border: 1.5px solid var(--soft);
-            border-radius: 50%;
-        }
-
-        .search-results {
-            display: grid;
-            gap: 1px;
-            margin-top: 5px;
-            padding: 4px;
-            border: 1px solid var(--line-soft);
-            border-radius: 8px;
-            background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
-        }
-
-        .search-result {
-            display: grid;
-            grid-template-columns: 12px 1fr;
-            gap: 5px;
-            padding: 4px;
-            border-radius: 5px;
-            color: var(--ink-2);
-            font-size: 7px;
-            line-height: 1.2;
-        }
-
-        .search-result:first-child {
-            background: color-mix(in srgb, var(--spot) 8%, transparent);
-        }
-
-        .result-doc {
-            width: 9px;
-            height: 11px;
-            border: 1px solid var(--soft);
-            border-radius: 2px;
-        }
-
-        .search-result strong {
-            display: block;
-            font-size: 7.5px;
-        }
-
-        .search-result small {
-            display: block;
-            margin-top: 1px;
-            color: var(--soft);
-            font-size: 6px;
-        }
-
-        .section {
-            width: var(--wrap);
-            margin: 0 auto;
-            padding: 110px 0;
-        }
-
-        .section.compact {
-            padding-top: 34px;
-        }
-
-        .section-kicker {
-            color: var(--blue-strong);
-            font-size: 13px;
-            font-weight: 820;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        h2 {
-            max-width: 850px;
-            margin-top: 12px;
-            font-size: clamp(36px, 5vw, 66px);
-            line-height: 1.02;
-            letter-spacing: 0;
-            font-weight: 820;
-        }
-
-        .section-lede {
-            max-width: 760px;
-            margin-top: 18px;
-            color: var(--muted);
-            font-size: clamp(17px, 2vw, 20px);
-        }
-
-        .value-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
-            margin-top: 42px;
-        }
-
-        .value-card,
-        .feature-card,
-        .workflow-panel,
-        .download-card {
-            border: 1px solid var(--line);
-            border-radius: var(--radius-lg);
-            background: var(--panel);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .value-card {
-            min-height: 220px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
-        }
-
-        .value-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .value-index {
-            color: var(--soft);
-            font-size: 13px;
-            font-weight: 800;
-        }
-
-        .value-card h3,
-        .feature-card h3,
-        .workflow-panel h3,
-        .download-card h3 {
-            font-size: 22px;
-            line-height: 1.18;
-            letter-spacing: 0;
-        }
-
-        .value-card p,
-        .feature-card p,
-        .workflow-panel p,
-        .download-card p {
-            color: var(--muted);
-            font-size: 15px;
-        }
-
-        .feature-layout {
-            display: grid;
-            grid-template-columns: 0.86fr 1.14fr;
-            gap: 28px;
-            align-items: start;
-            margin-top: 46px;
-        }
-
-        .feature-sticky {
-            position: sticky;
-            top: 96px;
-            border-radius: var(--radius-xl);
-            overflow: hidden;
-            border: 1px solid var(--line);
-            background: linear-gradient(180deg, var(--panel-solid), var(--panel-muted));
-            box-shadow: var(--shadow-md);
-        }
-
-        .feature-shot {
-            min-height: 520px;
-            padding: 24px;
-            display: grid;
-            align-content: space-between;
-            gap: 24px;
-        }
-
-        .command-palette {
-            border: 1px solid var(--line);
-            border-radius: 18px;
-            background: var(--glass);
-            backdrop-filter: blur(22px);
-            -webkit-backdrop-filter: blur(22px);
-            box-shadow: var(--shadow-md);
-            padding: 14px;
-        }
-
-        .command-input {
-            height: 48px;
-            border-radius: 12px;
-            border: 1px solid var(--line-soft);
-            display: flex;
-            align-items: center;
-            padding: 0 14px;
-            color: var(--soft);
-            background: var(--panel-solid);
-            font-size: 15px;
-            font-weight: 650;
-        }
-
-        .command-result {
-            display: grid;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .result-line {
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-            padding: 8px 10px;
-            border-radius: 10px;
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 680;
-        }
-
-        .result-line.active {
-            color: var(--ink);
-            background: var(--blue-soft);
-        }
-
-        .result-line span:nth-child(2) {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .list-demo {
-            display: grid;
-            gap: 8px;
-        }
-
-        .list-row {
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            align-items: center;
-            gap: 10px;
-            min-height: 36px;
-            padding: 0 12px;
-            border-radius: 10px;
-            color: var(--muted);
-            background: color-mix(in srgb, var(--panel-solid) 52%, transparent);
-            border: 1px solid var(--line-soft);
-            font-size: 12px;
-            font-weight: 670;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-        }
-
-        .feature-card {
-            padding: 22px;
-            min-height: 230px;
-            display: grid;
-            align-content: start;
-            gap: 14px;
-            transition: transform 180ms var(--ease), border-color 180ms ease, background 180ms ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-3px);
-            border-color: color-mix(in srgb, var(--blue) 38%, var(--line));
-            background: color-mix(in srgb, var(--panel-solid) 72%, transparent);
-        }
-
-        .feature-top {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: flex-start;
-        }
-
-        .feature-mark {
-            width: 38px;
-            height: 38px;
-            border-radius: 11px;
-            display: grid;
-            place-items: center;
-            color: var(--blue-strong);
-            background: var(--blue-soft);
-            font-size: 12px;
-            font-weight: 830;
-        }
-
-        .mini-badge {
-            padding: 4px 8px;
-            border: 1px solid var(--line-soft);
-            border-radius: 999px;
-            color: var(--soft);
-            background: color-mix(in srgb, var(--panel-solid) 62%, transparent);
-            font-size: 11px;
-            font-weight: 760;
-            white-space: nowrap;
-        }
-
-        .workflow {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
-            margin-top: 42px;
-        }
-
-        .workflow-panel {
-            min-height: 340px;
-            padding: 22px;
-            display: grid;
-            align-content: start;
-            gap: 18px;
-            overflow: hidden;
-        }
-
-        .panel-demo {
-            border: 1px solid var(--line-soft);
-            border-radius: 14px;
-            background: color-mix(in srgb, var(--panel-solid) 72%, transparent);
-            min-height: 152px;
-            padding: 13px;
-            display: grid;
-            gap: 8px;
-        }
-
-        .remote-row,
-        .archive-row,
-        .ai-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            border-radius: 9px;
-            padding: 8px 9px;
-            color: var(--muted);
-            background: color-mix(in srgb, var(--panel-muted) 48%, transparent);
-            font-size: 12px;
-            font-weight: 680;
-        }
-
-        .remote-row.active,
-        .archive-row.active,
-        .ai-row.active {
-            color: var(--ink);
-            background: var(--blue-soft);
-        }
-
-        .comparison {
-            margin-top: 42px;
-            overflow: hidden;
-            border: 1px solid var(--line);
-            border-radius: var(--radius-xl);
-            background: var(--panel);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .compare-row {
-            display: grid;
-            grid-template-columns: 0.72fr 1fr 1fr;
-            border-bottom: 1px solid var(--line-soft);
-        }
-
-        .compare-row:last-child {
-            border-bottom: 0;
-        }
-
-        .compare-cell {
-            padding: 18px;
-            color: var(--muted);
-            font-size: 14px;
-            font-weight: 620;
-        }
-
-        .compare-cell + .compare-cell {
-            border-left: 1px solid var(--line-soft);
-        }
-
-        .compare-head .compare-cell {
-            color: var(--ink);
-            background: color-mix(in srgb, var(--panel-solid) 74%, transparent);
-            font-weight: 800;
-        }
-
-        .compare-cell.highlight {
-            color: var(--ink-2);
-            background: color-mix(in srgb, var(--blue-soft) 44%, transparent);
-        }
-
-        .download {
-            padding: 110px 0 70px;
-        }
-
-        .download-card {
-            width: var(--wrap);
-            margin: 0 auto;
-            padding: clamp(28px, 5vw, 54px);
-            display: grid;
-            grid-template-columns: 1fr auto;
-            align-items: center;
-            gap: 34px;
-            border-radius: 28px;
-            background:
-                linear-gradient(135deg, color-mix(in srgb, var(--blue-soft) 58%, transparent), transparent 48%),
-                var(--panel);
-        }
-
-        .download-card h2 {
-            margin-top: 0;
-            font-size: clamp(34px, 5vw, 58px);
-        }
-
-        .download-actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-
-        .footer {
-            width: var(--wrap);
-            margin: 0 auto;
-            padding: 32px 0 48px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 18px;
-            border-top: 1px solid var(--line-soft);
-            color: var(--soft);
-            font-size: 13px;
-            font-weight: 640;
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 18px;
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-
-        .footer a {
-            color: var(--muted);
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            color: var(--ink);
-        }
-
-        .reveal {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .js .reveal {
-            opacity: 0;
-            transform: translateY(24px);
-            transition: opacity 700ms var(--ease), transform 700ms var(--ease);
-        }
-
-        .js .reveal.is-visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        @media (max-width: 1040px) {
-            .hero,
-            .feature-layout,
-            .download-card {
-                grid-template-columns: 1fr;
-            }
-
-            .hero {
-                padding-top: 104px;
-                padding-bottom: 40px;
-            }
-
-            h1 {
-                max-width: 12ch;
-            }
-
-            .hero-visual {
-                width: min(100%, 820px);
-                margin: 0 auto;
-            }
-
-            .feature-sticky {
-                position: static;
-            }
-
-            .download-actions {
-                justify-content: flex-start;
-            }
-        }
-
-        @media (max-width: 820px) {
-            :root {
-                --wrap: min(100vw - 28px, 1180px);
-            }
-
-            body {
-                font-size: 16px;
-            }
-
-            .nav-links {
-                display: none;
-            }
-
-            .hero {
-                padding-bottom: 64px;
-            }
-
-            .hero-visual {
-                margin-top: 4px;
-            }
-
-            .showcase-stage {
-                min-width: 0;
-                height: auto;
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 10px;
-            }
-
-            .showcase-window {
-                position: relative;
-                top: auto;
-                left: auto;
-                order: -1;
-                grid-column: 1 / -1;
-                width: 100%;
-                height: 410px;
-                transform: none;
-            }
-
-            .spotlight {
-                position: relative;
-                inset: auto;
-                width: auto;
-                height: 205px;
-            }
-
-            .spotlight::after {
-                display: none;
-            }
-
-            .app-window {
-                aspect-ratio: auto;
-                min-height: 520px;
-            }
-
-            .chrome {
-                grid-template-columns: auto 1fr;
-            }
-
-            .search-pill {
-                display: none;
-            }
-
-            .app-body {
-                grid-template-columns: 132px 1fr;
-            }
-
-            .inspector,
-            .floating-card {
-                display: none;
-            }
-
-            .sidebar {
-                padding: 12px 9px;
-            }
-
-            .side-item {
-                padding: 0 7px;
-                font-size: 11px;
-            }
-
-            .file-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            .task-float {
-                left: 154px;
-                right: 12px;
-                width: auto;
-            }
-
-            .value-grid,
-            .feature-grid,
-            .workflow {
-                grid-template-columns: 1fr;
-            }
-
-            .compare-row {
-                grid-template-columns: 1fr;
-            }
-
-            .compare-cell + .compare-cell {
-                border-left: 0;
-                border-top: 1px solid var(--line-soft);
-            }
-
-            .footer {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-        }
-
-        @media (max-width: 520px) {
-            .nav-inner {
-                height: 58px;
-            }
-
-            .brand span:last-child {
-                display: none;
-            }
-
-            .button {
-                width: 100%;
-            }
-
-            .nav-actions .button {
-                display: none;
-            }
-
-            .hero-actions,
-            .download-actions {
-                width: 100%;
-            }
-
-            .hero {
-                padding-top: 82px;
-                padding-bottom: 28px;
-                gap: 26px;
-            }
-
-            .hero-lede {
-                max-width: 100%;
-                margin-top: 20px;
-                font-size: 16px;
-                line-height: 1.58;
-            }
-
-            .hero-actions {
-                margin-top: 24px;
-            }
-
-            .hero-notes {
-                display: none;
-            }
-
-            h1 {
-                max-width: 100%;
-                font-size: 38px;
-                line-height: 0.98;
-            }
-
-            h1 .line {
-                white-space: normal;
-            }
-
-            h2 {
-                font-size: 34px;
-            }
-
-            .section {
-                padding: 76px 0;
-            }
-
-            .app-window {
-                border-radius: 18px;
-                min-height: 244px;
-            }
-
-            .showcase-stage {
-                grid-template-columns: 1fr;
-                gap: 9px;
-            }
-
-            .showcase-window {
-                height: 300px;
-                border-radius: 12px;
-            }
-
-            .showcase-titlebar {
-                grid-template-columns: 60px 1fr;
-            }
-
-            .showcase-search {
-                display: none;
-            }
-
-            .showcase-body {
-                grid-template-columns: 82px 1fr;
-            }
-
-            .showcase-sidebar {
-                padding: 10px 6px;
-            }
-
-            .showcase-side-row {
-                padding: 0 4px;
-                font-size: 7.5px;
-            }
-
-            .showcase-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                row-gap: 9px;
-            }
-
-            .showcase-file:nth-child(n+10) {
-                display: none;
-            }
-
-            .spotlight {
-                height: auto;
-                min-height: 174px;
-            }
-
-            .chrome {
-                height: 36px;
-                padding: 0 10px;
-            }
-
-            .app-body {
-                grid-template-columns: 1fr;
-                height: calc(100% - 36px);
-            }
-
-            .sidebar {
-                display: none;
-            }
-
-            .task-float {
-                display: none;
-            }
-
-            .file-area {
-                padding: 10px;
-            }
-
-            .toolbar-row {
-                height: 28px;
-            }
-
-            .file-grid {
-                gap: 6px;
-                margin-top: 8px;
-            }
-
-            .file-card {
-                padding: 6px 4px;
-            }
-
-            .file-card:nth-child(n+5) {
-                display: none;
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            *,
-            *::before,
-            *::after {
-                scroll-behavior: auto !important;
-                animation: none !important;
-                transition-duration: 1ms !important;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="progress" aria-hidden="true"></div>
-    <nav class="nav" aria-label="主导航">
-        <div class="nav-inner">
-            <a class="brand" href="#top" aria-label="Mac Explorer 首页">
-                <span class="brand-mark"><img src="Assets/appicon.svg" alt=""></span>
-                <span>Mac Explorer</span>
-            </a>
-            <ul class="nav-links">
-                <li><a href="#highlights">亮点</a></li>
-                <li><a href="#features">功能</a></li>
-                <li><a href="#workflows">场景</a></li>
-                <li><a href="#compare">对比</a></li>
-            </ul>
-            <div class="nav-actions">
-                <button class="icon-button" type="button" id="themeToggle" aria-label="切换亮暗主题">
-                    <span class="theme-symbol" aria-hidden="true"></span>
-                </button>
-                <a class="button primary" href="https://github.com/3egirlsdream/Mac-Explorer/releases">下载</a>
-            </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Mac Explorer，为 macOS 打造的开源文件管理器。多标签与多窗格、超级预览、全局搜索、SFTP 和 Git，让文件工作在一个窗口里顺畅完成。"
+    />
+    <meta name="theme-color" content="#f8f9fb" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="Mac Explorer — 一个窗口，理顺文件工作。"
+    />
+    <meta
+      property="og:description"
+      content="多窗格展开工作，按下空格深入预览。为你的 Mac，换一种更顺手的文件管理方式。"
+    />
+    <meta
+      property="og:url"
+      content="https://3egirlsdream.github.io/Mac-Explorer/"
+    />
+    <meta
+      property="og:image"
+      content="https://3egirlsdream.github.io/Mac-Explorer/Assets/social-preview.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Mac Explorer 文件工作区交互演示与标语：一个窗口，理顺文件工作。"
+    />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://3egirlsdream.github.io/Mac-Explorer/" />
+    <link rel="icon" href="Assets/appicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      try {
+        const saved = localStorage.getItem("mac-explorer-theme");
+        document.documentElement.dataset.theme = ["light", "dark"].includes(
+          saved,
+        )
+          ? saved
+          : matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+      } catch {
+        document.documentElement.dataset.theme = matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches
+          ? "dark"
+          : "light";
+      }
+    </script>
+    <script src="script.js" defer></script>
+    <title>Mac Explorer — 一个窗口，理顺文件工作。</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳转到主要内容</a>
+    <header class="site-header">
+      <nav class="nav wrap" aria-label="主导航">
+        <a class="brand" href="#" aria-label="Mac Explorer 首页"
+          ><img src="Assets/appicon.svg" alt="" width="40" height="40" /><span
+            >Mac Explorer</span
+          ></a
+        >
+        <div class="nav-links" id="nav-links">
+          <a href="#workspace">工作区</a><a href="#preview">超级预览</a
+          ><a href="#features">更多能力</a>
+          <a
+            href="https://github.com/3egirlsdream/Mac-Explorer"
+            class="nav-github"
+            >GitHub
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+          ></a>
         </div>
-    </nav>
+        <div class="nav-actions">
+          <button
+            class="icon-button theme-toggle"
+            type="button"
+            aria-label="切换到深色外观"
+            title="切换外观"
+          >
+            <svg aria-hidden="true" focusable="false" class="icon theme-moon">
+              <use href="Assets/icons/fluent.svg#weather-moon" /></svg
+            ><svg aria-hidden="true" focusable="false" class="icon theme-sun">
+              <use href="Assets/icons/fluent.svg#weather-sunny" />
+            </svg>
+          </button>
+          <a class="button button-small button-primary" href="#download"
+            >免费下载
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#arrow-download" /></svg
+          ></a>
+          <button
+            class="icon-button menu-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="nav-links"
+            aria-label="展开导航"
+          >
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#menu" />
+            </svg>
+          </button>
+        </div>
+      </nav>
+    </header>
 
-    <main id="top">
-        <section class="hero" aria-labelledby="hero-title">
-            <div class="hero-copy reveal">
-                <div class="eyebrow"><span class="status-dot" aria-hidden="true"></span>适用于 macOS 15.0+ · 免费开源</div>
-                <h1 id="hero-title"><span class="line">更顺手的</span><span class="line">Mac 文件管理器</span></h1>
-                <p class="hero-lede">
-                    浏览、搜索、远程连接、Git 与 AI 分析，都在一个窗口里完成。
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <a class="announcement" href="#workspace"
+          ><span class="status-dot"></span> 全新文件浏览体验
+          <span class="announcement-divider"></span> 为专注而更新
+          <svg aria-hidden="true" focusable="false" class="icon">
+            <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+        ></a>
+        <h1 id="hero-title">一个窗口，<br /><span>理顺文件工作。</span></h1>
+        <p class="hero-description">
+          把文件展开，把切换减少。<br />多窗格、超级预览和强大搜索，让你的 Mac
+          更顺手。
+        </p>
+        <div class="hero-actions">
+          <a
+            class="button button-primary"
+            href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest"
+            ><svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#arrow-download" />
+            </svg>
+            下载 Mac Explorer</a
+          ><a class="button button-quiet" href="#workspace"
+            >探索新体验
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+          ></a>
+        </div>
+        <p class="platform-note">
+          macOS 15.0+ <span>·</span> Apple Silicon <span>·</span> 免费开源
+        </p>
+
+        <div class="showcase" id="demo">
+          <div class="showcase-topline">
+            <span
+              ><span class="tiny-dot"></span> YOUR FILES. IN A BETTER
+              PLACE.</span
+            ><span>为 macOS 而生</span>
+          </div>
+          <div
+            class="app-window"
+            data-view="grid"
+            aria-label="Mac Explorer 交互演示"
+          >
+            <div class="app-titlebar">
+              <div class="traffic-lights" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </div>
+              <div class="app-tab active">
+                <svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#folder" />
+                </svg>
+                灵感与创作
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  class="icon tab-close"
+                >
+                  <use href="Assets/icons/fluent.svg#dismiss" />
+                </svg>
+              </div>
+              <div class="app-tab inactive">
+                <svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#folder" />
+                </svg>
+                项目文件
+              </div>
+              <span class="titlebar-add" aria-hidden="true"
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#add" /></svg
+              ></span>
+              <span class="titlebar-right" aria-hidden="true"
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#panel-left" /></svg
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#settings" /></svg
+              ></span>
+            </div>
+            <div class="app-body">
+              <aside class="app-sidebar" aria-label="演示中的常用位置">
+                <span class="sidebar-heading">常用位置</span>
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#home" />
+                  </svg>
+                  个人文件</span
+                >
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#desktop" />
+                  </svg>
+                  桌面</span
+                >
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#document" />
+                  </svg>
+                  文稿</span
+                >
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#arrow-download" />
+                  </svg>
+                  下载</span
+                >
+                <span class="sidebar-item selected"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#image" />
+                  </svg>
+                  灵感与创作</span
+                >
+                <span class="sidebar-heading"
+                  >收藏夹
+                  <svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#add" /></svg
+                ></span>
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#folder" />
+                  </svg>
+                  项目文件</span
+                >
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#folder" />
+                  </svg>
+                  设计归档</span
+                >
+                <span class="sidebar-heading">位置</span>
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#hard-drive" />
+                  </svg>
+                  Macintosh HD</span
+                >
+                <span class="sidebar-item"
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#server" />
+                  </svg>
+                  远程服务器</span
+                >
+                <span class="sidebar-heading">标签</span>
+                <span class="sidebar-item"
+                  ><i class="tag-dot tag-blue"></i> 工作</span
+                >
+                <span class="sidebar-item"
+                  ><i class="tag-dot tag-green"></i> 灵感</span
+                >
+              </aside>
+              <div class="app-main">
+                <div class="app-addressbar">
+                  <span class="app-navigation" aria-hidden="true"
+                    ><svg aria-hidden="true" focusable="false" class="icon">
+                      <use href="Assets/icons/fluent.svg#arrow-left" /></svg
+                    ><svg
+                      aria-hidden="true"
+                      focusable="false"
+                      class="icon faded"
+                    >
+                      <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+                    ><svg aria-hidden="true" focusable="false" class="icon">
+                      <use
+                        href="Assets/icons/fluent.svg#arrow-up"
+                      /></svg></span
+                  ><span class="breadcrumbs"
+                    >个人文件
+                    <svg aria-hidden="true" focusable="false" class="icon">
+                      <use href="Assets/icons/fluent.svg#chevron-right" /></svg
+                    ><strong>灵感与创作</strong></span
+                  ><label class="demo-search"
+                    ><svg aria-hidden="true" focusable="false" class="icon">
+                      <use href="Assets/icons/fluent.svg#search" /></svg
+                    ><input
+                      id="demo-search"
+                      type="search"
+                      placeholder="搜索示例文件"
+                      aria-label="搜索示例文件"
+                      autocomplete="off"
+                  /></label>
+                </div>
+                <div class="app-toolbar">
+                  <span class="decorative-tools" aria-hidden="true"
+                    ><span
+                      ><svg aria-hidden="true" focusable="false" class="icon">
+                        <use href="Assets/icons/fluent.svg#add" />
+                      </svg>
+                      新建</span
+                    ><svg aria-hidden="true" focusable="false" class="icon">
+                      <use href="Assets/icons/fluent.svg#cut" /></svg
+                    ><svg aria-hidden="true" focusable="false" class="icon">
+                      <use href="Assets/icons/fluent.svg#copy" /></svg
+                    ><svg aria-hidden="true" focusable="false" class="icon">
+                      <use href="Assets/icons/fluent.svg#delete" /></svg
+                  ></span>
+                  <div
+                    class="app-view-buttons"
+                    role="group"
+                    aria-label="演示视图"
+                  >
+                    <button
+                      type="button"
+                      class="icon-button"
+                      data-view="grid"
+                      aria-label="图标视图"
+                      aria-pressed="true"
+                    >
+                      <svg aria-hidden="true" focusable="false" class="icon">
+                        <use href="Assets/icons/fluent.svg#grid" />
+                      </svg></button
+                    ><button
+                      type="button"
+                      class="icon-button"
+                      data-view="list"
+                      aria-label="明细视图"
+                      aria-pressed="false"
+                    >
+                      <svg aria-hidden="true" focusable="false" class="icon">
+                        <use href="Assets/icons/fluent.svg#list" />
+                      </svg></button
+                    ><button
+                      type="button"
+                      class="icon-button"
+                      data-view="split"
+                      aria-label="双窗格视图"
+                      aria-pressed="false"
+                    >
+                      <svg aria-hidden="true" focusable="false" class="icon">
+                        <use href="Assets/icons/fluent.svg#split" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="app-content">
+                  <div class="file-area">
+                    <div class="file-section-label">
+                      <span>今天</span
+                      ><span class="file-area-hint">点击文件，查看预览</span>
+                    </div>
+                    <div class="list-columns" aria-hidden="true">
+                      <span>名称</span><span>类型</span><span>大小</span>
+                    </div>
+                    <div class="file-grid" id="file-grid">
+                      <button
+                        type="button"
+                        class="file-item"
+                        data-file="brand"
+                        data-name="品牌素材"
+                        aria-pressed="false"
+                      >
+                        <span class="file-visual folder-visual"
+                          ><svg aria-hidden="true" focusable="false">
+                            <use
+                              href="Assets/icons/fluent.svg#folder-filled"
+                            /></svg></span
+                        ><span class="file-name">品牌素材</span
+                        ><span class="file-type">文件夹</span
+                        ><span class="file-size">—</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="file-item"
+                        data-file="project"
+                        data-name="项目文件"
+                        aria-pressed="false"
+                      >
+                        <span class="file-visual folder-visual"
+                          ><svg aria-hidden="true" focusable="false">
+                            <use
+                              href="Assets/icons/fluent.svg#folder-filled"
+                            /></svg></span
+                        ><span class="file-name">项目文件</span
+                        ><span class="file-type">文件夹</span
+                        ><span class="file-size">—</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="file-item is-selected"
+                        data-file="lake"
+                        data-name="高山湖泊.jpg"
+                        aria-pressed="true"
+                      >
+                        <span class="file-visual photo-visual"
+                          ><img
+                            src="Assets/alpine-lake.jpg"
+                            alt=""
+                            width="1536"
+                            height="1024"
+                            fetchpriority="high" /></span
+                        ><span class="file-name">高山湖泊.jpg</span
+                        ><span class="file-type">图像</span
+                        ><span class="file-size">2.7 MB</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="file-item"
+                        data-file="notes"
+                        data-name="创作笔记.md"
+                        aria-pressed="false"
+                      >
+                        <span class="file-visual document-visual"
+                          ><svg aria-hidden="true" focusable="false">
+                            <use href="Assets/icons/fluent.svg#document" /></svg
+                          ><b>MD</b></span
+                        ><span class="file-name">创作笔记.md</span
+                        ><span class="file-type">Markdown</span
+                        ><span class="file-size">1.2 KB</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="file-item"
+                        data-file="design"
+                        data-name="界面设计.fig"
+                        aria-pressed="false"
+                      >
+                        <span class="file-visual design-visual"
+                          ><svg aria-hidden="true" focusable="false">
+                            <use href="Assets/icons/fluent.svg#grid" /></svg
+                          ><b>FIG</b></span
+                        ><span class="file-name">界面设计.fig</span
+                        ><span class="file-type">设计文件</span
+                        ><span class="file-size">8.4 MB</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="file-item"
+                        data-file="archive"
+                        data-name="设计归档.zip"
+                        aria-pressed="false"
+                      >
+                        <span class="file-visual archive-visual"
+                          ><svg aria-hidden="true" focusable="false">
+                            <use
+                              href="Assets/icons/fluent.svg#archive"
+                            /></svg></span
+                        ><span class="file-name">设计归档.zip</span
+                        ><span class="file-type">ZIP 压缩包</span
+                        ><span class="file-size">12 MB</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="file-item"
+                        data-file="readme"
+                        data-name="README.md"
+                        aria-pressed="false"
+                      >
+                        <span class="file-visual document-visual code-visual"
+                          ><svg aria-hidden="true" focusable="false">
+                            <use href="Assets/icons/fluent.svg#code" /></svg
+                          ><b>MD</b><i class="git-dot"></i></span
+                        ><span class="file-name">README.md</span
+                        ><span class="file-type">Markdown</span
+                        ><span class="file-size">2.1 KB</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="file-item"
+                        data-file="ideas"
+                        data-name="灵感收集"
+                        aria-pressed="false"
+                      >
+                        <span class="file-visual folder-visual"
+                          ><svg aria-hidden="true" focusable="false">
+                            <use
+                              href="Assets/icons/fluent.svg#folder-filled"
+                            /></svg></span
+                        ><span class="file-name">灵感收集</span
+                        ><span class="file-type">文件夹</span
+                        ><span class="file-size">—</span>
+                      </button>
+                    </div>
+                    <p class="demo-empty" hidden>
+                      没有匹配的示例文件。试试“设计”或“笔记”。
+                    </p>
+                  </div>
+                  <aside class="inspector" aria-label="所选示例文件预览">
+                    <div class="inspector-heading">
+                      <strong>信息</strong
+                      ><button
+                        class="icon-button preview-open"
+                        type="button"
+                        aria-label="放大示例预览"
+                      >
+                        <svg aria-hidden="true" focusable="false" class="icon">
+                          <use href="Assets/icons/fluent.svg#expand" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="inspector-art" id="inspector-art">
+                      <img
+                        src="Assets/alpine-lake.jpg"
+                        alt="湖面倒映雪山，一只红色独木舟停在岸边"
+                        width="1536"
+                        height="1024"
+                      />
+                    </div>
+                    <div class="inspector-info">
+                      <strong id="inspector-name">高山湖泊.jpg</strong
+                      ><span id="inspector-kind">JPEG 图像 · 2.7 MB</span
+                      ><span class="inspector-label">文件标签</span
+                      ><span class="file-tag"
+                        ><i class="tag-dot tag-green"></i> 灵感</span
+                      ><span class="inspector-label">快速预览</span
+                      ><button class="preview-hint preview-open" type="button">
+                        <kbd>space</kbd><span>按下空格，展开更多</span>
+                      </button>
+                    </div>
+                  </aside>
+                  <aside class="second-pane" aria-label="演示中的第二个窗格">
+                    <div class="second-pane-path">
+                      <svg aria-hidden="true" focusable="false" class="icon">
+                        <use href="Assets/icons/fluent.svg#folder" />
+                      </svg>
+                      设计归档
+                      <svg aria-hidden="true" focusable="false" class="icon">
+                        <use href="Assets/icons/fluent.svg#chevron-right" />
+                      </svg>
+                      2026
+                    </div>
+                    <div class="second-pane-grid">
+                      <span
+                        ><svg aria-hidden="true" focusable="false">
+                          <use href="Assets/icons/fluent.svg#folder" /></svg
+                        >已完成项目</span
+                      ><span
+                        ><svg aria-hidden="true" focusable="false">
+                          <use href="Assets/icons/fluent.svg#folder" /></svg
+                        >交付素材</span
+                      ><span
+                        ><svg aria-hidden="true" focusable="false">
+                          <use href="Assets/icons/fluent.svg#archive" /></svg
+                        >夏日特辑.zip</span
+                      ><span
+                        ><svg aria-hidden="true" focusable="false">
+                          <use href="Assets/icons/fluent.svg#document" /></svg
+                        >归档说明.md</span
+                      >
+                    </div>
+                    <p>让来源与目标，并排就位。</p>
+                  </aside>
+                </div>
+                <div class="app-status">
+                  <span id="demo-status" role="status"
+                    >8 个示例项目 · 已选中 1 项</span
+                  ><span>本地工作区</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="showcase-bottom">
+            <span
+              >交互演示
+              <span class="demo-caption-divider">/</span> 示例文件</span
+            >
+            <div class="demo-modes" role="group" aria-label="选择演示模式">
+              <button type="button" data-view="grid" aria-pressed="true">
+                图标视图</button
+              ><button type="button" data-view="list" aria-pressed="false">
+                明细视图</button
+              ><button type="button" data-view="split" aria-pressed="false">
+                双窗格
+              </button>
+            </div>
+            <span class="demo-tip"
+              >试着切换一下
+              <svg aria-hidden="true" focusable="false" class="icon">
+                <use href="Assets/icons/fluent.svg#arrow-up" /></svg
+            ></span>
+          </div>
+        </div>
+        <div class="value-strip">
+          <span
+            ><svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#window" />
+            </svg>
+            多标签 · 多窗格</span
+          ><span
+            ><svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#eye" />
+            </svg>
+            空格超级预览</span
+          ><span
+            ><svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#search" />
+            </svg>
+            全局搜索</span
+          ><span
+            ><svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#code" />
+            </svg>
+            GPL 开源</span
+          >
+        </div>
+      </section>
+
+      <section
+        class="section workspace-section wrap"
+        id="workspace"
+        aria-labelledby="workspace-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01 / 自在展开</p>
+            <h2 id="workspace-title">思路不用切断，<br />工作区可以展开。</h2>
+          </div>
+          <p class="section-description">
+            把常用文件夹留在标签里，再用多窗格将它们并排打开。从浏览素材到整理归档，让每一步都有自己的位置。
+          </p>
+        </div>
+        <div class="workspace-layout">
+          <div class="layout-demo">
+            <div class="layout-demo-head">
+              <span
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#split" />
+                </svg>
+                你的工作区，由你布局</span
+              ><span id="layout-label">左右双窗格</span>
+            </div>
+            <div
+              class="pane-map"
+              data-layout="two"
+              aria-label="左右双窗格布局示意"
+            >
+              <div class="map-pane">
+                <span
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#folder" />
+                  </svg>
+                  灵感与创作</span
+                >
+                <div class="map-files">
+                  <i></i><i></i><i></i><i></i><i></i><i></i>
+                </div>
+              </div>
+              <div class="map-pane">
+                <span
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#folder" />
+                  </svg>
+                  项目文件</span
+                >
+                <div class="map-lines"><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div class="map-pane map-extra">
+                <span
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#folder" />
+                  </svg>
+                  设计归档</span
+                >
+                <div class="map-lines"><i></i><i></i><i></i></div>
+              </div>
+              <div class="map-pane map-fourth">
+                <span
+                  ><svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#folder" />
+                  </svg>
+                  交付素材</span
+                >
+                <div class="map-files"><i></i><i></i><i></i></div>
+              </div>
+            </div>
+            <div
+              class="layout-options"
+              role="group"
+              aria-label="工作区布局示意"
+            >
+              <button type="button" data-layout="two" aria-pressed="true">
+                左右双窗格</button
+              ><button type="button" data-layout="three" aria-pressed="false">
+                一主两辅</button
+              ><button type="button" data-layout="four" aria-pressed="false">
+                四宫格
+              </button>
+            </div>
+          </div>
+          <div class="workspace-notes">
+            <article>
+              <span class="note-number">01</span>
+              <div>
+                <h3>熟悉的标签，更连贯的切换</h3>
+                <p>
+                  连接式页签自然融入内容区域。每个标签保留自己的位置、历史和视图。
                 </p>
-                <div class="hero-actions">
-                    <a class="button primary" href="https://github.com/3egirlsdream/Mac-Explorer/releases">下载最新版本</a>
-                    <a class="button" href="https://github.com/3egirlsdream/Mac-Explorer">查看 GitHub</a>
-                </div>
-                <div class="hero-notes" aria-label="产品信息">
-                    <span class="note">Apple Silicon 原生运行</span>
-                    <span class="note">浅色与深色主题</span>
-                    <span class="note">本地优先</span>
-                </div>
-            </div>
+              </div>
+            </article>
+            <article>
+              <span class="note-number">02</span>
+              <div>
+                <h3>最多四个窗格，各就各位</h3>
+                <p>
+                  左右、上下、四宫格或一主多辅，按手头的工作选择合适的布局。
+                </p>
+              </div>
+            </article>
+            <article>
+              <span class="note-number">03</span>
+              <div>
+                <h3>文件再多，也井然有序</h3>
+                <p>
+                  高性能文件列表覆盖明细、分组和图标网格；刷新时保留选择与滚动位置。
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
 
-            <div class="hero-visual reveal" aria-label="Mac Explorer 文件管理与四项亮点功能预览">
-                <div class="showcase-stage">
-                    <article class="spotlight spotlight-git">
-                        <h3>Git 集成</h3>
-                        <p>文件状态实时呈现，改动一眼看清。</p>
-                        <div class="spotlight-ui git-status-list">
-                            <div class="git-status-row"><span class="git-dot">✓</span><span>已提交</span></div>
-                            <div class="git-status-row"><span class="git-dot modified">M</span><span>已修改</span></div>
-                            <div class="git-status-row"><span class="git-dot">+</span><span>已新增</span></div>
-                        </div>
-                    </article>
-
-                    <article class="spotlight spotlight-remote">
-                        <h3>远程 SFTP 连接</h3>
-                        <p>像打开本地文件夹一样管理服务器。</p>
-                        <div class="spotlight-ui remote-panel">
-                            <div class="saved-server">
-                                <span class="server-signal">•••</span>
-                                <span class="server-meta">staging.example.com<small>dev@staging.example.com:22</small></span>
-                            </div>
-                            <div class="remote-input">服务器名称</div>
-                            <div class="remote-input">主机地址</div>
-                            <div class="remote-actions"><span class="connect">连接</span><span>保存</span></div>
-                        </div>
-                    </article>
-
-                    <div class="showcase-window" aria-label="Mac Explorer 文件夹窗口">
-                        <div class="showcase-titlebar">
-                            <div class="showcase-traffic" aria-hidden="true"><span></span><span></span><span></span></div>
-                            <div class="showcase-path">本地磁盘 › 用户 › 文档 › Mac Explorer</div>
-                            <div class="showcase-search">⌕ 搜索...</div>
-                        </div>
-                        <div class="showcase-body">
-                            <aside class="showcase-sidebar">
-                                <div class="showcase-group">
-                                    <div class="showcase-group-title">收藏夹</div>
-                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>最近使用</div>
-                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>桌面</div>
-                                    <div class="showcase-side-row active"><span class="showcase-side-icon"></span>文稿</div>
-                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>下载</div>
-                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>图片</div>
-                                </div>
-                                <div class="showcase-group">
-                                    <div class="showcase-group-title">位置</div>
-                                    <div class="showcase-side-row"><span class="showcase-side-icon"></span>本地磁盘</div>
-                                    <div class="showcase-side-row remote"><span class="showcase-side-icon"></span>项目磁盘</div>
-                                    <div class="showcase-side-row remote"><span class="showcase-side-icon"></span>远程服务器</div>
-                                </div>
-                            </aside>
-                            <section class="showcase-files">
-                                <div class="showcase-toolbar">
-                                    <div class="showcase-tools">
-                                        <span class="showcase-tool wide">＋ 新建</span>
-                                        <span class="showcase-tool">剪切</span>
-                                        <span class="showcase-tool">复制</span>
-                                        <span class="showcase-tool">删除</span>
-                                    </div>
-                                    <div class="showcase-view-tools">
-                                        <span class="showcase-tool">▦</span>
-                                        <span class="showcase-tool">☰</span>
-                                        <span class="showcase-tool wide">↕ 排序</span>
-                                    </div>
-                                </div>
-                                <div class="showcase-grid">
-                                    <div class="showcase-file"><div class="doc-icon">CS<span class="file-state">✓</span></div><span>ViewController.cs</span></div>
-                                    <div class="showcase-file"><div class="doc-icon">CS<span class="file-state modified">M</span></div><span>Program.cs</span></div>
-                                    <div class="showcase-file"><div class="doc-icon">AX</div><span>App.axaml</span></div>
-                                    <div class="showcase-file"><div class="doc-icon">MD<span class="file-state">✓</span></div><span>README.md</span></div>
-                                    <div class="showcase-file"><div class="doc-icon code">&lt;/&gt;<span class="file-state">+</span></div><span>index.html</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"><span class="file-state">✓</span></div><span>ViewModels</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"><span class="file-state modified">M</span></div><span>Converters</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"><span class="file-state">+</span></div><span>Indexing</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"></div><span>Tests</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"></div><span>Platforms</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"></div><span>Controls</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"></div><span>Models</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"></div><span>Services</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"></div><span>Assets</span></div>
-                                    <div class="showcase-file"><div class="folder-icon"></div><span>Views</span></div>
-                                </div>
-                                <div class="showcase-status">已连接</div>
-                            </section>
-                        </div>
-                    </div>
-
-                    <article class="spotlight spotlight-ai">
-                        <h3>AI 智能分析</h3>
-                        <p>理解图片与文件内容，后台安静处理。</p>
-                        <div class="spotlight-ui ai-panel">
-                            <div class="ai-summary">
-                                <div class="ai-metric"><strong>1</strong><span>运行中</span></div>
-                                <div class="ai-metric"><strong>0</strong><span>已完成</span></div>
-                                <div class="ai-metric"><strong>0</strong><span>待处理</span></div>
-                            </div>
-                            <div class="ai-task">
-                                <div class="ai-task-title"><i></i><span>AI 图像分析 108/168</span></div>
-                                <div class="ai-progress"><span></span></div>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="spotlight spotlight-search-card">
-                        <h3>全局文件搜索</h3>
-                        <p>文件名、路径与内容统一检索。</p>
-                        <div class="spotlight-search-ui">
-                            <div class="spotlight-search-input">readme</div>
-                            <div class="search-results">
-                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/文档/项目/README.md</small></span></div>
-                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/下载/工具包/README.md</small></span></div>
-                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/工作/发布/README.md</small></span></div>
-                                <div class="search-result"><span class="result-doc"></span><span><strong>README.md</strong><small>/归档/旧版/README.md</small></span></div>
-                            </div>
-                        </div>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section class="section compact" id="highlights">
-            <div class="section-kicker reveal">Highlights</div>
-            <h2 class="reveal">少切换，文件工作更顺手。</h2>
-            <p class="section-lede reveal">
-                把分散的工具收进同一个文件管理器。
+      <section
+        class="preview-section"
+        id="preview"
+        aria-labelledby="preview-title"
+      >
+        <div class="wrap preview-layout">
+          <div class="preview-copy">
+            <p class="eyebrow">02 / 先看，再打开</p>
+            <h2 id="preview-title">一个空格，<br />不止看一眼。</h2>
+            <p>
+              图片、文档、视频，选中就能预览。<br />文件夹和压缩包，还能继续向里探索。
             </p>
-            <div class="value-grid">
-                <article class="value-card reveal">
-                    <span class="value-index">01</span>
-                    <div>
-                        <h3>看得更完整</h3>
-                        <p>排序、过滤、Git 状态和文件信息一目了然。</p>
-                    </div>
-                </article>
-                <article class="value-card reveal">
-                    <span class="value-index">02</span>
-                    <div>
-                        <h3>找得更自然</h3>
-                        <p>按文件名、内容或 AI 标签快速定位。</p>
-                    </div>
-                </article>
-                <article class="value-card reveal">
-                    <span class="value-index">03</span>
-                    <div>
-                        <h3>操作更连贯</h3>
-                        <p>预览、批量处理、压缩与远程传输无需换工具。</p>
-                    </div>
-                </article>
+            <div class="format-list">
+              <span>图片 & RAW</span><span>PDF & Office</span
+              ><span>音频 & 视频</span><span>文件夹 & 压缩包</span>
             </div>
-        </section>
-
-        <section class="section" id="features">
-            <div class="section-kicker reveal">Features</div>
-            <h2 class="reveal">强大功能，保持简单。</h2>
-            <p class="section-lede reveal">
-                熟悉的文件操作，带来更高效的体验。
+            <button
+              class="button button-dark preview-feature-open"
+              type="button"
+            >
+              体验超级预览 <kbd>space</kbd>
+            </button>
+            <p class="preview-footnote">
+              支持情况取决于文件格式与系统可用的预览组件。
             </p>
-
-            <div class="feature-layout">
-                <div class="feature-sticky reveal">
-                    <div class="feature-shot">
-                        <div class="command-palette">
-                            <div class="command-input">输入路径、文件名或 AI 标签</div>
-                            <div class="command-result">
-                                <div class="result-line active"><span class="mini-icon"></span><span>~/Documents/Mac Explorer</span><span>打开</span></div>
-                                <div class="result-line"><span class="mini-icon"></span><span>photo · 旧金山 · 人像</span><span>AI</span></div>
-                                <div class="result-line"><span class="mini-icon"></span><span>Release.zip / Assets / appicon.svg</span><span>压缩包内</span></div>
-                            </div>
-                        </div>
-                        <div class="list-demo">
-                            <div class="list-row"><span class="mini-icon"></span><span>MacWindowChrome.cs</span><strong>Modified</strong></div>
-                            <div class="list-row"><span class="mini-icon"></span><span>RemoteConnectionDialog.axaml</span><strong>SFTP</strong></div>
-                            <div class="list-row"><span class="mini-icon"></span><span>ImageAnalysisHelper.swift</span><strong>AI</strong></div>
-                            <div class="list-row"><span class="mini-icon"></span><span>MacExplorer-1.0.16.dmg</span><strong>Archive</strong></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="feature-grid">
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">AI</span><span class="mini-badge">本地优先</span></div>
-                        <h3>AI 图片与内容理解</h3>
-                        <p>识别人物、场景与文字，自动生成可搜索标签。</p>
-                    </article>
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">FTS</span><span class="mini-badge">快速定位</span></div>
-                        <h3>文件搜索与智能建议</h3>
-                        <p>输入路径或关键词，即刻找到目标文件。</p>
-                    </article>
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">Git</span><span class="mini-badge">图标标记</span></div>
-                        <h3>Git 状态一眼可见</h3>
-                        <p>新增、修改与未跟踪状态直接显示在文件图标上。</p>
-                    </article>
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">SFTP</span><span class="mini-badge">远程目录</span></div>
-                        <h3>SFTP 连接与远程编辑</h3>
-                        <p>连接、浏览、上传下载与编辑，操作如同本地目录。</p>
-                    </article>
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">ZIP</span><span class="mini-badge">无需绕路</span></div>
-                        <h3>压缩、解压与归档浏览</h3>
-                        <p>支持常见格式，并可直接浏览压缩包内容。</p>
-                    </article>
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">QL</span><span class="mini-badge">原生能力</span></div>
-                        <h3>Quick Look 与元数据面板</h3>
-                        <p>空格快速预览，侧边栏集中展示文件信息。</p>
-                    </article>
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">DRAG</span><span class="mini-badge">批量操作</span></div>
-                        <h3>多选拖放与冲突处理</h3>
-                        <p>支持多选、批量拖放和清晰的文件冲突提示。</p>
-                    </article>
-                    <article class="feature-card reveal">
-                        <div class="feature-top"><span class="feature-mark">UI</span><span class="mini-badge">双主题</span></div>
-                        <h3>毛玻璃窗口与紧凑工具栏</h3>
-                        <p>精致的玻璃质感，并支持浅色与深色主题。</p>
-                    </article>
-                </div>
+          </div>
+          <div class="preview-composition">
+            <div class="preview-mini-file">
+              <svg aria-hidden="true" focusable="false">
+                <use href="Assets/icons/fluent.svg#archive" />
+              </svg>
+              <div>
+                <strong>周末灵感.zip</strong><span>无需完整解压，即可浏览</span>
+              </div>
+              <span class="mini-space">space</span>
             </div>
-        </section>
+            <div class="preview-window">
+              <div class="preview-window-bar">
+                <svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#eye" /></svg
+                ><span>超级预览</span
+                ><span class="preview-window-name">高山湖泊.jpg</span>
+              </div>
+              <img
+                src="Assets/alpine-lake.jpg"
+                alt="超级预览示意：雪山湖泊照片"
+                width="1536"
+                height="1024"
+                loading="lazy"
+              />
+              <div class="preview-window-footer">
+                <span
+                  >周末灵感.zip
+                  <svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#chevron-right" />
+                  </svg>
+                  旅行
+                  <svg aria-hidden="true" focusable="false" class="icon">
+                    <use href="Assets/icons/fluent.svg#chevron-right" />
+                  </svg>
+                  高山湖泊.jpg</span
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#expand" />
+                </svg>
+              </div>
+            </div>
+            <span class="preview-annotation"
+              ><svg aria-hidden="true" focusable="false" class="icon">
+                <use href="Assets/icons/fluent.svg#checkmark" />
+              </svg>
+              连压缩包里的文件，也能继续预览</span
+            >
+          </div>
+        </div>
+      </section>
 
-        <section class="section" id="workflows">
-            <div class="section-kicker reveal">Workflows</div>
-            <h2 class="reveal">从本地到远程，一样顺手。</h2>
-            <p class="section-lede reveal">
-                为真实工作场景而设计。
+      <section
+        class="section wrap"
+        id="features"
+        aria-labelledby="features-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03 / 顺手，不止一面</p>
+            <h2 id="features-title">日常需要的，<br />都在手边。</h2>
+          </div>
+          <p class="section-description">
+            从找到一个文件，到管理整个项目。<br />把零散的工具，收进熟悉的文件工作台。
+          </p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card feature-search">
+            <div class="feature-heading">
+              <span class="feature-icon"
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#search" /></svg></span
+              ><span class="feature-label">找到所需</span>
+            </div>
+            <h3>想得起来，就找得到。</h3>
+            <p>
+              按文件名、图片文字与 AI 标签检索。选定搜索范围，让线索成为入口。
             </p>
-            <div class="workflow">
-                <article class="workflow-panel reveal">
-                    <div class="panel-demo">
-                        <div class="remote-row active"><span>design-server</span><strong>已连接</strong></div>
-                        <div class="remote-row"><span>/var/www/assets</span><strong>远程</strong></div>
-                        <div class="remote-row"><span>上传 4 个文件</span><strong>排队中</strong></div>
-                    </div>
-                    <h3>管理服务器文件</h3>
-                    <p>直接浏览、编辑和传输远程文件。</p>
-                </article>
-                <article class="workflow-panel reveal">
-                    <div class="panel-demo">
-                        <div class="ai-row active"><span>人像</span><strong>24</strong></div>
-                        <div class="ai-row"><span>会议室</span><strong>8</strong></div>
-                        <div class="ai-row"><span>含文字截图</span><strong>17</strong></div>
-                    </div>
-                    <h3>整理照片和资料</h3>
-                    <p>用 AI 标签、预览与评分整理素材。</p>
-                </article>
-                <article class="workflow-panel reveal">
-                    <div class="panel-demo">
-                        <div class="archive-row active"><span>Release.zip</span><strong>浏览</strong></div>
-                        <div class="archive-row"><span>Build.app</span><strong>压缩</strong></div>
-                        <div class="archive-row"><span>任务面板</span><strong>72%</strong></div>
-                    </div>
-                    <h3>处理发布包</h3>
-                    <p>压缩、浏览归档与任务进度集中完成。</p>
-                </article>
+            <div class="search-illustration" aria-label="搜索结果示意">
+              <div>
+                <svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#search" /></svg
+                ><span>设计</span><kbd>⌘ K</kbd>
+              </div>
+              <span
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#folder" /></svg
+                ><strong><mark>设计</mark>素材</strong
+                ><small>文件夹</small></span
+              ><span
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#document" /></svg
+                ><strong>产品<mark>设计</mark>笔记.md</strong
+                ><small>文稿</small></span
+              >
             </div>
-        </section>
-
-        <section class="section" id="compare">
-            <div class="section-kicker reveal">Compare</div>
-            <h2 class="reveal">熟悉的操作，更完整的能力。</h2>
-            <p class="section-lede reveal">
-                在 Finder 的直觉之上，补齐搜索、开发与远程工作。
+          </article>
+          <article class="feature-card">
+            <div class="feature-heading">
+              <span class="feature-icon"
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#server" /></svg></span
+              ><span class="feature-label">连接远程</span>
+            </div>
+            <h3>本地到服务器，一样熟悉。</h3>
+            <p>
+              内置 SFTP 连接，将远程目录纳入工作流，直接浏览、传输和管理文件。
             </p>
-            <div class="comparison reveal" role="table" aria-label="Mac Explorer 与 Finder 功能对比">
-                <div class="compare-row compare-head" role="row">
-                    <div class="compare-cell" role="columnheader">能力</div>
-                    <div class="compare-cell highlight" role="columnheader">Mac Explorer</div>
-                    <div class="compare-cell" role="columnheader">Finder</div>
-                </div>
-                <div class="compare-row" role="row">
-                    <div class="compare-cell">搜索</div>
-                    <div class="compare-cell highlight">文件名、内容与 AI 标签统一检索</div>
-                    <div class="compare-cell">Spotlight 与文件名搜索</div>
-                </div>
-                <div class="compare-row" role="row">
-                    <div class="compare-cell">开发工作</div>
-                    <div class="compare-cell highlight">文件图标直接显示 Git 状态</div>
-                    <div class="compare-cell">依赖终端或其他工具</div>
-                </div>
-                <div class="compare-row" role="row">
-                    <div class="compare-cell">远程目录</div>
-                    <div class="compare-cell highlight">内置 SFTP 浏览、传输与编辑</div>
-                    <div class="compare-cell">需要远程文件客户端</div>
-                </div>
-                <div class="compare-row" role="row">
-                    <div class="compare-cell">压缩文件</div>
-                    <div class="compare-cell highlight">无需解压即可直接浏览，也可直接解压 RAR（WinRAR）格式</div>
-                    <div class="compare-cell">基础 ZIP 操作</div>
-                </div>
-                <div class="compare-row" role="row">
-                    <div class="compare-cell">批量操作</div>
-                    <div class="compare-cell highlight">多选、拖放、冲突提示与任务进度</div>
-                    <div class="compare-cell">基础批量操作</div>
-                </div>
+            <div class="connection-illustration">
+              <span
+                ><svg aria-hidden="true" focusable="false">
+                  <use href="Assets/icons/fluent.svg#desktop" /></svg
+                >你的 Mac</span
+              ><i
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#lock" /></svg
+                ><b></b><small>SFTP</small></i
+              ><span
+                ><svg aria-hidden="true" focusable="false">
+                  <use href="Assets/icons/fluent.svg#server" /></svg
+                >远程服务器</span
+              >
             </div>
-        </section>
+          </article>
+          <article class="feature-card">
+            <div class="feature-heading">
+              <span class="feature-icon"
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#branch" /></svg></span
+              ><span class="feature-label">掌握改动</span>
+            </div>
+            <h3>项目状态，跟着文件走。</h3>
+            <p>
+              Git 状态直接显示在文件旁。新增、修改与未跟踪，浏览目录时就能看清。
+            </p>
+            <div class="git-illustration">
+              <span
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#code" />
+                </svg>
+                App.axaml <b class="git-modified">M</b></span
+              ><span
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#document" />
+                </svg>
+                README.md <b class="git-added">A</b></span
+              ><span
+                ><svg aria-hidden="true" focusable="false" class="icon">
+                  <use href="Assets/icons/fluent.svg#folder" />
+                </svg>
+                Assets <b class="git-untracked">?</b></span
+              >
+            </div>
+          </article>
+          <article class="feature-simple">
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#scan" />
+            </svg>
+            <h3>让图片，也能被理解</h3>
+            <p>
+              基于 Apple Vision 的本地图片分析，按人物、场景与文字线索整理素材。
+            </p>
+          </article>
+          <article class="feature-simple">
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#archive" />
+            </svg>
+            <h3>压缩包，也像文件夹</h3>
+            <p>
+              浏览归档、处理嵌套目录，支持多种压缩格式、密码保护和分卷操作。
+            </p>
+          </article>
+          <article class="feature-simple">
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#tag" />
+            </svg>
+            <h3>留下你的整理方式</h3>
+            <p>
+              收藏常用位置，为文件添加标签与星级评分，让重要内容更容易回到眼前。
+            </p>
+          </article>
+        </div>
+      </section>
 
-        <section class="download" id="download">
-            <div class="download-card reveal">
-                <div>
-                    <div class="section-kicker">Download</div>
-                    <h2>让文件管理更利落。</h2>
-                    <p class="section-lede">免费开源，适用于 macOS 15.0+。</p>
-                </div>
-                <div class="download-actions">
-                    <a class="button primary" href="https://github.com/3egirlsdream/Mac-Explorer/releases">下载最新版本</a>
-                    <a class="button" href="https://github.com/3egirlsdream/Mac-Explorer/issues">反馈问题</a>
-                </div>
-            </div>
-        </section>
+      <section class="details-section wrap" id="details">
+        <div class="details-copy">
+          <p class="eyebrow">04 / 每天用，每处都舒服</p>
+          <h2>强大的背后，<br />是对细节的在意。</h2>
+          <p>
+            连续的窗口表面、清晰的选中状态、统一的控件与文字层级。亮一点、暗一点，紧凑一点，都能按你的习惯来。
+          </p>
+          <button class="text-link theme-toggle" type="button">
+            切换外观，感受一下
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#weather-moon" />
+            </svg>
+          </button>
+        </div>
+        <div class="detail-list">
+          <div>
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#weather-sunny" /></svg
+            ><span
+              ><strong>浅色与深色</strong
+              ><small>跟随系统，也可以自由切换</small></span
+            ><span class="theme-swatches" aria-hidden="true"
+              ><i></i><i></i
+            ></span>
+          </div>
+          <div>
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#list" /></svg
+            ><span
+              ><strong>字号、密度与交互颜色</strong
+              ><small>让常用界面，更贴合自己的习惯</small></span
+            ><span class="type-sample" aria-hidden="true">Aa</span>
+          </div>
+          <div>
+            <svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#window" /></svg
+            ><span
+              ><strong>熟悉的快捷键</strong
+              ><small>新建标签、定位路径、快速预览</small></span
+            ><span class="shortcut-sample"><kbd>⌘</kbd><kbd>T</kbd></span>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="download-section"
+        id="download"
+        aria-labelledby="download-title"
+      >
+        <div class="wrap">
+          <img
+            class="download-icon"
+            src="Assets/appicon.svg"
+            alt=""
+            width="96"
+            height="96"
+            loading="lazy"
+          />
+          <p class="eyebrow">为你的下一次创作，整理好桌面。</p>
+          <h2 id="download-title">
+            文件有序，<br class="mobile-break" />专注自如。
+          </h2>
+          <p>从一个更顺手的文件管理器开始。</p>
+          <div class="download-buttons">
+            <a
+              class="button button-primary"
+              href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest"
+              ><svg aria-hidden="true" focusable="false" class="icon">
+                <use href="Assets/icons/fluent.svg#arrow-download" />
+              </svg>
+              下载最新正式版</a
+            ><a
+              class="button button-outline"
+              href="https://github.com/3egirlsdream/Mac-Explorer"
+              >在 GitHub 上探索
+              <svg aria-hidden="true" focusable="false" class="icon">
+                <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+            ></a>
+          </div>
+          <p class="platform-note">
+            macOS 15.0+ <span>·</span> Apple Silicon
+            <span>·</span> GPL-3.0-or-later
+          </p>
+          <div class="install-steps" aria-label="安装步骤">
+            <span><b>1</b> 下载并打开 DMG</span
+            ><svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#chevron-right" /></svg
+            ><span><b>2</b> 拖入 Applications</span
+            ><svg aria-hidden="true" focusable="false" class="icon">
+              <use href="Assets/icons/fluent.svg#chevron-right" /></svg
+            ><span><b>3</b> 打开 Mac Explorer</span>
+          </div>
+          <details class="install-help">
+            <summary>
+              首次打开遇到系统提示？<svg
+                aria-hidden="true"
+                focusable="false"
+                class="icon"
+              >
+                <use href="Assets/icons/fluent.svg#chevron-down" />
+              </svg>
+            </summary>
+            <p>
+              当前安装包为自签名应用。确认从本项目 GitHub Releases 下载后，如
+              macOS 阻止打开，可前往「系统设置 →
+              隐私与安全性」查看并允许打开。安装方式及各版本说明请以
+              <a
+                href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest"
+                >发行页面</a
+              >为准。
+            </p>
+          </details>
+        </div>
+      </section>
     </main>
 
-    <footer class="footer">
-        <div>© 2026 Mac Explorer</div>
-        <ul class="footer-links">
-            <li><a href="https://github.com/3egirlsdream/Mac-Explorer">GitHub</a></li>
-            <li><a href="https://github.com/3egirlsdream/Mac-Explorer/releases">Releases</a></li>
-            <li><a href="https://github.com/3egirlsdream/Mac-Explorer/blob/main/LICENSE">License</a></li>
-        </ul>
+    <footer class="footer wrap">
+      <div>
+        <a class="brand" href="#"
+          ><img src="Assets/appicon.svg" alt="" width="32" height="32" /><span
+            >Mac Explorer</span
+          ></a
+        >
+        <p>为 macOS 打造，让文件工作更顺手。</p>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/3egirlsdream/Mac-Explorer">源代码</a
+        ><a href="https://github.com/3egirlsdream/Mac-Explorer/releases"
+          >更新日志</a
+        ><a href="https://github.com/3egirlsdream/Mac-Explorer/issues"
+          >反馈建议</a
+        ><a
+          href="https://github.com/3egirlsdream/Mac-Explorer/blob/main/LICENSE"
+          >开源协议</a
+        >
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Mac Explorer</span><span>用心打磨，开放共建。</span>
+      </div>
     </footer>
 
-    <script>
-        const root = document.documentElement;
-        const savedTheme = localStorage.getItem("mac-explorer-theme");
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        root.dataset.theme = savedTheme || (prefersDark ? "dark" : "light");
-
-        document.getElementById("themeToggle").addEventListener("click", () => {
-            const next = root.dataset.theme === "dark" ? "light" : "dark";
-            root.dataset.theme = next;
-            localStorage.setItem("mac-explorer-theme", next);
-        });
-
-        const progress = document.querySelector(".progress");
-        const updateProgress = () => {
-            const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-            const ratio = scrollable > 0 ? window.scrollY / scrollable : 0;
-            progress.style.transform = `scaleX(${Math.min(1, Math.max(0, ratio))})`;
-        };
-
-        const revealObserver = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add("is-visible");
-                    revealObserver.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.16 });
-
-        document.querySelectorAll(".reveal").forEach((node) => revealObserver.observe(node));
-
-        const sections = Array.from(document.querySelectorAll("section[id]"));
-        const links = Array.from(document.querySelectorAll(".nav-links a"));
-        const activeObserver = new IntersectionObserver((entries) => {
-            const visible = entries
-                .filter((entry) => entry.isIntersecting)
-                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-            if (!visible) return;
-            links.forEach((link) => {
-                link.classList.toggle("is-active", link.getAttribute("href") === `#${visible.target.id}`);
-            });
-        }, { rootMargin: "-25% 0px -60% 0px", threshold: [0.08, 0.2, 0.4] });
-
-        sections.forEach((section) => activeObserver.observe(section));
-        window.addEventListener("scroll", updateProgress, { passive: true });
-        updateProgress();
-    </script>
-</body>
+    <dialog class="preview-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-toolbar">
+        <span
+          ><svg aria-hidden="true" focusable="false" class="icon">
+            <use href="Assets/icons/fluent.svg#eye" />
+          </svg>
+          超级预览 · 示例</span
+        ><button
+          class="icon-button dialog-close"
+          type="button"
+          aria-label="关闭预览"
+        >
+          <svg aria-hidden="true" focusable="false" class="icon">
+            <use href="Assets/icons/fluent.svg#dismiss" />
+          </svg>
+        </button>
+      </div>
+      <div class="dialog-content" id="dialog-content"></div>
+      <div class="dialog-footer">
+        <strong id="dialog-title">高山湖泊.jpg</strong
+        ><span><kbd>esc</kbd> 关闭</span>
+      </div>
+    </dialog>
+  </body>
 </html>
