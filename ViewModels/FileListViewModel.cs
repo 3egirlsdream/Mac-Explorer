@@ -595,6 +595,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task RefreshLocalLocationStatusAsync(string path, int generation)
     {
+        var dispatcher = Dispatcher.UIThread;
         LocationStatus? status = null;
         try
         {
@@ -603,7 +604,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             status = FileListStatusFormatter.GetLocalLocationStatus(path, await _driveSpaceTask);
         }
         catch { }
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        if (_disposed || generation != _locationStatusGeneration) return;
+        await dispatcher.InvokeAsync(() =>
         {
             if (_disposed || generation != _locationStatusGeneration) return;
             if (status is { } value)
@@ -700,10 +702,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task LoadSidebarDataDeferredAsync(CancellationToken cancellationToken)
     {
+        var dispatcher = Dispatcher.UIThread;
         try
         {
             await Task.Delay(150, cancellationToken);
-            await Dispatcher.UIThread.InvokeAsync(
+            if (cancellationToken.IsCancellationRequested || _disposed) return;
+            await dispatcher.InvokeAsync(
                 async () =>
                 {
                     if (cancellationToken.IsCancellationRequested || _disposed) return;

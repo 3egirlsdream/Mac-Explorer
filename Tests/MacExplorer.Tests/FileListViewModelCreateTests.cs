@@ -388,6 +388,8 @@ public sealed partial class FileListViewModelCreateTests
         }
 
         var window = new Window { Width = 900, Height = 360, Content = view };
+        // The headless platform needs the themed window's overlay layer to host the context menu.
+        window.Styles.Add(new FluentTheme());
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
@@ -427,7 +429,13 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(selectedBeforeContextMenu, viewModel.SelectedEntries.Select(entry => entry.FullPath));
 
         window.MouseUp(targetPoint, MouseButton.Right, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
+        Assert.True(menu.IsOpen);
+        Assert.Equal(selectedBeforeContextMenu, viewModel.SelectedEntries.Select(entry => entry.FullPath));
+        menu.Close();
         window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]
