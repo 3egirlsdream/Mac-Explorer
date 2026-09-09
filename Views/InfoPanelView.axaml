@@ -6,7 +6,8 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
-    <Border x:Name="InfoPanelRoot" Classes="info-panel" ClipToBounds="True">
+    <Border x:Name="InfoPanelRoot" Classes="info-panel" ClipToBounds="True"
+            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1,0,0,0">
         <Grid RowDefinitions="Auto,*">
                 <!-- Header with preview controls -->
                 <DockPanel Grid.Row="0" Margin="16,0" MinHeight="40" LastChildFill="True">
@@ -14,7 +15,7 @@
                             Classes="ghost info-panel-icon"
                             Padding="0" Click="ClosePanel" HorizontalAlignment="Right"
                             VerticalAlignment="Center">
-                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="14" Height="14"
+                        <PathIcon Data="{x:Static icons:Icons.Close}" Width="11" Height="11"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Button>
                     <Button DockPanel.Dock="Right" x:Name="ExpandPreviewBtn" AutomationProperties.Name="展开预览"
@@ -24,7 +25,7 @@
                             VerticalAlignment="Center">
                         <PathIcon x:Name="ExpandPreviewIcon"
                                   Data="{x:Static icons:Icons.ExpandPreview}"
-                                  Width="14" Height="14"
+                                  Width="11" Height="11"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Button>
                     <TextBlock x:Name="PanelTitle" Text="信息" FontWeight="{StaticResource FontWeightMedium}" FontSize="{DynamicResource FontSizeBodyLarge}"

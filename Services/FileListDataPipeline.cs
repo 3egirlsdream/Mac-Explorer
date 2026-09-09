@@ -13,7 +13,11 @@ public sealed record FileListQuery(
     GroupField GroupField,
     bool HideSystemFiles,
     bool HideDotFiles,
-    bool HideDotFolders);
+    bool HideDotFolders)
+{
+    public FileListFilterState ColumnFilters { get; init; } = FileListFilterState.Empty;
+    public DateTime FilterDate { get; init; } = DateTime.Today;
+}
 
 public sealed record FileListGroupSnapshot(string Name, IReadOnlyList<FileSystemEntry> Entries);
 

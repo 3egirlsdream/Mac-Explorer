@@ -277,6 +277,7 @@
     </UserControl.Resources>
 
     <UserControl.Styles>
+        <StyleInclude Source="avares://MacExplorer/Assets/FileListHeaderStyles.axaml"/>
         <!-- Draw interaction states on the visible content layer so hover and selection
              remain stable even when the container theme changes. -->
         <Style Selector="Border.file-list-entry">
@@ -335,16 +336,68 @@
                 Background="{DynamicResource ColorBgContent}"
                 BorderBrush="{DynamicResource ColorDivider}"
                 BorderThickness="0,0,0,1"
-                CornerRadius="0" Margin="0">
+                CornerRadius="0" Margin="0" Height="38" Padding="12,0">
             <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,110,*">
-                <TextBlock Grid.Column="1" x:Name="NameHeader" Text="名称" Classes="file-column-header"
-                           Margin="8,0,0,0" PointerPressed="OnSortByName"/>
-                <TextBlock Grid.Column="2" x:Name="ModifiedHeader" Text="修改日期" Classes="file-column-header"
-                           PointerPressed="OnSortByModified"/>
-                <TextBlock Grid.Column="3" x:Name="SizeHeader" Text="大小" Classes="file-column-header" TextAlignment="Right" Margin="0,0,12,0"
-                           PointerPressed="OnSortBySize"/>
-                <TextBlock Grid.Column="4" x:Name="TypeHeader" Text="类型" Classes="file-column-header"
-                           PointerPressed="OnSortByType"/>
+                <Grid Grid.Column="1" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
+                    <Button x:Name="NameSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Name}"
+                            Click="OnHeaderSortClicked" AutomationProperties.Name="按名称排序">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="NameHeader" Text="名称" VerticalAlignment="Center"/>
+                            <PathIcon x:Name="NameSortIcon" Classes="file-header-sort-icon"
+                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" x:Name="NameFilterButton" Classes="file-header-button file-header-filter"
+                            Tag="{x:Static vm:SortField.Name}" Click="OnColumnFilterClicked"
+                            AutomationProperties.Name="筛选名称" ToolTip.Tip="筛选名称">
+                        <PathIcon x:Name="NameFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                    </Button>
+                </Grid>
+                <Grid Grid.Column="2" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
+                    <Button x:Name="ModifiedSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Modified}"
+                            Click="OnHeaderSortClicked" AutomationProperties.Name="按修改日期排序">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="ModifiedHeader" Text="修改日期" VerticalAlignment="Center"/>
+                            <PathIcon x:Name="ModifiedSortIcon" Classes="file-header-sort-icon"
+                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" x:Name="ModifiedFilterButton" Classes="file-header-button file-header-filter"
+                            Tag="{x:Static vm:SortField.Modified}" Click="OnColumnFilterClicked"
+                            AutomationProperties.Name="筛选修改日期" ToolTip.Tip="筛选修改日期">
+                        <PathIcon x:Name="ModifiedFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                    </Button>
+                </Grid>
+                <Grid Grid.Column="3" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
+                    <Button x:Name="SizeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Size}"
+                            Click="OnHeaderSortClicked" AutomationProperties.Name="按大小排序">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="SizeHeader" Text="大小" VerticalAlignment="Center"/>
+                            <PathIcon x:Name="SizeSortIcon" Classes="file-header-sort-icon"
+                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" x:Name="SizeFilterButton" Classes="file-header-button file-header-filter"
+                            Tag="{x:Static vm:SortField.Size}" Click="OnColumnFilterClicked"
+                            AutomationProperties.Name="筛选大小" ToolTip.Tip="筛选大小">
+                        <PathIcon x:Name="SizeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                    </Button>
+                </Grid>
+                <Grid Grid.Column="4" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
+                    <Button x:Name="TypeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Type}"
+                            Click="OnHeaderSortClicked" AutomationProperties.Name="按类型排序">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="TypeHeader" Text="类型" VerticalAlignment="Center"/>
+                            <PathIcon x:Name="TypeSortIcon" Classes="file-header-sort-icon"
+                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" x:Name="TypeFilterButton" Classes="file-header-button file-header-filter"
+                            Tag="{x:Static vm:SortField.Type}" Click="OnColumnFilterClicked"
+                            AutomationProperties.Name="筛选类型" ToolTip.Tip="筛选类型">
+                        <PathIcon x:Name="TypeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                    </Button>
+                </Grid>
                 <Border Grid.Column="2" Tag="1" Width="8" HorizontalAlignment="Left"
                         Background="Transparent" Cursor="SizeWestEast"
                         PointerPressed="OnColumnResizePressed"
@@ -382,6 +435,7 @@
                     <TextBlock Classes="empty-state-text" x:Name="EmptyStateText" Text="此文件夹为空"/>
                     <TextBlock x:Name="EmptyStateHint" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <Button x:Name="ClearEmptySearchButton" Content="清除搜索并返回" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Click="ClearEmptySearch"/>
+                    <Button x:Name="ClearEmptyFiltersButton" Content="清除筛选" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Click="OnClearAllColumnFilters"/>
                     <Button x:Name="RetryReadButton" Content="重试" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Command="{Binding RefreshCommand}"/>
                 </StackPanel>
 
@@ -447,5 +501,33 @@
                         Background="#263B82F6" BorderBrush="{DynamicResource ColorAccent}"
                         BorderThickness="1" CornerRadius="2"/>
         </Grid>
+        <Popup x:Name="ColumnFilterPopup" Placement="BottomEdgeAlignedRight" HorizontalOffset="12" VerticalOffset="-6"
+               IsLightDismissEnabled="True" ShouldUseOverlayLayer="True"
+               WindowManagerAddShadowHint="False" Closed="OnColumnFilterClosed">
+            <Border Classes="context-submenu-surface" Width="272" KeyDown="OnColumnFilterKeyDown"
+                    KeyboardNavigation.TabNavigation="Cycle">
+                <StackPanel Spacing="8" Margin="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="ColumnFilterTitle" VerticalAlignment="Center"
+                                   FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Button Grid.Column="1" Content="清除" Classes="file-header-button" Padding="8,0"
+                                Click="OnClearColumnFilter" AutomationProperties.Name="清除此列筛选"/>
+                    </Grid>
+                    <TextBlock Text="可多选 · 未勾选时显示全部" FontSize="{DynamicResource FontSizeMeta}"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                    <ScrollViewer MaxHeight="288" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="ColumnFilterOptions"/>
+                    </ScrollViewer>
+                    <Border Height="1" Background="{DynamicResource ColorDivider}"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="ColumnFilterResult" VerticalAlignment="Center"
+                                   FontSize="{DynamicResource FontSizeMeta}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Button Grid.Column="1" Content="完成" Classes="file-header-button" Padding="8,0"
+                                Click="OnColumnFilterDone" AutomationProperties.Name="关闭筛选下拉"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Popup>
     </Grid>
 </UserControl>

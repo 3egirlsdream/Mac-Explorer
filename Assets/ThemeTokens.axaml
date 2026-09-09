@@ -45,7 +45,7 @@
                     <BoxShadows x:Key="InputFocusShadow">0 0 28 -18 #2A000000, inset 0 0 0 1 #10000000</BoxShadows>
                     <BoxShadows x:Key="HomeSearchShadow">0 0 34 -22 #28000000, inset 0 0 0 1 #06000000</BoxShadows>
                     <BoxShadows x:Key="HomeSearchFocusShadow">0 0 42 -24 #30000000, inset 0 0 0 1 #10000000</BoxShadows>
-                    <BoxShadows x:Key="ViewModeToggleShadow">0 1 2 0 #14000000</BoxShadows>
+                    <DropShadowEffect x:Key="ViewModeToggleShadow" OffsetX="0" OffsetY="0.5" BlurRadius="4.5" Color="#606068" Opacity="0.16"/>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F4F6"/>
                     <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#ECEEF1"/>
                     <SolidColorBrush x:Key="WindowBorderBrush" Color="#18000000"/>
@@ -59,7 +59,7 @@
                     <BoxShadows x:Key="SelectionOutlineShadow">none</BoxShadows>
                     <BoxShadows x:Key="FocusOutlineShadow">inset 0 0 0 2 #2463D4</BoxShadows>
                     <BoxShadows x:Key="InactiveSelectionOutlineShadow">none</BoxShadows>
-                    <BoxShadows x:Key="PopupShadow">0 8 24 -8 #26000000</BoxShadows>
+                    <BoxShadows x:Key="PopupShadow">0 0 20 -4 #48000000, 0 0 4 -1 #28000000</BoxShadows>
                     <!-- Semantic interaction tokens. Fluent compatibility resources are bridged at runtime. -->
                     <SolidColorBrush x:Key="InteractionHoverBrush" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#E5EEFC"/>
@@ -179,10 +179,9 @@
                     <SolidColorBrush x:Key="AddressbarBg" Color="#080F172A"/>
                     <SolidColorBrush x:Key="AddressbarBgHover" Color="#100F172A"/>
                     <SolidColorBrush x:Key="AddressbarBgFocus" Color="#FAFFFFFF"/>
-                    <SolidColorBrush x:Key="ViewModeToggleBg" Color="#F3F4F6"/>
-                    <SolidColorBrush x:Key="ViewModeToggleBorder" Color="#E1E4E9"/>
-                    <SolidColorBrush x:Key="ViewModeToggleHoverBg" Color="#ECEEF2"/>
-                    <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#E5EEFC"/>
+                    <SolidColorBrush x:Key="ViewModeToggleBg" Color="#EFEFF1"/>
+                    <SolidColorBrush x:Key="ViewModeToggleHoverBg" Color="#E5E5E9"/>
+                    <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#FFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="PanePreviewFillBrush" Color="#424750"/>
@@ -197,7 +196,7 @@
                     <BoxShadows x:Key="InputFocusShadow">0 0 28 -18 #90000000, inset 0 0 0 1 #42000000</BoxShadows>
                     <BoxShadows x:Key="HomeSearchShadow">0 0 34 -22 #90000000, inset 0 0 0 1 #36000000</BoxShadows>
                     <BoxShadows x:Key="HomeSearchFocusShadow">0 0 42 -24 #A0000000, inset 0 0 0 1 #42000000</BoxShadows>
-                    <BoxShadows x:Key="ViewModeToggleShadow">0 1 2 0 #76000000</BoxShadows>
+                    <DropShadowEffect x:Key="ViewModeToggleShadow" OffsetX="0" OffsetY="0.5" BlurRadius="4.5" Color="#101114" Opacity="0.28"/>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#17191D"/>
                     <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#202329"/>
                     <SolidColorBrush x:Key="WindowBorderBrush" Color="#22000000"/>
@@ -211,7 +210,7 @@
                     <BoxShadows x:Key="SelectionOutlineShadow">none</BoxShadows>
                     <BoxShadows x:Key="FocusOutlineShadow">inset 0 0 0 2 #8AB4FF</BoxShadows>
                     <BoxShadows x:Key="InactiveSelectionOutlineShadow">none</BoxShadows>
-                    <BoxShadows x:Key="PopupShadow">0 8 24 -8 #90000000</BoxShadows>
+                    <BoxShadows x:Key="PopupShadow">0 0 20 -4 #B0000000, 0 0 4 -1 #70000000</BoxShadows>
                     <!-- Semantic interaction tokens. Fluent compatibility resources are bridged at runtime. -->
                     <SolidColorBrush x:Key="InteractionHoverBrush" Color="#2B3038"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#283E61"/>
@@ -329,9 +328,8 @@
                     <SolidColorBrush x:Key="AddressbarBgHover" Color="#18FFFFFF"/>
                     <SolidColorBrush x:Key="AddressbarBgFocus" Color="#F2252830"/>
                     <SolidColorBrush x:Key="ViewModeToggleBg" Color="#24272D"/>
-                    <SolidColorBrush x:Key="ViewModeToggleBorder" Color="#343942"/>
                     <SolidColorBrush x:Key="ViewModeToggleHoverBg" Color="#2B3038"/>
-                    <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#283E61"/>
+                    <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#484C54"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

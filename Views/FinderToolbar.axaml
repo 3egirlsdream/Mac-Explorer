@@ -9,8 +9,8 @@
 
     <UserControl.Styles>
         <Style Selector="PathIcon.toolbar-icon">
-            <Setter Property="Width" Value="16"/>
-            <Setter Property="Height" Value="16"/>
+            <Setter Property="Width" Value="13"/>
+            <Setter Property="Height" Value="13"/>
         </Style>
         <Style Selector="Button#DeleteButton:pointerover PathIcon, Button#DeleteOverflowButton:pointerover PathIcon">
             <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
@@ -131,24 +131,20 @@
             <Border Grid.Column="7" MinWidth="12"/>
 
             <!-- View mode toggle -->
-            <Border Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented">
-                <StackPanel Orientation="Horizontal">
+            <Grid Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented">
+                <Path Data="{DynamicResource ViewModeTrackGeometry}"
+                      Fill="{DynamicResource ViewModeToggleBg}" IsHitTestVisible="False"/>
+                <StackPanel Orientation="Horizontal" Margin="2">
                     <ToggleButton x:Name="GridViewToggle" Classes="view-mode-toggle"
                                   ToolTip.Tip="图标视图" AutomationProperties.Name="图标视图" Click="ToggleGridView">
-                        <Border Classes="view-mode-toggle-surface">
-                            <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Grid}"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Grid}"/>
                     </ToggleButton>
                     <ToggleButton x:Name="ListViewToggle" Classes="view-mode-toggle"
                                   ToolTip.Tip="列表视图" AutomationProperties.Name="列表视图" Click="ToggleListView">
-                        <Border Classes="view-mode-toggle-surface">
-                            <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.List}"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.List}"/>
                     </ToggleButton>
                 </StackPanel>
-            </Border>
+            </Grid>
 
             <Separator Grid.Column="10" Classes="toolbar-separator toolbar-regular-action"/>
 

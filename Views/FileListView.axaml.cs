@@ -292,6 +292,7 @@ public partial class FileListView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         CancelActiveRename();
+        ColumnFilterPopup.IsOpen = false;
         UnsubscribeColumnLayoutService();
         if (_subscribedViewModel != null)
         {
@@ -336,6 +337,7 @@ public partial class FileListView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        ColumnFilterPopup.IsOpen = false;
         UnsubscribeColumnLayoutService();
         base.OnDetachedFromVisualTree(e);
     }
@@ -394,13 +396,19 @@ public partial class FileListView : UserControl
         }
 
         if (e.PropertyName is nameof(FileListViewModel.SortField)
-            or nameof(FileListViewModel.SortAscending))
+            or nameof(FileListViewModel.SortAscending)
+            or nameof(FileListViewModel.ColumnFilters))
         {
             UpdateSortHeaders();
+            UpdateEmptyState();
+            RefreshColumnFilterOptions();
         }
+        if (e.PropertyName == nameof(FileListViewModel.CurrentPath))
+            ColumnFilterPopup.IsOpen = false;
 
         if (e.PropertyName == nameof(FileListViewModel.Entries))
         {
+            RefreshColumnFilterOptions();
             if (ReferenceEquals(_subscribedEntries, ViewModel?.Entries))
             {
                 UpdateEmptyState();
@@ -3261,18 +3269,6 @@ public partial class FileListView : UserControl
         }
     }
 
-    private void UpdateSortHeaders()
-    {
-        if (ViewModel == null) return;
-        NameHeader.Text = GetHeaderText("名称", SortField.Name);
-        ModifiedHeader.Text = GetHeaderText("修改日期", SortField.Modified);
-        SizeHeader.Text = GetHeaderText("大小", SortField.Size);
-        TypeHeader.Text = GetHeaderText("类型", SortField.Type);
-    }
-
-    private string GetHeaderText(string label, SortField field)
-        => ViewModel?.SortField == field ? $"{label} {(ViewModel.SortAscending ? "▲" : "▼")}" : label;
-
     private async void ClearEmptySearch(object? sender, RoutedEventArgs e)
     {
         if (ViewModel != null)
@@ -3289,27 +3285,17 @@ public partial class FileListView : UserControl
         EmptyStateText.Text = readFailed ? "无法读取此位置"
             : searchFailed ? "无法完成搜索"
             : disconnected ? "未连接"
-            : ViewModel.IsSearchMode ? "未找到匹配的文件" : "此文件夹为空";
+            : ViewModel.HasFileListFilters || ViewModel.IsSearchMode ? "未找到匹配的文件" : "此文件夹为空";
         EmptyStateHint.Text = readFailed ? ViewModel.ReadErrorMessage
             : searchFailed ? ViewModel.StatusText
             : disconnected ? "请从侧栏或“连接远程服务器”入口连接"
+            : ViewModel.HasFileListFilters ? "试试减少筛选条件，或清除筛选查看全部文件。"
             : ViewModel.IsSearchMode ? $"“{ViewModel.SearchQuery}”\n范围：{ViewModel.SearchScopePath}（包含已索引子文件夹）"
             : string.Empty;
         EmptyStateHint.IsVisible = !string.IsNullOrEmpty(EmptyStateHint.Text);
+        ClearEmptyFiltersButton.IsVisible = ViewModel.HasFileListFilters && !readFailed && !searchFailed && !disconnected;
         ClearEmptySearchButton.IsVisible = ViewModel.IsSearchMode;
         RetryReadButton.IsVisible = readFailed;
-    }
-
-    private void OnSortByName(object? sender, PointerPressedEventArgs e) => SetSortFromHeader(SortField.Name, e);
-    private void OnSortByModified(object? sender, PointerPressedEventArgs e) => SetSortFromHeader(SortField.Modified, e);
-    private void OnSortBySize(object? sender, PointerPressedEventArgs e) => SetSortFromHeader(SortField.Size, e);
-    private void OnSortByType(object? sender, PointerPressedEventArgs e) => SetSortFromHeader(SortField.Type, e);
-
-    private void SetSortFromHeader(SortField field, PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed) return;
-        ViewModel?.SetSort(field);
-        e.Handled = true;
     }
 
     private void OnFileItemDoubleTapped(object? sender, TappedEventArgs e)
@@ -3346,6 +3332,7 @@ public partial class FileListView : UserControl
 
     public bool TryHandleFileShortcut(KeyEventArgs e)
     {
+        if (ColumnFilterPopup.IsOpen) return false;
         if (ViewModel == null) return false;
         if (e.Handled || IsTextInputSource(e.Source)) return false;
         var commandModifier = e.KeyModifiers.HasFlag(KeyModifiers.Meta)

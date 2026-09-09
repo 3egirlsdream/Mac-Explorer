@@ -84,6 +84,7 @@ public partial class SortFilterViewModel : ObservableObject
 
     public void ApplySortAndGroup(Action<ObservableCollection<FileSystemEntry>> setEntries)
     {
+        _filterDate = DateTime.Today;
         if (_rawEntries.Count == 0) { setEntries([]); Groups = []; return; }
         var list = new List<FileSystemEntry>(_rawEntries.Count);
         foreach (var entry in _rawEntries)
@@ -104,7 +105,9 @@ public partial class SortFilterViewModel : ObservableObject
         }
     }
 
-    private bool PassesFilter(FileSystemEntry entry)
+    private bool PassesFilter(FileSystemEntry entry) => PassesVisibilityFilter(entry) && PassesColumnFilters(entry);
+
+    internal bool PassesVisibilityFilter(FileSystemEntry entry)
     {
         if (entry.Name.EndsWith(".fkfinder-tmp")) return false;
         if (HideSystemFiles && SystemFileNames.Contains(entry.Name)) return false;
@@ -254,7 +257,7 @@ public partial class SortFilterViewModel : ObservableObject
         GroupField.Type => entry.IsVirtual
             ? GetAiTypeLabel(entry.VirtualFolderType!)
             : entry.IsDirectory ? "文件夹" : GetCategoryName(entry.Extension),
-        GroupField.Modified => GetDateGroup(entry.LastModified),
+        GroupField.Modified => GetDateGroup(entry.LastModified, _filterDate),
         GroupField.Size => entry.IsDirectory ? "文件夹" : GetSizeGroup(entry.Size),
         _ => string.Empty
     };
@@ -276,7 +279,7 @@ public partial class SortFilterViewModel : ObservableObject
         _ => entries.OrderBy(e => e.IsDirectory).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
     };
 
-    private static readonly string[] DateGroupOrder = ["今天", "昨天", "最近7天", "最近30天", "最近3个月", "今年更早", "更早"];
+    private static readonly string[] DateGroupOrder = ["未来", "今天", "昨天", "最近7天", "最近30天", "最近3个月", "今年更早", "更早"];
     private static readonly string[] SizeGroupOrder = ["大于 1 GB", "100 MB-1 GB", "1-100 MB", "小于 1 MB", "小于 1 KB", "空文件", "文件夹"];
 
     private List<FileGroup> BuildGroups(List<FileSystemEntry> sorted) => GroupField switch
@@ -307,15 +310,17 @@ public partial class SortFilterViewModel : ObservableObject
         _ => "其他"
     };
 
-    private static string GetDateGroup(DateTime date)
+    private static string GetDateGroup(DateTime date, DateTime today)
     {
-        var diff = DateTime.Now - date;
-        if (diff.TotalDays < 1) return "今天";
-        if (diff.TotalDays < 2) return "昨天";
-        if (diff.TotalDays < 7) return "最近7天";
-        if (diff.TotalDays < 30) return "最近30天";
-        if (diff.TotalDays < 90) return "最近3个月";
-        if (diff.TotalDays < 365) return "今年更早";
+        var localDate = (date.Kind == DateTimeKind.Utc ? date.ToLocalTime() : date).Date;
+        var days = (today - localDate).TotalDays;
+        if (days < 0) return "未来";
+        if (days == 0) return "今天";
+        if (days == 1) return "昨天";
+        if (days < 7) return "最近7天";
+        if (days < 30) return "最近30天";
+        if (localDate >= today.AddMonths(-3)) return "最近3个月";
+        if (localDate.Year == today.Year) return "今年更早";
         return "更早";
     }
 

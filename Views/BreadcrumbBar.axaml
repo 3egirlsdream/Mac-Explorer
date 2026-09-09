@@ -7,7 +7,49 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
+    <UserControl.Resources>
+        <ControlTheme x:Key="BreadcrumbButtonTheme" TargetType="Button">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      Background="{TemplateBinding Background}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="Center"
+                                      VerticalContentAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </UserControl.Resources>
+
     <UserControl.Styles>
+        <Style Selector="Button.breadcrumb-button">
+            <Setter Property="Theme" Value="{StaticResource BreadcrumbButtonTheme}"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="RenderTransform" Value="none"/>
+        </Style>
+        <Style Selector="Button.breadcrumb-label:pointerover, Button.breadcrumb-label:pressed">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.breadcrumb-dropdown">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}"/>
+        </Style>
+        <Style Selector="Button.breadcrumb-dropdown:pointerover, Button.breadcrumb-dropdown.open">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.breadcrumb-dropdown.open PathIcon">
+            <Setter Property="RenderTransform" Value="rotate(90deg)"/>
+        </Style>
         <Style Selector="TextBlock.breadcrumb-segment-label">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
@@ -15,9 +57,17 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
         </Style>
+        <Style Selector="ItemsControl.breadcrumb-segments > ContentPresenter:nth-last-child(1) PathIcon.breadcrumb-separator">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ListBox.breadcrumb-directories ListBoxItem">
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
     </UserControl.Styles>
 
-    <Border Classes="breadcrumb-bar" Classes.home-location="{Binding IsHomePage}" Padding="4,2">
+    <Border Classes="breadcrumb-bar" Classes.home-location="{Binding IsHomePage}"
+            Classes.path-editing="{Binding #PathInput.IsVisible}" Padding="4,2">
         <Grid ColumnDefinitions="*">
             <TextBlock Text="首页" IsVisible="{Binding IsHomePage}" Margin="8,0"
                        FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
@@ -47,30 +97,84 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:BreadcrumbSegment">
-                            <StackPanel Orientation="Horizontal" Spacing="0" Cursor="Hand"
+                            <StackPanel Orientation="Horizontal" Spacing="0"
                                         Background="Transparent">
-                                <!-- Chevron separator (not shown for first item) -->
-                                <PathIcon Data="{x:Static icons:Icons.ChevronRight}"
-                                          Width="12" Height="12"
-                                          Foreground="{DynamicResource TextSubtleBrush}"
-                                          Margin="2,0"
-                                          VerticalAlignment="Center"/>
-                                <!-- Segment button -->
-                                <Border x:Name="SegmentBorder"
-                                        CornerRadius="4"
-                                        Padding="6,2"
-                                        Background="Transparent"
-                                        PointerPressed="OnSegmentClicked"
-                                        Tag="{Binding FullPath}">
+                                <Button Classes="breadcrumb-button breadcrumb-label"
+                                        Click="OnSegmentClicked"
+                                        Tag="{Binding FullPath}"
+                                        ToolTip.Tip="{Binding FullPath}">
                                     <TextBlock Classes="breadcrumb-segment-label" Text="{Binding DisplayName}"
                                                FontSize="{DynamicResource FontSizeLabel}"
                                                VerticalAlignment="Center"/>
+                                </Button>
+                                <Button Classes="breadcrumb-button breadcrumb-dropdown"
+                                        IsVisible="{Binding HasDropdown}"
+                                        Click="OnDirectoryDropdownClicked"
+                                        KeyDown="OnDropdownKeyDown"
+                                        AutomationProperties.Name="{Binding DisplayName, StringFormat='显示 {0} 的子目录'}"
+                                        ToolTip.Tip="显示子目录">
+                                    <PathIcon Data="{x:Static icons:Icons.ChevronRight}" Width="10" Height="10"/>
+                                </Button>
+                                <Border IsVisible="{Binding HasDropdown, Converter={StaticResource BoolNotConverter}}">
+                                    <PathIcon Classes="breadcrumb-separator"
+                                              Data="{x:Static icons:Icons.ChevronRight}"
+                                              Width="10" Height="10" Margin="6,0"
+                                              Foreground="{DynamicResource TextSubtleBrush}"/>
                                 </Border>
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+
+            <Popup x:Name="DirectoryDropdownPopup"
+                   Placement="BottomEdgeAlignedLeft"
+                   HorizontalOffset="-12" VerticalOffset="-10"
+                   IsLightDismissEnabled="True"
+                   ShouldUseOverlayLayer="True"
+                   WindowManagerAddShadowHint="False"
+                   Closed="OnDirectoryDropdownClosed">
+                <Border Classes="toolbar-popup" Width="220" MaxHeight="328">
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Border Background="{DynamicResource ColorSurfaceSecondary}"
+                                CornerRadius="6" Margin="2,2,2,6" Padding="8,0">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <PathIcon Data="{x:Static icons:Icons.Search}" Width="13" Height="13"
+                                          Margin="0,0,6,0" VerticalAlignment="Center"
+                                          Foreground="{DynamicResource TextMutedBrush}"
+                                          IsHitTestVisible="False"/>
+                                <TextBox Grid.Column="1" x:Name="DirectoryDropdownSearch"
+                                         Classes="search-input omnibox-input" Height="28" MinHeight="28"
+                                         Padding="3,0" Background="Transparent" BorderThickness="0"
+                                         PlaceholderText="筛选目录"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                         TextChanged="OnDirectorySearchTextChanged"
+                                         AutomationProperties.Name="筛选子目录"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock Grid.Row="1" x:Name="DirectoryDropdownStatus" Margin="10,8"
+                                   FontSize="{DynamicResource FontSizeBody}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ListBox Grid.Row="2" x:Name="DirectoryDropdownList"
+                                 Classes="breadcrumb-directories toolbar-popup-items"
+                                 Focusable="True"
+                                 Padding="0" Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Tapped="OnDirectoryTapped"
+                                 AutomationProperties.Name="子目录">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:BreadcrumbSegment">
+                                    <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding DisplayName}"
+                                               FontSize="{DynamicResource FontSizeBody}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+            </Popup>
 
             <TextBox Grid.Column="0"
                      x:Name="PathInput"

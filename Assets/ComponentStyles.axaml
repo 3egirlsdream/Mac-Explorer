@@ -331,6 +331,7 @@
     </Style>
 
     <Style Selector="ContextMenu">
+        <Setter Property="WindowManagerAddShadowHint" Value="False"/>
         <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>

@@ -272,8 +272,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         FileListControl.DismissContextMenu();
         ToolbarControl.CloseDropdownsFromPointerSource(source);
-        if (!IsInsideVisual(source as Visual, BreadcrumbControl))
-            BreadcrumbControl.CloseTransientUi();
+        BreadcrumbControl.CloseTransientUiFromPointerSource(source);
     }
 
     public void DeactivateTransientUi()

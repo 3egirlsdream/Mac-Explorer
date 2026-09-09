@@ -418,7 +418,7 @@ public partial class NavigationViewModel : ObservableObject
                 Name = archiveName,
                 DisplayName = archiveName,
                 FullPath = ArchivePathHelper.Build(CurrentArchivePath, ""),
-                HasDropdown = !string.IsNullOrEmpty(CurrentArchiveInternalPath)
+                HasDropdown = true
             });
             if (!string.IsNullOrEmpty(CurrentArchiveInternalPath))
             {
@@ -432,7 +432,7 @@ public partial class NavigationViewModel : ObservableObject
                         Name = internalParts[i],
                         DisplayName = internalParts[i],
                         FullPath = ArchivePathHelper.Build(CurrentArchivePath, internalBuild + "/"),
-                        HasDropdown = i < internalParts.Length - 1
+                        HasDropdown = true
                     });
                 }
             }
@@ -454,7 +454,7 @@ public partial class NavigationViewModel : ObservableObject
         }
         else if (CurrentPath == "/")
         {
-            segments.Add(new BreadcrumbSegment { Name = "/", DisplayName = Localize("/", "/"), FullPath = "/", HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = "/", DisplayName = Localize("/", "/"), FullPath = "/", HasDropdown = true });
         }
         else
         {
@@ -464,7 +464,7 @@ public partial class NavigationViewModel : ObservableObject
             for (int i = 0; i < parts.Length; i++)
             {
                 buildPath += "/" + parts[i];
-                segments.Add(new BreadcrumbSegment { Name = parts[i], DisplayName = Localize(buildPath, parts[i]), FullPath = buildPath, HasDropdown = i < parts.Length - 1 });
+                segments.Add(new BreadcrumbSegment { Name = parts[i], DisplayName = Localize(buildPath, parts[i]), FullPath = buildPath, HasDropdown = true });
             }
         }
         Breadcrumbs = new ObservableCollection<BreadcrumbSegment>(segments);
@@ -503,7 +503,7 @@ public partial class NavigationViewModel : ObservableObject
         var segments = new List<BreadcrumbSegment>
         {
             new() { Name = "首页", DisplayName = "首页", FullPath = VirtualPath.Home, HasDropdown = false },
-            new() { Name = modeName, DisplayName = modeName, FullPath = modePath, HasDropdown = contextLabel != null }
+            new() { Name = modeName, DisplayName = modeName, FullPath = modePath, HasDropdown = false }
         };
         if (contextLabel != null)
         {
@@ -527,7 +527,7 @@ public partial class NavigationViewModel : ObservableObject
 
         if (string.IsNullOrEmpty(remotePath) || remotePath == "/")
         {
-            segments.Add(new() { Name = "/", DisplayName = "/", FullPath = VirtualPath.BuildRemotePath(serverId, "/"), HasDropdown = false });
+            segments.Add(new() { Name = "/", DisplayName = "/", FullPath = VirtualPath.BuildRemotePath(serverId, "/"), HasDropdown = true });
         }
         else
         {
@@ -542,7 +542,7 @@ public partial class NavigationViewModel : ObservableObject
                     Name = parts[i],
                     DisplayName = parts[i],
                     FullPath = VirtualPath.BuildRemotePath(serverId, buildPath),
-                    HasDropdown = i < parts.Length - 1
+                    HasDropdown = true
                 });
             }
         }

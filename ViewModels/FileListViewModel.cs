@@ -397,7 +397,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _capturedNavigationScrollOffsetY);
 
         if (_navigation.IsSearchMode)
-            _navigation.UpdateCurrentSearchResults(Entries.ToArray());
+            _navigation.UpdateCurrentSearchResults(_sortFilter.RawEntries.ToArray());
     }
 
     public FileListViewModel(
@@ -874,6 +874,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (e.PropertyName == nameof(NavigationViewModel.CurrentPath))
         {
+            ClearFileListFilters();
             StatusText = string.Empty;
             ReadErrorMessage = string.Empty;
             OnPropertyChanged(nameof(IsTagView));
@@ -933,6 +934,19 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void OnSortFilterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(SortFilterViewModel.ColumnFilters))
+        {
+            var selection = CaptureEntryLoadSelectionState();
+            SnapshotApplying?.Invoke();
+            _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
+            var selected = Entries.Where(entry => selection.SelectedPaths.Contains(entry.FullPath)).ToArray();
+            ReplaceSelection(selected, selected.FirstOrDefault(entry => entry.FullPath == selection.AnchorPath));
+            SnapshotApplied?.Invoke();
+            OnPropertyChanged(nameof(ColumnFilters));
+            OnPropertyChanged(nameof(FileNameFilter));
+            OnPropertyChanged(nameof(HasFileListFilters));
+        }
+
         if (e.PropertyName is nameof(SortFilterViewModel.ViewMode)
             or nameof(SortFilterViewModel.SortField)
             or nameof(SortFilterViewModel.SortAscending)
@@ -3470,11 +3484,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     ApplyEntries(entries);
                     SelectedEntries.Clear();
-                    _navigation.UpdateCurrentSearchResults(Entries.ToArray());
+                    _navigation.UpdateCurrentSearchResults(_sortFilter.RawEntries.ToArray());
                 },
                 msg => StatusText = msg
             );
-            _navigation.UpdateCurrentSearchResults(Entries.ToArray());
+            _navigation.UpdateCurrentSearchResults(_sortFilter.RawEntries.ToArray());
         }
         finally { IsLoading = false; }
     }
