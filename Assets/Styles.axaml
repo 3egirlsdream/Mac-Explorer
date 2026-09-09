@@ -222,7 +222,7 @@
         <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
     </Style>
 
-    <Style Selector="TextBox.collection-name-editor">
+    <Style Selector="TextBox.tag-name-editor">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
         <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
     </Style>

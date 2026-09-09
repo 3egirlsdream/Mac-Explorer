@@ -20,7 +20,6 @@ public sealed partial class FileListViewModelCreateTests
     [InlineData("archive")]
     [InlineData("trash")]
     [InlineData("ai")]
-    [InlineData("collection")]
     [InlineData("tag")]
     public void SpecialLocationsUseFastDetailsGroupsAndGridAndPreserveContextSelection(string source)
     {
@@ -30,7 +29,7 @@ public sealed partial class FileListViewModelCreateTests
         {
             IsHomePage = false,
             IsRemoteView = source == "remote", IsArchiveView = source == "archive",
-            IsAiView = source == "ai", IsCollectionView = source == "collection",
+            IsAiView = source == "ai",
             CurrentPath = source switch
             {
                 "remote" => VirtualPath.BuildRemotePath("test", "/files"),

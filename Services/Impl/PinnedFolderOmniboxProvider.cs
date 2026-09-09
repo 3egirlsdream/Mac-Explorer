@@ -41,7 +41,7 @@ public sealed class PinnedFolderOmniboxProvider : IOmniboxProvider
             suggestions.Add(new OmniboxSuggestion(
                 OmniboxSuggestionKind.Path,
                 pin.DisplayName,
-                $"收藏夹 · {pin.FolderPath}",
+                $"常用位置 · {pin.FolderPath}",
                 pin.FolderPath,
                 AppIcons.Folder,
                 "#F59E0B"));

@@ -18,6 +18,13 @@
     </UserControl.Resources>
 
     <UserControl.Styles>
+        <Style Selector=":is(Control).sidebar-category-header">
+            <Setter Property="Margin" Value="0,8,0,2"/>
+            <Setter Property="MinHeight" Value="26"/>
+        </Style>
+        <Style Selector="Grid.sidebar-category-header > TextBlock.sidebar-section-title">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
         <Style Selector="PathIcon.sidebar-icon">
             <Setter Property="Width" Value="15"/>
             <Setter Property="Height" Value="15"/>
@@ -80,7 +87,7 @@
         <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
                     <!-- ═══ 收藏 Favorites ═══ -->
-                    <TextBlock Classes="sidebar-section-title rail-secondary" Text="常用位置"/>
+                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="常用位置" Margin="0,0,0,2"/>
 
                     <!-- Username -->
                     <Border Classes="sidebar-item"
@@ -213,132 +220,8 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- ═══ 收藏夹 Collections ═══ -->
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Classes="sidebar-section-header rail-secondary"
-                          x:Name="CollectionsSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起收藏夹"
-                          Margin="0,8,0,2"
-                          PointerPressed="OnToggleCollectionsCollapsed">
-                        <TextBlock Grid.Column="0" x:Name="CollectionsSectionTitle" Text="收藏夹"
-                                   Classes="sidebar-section-title"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   Padding="18,4,0,4"
-                                   Cursor="Hand"/>
-                        <Button Grid.Column="2"
-                                x:Name="AddCollectionBtn" Opacity="1" IsHitTestVisible="True"
-                                Classes="ghost sidebar-header-action"
-                                Background="Transparent" BorderThickness="0"
-                                Padding="4" Margin="0,2,6,2"
-                                PointerPressed="OnUnpinPointerPressed"
-                                Click="StartNewCollection"
-                                ToolTip.Tip="新建收藏夹" AutomationProperties.Name="新建收藏夹">
-                            <PathIcon Data="{x:Static icons:Icons.Plus}"
-                                      Width="10" Height="10"
-                                      Foreground="{DynamicResource TextMutedBrush}"/>
-                        </Button>
-                        <PathIcon Grid.Column="3" Data="{x:Static icons:Icons.ChevronRight}"
-                                  Classes="sidebar-header-reveal"
-                                  Width="10" Height="10"
-                                  Foreground="{DynamicResource TextSubtleBrush}"
-                                  Margin="0,4,12,4"
-                                  x:Name="CollChevron"/>
-                    </Grid>
-
-                    <StackPanel Classes="rail-secondary" IsVisible="{Binding !IsCollectionsSectionCollapsed}"
-                                x:Name="CollectionsPanel">
-
-                        <!-- Collection list -->
-                        <ItemsControl x:Name="CollectionItems"
-                                      Classes="sidebar-items"
-                                      ItemsSource="{Binding Collections}"
-                                      IsVisible="{Binding Collections, Converter={StaticResource IsNotEmpty}}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:Collection">
-                                    <Border Classes="sidebar-item collection-row"
-                                            Tag="{Binding}"
-                                            PointerPressed="OnCollectionPressed">
-                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto"
-                                              Classes="collection-row-content"
-                                              Background="Transparent"
-                                              VerticalAlignment="Center">
-                                            <PathIcon Data="{x:Static icons:Icons.Folder}"
-                                                      Classes="sidebar-icon"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                       Classes="collection-name-label"
-                                                       Margin="8,0,0,0"
-                                                       VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
-                                            <TextBox Grid.Column="1"
-                                                     Classes="inline-rename-editor collection-name-editor"
-                                                     Tag="{Binding}"
-                                                     IsVisible="False"
-                                                     Margin="8,0,4,0"
-                                                     MinWidth="72"
-                                                     HorizontalAlignment="Left"
-                                                     VerticalAlignment="Center"
-                                                     FontSize="{DynamicResource FontSizeBody}"
-                                                     KeyDown="OnCollectionEditorKeyDown"
-                                                     LostFocus="OnCollectionEditorLostFocus"/>
-                                            <Button AutomationProperties.Name="重命名" Grid.Column="2" Tag="{Binding}"
-                                                    Classes="ghost sidebar-item-action collection-normal-action"
-                                                    ToolTip.Tip="重命名"
-                                                    PointerPressed="OnUnpinPointerPressed"
-                                                    Click="RenameCollection">
-                                                <PathIcon Data="{x:Static icons:Icons.Rename}" Width="12" Height="12"/>
-                                            </Button>
-                                            <Button AutomationProperties.Name="删除" Grid.Column="3" Tag="{Binding}"
-                                                    Classes="ghost sidebar-item-action collection-normal-action"
-                                                    ToolTip.Tip="删除"
-                                                    PointerPressed="OnUnpinPointerPressed"
-                                                    Click="DeleteCollection">
-                                                <PathIcon Data="{x:Static icons:Icons.Delete}" Width="12" Height="12"/>
-                                            </Button>
-                                            <Button AutomationProperties.Name="确认" Grid.Column="2" Grid.ColumnSpan="2"
-                                                    Classes="ghost sidebar-inline-confirm collection-confirm-action"
-                                                    IsVisible="False"
-                                                    Tag="{Binding}"
-                                                    ToolTip.Tip="确认"
-                                                    PointerPressed="OnUnpinPointerPressed"
-                                                    Click="CommitCollectionEdit">
-                                                <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
-                                            </Button>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <!-- New collection uses the same complete row as existing items. -->
-                        <Border x:Name="NewCollectionEditorRow"
-                                Classes="sidebar-item collection-row"
-                                IsVisible="False">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
-                                  Classes="collection-row-content"
-                                  Background="Transparent"
-                                  VerticalAlignment="Center">
-                                <PathIcon Data="{x:Static icons:Icons.CollectionAdd}"
-                                          Classes="sidebar-icon"/>
-                                <TextBox x:Name="NewCollectionInput"
-                                         Grid.Column="1"
-                                         Classes="inline-rename-editor collection-name-editor"
-                                         Margin="8,0,4,0"
-                                         MinWidth="72"
-                                         HorizontalAlignment="Left"
-                                         VerticalAlignment="Center"
-                                         FontSize="{DynamicResource FontSizeBody}"
-                                         KeyDown="OnCollectionEditorKeyDown"
-                                         LostFocus="OnCollectionEditorLostFocus"/>
-                                <Button AutomationProperties.Name="确认" Grid.Column="2" Grid.ColumnSpan="2"
-                                        Classes="ghost sidebar-inline-confirm collection-confirm-action"
-                                        ToolTip.Tip="确认"
-                                        PointerPressed="OnUnpinPointerPressed"
-                                        Click="CommitCollectionEdit">
-                                    <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </StackPanel>
-
                     <!-- ═══ 位置 Locations ═══ -->
-                    <TextBlock Classes="sidebar-section-title rail-secondary" Text="位置"/>
+                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="位置"/>
 
                     <!-- Macintosh HD -->
                     <Border Classes="sidebar-item"
@@ -423,8 +306,7 @@
                     </Border>
 
                     <!-- ═══ 远程服务器 Remote Servers ═══ -->
-                    <Grid ColumnDefinitions="Auto,*" Classes="rail-secondary"
-                          Margin="0,8,0,2"
+                    <Grid ColumnDefinitions="Auto,*" Classes="sidebar-category-header rail-secondary"
                           x:Name="RemoteServersHeader"
                           IsVisible="False">
                         <TextBlock Grid.Column="0" Text="远程服务器"
@@ -478,10 +360,132 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
+                    <!-- ═══ 标签 Tags ═══ -->
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
+                          x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起标签"
+                          PointerPressed="OnToggleTagsCollapsed">
+                        <TextBlock Grid.Column="0" x:Name="TagsSectionTitle" Text="标签"
+                                   Classes="sidebar-section-title"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   Padding="18,4,0,4"
+                                   Cursor="Hand"/>
+                        <Button Grid.Column="2"
+                                x:Name="AddTagBtn" Opacity="1" IsHitTestVisible="True"
+                                Classes="ghost sidebar-header-action"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="4" Margin="0,2,6,2"
+                                PointerPressed="OnUnpinPointerPressed"
+                                Click="StartNewTag"
+                                ToolTip.Tip="新建标签" AutomationProperties.Name="新建标签">
+                            <PathIcon Data="{x:Static icons:Icons.Plus}"
+                                      Width="10" Height="10"
+                                      Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Button>
+                        <PathIcon Grid.Column="3" Data="{x:Static icons:Icons.ChevronRight}"
+                                  Classes="sidebar-header-reveal"
+                                  Width="10" Height="10"
+                                  Foreground="{DynamicResource TextSubtleBrush}"
+                                  Margin="0,4,12,4"
+                                  x:Name="TagsChevron"/>
+                    </Grid>
+
+                    <StackPanel Classes="rail-secondary" IsVisible="{Binding !IsTagsSectionCollapsed}"
+                                x:Name="TagsPanel">
+
+                        <!-- Tag list -->
+                        <ItemsControl x:Name="TagItems"
+                                      Classes="sidebar-items"
+                                      ItemsSource="{Binding SidebarTags}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:FileTag">
+                                    <Border Classes="sidebar-item tag-row"
+                                            Tag="{Binding}"
+                                            PointerPressed="OnTagPressed" DragDrop.AllowDrop="True"
+                                            DragDrop.DragOver="OnTagDragOver" DragDrop.Drop="OnTagDrop">
+                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                                              Classes="tag-row-content"
+                                              Background="Transparent"
+                                              VerticalAlignment="Center">
+                                            <PathIcon Data="{x:Static icons:Icons.Tag}"
+                                                      Classes="sidebar-icon" Foreground="{Binding ColorHex}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                       Classes="tag-name-label" TextTrimming="CharacterEllipsis"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
+                                            <TextBox Grid.Column="1"
+                                                     Classes="inline-rename-editor tag-name-editor"
+                                                     Tag="{Binding}"
+                                                     IsVisible="False"
+                                                     Margin="8,0,4,0"
+                                                     MinWidth="72"
+                                                     HorizontalAlignment="Left"
+                                                     VerticalAlignment="Center"
+                                                     FontSize="{DynamicResource FontSizeBody}"
+                                                     KeyDown="OnTagEditorKeyDown"
+                                                     LostFocus="OnTagEditorLostFocus"/>
+                                            <Button AutomationProperties.Name="重命名" Grid.Column="2" Tag="{Binding}"
+                                                    Classes="ghost sidebar-item-action tag-normal-action"
+                                                    ToolTip.Tip="重命名"
+                                                    PointerPressed="OnUnpinPointerPressed"
+                                                    Click="RenameTag" IsVisible="{Binding IsCustom}">
+                                                <PathIcon Data="{x:Static icons:Icons.Rename}" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button AutomationProperties.Name="删除" Grid.Column="3" Tag="{Binding}"
+                                                    Classes="ghost sidebar-item-action tag-normal-action"
+                                                    ToolTip.Tip="删除"
+                                                    PointerPressed="OnUnpinPointerPressed"
+                                                    Click="DeleteTag" IsVisible="{Binding IsCustom}">
+                                                <PathIcon Data="{x:Static icons:Icons.Delete}" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button AutomationProperties.Name="确认" Grid.Column="2" Grid.ColumnSpan="2"
+                                                    Classes="ghost sidebar-inline-confirm tag-confirm-action"
+                                                    IsVisible="False"
+                                                    Tag="{Binding}"
+                                                    ToolTip.Tip="确认"
+                                                    PointerPressed="OnUnpinPointerPressed"
+                                                    Click="CommitTagEdit">
+                                                <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- New tag uses the same complete row as existing items. -->
+                        <Border x:Name="NewTagEditorRow"
+                                Classes="sidebar-item tag-row"
+                                IsVisible="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                                  Classes="tag-row-content"
+                                  Background="Transparent"
+                                  VerticalAlignment="Center">
+                                <PathIcon Data="{x:Static icons:Icons.Tag}"
+                                          Classes="sidebar-icon"/>
+                                <TextBox x:Name="NewTagInput"
+                                         Grid.Column="1"
+                                         Classes="inline-rename-editor tag-name-editor"
+                                         Margin="8,0,4,0"
+                                         MinWidth="72"
+                                         HorizontalAlignment="Left"
+                                         VerticalAlignment="Center"
+                                         FontSize="{DynamicResource FontSizeBody}"
+                                         KeyDown="OnTagEditorKeyDown"
+                                         LostFocus="OnTagEditorLostFocus"/>
+                                <Button AutomationProperties.Name="确认" Grid.Column="2" Grid.ColumnSpan="2"
+                                        Classes="ghost sidebar-inline-confirm tag-confirm-action"
+                                        ToolTip.Tip="确认"
+                                        PointerPressed="OnUnpinPointerPressed"
+                                        Click="CommitTagEdit">
+                                    <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
                     <!-- ═══ AI 智能 AI ═══ -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header rail-secondary"
+                    <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
                           x:Name="AiSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起AI 智能"
-                          Margin="0,16,0,2"
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="AI 智能"
@@ -565,54 +569,7 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- ═══ 标签 Tags ═══ -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header rail-secondary"
-                          x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起标签"
-                          Margin="0,16,0,2"
-                          PointerPressed="OnToggleTagsCollapsed"
-                          Cursor="Hand">
-                        <TextBlock Grid.Column="0" Text="标签"
-                                   Classes="sidebar-section-title"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   Padding="18,4,0,4"/>
-                        <PathIcon Grid.Column="2" Data="{x:Static icons:Icons.ChevronRight}"
-                                  Classes="sidebar-header-reveal"
-                                  Width="10" Height="10"
-                                  Foreground="{DynamicResource TextSubtleBrush}"
-                                  Margin="0,4,12,4"
-                                  x:Name="TagsChevron"/>
-                    </Grid>
 
-                    <ItemsControl Classes="sidebar-items rail-secondary"
-                                  ItemsSource="{Binding SidebarTags}"
-                                  IsVisible="{Binding !IsTagsSectionCollapsed}"
-                                  x:Name="TagsPanel">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="models:FileTag">
-                                <Border Classes="sidebar-item"
-                                        Tag="{Binding}"
-                                        PointerPressed="OnTagPressed">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
-                                        <Grid Grid.Column="0" Width="15" Height="15">
-                                            <Ellipse Width="9" Height="9"
-                                                     Fill="{Binding ColorHex}"
-                                                     IsVisible="{Binding IsFinderColor}"
-                                                     HorizontalAlignment="Center"
-                                                     VerticalAlignment="Center"/>
-                                            <PathIcon Data="{x:Static icons:Icons.Tag}"
-                                                      Classes="sidebar-icon"
-                                                      Foreground="{Binding ColorHex}"
-                                                      IsVisible="{Binding IsCustom}"/>
-                                        </Grid>
-                                        <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                   Margin="8,0,0,0"
-                                                   VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
                 </StackPanel>
             </ScrollViewer>
 </UserControl>

@@ -4,756 +4,559 @@
         xmlns:icons="using:MacExplorer.Assets"
         x:Class="MacExplorer.Views.Dialogs.SettingsDialog"
         Title="设置"
-        Width="760" Height="540"
-        MinWidth="720" MinHeight="500"
+        Width="940" Height="700"
+        MinWidth="780" MinHeight="540"
         CanResize="True"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource GlassEffectBg}">
+        Background="{DynamicResource SurfaceBackgroundBrush}">
 
     <Window.Styles>
-        <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        </Style>
-
-        <Style Selector="TabControl.settings-shell">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-
-        <Style Selector="TabControl.settings-shell > TabItem">
-            <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="MinWidth" Value="146"/>
-            <Setter Property="Margin" Value="0,0,20,0"/>
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Padding" Value="10 5"/>
-        </Style>
-        
-        <Style Selector="TabControl.settings-shell > TabItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-            <Setter Property="Padding" Value="5"/>
-        </Style>
-
-        <Style Selector="TabControl.settings-shell > TabItem:selected">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-
-        <Style Selector="TabControl.settings-shell PathIcon.settings-nav-icon">
-            <Setter Property="Width" Value="15"/>
-            <Setter Property="Height" Value="15"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        </Style>
-
-        <Style Selector="TabControl.settings-shell > TabItem:selected PathIcon.settings-nav-icon">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-        </Style>
-
-        <Style Selector="Border.settings-sidebar">
-            <Setter Property="Background" Value="{DynamicResource GlassSidebarBg}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
-            <Setter Property="BorderThickness" Value="0,0,1,0"/>
-            <Setter Property="Padding" Value="18,20,12,14"/>
-        </Style>
-
-        <Style Selector="Border.settings-content">
-            <Setter Property="Background" Value="{DynamicResource GlassContentBg}"/>
-        </Style>
-
-        <Style Selector="StackPanel.settings-page">
-            <Setter Property="MaxWidth" Value="560"/>
-            <Setter Property="Margin" Value="24,0,0,16"/>
-            <Setter Property="Spacing" Value="20"/>
-        </Style>
-
-        <Style Selector="TextBlock.settings-title">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeDisplay}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="Margin" Value="0,0,0,2"/>
-        </Style>
-
-        <Style Selector="TextBlock.settings-section-title">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
-        </Style>
-
-        <Style Selector="Border.settings-group">
-            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="ClipToBounds" Value="True"/>
-        </Style>
-
-        <Style Selector="Border.settings-row">
-            <Setter Property="Padding" Value="16,12"/>
-            <Setter Property="MinHeight" Value="{DynamicResource TypographySettingsRowMinHeight}"/>
-            <Setter Property="CornerRadius" Value="0"/>
-        </Style>
-
-        <Style Selector="Border.settings-row.settings-divider">
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
-            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-        </Style>
-
-        <Style Selector="Border.settings-compact-row">
-            <Setter Property="Padding" Value="16,9"/>
-            <Setter Property="MinHeight" Value="{DynamicResource TypographySettingsCompactRowMinHeight}"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        </Style>
-
-        <Style Selector="Border.settings-compact-row.settings-divider">
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
-            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-        </Style>
-
-        <Style Selector="TextBlock.settings-label">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-
-        <Style Selector="TextBlock.settings-description">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="Margin" Value="0,3,0,0"/>
-        </Style>
-
-        <Style Selector="Border.settings-note">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="12,9"/>
-        </Style>
-
-        <Style Selector="Border.settings-about-card">
-            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Padding" Value="22,20"/>
-        </Style>
-
-        <Style Selector="ToggleSwitch.settings-toggle">
-            <Setter Property="OnContent" Value=""/>
-            <Setter Property="OffContent" Value=""/>
-            <Setter Property="MinWidth" Value="38"/>
-        </Style>
-
-        <Style Selector="Button.openwith-delete">
-            <Setter Property="Width" Value="28"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Padding" Value="7"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        </Style>
-
-        <Style Selector="Button.openwith-delete:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
-        </Style>
-
-        <Style Selector="Button.interaction-token-row">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        </Style>
-
-        <Style Selector="Button.interaction-token-row:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-
-        <Style Selector="Button.interaction-token-row.selected">
-            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-
-        <Style Selector="Button.interaction-palette-swatch">
-            <Setter Property="Width" Value="30"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="Padding" Value="3"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="15"/>
-        </Style>
-
-        <Style Selector="Button.interaction-palette-swatch:pointerover">
-            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-        </Style>
-
-        <Style Selector="ListBox.settings-locations">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-
-        <Style Selector="ListBox.settings-locations ListBoxItem">
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Background" Value="Transparent"/>
-        </Style>
-
-        <Style Selector="ListBox.settings-locations ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="CornerRadius" Value="5"/>
-        </Style>
-
-        <Style Selector="Button.settings-location-action">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Padding" Value="7"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-
-        <Style Selector="Button.settings-location-action:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-        </Style>
-
-        <Style Selector="Button.settings-location-action PathIcon">
-            <Setter Property="Width" Value="16"/>
-            <Setter Property="Height" Value="16"/>
-        </Style>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
 
-    <Grid ColumnDefinitions="176,*">
-        <Border Grid.Column="0" Classes="settings-sidebar">
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14" Spacing="3">
-                    <TextBlock Text="设置" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+    <TabControl x:Name="SettingsTabs" Classes="settings-shell" TabStripPlacement="Left">
+        <TabItem AutomationProperties.Name="通用">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Settings}"/>
+                    <TextBlock Text="通用" VerticalAlignment="Center"/>
                 </StackPanel>
-            </DockPanel>
-        </Border>
-        <Border Grid.Column="1" Classes="settings-content"/>
-
-        <TabControl Grid.ColumnSpan="2"
-                    Classes="settings-shell"
-                    TabStripPlacement="Left"
-                    Margin="10,58,24,22">
-            <TabItem AutomationProperties.Name="通用">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Settings}"/>
-                        <TextBlock Text="通用" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Classes="settings-page">
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="settings-page">
+                    <StackPanel Classes="settings-header">
                         <TextBlock Classes="settings-title" Text="通用"/>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="系统"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-row settings-divider">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="设为默认文件管理器"/>
-                                                <TextBlock Classes="settings-description" MaxWidth="380"
-                                                           Text="通过系统方式打开文件夹时使用 MacExplorer。"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" x:Name="DefaultManagerToggle" Classes="settings-toggle"
-                                                          VerticalAlignment="Center" IsCheckedChanged="OnDefaultManagerChanged"/>
-                                        </Grid>
-                                    </Border>
-                                    <Border Classes="settings-row">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="AI 智能分析"/>
-                                                <TextBlock Classes="settings-description" MaxWidth="380"
-                                                           Text="浏览文件夹时自动分析图片内容。"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" x:Name="AiAnalysisToggle" Classes="settings-toggle"
-                                                          VerticalAlignment="Center" IsCheckedChanged="OnAiAnalysisChanged"/>
-                                        </Grid>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-                            <Border x:Name="GeneralStatusBorder" IsVisible="False" CornerRadius="8" Padding="12,8">
-                                <TextBlock x:Name="GeneralStatusText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap"/>
-                            </Border>
-                        </StackPanel>
+                        <TextBlock Classes="settings-description" Text="让 MacExplorer 更贴合你的日常使用习惯。"/>
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
 
-            <TabItem AutomationProperties.Name="位置">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Folder}"/>
-                        <TextBlock Text="位置" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Classes="settings-page">
-                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
-                            <TextBlock Classes="settings-title" Text="位置" VerticalAlignment="Center"/>
-                            <Button Grid.Column="1"
-                                    x:Name="AddSearchLocationButton"
-                                    Classes="settings-location-action"
-                                    ToolTip.Tip="添加搜索位置"
-                                    AutomationProperties.Name="添加搜索位置"
-                                    Click="OnAddSearchLocation">
-                                <PathIcon Data="{x:Static icons:Icons.Plus}"/>
-                            </Button>
-                        </Grid>
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title"
-                                       Text="要搜索应用程序和扩展的文件夹："/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <ListBox x:Name="DefaultSearchLocationsList"
-                                             Classes="settings-locations"
-                                             MinHeight="132"
-                                             MaxHeight="176"
-                                             SelectionMode="Single"
-                                             SelectionChanged="OnSearchLocationSelectionChanged">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Classes="settings-compact-row settings-divider">
-                                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                                        <PathIcon Data="{x:Static icons:Icons.Folder}" Width="18" Height="18"
-                                                                  Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding DisplayPath}" Classes="settings-label"
-                                                                   FontWeight="{StaticResource FontWeightRegular}" VerticalAlignment="Center"/>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                    <ListBox x:Name="SearchLocationsList"
-                                             Classes="settings-locations"
-                                             MaxHeight="126"
-                                             SelectionMode="Single"
-                                             SelectionChanged="OnSearchLocationSelectionChanged">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Classes="settings-compact-row settings-divider">
-                                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                                        <PathIcon Data="{x:Static icons:Icons.Folder}" Width="18" Height="18"
-                                                                  Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding DisplayPath}" Classes="settings-label"
-                                                                   FontWeight="{StaticResource FontWeightRegular}" VerticalAlignment="Center"/>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                </StackPanel>
-                            </Border>
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
-                                <Button x:Name="RemoveSearchLocationButton"
-                                        Classes="settings-location-action"
-                                        ToolTip.Tip="移除选中的搜索位置"
-                                        AutomationProperties.Name="移除选中的搜索位置"
-                                        Click="OnRemoveSearchLocation">
-                                    <PathIcon Data="{x:Static icons:Icons.Subtract}"/>
-                                </Button>
-                                <TextBlock Grid.Column="1"
-                                           Classes="settings-description"
-                                           VerticalAlignment="Center"
-                                           Text="选中列表中的文件夹后可将其从搜索位置中移除。"/>
-                            </Grid>
-                        </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem AutomationProperties.Name="文件显示">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.List}"/>
-                        <TextBlock Text="文件显示" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Classes="settings-page">
-                        <TextBlock Classes="settings-title" Text="文件显示"/>
-
-                        <Border Classes="settings-group">
-                            <Border Classes="settings-row">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                    <StackPanel>
-                                        <TextBlock Classes="settings-label" Text="高性能文件列表（试用）"/>
-                                        <TextBlock Classes="settings-description" Text="用于明细、分组和图标视图；需要逐项屏幕阅读时请关闭"/>
-                                    </StackPanel>
-                                    <ToggleSwitch Grid.Column="1" x:Name="FastFileListToggle" Classes="settings-toggle"
-                                                  IsCheckedChanged="OnFastFileListChanged"/>
-                                </Grid>
-                            </Border>
-                        </Border>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="可见性"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-row settings-divider">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="隐藏系统文件"/>
-                                                <TextBlock Classes="settings-description" Text=".DS_Store、Thumbs.db 等系统文件"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" x:Name="HideSystemFilesToggle" Classes="settings-toggle"
-                                                          IsCheckedChanged="OnFileDisplayChanged" Tag="system"/>
-                                        </Grid>
-                                    </Border>
-                                    <Border Classes="settings-row settings-divider">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="隐藏点文件"/>
-                                                <TextBlock Classes="settings-description" Text="以 . 开头的隐藏文件"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" x:Name="HideDotFilesToggle" Classes="settings-toggle"
-                                                          IsCheckedChanged="OnFileDisplayChanged" Tag="files"/>
-                                        </Grid>
-                                    </Border>
-                                    <Border Classes="settings-row">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="隐藏点文件夹"/>
-                                                <TextBlock Classes="settings-description" Text="例如 .git、.config 等隐藏文件夹"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" x:Name="HideDotFoldersToggle" Classes="settings-toggle"
-                                                          IsCheckedChanged="OnFileDisplayChanged" Tag="folders"/>
-                                        </Grid>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem AutomationProperties.Name="侧边栏">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Folder}"/>
-                        <TextBlock Text="侧边栏" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="PanelSidebar" Classes="settings-page">
-                        <TextBlock Classes="settings-title" Text="侧边栏"/>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="收藏"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock x:Name="UsernameSettingLabel" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_username" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="桌面"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_desktop" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文稿"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_documents" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="下载"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_downloads" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="图片"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_pictures" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="音乐"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_music" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="位置"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="Macintosh HD"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_macintosh_hd" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="应用程序"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_applications" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="废纸篓"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_trash" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="AI 智能"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="人物"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_ai_people" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="分类"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_ai_categories" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="地点"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_ai_locations" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="日期"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_ai_dates" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                    <Border Classes="settings-compact-row"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文字搜索"/><ToggleSwitch Grid.Column="1" Classes="settings-toggle" Tag="sidebar_show_ai_text_search" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem AutomationProperties.Name="外观">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Image}"/>
-                        <TextBlock Text="外观" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Classes="settings-page">
-                        <TextBlock Classes="settings-title" Text="外观"/>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="主题"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-row">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="深色模式"/>
-                                                <TextBlock Classes="settings-description" Text="跟随系统或固定使用浅色、深色。"/>
-                                            </StackPanel>
-                                            <ComboBox Grid.Column="1" x:Name="ThemeModeCombo" Width="128" VerticalAlignment="Center" SelectionChanged="OnThemeModeChanged">
-                                                <ComboBoxItem Content="跟随系统" Tag="system"/>
-                                                <ComboBoxItem Content="浅色" Tag="light"/>
-                                                <ComboBoxItem Content="深色" Tag="dark"/>
-                                            </ComboBox>
-                                        </Grid>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="字体"/>
-                            <Border Classes="settings-group">
-                                <Border Classes="settings-row">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                        <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="界面字号"/>
-                                            <TextBlock Classes="settings-description" Text="同时调整侧栏、文件列表和其他页面文字，修改后立即生效。"/>
-                                        </StackPanel>
-                                        <ComboBox Grid.Column="1" x:Name="TypographyPresetCombo" Width="138"
-                                                  VerticalAlignment="Center" SelectionChanged="OnTypographyPresetChanged">
-                                            <ComboBoxItem Content="小（90%）" Tag="small"/>
-                                            <ComboBoxItem Content="标准（100%）" Tag="standard"/>
-                                            <ComboBoxItem Content="大（115%）" Tag="large"/>
-                                        </ComboBox>
-                                    </Grid>
-                                </Border>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="交互反馈"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-row settings-divider">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="配置主题"/>
-                                                <TextBlock Classes="settings-description" Text="浅色与深色分别保存颜色；切换主题时自动应用对应的一套。"/>
-                                            </StackPanel>
-                                            <ComboBox Grid.Column="1" x:Name="InteractionThemeVariantCombo" Width="124" VerticalAlignment="Center" SelectionChanged="OnInteractionThemeVariantChanged">
-                                                <ComboBoxItem Content="浅色主题" Tag="light"/>
-                                                <ComboBoxItem Content="深色主题" Tag="dark"/>
-                                            </ComboBox>
-                                        </Grid>
-                                    </Border>
-                                    <Border Classes="settings-row">
-                                        <StackPanel Spacing="8">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="交互状态颜色"/>
-                                                <TextBlock Classes="settings-description" Text="选择状态后从调色盘取色，应用于按钮、列表、菜单、标签页和输入控件。"/>
-                                            </StackPanel>
-                                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
-                                                <Button x:Name="InteractionHoverColorButton" Classes="interaction-token-row" Tag="hover" Click="OnInteractionTokenSelected">
-                                                    <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
-                                                        <Border x:Name="InteractionHoverColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="悬停" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
-                                                        <TextBlock Grid.Column="2" x:Name="InteractionHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </Grid>
-                                                </Button>
-                                                <Button Grid.Column="1" x:Name="InteractionSelectedColorButton" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
-                                                    <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
-                                                        <Border x:Name="InteractionSelectedColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="选中或已勾选" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
-                                                        <TextBlock Grid.Column="2" x:Name="InteractionSelectedColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </Grid>
-                                                </Button>
-                                                <Button Grid.Row="1" x:Name="InteractionSelectedHoverColorButton" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
-                                                    <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
-                                                        <Border x:Name="InteractionSelectedHoverColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="选中时悬停" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
-                                                        <TextBlock Grid.Column="2" x:Name="InteractionSelectedHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </Grid>
-                                                </Button>
-                                                <Button Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorButton" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
-                                                    <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="8">
-                                                        <Border x:Name="InteractionTextHighlightColorPreview" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="文本高亮" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
-                                                        <TextBlock Grid.Column="2" x:Name="InteractionTextHighlightColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </Grid>
-                                                </Button>
-                                            </Grid>
-                                            <Border Classes="settings-note">
-                                                <StackPanel Spacing="8">
-                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
-                                                        <StackPanel>
-                                                            <TextBlock Classes="settings-label" Text="调色盘"/>
-                                                            <TextBlock x:Name="InteractionSelectedTokenText" Classes="settings-description"/>
-                                                        </StackPanel>
-                                                        <Button Grid.Column="1" Classes="secondary" Content="恢复本主题默认" VerticalAlignment="Center" Click="OnResetInteractionColors"/>
-                                                    </Grid>
-                                                    <WrapPanel>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#FFFFFF" ToolTip.Tip="#FFFFFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#FFFFFF" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#F0F1F3" ToolTip.Tip="#F0F1F3" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F0F1F3" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#E4E6EA" ToolTip.Tip="#E4E6EA" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E4E6EA" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#1E2026" ToolTip.Tip="#1E2026" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#1E2026" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#30343B" ToolTip.Tip="#30343B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#30343B" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#3B82F6" ToolTip.Tip="#3B82F6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#3B82F6" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#77AAFF" ToolTip.Tip="#77AAFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#77AAFF" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#22C55E" ToolTip.Tip="#22C55E" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#22C55E" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#F59E0B" ToolTip.Tip="#F59E0B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F59E0B" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#E5484D" ToolTip.Tip="#E5484D" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E5484D" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#A855F7" ToolTip.Tip="#A855F7" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#A855F7" CornerRadius="12"/></Button>
-                                                        <Button Classes="interaction-palette-swatch" Tag="#14B8A6" ToolTip.Tip="#14B8A6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#14B8A6" CornerRadius="12"/></Button>
-                                                    </WrapPanel>
-                                                    <TextBox x:Name="InteractionCustomColorBox" PlaceholderText="也可输入 #RRGGBB 或 #AARRGGBB" TextChanged="OnInteractionCustomColorChanged"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-                            <TextBlock x:Name="InteractionStyleStatusText" IsVisible="False" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource DangerBrush}"/>
-                        </StackPanel>
-
-                        <StackPanel Spacing="7">
-                            <TextBlock Classes="settings-section-title" Text="材质"/>
-                            <Border Classes="settings-group">
-                                <StackPanel>
-                                    <Border Classes="settings-row settings-divider">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="毛玻璃效果"/>
-                                                <TextBlock Classes="settings-description" Text="让窗口背景保留轻微透视层次。"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" x:Name="VibrancyToggle" Classes="settings-toggle" IsCheckedChanged="OnVibrancyChanged"/>
-                                        </Grid>
-                                    </Border>
-                                    <Border Classes="settings-row">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                            <StackPanel>
-                                                <TextBlock Classes="settings-label" Text="透明度"/>
-                                                <TextBlock Classes="settings-description" Text="控制底层原生毛玻璃的透视强度。"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                                <Slider x:Name="VibrancySlider" Width="126" Minimum="0" Maximum="1" TickFrequency="0.05" ValueChanged="OnVibrancyAlphaChanged"/>
-                                                <TextBlock x:Name="VibrancyValueText" Width="38" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-                            <Border Classes="settings-note">
-                                <TextBlock Text="毛玻璃设置会立即应用到主窗口。" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
-                            </Border>
-                        </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem AutomationProperties.Name="打开方式">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Apps}"/>
-                        <TextBlock Text="打开方式" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <Grid RowDefinitions="Auto,*" MaxWidth="560" Margin="34,0,0,14">
-                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" Margin="0,0,0,18">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Classes="settings-title" Text="打开方式"/>
-                        <Button x:Name="AddApplicationButton" Grid.Row="0" Grid.Column="1" Classes="secondary" Padding="12,7" VerticalAlignment="Top" Click="ToggleAddApplicationPopup">
-                            <StackPanel Orientation="Horizontal" Spacing="7">
-                                <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
-                                <TextBlock Text="添加" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                        <Popup x:Name="AddApplicationPopup" PlacementTarget="AddApplicationButton" Placement="BottomEdgeAlignedRight"
-                               IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False">
-                            <Border Classes="toolbar-popup" Width="360" MaxHeight="300">
-                                <StackPanel Spacing="6">
-                                    <TextBox x:Name="ApplicationSearchBox" PlaceholderText="搜索应用..." TextChanged="OnApplicationSearchChanged"/>
-                                    <TextBlock x:Name="InstalledAppsLoadingText" Text="正在扫描..." HorizontalAlignment="Center" Margin="0,8" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
-                                    <StackPanel x:Name="InstalledAppsPanel" Spacing="1"/>
-                                </StackPanel>
-                            </Border>
-                        </Popup>
-                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="控制应用在右键菜单中的展示位置。" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </Grid>
-
-                    <Border Grid.Row="1" Classes="settings-group">
-                        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                            <StackPanel x:Name="ConfiguredAppsPanel" Spacing="0"/>
-                        </ScrollViewer>
-                    </Border>
-                </Grid>
-            </TabItem>
-
-            <TabItem AutomationProperties.Name="关于">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Info}"/>
-                        <TextBlock Text="关于" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="PanelAbout" MaxWidth="480" Margin="54,6,0,14" Spacing="16" HorizontalAlignment="Left">
-                        <Border Classes="settings-about-card">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
-                                <Border Width="76" Height="76" CornerRadius="10" ClipToBounds="True">
-                                    <Image Source="/Assets/appicon.ico" VerticalAlignment="Center"/>
-                                </Border>
-                                <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
-                                    <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <Border Background="{DynamicResource ColorBgHover}" CornerRadius="20" Padding="12,4" HorizontalAlignment="Left">
-                                        <TextBlock x:Name="AboutVersion" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </Border>
-                                    <TextBlock Text="为 macOS 重新设计的文件浏览体验。" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="系统"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="软件更新"/>
-                                            <TextBlock x:Name="UpdateStatus" FontSize="{DynamicResource FontSizeLabel}" Margin="0,3,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <TextBlock Classes="settings-label" Text="设为默认文件管理器"/>
+                                            <TextBlock Classes="settings-description"
+                                                       Text="通过系统打开文件夹及兼容应用的「在 Finder 中显示」时使用 MacExplorer。更改后需重启电脑。"/>
                                         </StackPanel>
-                                        <Button Grid.Column="1" x:Name="UpdateButton" Classes="primary about-update-btn" Content="检查更新" Click="OnUpdateButtonClick"/>
+                                        <ToggleSwitch Grid.Column="1" x:Name="DefaultManagerToggle" AutomationProperties.Name="设为默认文件管理器" Classes="settings-toggle"
+                                                      VerticalAlignment="Center" IsCheckedChanged="OnDefaultManagerChanged"/>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="settings-row">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="AI 智能分析"/>
+                                            <TextBlock Classes="settings-description"
+                                                       Text="浏览文件夹时自动分析图片内容。"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="AiAnalysisToggle" AutomationProperties.Name="AI 智能分析" Classes="settings-toggle"
+                                                      VerticalAlignment="Center" IsCheckedChanged="OnAiAnalysisChanged"/>
                                     </Grid>
                                 </Border>
                             </StackPanel>
                         </Border>
-
-                        <Border Padding="14,10">
-                            <ProgressBar x:Name="UpdateProgress" IsVisible="False" Minimum="0" Maximum="100" Height="4"/>
+                        <Border x:Name="GeneralStatusBorder" IsVisible="False" CornerRadius="8" Padding="12,8">
+                            <TextBlock x:Name="GeneralStatusText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap"/>
                         </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
 
-                        <Border x:Name="ChangelogBorder" IsVisible="False" Classes="settings-group" Padding="14,12">
-                            <StackPanel Spacing="6">
-                                <TextBlock x:Name="ChangelogTitle" Text="更新日志" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextMutedBrush}"/>
-                                <TextBlock x:Name="ChangelogText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <TabItem AutomationProperties.Name="位置">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Folder}"/>
+                    <TextBlock Text="位置" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="settings-page">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+                        <StackPanel Classes="settings-header">
+                            <TextBlock Classes="settings-title" Text="位置"/>
+                            <TextBlock Classes="settings-description" Text="管理全局搜索使用的文件夹范围。"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                x:Name="AddSearchLocationButton"
+                                Classes="settings-location-action"
+                                ToolTip.Tip="添加搜索位置"
+                                AutomationProperties.Name="添加搜索位置"
+                                Click="OnAddSearchLocation">
+                            <PathIcon Data="{x:Static icons:Icons.Plus}"/>
+                        </Button>
+                    </Grid>
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title"
+                                   Text="搜索文件夹"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <StackPanel x:Name="EmptySearchLocationsPanel" Margin="24,36" Spacing="12" IsVisible="False">
+                                    <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource SurfaceMutedBrush}">
+                                        <PathIcon Data="{x:Static icons:Icons.Folder}" Width="26" Height="26" Foreground="{DynamicResource AccentBrush}"/>
+                                    </Border>
+                                    <TextBlock Text="尚未添加搜索位置" Classes="settings-label" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="点击右上角的 +，添加需要搜索的文件夹。" Classes="settings-description" TextAlignment="Center"/>
+                                </StackPanel>
+                                <ListBox x:Name="DefaultSearchLocationsList"
+                                         Classes="settings-locations"
+                                         MaxHeight="176"
+                                         SelectionMode="Single"
+                                         SelectionChanged="OnSearchLocationSelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Classes="settings-compact-row settings-divider">
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                                    <PathIcon Data="{x:Static icons:Icons.Folder}" Width="18" Height="18"
+                                                              Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding DisplayPath}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" Classes="settings-label"
+                                                               FontWeight="{StaticResource FontWeightRegular}" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <ListBox x:Name="SearchLocationsList"
+                                         Classes="settings-locations"
+                                         MaxHeight="126"
+                                         SelectionMode="Single"
+                                         SelectionChanged="OnSearchLocationSelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Classes="settings-compact-row settings-divider">
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                                    <PathIcon Data="{x:Static icons:Icons.Folder}" Width="18" Height="18"
+                                                              Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding DisplayPath}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" Classes="settings-label"
+                                                               FontWeight="{StaticResource FontWeightRegular}" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
                             </StackPanel>
                         </Border>
-
-                        <TextBlock Text="Copyright 2024-2026 MacExplorer" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}"/>
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
+                            <Button x:Name="RemoveSearchLocationButton"
+                                    Classes="settings-location-action"
+                                    ToolTip.Tip="移除选中的搜索位置"
+                                    AutomationProperties.Name="移除选中的搜索位置"
+                                    Click="OnRemoveSearchLocation">
+                                <PathIcon Data="{x:Static icons:Icons.Subtract}"/>
+                            </Button>
+                            <TextBlock Grid.Column="1"
+                                       Classes="settings-description"
+                                       VerticalAlignment="Center"
+                                       Text="选中列表中的文件夹后可将其从搜索位置中移除。"/>
+                        </Grid>
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-        </TabControl>
-    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem AutomationProperties.Name="文件显示">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.List}"/>
+                    <TextBlock Text="文件显示" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="settings-page">
+                    <StackPanel Classes="settings-header">
+                        <TextBlock Classes="settings-title" Text="文件显示"/>
+                        <TextBlock Classes="settings-description" Text="调整浏览性能，以及文件和文件夹的可见性。"/>
+                    </StackPanel>
+
+                    <Border Classes="settings-group">
+                        <Border Classes="settings-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                <StackPanel>
+                                    <TextBlock Classes="settings-label" Text="高性能文件列表（试用）"/>
+                                    <TextBlock Classes="settings-description" Text="用于明细、分组和图标视图；需要逐项屏幕阅读时请关闭"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" x:Name="FastFileListToggle" AutomationProperties.Name="高性能文件列表" Classes="settings-toggle"
+                                              IsCheckedChanged="OnFastFileListChanged"/>
+                            </Grid>
+                        </Border>
+                    </Border>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="可见性"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-row settings-divider">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="隐藏系统文件"/>
+                                            <TextBlock Classes="settings-description" Text=".DS_Store、Thumbs.db 等系统文件"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideSystemFilesToggle" AutomationProperties.Name="隐藏系统文件" Classes="settings-toggle"
+                                                      IsCheckedChanged="OnFileDisplayChanged" Tag="system"/>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="settings-row settings-divider">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="隐藏点文件"/>
+                                            <TextBlock Classes="settings-description" Text="以 . 开头的隐藏文件"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFilesToggle" AutomationProperties.Name="隐藏点文件" Classes="settings-toggle"
+                                                      IsCheckedChanged="OnFileDisplayChanged" Tag="files"/>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="settings-row">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="隐藏点文件夹"/>
+                                            <TextBlock Classes="settings-description" Text="例如 .git、.config 等隐藏文件夹"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFoldersToggle" AutomationProperties.Name="隐藏点文件夹" Classes="settings-toggle"
+                                                      IsCheckedChanged="OnFileDisplayChanged" Tag="folders"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem AutomationProperties.Name="侧边栏">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.SplitVertical}"/>
+                    <TextBlock Text="侧边栏" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="PanelSidebar" Classes="settings-page">
+                    <StackPanel Classes="settings-header">
+                        <TextBlock Classes="settings-title" Text="侧边栏"/>
+                        <TextBlock Classes="settings-description" Text="选择常用入口，打造顺手的侧边栏。"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="收藏"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Person}"/><TextBlock Grid.Column="1" x:Name="UsernameSettingLabel" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示用户主目录" Tag="sidebar_show_username" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Desktop}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="桌面"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示桌面" Tag="sidebar_show_desktop" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.FileText}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文稿"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示文稿" Tag="sidebar_show_documents" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Download}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="下载"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示下载" Tag="sidebar_show_downloads" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Image}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="图片"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示图片" Tag="sidebar_show_pictures" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Music}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="音乐"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示音乐" Tag="sidebar_show_music" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="位置"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.ExternalDrive}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="Macintosh HD"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示Macintosh HD" Tag="sidebar_show_macintosh_hd" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Apps}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="应用程序"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示应用程序" Tag="sidebar_show_applications" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Trash}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="废纸篓"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示废纸篓" Tag="sidebar_show_trash" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="AI 智能"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.People}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="人物"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示人物" Tag="sidebar_show_ai_people" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Grid}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="分类"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示分类" Tag="sidebar_show_ai_categories" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Location}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="地点"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示地点" Tag="sidebar_show_ai_locations" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Calendar}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="日期"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示日期" Tag="sidebar_show_ai_dates" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Search}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文字搜索"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示文字搜索" Tag="sidebar_show_ai_text_search" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem AutomationProperties.Name="外观">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Image}"/>
+                    <TextBlock Text="外观" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="settings-page">
+                    <StackPanel Classes="settings-header">
+                        <TextBlock Classes="settings-title" Text="外观"/>
+                        <TextBlock Classes="settings-description" Text="自定义主题、文字和交互反馈。"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="主题"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-row">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="界面主题"/>
+                                            <TextBlock Classes="settings-description" Text="跟随系统或固定使用浅色、深色。"/>
+                                        </StackPanel>
+                                        <ComboBox Grid.Column="1" x:Name="ThemeModeCombo" AutomationProperties.Name="界面主题" Width="148" VerticalAlignment="Center" SelectionChanged="OnThemeModeChanged">
+                                            <ComboBoxItem Content="跟随系统" Tag="system"/>
+                                            <ComboBoxItem Content="浅色" Tag="light"/>
+                                            <ComboBoxItem Content="深色" Tag="dark"/>
+                                        </ComboBox>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="字体"/>
+                        <Border Classes="settings-group">
+                            <Border Classes="settings-row">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <StackPanel>
+                                        <TextBlock Classes="settings-label" Text="界面字号"/>
+                                        <TextBlock Classes="settings-description" Text="同时调整侧栏、文件列表和其他页面文字，修改后立即生效。"/>
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="1" x:Name="TypographyPresetCombo" AutomationProperties.Name="界面字号" Width="148"
+                                              VerticalAlignment="Center" SelectionChanged="OnTypographyPresetChanged">
+                                        <ComboBoxItem Content="小（90%）" Tag="small"/>
+                                        <ComboBoxItem Content="标准（100%）" Tag="standard"/>
+                                        <ComboBoxItem Content="大（115%）" Tag="large"/>
+                                    </ComboBox>
+                                </Grid>
+                            </Border>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="交互反馈"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-row settings-divider">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="配置主题"/>
+                                            <TextBlock Classes="settings-description" Text="浅色与深色分别保存颜色；切换主题时自动应用对应的一套。"/>
+                                        </StackPanel>
+                                        <ComboBox Grid.Column="1" x:Name="InteractionThemeVariantCombo" AutomationProperties.Name="配置交互颜色的主题" Width="148" VerticalAlignment="Center" SelectionChanged="OnInteractionThemeVariantChanged">
+                                            <ComboBoxItem Content="浅色主题" Tag="light"/>
+                                            <ComboBoxItem Content="深色主题" Tag="dark"/>
+                                        </ComboBox>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="settings-row">
+                                    <StackPanel Spacing="8">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="交互状态颜色"/>
+                                            <TextBlock Classes="settings-description" Text="选择状态后从调色盘取色，应用于按钮、列表、菜单、标签页和输入控件。"/>
+                                        </StackPanel>
+                                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                                            <Button x:Name="InteractionHoverColorButton" AutomationProperties.Name="悬停颜色" Classes="interaction-token-row" Tag="hover" Click="OnInteractionTokenSelected">
+                                                <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+                                                    <Border x:Name="InteractionHoverColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="悬停" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                            </Button>
+                                            <Button Grid.Column="1" x:Name="InteractionSelectedColorButton" AutomationProperties.Name="选中或已勾选颜色" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
+                                                <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+                                                    <Border x:Name="InteractionSelectedColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="选中或已勾选" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionSelectedColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                            </Button>
+                                            <Button Grid.Row="1" x:Name="InteractionSelectedHoverColorButton" AutomationProperties.Name="选中时悬停颜色" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
+                                                <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+                                                    <Border x:Name="InteractionSelectedHoverColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="选中时悬停" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionSelectedHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                            </Button>
+                                            <Button Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorButton" AutomationProperties.Name="文本高亮颜色" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
+                                                <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+                                                    <Border x:Name="InteractionTextHighlightColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="文本高亮" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                            </Button>
+                                        </Grid>
+                                        <Border Classes="settings-note">
+                                            <StackPanel Spacing="8">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                                    <StackPanel>
+                                                        <TextBlock Classes="settings-label" Text="调色盘"/>
+                                                        <TextBlock x:Name="InteractionSelectedTokenText" Classes="settings-description"/>
+                                                    </StackPanel>
+                                                    <Button Grid.Column="1" Classes="secondary" Content="恢复本主题默认" VerticalAlignment="Center" Click="OnResetInteractionColors"/>
+                                                </Grid>
+                                                <WrapPanel>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#FFFFFF" AutomationProperties.Name="使用颜色 #FFFFFF" ToolTip.Tip="#FFFFFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#FFFFFF" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#F0F1F3" AutomationProperties.Name="使用颜色 #F0F1F3" ToolTip.Tip="#F0F1F3" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F0F1F3" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#E4E6EA" AutomationProperties.Name="使用颜色 #E4E6EA" ToolTip.Tip="#E4E6EA" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E4E6EA" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#1E2026" AutomationProperties.Name="使用颜色 #1E2026" ToolTip.Tip="#1E2026" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#1E2026" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#30343B" AutomationProperties.Name="使用颜色 #30343B" ToolTip.Tip="#30343B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#30343B" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#3B82F6" AutomationProperties.Name="使用颜色 #3B82F6" ToolTip.Tip="#3B82F6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#3B82F6" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#77AAFF" AutomationProperties.Name="使用颜色 #77AAFF" ToolTip.Tip="#77AAFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#77AAFF" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#22C55E" AutomationProperties.Name="使用颜色 #22C55E" ToolTip.Tip="#22C55E" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#22C55E" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#F59E0B" AutomationProperties.Name="使用颜色 #F59E0B" ToolTip.Tip="#F59E0B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F59E0B" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#E5484D" AutomationProperties.Name="使用颜色 #E5484D" ToolTip.Tip="#E5484D" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E5484D" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#A855F7" AutomationProperties.Name="使用颜色 #A855F7" ToolTip.Tip="#A855F7" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#A855F7" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#14B8A6" AutomationProperties.Name="使用颜色 #14B8A6" ToolTip.Tip="#14B8A6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#14B8A6" CornerRadius="12"/></Button>
+                                                </WrapPanel>
+                                                <TextBox x:Name="InteractionCustomColorBox" AutomationProperties.Name="自定义交互颜色" PlaceholderText="也可输入 #RRGGBB 或 #AARRGGBB" TextChanged="OnInteractionCustomColorChanged"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock x:Name="InteractionStyleStatusText" IsVisible="False" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource DangerBrush}"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="材质"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-row settings-divider">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="毛玻璃效果"/>
+                                            <TextBlock Classes="settings-description" Text="让窗口背景保留轻微透视层次。"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="VibrancyToggle" AutomationProperties.Name="毛玻璃效果" Classes="settings-toggle" IsCheckedChanged="OnVibrancyChanged"/>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="settings-row">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="透明度"/>
+                                            <TextBlock Classes="settings-description" Text="控制底层原生毛玻璃的透视强度。"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <Slider x:Name="VibrancySlider" AutomationProperties.Name="毛玻璃透明度" Width="126" Minimum="0" Maximum="1" TickFrequency="0.05" ValueChanged="OnVibrancyAlphaChanged"/>
+                                            <TextBlock x:Name="VibrancyValueText" Width="38" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="settings-note">
+                            <TextBlock Text="毛玻璃设置会立即应用到主窗口。" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem AutomationProperties.Name="打开方式">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Apps}"/>
+                    <TextBlock Text="打开方式" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <Grid Classes="settings-page" RowDefinitions="Auto,Auto,*" RowSpacing="20">
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="settings-title" Text="打开方式"/>
+                    <Button x:Name="AddApplicationButton" AutomationProperties.Name="添加应用" Grid.Row="0" Grid.Column="1" Classes="secondary" Padding="12,7" VerticalAlignment="Top" Click="ToggleAddApplicationPopup">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
+                            <TextBlock Text="添加" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Popup x:Name="AddApplicationPopup" PlacementTarget="AddApplicationButton" Placement="BottomEdgeAlignedRight"
+                           IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False">
+                        <Border Classes="toolbar-popup" Width="360" MaxHeight="300">
+                            <StackPanel Spacing="6">
+                                <TextBox x:Name="ApplicationSearchBox" AutomationProperties.Name="搜索应用" PlaceholderText="搜索应用..." TextChanged="OnApplicationSearchChanged"/>
+                                <TextBlock x:Name="InstalledAppsLoadingText" Text="正在扫描..." HorizontalAlignment="Center" Margin="0,8" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <StackPanel x:Name="InstalledAppsPanel" Spacing="1"/>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="添加常用应用，设置它们在右键菜单中的展示位置。" Classes="settings-description"/>
+                </Grid>
+
+                <TextBlock Grid.Row="1" Classes="settings-section-title" Text="常用应用"/>
+                <Border Grid.Row="2" Classes="settings-group">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel x:Name="EmptyApplicationsPanel" Margin="28,48" Spacing="12" IsVisible="False">
+                                <Border Width="56" Height="56" CornerRadius="16" Background="{DynamicResource SurfaceMutedBrush}">
+                                    <PathIcon Data="{x:Static icons:Icons.Apps}" Width="26" Height="26" Foreground="{DynamicResource AccentBrush}"/>
+                                </Border>
+                                <TextBlock Text="添加你的常用应用" Classes="settings-label" HorizontalAlignment="Center"/>
+                                <TextBlock Text="点击右上角的「添加」，让打开文件更顺手。" Classes="settings-description" TextAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel x:Name="ConfiguredAppsPanel" Spacing="0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <TabItem AutomationProperties.Name="关于">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Info}"/>
+                    <TextBlock Text="关于" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="PanelAbout" Classes="settings-page">
+                    <StackPanel Classes="settings-header">
+                        <TextBlock Classes="settings-title" Text="关于"/>
+                        <TextBlock Classes="settings-description" Text="版本信息与软件更新。"/>
+                    </StackPanel>
+                    <Border Classes="settings-about-card">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+                            <Border Width="76" Height="76" CornerRadius="10" ClipToBounds="True">
+                                <Image Source="/Assets/appicon.ico" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                                <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <Border Background="{DynamicResource ColorBgHover}" CornerRadius="20" Padding="12,4" HorizontalAlignment="Left">
+                                    <TextBlock x:Name="AboutVersion" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Border>
+                                <TextBlock Text="为 macOS 重新设计的文件浏览体验。" Classes="settings-description"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Classes="settings-group">
+                        <StackPanel>
+                            <Border Classes="settings-row settings-divider">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <StackPanel>
+                                        <TextBlock Classes="settings-label" Text="软件更新"/>
+                                        <TextBlock x:Name="UpdateStatus" Classes="settings-description"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" x:Name="UpdateButton" VerticalAlignment="Center" Classes="primary about-update-btn" Content="检查更新" Click="OnUpdateButtonClick"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Border IsVisible="{Binding IsVisible, ElementName=UpdateProgress}" Padding="4,0">
+                        <ProgressBar x:Name="UpdateProgress" IsVisible="False" Minimum="0" Maximum="100" Height="4"/>
+                    </Border>
+
+                    <Border x:Name="ChangelogBorder" IsVisible="False" Classes="settings-group" Padding="14,12">
+                        <StackPanel Spacing="6">
+                            <TextBlock x:Name="ChangelogTitle" Text="更新日志" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock x:Name="ChangelogText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Copyright 2024-2026 MacExplorer" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}"/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+    </TabControl>
 </controls:DialogWindow>

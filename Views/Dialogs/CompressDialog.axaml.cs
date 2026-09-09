@@ -105,7 +105,7 @@ public partial class CompressDialog : DialogWindow
             Level = Enum.Parse<CompressionLevel>(_level),
             OutputDirectory = _options.OutputDirectory,
             SourcePaths = _options.SourcePaths,
-            CollectionId = _options.CollectionId,
+            Tag = _options.Tag,
             Password = string.IsNullOrEmpty(password) ? null : password
         };
         Close(result);

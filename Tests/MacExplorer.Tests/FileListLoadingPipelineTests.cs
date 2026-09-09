@@ -429,7 +429,7 @@ public sealed class FileListLoadingPipelineTests
             new SearchViewModel(),
             new ArchiveViewModel(fileService: fileService),
             new AiViewModel(fileIndex: index),
-            new CollectionViewModel(fileIndex: index, fileService: fileService),
+            new PinnedFoldersViewModel(),
             new SortFilterViewModel(),
             fileService,
             index,

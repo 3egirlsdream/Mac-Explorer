@@ -7,7 +7,6 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 
 public sealed class MacFinderTagQueryService : IFinderTagQueryService
 {
-    private const int MaxResults = 5000;
     private readonly ILogger<MacFinderTagQueryService>? _logger;
 
     public MacFinderTagQueryService(ILogger<MacFinderTagQueryService>? logger = null)
@@ -51,13 +50,12 @@ public sealed class MacFinderTagQueryService : IFinderTagQueryService
             if (process.ExitCode != 0)
             {
                 _logger?.LogDebug("mdfind exited with {ExitCode}: {Error}", process.ExitCode, error.Trim());
-                return [];
+                throw new IOException($"Finder 标签查询失败：{error.Trim()}");
             }
 
             return output.Split('\0', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Where(path => !string.IsNullOrWhiteSpace(path))
                 .Distinct(StringComparer.Ordinal)
-                .Take(MaxResults)
                 .ToArray();
         }
         catch (OperationCanceledException)
@@ -69,7 +67,7 @@ public sealed class MacFinderTagQueryService : IFinderTagQueryService
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Unable to query Finder tag {Tag}", tag.Name);
-            return [];
+            throw new IOException("无法查询 Finder 标签", ex);
         }
     }
 

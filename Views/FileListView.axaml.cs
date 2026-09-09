@@ -389,7 +389,7 @@ public partial class FileListView : UserControl
             or nameof(FileListViewModel.IsRemoteView)
             or nameof(FileListViewModel.IsArchiveView)
             or nameof(FileListViewModel.IsAiView)
-            or nameof(FileListViewModel.IsCollectionView))
+            or nameof(FileListViewModel.IsTagView))
         {
             UpdateViewMode();
             QueueEntriesVisualRefresh();
@@ -1545,6 +1545,13 @@ public partial class FileListView : UserControl
             }
 
             var item = new MenuItem { Header = action.Label, IsEnabled = action.IsEnabled };
+            if (action.IsCheckable)
+            {
+                item.ToggleType = MenuItemToggleType.CheckBox;
+                item.IsChecked = action.IsChecked;
+                if (action.IsIndeterminate)
+                    item.Header = action.Label + "（部分文件）";
+            }
             if (!string.IsNullOrEmpty(action.ShortcutText))
                 item.InputGesture = ParseShortcut(action.ShortcutText);
             if (!string.IsNullOrEmpty(action.IconSvg))
@@ -2369,6 +2376,14 @@ public partial class FileListView : UserControl
         }
 
         var target = FindDropTarget(e);
+        if (target == null && ViewModel?.IsTagView == true)
+        {
+            _dragOverTargetEntry = null;
+            ClearDragOverVisual();
+            e.DragEffects = paths.All(Services.Impl.FileTagService.IsSupportedPath) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
         _dragOverTargetEntry = target;
         var targetDirectory = target?.FullPath ?? ViewModel?.CurrentPath;
         if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
@@ -2416,6 +2431,12 @@ public partial class FileListView : UserControl
             var paths = GetDroppedPaths(e.DataTransfer);
             if (paths.Length == 0) return;
 
+            if (target == null && viewModel.CurrentTag is { } tag)
+            {
+                e.Handled = true;
+                await viewModel.SetFileTagAsync(paths, tag, true);
+                return;
+            }
             var targetDirectory = target?.FullPath ?? viewModel.CurrentPath;
             if (!VirtualPath.IsRemotePath(targetDirectory) && !Directory.Exists(targetDirectory)) return;
             if (target != null && paths.Any(path => IsSamePath(path, target.FullPath)))
@@ -3285,12 +3306,14 @@ public partial class FileListView : UserControl
         EmptyStateText.Text = readFailed ? "无法读取此位置"
             : searchFailed ? "无法完成搜索"
             : disconnected ? "未连接"
-            : ViewModel.HasFileListFilters || ViewModel.IsSearchMode ? "未找到匹配的文件" : "此文件夹为空";
+            : ViewModel.HasFileListFilters || ViewModel.IsSearchMode ? "未找到匹配的文件"
+            : ViewModel.IsTagView ? "此标签下暂无文件" : "此文件夹为空";
         EmptyStateHint.Text = readFailed ? ViewModel.ReadErrorMessage
             : searchFailed ? ViewModel.StatusText
             : disconnected ? "请从侧栏或“连接远程服务器”入口连接"
             : ViewModel.HasFileListFilters ? "试试减少筛选条件，或清除筛选查看全部文件。"
             : ViewModel.IsSearchMode ? $"“{ViewModel.SearchQuery}”\n范围：{ViewModel.SearchScopePath}（包含已索引子文件夹）"
+            : ViewModel.IsTagView ? "拖入或粘贴文件以添加标签，原文件位置保持不变。"
             : string.Empty;
         EmptyStateHint.IsVisible = !string.IsNullOrEmpty(EmptyStateHint.Text);
         ClearEmptyFiltersButton.IsVisible = ViewModel.HasFileListFilters && !readFailed && !searchFailed && !disconnected;

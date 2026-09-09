@@ -7,6 +7,9 @@ public class ContextMenuAction
     public string ShortcutText { get; init; } = string.Empty;
     public bool IsEnabled { get; init; } = true;
     public bool IsSeparator { get; init; }
+    public bool IsCheckable { get; init; }
+    public bool IsChecked { get; init; }
+    public bool IsIndeterminate { get; init; }
     public Func<Task>? Execute { get; init; }
     public IReadOnlyList<ContextMenuAction>? SubItems { get; init; }
     public string? Tag { get; init; }

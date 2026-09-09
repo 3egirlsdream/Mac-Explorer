@@ -66,15 +66,6 @@ public partial class NavigationViewModel : ObservableObject
     private string _currentArchiveInternalPath = "";
 
     [ObservableProperty]
-    private bool _isCollectionView;
-
-    [ObservableProperty]
-    private int? _currentCollectionId;
-
-    [ObservableProperty]
-    private string? _currentCollectionName;
-
-    [ObservableProperty]
     private bool _isAiView;
 
     [ObservableProperty]
@@ -113,9 +104,9 @@ public partial class NavigationViewModel : ObservableObject
     private string Localize(string fullPath, string fallback)
         => _localizedNames.GetValueOrDefault(fullPath, fallback);
 
-    public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
+    public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView)
     {
-        return !isArchiveView && !isAiView && !isCollectionView && !IsSearchMode
+        return !isArchiveView && !isAiView && !IsSearchMode
             && !TagPathHelper.IsTagPath(CurrentPath)
             && !string.IsNullOrEmpty(CurrentPath);
     }
@@ -137,16 +128,13 @@ public partial class NavigationViewModel : ObservableObject
 
         // When navigating to a normal filesystem path from a special view,
         // reset the special view flags and associated state
-        if (IsArchiveView || IsAiView || IsCollectionView || IsRemoteView)
+        if (IsArchiveView || IsAiView || IsRemoteView)
         {
             IsArchiveView = false;
             IsAiView = false;
-            IsCollectionView = false;
             IsRemoteView = false;
             CurrentArchivePath = null;
             CurrentArchiveInternalPath = "";
-            CurrentCollectionId = null;
-            CurrentCollectionName = null;
             CurrentFaceClusterId = null;
             CurrentAiContextLabel = null;
             CurrentRemoteServerId = null;
@@ -218,14 +206,11 @@ public partial class NavigationViewModel : ObservableObject
         SetWatchedDirectory(null);
         IsArchiveView = false;
         IsAiView = false;
-        IsCollectionView = false;
         IsRemoteView = false;
         IsSearchMode = false;
         SearchQuery = string.Empty;
         CurrentArchivePath = null;
         CurrentArchiveInternalPath = "";
-        CurrentCollectionId = null;
-        CurrentCollectionName = null;
         CurrentFaceClusterId = null;
         CurrentAiContextLabel = null;
         CurrentRemoteServerId = null;
@@ -396,11 +381,7 @@ public partial class NavigationViewModel : ObservableObject
                 HasDropdown = false
             });
         }
-        else if (IsCollectionView && CurrentCollectionName != null)
-        {
-            segments.Add(new BreadcrumbSegment { Name = "收藏夹", DisplayName = "收藏夹", FullPath = "", HasDropdown = false });
-            segments.Add(new BreadcrumbSegment { Name = CurrentCollectionName, DisplayName = CurrentCollectionName, FullPath = "", HasDropdown = false });
-        }
+
         else if (IsArchiveView && CurrentArchivePath != null)
         {
             var archiveDir = Path.GetDirectoryName(CurrentArchivePath) ?? "/";
@@ -548,6 +529,26 @@ public partial class NavigationViewModel : ObservableObject
         }
 
         Breadcrumbs = new ObservableCollection<BreadcrumbSegment>(segments);
+    }
+
+    public void RenameTagHistory(string oldName, string? newName)
+    {
+        foreach (var entry in _historyStack)
+        {
+            if (TagPathHelper.TryParse(entry.Path, out var tag) &&
+                string.Equals(tag.Name, oldName, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Path = newName == null ? VirtualPath.Home : TagPathHelper.Build(newName, FileTagKind.Custom);
+                entry.IsHomePage = newName == null;
+            }
+        }
+        foreach (var path in _pathSelectedEntries.Keys.ToArray())
+        {
+            if (!TagPathHelper.TryParse(path, out var tag) || !string.Equals(tag.Name, oldName, StringComparison.OrdinalIgnoreCase)) continue;
+            var selection = _pathSelectedEntries[path];
+            _pathSelectedEntries.Remove(path);
+            if (newName != null) _pathSelectedEntries[TagPathHelper.Build(newName, FileTagKind.Custom)] = selection;
+        }
     }
 
     public void UpdateBreadcrumbs()

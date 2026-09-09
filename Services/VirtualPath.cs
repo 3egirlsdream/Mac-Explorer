@@ -2,7 +2,7 @@ namespace MacExplorer.Services;
 
 /// <summary>
 /// Constants for virtual/sentinel path prefixes used throughout the app.
-/// These represent non-filesystem paths for AI views, collections, archives, etc.
+/// These represent non-filesystem paths for AI views, tags, archives, etc.
 /// </summary>
 public static class VirtualPath
 {
@@ -14,9 +14,6 @@ public static class VirtualPath
 
     /// <summary>Prefix for archive browsing paths: __archive:/path/to/file.zip#internal/path</summary>
     public const string ArchivePrefix = "__archive:";
-
-    /// <summary>Prefix for collection paths: __collection:123</summary>
-    public const string CollectionPrefix = "__collection:";
 
     /// <summary>System trash directory path (not a sentinel prefix but related).</summary>
     public const string SystemTrash = "__system_trash__";

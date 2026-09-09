@@ -10,7 +10,10 @@ public sealed record FileTag(
     string Name,
     string ColorHex,
     FileTagKind Kind,
-    int ItemCount = 0)
+    int ItemCount = 0,
+    int ColorId = 0,
+    bool IsPinned = false,
+    int SortOrder = 0)
 {
     public bool IsFinderColor => Kind == FileTagKind.FinderColor;
     public bool IsCustom => Kind == FileTagKind.Custom;
@@ -23,13 +26,13 @@ public static class FileTagCatalog
 
     public static IReadOnlyList<FileTag> FinderColors { get; } =
     [
-        new("红色", "#FF3B30", FileTagKind.FinderColor),
-        new("橙色", "#FF9500", FileTagKind.FinderColor),
-        new("黄色", "#FFCC00", FileTagKind.FinderColor),
-        new("绿色", "#34C759", FileTagKind.FinderColor),
-        new("蓝色", "#007AFF", FileTagKind.FinderColor),
-        new("紫色", "#AF52DE", FileTagKind.FinderColor),
-        new("灰色", "#8E8E93", FileTagKind.FinderColor)
+        new("红色", "#FF3B30", FileTagKind.FinderColor, ColorId: 6),
+        new("橙色", "#FF9500", FileTagKind.FinderColor, ColorId: 7),
+        new("黄色", "#FFCC00", FileTagKind.FinderColor, ColorId: 5),
+        new("绿色", "#34C759", FileTagKind.FinderColor, ColorId: 2),
+        new("蓝色", "#007AFF", FileTagKind.FinderColor, ColorId: 4),
+        new("紫色", "#AF52DE", FileTagKind.FinderColor, ColorId: 3),
+        new("灰色", "#8E8E93", FileTagKind.FinderColor, ColorId: 1)
     ];
 
     private static readonly Dictionary<string, string> CanonicalColorNames =
@@ -55,6 +58,8 @@ public static class FileTagCatalog
             ["紫色"] = ["紫色", "Purple"],
             ["灰色"] = ["灰色", "Gray", "Grey"]
         };
+
+    public static string ColorHex(int colorId) => FinderColors.FirstOrDefault(t => t.ColorId == colorId)?.ColorHex ?? CustomTagColor;
 
     public static bool TryGetFinderColor(string? name, out FileTag tag)
     {

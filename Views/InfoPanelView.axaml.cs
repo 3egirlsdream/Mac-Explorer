@@ -45,7 +45,7 @@ public partial class InfoPanelView : UserControl
     private FileListViewModel? _subscribedViewModel;
     private long _previewRequestGeneration;
     private long _activationGeneration;
-    private int _tagWriteGeneration;
+    private int _tagReadGeneration;
     private readonly IImageAnalysisService? _imageAnalysisService;
     private readonly IClipboardService? _clipboardService;
     private readonly IDirectoryChangeNotifier? _directoryChangeNotifier;
@@ -53,11 +53,7 @@ public partial class InfoPanelView : UserControl
     private CancellationTokenSource? _panelLoadCts;
     private string? _currentFilePath;
     private readonly HashSet<string> _selectedSystemTags = new(StringComparer.OrdinalIgnoreCase);
-    private readonly object _pendingFinderTagsLock = new();
-    private readonly Dictionary<string, List<string>> _pendingFinderTags = new(StringComparer.Ordinal);
     private const int PreviewSelectionDebounceMs = 120;
-    private const string FinderTagsAttribute = "com.apple.metadata:_kMDItemUserTags";
-    private const string LegacyFinderTagsAttribute = "com.apple.metadata:kMDItemUserTags";
     private bool _isPreviewExpanded;
     private byte[]? _ocrPreviewBytes;
     private CancellationTokenSource? _ocrCts;
@@ -83,31 +79,17 @@ public partial class InfoPanelView : UserControl
         ("灰色", "#8E8E93")
     ];
 
-    private static readonly Dictionary<string, int> FinderTagColorIndexes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["灰色"] = 1,
-        ["绿色"] = 2,
-        ["紫色"] = 3,
-        ["蓝色"] = 4,
-        ["黄色"] = 5,
-        ["红色"] = 6,
-        ["橙色"] = 7,
-        ["Gray"] = 1,
-        ["Green"] = 2,
-        ["Purple"] = 3,
-        ["Blue"] = 4,
-        ["Yellow"] = 5,
-        ["Red"] = 6,
-        ["Orange"] = 7
-    };
 
-    public InfoPanelView()
+
+    public InfoPanelView() : this(null) { }
+
+    internal InfoPanelView(IFileTagService? fileTagService)
     {
         InitializeComponent();
         _imageAnalysisService = App.Services?.GetService<IImageAnalysisService>();
         _clipboardService = App.Services?.GetService<IClipboardService>();
         _directoryChangeNotifier = App.Services?.GetService<IDirectoryChangeNotifier>();
-        _fileTagService = App.Services?.GetService<IFileTagService>();
+        _fileTagService = fileTagService ?? App.Services?.GetService<IFileTagService>();
         RenderOptions.SetBitmapInterpolationMode(
             PreviewImage,
             global::Avalonia.Media.Imaging.BitmapInterpolationMode.MediumQuality);
@@ -638,8 +620,6 @@ public partial class InfoPanelView : UserControl
         PreviewFeedback.IsVisible = !entry.IsDirectory;
         PreviewFeedbackText.Text = reason;
         RetryPreviewButton.IsVisible = canRetry && IsLivePreviewEnabled;
-        OpenPreviewFileButton.IsEnabled = App.Services?.GetService<IApplicationLauncherService>() != null;
-
     }
 
     private void ShowPreviewBadge(string text)
@@ -987,7 +967,10 @@ public partial class InfoPanelView : UserControl
     {
         _selectedSystemTags.Clear();
         foreach (var tag in selectedTags)
-            _selectedSystemTags.Add(tag);
+        {
+            if (FileTagCatalog.TryGetFinderColor(tag, out var colorTag))
+                _selectedSystemTags.Add(colorTag.Name);
+        }
         UpdateSystemTagCheckmarks();
     }
 
@@ -1003,46 +986,68 @@ public partial class InfoPanelView : UserControl
         }
     }
 
-    private void UpdateTagsFromMetadata(string filePath, IReadOnlyList<string> finderTags)
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        lock (_pendingFinderTagsLock)
-        {
-            if (_pendingFinderTags.TryGetValue(filePath, out var pendingTags))
-                finderTags = pendingTags;
-        }
-
-        var normalizedTags = finderTags
-            .Select(FileTagCatalog.NormalizeName)
-            .Where(tag => !string.IsNullOrWhiteSpace(tag))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        CustomTagsPanel.Children.Clear();
-
-        // Update system tag selection based on Finder tags
-        UpdateSystemTagSelection(normalizedTags);
-
-        // Show custom tags (non-color tags from Finder)
-        var colorNames = new HashSet<string>(FinderTagColors.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
-        foreach (var tag in normalizedTags)
-        {
-            if (colorNames.Contains(tag)) continue;
-            CustomTagsPanel.Children.Add(CreateTagChip(tag, filePath));
-        }
-
-        _ = SyncTagIndexAsync(filePath, normalizedTags);
+        base.OnAttachedToVisualTree(e);
+        if (_fileTagService != null) _fileTagService.TagsChanged += OnFileTagsChanged;
     }
 
-    private async Task SyncTagIndexAsync(string filePath, IReadOnlyList<string> finderTags)
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_fileTagService != null) _fileTagService.TagsChanged -= OnFileTagsChanged;
+        _tagReadGeneration++;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnFileTagsChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
+    {
+        if (_currentFilePath != null && ViewModel?.IsInfoPanelVisible == true)
+            _ = RefreshTagsAsync(_currentFilePath);
+    });
+
+    private void UpdateTagsFromMetadata(string filePath, IReadOnlyList<string> finderTags)
+    {
+        if (_fileTagService != null) _ = RefreshTagsAsync(filePath);
+        else RenderTags(filePath, finderTags.Select(FileTagCatalog.NormalizeName).ToArray());
+    }
+
+    private async Task RefreshTagsAsync(string path)
+    {
+        if (_fileTagService == null) return;
+        var generation = ++_tagReadGeneration;
+        try
+        {
+            var tags = await _fileTagService.GetFileTagsAsync(path);
+            if (generation == _tagReadGeneration && path == _currentFilePath)
+                RenderTags(path, tags.Select(t => t.Name).ToArray());
+        }
+        catch (Exception ex) { Debug.WriteLine($"Unable to refresh tags: {ex.Message}"); }
+    }
+
+    private void RenderTags(string filePath, IReadOnlyList<string> tags)
+    {
+        CustomTagsPanel.Children.Clear();
+        UpdateSystemTagSelection(tags);
+        foreach (var tag in tags.Distinct(StringComparer.OrdinalIgnoreCase))
+            if (!FileTagCatalog.TryGetFinderColor(tag, out _))
+                CustomTagsPanel.Children.Add(CreateTagChip(tag, filePath));
+    }
+
+    private async Task ApplyTagChangeAsync(string path, string name, bool applied)
     {
         if (_fileTagService == null) return;
         try
         {
-            await _fileTagService.ReplaceFileTagsAsync(filePath, finderTags);
+            var tag = (await _fileTagService.GetSidebarTagsAsync()).FirstOrDefault(t =>
+                string.Equals(t.Name, FileTagCatalog.NormalizeName(name), StringComparison.OrdinalIgnoreCase))
+                ?? new FileTag(name, FileTagCatalog.CustomTagColor, FileTagKind.Custom);
+            var result = await _fileTagService.SetTagAsync([path], tag, applied);
+            if (result.PendingFiles > 0 && ViewModel != null) ViewModel.StatusText = "标签已保存，等待同步 Finder";
+            await RefreshTagsAsync(path);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to update file tag index: {ex.Message}");
+            if (ViewModel != null) ViewModel.StatusText = $"标签操作失败：{ex.Message}";
         }
     }
 
@@ -1060,10 +1065,15 @@ public partial class InfoPanelView : UserControl
         var textSecondary = ResolveBrush("TextSecondaryBrush", "#5B6270");
         var bgHover = ResolveBrush("ColorBgHover", "#0B0F172A");
 
-        var removeBtn = AppTypography.BindFontSize(new Button
+        var removeBtn = new Button
         {
-            Content = "×",
-            Width = 14, Height = 14,
+            Content = new PathIcon
+            {
+                Data = Geometry.Parse(MacExplorer.Assets.Icons.Close),
+                Width = 10, Height = 10
+            },
+            Width = 24, Height = 24,
+            MinWidth = 24, MinHeight = 24,
             Background = Brushes.Transparent,
             Padding = new Thickness(0),
             CornerRadius = new CornerRadius(7),
@@ -1072,15 +1082,17 @@ public partial class InfoPanelView : UserControl
             VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
-        }, AppTypography.IconGlyph);
+        };
         removeBtn.Classes.Add("ghost");
+        ToolTip.SetTip(removeBtn, $"移除标签“{tag}”");
+        global::Avalonia.Automation.AutomationProperties.SetName(removeBtn, $"移除标签“{tag}”");
 
         var chip = new Border
         {
             Background = surfaceSecondary,
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(8, 3, 4, 3),
-            Margin = new Thickness(0, 0, 4, 4),
+            Padding = new Thickness(10, 4, 4, 4),
+            Margin = new Thickness(0, 0, 6, 6),
             Child = new StackPanel
             {
                 Orientation = global::Avalonia.Layout.Orientation.Horizontal,
@@ -1090,6 +1102,8 @@ public partial class InfoPanelView : UserControl
                     AppTypography.BindFontSize(new TextBlock
                     {
                         Text = tag,
+                        MaxWidth = 200,
+                        TextTrimming = TextTrimming.CharacterEllipsis,
                         VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                         Foreground = textSecondary
                     }, AppTypography.Label),
@@ -1097,6 +1111,7 @@ public partial class InfoPanelView : UserControl
                 }
             }
         };
+        ToolTip.SetTip(chip, tag);
 
         chip.PointerEntered += (_, _) => chip.Background = bgHover;
         chip.PointerExited += (_, _) => chip.Background = surfaceSecondary;
@@ -1104,7 +1119,7 @@ public partial class InfoPanelView : UserControl
         removeBtn.Click += (_, _) =>
         {
             CustomTagsPanel.Children.Remove(chip);
-            QueueFinderTagsWrite(filePath, GetDisplayedFinderTags());
+            _ = ApplyTagChangeAsync(filePath, tag, false);
         };
 
         return chip;
@@ -1124,7 +1139,7 @@ public partial class InfoPanelView : UserControl
 
         UpdateSystemTagCheckmarks();
 
-        QueueFinderTagsWrite(filePath, GetDisplayedFinderTags());
+        _ = ApplyTagChangeAsync(filePath, tagName, _selectedSystemTags.Contains(tagName));
     }
 
     private void OnTagInputKeyDown(object? sender, global::Avalonia.Input.KeyEventArgs e)
@@ -1150,7 +1165,7 @@ public partial class InfoPanelView : UserControl
 
         // Add to UI immediately
         CustomTagsPanel.Children.Add(CreateTagChip(text, filePath));
-        QueueFinderTagsWrite(filePath, GetDisplayedFinderTags());
+        _ = ApplyTagChangeAsync(filePath, text, true);
     }
 
     // ── Finder Tag Sync (via xattr) ──
@@ -1168,385 +1183,7 @@ public partial class InfoPanelView : UserControl
             }
         }
 
-        return NormalizeFinderTags(tags);
-    }
-
-    private void QueueFinderTagsWrite(string filePath, IReadOnlyList<string> desiredTags)
-    {
-        var tags = NormalizeFinderTags(desiredTags);
-        lock (_pendingFinderTagsLock)
-            _pendingFinderTags[filePath] = tags;
-
-        var generation = ++_tagWriteGeneration;
-        _ = WriteFinderTagsAsync(filePath, tags, generation);
-    }
-
-    private async Task WriteFinderTagsAsync(string filePath, List<string> desiredTags, int generation)
-    {
-        var succeeded = await Task.Run(() => SetFinderTags(filePath, desiredTags));
-        var persistedTags = succeeded
-            ? await WaitForFinderTagsAsync(filePath, desiredTags)
-            : await Task.Run(() => GetFinderTags(filePath));
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (generation != _tagWriteGeneration)
-                return;
-
-            if (!string.Equals(_currentFilePath, filePath, StringComparison.Ordinal))
-            {
-                lock (_pendingFinderTagsLock)
-                    _pendingFinderTags.Remove(filePath);
-                return;
-            }
-
-            var showPersistedTags = succeeded && FinderTagsEqual(persistedTags, desiredTags);
-            lock (_pendingFinderTagsLock)
-            {
-                if (showPersistedTags || !succeeded)
-                    _pendingFinderTags.Remove(filePath);
-                else
-                    _pendingFinderTags[filePath] = desiredTags;
-            }
-
-            UpdateTagsFromMetadata(filePath, showPersistedTags ? persistedTags : desiredTags);
-        });
-    }
-
-    private static async Task<List<string>> WaitForFinderTagsAsync(string filePath, IReadOnlyList<string> expectedTags)
-    {
-        var delays = new[] { 120, 350, 800 };
-        List<string> tags = [];
-        foreach (var delay in delays)
-        {
-            tags = await Task.Run(() => GetFinderTags(filePath));
-            if (FinderTagsEqual(tags, expectedTags))
-                return tags;
-
-            await Task.Delay(delay);
-        }
-
-        return await Task.Run(() => GetFinderTags(filePath));
-    }
-
-    private static List<string> GetFinderTags(string filePath)
-    {
-        try
-        {
-            var xattrTags = GetFinderTagsFromXattr(filePath);
-            if (xattrTags.Count > 0)
-                return xattrTags;
-
-            var output = RunCommand("mdls", "-name", "kMDItemUserTags", filePath);
-            return ParseFinderTagsFromMdls(output);
-        }
-        catch { }
-        return [];
-    }
-
-    private static List<string> GetFinderTagsFromXattr(string filePath)
-    {
-        var hex = RunCommand("xattr", "-px", FinderTagsAttribute, filePath);
-        return ParseFinderTagsFromBinaryPlistHex(hex);
-    }
-
-    private static List<string> ParseFinderTagsFromBinaryPlistHex(string hex)
-    {
-        hex = new string(hex.Where(Uri.IsHexDigit).ToArray());
-        if (string.IsNullOrWhiteSpace(hex) || hex.Length % 2 != 0)
-            return [];
-
-        var tempBase = Path.Combine(Path.GetTempPath(), $"macexplorer-read-tags-{Guid.NewGuid():N}");
-        var binaryPath = tempBase + ".bin";
-        var xmlPath = tempBase + ".plist";
-
-        try
-        {
-            File.WriteAllBytes(binaryPath, Convert.FromHexString(hex));
-            RunCommand("plutil", "-convert", "xml1", "-o", xmlPath, binaryPath);
-            if (!File.Exists(xmlPath)) return [];
-
-            var document = XDocument.Load(xmlPath);
-            return document.Descendants("string")
-                .Select(node => NormalizeFinderTagForDisplay(node.Value))
-                .Where(t => !string.IsNullOrEmpty(t))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-        catch
-        {
-            return [];
-        }
-        finally
-        {
-            TryDeleteFile(binaryPath);
-            TryDeleteFile(xmlPath);
-        }
-    }
-
-    private bool SetFinderTags(string filePath, List<string> tags)
-    {
-        try
-        {
-            SuppressDirectoryRefreshForMetadataWrite(filePath);
-            tags = NormalizeFinderTags(tags);
-
-            if (SetFinderTagsViaResourceApi(filePath, tags))
-            {
-                RunCommand("xattr", "-d", LegacyFinderTagsAttribute, filePath);
-                NotifyFinderToRefresh(filePath);
-                return true;
-            }
-
-            if (tags.Count == 0)
-            {
-                RunCommand("xattr", "-d", FinderTagsAttribute, filePath);
-                RunCommand("xattr", "-d", LegacyFinderTagsAttribute, filePath);
-                return true;
-            }
-            else
-            {
-                var hex = CreateFinderTagsBinaryPlistHex(tags);
-                if (string.IsNullOrEmpty(hex)) return false;
-
-                if (!RunCommandSucceeded("xattr", "-wx", FinderTagsAttribute, hex, filePath))
-                    return false;
-                RunCommand("xattr", "-d", LegacyFinderTagsAttribute, filePath);
-            }
-            NotifyFinderToRefresh(filePath);
-            return true;
-        }
-        catch { return false; }
-    }
-
-    private static bool SetFinderTagsViaResourceApi(string filePath, IReadOnlyList<string> tags)
-    {
-        var script = $$"""
-ObjC.import('Foundation');
-const path = {{JsonSerializer.Serialize(filePath)}};
-const tags = {{JsonSerializer.Serialize(tags)}};
-const url = $.NSURL.fileURLWithPath(path);
-const nsTags = $.NSArray.arrayWithArray(tags);
-const ok = url.setResourceValueForKeyError(nsTags, $.NSURLTagNamesKey, null);
-if (!ok) {
-  throw new Error('setResourceValueForKeyError failed');
-}
-""";
-
-        return RunCommandSucceeded("osascript", "-l", "JavaScript", "-e", script);
-    }
-
-    private void SuppressDirectoryRefreshForMetadataWrite(string filePath)
-    {
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory))
-            _directoryChangeNotifier?.SuppressRefresh([directory], TimeSpan.FromSeconds(3));
-    }
-
-    private static void NotifyFinderToRefresh(string filePath)
-    {
-        RunCommand("osascript", "-e", $"tell application \"Finder\" to update POSIX file {ToAppleScriptStringLiteral(filePath)}");
-    }
-
-    private static string ToAppleScriptStringLiteral(string value)
-    {
-        return "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
-    }
-
-    private static List<string> ParseFinderTagsFromMdls(string output)
-    {
-        var idx = output.IndexOf('=');
-        if (idx < 0) return [];
-
-        var value = output[(idx + 1)..].Trim();
-        if (value is "(null)" or "null") return [];
-        if (value.StartsWith('(') && value.EndsWith(')'))
-            value = value[1..^1];
-
-        return SplitMdlsArrayItems(value)
-            .Select(NormalizeFinderTagForDisplay)
-            .Where(t => !string.IsNullOrEmpty(t) && !string.Equals(t, "null", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static IEnumerable<string> SplitMdlsArrayItems(string value)
-    {
-        var items = new List<string>();
-        var current = new StringBuilder();
-        var inQuote = false;
-        var previous = '\0';
-
-        foreach (var c in value)
-        {
-            if (c == '"' && previous != '\\')
-                inQuote = !inQuote;
-
-            if (c == ',' && !inQuote)
-            {
-                AddMdlsArrayItem(items, current);
-            }
-            else
-            {
-                current.Append(c);
-            }
-
-            previous = c;
-        }
-
-        AddMdlsArrayItem(items, current);
-        return items;
-    }
-
-    private static void AddMdlsArrayItem(List<string> items, StringBuilder current)
-    {
-        var item = current.ToString().Trim().TrimEnd(',').Trim().Trim('"');
-        current.Clear();
-        if (!string.IsNullOrWhiteSpace(item))
-            items.Add(item);
-    }
-
-    private static string NormalizeFinderTagForDisplay(string tag)
-    {
-        tag = tag.Trim().Replace("\\012", "\n", StringComparison.Ordinal);
-        var suffixStart = tag.LastIndexOf('\n');
-        if (suffixStart >= 0 && int.TryParse(tag[(suffixStart + 1)..], out _))
-            tag = tag[..suffixStart];
-
-        return tag.Trim();
-    }
-
-    private static List<string> NormalizeFinderTags(IEnumerable<string> tags)
-    {
-        return tags
-            .Select(NormalizeFinderTagForDisplay)
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static bool FinderTagsEqual(IReadOnlyList<string> left, IReadOnlyList<string> right)
-    {
-        var normalizedLeft = NormalizeFinderTags(left);
-        var normalizedRight = NormalizeFinderTags(right);
-        return normalizedLeft.Count == normalizedRight.Count
-            && normalizedLeft.All(tag => normalizedRight.Contains(tag, StringComparer.OrdinalIgnoreCase));
-    }
-
-    private static string CreateFinderTagsBinaryPlistHex(IEnumerable<string> tags)
-    {
-        var uniqueTags = tags
-            .Select(NormalizeFinderTagForDisplay)
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(ToFinderTagStorageValue)
-            .ToArray();
-
-        if (uniqueTags.Length == 0) return string.Empty;
-
-        var xml = BuildFinderTagsPlistXml(uniqueTags);
-        var tempBase = Path.Combine(Path.GetTempPath(), $"macexplorer-tags-{Guid.NewGuid():N}");
-        var xmlPath = tempBase + ".plist";
-        var binaryPath = tempBase + ".bin";
-
-        try
-        {
-            File.WriteAllText(xmlPath, xml, Encoding.UTF8);
-            RunCommand("plutil", "-convert", "binary1", "-o", binaryPath, xmlPath);
-            if (!File.Exists(binaryPath)) return string.Empty;
-
-            return Convert.ToHexString(File.ReadAllBytes(binaryPath)).ToLowerInvariant();
-        }
-        catch
-        {
-            return string.Empty;
-        }
-        finally
-        {
-            TryDeleteFile(xmlPath);
-            TryDeleteFile(binaryPath);
-        }
-    }
-
-    private static string ToFinderTagStorageValue(string tag)
-    {
-        return FinderTagColorIndexes.TryGetValue(tag, out var colorIndex)
-            ? $"{tag}\n{colorIndex}"
-            : tag;
-    }
-
-    private static string BuildFinderTagsPlistXml(IEnumerable<string> tags)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine("""<?xml version="1.0" encoding="UTF-8"?>""");
-        builder.AppendLine("""<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">""");
-        builder.AppendLine("""<plist version="1.0">""");
-        builder.AppendLine("<array>");
-        foreach (var tag in tags)
-            builder.Append("  <string>").Append(SecurityElement.Escape(tag)).AppendLine("</string>");
-        builder.AppendLine("</array>");
-        builder.AppendLine("</plist>");
-        return builder.ToString();
-    }
-
-    private static void TryDeleteFile(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch { }
-    }
-
-    private static string RunCommand(string command, params string[] arguments)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo(command)
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            foreach (var argument in arguments)
-                psi.ArgumentList.Add(argument);
-
-            using var process = Process.Start(psi);
-            if (process == null) return string.Empty;
-            var output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-            return output.Trim();
-        }
-        catch { return string.Empty; }
-    }
-
-    private static bool RunCommandSucceeded(string command, params string[] arguments)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo(command)
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            foreach (var argument in arguments)
-                psi.ArgumentList.Add(argument);
-
-            using var process = Process.Start(psi);
-            if (process == null) return false;
-            process.StandardOutput.ReadToEnd();
-            process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            return process.ExitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
+        return tags.Select(FileTagCatalog.NormalizeName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private async void RetryPreview(object? sender, RoutedEventArgs e)
@@ -1555,12 +1192,6 @@ if (!ok) {
             return;
         App.Services?.GetService<IThumbnailService>()?.EvictFromCache(selected[0].FullPath);
         await ReloadLivePreviewAsync(_activationGeneration);
-    }
-
-    private async void OpenPreviewFile(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel?.SelectedEntries is { Count: 1 } selected)
-            await ViewModel.OpenEntryAsync(selected[0]);
     }
 
     // ── Quick Actions ──

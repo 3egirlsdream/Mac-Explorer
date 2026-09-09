@@ -21,10 +21,10 @@ namespace MacExplorer.Views;
 
 public partial class FinderSidebarView : UserControl
 {
-    private Collection? _editingCollection;
-    private Border? _activeCollectionEditorRow;
-    private TextBox? _activeCollectionInput;
-    private bool _isCommittingCollectionEdit;
+    private FileTag? _editingTag;
+    private Border? _activeTagEditorRow;
+    private TextBox? _activeTagInput;
+    private bool _isCommittingTagEdit;
     private Border? _pinnedDropTarget;
     private FileListViewModel? _subscribedViewModel;
     private readonly Dictionary<Control, RailSecondaryState> _railSecondaryStates = [];
@@ -117,22 +117,22 @@ public partial class FinderSidebarView : UserControl
     {
         if (_subscribedViewModel != null)
         {
-            _subscribedViewModel.PinnedFolders.CollectionChanged -= OnSidebarCollectionChanged;
-            _subscribedViewModel.Collections.CollectionChanged -= OnSidebarCollectionChanged;
-            _subscribedViewModel.SidebarTags.CollectionChanged -= OnSidebarCollectionChanged;
-            _subscribedViewModel.ExternalVolumes.CollectionChanged -= OnSidebarCollectionChanged;
+            _subscribedViewModel.PinnedFolders.CollectionChanged -= OnSidebarTagChanged;
+            _subscribedViewModel.SidebarTags.CollectionChanged -= OnSidebarTagChanged;
+            _subscribedViewModel.ExternalVolumes.CollectionChanged -= OnSidebarTagChanged;
             _subscribedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _subscribedViewModel.NewTagRequested -= OnNewTagRequested;
         }
 
         base.OnDataContextChanged(e);
         if (ViewModel != null)
         {
             _subscribedViewModel = ViewModel;
-            _subscribedViewModel.PinnedFolders.CollectionChanged += OnSidebarCollectionChanged;
-            _subscribedViewModel.Collections.CollectionChanged += OnSidebarCollectionChanged;
-            _subscribedViewModel.SidebarTags.CollectionChanged += OnSidebarCollectionChanged;
-            _subscribedViewModel.ExternalVolumes.CollectionChanged += OnSidebarCollectionChanged;
+            _subscribedViewModel.PinnedFolders.CollectionChanged += OnSidebarTagChanged;
+            _subscribedViewModel.SidebarTags.CollectionChanged += OnSidebarTagChanged;
+            _subscribedViewModel.ExternalVolumes.CollectionChanged += OnSidebarTagChanged;
             _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _subscribedViewModel.NewTagRequested += OnNewTagRequested;
             UpdateActiveStates();
             UpdateChevronState();
             RefreshRemoteServersList();
@@ -143,14 +143,13 @@ public partial class FinderSidebarView : UserControl
         }
     }
 
-    private void OnSidebarCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void OnSidebarTagChanged(object? sender, NotifyCollectionChangedEventArgs e)
         => Dispatcher.UIThread.Post(UpdateActiveStates);
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(FileListViewModel.CurrentPath)
             || e.PropertyName == nameof(FileListViewModel.IsAiView)
-            || e.PropertyName == nameof(FileListViewModel.IsCollectionView)
             || e.PropertyName == nameof(FileListViewModel.IsTrashActive)
             || e.PropertyName == nameof(FileListViewModel.AiViewMode))
         {
@@ -164,14 +163,11 @@ public partial class FinderSidebarView : UserControl
         {
             UpdateChevronState();
         }
-        else if (e.PropertyName == nameof(FileListViewModel.IsCollectionsSectionCollapsed))
-        {
-            UpdateChevronState();
-        }
         else if (e.PropertyName == nameof(FileListViewModel.IsTagsSectionCollapsed))
         {
             UpdateChevronState();
         }
+
         else if (e.PropertyName == nameof(FileListViewModel.ExternalVolumes))
         {
             // Handled by binding
@@ -182,7 +178,6 @@ public partial class FinderSidebarView : UserControl
     {
         if (ViewModel == null) return;
         UpdateChevron(AiChevron, !ViewModel.IsAiSectionCollapsed);
-        UpdateChevron(CollChevron, !ViewModel.IsCollectionsSectionCollapsed);
         UpdateChevron(TagsChevron, !ViewModel.IsTagsSectionCollapsed);
     }
 
@@ -205,12 +200,11 @@ public partial class FinderSidebarView : UserControl
     private void UpdateActiveStates()
     {
         if (ViewModel == null) return;
-        var hasCollections = ViewModel.Collections.Count > 0;
-        CollectionsSectionTitle.Text = hasCollections ? "收藏夹" : "添加收藏夹";
-        CollectionsSectionHeader.Margin = new Thickness(0, hasCollections ? 16 : 8, 0, 2);
-        AutomationProperties.SetName(CollectionsSectionHeader, hasCollections ? "展开或收起收藏夹" : "添加收藏夹");
-        CollChevron.IsVisible = hasCollections;
-        TagsSectionHeader.IsVisible = ViewModel.SidebarTags.Count > 0;
+        var hasTags = ViewModel.SidebarTags.Count > 0;
+        TagsSectionTitle.Text = "标签";
+        TagsSectionHeader.Margin = new Thickness(0, hasTags ? 16 : 8, 0, 2);
+        AutomationProperties.SetName(TagsSectionHeader, hasTags ? "展开或收起标签" : "添加标签");
+        TagsChevron.IsVisible = hasTags;
         var current = ViewModel.CurrentPath;
         var home = ViewModel.HomeDirectory;
 
@@ -242,12 +236,11 @@ public partial class FinderSidebarView : UserControl
             {
                 string path => string.Equals(ViewModel.CurrentPath, path, StringComparison.Ordinal),
                 VolumeInfo volume => string.Equals(ViewModel.CurrentPath, volume.Path, StringComparison.Ordinal),
-                Collection collection => ViewModel.IsCollectionView && ViewModel.CurrentCollectionId == collection.Id,
                 FileTag tag => string.Equals(ViewModel.CurrentPath, tag.VirtualPath, StringComparison.Ordinal),
                 _ => false
             };
 
-            if (border.Tag is string or VolumeInfo or Collection or FileTag)
+            if (border.Tag is string or VolumeInfo or FileTag)
                 ToggleClass(border, active);
         }
     }
@@ -280,12 +273,11 @@ public partial class FinderSidebarView : UserControl
         if (e.Source is Grid header && ViewModel != null)
         {
             if (header == AiSectionHeader) ViewModel.ToggleAiCollapsedCommand.Execute(null);
-            else if (header == CollectionsSectionHeader)
+            else if (header == TagsSectionHeader)
             {
-                if (ViewModel.Collections.Count == 0) StartNewCollection(sender, e);
-                else ViewModel.ToggleCollectionsCollapsedCommand.Execute(null);
+                if (ViewModel.SidebarTags.Count == 0) StartNewTag(sender, e);
+                else ViewModel.ToggleTagsCollapsedCommand.Execute(null);
             }
-            else if (header == TagsSectionHeader) ViewModel.ToggleTagsCollapsedCommand.Execute(null);
             else return;
             e.Handled = true;
             return;
@@ -329,9 +321,7 @@ public partial class FinderSidebarView : UserControl
             await ViewModel.NavigateToCommand.ExecuteAsync(path);
         else if (aiMode.HasValue)
             await ViewModel.NavigateToAiViewAsync(aiMode.Value);
-        else if (border.Tag is Collection collection && !ReferenceEquals(border, _activeCollectionEditorRow))
-            await ViewModel.NavigateToCollectionAsync(collection.Id);
-        else if (border.Tag is FileTag tag)
+        else if (border.Tag is FileTag tag && !ReferenceEquals(border, _activeTagEditorRow))
             await ViewModel.NavigateToTagAsync(tag);
         else if (border.Tag is RemoteServerInfo server)
         {
@@ -352,15 +342,10 @@ public partial class FinderSidebarView : UserControl
         ViewModel?.ToggleAiCollapsedCommand.Execute(null);
     }
 
-    private void OnToggleCollectionsCollapsed(object? sender, PointerPressedEventArgs e)
-    {
-        if (ViewModel?.Collections.Count == 0) StartNewCollection(sender, e);
-        else ViewModel?.ToggleCollectionsCollapsedCommand.Execute(null);
-    }
-
     private void OnToggleTagsCollapsed(object? sender, PointerPressedEventArgs e)
     {
-        ViewModel?.ToggleTagsCollapsedCommand.Execute(null);
+        if (ViewModel?.SidebarTags.Count == 0) StartNewTag(sender, e);
+        else ViewModel?.ToggleTagsCollapsedCommand.Execute(null);
     }
 
     private async void OnPinnedFolderPressed(object? sender, PointerPressedEventArgs e)
@@ -451,22 +436,16 @@ public partial class FinderSidebarView : UserControl
         UpdateActiveStates();
     }
 
-    private async void OnCollectionPressed(object? sender, PointerPressedEventArgs e)
+    private async void OnTagPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (ReferenceEquals(sender, _activeCollectionEditorRow))
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (ReferenceEquals(sender, _activeTagEditorRow))
         {
             e.Handled = true;
             return;
         }
-        if (sender is not Border { Tag: Collection col } || ViewModel == null) return;
-        await ViewModel.NavigateToCollectionAsync(col.Id);
-        UpdateActiveStates();
-    }
-
-    private async void OnTagPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Border { Tag: FileTag tag } || ViewModel == null) return;
-        await ViewModel.NavigateToTagAsync(tag);
+        if (sender is not Border { Tag: FileTag col } || ViewModel == null) return;
+        await ViewModel.NavigateToTagAsync(col);
         UpdateActiveStates();
     }
 
@@ -485,121 +464,124 @@ public partial class FinderSidebarView : UserControl
             await ViewModel.EjectVolumeCommand.ExecuteAsync(vol);
     }
 
-    // ── Collection management ──
+    // ── Tag management ──
 
-    private void StartNewCollection(object? sender, RoutedEventArgs e)
+    private void StartNewTag(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        CancelCollectionEdit();
-        _editingCollection = null;
-        if (ViewModel?.IsCollectionsSectionCollapsed == true)
-            ViewModel.IsCollectionsSectionCollapsed = false;
+        EndTagEditUi();
+        _editingTag = null;
+        if (ViewModel?.IsTagsSectionCollapsed == true)
+            ViewModel.IsTagsSectionCollapsed = false;
 
-        NewCollectionEditorRow.IsVisible = true;
-        _activeCollectionEditorRow = NewCollectionEditorRow;
-        _activeCollectionInput = NewCollectionInput;
-        NewCollectionInput.Text = "新收藏夹";
-        FocusCollectionInput(NewCollectionInput);
+        NewTagEditorRow.IsVisible = true;
+        _activeTagEditorRow = NewTagEditorRow;
+        _activeTagInput = NewTagInput;
+        NewTagInput.Text = "新标签";
+        FocusTagInput(NewTagInput);
     }
 
-    private void OnCollectionEditorLostFocus(object? sender, RoutedEventArgs e)
+    private void OnTagEditorLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (sender is TextBox input && ReferenceEquals(input, _activeCollectionInput))
-            _ = CommitCollectionEditAsync();
+        if (sender is TextBox input && ReferenceEquals(input, _activeTagInput))
+            _ = CommitTagEditAsync();
     }
 
-    private async void OnCollectionEditorKeyDown(object? sender, KeyEventArgs e)
+    private async void OnTagEditorKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            await CommitCollectionEditAsync();
+            await CommitTagEditAsync();
         }
         else if (e.Key == Key.Escape)
         {
             e.Handled = true;
-            CancelCollectionEdit();
+            CancelTagEdit();
         }
     }
 
-    private async void CommitCollectionEdit(object? sender, RoutedEventArgs e)
+    private async void CommitTagEdit(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        await CommitCollectionEditAsync();
+        await CommitTagEditAsync();
     }
 
-    private async System.Threading.Tasks.Task CommitCollectionEditAsync()
+    private async System.Threading.Tasks.Task CommitTagEditAsync()
     {
-        if (_isCommittingCollectionEdit || _activeCollectionInput == null) return;
+        if (_isCommittingTagEdit || _activeTagInput == null) return;
 
-        _isCommittingCollectionEdit = true;
-        var name = _activeCollectionInput.Text?.Trim();
-        var collection = _editingCollection;
-        EndCollectionEditUi();
+        _isCommittingTagEdit = true;
+        var name = _activeTagInput.Text?.Trim();
+        var tag = _editingTag;
+        EndTagEditUi();
 
         try
         {
             if (!string.IsNullOrWhiteSpace(name) && ViewModel != null)
             {
-                if (collection == null)
-                    await ViewModel.CreateCollectionAsync(name);
+                if (tag == null)
+                    await ViewModel.CreateTagAsync(name);
                 else
-                    await ViewModel.RenameCollectionAsync(collection.Id, name);
+                    await ViewModel.RenameTagAsync(tag, name);
             }
         }
         finally
         {
-            _isCommittingCollectionEdit = false;
+            _isCommittingTagEdit = false;
         }
     }
 
-    private void RenameCollection(object? sender, RoutedEventArgs e)
+    private void RenameTag(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (sender is not Button { Tag: Collection collection } button) return;
+        if (sender is not Button { Tag: FileTag { IsCustom: true } tag } button) return;
 
         var row = button.GetVisualAncestors()
             .OfType<Border>()
-            .FirstOrDefault(border => border.Classes.Contains("collection-row"));
+            .FirstOrDefault(border => border.Classes.Contains("tag-row"));
         if (row == null) return;
 
-        CancelCollectionEdit();
-        _editingCollection = collection;
-        _activeCollectionEditorRow = row;
-        _activeCollectionInput = FindCollectionRowControl<TextBox>(row, "collection-name-editor");
-        if (_activeCollectionInput == null)
+        CancelTagEdit();
+        _editingTag = tag;
+        _activeTagEditorRow = row;
+        _activeTagInput = FindTagRowControl<TextBox>(row, "tag-name-editor");
+        if (_activeTagInput == null)
         {
-            CancelCollectionEdit();
+            CancelTagEdit();
             return;
         }
 
-        SetCollectionRowEditing(row, true);
-        _activeCollectionInput.Text = collection.Name;
-        FocusCollectionInput(_activeCollectionInput);
+        SetTagRowEditing(row, true);
+        _activeTagInput.Text = tag.Name;
+        FocusTagInput(_activeTagInput);
     }
 
-    private void CancelCollectionEdit()
+    private void CancelTagEdit()
     {
-        EndCollectionEditUi();
+        ViewModel?.CancelNewTag();
+        EndTagEditUi();
     }
 
-    private void EndCollectionEditUi()
+    private void EndTagEditUi()
     {
-        if (_editingCollection != null && _activeCollectionEditorRow != null)
-            SetCollectionRowEditing(_activeCollectionEditorRow, false);
-
-        NewCollectionEditorRow.IsVisible = false;
-        NewCollectionInput.Text = "";
-        _editingCollection = null;
-        _activeCollectionEditorRow = null;
-        _activeCollectionInput = null;
+        var editingTag = _editingTag;
+        var editorRow = _activeTagEditorRow;
+        // Hiding the focused editor raises LostFocus synchronously; clear ownership first so Escape cannot commit.
+        _editingTag = null;
+        _activeTagEditorRow = null;
+        _activeTagInput = null;
+        if (editingTag != null && editorRow != null)
+            SetTagRowEditing(editorRow, false);
+        NewTagEditorRow.IsVisible = false;
+        NewTagInput.Text = "";
     }
 
-    private static void SetCollectionRowEditing(Border row, bool editing)
+    private static void SetTagRowEditing(Border row, bool editing)
     {
-        var nameLabel = FindCollectionRowControl<TextBlock>(row, "collection-name-label");
-        var nameEditor = FindCollectionRowControl<TextBox>(row, "collection-name-editor");
-        var confirmButton = FindCollectionRowControl<Button>(row, "collection-confirm-action");
+        var nameLabel = FindTagRowControl<TextBlock>(row, "tag-name-label");
+        var nameEditor = FindTagRowControl<TextBox>(row, "tag-name-editor");
+        var confirmButton = FindTagRowControl<Button>(row, "tag-confirm-action");
 
         if (nameLabel != null) nameLabel.IsVisible = !editing;
         if (nameEditor != null) nameEditor.IsVisible = editing;
@@ -607,13 +589,13 @@ public partial class FinderSidebarView : UserControl
 
         foreach (var action in row.GetVisualDescendants()
                      .OfType<Button>()
-                     .Where(button => button.Classes.Contains("collection-normal-action")))
+                     .Where(button => button.Classes.Contains("tag-normal-action")))
         {
-            action.IsVisible = !editing;
+            action.IsVisible = !editing && row.Tag is FileTag { IsCustom: true };
         }
     }
 
-    private static T? FindCollectionRowControl<T>(Border row, string className)
+    private static T? FindTagRowControl<T>(Border row, string className)
         where T : Control
     {
         return row.GetVisualDescendants()
@@ -621,7 +603,7 @@ public partial class FinderSidebarView : UserControl
             .FirstOrDefault(control => control.Classes.Contains(className));
     }
 
-    private static void FocusCollectionInput(TextBox input)
+    private static void FocusTagInput(TextBox input)
     {
         Dispatcher.UIThread.Post(() =>
         {
@@ -631,11 +613,28 @@ public partial class FinderSidebarView : UserControl
         }, DispatcherPriority.Input);
     }
 
-    private void DeleteCollection(object? sender, RoutedEventArgs e)
+    private void DeleteTag(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (sender is Button { Tag: Collection collection })
-            ViewModel?.ShowCollectionDeleteConfirmDialog(collection.Id, collection.Name);
+        if (sender is Button { Tag: FileTag tag })
+            ViewModel?.ShowTagDeleteConfirmDialog(tag);
+    }
+
+    private void OnNewTagRequested() => StartNewTag(this, new RoutedEventArgs());
+
+    private void OnTagDragOver(object? sender, DragEventArgs e)
+    {
+        var paths = GetDroppedPaths(e.DataTransfer);
+        e.DragEffects = paths.Length > 0 && paths.All(Services.Impl.FileTagService.IsSupportedPath)
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnTagDrop(object? sender, DragEventArgs e)
+    {
+        if (sender is not Border { Tag: FileTag tag } || ViewModel == null) return;
+        e.Handled = true;
+        await ViewModel.SetFileTagAsync(GetDroppedPaths(e.DataTransfer), tag, true);
     }
 
     // ── Remote Server ──
@@ -674,7 +673,7 @@ public partial class FinderSidebarView : UserControl
 
     private void RefreshRemoteServersList()
     {
-        var connectionService = App.Services.GetService<IRemoteConnectionService>();
+        var connectionService = App.Services?.GetService<IRemoteConnectionService>();
         if (connectionService == null)
         {
             RemoteServersHeader.IsVisible = false;

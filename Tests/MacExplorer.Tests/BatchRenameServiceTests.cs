@@ -119,6 +119,15 @@ public sealed class BatchRenameServiceTests
     private sealed class TrackingFileTagService : IFileTagService
     {
         public event EventHandler? TagsChanged { add { } remove { } }
+        public event EventHandler<TagRenamedEventArgs>? TagRenamed { add { } remove { } }
+        public Task<FileTag> CreateTagAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RenameTagAsync(FileTag tag, string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteTagAsync(FileTag tag, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetTagColorAsync(FileTag tag, int color, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetTagPinnedAsync(FileTag tag, bool pinned, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<FileTag>> GetFileTagsAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<TagSyncResult> SetTagAsync(IReadOnlyList<string> paths, FileTag tag, bool applied, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<TagSyncResult> RetryPendingAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public List<(string OldPath, string NewPath)> PathUpdates { get; } = [];
 
         public Task<IReadOnlyList<FileTag>> GetSidebarTagsAsync(CancellationToken cancellationToken = default) =>

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -149,6 +150,7 @@ public partial class SettingsDialog : DialogWindow
         var rows = _globalSearchScopeService.CustomFolders
             .Select(path => new SearchLocationRow(path, FormatSearchLocation(path)))
             .ToList();
+        EmptySearchLocationsPanel.IsVisible = rows.Count == 0;
 
         var defaultRows = rows
             .Where(row => defaultPaths.Contains(row.Path))
@@ -490,6 +492,7 @@ public partial class SettingsDialog : DialogWindow
             };
             row.Classes.Add("ghost");
             row.Classes.Add("toolbar-popup-item");
+            AutomationProperties.SetName(row, $"添加 {app.Name}");
             row.Click += AddApplication;
             InstalledAppsPanel.Children.Add(row);
             _ = LoadInstalledAppIconAsync(app, row, renderVersion);
@@ -548,20 +551,9 @@ public partial class SettingsDialog : DialogWindow
     private void RebuildConfiguredApps()
     {
         ConfiguredAppsPanel.Children.Clear();
+        EmptyApplicationsPanel.IsVisible = _openWithApps.Count == 0;
         if (_openWithApps.Count == 0)
-        {
-            ConfiguredAppsPanel.Children.Add(new Border
-            {
-                Classes = { "settings-row" },
-                Child = AppTypography.BindFontSize(new TextBlock
-                {
-                    Text = "尚未配置任何应用",
-                    HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
-                    Foreground = new SolidColorBrush(Color.Parse("#8E8E93"))
-                }, AppTypography.Label)
-            });
             return;
-        }
 
         for (var i = 0; i < _openWithApps.Count; i++)
         {
@@ -569,12 +561,14 @@ public partial class SettingsDialog : DialogWindow
             var toggle = new ToggleSwitch
             {
                 Tag = app,
+                Classes = { "settings-toggle" },
                 IsChecked = app.IsTopLevel,
                 OnContent = string.Empty,
                 OffContent = string.Empty,
                 MinWidth = 38,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
+            AutomationProperties.SetName(toggle, $"在右键菜单首层显示 {app.Label}");
             toggle.IsCheckedChanged += OnTopLevelChanged;
 
             var delete = new Button
@@ -584,6 +578,7 @@ public partial class SettingsDialog : DialogWindow
                 Content = new PathIcon { Data = Geometry.Parse(Assets.Icons.Delete), Width = 14, Height = 14 }
             };
             ToolTip.SetTip(delete, "删除");
+            AutomationProperties.SetName(delete, $"移除 {app.Label}");
             delete.Click += RemoveApplication;
 
             var actions = new StackPanel
@@ -593,17 +588,24 @@ public partial class SettingsDialog : DialogWindow
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                 Children =
                 {
-                    AppTypography.BindFontSize(new TextBlock { Text = "显示在根目录", Opacity = 0.6, VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center }, AppTypography.Caption),
                     toggle,
                     delete
                 }
             };
 
             var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
-            grid.Children.Add(CreateAppIdentity(app.Label, app.IconBase64, 20));
+            var identity = new StackPanel { Spacing = 4 };
+            identity.Children.Add(CreateAppIdentity(app.Label, app.IconBase64, 28));
+            identity.Children.Add(new TextBlock
+            {
+                Text = "显示在右键菜单首层",
+                Classes = { "settings-description" },
+                Margin = new Thickness(36, 0, 0, 0)
+            });
+            grid.Children.Add(identity);
             Grid.SetColumn(actions, 1);
             grid.Children.Add(actions);
-            var row = new Border { Classes = { "settings-compact-row" }, Child = grid };
+            var row = new Border { Classes = { "settings-row" }, Child = grid };
             if (i < _openWithApps.Count - 1)
                 row.Classes.Add("settings-divider");
             ConfiguredAppsPanel.Children.Add(row);
@@ -626,12 +628,12 @@ public partial class SettingsDialog : DialogWindow
         if (_installedAppsLoaded) RebuildInstalledApps();
     }
 
-    private static StackPanel CreateAppIdentity(string label, string? iconBase64, double iconSize)
+    private static Grid CreateAppIdentity(string label, string? iconBase64, double iconSize)
     {
-        var panel = new StackPanel
+        var panel = new Grid
         {
-            Orientation = global::Avalonia.Layout.Orientation.Horizontal,
-            Spacing = 8,
+            ColumnDefinitions = new ColumnDefinitions($"{iconSize},*"),
+            ColumnSpacing = 8,
             VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
         };
         var bitmap = DecodeBitmap(iconBase64);
@@ -639,7 +641,15 @@ public partial class SettingsDialog : DialogWindow
             panel.Children.Add(new Image { Source = bitmap, Width = iconSize, Height = iconSize, Stretch = Stretch.Uniform });
         else
             panel.Children.Add(new PathIcon { Data = Geometry.Parse(Assets.Icons.CodeEditor), Width = iconSize, Height = iconSize });
-        panel.Children.Add(AppTypography.BindFontSize(new TextBlock { Text = label, VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center }, AppTypography.Body));
+        var text = AppTypography.BindFontSize(new TextBlock
+        {
+            Text = label,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+        }, AppTypography.Body);
+        ToolTip.SetTip(text, label);
+        Grid.SetColumn(text, 1);
+        panel.Children.Add(text);
         return panel;
     }
 

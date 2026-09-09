@@ -13,7 +13,6 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 /// </summary>
 public class MacMetadataService : IMetadataService
 {
-    private const string FinderTagsAttribute = "com.apple.metadata:_kMDItemUserTags";
 
     public async Task<FileMetadata> GetMetadataAsync(string path)
     {
@@ -190,130 +189,8 @@ public class MacMetadataService : IMetadataService
 
     private static List<string> GetTags(string path)
     {
-        try
-        {
-            var xattrTags = GetFinderTagsFromXattr(path);
-            if (xattrTags.Count > 0)
-                return xattrTags;
-
-            var output = RunCommand("mdls", "-name", "kMDItemUserTags", path);
-            return ParseFinderTagsFromMdls(output);
-        }
-        catch { }
-        return [];
-    }
-
-    private static List<string> GetFinderTagsFromXattr(string path)
-    {
-        var hex = RunCommand("xattr", "-px", FinderTagsAttribute, path);
-        return ParseFinderTagsFromBinaryPlistHex(hex);
-    }
-
-    private static List<string> ParseFinderTagsFromBinaryPlistHex(string hex)
-    {
-        hex = new string(hex.Where(Uri.IsHexDigit).ToArray());
-        if (string.IsNullOrWhiteSpace(hex) || hex.Length % 2 != 0)
-            return [];
-
-        var tempBase = Path.Combine(Path.GetTempPath(), $"macexplorer-read-tags-{Guid.NewGuid():N}");
-        var binaryPath = tempBase + ".bin";
-        var xmlPath = tempBase + ".plist";
-
-        try
-        {
-            File.WriteAllBytes(binaryPath, Convert.FromHexString(hex));
-            RunCommand("plutil", "-convert", "xml1", "-o", xmlPath, binaryPath);
-            if (!File.Exists(xmlPath)) return [];
-
-            var document = XDocument.Load(xmlPath);
-            return document.Descendants("string")
-                .Select(node => NormalizeFinderTagForDisplay(node.Value))
-                .Where(t => !string.IsNullOrEmpty(t))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-        catch
-        {
-            return [];
-        }
-        finally
-        {
-            TryDeleteFile(binaryPath);
-            TryDeleteFile(xmlPath);
-        }
-    }
-
-    private static void TryDeleteFile(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch { }
-    }
-
-    private static List<string> ParseFinderTagsFromMdls(string output)
-    {
-        var idx = output.IndexOf('=');
-        if (idx < 0) return [];
-
-        var value = output[(idx + 1)..].Trim();
-        if (value is "(null)" or "null") return [];
-        if (value.StartsWith('(') && value.EndsWith(')'))
-            value = value[1..^1];
-
-        return SplitMdlsArrayItems(value)
-            .Select(NormalizeFinderTagForDisplay)
-            .Where(t => !string.IsNullOrEmpty(t) && !string.Equals(t, "null", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static IEnumerable<string> SplitMdlsArrayItems(string value)
-    {
-        var items = new List<string>();
-        var current = new StringBuilder();
-        var inQuote = false;
-        var previous = '\0';
-
-        foreach (var c in value)
-        {
-            if (c == '"' && previous != '\\')
-                inQuote = !inQuote;
-
-            if (c == ',' && !inQuote)
-            {
-                AddMdlsArrayItem(items, current);
-            }
-            else
-            {
-                current.Append(c);
-            }
-
-            previous = c;
-        }
-
-        AddMdlsArrayItem(items, current);
-        return items;
-    }
-
-    private static void AddMdlsArrayItem(List<string> items, StringBuilder current)
-    {
-        var item = current.ToString().Trim().TrimEnd(',').Trim().Trim('"');
-        current.Clear();
-        if (!string.IsNullOrWhiteSpace(item))
-            items.Add(item);
-    }
-
-    private static string NormalizeFinderTagForDisplay(string tag)
-    {
-        tag = tag.Trim().Replace("\\012", "\n", StringComparison.Ordinal);
-        var suffixStart = tag.LastIndexOf('\n');
-        if (suffixStart >= 0 && int.TryParse(tag[(suffixStart + 1)..], out _))
-            tag = tag[..suffixStart];
-
-        return tag.Trim();
+        try { return MacFileTagStore.Read(path).Select(tag => FileTagCatalog.NormalizeName(tag.Name)).ToList(); }
+        catch { return []; }
     }
 
     private static bool IsImageContentType(string contentType)

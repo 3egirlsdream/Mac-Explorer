@@ -314,17 +314,16 @@ public partial class ArchiveViewModel : ObservableObject
         IReadOnlyList<FileSystemEntry> selectedEntries,
         FileSystemEntry? contextMenuEntry,
         string currentPath,
-        bool isCollectionView,
         bool isArchiveView,
-        int? currentCollectionId)
+        FileTag? currentTag)
     {
         var sources = selectedEntries.Count > 0
             ? selectedEntries.Select(e => e.FullPath).ToList()
             : contextMenuEntry != null ? new List<string> { contextMenuEntry.FullPath } : new List<string>();
         if (sources.Count == 0) return;
 
-        // Sentinel paths (collection/archive) are not real dirs — use first file's parent
-        var outputDir = (isCollectionView || isArchiveView)
+        // Sentinel paths (tag/archive) are not real dirs — use first file's parent
+        var outputDir = (currentTag != null || isArchiveView)
             ? Path.GetDirectoryName(sources[0]) ?? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
             : currentPath;
 
@@ -337,14 +336,14 @@ public partial class ArchiveViewModel : ObservableObject
             ArchiveName = defaultName,
             OutputDirectory = outputDir,
             SourcePaths = sources,
-            CollectionId = isCollectionView ? currentCollectionId : null
+            Tag = currentTag
         };
         IsCompressDialogVisible = true;
     }
 
     public void ConfirmCompress(
         CompressOptions options,
-        ICollectionService? collectionService,
+        IFileTagService? tagService,
         IDirectoryChangeNotifier? directoryChangeNotifier,
         Func<Task> refreshCallback,
         Action<string> setStatus)
@@ -353,7 +352,7 @@ public partial class ArchiveViewModel : ObservableObject
         PendingCompressOptions = null;
         if (_archiveService == null || _taskManager == null) return;
 
-        var collectionId = options.CollectionId;
+        var tag = options.Tag;
 
         var taskInfo = _taskManager.AddTask("正在压缩...", async () =>
         {
@@ -371,9 +370,9 @@ public partial class ArchiveViewModel : ObservableObject
                     _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile, p.OperationLabel);
                 });
                 var actualOutputPath = await _archiveService.CompressAsync(options, progress, taskInfo.Cts.Token);
-                if (collectionId != null && collectionService != null)
+                if (tag != null && tagService != null)
                 {
-                    await collectionService.AddFileToCollectionAsync(collectionId.Value, actualOutputPath);
+                    await tagService.SetTagAsync([actualOutputPath], tag, true);
                 }
                 _taskManager.CompleteTask(taskInfo.Id);
             }

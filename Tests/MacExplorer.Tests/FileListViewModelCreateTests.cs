@@ -1137,7 +1137,9 @@ public sealed partial class FileListViewModelCreateTests
         SortFilterViewModel? sortFilter = null,
         IThumbnailService? thumbnailService = null,
         ISettingsService? settingsService = null,
-        IArchiveService? archiveService = null)
+        IArchiveService? archiveService = null,
+        IFileTagService? fileTagService = null,
+        IClipboardService? clipboardService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1156,7 +1158,7 @@ public sealed partial class FileListViewModelCreateTests
             new SearchViewModel(),
             new ArchiveViewModel(archiveService: archiveService, fileService: fileService),
             new AiViewModel(fileIndex: index),
-            new CollectionViewModel(fileIndex: index, fileService: fileService),
+            new PinnedFoldersViewModel(),
             sortFilter ?? new SortFilterViewModel(),
             fileService,
             index,
@@ -1164,7 +1166,9 @@ public sealed partial class FileListViewModelCreateTests
             new IndexConfiguration(),
             settingsService: settingsService,
             thumbnailService: thumbnailService,
-            directoryChangeNotifier: directoryChangeNotifier);
+            directoryChangeNotifier: directoryChangeNotifier,
+            fileTagService: fileTagService,
+            clipboardService: clipboardService);
     }
 
     private sealed class FakeFileService(string homeDirectory) : IFileService
@@ -1262,8 +1266,10 @@ public sealed partial class FileListViewModelCreateTests
             }
             return Task.CompletedTask;
         }
-        public Task MoveAsync(string sourcePath, string destinationPath, bool overwrite = false) => Task.CompletedTask;
-        public Task CopyAsync(string sourcePath, string destinationDirectory) => Task.CompletedTask;
+        public int MoveCalls { get; private set; }
+        public int CopyCalls { get; private set; }
+        public Task MoveAsync(string sourcePath, string destinationPath, bool overwrite = false) { MoveCalls++; return Task.CompletedTask; }
+        public Task CopyAsync(string sourcePath, string destinationDirectory) { CopyCalls++; return Task.CompletedTask; }
         public string GetParentPath(string path) => Path.GetDirectoryName(path) ?? "";
         public string CombinePath(string directory, string name) => Path.Combine(directory, name);
         public IReadOnlyList<string> GetVolumes() => [];

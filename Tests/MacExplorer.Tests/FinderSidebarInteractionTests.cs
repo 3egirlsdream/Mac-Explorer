@@ -21,7 +21,7 @@ namespace MacExplorer.Tests;
 public sealed class FinderSidebarInteractionTests
 {
     [AvaloniaFact]
-    public void SectionHeaderRevealsChevronsOnHoverAndKeepsCollectionCreationDiscoverable()
+    public void SectionHeaderRevealsChevronsOnHoverAndKeepsTagCreationDiscoverable()
     {
         var sidebar = new FinderSidebarView();
         AddApplicationStyles(sidebar);
@@ -36,43 +36,38 @@ public sealed class FinderSidebarInteractionTests
         Dispatcher.UIThread.RunJobs();
 
         var aiHeader = sidebar.FindControl<Grid>("AiSectionHeader")!;
-        var collectionsHeader = sidebar.FindControl<Grid>("CollectionsSectionHeader")!;
         var tagsHeader = sidebar.FindControl<Grid>("TagsSectionHeader")!;
         var aiChevron = sidebar.FindControl<PathIcon>("AiChevron")!;
-        var collectionsChevron = sidebar.FindControl<PathIcon>("CollChevron")!;
         var tagsChevron = sidebar.FindControl<PathIcon>("TagsChevron")!;
-        var addCollectionButton = sidebar.FindControl<Button>("AddCollectionBtn")!;
+        var addTagButton = sidebar.FindControl<Button>("AddTagBtn")!;
 
         Assert.NotNull(aiHeader.Background);
-        Assert.NotNull(collectionsHeader.Background);
         Assert.NotNull(tagsHeader.Background);
         Assert.Equal(0.65, aiChevron.Opacity);
-        Assert.Equal(0.65, collectionsChevron.Opacity);
         Assert.Equal(0.65, tagsChevron.Opacity);
-        Assert.Equal(1, addCollectionButton.Opacity);
+        Assert.Equal(1, addTagButton.Opacity);
 
-        MoveToEmptyHeaderSpace(window, collectionsHeader);
+        MoveToEmptyHeaderSpace(window, tagsHeader);
 
-        Assert.True(collectionsHeader.IsPointerOver);
-        Assert.Equal(1, collectionsChevron.Opacity);
-        Assert.Equal(1, addCollectionButton.Opacity);
+        Assert.True(tagsHeader.IsPointerOver);
+        Assert.Equal(1, tagsChevron.Opacity);
+        Assert.Equal(1, addTagButton.Opacity);
         Assert.Equal(0.65, aiChevron.Opacity);
-        Assert.Equal(0.65, tagsChevron.Opacity);
 
         window.Close();
     }
 
     [AvaloniaFact]
-    public void CollectionCreateAndRenameUseTheItemRowAsTheOnlyEditor()
+    public void TagCreateAndRenameUseTheItemRowAsTheOnlyEditor()
     {
-        var collection = new Collection { Id = 7, Name = "项目资料" };
+        var tag = new FileTag("项目资料", FileTagCatalog.CustomTagColor, FileTagKind.Custom);
         var sidebar = new FinderSidebarView();
         AddApplicationStyles(sidebar);
-        var collectionItems = sidebar.FindControl<ItemsControl>("CollectionItems")!;
-        var collectionTemplate = Assert.IsAssignableFrom<IDataTemplate>(collectionItems.ItemTemplate);
-        var existingRow = Assert.IsAssignableFrom<Border>(collectionTemplate.Build(collection));
-        existingRow.DataContext = collection;
-        sidebar.FindControl<StackPanel>("CollectionsPanel")!.Children.Insert(1, existingRow);
+        var tagItems = sidebar.FindControl<ItemsControl>("TagItems")!;
+        var tagTemplate = Assert.IsAssignableFrom<IDataTemplate>(tagItems.ItemTemplate);
+        var existingRow = Assert.IsAssignableFrom<Border>(tagTemplate.Build(tag));
+        existingRow.DataContext = tag;
+        sidebar.FindControl<StackPanel>("TagsPanel")!.Children.Insert(1, existingRow);
 
         var window = new Window
         {
@@ -81,10 +76,10 @@ public sealed class FinderSidebarInteractionTests
             Content = sidebar
         };
         window.Show();
-        sidebar.FindControl<StackPanel>("CollectionsPanel")!.IsVisible = true;
+        sidebar.FindControl<StackPanel>("TagsPanel")!.IsVisible = true;
         Dispatcher.UIThread.RunJobs();
 
-        AssertCollectionContentIsVerticallyCentered(existingRow);
+        AssertTagContentIsVerticallyCentered(existingRow);
 
         var renameButton = existingRow.GetVisualDescendants()
             .OfType<Button>()
@@ -93,28 +88,28 @@ public sealed class FinderSidebarInteractionTests
         renameButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Dispatcher.UIThread.RunJobs();
 
-        AssertCollectionRowIsEditing(existingRow, "项目资料");
-        Assert.False(sidebar.FindControl<Border>("NewCollectionEditorRow")!.IsVisible);
+        AssertTagRowIsEditing(existingRow, "项目资料");
+        Assert.False(sidebar.FindControl<Border>("NewTagEditorRow")!.IsVisible);
 
-        sidebar.FindControl<Button>("AddCollectionBtn")!
+        sidebar.FindControl<Button>("AddTagBtn")!
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Dispatcher.UIThread.RunJobs();
 
         Assert.False(existingRow.GetVisualDescendants()
             .OfType<TextBox>()
-            .Single(textBox => textBox.Classes.Contains("collection-name-editor"))
+            .Single(textBox => textBox.Classes.Contains("tag-name-editor"))
             .IsVisible);
         Assert.Equal(2, existingRow.GetVisualDescendants()
             .OfType<Button>()
-            .Count(button => button.Classes.Contains("collection-normal-action") && button.IsVisible));
+            .Count(button => button.Classes.Contains("tag-normal-action") && button.IsVisible));
 
-        var newRow = sidebar.FindControl<Border>("NewCollectionEditorRow")!;
+        var newRow = sidebar.FindControl<Border>("NewTagEditorRow")!;
         Assert.True(newRow.IsVisible);
         Assert.Single(newRow.GetVisualDescendants().OfType<PathIcon>(),
             pathIcon => pathIcon.Classes.Contains("sidebar-icon"));
-        Assert.Equal("新收藏夹", sidebar.FindControl<TextBox>("NewCollectionInput")!.Text);
-        AssertCollectionEditorMatchesFileRenameStyle(newRow);
-        AssertCollectionContentIsVerticallyCentered(newRow);
+        Assert.Equal("新标签", sidebar.FindControl<TextBox>("NewTagInput")!.Text);
+        AssertTagEditorMatchesFileRenameStyle(newRow);
+        AssertTagContentIsVerticallyCentered(newRow);
         AssertSingleConfirmButton(newRow);
 
         window.Close();
@@ -211,30 +206,30 @@ public sealed class FinderSidebarInteractionTests
             new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
     }
 
-    private static void AssertCollectionRowIsEditing(Border row, string expectedText)
+    private static void AssertTagRowIsEditing(Border row, string expectedText)
     {
         var editor = row.GetVisualDescendants()
             .OfType<TextBox>()
-            .Single(textBox => textBox.Classes.Contains("collection-name-editor"));
+            .Single(textBox => textBox.Classes.Contains("tag-name-editor"));
         var label = row.GetVisualDescendants()
             .OfType<TextBlock>()
-            .Single(text => text.Classes.Contains("collection-name-label"));
+            .Single(text => text.Classes.Contains("tag-name-label"));
 
         Assert.True(editor.IsVisible);
         Assert.Equal(expectedText, editor.Text);
         Assert.False(label.IsVisible);
         Assert.DoesNotContain(row.GetVisualDescendants().OfType<Button>(),
-            button => button.Classes.Contains("collection-normal-action") && button.IsVisible);
-        AssertCollectionEditorMatchesFileRenameStyle(row);
-        AssertCollectionContentIsVerticallyCentered(row);
+            button => button.Classes.Contains("tag-normal-action") && button.IsVisible);
+        AssertTagEditorMatchesFileRenameStyle(row);
+        AssertTagContentIsVerticallyCentered(row);
         AssertSingleConfirmButton(row);
     }
 
-    private static void AssertCollectionEditorMatchesFileRenameStyle(Border row)
+    private static void AssertTagEditorMatchesFileRenameStyle(Border row)
     {
         var editor = row.GetVisualDescendants()
             .OfType<TextBox>()
-            .Single(textBox => textBox.Classes.Contains("collection-name-editor"));
+            .Single(textBox => textBox.Classes.Contains("tag-name-editor"));
 
         Assert.Contains("inline-rename-editor", editor.Classes);
         Assert.Equal(22, editor.Height);
@@ -247,20 +242,20 @@ public sealed class FinderSidebarInteractionTests
         Assert.Null(editor.FocusAdorner);
     }
 
-    private static void AssertCollectionContentIsVerticallyCentered(Border row)
+    private static void AssertTagContentIsVerticallyCentered(Border row)
     {
         var content = row.GetVisualDescendants()
             .OfType<Grid>()
-            .Single(grid => grid.Classes.Contains("collection-row-content"));
+            .Single(grid => grid.Classes.Contains("tag-row-content"));
         var icon = content.Children
             .OfType<PathIcon>()
             .Single(pathIcon => pathIcon.Classes.Contains("sidebar-icon"));
         var textControl = content.Children
             .Where(control => control.IsVisible)
             .Single(control => control is TextBlock { Classes: var classes }
-                                   && classes.Contains("collection-name-label")
+                                   && classes.Contains("tag-name-label")
                                || control is TextBox { Classes: var editorClasses }
-                                   && editorClasses.Contains("collection-name-editor"));
+                                   && editorClasses.Contains("tag-name-editor"));
         var iconCenter = icon.TranslatePoint(new Point(0, icon.Bounds.Height / 2), content);
         var textCenter = textControl.TranslatePoint(
             new Point(0, textControl.Bounds.Height / 2),
@@ -278,7 +273,7 @@ public sealed class FinderSidebarInteractionTests
             .Where(button => button.IsVisible)
             .ToArray();
         var confirmButton = Assert.Single(visibleButtons);
-        Assert.Contains("collection-confirm-action", confirmButton.Classes);
+        Assert.Contains("tag-confirm-action", confirmButton.Classes);
         var confirmIcon = Assert.Single(confirmButton.GetVisualDescendants().OfType<PathIcon>());
         Assert.Equal(
             StreamGeometry.Parse(AssetIcons.Checkmark).Bounds,

@@ -418,8 +418,15 @@ public partial class MainWindow : AppWindow
 
     public async Task NavigateToPathAsync(string path)
     {
-        if (_vm?.FileList != null && Directory.Exists(path))
+        if (_vm?.FileList == null) return;
+        if (Directory.Exists(path))
             await _vm.FileList.NavigateToAsync(path);
+        else if (File.Exists(path))
+            await _vm.FileList.RevealFileAsync(new FileSystemEntry
+            {
+                FullPath = Path.GetFullPath(path),
+                Name = Path.GetFileName(path)
+            });
     }
 
     public void ApplyAppearanceSettings()
@@ -550,7 +557,7 @@ public partial class MainWindow : AppWindow
         if (e.PropertyName is nameof(FileListViewModel.IsPasteConfirmDialogVisible)
             or nameof(FileListViewModel.IsMoveConfirmDialogVisible)
             or nameof(FileListViewModel.IsDeleteConfirmDialogVisible)
-            or nameof(FileListViewModel.IsCollectionDeleteConfirmDialogVisible)
+            or nameof(FileListViewModel.IsTagDeleteConfirmDialogVisible)
             or nameof(FileListViewModel.IsCompressDialogVisible))
         {
             Dispatcher.UIThread.Post(() => _ = SyncDialogsAsync());
@@ -649,7 +656,12 @@ public partial class MainWindow : AppWindow
 
         var path = !string.IsNullOrEmpty(pendingPath) ? pendingPath : restorePath;
         if (!string.IsNullOrEmpty(path))
-            await _vm.FileList.NavigateToAsync(path);
+        {
+            if (File.Exists(path))
+                await NavigateToPathAsync(path);
+            else
+                await _vm.FileList.NavigateToAsync(path);
+        }
         SchedulePaneLayoutRebuild();
     }
 
@@ -785,11 +797,11 @@ public partial class MainWindow : AppWindow
                 if (confirmed) await vm.ConfirmDeleteSelectedAsync();
                 else vm.CancelDeleteConfirmDialog();
             }
-            else if (vm.IsCollectionDeleteConfirmDialogVisible)
+            else if (vm.IsTagDeleteConfirmDialogVisible)
             {
-                var confirmed = await ShowConfirmationAsync("删除收藏", $"确定要删除收藏“{vm.PendingDeleteCollectionName}”吗？收藏中的原始文件不会被删除。", "删除");
-                if (confirmed) await vm.ConfirmDeleteCollectionAsync();
-                else vm.CancelCollectionDeleteConfirmDialog();
+                var confirmed = await ShowConfirmationAsync("删除标签", $"确定要删除标签“{vm.PendingDeleteTagName}”吗？这会移除文件上的该标签，原始文件不会被删除。", "删除");
+                if (confirmed) await vm.ConfirmDeleteTagAsync();
+                else vm.CancelTagDeleteConfirmDialog();
             }
             else if (vm.IsPasteConfirmDialogVisible)
             {
@@ -1558,7 +1570,7 @@ public partial class MainWindow : AppWindow
         {
             _globalSearchSuggestions.Clear();
             GlobalSearchResults.IsVisible = false;
-            GlobalSearchEmptyHint.Text = "输入内容即可搜索已索引的本地文件、收藏夹和最近位置";
+            GlobalSearchEmptyHint.Text = "输入内容即可搜索已索引的本地文件、常用位置和最近位置";
             GlobalSearchEmptyHint.IsVisible = true;
             GlobalSearchResultCount.Text = $"范围：{GetGlobalSearchScopeDisplay()}";
             return;

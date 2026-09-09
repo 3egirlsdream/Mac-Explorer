@@ -70,18 +70,19 @@ public partial class App : Application
         {
             _desktop = desktop;
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            var startupPath = desktop.Args?.FirstOrDefault(Directory.Exists);
+            var startupPath = desktop.Args?.FirstOrDefault(path => Directory.Exists(path) || File.Exists(path));
             mainWindow = CreateWindow(
                 string.IsNullOrEmpty(startupPath) ? null : Path.GetFullPath(startupPath),
                 isPrimary: true);
             desktop.MainWindow = mainWindow;
 
-            if (ApplicationLifetime is IActivatableLifetime activatable)
+            if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
                 activatable.Activated += OnApplicationActivated;
 
         }
 
         base.OnFrameworkInitializationCompleted();
+        _ = Services.GetRequiredService<IFileTagService>().RetryPendingAsync();
 
         if (mainWindow is { IsVisible: false })
         {
@@ -125,6 +126,7 @@ public partial class App : Application
         if (_desktop == null) return;
 
         var path = GetActivatedPath(e);
+        if (path == null) return;
         var window = _desktop.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsActive)
                      ?? _desktop.Windows.OfType<MainWindow>().LastOrDefault();
 
@@ -140,7 +142,7 @@ public partial class App : Application
             await window.NavigateToPathAsync(path);
     }
 
-    private static string? GetActivatedPath(ActivatedEventArgs e)
+    internal static string? GetActivatedPath(ActivatedEventArgs e)
     {
         if (e is not FileActivatedEventArgs fileActivation)
             return null;
@@ -150,9 +152,7 @@ public partial class App : Application
             .FirstOrDefault(path => Directory.Exists(path) || File.Exists(path));
 
         if (string.IsNullOrWhiteSpace(localPath)) return null;
-        return Directory.Exists(localPath)
-            ? Path.GetFullPath(localPath)
-            : Path.GetDirectoryName(Path.GetFullPath(localPath));
+        return Path.GetFullPath(localPath);
     }
 
     private static IServiceProvider ConfigureServices()
@@ -189,8 +189,8 @@ public partial class App : Application
         services.AddSingleton<WindowPlacementService>();
         services.AddSingleton<IRatingService, Services.Impl.RatingService>();
         services.AddSingleton<IFinderTagQueryService, Platforms.MacCatalyst.Services.MacFinderTagQueryService>();
+        services.AddSingleton<IFileTagStore, Platforms.MacCatalyst.Services.MacFileTagStore>();
         services.AddSingleton<IFileTagService, Services.Impl.FileTagService>();
-        services.AddSingleton<ICollectionService>(sp => new Services.Impl.CollectionService(sp.GetRequiredService<DatabaseConnectionFactory>()));
         services.AddSingleton<IFrequentFolderService>(sp => new Services.Impl.FrequentFolderService(sp.GetRequiredService<DatabaseConnectionFactory>(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
         services.AddSingleton<IGitStatusService>(sp => new Services.Impl.GitStatusService(sp.GetService<ILoggerFactory>()));
         services.AddSingleton<IPinnedFolderService>(sp => new Services.Impl.PinnedFolderService(sp.GetRequiredService<DatabaseConnectionFactory>()));
@@ -225,7 +225,8 @@ public partial class App : Application
             sp.GetRequiredService<IFileService>(),
             sp.GetRequiredService<IDirectoryChangeNotifier>(),
             sp.GetService<IRemoteFileEditService>(),
-            sp.GetService<IRemoteConnectionService>()));
+            sp.GetService<IRemoteConnectionService>(),
+            sp.GetRequiredService<IFileTagService>()));
         services.AddSingleton<IVolumeMonitorService>(sp => new Platforms.MacCatalyst.Services.MacVolumeMonitorService(sp.GetRequiredService<IAiTagService>(), sp.GetService<ILoggerFactory>()?.CreateLogger<Platforms.MacCatalyst.Services.MacVolumeMonitorService>()));
         services.AddSingleton<Platforms.MacCatalyst.Services.MacDockMenuService>();
         services.AddScoped<NavigationViewModel>();
@@ -233,14 +234,14 @@ public partial class App : Application
         services.AddScoped<SearchViewModel>();
         services.AddScoped<ArchiveViewModel>();
         services.AddScoped<AiViewModel>(sp => new AiViewModel(sp.GetService<IAiTagService>(), sp.GetService<IThumbnailService>(), sp.GetService<IFileIndex>(), sp.GetService<IImageAnalysisService>(), sp.GetService<IBackgroundTaskManager>(), sp.GetService<ISettingsService>(), sp.GetService<ILogger<AiViewModel>>()));
-        services.AddScoped<CollectionViewModel>();
+        services.AddScoped<PinnedFoldersViewModel>();
         services.AddScoped<SortFilterViewModel>();
         services.AddScoped<FileListViewModel>(sp =>
         {
             var viewModel = new FileListViewModel(
                 sp.GetRequiredService<NavigationViewModel>(), sp.GetRequiredService<FileOpsViewModel>(),
                 sp.GetRequiredService<SearchViewModel>(), sp.GetRequiredService<ArchiveViewModel>(),
-                sp.GetRequiredService<AiViewModel>(), sp.GetRequiredService<CollectionViewModel>(),
+                sp.GetRequiredService<AiViewModel>(), sp.GetRequiredService<PinnedFoldersViewModel>(),
                 sp.GetRequiredService<SortFilterViewModel>(), sp.GetRequiredService<IFileService>(),
                 sp.GetRequiredService<IFileIndex>(), sp.GetRequiredService<IFileIndexWriter>(),
                 sp.GetRequiredService<IndexConfiguration>(), sp.GetService<IContextMenuService>(),

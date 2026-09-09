@@ -92,7 +92,7 @@ public partial class FileOpsViewModel : ObservableObject
             .ToList();
     }
 
-    public async Task PasteAsync(string currentPath, bool isCollectionView, int? currentCollectionId, bool overwrite = false)
+    public async Task PasteAsync(string currentPath, bool overwrite = false)
     {
         if (_clipboardService == null || !_clipboardService.HasClipboardFiles) return;
         var entry = _clipboardService.GetClipboardEntry();
@@ -136,8 +136,6 @@ public partial class FileOpsViewModel : ObservableObject
     public async Task DeleteSelectedAsync(
         IReadOnlyList<FileSystemEntry> selectedEntries,
         string currentPath,
-        bool isCollectionView,
-        int? currentCollectionId,
         Action<string>? setStatus = null,
         FileListViewModel? refreshedViewModel = null)
     {
@@ -170,7 +168,7 @@ public partial class FileOpsViewModel : ObservableObject
             // DeleteSelectedAsync is the centralized delete path for ALL views.
             // Use the actual parent directories of deleted files so that file-system
             // directory views (including NormalView) get notified even when the user
-            // is currently in a collection/archive/AI special view.
+            // is currently in a tag/archive/AI special view.
             var parentDirs = deletedPaths
                 .Select(p => Path.GetDirectoryName(p))
                 .OfType<string>()

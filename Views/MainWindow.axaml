@@ -541,7 +541,7 @@
 	                <Grid Grid.Row="2" ColumnDefinitions="*,220" ColumnSpacing="12" Margin="0,12,0,6">
 	                    <Grid Grid.Column="0">
 	                        <TextBlock x:Name="GlobalSearchEmptyHint"
-	                                   Text="输入内容即可搜索已索引的本地文件、收藏夹和最近位置"
+	                                   Text="输入内容即可搜索已索引的本地文件、常用位置和最近位置"
 	                                   HorizontalAlignment="Center" VerticalAlignment="Center"
 	                                   Foreground="{DynamicResource TextMutedBrush}"/>
 	                        <ListBox x:Name="GlobalSearchResults"
