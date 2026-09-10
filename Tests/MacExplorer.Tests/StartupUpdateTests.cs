@@ -40,12 +40,30 @@ public sealed class StartupUpdateTests
     public async Task ChildActuallyRunsAtLowPriority()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
+        var parentNice = await ReadNiceValueAsync(Environment.ProcessId);
         var start = StartupUpdateChecker.CreateStartInfo("/bin/sh", "unused");
         start.ArgumentList.RemoveAt(start.ArgumentList.Count - 1);
         start.ArgumentList.Add("-c");
         start.ArgumentList.Add("printf '{\"VERSION\":\"%s\"}' \"$(ps -o nice= -p $$ | tr -d ' ')\"");
         var result = await StartupUpdateChecker.CheckAsync(start, TestContext.Current.CancellationToken);
-        Assert.Equal("19", result!.Version);
+        // nice -n is relative to the parent; hosted runners may start below zero.
+        Assert.Equal(Math.Min(19, parentNice + 19), int.Parse(result!.Version));
+        Assert.Equal(parentNice, await ReadNiceValueAsync(Environment.ProcessId));
+    }
+
+    private static async Task<int> ReadNiceValueAsync(int processId)
+    {
+        var start = new ProcessStartInfo("/bin/ps")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            ArgumentList = { "-o", "nice=", "-p", processId.ToString() }
+        };
+        using var process = Process.Start(start)!;
+        var output = await process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(0, process.ExitCode);
+        return int.Parse(output.Trim());
     }
 
     [Fact]
