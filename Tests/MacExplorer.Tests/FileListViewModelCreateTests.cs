@@ -1139,7 +1139,9 @@ public sealed partial class FileListViewModelCreateTests
         ISettingsService? settingsService = null,
         IArchiveService? archiveService = null,
         IFileTagService? fileTagService = null,
-        IClipboardService? clipboardService = null)
+        IClipboardService? clipboardService = null,
+        IFileConversionService? fileConversionService = null,
+        IContextMenuService? contextMenuService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1165,10 +1167,12 @@ public sealed partial class FileListViewModelCreateTests
             writer,
             new IndexConfiguration(),
             settingsService: settingsService,
+            contextMenuService: contextMenuService,
             thumbnailService: thumbnailService,
             directoryChangeNotifier: directoryChangeNotifier,
             fileTagService: fileTagService,
-            clipboardService: clipboardService);
+            clipboardService: clipboardService,
+            fileConversionService: fileConversionService);
     }
 
     private sealed class FakeFileService(string homeDirectory) : IFileService

@@ -1,0 +1,62 @@
+<controls:DialogWindow xmlns="https://github.com/avaloniaui"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:controls="using:MacExplorer.Controls"
+                      x:Class="MacExplorer.Views.Dialogs.ImageConversionDialog"
+                      Title="转换图片" Width="420" SizeToContent="Height" CanResize="False"
+                      WindowStartupLocation="CenterOwner" Background="{DynamicResource GlassEffectBg}">
+    <controls:DialogWindow.Styles>
+        <Style Selector="NumericUpDown">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+        <!-- Draw focus above the entire field so spinner backgrounds cannot cover its outline. -->
+        <Style Selector="Grid.image-size-field:focus-within > Border.focus-ring">
+            <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+        </Style>
+        <Style Selector="NumericUpDown:focus-within, NumericUpDown:focus">
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
+        </Style>
+        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox,
+                         NumericUpDown /template/ ButtonSpinner,
+                         NumericUpDown /template/ ButtonSpinner /template/ RepeatButton">
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_DecreaseButton /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="0,6,6,0"/>
+        </Style>
+    </controls:DialogWindow.Styles>
+    <StackPanel Margin="24" Spacing="16">
+        <TextBlock x:Name="Heading" FontSize="{DynamicResource FontSizeTitle}"
+                   FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+        <TextBlock x:Name="Description" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+            <TextBlock Text="宽度（像素）" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBlock Grid.Column="2" Text="高度（像素）" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <Grid Grid.Row="1" Classes="image-size-field">
+                <NumericUpDown x:Name="WidthInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
+                               FormatString="0" ValueChanged="WidthChanged" AutomationProperties.Name="宽度（像素）"/>
+                <Border Classes="focus-ring" BorderThickness="1" CornerRadius="{DynamicResource InteractionCornerRadius}"
+                        IsHitTestVisible="False"/>
+            </Grid>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="×" VerticalAlignment="Center"/>
+            <Grid Grid.Row="1" Grid.Column="2" Classes="image-size-field">
+                <NumericUpDown x:Name="HeightInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
+                               FormatString="0" ValueChanged="HeightChanged" AutomationProperties.Name="高度（像素）"/>
+                <Border Classes="focus-ring" BorderThickness="1" CornerRadius="{DynamicResource InteractionCornerRadius}"
+                        IsHitTestVisible="False"/>
+            </Grid>
+        </Grid>
+        <TextBlock Text="已锁定宽高比例，文件将保存到原文件旁。" FontSize="{DynamicResource FontSizeLabel}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <TextBlock x:Name="ErrorText" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="False"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="取消" Classes="secondary" IsCancel="True" Click="CancelClick"/>
+            <Button Content="转换" Classes="primary" IsDefault="True" Click="ConvertClick"/>
+        </StackPanel>
+    </StackPanel>
+</controls:DialogWindow>

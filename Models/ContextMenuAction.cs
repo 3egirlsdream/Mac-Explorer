@@ -4,6 +4,7 @@ public class ContextMenuAction
 {
     public string Label { get; init; } = string.Empty;
     public string IconSvg { get; init; } = string.Empty;
+    public Avalonia.Media.IImage? IconImage { get; init; }
     public string ShortcutText { get; init; } = string.Empty;
     public bool IsEnabled { get; init; } = true;
     public bool IsSeparator { get; init; }

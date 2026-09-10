@@ -109,7 +109,8 @@ public sealed partial class FileListViewModelCreateTests
         host.Click(host.Arrow(host.Root));
         await host.WaitForDirectories(1);
 
-        var toolbar = new FinderToolbar();
+        using var toolbarViewModel = CreateViewModel(new FakeFileService(host.Root));
+        var toolbar = new FinderToolbar { DataContext = toolbarViewModel };
         var toolbarWindow = new Window
         {
             Width = 500, Height = 400, Content = toolbar,

@@ -47,48 +47,10 @@ public partial class FinderToolbar : UserControl
         AttachedToVisualTree += (_, _) =>
         {
             SubscribeToViewModel(ViewModel);
-            _ = UpdateOfficeTemplateVisibilityAsync();
+            _ = ViewModel?.LoadNewItemActionsAsync();
             SyncViewModeToggles();
         };
         DetachedFromVisualTree += (_, _) => SubscribeToViewModel(null);
-    }
-
-    private async Task UpdateOfficeTemplateVisibilityAsync()
-    {
-        NewWordButton.IsVisible = false;
-        NewExcelButton.IsVisible = false;
-        NewPowerPointButton.IsVisible = false;
-        NewPagesButton.IsVisible = false;
-        NewNumbersButton.IsVisible = false;
-        NewKeynoteButton.IsVisible = false;
-
-        var contextMenu = App.Services?.GetService<IContextMenuService>();
-        if (contextMenu == null)
-            return;
-
-        var availability = await Task.Run(() =>
-        {
-            var hasWps = contextMenu.IsAppInstalled("com.kingsoft.wpsoffice.mac");
-            return new
-            {
-                Word = hasWps || contextMenu.IsAppInstalled("com.microsoft.Word"),
-                Excel = hasWps || contextMenu.IsAppInstalled("com.microsoft.Excel"),
-                PowerPoint = hasWps || contextMenu.IsAppInstalled("com.microsoft.Powerpoint"),
-                Pages = contextMenu.IsAppInstalled("com.apple.iWork.Pages"),
-                Numbers = contextMenu.IsAppInstalled("com.apple.iWork.Numbers"),
-                Keynote = contextMenu.IsAppInstalled("com.apple.iWork.Keynote")
-            };
-        });
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            NewWordButton.IsVisible = availability.Word;
-            NewExcelButton.IsVisible = availability.Excel;
-            NewPowerPointButton.IsVisible = availability.PowerPoint;
-            NewPagesButton.IsVisible = availability.Pages;
-            NewNumbersButton.IsVisible = availability.Numbers;
-            NewKeynoteButton.IsVisible = availability.Keynote;
-        });
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
@@ -107,18 +69,11 @@ public partial class FinderToolbar : UserControl
         NewDropdown.IsOpen = shouldOpen;
     }
 
-    private async void NewFolder(object? sender, RoutedEventArgs e)
+    private async void CreateNewItem(object? sender, RoutedEventArgs e)
     {
         NewDropdown.IsOpen = false;
-        if (ViewModel == null) return;
-        await ViewModel.CreateNewFolderAsync();
-    }
-
-    private async void NewFile(object? sender, RoutedEventArgs e)
-    {
-        NewDropdown.IsOpen = false;
-        if (sender is not Button btn || btn.Tag is not string ext || ViewModel == null) return;
-        await ViewModel.CreateNewFileAsync(ext);
+        if (sender is Button { DataContext: ContextMenuAction { Execute: { } execute } })
+            await execute();
     }
 
     private void CutSelected(object? sender, RoutedEventArgs e) => ViewModel?.CutSelected();
@@ -141,6 +96,7 @@ public partial class FinderToolbar : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         SubscribeToViewModel(ViewModel);
+        _ = ViewModel?.LoadNewItemActionsAsync();
         SyncViewModeToggles();
     }
 

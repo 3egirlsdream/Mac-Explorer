@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -50,6 +51,7 @@ public partial class MainWindow : AppWindow
     ];
 
     private SettingsDialog? _settingsDialog;
+    private WindowNotificationManager? _notifications;
     private MainWindowViewModel? _vm;
     private FileListViewModel? _activeFileList;
     private readonly Dictionary<ExplorerTabViewModel, IServiceScope?> _tabScopes = [];
@@ -2153,10 +2155,27 @@ public partial class MainWindow : AppWindow
         _ = OpenSettingsAsync();
     }
 
-    private async Task OpenSettingsAsync()
+    internal void ShowUpdateAvailableToast(VersionInfo version)
+    {
+        _notifications ??= new WindowNotificationManager(this)
+        {
+            Position = NotificationPosition.BottomRight,
+            MaxItems = 1
+        };
+        // The template replaces the manager's item collection; apply it before the first message.
+        _notifications.ApplyTemplate();
+        _notifications.Show(new Notification(
+            $"发现新版本 {version.Version}", "点击查看更新内容并前往更新。",
+            NotificationType.Information, TimeSpan.FromSeconds(15),
+            onClick: () => _ = OpenSettingsAsync(version)));
+    }
+
+    private async Task OpenSettingsAsync(VersionInfo? availableVersion = null)
     {
         if (_settingsDialog?.IsVisible == true)
         {
+            if (availableVersion != null)
+                _settingsDialog.ShowAvailableUpdate(availableVersion);
             _settingsDialog.Activate();
             return;
         }
@@ -2165,6 +2184,8 @@ public partial class MainWindow : AppWindow
         {
             DataContext = _vm?.FileList
         };
+        if (availableVersion != null)
+            dialog.ShowAvailableUpdate(availableVersion);
 
         _settingsDialog = dialog;
         dialog.Closed += (_, _) =>

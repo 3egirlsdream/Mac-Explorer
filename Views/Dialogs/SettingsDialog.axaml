@@ -501,7 +501,7 @@
             </Grid>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="关于">
+        <TabItem x:Name="AboutTab" AutomationProperties.Name="关于">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Info}"/>

@@ -719,15 +719,7 @@ public partial class SettingsDialog : DialogWindow
             }
             else
             {
-                SetUpdateState(UpdateState.UpdateAvailable, $"发现新版本 {_availableVersion.Version}");
-                var releaseDate = DateTime.TryParse(_availableVersion.DateTime, out var parsedDate)
-                    ? parsedDate.ToString("yyyy-MM-dd")
-                    : _availableVersion.DateTime;
-                ChangelogTitle.Text = string.IsNullOrWhiteSpace(releaseDate)
-                    ? $"版本 {_availableVersion.Version} 更新内容"
-                    : $"版本 {_availableVersion.Version} · {releaseDate}";
-                ChangelogText.Text = _availableVersion.Memo;
-                ChangelogBorder.IsVisible = !string.IsNullOrWhiteSpace(_availableVersion.Memo);
+                DisplayAvailableUpdate(_availableVersion);
             }
         }
         catch (OperationCanceledException) when (_updateCancellation.IsCancellationRequested)
@@ -738,6 +730,28 @@ public partial class SettingsDialog : DialogWindow
         {
             SetUpdateState(UpdateState.Error, $"检查失败: {ex.Message}");
         }
+    }
+
+    internal void ShowAvailableUpdate(VersionInfo version)
+    {
+        SettingsTabs.SelectedItem = AboutTab;
+        if (_updateState is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing)
+            return;
+        DisplayAvailableUpdate(version);
+    }
+
+    private void DisplayAvailableUpdate(VersionInfo version)
+    {
+        _availableVersion = version;
+        SetUpdateState(UpdateState.UpdateAvailable, $"发现新版本 {version.Version}");
+        var releaseDate = DateTime.TryParse(version.DateTime, out var parsedDate)
+            ? parsedDate.ToString("yyyy-MM-dd")
+            : version.DateTime;
+        ChangelogTitle.Text = string.IsNullOrWhiteSpace(releaseDate)
+            ? $"版本 {version.Version} 更新内容"
+            : $"版本 {version.Version} · {releaseDate}";
+        ChangelogText.Text = version.Memo;
+        ChangelogBorder.IsVisible = !string.IsNullOrWhiteSpace(version.Memo);
     }
 
     private void ApplyUpdateProgress((double Progress, string Status) report)

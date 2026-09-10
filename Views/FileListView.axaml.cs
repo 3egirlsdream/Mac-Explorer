@@ -1554,7 +1554,9 @@ public partial class FileListView : UserControl
             }
             if (!string.IsNullOrEmpty(action.ShortcutText))
                 item.InputGesture = ParseShortcut(action.ShortcutText);
-            if (!string.IsNullOrEmpty(action.IconSvg))
+            if (action.IconImage != null)
+                item.Icon = new Image { Source = action.IconImage, Width = 18, Height = 18 };
+            else if (!string.IsNullOrEmpty(action.IconSvg))
             {
                 try { item.Icon = new PathIcon { Data = Geometry.Parse(action.IconSvg), Width = 16, Height = 16 }; }
                 catch { }

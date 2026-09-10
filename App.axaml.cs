@@ -21,6 +21,7 @@ public partial class App : Application
 {
     public static IServiceProvider Services { get; private set; } = null!;
     private static IClassicDesktopStyleApplicationLifetime? _desktop;
+    private readonly System.Threading.CancellationTokenSource _startupUpdateCancellation = new();
 
     public override void Initialize()
     {
@@ -75,6 +76,8 @@ public partial class App : Application
                 string.IsNullOrEmpty(startupPath) ? null : Path.GetFullPath(startupPath),
                 isPrimary: true);
             desktop.MainWindow = mainWindow;
+            mainWindow.Opened += OnStartupWindowOpened;
+            desktop.Exit += (_, _) => _startupUpdateCancellation.Cancel();
 
             if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
                 activatable.Activated += OnApplicationActivated;
@@ -95,6 +98,37 @@ public partial class App : Application
             DispatcherTimer.RunOnce(
                 () => Services.GetRequiredService<Platforms.MacCatalyst.Services.MacDockMenuService>().Register(),
                 TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private void OnStartupWindowOpened(object? sender, EventArgs e)
+    {
+        if (sender is MainWindow window)
+            window.Opened -= OnStartupWindowOpened;
+        _ = Task.Run(CheckStartupUpdateAsync);
+    }
+
+    private async Task CheckStartupUpdateAsync()
+    {
+        var ct = _startupUpdateCancellation.Token;
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), ct).ConfigureAwait(false);
+            var version = await StartupUpdateChecker.CheckAsync(ct).ConfigureAwait(false);
+            if (version == null || ct.IsCancellationRequested)
+                return;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (ct.IsCancellationRequested) return;
+                var window = _desktop?.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsActive)
+                    ?? _desktop?.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsVisible);
+                window?.ShowUpdateAvailableToast(version);
+            }, DispatcherPriority.Background);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Services.GetRequiredService<ILogger<App>>().LogDebug(ex, "Startup update check failed");
         }
     }
 
@@ -179,6 +213,7 @@ public partial class App : Application
         services.AddSingleton<IMetadataService, Platforms.MacCatalyst.Services.MacMetadataService>();
         services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
         services.AddSingleton<IQuickLookService, Platforms.MacCatalyst.Services.MacQuickLookService>();
+        services.AddSingleton<IFileConversionService, FileConversionService>();
         services.AddSingleton<IThumbnailService, Platforms.MacCatalyst.Services.MacThumbnailService>();
         services.AddSingleton<IClipboardService, Platforms.MacCatalyst.Services.MacClipboardService>();
         services.AddSingleton<IDragDropService, Platforms.MacCatalyst.Services.MacDragDropBridge>();
@@ -254,7 +289,8 @@ public partial class App : Application
                 sp.GetService<IDisplayNameService>(), sp.GetService<IVolumeMonitorService>(),
                 sp.GetService<IRemoteConnectionService>(), sp.GetService<IRemoteFileService>(),
                 sp.GetService<IRemoteFileEditService>(), sp.GetService<IOpenWithAppService>(),
-                sp.GetService<IFileTagService>());
+                sp.GetService<IFileTagService>(), sp.GetService<IFileConversionService>(),
+                sp.GetService<IBackgroundTaskManager>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());
             return viewModel;
         });

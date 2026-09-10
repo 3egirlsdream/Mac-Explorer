@@ -11,6 +11,14 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args is [Services.Impl.StartupUpdateChecker.WorkerArgument])
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            Environment.ExitCode = Services.Impl.StartupUpdateChecker.RunWorkerAsync(
+                new Services.Impl.AppUpdateService(http), Console.Out, Console.Error).GetAwaiter().GetResult();
+            return;
+        }
+
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
         // Avalonia's macOS render timer is backed by CVDisplayLink. macOS can

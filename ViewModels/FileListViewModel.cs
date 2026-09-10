@@ -421,7 +421,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IRemoteFileService? sftpFileService = null,
         IRemoteFileEditService? remoteFileEditService = null,
         IOpenWithAppService? openWithAppService = null,
-        IFileTagService? fileTagService = null)
+        IFileTagService? fileTagService = null,
+        IFileConversionService? fileConversionService = null,
+        IBackgroundTaskManager? conversionTaskManager = null)
     {
         _navigation = navigation;
         _fileOps = fileOps;
@@ -455,6 +457,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _remoteFileEditService = remoteFileEditService;
         _openWithAppService = openWithAppService;
         _fileTagService = fileTagService;
+        _fileConversionService = fileConversionService;
+        _conversionTaskManager = conversionTaskManager;
         _columnLayoutService = new FileListColumnLayoutService(settingsService);
 
         // Initialize sidebar names with cheap defaults. macOS localized names are
@@ -2082,6 +2086,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         actions.Add(ContextMenuAction.Separator);
 
+        var conversionMenu = BuildConversionContextMenu(entry);
+        if (conversionMenu != null) actions.Add(conversionMenu);
+
         // Archive (skip for remote paths)
         if (!isRemote)
         {
@@ -2233,8 +2240,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var actions = new List<ContextMenuAction>();
         var currentPath = _navigation.CurrentPath;
 
-        actions.Add(new ContextMenuAction { Label = "新建文件夹", IconSvg = Icons.NewFolder, ShortcutText = "⇧⌘N", Execute = () => CreateNewFolderCommand.ExecuteAsync(null) });
-        actions.Add(new ContextMenuAction { Label = "新建文件", IconSvg = Icons.NewFile, Execute = () => CreateNewFileCommand.ExecuteAsync(null) });
+        await LoadNewItemActionsAsync();
+        actions.Add(new ContextMenuAction { Label = "新建", IconSvg = AppIcons.Plus, SubItems = NewItemActions });
 
         actions.Add(ContextMenuAction.Separator);
 

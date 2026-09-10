@@ -13,6 +13,22 @@ namespace MacExplorer.Tests;
 
 public class AppUpdateTests
 {
+    [AvaloniaFact]
+    public void StartupUpdateOpensAboutPageWithoutDownloading()
+    {
+        var updateService = new FailingUpdateService();
+        var dialog = new SettingsDialog(
+            new DefaultAppServiceStub(), new SettingsServiceStub(), new ThemeServiceStub(),
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), updateService);
+        dialog.ShowAvailableUpdate(new VersionInfo { Version = "2.0.0", Memo = "更新内容" });
+
+        Assert.Same(dialog.FindControl<TabItem>("AboutTab"), dialog.FindControl<TabControl>("SettingsTabs")!.SelectedItem);
+        Assert.Equal("立即更新", dialog.FindControl<Button>("UpdateButton")!.Content);
+        Assert.Contains("2.0.0", dialog.FindControl<TextBlock>("UpdateStatus")!.Text);
+        Assert.Equal("更新内容", dialog.FindControl<TextBlock>("ChangelogText")!.Text);
+        Assert.Equal(0, updateService.InstallAttempts);
+    }
+
     [Fact]
     public async Task ExtractUpdateArchivePreservesMacOsExtendedAttributes()
     {
