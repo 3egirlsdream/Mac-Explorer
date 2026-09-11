@@ -16,6 +16,13 @@ public interface IFileService
     Task RenameAsync(string path, string newName);
     Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false);
     Task CopyAsync(string sourcePath, string destinationDirectory);
+    async Task<string> CopyWithProgressAsync(string sourcePath, string destinationDirectory,
+        IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        await CopyAsync(sourcePath, destinationDirectory);
+        return CombinePath(destinationDirectory, Path.GetFileName(sourcePath));
+    }
     string GetParentPath(string path);
     string CombinePath(string directory, string name);
     IReadOnlyList<string> GetVolumes();

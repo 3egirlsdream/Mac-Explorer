@@ -598,17 +598,12 @@ if (!ok) {
 
     public async Task CopyAsync(string sourcePath, string destinationDirectory)
     {
-        await Task.Run(() =>
-        {
-            var name = Path.GetFileName(sourcePath);
-            var destinationPath = Path.Combine(destinationDirectory, GetUniqueName(destinationDirectory, name));
-
-            if (Directory.Exists(sourcePath))
-                CopyDirectoryRecursive(sourcePath, destinationPath);
-            else if (File.Exists(sourcePath))
-                File.Copy(sourcePath, destinationPath);
-        });
+        await CopyWithProgressAsync(sourcePath, destinationDirectory);
     }
+
+    public Task<string> CopyWithProgressAsync(string sourcePath, string destinationDirectory,
+        IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
+        => Task.Run(() => LocalFileCopy.Copy(sourcePath, destinationDirectory, progress, ct), ct);
 
     public string GetParentPath(string path)
     {
@@ -909,48 +904,6 @@ if (!ok) {
     private static string GetIconKeyForExtension(string extension)
     {
         return FileIconResolver.ResolveIconKey(extension);
-    }
-
-    private static void CopyDirectoryRecursive(string sourceDir, string destinationDir)
-    {
-        Directory.CreateDirectory(destinationDir);
-
-        foreach (var file in Directory.GetFiles(sourceDir))
-        {
-            var fileName = Path.GetFileName(file);
-            File.Copy(file, Path.Combine(destinationDir, fileName));
-        }
-
-        foreach (var dir in Directory.GetDirectories(sourceDir))
-        {
-            var dirName = Path.GetFileName(dir);
-            CopyDirectoryRecursive(dir, Path.Combine(destinationDir, dirName));
-        }
-    }
-
-    private static string GetUniqueName(string directory, string name)
-    {
-        var fullPath = Path.Combine(directory, name);
-        if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
-            return name;
-
-        var nameWithoutExt = Path.GetFileNameWithoutExtension(name);
-        var ext = Path.GetExtension(name);
-        int counter = 1;
-
-        while (true)
-        {
-            var newName = $"{nameWithoutExt} 副本{ext}";
-            fullPath = Path.Combine(directory, newName);
-            if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
-                return newName;
-
-            counter++;
-            newName = $"{nameWithoutExt} 副本 {counter}{ext}";
-            fullPath = Path.Combine(directory, newName);
-            if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
-                return newName;
-        }
     }
 
     public bool IsCrossVolume(string sourcePath, string destinationPath)

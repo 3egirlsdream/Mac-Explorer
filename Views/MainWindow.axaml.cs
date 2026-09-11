@@ -1015,8 +1015,7 @@ public partial class MainWindow : AppWindow
     }
 
     private static bool IsUndoableTaskKind(BackgroundTaskKind kind)
-        => kind is BackgroundTaskKind.Copy
-            or BackgroundTaskKind.Move
+        => kind is BackgroundTaskKind.Move
             or BackgroundTaskKind.Delete
             or BackgroundTaskKind.BatchRename;
 
@@ -1024,6 +1023,8 @@ public partial class MainWindow : AppWindow
     {
         var row = new Border();
         row.Classes.Add("task-overlay-row");
+        ToolTip.SetTip(row, task.State == BackgroundTaskState.Failed
+            ? task.ErrorDetail ?? task.ErrorMessage : task.CurrentFile);
 
         var grid = new Grid { ColumnSpacing = 6, RowSpacing = 2 };
         grid.ColumnDefinitions.Add(new ColumnDefinition(14, GridUnitType.Pixel));

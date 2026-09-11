@@ -150,6 +150,17 @@ public class CompositeFileService : IFileService
         }
     }
 
+    public async Task<string> CopyWithProgressAsync(string sourcePath, string destinationDirectory,
+        IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
+    {
+        if (!VirtualPath.IsRemotePath(sourcePath) && !VirtualPath.IsRemotePath(destinationDirectory))
+            return await _localService.CopyWithProgressAsync(sourcePath, destinationDirectory, progress, ct);
+
+        ct.ThrowIfCancellationRequested();
+        await CopyAsync(sourcePath, destinationDirectory);
+        return CombinePath(destinationDirectory, Path.GetFileName(sourcePath));
+    }
+
     private static long GetRemoteFileSize(Renci.SshNet.SftpClient client, string remotePath)
     {
         try

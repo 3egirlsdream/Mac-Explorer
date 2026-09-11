@@ -98,15 +98,35 @@ public partial class FileOpsViewModel : ObservableObject
         var entry = _clipboardService.GetClipboardEntry();
         if (entry == null) return;
 
+        var sourcePaths = entry.SourcePaths.ToArray();
+        var trackCopy = entry.Operation == ClipboardOperation.Copy
+            && !VirtualPath.IsRemotePath(currentPath)
+            && sourcePaths.All(path => !VirtualPath.IsRemotePath(path));
+        var taskInfo = trackCopy ? _taskManager?.AddTask($"粘贴：复制 {sourcePaths.Length} 项", BackgroundTaskKind.Copy) : null;
+        var ct = taskInfo?.Cts.Token ?? CancellationToken.None;
         try
         {
-            foreach (var sourcePath in entry.SourcePaths)
+            var skippedCount = 0;
+            for (var index = 0; index < sourcePaths.Length; index++)
             {
+                var sourcePath = sourcePaths[index];
+                ct.ThrowIfCancellationRequested();
                 if (entry.Operation == ClipboardOperation.Copy)
                 {
-                    await _fileService.CopyAsync(sourcePath, currentPath);
+                    var itemIndex = index;
+                    var itemSkipped = 0;
+                    var progress = taskInfo == null ? null : new PasteProgress(p =>
+                    {
+                        itemSkipped = p.SkippedCount;
+                        var skipped = skippedCount + itemSkipped;
+                        _taskManager!.UpdateProgress(taskInfo.Id,
+                            (itemIndex * 100d + p.Percentage) / sourcePaths.Length, p.CurrentFile,
+                            skipped == 0 ? null : $"粘贴：复制 {sourcePaths.Length} 项（已跳过 {skipped} 个运行时通信文件）");
+                    });
+                    var destination = await _fileService.CopyWithProgressAsync(sourcePath, currentPath, progress, ct);
+                    skippedCount += itemSkipped;
                     if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
-                        await _fileTagService.CopyPathAsync(sourcePath, Path.Combine(currentPath, Path.GetFileName(sourcePath)));
+                        await _fileTagService.CopyPathAsync(sourcePath, destination, ct);
                 }
                 else
                 {
@@ -115,22 +135,45 @@ public partial class FileOpsViewModel : ObservableObject
                         await _fileTagService.UpdatePathAsync(sourcePath, Path.Combine(currentPath, Path.GetFileName(sourcePath)));
                 }
             }
+            ct.ThrowIfCancellationRequested();
+            if (taskInfo != null) _taskManager!.CompleteTask(taskInfo.Id);
             if (entry.Operation == ClipboardOperation.Cut) { _clipboardService.Clear(); CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
 
             // Notify other windows: current dir + source directories
             var affectedDirs = new HashSet<string> { currentPath };
-            foreach (var sp in entry.SourcePaths)
+            foreach (var sp in sourcePaths)
             {
                 var dir = Path.GetDirectoryName(sp);
                 if (!string.IsNullOrEmpty(dir)) affectedDirs.Add(dir);
             }
             _directoryChangeNotifier?.NotifyChanged(affectedDirs.ToArray(), null);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            if (taskInfo != null) _taskManager!.CancelTask(taskInfo.Id);
+            throw;
+        }
         catch (Exception ex)
         {
+            if (taskInfo != null)
+                _taskManager!.FailTask(taskInfo.Id,
+                    ex is AggregateException aggregate ? $"复制未完整完成，{aggregate.InnerExceptions.Count} 项失败" : ex.Message,
+                    ex.ToString());
             _logger?.LogError(ex, "Paste failed");
             throw;
         }
+        finally
+        {
+            // A failed or cancelled copy may still have created files.
+            if (taskInfo != null) _directoryChangeNotifier?.NotifyChanged([currentPath], null);
+        }
+    }
+
+    private sealed class PasteProgress(Action<FileOperationProgress> report) : IProgress<FileOperationProgress>
+    {
+        // The manager dispatches UI updates. Report synchronously to avoid queued
+        // progress arriving after CompleteTask and resetting its final percentage.
+        public void Report(FileOperationProgress value) => report(value);
     }
 
     public async Task DeleteSelectedAsync(

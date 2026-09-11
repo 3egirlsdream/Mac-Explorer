@@ -2928,6 +2928,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = "已粘贴";
         }
+        catch (OperationCanceledException) { StatusText = "粘贴已取消，已复制的文件保留在目标目录"; }
         catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
     }
 
@@ -2942,6 +2943,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = "已粘贴";
         }
+        catch (OperationCanceledException) { StatusText = "粘贴已取消，已复制的文件保留在目标目录"; }
         catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
     }
 

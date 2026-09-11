@@ -87,6 +87,8 @@ public partial class TaskPanel : ToolWindow
     {
         var row = new Border();
         row.Classes.Add("task-row");
+        ToolTip.SetTip(row, task.State == BackgroundTaskState.Failed
+            ? task.ErrorDetail ?? task.ErrorMessage : task.CurrentFile);
 
         var grid = new Grid
         {
@@ -180,7 +182,12 @@ public partial class TaskPanel : ToolWindow
         {
             var stateText = new TextBlock
             {
-                Text = task.State == BackgroundTaskState.Completed ? "完成" : "失败",
+                Text = task.State switch
+                {
+                    BackgroundTaskState.Completed => "完成",
+                    BackgroundTaskState.Cancelled => "已取消",
+                    _ => "失败"
+                },
                 MinWidth = 34,
                 TextAlignment = TextAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
