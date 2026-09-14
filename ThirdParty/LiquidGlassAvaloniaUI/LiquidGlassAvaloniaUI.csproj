@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+      <TargetFramework>net8.0</TargetFramework>
+      <LangVersion>9</LangVersion>
+      <Nullable>enable</Nullable>
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+      <PackageId>LiquidGlassAvaloniaUI</PackageId>
+      <Authors>KaranocaVe</Authors>
+      <Description>AvaloniaUI liquid-glass backdrop and lens effects powered by Skia.</Description>
+      <PackageLicenseExpression>MIT</PackageLicenseExpression>
+      <PackageReadmeFile>README.md</PackageReadmeFile>
+      <RepositoryUrl>https://github.com/KaranocaVe/LiquidGlassAvaloniaUI</RepositoryUrl>
+      <RepositoryType>git</RepositoryType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Avalonia" Version="12.0.4" />
+      <PackageReference Include="Avalonia.Skia" Version="12.0.4" />
+      <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="README.md" Pack="true" PackagePath="\" />
+      <None Remove="Assets\Shaders\LiquidGlassShader.sksl" />
+      <AvaloniaResource Include="Assets\Shaders\LiquidGlassShader.sksl" />
+      <None Remove="Assets\Shaders\LiquidGlassHighlight.sksl" />
+      <AvaloniaResource Include="Assets\Shaders\LiquidGlassHighlight.sksl" />
+      <None Remove="Assets\Shaders\LiquidGlassInteractiveHighlight.sksl" />
+      <AvaloniaResource Include="Assets\Shaders\LiquidGlassInteractiveHighlight.sksl" />
+      <None Remove="Assets\Shaders\LiquidGlassGamma.sksl" />
+      <AvaloniaResource Include="Assets\Shaders\LiquidGlassGamma.sksl" />
+      <None Remove="Assets\Shaders\LiquidGlassProgressiveMask.sksl" />
+      <AvaloniaResource Include="Assets\Shaders\LiquidGlassProgressiveMask.sksl" />
+      <None Remove="Assets\Shaders\LiquidGlassBackdropTransform.sksl" />
+      <AvaloniaResource Include="Assets\Shaders\LiquidGlassBackdropTransform.sksl" />
+    </ItemGroup>
+
+</Project>

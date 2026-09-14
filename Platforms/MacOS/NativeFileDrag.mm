@@ -71,23 +71,52 @@ static NSArray<NSString*>* MacExplorerParseNullSeparatedPaths(const char* bytes,
     return paths;
 }
 
-static NSImage* MacExplorerIconForPath(NSString* path)
+static NSImage* MacExplorerCreateDragImage(const unsigned char* previewPixels,
+    int previewWidth, int previewHeight, int previewStride)
 {
-    NSImage* icon = [[NSWorkspace sharedWorkspace] iconForFile:path];
-    if (icon == nil)
-        icon = [NSImage imageNamed:NSImageNameMultipleDocuments];
-    [icon setSize:NSMakeSize(64, 64)];
-    return icon;
+    if (previewPixels == NULL || previewWidth <= 0 || previewHeight <= 0
+        || previewStride < previewWidth * 4)
+        return nil;
+    NSBitmapImageRep* representation = [[NSBitmapImageRep alloc]
+        initWithBitmapDataPlanes:NULL pixelsWide:previewWidth pixelsHigh:previewHeight
+        bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO
+        colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:previewWidth * 4 bitsPerPixel:32];
+    if (representation == nil) return nil;
+    for (int row = 0; row < previewHeight; ++row)
+        memcpy(representation.bitmapData + row * representation.bytesPerRow,
+               previewPixels + row * previewStride, previewWidth * 4);
+    NSImage* previewImage = [[NSImage alloc] initWithSize:NSMakeSize(64, 64)];
+    [previewImage addRepresentation:representation];
+
+    return previewImage;
 }
 
 extern "C" __attribute__((visibility("default")))
-int MacExplorerBeginFileDrag(
+void MacExplorerPrepareFileDragPixels(const unsigned char* pixels, int width, int height, int stride)
+{
+    @autoreleasepool
+    {
+        NSImage* image = MacExplorerCreateDragImage(pixels, width, height, stride);
+        NSDraggingItem* item = [[NSDraggingItem alloc]
+            initWithPasteboardWriter:[NSURL fileURLWithPath:@"/" isDirectory:YES]];
+        [item setDraggingFrame:NSMakeRect(0, 0, 64, 64) contents:image];
+        (void)[MacExplorerDragSource new];
+        (void)MacExplorerActiveDragSources();
+        // Construct resources only: do not start a session or change a pasteboard.
+    }
+}
+
+extern "C" __attribute__((visibility("default")))
+int MacExplorerBeginFileDragPixels(
     void* nsViewHandle,
     double x,
     double y,
     const char* pathsUtf8,
     int pathsByteLength,
-    const char* previewPathUtf8,
+    const unsigned char* previewPixels,
+    int previewWidth,
+    int previewHeight,
+    int previewStride,
     int operationMask)
 {
     @autoreleasepool
@@ -122,23 +151,16 @@ int MacExplorerBeginFileDrag(
         NSMutableArray<NSDraggingItem*>* draggingItems =
             [NSMutableArray arrayWithCapacity:paths.count];
 
-        NSString* previewPath = nil;
-        if (previewPathUtf8 != NULL && previewPathUtf8[0] != '\0')
-            previewPath = [NSString stringWithUTF8String:previewPathUtf8];
-        NSImage* previewImage = nil;
-        if (previewPath.length > 0)
-        {
-            previewImage = [[NSImage alloc] initWithContentsOfFile:previewPath];
-            [previewImage setSize:NSMakeSize(64, 64)];
-        }
+        NSImage* previewImage = MacExplorerCreateDragImage(previewPixels, previewWidth, previewHeight, previewStride);
+        if (previewImage == nil) return 0;
 
         for (NSUInteger index = 0; index < paths.count; ++index)
         {
             NSString* path = paths[index];
-            NSURL* fileUrl = [NSURL fileURLWithPath:path];
+            NSURL* fileUrl = [NSURL fileURLWithPath:path isDirectory:[path hasSuffix:@"/"]];
             NSDraggingItem* item = [[NSDraggingItem alloc] initWithPasteboardWriter:fileUrl];
 
-            NSImage* image = previewImage != nil ? previewImage : MacExplorerIconForPath(path);
+            NSImage* image = previewImage;
 
             CGFloat offset = MIN(index, 3) * 4.0;
             NSRect frame = NSMakeRect(x + offset, y - offset, image.size.width, image.size.height);

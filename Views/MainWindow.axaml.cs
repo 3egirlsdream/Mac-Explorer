@@ -36,6 +36,7 @@ public partial class MainWindow : AppWindow
     [
         "WindowBackgroundBrush",
         "SurfaceBackgroundBrush",
+        "TitleBarBackgroundBrush",
         "ColorBgPrimary",
         "ColorBgSidebar",
         "ColorBgToolbar",
@@ -56,11 +57,12 @@ public partial class MainWindow : AppWindow
     private FileListViewModel? _activeFileList;
     private readonly Dictionary<ExplorerTabViewModel, IServiceScope?> _tabScopes = [];
     private readonly Dictionary<ExplorerTabViewModel, ExplorerWorkspaceView> _workspaceViews = [];
-    private readonly Dictionary<ExplorerTabViewModel, Task> _workspaceDetachTasks = [];
-    private readonly SemaphoreSlim _paneLayoutGate = new(1, 1);
+    private readonly Dictionary<ExplorerWorkspaceView, Task> _workspaceDetachTasks = [];
+    private readonly LinkedList<ExplorerTabViewModel> _workspaceRecency = [];
+    private const int BackgroundWorkspaceLimit = 3;
+    private PaneLayout? _renderedPaneLayout;
     private readonly LivePreviewCoordinator _livePreviewCoordinator;
     private readonly NavigationBridge _navigationBridge;
-    private readonly IDirectoryChangeNotifier _directoryChangeNotifier;
     private readonly IDragDropBridge _dragDropBridge;
     private readonly IBackgroundTaskManager _taskManager;
     private readonly IGlobalSearchScopeService _globalSearchScopeService;
@@ -106,7 +108,6 @@ public partial class MainWindow : AppWindow
         InitializeComponent();
         TabSurface.TabStrip = TabList;
         _navigationBridge = App.Services.GetRequiredService<NavigationBridge>();
-        _directoryChangeNotifier = App.Services.GetRequiredService<IDirectoryChangeNotifier>();
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
         _taskManager = App.Services.GetRequiredService<IBackgroundTaskManager>();
         _globalSearchScopeService = App.Services.GetRequiredService<IGlobalSearchScopeService>();
@@ -522,7 +523,10 @@ public partial class MainWindow : AppWindow
             SchedulePaneLayoutRebuild();
         else if (e.PropertyName is nameof(MainWindowViewModel.SelectedTab)
                  or nameof(MainWindowViewModel.ActivePaneSlotIndex))
+        {
+            TouchSelectedWorkspace();
             _ = ActivateSelectedWorkspaceAsync();
+        }
     }
 
     private void OnVisiblePanesChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -570,7 +574,6 @@ public partial class MainWindow : AppWindow
     {
         vm.SetOwnerWindow(this);
         _navigationBridge.Register(vm);
-        _directoryChangeNotifier.Subscribe(vm);
         _dragDropBridge.Register(vm);
     }
 
@@ -578,7 +581,6 @@ public partial class MainWindow : AppWindow
     {
         vm.SetOwnerWindow(null);
         _navigationBridge.Unregister(vm);
-        _directoryChangeNotifier.Unsubscribe(vm);
         _dragDropBridge.Unregister(vm);
         vm.RequestBatchRename -= OnRequestBatchRename;
         vm.RequestRemoteConnection -= OnRequestRemoteConnection;
@@ -721,6 +723,8 @@ public partial class MainWindow : AppWindow
                 }
             }
 
+            await Task.WhenAll(_workspaceDetachTasks.Values.ToArray());
+
             try
             {
                 await _livePreviewCoordinator.DisposeAsync();
@@ -760,7 +764,6 @@ public partial class MainWindow : AppWindow
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
         _taskManager.TasksChanged -= OnTasksChanged;
-        _paneLayoutGate.Dispose();
     }
 
     private void OnActualThemeVariantChanged(object? sender, EventArgs e) => ApplyAppearanceSettings();
@@ -795,7 +798,10 @@ public partial class MainWindow : AppWindow
                 var label = vm.DeleteConfirmItemCount == 1
                     ? $"“{vm.DeleteConfirmFirstItemName}”"
                     : $"选中的 {vm.DeleteConfirmItemCount} 个项目";
-                var confirmed = await ShowConfirmationAsync("确认删除", $"确定要将{label}移到废纸篓吗？", "删除");
+                var message = vm.DeleteConfirmIncludesRemoteFiles
+                    ? $"确定要删除{label}吗？远程项目将直接删除，无法通过废纸篓恢复；本地项目将移到废纸篓。"
+                    : $"确定要将{label}移到废纸篓吗？";
+                var confirmed = await ShowConfirmationAsync("确认删除", message, "删除");
                 if (confirmed) await vm.ConfirmDeleteSelectedAsync();
                 else vm.CancelDeleteConfirmDialog();
             }
@@ -1233,6 +1239,13 @@ public partial class MainWindow : AppWindow
         }
     }
 
+    private void OnTabFileDragOver(object? sender, DragEventArgs e)
+        => FileTabDragNavigation.DragOver(TabList, e,
+            !IsModalInteractionBlocked && !_shutdownStarted && !GlobalSearchOverlay.IsVisible);
+
+    private void OnTabFileDrop(object? sender, DragEventArgs e)
+        => FileTabDragNavigation.Drop(e);
+
     private async void AddTab(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -1285,11 +1298,15 @@ public partial class MainWindow : AppWindow
         if (_vm == null || _vm.Tabs.Count <= 1 || !_vm.Tabs.Contains(tab))
             return;
 
-        await DetachWorkspaceAsync(tab, "tab-close");
+        var release = DetachWorkspaceAsync(tab, "tab-close");
         if (_vm.RemoveTab(tab) != true)
             return;
+        await release;
+        await Task.WhenAll(_workspaceDetachTasks.Where(pair => ReferenceEquals(pair.Key.Tab, tab))
+            .Select(pair => pair.Value).ToArray());
 
         tab.Dispose();
+        tab.FileList.Dispose();
         if (_tabScopes.Remove(tab, out var scope))
             scope?.Dispose();
     }
@@ -1358,28 +1375,39 @@ public partial class MainWindow : AppWindow
 
     private void SchedulePaneLayoutRebuild()
     {
-        var generation = Interlocked.Increment(ref _paneLayoutGeneration);
-        _ = RebuildPaneLayoutAsync(generation);
+        if (_shutdownStarted) return;
+        Interlocked.Increment(ref _paneLayoutGeneration);
+        RebuildPaneLayout();
     }
 
-    private async Task RebuildPaneLayoutAsync(long generation)
+    private void RebuildPaneLayout()
     {
-        await _paneLayoutGate.WaitAsync();
-        try
+        if (_vm == null || _shutdownStarted) return;
+        var visible = _vm.VisiblePanes.Take(_vm.PaneCount).ToArray();
+        var visibleSet = visible.ToHashSet();
+        foreach (var (tab, workspace) in _workspaceViews)
         {
-            if (_vm == null || generation != Volatile.Read(ref _paneLayoutGeneration))
-                return;
+            if (!visibleSet.Contains(tab))
+            {
+                if (workspace.IsVisible)
+                {
+                    workspace.FileListView.SaveTabViewState(tab);
+                    workspace.DeactivateTransientUi();
+                    workspace.IsVisible = false;
+                }
+                // Hidden cached children still belong to Grid. Clear old placements before
+                // shrinking its definitions so its cell cache cannot reference removed slots.
+                Grid.SetRow(workspace, 0);
+                Grid.SetColumn(workspace, 0);
+                Grid.SetRowSpan(workspace, 1);
+                Grid.SetColumnSpan(workspace, 1);
+            }
+        }
 
-            var visible = _vm.VisiblePanes.Take(_vm.PaneCount).ToArray();
-            var visibleSet = visible.ToHashSet();
-            foreach (var removed in _workspaceViews.Keys.Where(tab => !visibleSet.Contains(tab)).ToArray())
-                await DetachWorkspaceAsync(removed, "pane-layout");
-
-            if (_vm == null || generation != Volatile.Read(ref _paneLayoutGeneration))
-                return;
-
-            var definition = MainWindowViewModel.GetPaneLayoutDefinition(_vm.PaneLayout);
-            PaneLayoutRoot.Children.Clear();
+        var definition = MainWindowViewModel.GetPaneLayoutDefinition(_vm.PaneLayout);
+        if (_renderedPaneLayout != _vm.PaneLayout)
+        {
+            _renderedPaneLayout = _vm.PaneLayout;
             PaneLayoutRoot.RowDefinitions.Clear();
             PaneLayoutRoot.ColumnDefinitions.Clear();
             for (var row = 0; row < definition.Rows; row++)
@@ -1388,91 +1416,92 @@ public partial class MainWindow : AppWindow
             for (var column = 0; column < definition.Columns; column++)
                 PaneLayoutRoot.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(
                     definition.ColumnWeights?[column] ?? 1, GridUnitType.Star)));
+        }
 
-            for (var index = 0; index < Math.Min(visible.Length, definition.Slots.Count); index++)
+        for (var index = 0; index < Math.Min(visible.Length, definition.Slots.Count); index++)
+        {
+            var tab = visible[index];
+            if (!_workspaceViews.TryGetValue(tab, out var workspace))
             {
-                var workspace = await GetOrCreateWorkspaceAsync(visible[index]);
-                var slot = definition.Slots[index];
-                workspace.ForceCompact = _vm.IsMultiPane;
-                workspace.Margin = _vm.IsMultiPane ? new Thickness(2) : default;
-                Grid.SetRow(workspace, slot.Row);
-                Grid.SetColumn(workspace, slot.Column);
-                Grid.SetRowSpan(workspace, slot.RowSpan);
-                Grid.SetColumnSpan(workspace, slot.ColumnSpan);
+                workspace = new ExplorerWorkspaceView { DataContext = tab, IsVisible = false };
+                workspace.WorkspaceActivated += OnWorkspaceActivated;
+                _workspaceViews.Add(tab, workspace);
+                _workspaceRecency.AddLast(tab);
                 PaneLayoutRoot.Children.Add(workspace);
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to rebuild workspace layout: {ex}");
-        }
-        finally
-        {
-            _paneLayoutGate.Release();
+            var wasVisible = workspace.IsVisible;
+            var slot = definition.Slots[index];
+            workspace.ForceCompact = _vm.IsMultiPane;
+            workspace.Margin = _vm.IsMultiPane ? new Thickness(2) : default;
+            Grid.SetRow(workspace, slot.Row);
+            Grid.SetColumn(workspace, slot.Column);
+            Grid.SetRowSpan(workspace, slot.RowSpan);
+            Grid.SetColumnSpan(workspace, slot.ColumnSpan);
+            workspace.IsVisible = true;
+            if (!wasVisible) workspace.FileListView.RestoreTabViewState(tab);
         }
 
-        if (generation == Volatile.Read(ref _paneLayoutGeneration))
-            await ActivateSelectedWorkspaceAsync();
+        TouchSelectedWorkspace();
+        foreach (var tab in _workspaceRecency.Where(tab => !visibleSet.Contains(tab))
+                     .Skip(BackgroundWorkspaceLimit).ToArray())
+            _ = DetachWorkspaceAsync(tab, "cache-eviction");
+
+        _ = ActivateSelectedWorkspaceAsync();
     }
 
-    private async Task<ExplorerWorkspaceView> GetOrCreateWorkspaceAsync(ExplorerTabViewModel tab)
+    private void TouchSelectedWorkspace()
     {
-        if (_workspaceDetachTasks.TryGetValue(tab, out var detachTask))
-        {
-            await detachTask;
-            if (_workspaceDetachTasks.TryGetValue(tab, out var completed)
-                && ReferenceEquals(completed, detachTask))
-                _workspaceDetachTasks.Remove(tab);
-        }
-        if (_workspaceViews.TryGetValue(tab, out var existing))
-            return existing;
-
-        var workspace = new ExplorerWorkspaceView
-        {
-            DataContext = tab
-        };
-        workspace.WorkspaceActivated += OnWorkspaceActivated;
-        _workspaceViews.Add(tab, workspace);
-        return workspace;
+        if (_vm?.SelectedTab is not { } tab || !_workspaceViews.ContainsKey(tab)) return;
+        _workspaceRecency.Remove(tab);
+        _workspaceRecency.AddFirst(tab);
     }
 
     private async Task ActivateSelectedWorkspaceAsync()
     {
-        if (_vm?.SelectedTab == null
-            || !_workspaceViews.TryGetValue(_vm.SelectedTab, out var workspace))
+        // Let layout/render show the cached list before touching native preview resources.
+        var generation = Volatile.Read(ref _paneLayoutGeneration);
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+        if (_shutdownStarted || generation != Volatile.Read(ref _paneLayoutGeneration)
+            || _vm?.SelectedTab == null
+            || !_workspaceViews.TryGetValue(_vm.SelectedTab, out var workspace)
+            || !workspace.IsVisible || workspace.IsDetaching)
             return;
 
+        TouchSelectedWorkspace();
         foreach (var inactive in _workspaceViews.Values.Where(candidate => !ReferenceEquals(candidate, workspace)))
             inactive.DeactivateTransientUi();
 
         _navigationBridge.SetActive(_vm.FileList);
         _dragDropBridge.SetActive(_vm.FileList);
-        await _livePreviewCoordinator.ActivateAsync(workspace);
+        try
+        {
+            await _livePreviewCoordinator.ActivateAsync(workspace);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to activate workspace preview: {ex}");
+        }
     }
 
     private Task DetachWorkspaceAsync(ExplorerTabViewModel tab, string reason)
     {
-        if (_workspaceDetachTasks.TryGetValue(tab, out var pending))
-        {
-            if (!pending.IsCompleted)
-                return pending;
-            _workspaceDetachTasks.Remove(tab);
-        }
-        if (!_workspaceViews.TryGetValue(tab, out var workspace))
+        if (!_workspaceViews.Remove(tab, out var workspace))
             return Task.CompletedTask;
 
-        var task = DetachWorkspaceCoreAsync(tab, workspace, reason);
-        _workspaceDetachTasks.Add(tab, task);
-        _ = RemoveDetachTaskWhenCompleteAsync(tab, task);
+        _workspaceRecency.Remove(tab);
+        if (workspace.IsVisible) workspace.FileListView.SaveTabViewState(tab);
+        workspace.MarkDetaching();
+        workspace.IsVisible = false;
+        PaneLayoutRoot.Children.Remove(workspace);
+        workspace.WorkspaceActivated -= OnWorkspaceActivated;
+        var task = DetachWorkspaceCoreAsync(workspace, reason);
+        _workspaceDetachTasks.Add(workspace, task);
+        _ = RemoveDetachTaskWhenCompleteAsync(workspace, task);
         return task;
     }
 
-    private async Task DetachWorkspaceCoreAsync(
-        ExplorerTabViewModel tab,
-        ExplorerWorkspaceView workspace,
-        string reason)
+    private async Task DetachWorkspaceCoreAsync(ExplorerWorkspaceView workspace, string reason)
     {
-        workspace.MarkDetaching();
         try
         {
             await _livePreviewCoordinator.DeactivateAndReleaseAsync(workspace);
@@ -1483,29 +1512,15 @@ public partial class MainWindow : AppWindow
         }
         finally
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                PaneLayoutRoot.Children.Remove(workspace);
-                workspace.WorkspaceActivated -= OnWorkspaceActivated;
-                if (_workspaceViews.TryGetValue(tab, out var registered) && ReferenceEquals(registered, workspace))
-                    _workspaceViews.Remove(tab);
-                workspace.DataContext = null;
-                workspace.Dispose();
-            });
+            workspace.DataContext = null;
+            workspace.Dispose();
         }
     }
 
-    private async Task RemoveDetachTaskWhenCompleteAsync(ExplorerTabViewModel tab, Task task)
+    private async Task RemoveDetachTaskWhenCompleteAsync(ExplorerWorkspaceView workspace, Task task)
     {
-        try
-        {
-            await task;
-        }
-        finally
-        {
-            if (_workspaceDetachTasks.TryGetValue(tab, out var registered) && ReferenceEquals(registered, task))
-                _workspaceDetachTasks.Remove(tab);
-        }
+        try { await task; }
+        finally { _workspaceDetachTasks.Remove(workspace); }
     }
 
     private void OpenGlobalSearch()

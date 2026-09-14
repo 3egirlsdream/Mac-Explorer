@@ -240,7 +240,7 @@
     </controls:AppWindow.Styles>
 
     <controls:AppWindow.TitleBarBackgroundContent>
-        <controls:ChromiumTabStripSurface x:Name="TabSurface" Fill="{DynamicResource ColorBgContent}"/>
+        <controls:ChromiumTabStripSurface x:Name="TabSurface" Fill="{DynamicResource SurfaceBrush}"/>
     </controls:AppWindow.TitleBarBackgroundContent>
 
     <controls:AppWindow.TitleBarContent>
@@ -255,6 +255,9 @@
                                   VerticalScrollBarVisibility="Disabled">
                         <ListBox x:Name="TabList"
                                  Classes="tab-strip"
+                                 DragDrop.AllowDrop="True"
+                                 DragDrop.DragOver="OnTabFileDragOver"
+                                 DragDrop.Drop="OnTabFileDrop"
                                  ItemsSource="{Binding Tabs}"
                                  SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
                                  SelectionMode="Single">
@@ -420,8 +423,14 @@
     <Grid>
     <Border x:Name="RootLayout" CornerRadius="0"
             Background="{DynamicResource ColorBgContent}">
-        <Grid Margin="8">
-            <Grid x:Name="PaneLayoutRoot"/>
+        <Grid>
+            <!-- Match the tab and toolbar through the top inset, including translucent themes.
+                 Paint this band once so stacked translucent fills cannot create a dark seam. -->
+            <Border x:Name="TabContentJoin" Height="8" VerticalAlignment="Top"
+                    Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False"/>
+            <Grid Margin="8">
+                <Grid x:Name="PaneLayoutRoot"/>
+            </Grid>
         </Grid>
     </Border>
     <!-- Task overlay panel — bottom-right overlay (before DialogHost so dialogs paint above it) -->

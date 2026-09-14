@@ -22,7 +22,6 @@ using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
-using SkiaSharp;
 
 namespace MacExplorer.Views;
 
@@ -212,6 +211,7 @@ public partial class FileListView : UserControl
     private PointerPressedEventArgs? _dragPointerEvent;
     private Task<IReadOnlyList<IStorageItem>>? _dragStorageItemsTask;
     private Bitmap? _dragStartPreviewBitmap;
+    private Control? _dragCaptureControl;
     private bool _dragStarted;
     private FileListColumn? _resizingColumn;
     private double _resizeStartX;
@@ -243,6 +243,7 @@ public partial class FileListView : UserControl
     private bool _allowRestoreBringIntoView;
     private DateTime _ignoreEmptySelectionUntilUtc;
     private Point? _marqueeStart;
+    private IPointer? _marqueePointer;
     private bool _marqueeActive;
     private bool _suppressControlSelectionDuringMarquee;
     private KeyModifiers _marqueeModifiers;
@@ -292,6 +293,7 @@ public partial class FileListView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         CancelActiveRename();
+        ResetDragState();
         ColumnFilterPopup.IsOpen = false;
         UnsubscribeColumnLayoutService();
         if (_subscribedViewModel != null)
@@ -337,6 +339,8 @@ public partial class FileListView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        CancelSlowRename();
+        ResetDragState();
         ColumnFilterPopup.IsOpen = false;
         UnsubscribeColumnLayoutService();
         base.OnDetachedFromVisualTree(e);
@@ -1915,6 +1919,7 @@ public partial class FileListView : UserControl
             if (!preserveMultiSelectionForDrag)
                 ViewModel.SelectEntry(entry, hasCommandModifier, hasShiftModifier);
             QueueSelectionSynchronization();
+            ResetDragState();
             _dragStartPoint = e.GetPosition(this);
             _dragStartEntry = entry;
             _dragPointerEvent = e;
@@ -1923,6 +1928,9 @@ public partial class FileListView : UserControl
             _dragStarted = false;
             _collapseSelectionOnRelease = preserveMultiSelectionForDrag;
             _pressedEntry = entry;
+            _dragCaptureControl = control;
+            control.PointerCaptureLost += OnItemPointerCaptureLost;
+            e.Pointer.Capture(control);
             if (wasAlreadySingleSelected && !suppressSlowRename && !entry.IsVirtual && !ViewModel.IsArchiveView)
                 _ = ScheduleSlowRenameAsync(entry);
             e.Handled = true;
@@ -1962,100 +1970,96 @@ public partial class FileListView : UserControl
         if (_dragStarted || _dragStartPoint == null || _dragStartEntry == null
             || _dragPointerEvent == null || ViewModel == null)
             return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            ResetDragState();
-            return;
-        }
-
+        // Capture owns this press until release/capture loss. Captured macOS moves
+        // can omit the button mask, just like the marquee gesture below.
         var current = e.GetPosition(this);
         var start = _dragStartPoint.Value;
         if (Math.Abs(current.X - start.X) < 5 && Math.Abs(current.Y - start.Y) < 5)
             return;
 
-        var storageItemsTask = _dragStorageItemsTask ??= StartDragStorageItemsResolution();
-        if (storageItemsTask == null)
-        {
-            ResetDragState();
-            return;
-        }
-
-        // Starting a native drag after awaiting loses the current macOS mouse-drag event.
-        // Wait for another PointerMoved event if the files are not resolved yet.
-        if (!storageItemsTask.IsCompleted)
-            return;
-
-        IReadOnlyList<IStorageItem> storageItems;
-        try
-        {
-            storageItems = storageItemsTask.GetAwaiter().GetResult();
-        }
-        catch
-        {
-            ResetDragState();
-            return;
-        }
-
-        _dragStorageItemsTask = null;
-        if (storageItems.Count == 0)
-        {
-            ResetDragState();
-            return;
-        }
-
+        // A drag gesture must cancel slow rename even while fallback data is pending.
         CancelSlowRename();
         _collapseSelectionOnRelease = false;
-        _dragStarted = true;
-        var representativeEntry = _dragStartEntry ?? ViewModel.SelectedEntries.FirstOrDefault();
-        var dragItemCount = ViewModel.SelectedEntries.Count > 0
-            ? ViewModel.SelectedEntries.Count
-            : storageItems.Count;
+        var representativeEntry = _dragStartEntry;
+        var dragPaths = GetLocalDragPaths(ViewModel.SelectedEntries.Count > 0
+            ? ViewModel.SelectedEntries : [representativeEntry]);
+        if (dragPaths.Length == 0)
+        {
+            ResetDragState();
+            return;
+        }
 
-        string? nativeDragPreviewPath = null;
         try
         {
-            var topLevel = TopLevel.GetTopLevel(this);
-            var dragPaths = storageItems
-                .Select(item => item.Path.LocalPath)
-                .Where(path => File.Exists(path) || Directory.Exists(path))
-                .ToArray();
-            nativeDragPreviewPath = representativeEntry == null
-                ? null
-                : CreateNativeDragPreviewFile(representativeEntry, dragItemCount, _dragStartPreviewBitmap);
-            if (topLevel != null
-                && MacExplorer.Platforms.MacOS.MacNativeFileDrag.TryBeginFileDrag(
-                    topLevel,
-                    _dragPointerEvent.GetPosition(topLevel),
-                    dragPaths,
-                    nativeDragPreviewPath,
-                    DragDropEffects.Copy | DragDropEffects.Move))
+            // AppKit only needs file URLs. Do not resolve storage items or touch the
+            // file system before handing it the current mouse-drag event.
+            if (_dragStorageItemsTask == null && OperatingSystem.IsMacOS()
+                && TopLevel.GetTopLevel(this) is { } topLevel)
             {
-                GC.KeepAlive(storageItems);
+                using var nativePreview = CreateDragPreviewBitmap(representativeEntry, dragPaths.Length, _dragStartPreviewBitmap);
+                _dragStarted = true;
+                // Release Avalonia capture before AppKit takes ownership of the gesture.
+                e.Pointer.Capture(null);
+                if (MacExplorer.Platforms.MacOS.MacNativeFileDrag.TryBeginFileDrag(
+                    topLevel, e.GetPosition(topLevel), dragPaths, nativePreview,
+                    DragDropEffects.Copy | DragDropEffects.Move))
+                {
+                    ResetDragState();
+                    return;
+                }
+                _dragStarted = false;
+                e.Pointer.Capture(_dragCaptureControl);
+            }
+
+            var storageItemsTask = _dragStorageItemsTask ??= StartDragStorageItemsResolution();
+            if (storageItemsTask == null)
+            {
+                ResetDragState();
+                return;
+            }
+            // The portable fallback must also start inside a pointer callback.
+            // Capture keeps delivering movement outside the original item bounds.
+            if (!storageItemsTask.IsCompleted) return;
+            var storageItems = storageItemsTask.GetAwaiter().GetResult();
+            if (storageItems.Count == 0)
+            {
+                ResetDragState();
                 return;
             }
 
-            var data = CreateDragData(storageItems, representativeEntry, dragItemCount, _dragStartPreviewBitmap);
-
-            // Invoke before the first await. Avalonia requires the originating press event,
-            // while the current PointerMoved callback guarantees the native drag is active.
-            var dragTask = DragDrop.DoDragDropAsync(
-                _dragPointerEvent,
-                data,
-                DragDropEffects.Copy | DragDropEffects.Move);
-            await dragTask;
-            GC.KeepAlive(data);
-            GC.KeepAlive(storageItems);
+            _dragStarted = true;
+            using var preview = CreateDragPreviewBitmap(representativeEntry, storageItems.Count, _dragStartPreviewBitmap);
+            using var data = CreateDragData(storageItems, preview);
+            _dragStorageItemsTask = null; // DataTransfer now owns the storage items.
+            try
+            {
+                await DragDrop.DoDragDropAsync(_dragPointerEvent, data, DragDropEffects.Copy | DragDropEffects.Move);
+            }
+            finally
+            {
+                ResetDragState();
+            }
         }
-        catch
+        catch (Exception ex)
         {
-        }
-        finally
-        {
-            TryDeleteFile(nativeDragPreviewPath);
-            // DataTransfer owns the file items after DoDragDropAsync starts and Avalonia
-            // disposes the transfer when the native drag session has fully completed.
+            System.Diagnostics.Trace.TraceError($"File drag failed: {ex}");
+            if (ViewModel != null) ViewModel.StatusText = $"拖动失败: {ex.Message}";
             ResetDragState();
         }
+    }
+
+    internal static string[] GetLocalDragPaths(IEnumerable<FileSystemEntry> entries)
+        => entries.Where(entry => !entry.IsVirtual && Path.IsPathFullyQualified(entry.FullPath)
+                                  && !VirtualPath.IsRemotePath(entry.FullPath))
+            .Select(entry => entry.IsDirectory && !Path.EndsInDirectorySeparator(entry.FullPath)
+                ? entry.FullPath + Path.DirectorySeparatorChar : entry.FullPath)
+            .Distinct(StringComparer.Ordinal).ToArray();
+
+    private void OnItemPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_dragStarted) return;
+        CancelSlowRename();
+        ResetDragState();
     }
 
     private Task<IReadOnlyList<IStorageItem>>? StartDragStorageItemsResolution()
@@ -2072,180 +2076,88 @@ public partial class FileListView : UserControl
             : ResolveStorageItemsAsync(storageProvider, paths);
     }
 
-    private static DataTransfer CreateDragData(
-        IReadOnlyList<IStorageItem> storageItems,
-        FileSystemEntry? representativeEntry,
-        int itemCount,
-        Bitmap? visiblePreviewBitmap)
+    private static DataTransfer CreateDragData(IReadOnlyList<IStorageItem> storageItems, Bitmap? preview)
     {
         var data = new DataTransfer();
-        var dragBitmap = representativeEntry == null
-            ? null
-            : CreateDragPreviewBitmap(representativeEntry, itemCount, visiblePreviewBitmap);
-
         for (var index = 0; index < storageItems.Count; index++)
         {
             var item = new DataTransferItem();
             item.SetFile(storageItems[index]);
-            if (index == 0 && dragBitmap != null)
-                item.SetBitmap(dragBitmap);
+            if (index == 0 && preview != null) item.SetBitmap(preview);
             data.Add(item);
         }
-
         return data;
-    }
-
-    private static Bitmap? CreateDragPreviewBitmap(FileSystemEntry entry, int itemCount, Bitmap? visiblePreviewBitmap)
-    {
-        try
-        {
-            var icon = LoadEntrySourceBitmap(entry) ?? visiblePreviewBitmap ?? (entry.IsDirectory
-                ? SvgIconCache.GetFolderIcon(64)
-                : SvgIconCache.GetFileIcon(entry.IconKey, entry.Extension, 64));
-            return CreateDragPreviewBitmap(icon, Math.Max(1, itemCount));
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string? CreateNativeDragPreviewFile(FileSystemEntry entry, int itemCount, Bitmap? visiblePreviewBitmap)
-    {
-        try
-        {
-            var preview = CreateDragPreviewBitmap(entry, itemCount, visiblePreviewBitmap);
-            if (preview == null)
-                return null;
-
-            var path = Path.Combine(
-                Path.GetTempPath(),
-                $"mac-explorer-drag-{Guid.NewGuid():N}.png");
-            preview.Save(path);
-            return path;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static void TryDeleteFile(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return;
-
-        try
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch
-        {
-        }
     }
 
     private static Bitmap? GetVisibleEntryBitmap(Control control, FileSystemEntry entry)
     {
-        return control.GetVisualDescendants()
-            .OfType<Image>()
+        if (control is MacExplorer.Controls.FastFileList fastList)
+            return fastList.GetEntryBitmap(entry);
+        // A press on the name or another column must find the sibling icon too.
+        var row = control.FindAncestorOfType<ListBoxItem>() as Control ?? control;
+        var visible = row.GetVisualDescendants().OfType<Image>()
             .FirstOrDefault(image => image.Classes.Contains("entry-icon-image")
-                                     && ReferenceEquals(image.DataContext, entry))
-            ?.Source as Bitmap;
+                                     && ReferenceEquals(image.DataContext, entry))?.Source as Bitmap;
+        var source = !string.IsNullOrWhiteSpace(entry.ThumbnailUrl) ? entry.ThumbnailUrl : entry.IconUrl;
+        return visible ?? (string.IsNullOrWhiteSpace(source) ? null : TryGetCachedEntryImage(source));
     }
 
-    private static Bitmap? LoadEntrySourceBitmap(FileSystemEntry entry)
+    internal static void PrepareFileDrag()
     {
-        var source = !string.IsNullOrWhiteSpace(entry.ThumbnailUrl) ? entry.ThumbnailUrl : entry.IconUrl;
-        if (string.IsNullOrWhiteSpace(source))
-            return null;
-
+        if (!OperatingSystem.IsMacOS()) return;
         try
         {
-            if (source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            {
-                var comma = source.IndexOf(',');
-                if (comma < 0) return null;
-                using var dataStream = new MemoryStream(Convert.FromBase64String(source[(comma + 1)..]));
-                return new Bitmap(dataStream);
-            }
+            // Exercise drawing, badge text and the native pixel bridge after the
+            // window is visible, before the first pointer gesture needs them.
+            using var preview = CreateDragPreviewBitmap(new FileSystemEntry { IsDirectory = true }, 2, null);
+            MacExplorer.Platforms.MacOS.MacNativeFileDrag.Prepare(preview);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning($"File drag preparation failed: {ex.Message}");
+        }
+    }
 
-            if (!File.Exists(source)) return null;
-            using var fileStream = File.OpenRead(source);
-            return new Bitmap(fileStream);
+    internal static Bitmap CreateDragPreviewBitmap(FileSystemEntry entry, int itemCount, Bitmap? sourceIcon)
+    {
+        // Render cached pixels directly. No image decoding, PNG encoding or temp files.
+        var preview = new RenderTargetBitmap(new PixelSize(96, 96), new Vector(96, 96));
+        try
+        {
+            using var drawing = preview.CreateDrawingContext();
+            if (sourceIcon != null)
+            {
+                var size = sourceIcon.PixelSize.ToSize(1);
+                var scale = Math.Min(68 / size.Width, 68 / size.Height);
+                var destination = new Rect(48 - size.Width * scale / 2, 44 - size.Height * scale / 2,
+                    size.Width * scale, size.Height * scale);
+                drawing.DrawImage(sourceIcon, new Rect(size), destination);
+            }
+            else
+            {
+                // The existing Fluent geometry is available even before thumbnails load.
+                var geometry = Geometry.Parse(entry.IsDirectory ? Assets.Icons.Folder : Assets.Icons.File);
+                using var transform = drawing.PushTransform(Matrix.CreateScale(68d / 24, 68d / 24)
+                    * Matrix.CreateTranslation(14, 10));
+                drawing.DrawGeometry(Brushes.DodgerBlue, null, geometry);
+            }
+            if (itemCount > 1)
+            {
+                var badge = new Rect(56, 54, 32, 28);
+                drawing.DrawRectangle(new SolidColorBrush(Color.FromRgb(0, 122, 255)), null, badge, 14, 14);
+                var label = itemCount > 99 ? "99+" : itemCount.ToString();
+                var text = new FormattedText(label, System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight, new Typeface(FontManager.Current.DefaultFontFamily, FontStyle.Normal, FontWeight.Bold),
+                    label.Length > 2 ? 12 : 15, Brushes.White);
+                drawing.DrawText(text, new Point(badge.Center.X - text.Width / 2, badge.Center.Y - text.Height / 2));
+            }
+            return preview;
         }
         catch
         {
-            return null;
+            preview.Dispose();
+            throw;
         }
-    }
-
-    private static Bitmap CreateDragPreviewBitmap(Bitmap sourceIcon, int itemCount)
-    {
-        using var iconStream = new MemoryStream();
-        sourceIcon.Save(iconStream);
-        iconStream.Position = 0;
-        using var iconBitmap = SKBitmap.Decode(iconStream);
-        if (iconBitmap == null)
-            throw new InvalidOperationException("Could not decode drag preview bitmap.");
-
-        const int canvasSize = 96;
-        using var surface = SKSurface.Create(new SKImageInfo(canvasSize, canvasSize, SKColorType.Rgba8888, SKAlphaType.Premul));
-        var canvas = surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
-
-        using var shadowPaint = new SKPaint
-        {
-            Color = new SKColor(0, 0, 0, 44),
-            IsAntialias = true,
-            MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 4)
-        };
-        var iconRect = FitInside(iconBitmap.Width, iconBitmap.Height, new SKRect(14, 10, 82, 78));
-        var shadowRect = iconRect;
-        shadowRect.Offset(1, 3);
-        canvas.DrawBitmap(iconBitmap, shadowRect, shadowPaint);
-
-        using var iconPaint = new SKPaint { IsAntialias = true };
-        canvas.DrawBitmap(iconBitmap, iconRect, iconPaint);
-
-        if (itemCount > 1)
-        {
-            var badgeText = itemCount > 99 ? "99+" : itemCount.ToString();
-            var badgeRect = new SKRect(56, 54, 88, 82);
-            using var badgePaint = new SKPaint { Color = new SKColor(0, 122, 255), IsAntialias = true };
-            canvas.DrawRoundRect(badgeRect, 14, 14, badgePaint);
-
-            using var textPaint = new SKPaint
-            {
-                Color = SKColors.White,
-                IsAntialias = true
-            };
-            using var typeface = SKTypeface.FromFamilyName(
-                FontManager.Current.DefaultFontFamily.Name,
-                SKFontStyle.Bold);
-            using var font = new SKFont(typeface, badgeText.Length > 2 ? 12 : 15);
-            var metrics = font.Metrics;
-            var baseline = badgeRect.MidY - (metrics.Ascent + metrics.Descent) / 2;
-            canvas.DrawText(badgeText, badgeRect.MidX, baseline, SKTextAlign.Center, font, textPaint);
-        }
-
-        canvas.Flush();
-        using var image = surface.Snapshot();
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return new Bitmap(data.AsStream());
-    }
-
-    private static SKRect FitInside(int sourceWidth, int sourceHeight, SKRect bounds)
-    {
-        if (sourceWidth <= 0 || sourceHeight <= 0)
-            return bounds;
-
-        var scale = Math.Min(bounds.Width / sourceWidth, bounds.Height / sourceHeight);
-        var width = sourceWidth * scale;
-        var height = sourceHeight * scale;
-        var left = bounds.Left + (bounds.Width - width) / 2;
-        var top = bounds.Top + (bounds.Height - height) / 2;
-        return new SKRect(left, top, left + width, top + height);
     }
 
     private static async Task<IReadOnlyList<IStorageItem>> ResolveStorageItemsAsync(
@@ -2355,6 +2267,9 @@ public partial class FileListView : UserControl
     private void ResetDragState()
     {
         var pendingStorageItems = _dragStorageItemsTask;
+        var pointer = _dragPointerEvent?.Pointer;
+        var capturedControl = _dragCaptureControl;
+        _dragCaptureControl = null;
         _dragStartPoint = null;
         _dragStartEntry = null;
         _dragPointerEvent = null;
@@ -2363,6 +2278,11 @@ public partial class FileListView : UserControl
         _dragStarted = false;
         _collapseSelectionOnRelease = false;
         _pressedEntry = null;
+        if (capturedControl != null)
+        {
+            capturedControl.PointerCaptureLost -= OnItemPointerCaptureLost;
+            if (ReferenceEquals(pointer?.Captured, capturedControl)) pointer.Capture(null);
+        }
         if (pendingStorageItems != null)
             _ = DisposeStorageItemsWhenReadyAsync(pendingStorageItems);
     }
@@ -2370,7 +2290,7 @@ public partial class FileListView : UserControl
     private void OnDragOver(object? sender, DragEventArgs e)
     {
         var paths = GetDroppedPaths(e.DataTransfer);
-        if (paths.Length == 0)
+        if (paths.Length == 0 || ViewModel == null || ViewModel.IsHomePage || ViewModel.IsArchiveView)
         {
             ClearDragOverVisual();
             e.DragEffects = DragDropEffects.None;
@@ -2388,17 +2308,15 @@ public partial class FileListView : UserControl
         }
         _dragOverTargetEntry = target;
         var targetDirectory = target?.FullPath ?? ViewModel?.CurrentPath;
-        if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
-            && !string.IsNullOrWhiteSpace(targetDirectory)
-            && paths.All(path => IsSameDestination(path, targetDirectory)))
-        {
-            ClearDragOverVisual();
-            e.DragEffects = DragDropEffects.None;
-            e.Handled = true;
-            return;
-        }
-
-        if (target != null && paths.Any(path => IsSamePath(path, target.FullPath)))
+        var effect = string.IsNullOrWhiteSpace(targetDirectory)
+            || ViewModel?.IsDirectoryLoading == true || FastListActive && FastList.IsLoading
+            || ViewModel?.IsRemoteLocationDisconnected == true
+            || target?.IsWritable == false
+            // Keep drag-over free of file-system I/O (network mounts can block).
+            // Existence is checked once, at the final drop position.
+            || !VirtualPath.IsRemotePath(targetDirectory) && !Path.IsPathFullyQualified(targetDirectory)
+            ? DragDropEffects.None : FileDropPolicy.GetEffect(paths, targetDirectory);
+        if (effect == DragDropEffects.None)
         {
             ClearDragOverVisual();
             e.DragEffects = DragDropEffects.None;
@@ -2409,9 +2327,7 @@ public partial class FileListView : UserControl
         SetDragOverVisual(target == null ? null : FindEntryContent(e.Source as Visual));
         if (FastListActive) FastList.DropTargetPath = target?.FullPath;
 
-        e.DragEffects = e.KeyModifiers.HasFlag(KeyModifiers.Alt)
-            ? DragDropEffects.Copy
-            : DragDropEffects.Move;
+        e.DragEffects = effect;
         e.Handled = true;
     }
 
@@ -2423,11 +2339,16 @@ public partial class FileListView : UserControl
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
-        var target = FindDropTarget(e) ?? _dragOverTargetEntry;
+        // Re-hit-test the release position. A previously hovered folder must not
+        // receive files after the pointer has moved onto blank space or another tab.
+        var target = FindDropTarget(e);
         _dragOverTargetEntry = null;
         ClearDragOverVisual();
         var viewModel = ViewModel;
         if (viewModel == null) return;
+        e.Handled = true;
+        e.DragEffects = DragDropEffects.None;
+        if (viewModel.IsHomePage || viewModel.IsArchiveView || viewModel.IsRemoteLocationDisconnected) return;
         try
         {
             var paths = GetDroppedPaths(e.DataTransfer);
@@ -2435,40 +2356,32 @@ public partial class FileListView : UserControl
 
             if (target == null && viewModel.CurrentTag is { } tag)
             {
-                e.Handled = true;
+                if (!paths.All(Services.Impl.FileTagService.IsSupportedPath)) return;
+                e.DragEffects = DragDropEffects.Copy;
                 await viewModel.SetFileTagAsync(paths, tag, true);
                 return;
             }
+            if (viewModel.IsDirectoryLoading || FastListActive && FastList.IsLoading) return;
             var targetDirectory = target?.FullPath ?? viewModel.CurrentPath;
-            if (!VirtualPath.IsRemotePath(targetDirectory) && !Directory.Exists(targetDirectory)) return;
-            if (target != null && paths.Any(path => IsSamePath(path, target.FullPath)))
-            {
-                e.Handled = true;
-                return;
-            }
-
-            var forceCopy = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-            e.Handled = true;
-
-            // Remote targets always copy (never move)
-            var isRemoteTarget = VirtualPath.IsRemotePath(targetDirectory);
-            var hasRemoteSource = paths.Any(p => VirtualPath.IsRemotePath(p));
-            if (!forceCopy && !isRemoteTarget && !hasRemoteSource)
-                paths = paths.Where(path => !IsSameDestination(path, targetDirectory)).ToArray();
-            if (paths.Length == 0)
-                return;
-
-            // Use copy for remote targets or remote sources
-            if (forceCopy || isRemoteTarget || hasRemoteSource)
+            if (target?.IsWritable == false || !VirtualPath.IsRemotePath(targetDirectory) && !Directory.Exists(targetDirectory)) return;
+            var effect = FileDropPolicy.GetEffect(paths, targetDirectory);
+            if (effect == DragDropEffects.None) return;
+            e.DragEffects = effect;
+            if (effect == DragDropEffects.Copy)
             {
                 var bridge = App.Services.GetRequiredService<IDragDropService>();
-                await bridge.DropFilesAsync(
+                var copied = await bridge.DropFilesAsync(
                     paths,
                     targetDirectory,
                     forceCopy: true,
                     forceMove: false);
+                if (!copied) e.DragEffects = DragDropEffects.None;
                 return;
             }
+
+            paths = paths.Where(path => !FileDropPolicy.IsSameDestination(path, targetDirectory)).ToArray();
+            if (paths.Length == 0)
+                return;
 
             var fileService = App.Services.GetRequiredService<IFileService>();
             var lookedUp = await Task.WhenAll(
@@ -2488,6 +2401,7 @@ public partial class FileListView : UserControl
         }
         catch (Exception ex)
         {
+            e.DragEffects = DragDropEffects.None;
             viewModel.StatusText = $"拖放失败: {ex.Message}";
         }
     }
@@ -2502,34 +2416,6 @@ public partial class FileListView : UserControl
 
         var hit = FileScroll.InputHitTest(e.GetPosition(FileScroll));
         return hit is Visual visual ? FindDropTarget(visual) : null;
-    }
-
-    private static bool IsSameDestination(string sourcePath, string targetDirectory)
-    {
-        try
-        {
-            var destinationPath = Path.Combine(targetDirectory, Path.GetFileName(sourcePath));
-            return IsSamePath(sourcePath, destinationPath);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool IsSamePath(string left, string right)
-    {
-        try
-        {
-            return string.Equals(
-                Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
-                Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
-                StringComparison.Ordinal);
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static Control? FindEntryContent(Visual? visual)
@@ -2563,10 +2449,10 @@ public partial class FileListView : UserControl
         return null;
     }
 
-    private static string[] GetDroppedPaths(IDataTransfer data)
+    internal static string[] GetDroppedPaths(IDataTransfer data)
     {
         return data.TryGetFiles()?
-            .Select(item => item.Path.LocalPath)
+            .Select(item => Path.TrimEndingDirectorySeparator(item.Path.LocalPath))
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToArray() ?? [];
     }
@@ -2574,6 +2460,7 @@ public partial class FileListView : UserControl
     private void OnEmptyAreaPressed(object? sender, PointerPressedEventArgs e)
     {
         if (ViewModel == null || IsTextInputSource(e.Source)) return;
+        var wasRenaming = _renameEditor != null;
         CancelSlowRename();
 
         var sourceVisual = e.Source as Visual;
@@ -2582,6 +2469,9 @@ public partial class FileListView : UserControl
         // Scrollbar presses must reach the thumb/track before this tunnel handler
         // captures the pointer for a canvas marquee.
         if (sourceVisual is ScrollBar || sourceVisual?.FindAncestorOfType<ScrollBar>() != null)
+            return;
+        // Empty-state buttons (retry, clear filters, etc.) are controls, not canvas.
+        if (sourceVisual is Button || sourceVisual?.FindAncestorOfType<Button>() != null)
             return;
         // The list intentionally leaves the transparent remainder of a row as
         // marquee canvas for left-button drags. A secondary click is different:
@@ -2614,6 +2504,20 @@ public partial class FileListView : UserControl
             return;
         }
 
+        if (point.Properties.IsLeftButtonPressed && e.ClickCount == 2
+            && e.KeyModifiers == KeyModifiers.None && EntryAtPointer(e) == null
+            && !IsGroupHeaderAtPointer(e)
+            && ViewModel.DoubleClickEmptyAreaGoUp && !ViewModel.IsHomePage
+            && !ViewModel.IsDirectoryLoading && !(FastListActive && FastList.IsLoading)
+            && !wasRenaming && !_dragStarted && !_marqueeActive)
+        {
+            EndMarquee(e.Pointer);
+            DismissContextMenu();
+            _ = ViewModel.NavigateUpAsync();
+            e.Handled = true;
+            return;
+        }
+
         if (point.Properties.IsLeftButtonPressed)
         {
             // Nested ListBoxes can emit delayed SelectionChanged events while
@@ -2638,6 +2542,7 @@ public partial class FileListView : UserControl
             DismissContextMenu();
             // Keep the fast list under the pointer while waiting to distinguish
             // a row-whitespace click from a marquee, so its hover does not flash off.
+            _marqueePointer = e.Pointer;
             e.Pointer.Capture(FastListActive ? FastList : this);
             e.Handled = true;
         }
@@ -2651,6 +2556,15 @@ public partial class FileListView : UserControl
             ViewModel.ClearSelection();
             e.Handled = true;
         }
+    }
+
+    private bool IsGroupHeaderAtPointer(PointerEventArgs e)
+    {
+        if (FastListActive && IsWithinVisual(e.Source as Visual, FastList))
+            return FastList.IsGroupHeaderAt(e.GetPosition(FastList));
+        for (var visual = e.Source as Visual; visual != null; visual = visual.GetVisualParent())
+            if (visual is Control control && control.Classes.Contains("file-group-row")) return true;
+        return false;
     }
 
     private void OnMarqueePointerMoved(object? sender, PointerEventArgs e)
@@ -2697,6 +2611,7 @@ public partial class FileListView : UserControl
 
     private void EndMarquee(IPointer pointer)
     {
+        _marqueePointer = null;
         pointer.Capture(null);
         _marqueeStart = null;
         _marqueeActive = false;

@@ -61,6 +61,38 @@
                             <TextBlock x:Name="GeneralStatusText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap"/>
                         </Border>
                     </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="settings-section-title" Text="文件操作"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <Border Classes="settings-row settings-divider">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="移到废纸篓前确认"/>
+                                            <TextBlock Classes="settings-description"
+                                                       Text="默认开启。关闭后直接移到废纸篓；远程删除、永久删除和清空废纸篓仍需确认。"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="ConfirmBeforeTrashToggle"
+                                                      AutomationProperties.Name="移到废纸篓前确认" Classes="settings-toggle"
+                                                      VerticalAlignment="Center" IsCheckedChanged="OnConfirmBeforeTrashChanged"/>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="settings-row">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                        <StackPanel>
+                                            <TextBlock Classes="settings-label" Text="双击空白处返回上级"/>
+                                            <TextBlock Classes="settings-description"
+                                                       Text="默认关闭。开启后，双击文件区域背景返回上级；双击文件或文件夹仍打开项目。"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="DoubleClickEmptyAreaGoUpToggle"
+                                                      AutomationProperties.Name="双击空白处返回上级" Classes="settings-toggle"
+                                                      VerticalAlignment="Center" IsCheckedChanged="OnDoubleClickEmptyAreaGoUpChanged"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>

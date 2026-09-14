@@ -17,6 +17,8 @@ internal sealed class LivePreviewCoordinator : IAsyncDisposable
     private ILivePreviewWorkspace? _current;
     private long _activationGeneration;
     private bool _disposed;
+    private ILivePreviewWorkspace? _requested;
+    private Task _activationTask = Task.CompletedTask;
 
     internal LivePreviewCoordinator(Func<ILivePreviewWorkspace, bool> isStillActive)
     {
@@ -29,12 +31,15 @@ internal sealed class LivePreviewCoordinator : IAsyncDisposable
     public Task ActivateAsync(ILivePreviewWorkspace? nextWorkspace)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (ReferenceEquals(_requested, nextWorkspace) && !_activationTask.IsCompleted)
+            return _activationTask;
         if (ReferenceEquals(_current, nextWorkspace)
             && nextWorkspace?.CanActivateLivePreview == true
             && _isStillActive(nextWorkspace))
             return Task.CompletedTask;
         var generation = Interlocked.Increment(ref _activationGeneration);
-        return ActivateCoreAsync(nextWorkspace, generation);
+        _requested = nextWorkspace;
+        return _activationTask = ActivateCoreAsync(nextWorkspace, generation);
     }
 
     private async Task ActivateCoreAsync(ILivePreviewWorkspace? nextWorkspace, long generation)
@@ -75,18 +80,23 @@ internal sealed class LivePreviewCoordinator : IAsyncDisposable
     public Task DeactivateAndReleaseAsync(ILivePreviewWorkspace workspace)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var generation = Interlocked.Increment(ref _activationGeneration);
-        return DeactivateAndReleaseCoreAsync(workspace, generation);
+        // Evicting an unrelated cached workspace must not invalidate an in-flight activation.
+        if (ReferenceEquals(_requested, workspace))
+        {
+            _requested = null;
+            Interlocked.Increment(ref _activationGeneration);
+        }
+        return DeactivateAndReleaseCoreAsync(workspace);
     }
 
-    private async Task DeactivateAndReleaseCoreAsync(ILivePreviewWorkspace workspace, long generation)
+    private async Task DeactivateAndReleaseCoreAsync(ILivePreviewWorkspace workspace)
     {
         await _switchGate.WaitAsync();
         try
         {
             if (ReferenceEquals(_current, workspace))
                 _current = null;
-            await workspace.SetLivePreviewStateAsync(false, generation);
+            await workspace.SetLivePreviewStateAsync(false, ActivationGeneration);
         }
         finally
         {

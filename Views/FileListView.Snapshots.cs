@@ -53,23 +53,70 @@ public partial class FileListView
         if (vm == null || vm.ScrollBehaviorAfterLoad != FileListViewModel.ScrollMode.PreservePosition
             || vm.Entries.Count == 0 || GetActiveScrollViewer() is not { } scroll) return;
 
+        _snapshotAnchor = CaptureViewAnchor(scroll);
+    }
+
+    private FileListScrollAnchor? CaptureViewAnchor(ScrollViewer scroll)
+    {
+        var vm = ViewModel;
+        if (vm == null || vm.Entries.Count == 0) return null;
         if (FastListActive)
         {
             var first = FastList.VisibleRange.First;
-            if (first < FastList.Rows.Count)
-                _snapshotAnchor = new FileListScrollAnchor(FastList.Rows[first].FullPath,
-                    FastList.RowBounds(first).Y, scroll.Offset.Y);
-            return;
+            return first < FastList.Rows.Count
+                ? new FileListScrollAnchor(FastList.Rows[first].FullPath,
+                    FastList.RowBounds(first).Y, scroll.Offset.Y)
+                : null;
         }
-        if (vm.ViewMode != ViewMode.List || vm.GroupField != GroupField.None) return;
-
+        if (vm.ViewMode != ViewMode.List || vm.GroupField != GroupField.None) return null;
         var index = Math.Clamp((int)Math.Floor(scroll.Offset.Y / FileListScrollAnchor.DetailsRowHeight), 0, vm.Entries.Count - 1);
-        // At most one realized-container lookup. No traversal of all files/visual descendants.
         var container = FileItemsList.ContainerFromIndex(index);
         var viewportY = container?.TranslatePoint(default, scroll)?.Y
             ?? index * FileListScrollAnchor.DetailsRowHeight - scroll.Offset.Y;
         var origin = viewportY + scroll.Offset.Y - index * FileListScrollAnchor.DetailsRowHeight;
-        _snapshotAnchor = new FileListScrollAnchor(vm.Entries[index].FullPath, viewportY, scroll.Offset.Y, origin);
+        return new FileListScrollAnchor(vm.Entries[index].FullPath, viewportY, scroll.Offset.Y, origin);
+    }
+
+    internal void SaveTabViewState(ExplorerTabViewModel tab)
+    {
+        if (!ReferenceEquals(ViewModel, tab.FileList) || GetActiveScrollViewer() is not { } scroll) return;
+        tab.CachedListState = new FileListTabViewState(tab.FileList.CurrentPath,
+            tab.FileList.ViewMode, tab.FileList.GroupField, CaptureViewAnchor(scroll),
+            scroll.Offset.X, scroll.Offset.Y, _fastFocusedPath);
+    }
+
+    internal void RestoreTabViewState(ExplorerTabViewModel tab)
+    {
+        if (tab.CachedListState is not { } state) return;
+        var inputVersion = _snapshotInputVersion;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsEffectivelyVisible || VisualRoot == null || inputVersion != _snapshotInputVersion
+                || !ReferenceEquals(ViewModel, tab.FileList) || tab.FileList.IsDirectoryLoading
+                || state.Path != tab.FileList.CurrentPath || state.ViewMode != tab.FileList.ViewMode
+                || state.GroupField != tab.FileList.GroupField || GetActiveScrollViewer() is not { } scroll) return;
+            if (FastListActive)
+            {
+                var index = state.Anchor == null ? -1 : FastList.IndexOfPath(state.Anchor.ItemPath);
+                if (index >= 0) FastList.ScrollToEntry(FastList.Rows[index], state.Anchor!.ItemViewportY);
+                else FastList.ScrollToOffset(state.OffsetY);
+                _fastFocusedPath = state.FocusedPath;
+                FastList.KeyboardFocusPath = state.FocusedPath;
+            }
+            else
+            {
+                var y = state.Anchor?.Resolve(tab.FileList.Entries, scroll.Viewport.Height) ?? state.OffsetY;
+                scroll.Offset = new Vector(state.OffsetX, y);
+            }
+        }, DispatcherPriority.Loaded);
+    }
+
+    internal void DeactivateTabInteraction()
+    {
+        CancelSlowRename();
+        CancelActiveRename();
+        ColumnFilterPopup.IsOpen = false;
+        if (_marqueePointer != null) EndMarquee(_marqueePointer);
     }
 
     private void RestoreSnapshotAnchor()

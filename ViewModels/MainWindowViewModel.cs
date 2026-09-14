@@ -40,6 +40,7 @@ public sealed partial class ExplorerTabViewModel : ObservableObject, IDisposable
 {
     public Guid Id { get; } = Guid.NewGuid();
     public FileListViewModel FileList { get; }
+    internal MacExplorer.Services.FileListTabViewState? CachedListState { get; set; }
 
     [ObservableProperty]
     private string _title;

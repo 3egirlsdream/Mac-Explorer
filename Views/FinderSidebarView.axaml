@@ -4,6 +4,7 @@
              xmlns:models="using:MacExplorer.Models"
              xmlns:icons="using:MacExplorer.Assets"
              xmlns:converters="using:MacExplorer.Converters"
+             xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              x:Class="MacExplorer.Views.FinderSidebarView"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False"
@@ -13,11 +14,84 @@
              DragDrop.Drop="OnPinnedFoldersDrop">
 
     <UserControl.Resources>
-        <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
-        <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="InteractionHoverBrush" Color="Transparent"/>
+                    <SolidColorBrush x:Key="InteractionSelectedBrush" Color="Transparent"/>
+                    <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="Transparent"/>
+                    <x:Double x:Key="SidebarActionBackdropOpacity">1</x:Double>
+                    <x:Double x:Key="SidebarActionRefraction">12</x:Double>
+                    <x:Double x:Key="SidebarActionHoverHighlight">0.55</x:Double>
+                    <x:Double x:Key="SidebarActionFocusHighlight">0.75</x:Double>
+                    <BoxShadows x:Key="SidebarHoverOutline">inset 0 1 0 0 #CCFFFFFF, inset 0 -1 0 0 #24212730</BoxShadows>
+                    <BoxShadows x:Key="SidebarSelectedOutline">inset 0 0 0 1 #702463D4</BoxShadows>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="InteractionHoverBrush" Color="#0CFFFFFF"/>
+                    <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#16FFFFFF"/>
+                    <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="#1CFFFFFF"/>
+                    <x:Double x:Key="SidebarActionBackdropOpacity">0</x:Double>
+                    <x:Double x:Key="SidebarActionRefraction">0</x:Double>
+                    <x:Double x:Key="SidebarActionHoverHighlight">0</x:Double>
+                    <x:Double x:Key="SidebarActionFocusHighlight">0</x:Double>
+                    <BoxShadows x:Key="SidebarHoverOutline">0 0 0 0 Transparent</BoxShadows>
+                    <BoxShadows x:Key="SidebarSelectedOutline">0 0 0 0 Transparent</BoxShadows>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <!-- The demo uses a transparent button inside an interactive glass surface, not a filled hover theme. -->
+            <Template x:Key="SidebarGlassFocusAdorner">
+                <Border BorderBrush="{DynamicResource FocusRingBrush}" BorderThickness="2"
+                    CornerRadius="{DynamicResource InteractionCornerRadius}" IsHitTestVisible="False"
+                    glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
+            </Template>
+            <ControlTheme x:Key="SidebarGlassButton" TargetType="Button">
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <glass:LiquidGlassInteractiveSurface x:Name="ButtonGlass"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                            TintColor="Transparent" SurfaceColor="Transparent"
+                            BackdropOpacity="{DynamicResource SidebarActionBackdropOpacity}"
+                            BlurRadius="0" RefractionHeight="8" RefractionAmount="0"
+                            HighlightOpacity="0" HighlightWidth="0.75"
+                            ShadowEnabled="False" InnerShadowEnabled="False"
+                            InteractiveMaxScaleDip="0.8">
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                Background="Transparent" BorderBrush="Transparent"
+                                Padding="{TemplateBinding Padding}"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </glass:LiquidGlassInteractiveSurface>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ glass|LiquidGlassInteractiveSurface#ButtonGlass">
+                    <Setter Property="RefractionAmount" Value="{DynamicResource SidebarActionRefraction}"/>
+                    <Setter Property="HighlightOpacity" Value="{DynamicResource SidebarActionHoverHighlight}"/>
+                </Style>
+                <Style Selector="^:focus-visible /template/ glass|LiquidGlassInteractiveSurface#ButtonGlass">
+                    <Setter Property="RefractionAmount" Value="{DynamicResource SidebarActionRefraction}"/>
+                    <Setter Property="HighlightOpacity" Value="{DynamicResource SidebarActionFocusHighlight}"/>
+                </Style>
+                <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+                </Style>
+            </ControlTheme>
+            <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
+            <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <UserControl.Styles>
+        <Style Selector="Button.sidebar-item-action, Button.sidebar-header-action, Button.sidebar-inline-confirm">
+            <Setter Property="Theme" Value="{StaticResource SidebarGlassButton}"/>
+            <Setter Property="FocusAdorner" Value="{StaticResource SidebarGlassFocusAdorner}"/>
+        </Style>
+        <Style Selector="Button.sidebar-item-action:pressed, Button.sidebar-header-action:pressed, Button.sidebar-inline-confirm:pressed">
+            <Setter Property="RenderTransform" Value="{x:Null}"/>
+        </Style>
         <Style Selector=":is(Control).sidebar-category-header">
             <Setter Property="Margin" Value="0,8,0,2"/>
             <Setter Property="MinHeight" Value="26"/>
@@ -37,15 +111,22 @@
         </Style>
         <Style Selector="Border.sidebar-item">
             <Setter Property="Focusable" Value="True"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
         </Style>
-        <Style Selector="Border.sidebar-item:focus-visible, Border.sidebar-item.active:focus-visible">
-            <Setter Property="BoxShadow" Value="{DynamicResource FocusOutlineShadow}"/>
+        <Style Selector="Border.sidebar-item:pointerover">
+            <Setter Property="BoxShadow" Value="{DynamicResource SidebarHoverOutline}"/>
         </Style>
         <Style Selector="Border.sidebar-item.active PathIcon.sidebar-icon">
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         </Style>
         <Style Selector="Border.sidebar-item.active">
-            <Setter Property="BoxShadow" Value="{DynamicResource SelectionOutlineShadow}"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource SidebarSelectedOutline}"/>
+        </Style>
+        <Style Selector="Border.sidebar-item.active:pointerover">
+            <Setter Property="BoxShadow" Value="{DynamicResource SidebarSelectedOutline}"/>
+        </Style>
+        <Style Selector="Border.sidebar-item:focus-visible, Border.sidebar-item.active:focus-visible">
+            <Setter Property="BoxShadow" Value="{DynamicResource FocusOutlineShadow}"/>
         </Style>
         <Style Selector="TextBlock.rail-text-hidden">
             <Setter Property="IsVisible" Value="False"/>
@@ -362,7 +443,7 @@
 
                     <!-- ═══ 标签 Tags ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
-                          x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起标签"
+                          x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="展开或收起标签"
                           PointerPressed="OnToggleTagsCollapsed">
                         <TextBlock Grid.Column="0" x:Name="TagsSectionTitle" Text="标签"
                                    Classes="sidebar-section-title"
@@ -485,7 +566,7 @@
 
                     <!-- ═══ AI 智能 AI ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
-                          x:Name="AiSectionHeader" Focusable="True" FocusAdorner="{StaticResource KeyboardFocusAdorner}" AutomationProperties.Name="展开或收起AI 智能"
+                          x:Name="AiSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="展开或收起AI 智能"
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="AI 智能"

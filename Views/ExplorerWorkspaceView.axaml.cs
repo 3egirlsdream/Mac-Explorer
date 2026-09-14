@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Controls;
@@ -44,6 +45,8 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     public ExplorerWorkspaceView()
     {
         InitializeComponent();
+        SidebarAppearance.Apply(SidebarSurface, ActualThemeVariant == ThemeVariant.Dark);
+        ActualThemeVariantChanged += (_, _) => SidebarAppearance.Apply(SidebarSurface, ActualThemeVariant == ThemeVariant.Dark);
         AddHandler(PointerPressedEvent, OnWorkspacePointerPressed,
             RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(GotFocusEvent, OnWorkspaceGotFocus,
@@ -76,7 +79,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     }
 
     bool ILivePreviewWorkspace.CanActivateLivePreview
-        => !_disposed && !IsDetaching && VisualRoot != null && Tab != null;
+        => !_disposed && !IsDetaching && IsEffectivelyVisible && VisualRoot != null && Tab != null;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -278,6 +281,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     public void DeactivateTransientUi()
     {
         CloseTransientUi(null);
+        FileListControl.DeactivateTabInteraction();
         if (IsCompact)
             SetCompactSidebarOpen(false);
     }
@@ -322,6 +326,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         IsDetaching = true;
         CloseTransientUi(null);
+        FileListControl.DeactivateTabInteraction();
         if (IsCompact)
             SetCompactSidebarOpen(false);
     }

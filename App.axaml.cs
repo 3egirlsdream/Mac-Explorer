@@ -105,6 +105,7 @@ public partial class App : Application
     {
         if (sender is MainWindow window)
             window.Opened -= OnStartupWindowOpened;
+        Dispatcher.UIThread.Post(Views.FileListView.PrepareFileDrag, DispatcherPriority.ApplicationIdle);
         _ = Task.Run(CheckStartupUpdateAsync);
     }
 

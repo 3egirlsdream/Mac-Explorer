@@ -514,6 +514,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _volumeMonitorService.VolumesChanged += OnVolumesChanged;
 
         RefreshLocationStatus();
+        // Hidden tabs still own their directory contents and must receive move/delete updates.
+        _directoryChangeNotifier?.Subscribe(this);
     }
 
     internal void UseColumnLayoutService(FileListColumnLayoutService columnLayoutService)
@@ -975,7 +977,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task RefreshFromNotification()
     {
-        if (_isRefreshingFromNotification) return;
+        if (_disposed || _isRefreshingFromNotification) return;
         if (!_navigation.NeedsRefreshFromNotification(IsArchiveView, IsAiView)) return;
         _isRefreshingFromNotification = true;
         try
@@ -2963,31 +2965,50 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public int DeleteConfirmItemCount { get; private set; }
     public string DeleteConfirmFirstItemName { get; private set; } = "";
+    public bool DeleteConfirmIncludesRemoteFiles => _pendingDeleteEntries?.Any(entry => VirtualPath.IsRemotePath(entry.FullPath)) == true;
+    private FileSystemEntry[]? _pendingDeleteEntries;
+    private bool _deleteInProgress;
     public FileTag? PendingDeleteTag { get; private set; }
     public string PendingDeleteTagName => PendingDeleteTag?.Name ?? "";
 
     [RelayCommand]
     public void ShowDeleteConfirmDialog()
+        => _ = RequestDeleteSelectedAsync();
+
+    // All existing menu/toolbar/keyboard entry points use the wrapper above.
+    // Capture the selection before displaying a dialog or starting any I/O.
+    public async Task RequestDeleteSelectedAsync()
     {
-        if (SelectedEntries.Count == 0) return;
+        if (_deleteInProgress || IsDeleteConfirmDialogVisible || IsArchiveView || SelectedEntries.Count == 0) return;
+        var entries = SelectedEntries.Where(entry => !entry.IsVirtual).ToArray();
+        if (entries.Length == 0) return;
         IsContextMenuVisible = false;
-        DeleteConfirmItemCount = SelectedEntries.Count;
-        DeleteConfirmFirstItemName = SelectedEntries.First().Name;
+        // SFTP ignores moveToTrash and deletes permanently. Never let a preference
+        // intended for recoverable local Trash operations silence that warning.
+        if (!ConfirmBeforeTrash && !IsTrashActive && !entries.Any(entry => VirtualPath.IsRemotePath(entry.FullPath)))
+        {
+            await ExecuteDeleteSelectedAsync(entries);
+            return;
+        }
+
+        _pendingDeleteEntries = entries;
+        DeleteConfirmItemCount = entries.Length;
+        DeleteConfirmFirstItemName = entries[0].Name;
         IsDeleteConfirmDialogVisible = true;
     }
 
     [RelayCommand]
     public async Task ConfirmDeleteSelectedAsync()
     {
-        IsDeleteConfirmDialogVisible = false;
-        DeleteConfirmItemCount = 0;
-        DeleteConfirmFirstItemName = "";
-        await ExecuteDeleteSelectedAsync();
+        var entries = _pendingDeleteEntries;
+        CancelDeleteConfirmDialog();
+        if (entries != null) await ExecuteDeleteSelectedAsync(entries);
     }
 
     [RelayCommand]
     public void CancelDeleteConfirmDialog()
     {
+        _pendingDeleteEntries = null;
         IsDeleteConfirmDialogVisible = false;
         DeleteConfirmItemCount = 0;
         DeleteConfirmFirstItemName = "";
@@ -3018,13 +3039,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         PendingDeleteTag = null;
     }
 
-    private async Task ExecuteDeleteSelectedAsync()
+    private async Task ExecuteDeleteSelectedAsync(IReadOnlyList<FileSystemEntry> entries)
     {
-        if (SelectedEntries.Count == 0) return;
+        if (_deleteInProgress || entries.Count == 0) return;
+        _deleteInProgress = true;
         try
         {
             await _fileOps.DeleteSelectedAsync(
-                SelectedEntries.ToList(),
+                entries,
                 _navigation.CurrentPath,
                 msg => StatusText = msg,
                 this
@@ -3037,6 +3059,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
         }
         catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
+        finally { _deleteInProgress = false; }
     }
 
     [RelayCommand]
@@ -4107,6 +4130,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _directoryChangeNotifier?.Unsubscribe(this);
 
         try
         {

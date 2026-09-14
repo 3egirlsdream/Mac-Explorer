@@ -20,8 +20,15 @@ public class AppUpdateService : IAppUpdateService
 
     public async Task<VersionInfo?> CheckVersionAsync(CancellationToken ct = default)
     {
+        var latest = await GetVersionDetailsAsync(ct).ConfigureAwait(false);
+        return latest != null && TryParseVersion(latest.Version, out var version) && version > GetCurrentVersion()
+            ? latest : null;
+    }
+
+    public async Task<VersionInfo?> GetVersionDetailsAsync(CancellationToken ct = default)
+    {
         var response = await _http.GetFromJsonAsync<VersionCheckResponse>(
-            VersionApiUrl, ct).ConfigureAwait(false);
+            VersionApiUrl + "&CurrentVersion=" + Uri.EscapeDataString(CurrentVersion), ct).ConfigureAwait(false);
 
         if (response?.Success != true)
             throw new InvalidOperationException("更新服务器返回了失败状态");
@@ -32,11 +39,10 @@ public class AppUpdateService : IAppUpdateService
         if (string.IsNullOrWhiteSpace(response.Data.Version))
             throw new InvalidOperationException("更新服务器返回的版本号为空");
 
-        var current = GetCurrentVersion();
-        if (!TryParseVersion(response.Data.Version, out var latest))
+        if (!TryParseVersion(response.Data.Version, out _))
             throw new InvalidOperationException($"无法识别服务器版本号: {response.Data.Version}");
 
-        return latest > current ? response.Data : null;
+        return response.Data;
     }
 
     public async Task DownloadAndInstallAsync(
@@ -512,7 +518,7 @@ echo ""[$(date)] Update completed""
         return new Version(1, 0);
     }
 
-    private static bool TryParseVersion(string? value, out Version version)
+    internal static bool TryParseVersion(string? value, out Version version)
     {
         var normalized = value?.Trim().TrimStart('v', 'V');
         if (!string.IsNullOrWhiteSpace(normalized))
@@ -522,7 +528,9 @@ echo ""[$(date)] Update completed""
                 normalized = normalized[..metadataIndex];
         }
 
-        return Version.TryParse(normalized, out version!);
+        if (!Version.TryParse(normalized, out version!)) return false;
+        version = new Version(version.Major, version.Minor, Math.Max(0, version.Build), Math.Max(0, version.Revision));
+        return true;
     }
 
     private static string FormatVersion(Version version)

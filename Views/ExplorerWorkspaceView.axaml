@@ -4,11 +4,23 @@
              xmlns:local="using:MacExplorer.Views"
              xmlns:controls="using:MacExplorer.Controls"
              xmlns:icons="using:MacExplorer.Assets"
+             xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              x:Class="MacExplorer.Views.ExplorerWorkspaceView"
              x:DataType="vm:ExplorerTabViewModel"
              x:CompileBindings="False"
-             Focusable="True">
+             Focusable="True"
+             ClipToBounds="False">
     <UserControl.Styles>
+        <!-- Keep the pane's shadow outside its layout bounds; the glass template clips its content. -->
+        <Style Selector="SplitView#SidebarSplitView:left /template/ Panel#PART_PaneRoot">
+            <Setter Property="ClipToBounds" Value="False"/>
+        </Style>
+        <Style Selector="Grid#SidebarMaterialHost">
+            <Setter Property="Margin" Value="4,4,8,4"/>
+        </Style>
+        <Style Selector="local|ExplorerWorkspaceView:compact Grid#SidebarMaterialHost">
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
         <Style Selector="Border.workspace-surface">
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="0"/>
@@ -86,8 +98,9 @@
         </Style>
     </UserControl.Styles>
 
-    <Border x:Name="WorkspaceSurface" Classes="workspace-surface" ClipToBounds="True">
+    <Border x:Name="WorkspaceSurface" Classes="workspace-surface" ClipToBounds="False">
         <SplitView x:Name="SidebarSplitView"
+                   ClipToBounds="False"
                    PanePlacement="Left"
                    PaneBackground="Transparent"
                    IsPaneOpen="True"
@@ -95,15 +108,23 @@
                    OpenPaneLength="240"
                    CompactPaneLength="0">
             <SplitView.Pane>
-                <Border x:Name="SidebarSurface" Background="{DynamicResource ColorBgSidebar}"
-                        CornerRadius="{StaticResource RadiusLg}" ClipToBounds="True"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+                <Grid x:Name="SidebarMaterialHost" ClipToBounds="False">
+                    <Border CornerRadius="{StaticResource RadiusLg}" ClipToBounds="True" IsHitTestVisible="False">
+                        <controls:SidebarBackdrop/>
+                    </Border>
+                    <glass:LiquidGlassSurface x:Name="SidebarSurface"
+                        glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"
+                        CornerRadius="{StaticResource RadiusLg}"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                         <local:FinderSidebarView x:Name="SidebarControl" DataContext="{Binding FileList}"/>
-                </Border>
+                    </glass:LiquidGlassSurface>
+                </Grid>
             </SplitView.Pane>
 
             <SplitView.Content>
-                <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource SurfaceBrush}">
+                <!-- Capture only the sidebar material, even while a cached compact layout is expanding. -->
+                <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource SurfaceBrush}"
+                      glass:LiquidGlassBackdrop.IsExcludedFromCapture="True">
                     <Grid Grid.Row="0" x:Name="NavigationRow" Height="40"
                           IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}"
                           ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="12,0"

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+    <ProjectReference Include="../../ThirdParty/LiquidGlassAvaloniaUI/LiquidGlassAvaloniaUI.csproj" />
+    <Compile Include="../../Controls/SidebarAppearance.cs" Link="Shared/SidebarAppearance.cs" />
+  </ItemGroup>
+  <Target Name="BuildNativeDemo" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <Exec Command="xcrun clang -fobjc-arc -dynamiclib -mmacosx-version-min=14.0 &quot;$(MSBuildProjectDirectory)/NativeGlass.m&quot; -framework AppKit -o &quot;$(TargetDir)libGlassDemoNative.dylib&quot;" />
+    <PropertyGroup><_DemoApp>$(TargetDir)Glass Demo.app</_DemoApp></PropertyGroup>
+    <ItemGroup><_DemoFiles Include="$(TargetDir)*" /></ItemGroup>
+    <MakeDir Directories="$(_DemoApp)/Contents/MacOS" />
+    <Copy SourceFiles="@(_DemoFiles)" DestinationFolder="$(_DemoApp)/Contents/MacOS" />
+    <Copy SourceFiles="Info.plist" DestinationFolder="$(_DemoApp)/Contents" />
+    <Exec Command="codesign --force --deep --sign - &quot;$(_DemoApp)&quot;" />
+  </Target>
+</Project>

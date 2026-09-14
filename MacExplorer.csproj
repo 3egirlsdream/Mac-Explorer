@@ -8,7 +8,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
     <ApplicationId>com.macexplorer.app</ApplicationId>
-    <Version>1.0.42</Version>
+    <Version>1.0.43</Version>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -23,8 +23,14 @@
     <EmbeddedResource Include="Resources/Conversion/*" />
     <Compile Remove="Tests/**/*.cs" />
     <Compile Remove="Tools/Performance/FastListBench/**/*.cs" />
+    <Compile Remove="Tools/GlassDemo/**/*.cs" />
+    <Compile Remove="ThirdParty/**/*.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="ThirdParty/LiquidGlassAvaloniaUI/LiquidGlassAvaloniaUI.csproj" />
+    <None Update="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" TargetPath="LiquidGlassAvaloniaUI.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.0.4" />
@@ -101,6 +107,7 @@
     <Copy SourceFiles="$(_IconSource)" DestinationFolder="$(_ResourcesDir)" Condition="Exists('$(_IconSource)')" />
 
     <Copy SourceFiles="Assets/ConversionNotices.txt" DestinationFolder="$(_ResourcesDir)" />
+    <Copy SourceFiles="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" DestinationFiles="$(_ResourcesDir)/LiquidGlassAvaloniaUI.LICENSE.txt" />
 
     <!-- Copy .dll / .dylib / .json next to the executable so they resolve -->
     <ItemGroup>

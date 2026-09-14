@@ -26,7 +26,6 @@ env:
   TEST_PROJECT: Tests/MacExplorer.Tests/MacExplorer.Tests.csproj
   BACKEND_BASE_URL: http://thankful.top:4396
   BACKEND_CLIENT: MacExplorer
-  MAX_MEMO_CHARS: "3000"
 
 jobs:
   detect-version:
@@ -137,6 +136,9 @@ jobs:
               summary.write(f"- Highest release tag: `{latest_tag or 'none'}`\n")
               summary.write(f"- Mode: `{mode}`\n")
           PY
+
+      - name: Test full release memo generation
+        run: python3 -m unittest discover -s Tools/Release -p 'test_*.py' -v
 
   publish-release:
     name: Build and publish release
@@ -294,36 +296,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          raw_memo="${RUNNER_TEMP}/backend-memo-raw.txt"
           memo_file="${RUNNER_TEMP}/backend-memo.txt"
-
-          {
-            echo "Mac Explorer ${VERSION}"
-            echo
-            if [[ -n "$PREVIOUS_TAG" ]]; then
-              git log "${PREVIOUS_TAG}..${TAG}" --pretty=format:'- %s'
-            else
-              git log "$TAG" --pretty=format:'- %s'
-            fi
-            echo
-          } > "$raw_memo"
-
-          python3 - "$raw_memo" "$memo_file" "$MAX_MEMO_CHARS" <<'PY'
-          import sys
-          import unicodedata
-          from pathlib import Path
-
-          source, destination, limit_text = sys.argv[1:]
-          limit = int(limit_text)
-          text = unicodedata.normalize("NFC", Path(source).read_text(encoding="utf-8"))
-          lines = [" ".join(line.split()) for line in text.splitlines()]
-          text = "\n".join(line for line in lines if line).strip()
-          if len(text) > limit:
-              text = text[: limit - 3].rstrip() + "..."
-          if not text:
-              raise SystemExit("Generated backend memo is empty")
-          Path(destination).write_text(text, encoding="utf-8")
-          PY
+          python3 Tools/Release/generate_memo.py \
+            --version "$VERSION" --tag "$TAG" --previous-tag "$PREVIOUS_TAG" \
+            --output "$memo_file"
 
           echo "memo_file=$memo_file" >> "$GITHUB_OUTPUT"
 
@@ -348,9 +324,11 @@ jobs:
           backend_path=$(jq -r '.data.PATH // empty' <<< "$current_response")
 
           if [[ "$backend_version" == "$VERSION" && "$backend_path" == "$ZIP_URL" ]]; then
-            echo "Backend already contains version $VERSION with the expected ZIP URL; skipping insert."
-            exit 0
-          fi
+            if jq -e --rawfile memo "$MEMO_FILE" '.data.MEMO == $memo' <<< "$current_response" > /dev/null; then
+              echo "Backend version, ZIP URL and full memo already match; skipping write."
+              exit 0
+            fi
+          else
 
           python3 - "$backend_version" "$VERSION" <<'PY'
           import re
@@ -367,23 +345,32 @@ jobs:
                   f"Backend version {current} is not lower than target {target}; refusing duplicate insert"
               )
           PY
+          fi
 
-          response_file="${RUNNER_TEMP}/insert-version-response.json"
-          http_code=$(curl --silent --show-error --get \
+          payload_file="${RUNNER_TEMP}/save-version-payload.json"
+          jq -n --arg client "$BACKEND_CLIENT" --arg version "$VERSION" \
+            --arg path "$ZIP_URL" --rawfile memo "$MEMO_FILE" \
+            '{Client: $client, Version: $version, Path: $path, Memo: $memo}' > "$payload_file"
+
+          response_file="${RUNNER_TEMP}/save-version-response.json"
+          http_code=$(curl --silent --show-error \
             --connect-timeout 10 --max-time 60 \
             --output "$response_file" \
             --write-out '%{http_code}' \
-            --data-urlencode "Client=${BACKEND_CLIENT}" \
-            --data-urlencode "Path=${ZIP_URL}" \
-            --data-urlencode "Version=${VERSION}" \
-            --data-urlencode "Memo@${MEMO_FILE}" \
-            "${BACKEND_BASE_URL}/api/CloudSync/InsertVersion")
+            --header 'Content-Type: application/json' \
+            --data-binary "@${payload_file}" \
+            "${BACKEND_BASE_URL}/api/CloudSync/SaveVersion")
 
           if [[ ! "$http_code" =~ ^2[0-9][0-9]$ ]]; then
-            echo "InsertVersion returned HTTP $http_code" >&2
+            echo "SaveVersion returned HTTP $http_code; full memo was not confirmed saved." >&2
             cat "$response_file" >&2
             exit 1
           fi
+
+          jq -e --arg client "$BACKEND_CLIENT" --arg version "$VERSION" \
+            --arg path "$ZIP_URL" --rawfile memo "$MEMO_FILE" \
+            '.success == true and .data.CLIENT == $client and .data.VERSION == $version and
+             .data.PATH == $path and .data.MEMO == $memo' "$response_file" > /dev/null
 
           verify_response=$(curl --fail --silent --show-error --get \
             --connect-timeout 10 --max-time 60 \
@@ -394,10 +381,12 @@ jobs:
             --arg client "$BACKEND_CLIENT" \
             --arg version "$VERSION" \
             --arg path "$ZIP_URL" \
+            --rawfile memo "$MEMO_FILE" \
             '.success == true and
              .data.CLIENT == $client and
              .data.VERSION == $version and
-             .data.PATH == $path' \
+             .data.PATH == $path and
+             .data.MEMO == $memo' \
             <<< "$verify_response" > /dev/null
 
           {

@@ -3,17 +3,42 @@ using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
 namespace MacExplorer.Platforms.MacOS;
 
 internal static class MacNativeFileDrag
 {
+    public static void Prepare(Bitmap preview)
+    {
+        using var pixels = CopyPreviewPixels(preview);
+        using var buffer = pixels.Lock();
+        MacExplorerPrepareFileDragPixels(buffer.Address, buffer.Size.Width, buffer.Size.Height, buffer.RowBytes);
+    }
+
+    private static WriteableBitmap CopyPreviewPixels(Bitmap preview)
+    {
+        var pixels = new WriteableBitmap(preview.PixelSize, new Vector(96, 96),
+            PixelFormat.Rgba8888, AlphaFormat.Premul);
+        try
+        {
+            using var buffer = pixels.Lock();
+            preview.CopyPixels(buffer);
+            return pixels;
+        }
+        catch
+        {
+            pixels.Dispose();
+            throw;
+        }
+    }
+
     public static bool TryBeginFileDrag(
         TopLevel topLevel,
         Point point,
         IReadOnlyList<string> paths,
-        string? previewPath,
+        Bitmap preview,
         DragDropEffects allowedEffects)
     {
         if (!OperatingSystem.IsMacOS() || paths.Count == 0)
@@ -29,13 +54,19 @@ internal static class MacNativeFileDrag
 
         try
         {
-            return MacExplorerBeginFileDrag(
+            using var pixels = CopyPreviewPixels(preview);
+            using var buffer = pixels.Lock();
+            // AppKit copies these pixels before returning; no encoded image or file is needed.
+            return MacExplorerBeginFileDragPixels(
                 nsView,
                 point.X,
                 point.Y,
                 payload,
                 payload.Length,
-                previewPath,
+                buffer.Address,
+                buffer.Size.Width,
+                buffer.Size.Height,
+                buffer.RowBytes,
                 ToNSDragOperation(allowedEffects)) != 0;
         }
         catch (DllNotFoundException)
@@ -84,13 +115,20 @@ internal static class MacNativeFileDrag
         return operations;
     }
 
-    [DllImport("MacExplorerNativeDrag", EntryPoint = "MacExplorerBeginFileDrag")]
-    private static extern int MacExplorerBeginFileDrag(
+    [DllImport("MacExplorerNativeDrag", EntryPoint = "MacExplorerPrepareFileDragPixels")]
+    private static extern void MacExplorerPrepareFileDragPixels(
+        IntPtr previewPixels, int previewWidth, int previewHeight, int previewStride);
+
+    [DllImport("MacExplorerNativeDrag", EntryPoint = "MacExplorerBeginFileDragPixels")]
+    private static extern int MacExplorerBeginFileDragPixels(
         IntPtr nsView,
         double x,
         double y,
         byte[] pathsUtf8,
         int pathsByteLength,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string? previewPath,
+        IntPtr previewPixels,
+        int previewWidth,
+        int previewHeight,
+        int previewStride,
         int operationMask);
 }

@@ -306,6 +306,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     public (int First, int End) VisibleRange => _layout.VisibleRange(_offset, _offset + Viewport.Height);
 
+    internal Bitmap? GetEntryBitmap(FileSystemEntry entry) => _images.Get(entry);
+
     public int IndexOf(FileSystemEntry entry) => _indices.GetValueOrDefault(entry.FullPath, -1);
     public int IndexOfPath(string path) => _indices.GetValueOrDefault(path, -1);
     public int RowIndexAt(Point point)
@@ -320,6 +322,12 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var index = RowIndexAt(point);
         if (index < 0) return null;
         return !contentOnly || ContentBounds(index).Any(rect => rect.Contains(point)) ? _rows[index] : null;
+    }
+
+    internal bool IsGroupHeaderAt(Point point)
+    {
+        var y = point.Y + _offset;
+        return _layout.VisibleHeaders(y, y + 1).Any(section => y < section.ContentTop);
     }
 
     public Rect RowBounds(int index) => _layout.Bounds(index).Translate(new Vector(0, -_offset));

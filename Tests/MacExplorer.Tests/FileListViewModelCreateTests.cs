@@ -649,6 +649,7 @@ public sealed partial class FileListViewModelCreateTests
         viewModel.Entries.Add(survivor);
         viewModel.SelectedEntries.Add(deleted);
 
+        viewModel.ShowDeleteConfirmDialog();
         await viewModel.ConfirmDeleteSelectedAsync();
 
         Assert.DoesNotContain(viewModel.Entries, e => e.FullPath == deleted.FullPath);
@@ -1131,7 +1132,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     private static FileListViewModel CreateViewModel(
-        FakeFileService fileService,
+        IFileService fileService,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
         NavigationViewModel? navigation = null,
         SortFilterViewModel? sortFilter = null,
@@ -1246,10 +1247,14 @@ public sealed partial class FileListViewModelCreateTests
             return Task.FromResult(fullPath);
         }
 
-        public Task DeleteAsync(string path, bool moveToTrash = true)
+        public List<(string Path, bool MoveToTrash)> DeleteRequests { get; } = [];
+        public Func<Task>? BeforeDelete { get; set; }
+
+        public async Task DeleteAsync(string path, bool moveToTrash = true)
         {
+            DeleteRequests.Add((path, moveToTrash));
+            if (BeforeDelete != null) await BeforeDelete();
             _entries.Remove(path);
-            return Task.CompletedTask;
         }
         public Task RenameAsync(string path, string newName)
         {
@@ -1272,8 +1277,20 @@ public sealed partial class FileListViewModelCreateTests
         }
         public int MoveCalls { get; private set; }
         public int CopyCalls { get; private set; }
-        public Task MoveAsync(string sourcePath, string destinationPath, bool overwrite = false) { MoveCalls++; return Task.CompletedTask; }
-        public Task CopyAsync(string sourcePath, string destinationDirectory) { CopyCalls++; return Task.CompletedTask; }
+        public List<(string Source, string Destination)> MoveRequests { get; } = [];
+        public List<(string Source, string Destination)> CopyRequests { get; } = [];
+        public Task MoveAsync(string sourcePath, string destinationPath, bool overwrite = false)
+        {
+            MoveCalls++;
+            MoveRequests.Add((sourcePath, destinationPath));
+            return Task.CompletedTask;
+        }
+        public Task CopyAsync(string sourcePath, string destinationDirectory)
+        {
+            CopyCalls++;
+            CopyRequests.Add((sourcePath, destinationDirectory));
+            return Task.CompletedTask;
+        }
         public string GetParentPath(string path) => Path.GetDirectoryName(path) ?? "";
         public string CombinePath(string directory, string name) => Path.Combine(directory, name);
         public IReadOnlyList<string> GetVolumes() => [];

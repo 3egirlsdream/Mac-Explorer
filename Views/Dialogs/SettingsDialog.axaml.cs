@@ -107,6 +107,8 @@ public partial class SettingsDialog : DialogWindow
         HideDotFilesToggle.IsChecked = ViewModel.HideDotFiles;
         HideDotFoldersToggle.IsChecked = ViewModel.HideDotFolders;
         FastFileListToggle.IsChecked = ViewModel.UseFastFileList;
+        ConfirmBeforeTrashToggle.IsChecked = ViewModel.ConfirmBeforeTrash;
+        DoubleClickEmptyAreaGoUpToggle.IsChecked = ViewModel.DoubleClickEmptyAreaGoUp;
         UsernameSettingLabel.Text = ViewModel.UserName;
 
         _sidebarToggles.Clear();
@@ -137,6 +139,18 @@ public partial class SettingsDialog : DialogWindow
     {
         if (!_initializing && ViewModel != null)
             ViewModel.UseFastFileList = FastFileListToggle.IsChecked == true;
+    }
+
+    private void OnConfirmBeforeTrashChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_initializing && ViewModel != null)
+            ViewModel.ConfirmBeforeTrash = ConfirmBeforeTrashToggle.IsChecked == true;
+    }
+
+    private void OnDoubleClickEmptyAreaGoUpChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_initializing && ViewModel != null)
+            ViewModel.DoubleClickEmptyAreaGoUp = DoubleClickEmptyAreaGoUpToggle.IsChecked == true;
     }
 
     private void LoadSearchLocations()
@@ -712,14 +726,20 @@ public partial class SettingsDialog : DialogWindow
         SetUpdateState(UpdateState.Checking, "正在连接更新服务器...");
         try
         {
-            _availableVersion = await _appUpdateService.CheckVersionAsync(_updateCancellation.Token);
-            if (_availableVersion == null)
+            var details = await _appUpdateService.GetVersionDetailsAsync(_updateCancellation.Token);
+            if (_updateCancellation.IsCancellationRequested) return;
+            var hasUpdate = details != null
+                && Services.Impl.AppUpdateService.TryParseVersion(details.Version, out var latest)
+                && Services.Impl.AppUpdateService.TryParseVersion(_appUpdateService.CurrentVersion, out var current)
+                && latest > current;
+            if (!hasUpdate)
             {
                 SetUpdateState(UpdateState.NoUpdate, "当前已是最新版本");
+                if (details != null) DisplayChangelog(details);
             }
             else
             {
-                DisplayAvailableUpdate(_availableVersion);
+                DisplayAvailableUpdate(details!);
             }
         }
         catch (OperationCanceledException) when (_updateCancellation.IsCancellationRequested)
@@ -744,6 +764,25 @@ public partial class SettingsDialog : DialogWindow
     {
         _availableVersion = version;
         SetUpdateState(UpdateState.UpdateAvailable, $"发现新版本 {version.Version}");
+        DisplayChangelog(version);
+    }
+
+    private void DisplayChangelog(VersionInfo version)
+    {
+        if (version.History is { } history)
+        {
+            ChangelogTitle.Text = $"更新日志 · 当前版本 {_appUpdateService.CurrentVersion} · 最新版本 {version.Version}";
+            ChangelogText.Text = string.Join("\n\n────────────\n\n", history.Select(release =>
+            {
+                var date = DateTime.TryParse(release.DateTime, out var parsed) ? parsed.ToString("yyyy-MM-dd") : release.DateTime;
+                var label = release.Version == _appUpdateService.CurrentVersion ? "（当前版本）" : "";
+                var title = $"版本 {release.Version}{label}" + (string.IsNullOrWhiteSpace(date) ? "" : $" · {date}");
+                return title + "\n\n" + (string.IsNullOrWhiteSpace(release.Memo) ? "此版本暂无更新日志。" : release.Memo);
+            }));
+            if (history.Count == 0) ChangelogText.Text = "服务器暂无当前版本的更新日志。";
+            ChangelogBorder.IsVisible = true;
+            return;
+        }
         var releaseDate = DateTime.TryParse(version.DateTime, out var parsedDate)
             ? parsedDate.ToString("yyyy-MM-dd")
             : version.DateTime;

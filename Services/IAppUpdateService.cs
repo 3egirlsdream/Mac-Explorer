@@ -15,6 +15,9 @@ public interface IAppUpdateService
     /// </summary>
     Task<VersionInfo?> CheckVersionAsync(CancellationToken ct = default);
 
+    /// <summary>Returns the latest release and history, including when already up to date.</summary>
+    Task<VersionInfo?> GetVersionDetailsAsync(CancellationToken ct = default);
+
     /// <summary>
     /// Downloads the update zip, extracts it, and triggers install+restart.
     /// Reports progress as (percentage 0-100, status text).

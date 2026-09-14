@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Net.Http.Json;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
@@ -13,6 +15,78 @@ namespace MacExplorer.Tests;
 
 public class AppUpdateTests
 {
+    [Fact]
+    public async Task DetailsIncludeCurrentVersionHistoryEvenWhenNoUpdateIsAvailable()
+    {
+        var handler = new UpdateResponseHandler();
+        using var http = new HttpClient(handler);
+        var service = new AppUpdateService(http);
+        var memo = "feat: 标题\n\n  - 正文\n\n" + new string('长', 5000);
+        handler.Version = new VersionInfo
+        {
+            Version = service.CurrentVersion, Memo = memo,
+            History = [new VersionInfo { Version = service.CurrentVersion, Memo = memo }]
+        };
+        var details = await service.GetVersionDetailsAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("CurrentVersion=" + Uri.EscapeDataString(service.CurrentVersion), handler.LastUri!.Query);
+        Assert.Equal(memo, Assert.Single(details!.History!).Memo);
+        Assert.Null(await service.CheckVersionAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData("999.0.0", true)]
+    [InlineData("0.0.0", false)]
+    public async Task LegacyBackendStillSupportsUpdateDetection(string latest, bool expected)
+    {
+        using var http = new HttpClient(new UpdateResponseHandler { Version = new VersionInfo { Version = latest, Memo = "旧接口日志" } });
+        var service = new AppUpdateService(http);
+        var details = await service.GetVersionDetailsAsync(TestContext.Current.CancellationToken);
+        Assert.Null(details!.History);
+        Assert.Equal(expected, await service.CheckVersionAsync(TestContext.Current.CancellationToken) != null);
+    }
+
+    [AvaloniaFact]
+    public void AlreadyLatestShowsCurrentReleaseMemoWithoutOfferingInstallation()
+    {
+        var service = new FailingUpdateService();
+        service.Details = new VersionInfo
+        {
+            Version = service.CurrentVersion,
+            History = [new VersionInfo { Version = service.CurrentVersion, Memo = "完整当前版本日志\n\n  - 详细内容" }]
+        };
+        var dialog = new SettingsDialog(new DefaultAppServiceStub(), new SettingsServiceStub(), new ThemeServiceStub(),
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), service);
+        var button = dialog.FindControl<Button>("UpdateButton")!;
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.Equal("检查更新", button.Content);
+        Assert.Contains("当前已是最新版本", dialog.FindControl<TextBlock>("UpdateStatus")!.Text);
+        Assert.Contains(service.Details.History[0].Memo, dialog.FindControl<TextBlock>("ChangelogText")!.Text);
+        Assert.True(dialog.FindControl<Border>("ChangelogBorder")!.IsVisible);
+        Assert.Equal(0, service.InstallAttempts);
+    }
+
+    [AvaloniaFact]
+    public void StartupUpdateDisplaysAllReleaseSectionsAndUntruncatedBodies()
+    {
+        var service = new FailingUpdateService();
+        var dialog = new SettingsDialog(new DefaultAppServiceStub(), new SettingsServiceStub(), new ThemeServiceStub(),
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), service);
+        var memo = "详细正文\n\n" + new string('长', 5000);
+        dialog.ShowAvailableUpdate(new VersionInfo
+        {
+            Version = "1.0.20",
+            History = [new VersionInfo { Version = "1.0.20", Memo = memo },
+                new VersionInfo { Version = "1.0.19", Memo = "中间版本" },
+                new VersionInfo { Version = "1.0.18", Memo = "已安装版本" }]
+        });
+        var text = dialog.FindControl<TextBlock>("ChangelogText")!.Text!;
+        Assert.Contains(memo, text);
+        Assert.True(text.IndexOf("1.0.20", StringComparison.Ordinal) < text.IndexOf("1.0.19", StringComparison.Ordinal));
+        Assert.Contains("版本 1.0.18（当前版本）", text);
+        Assert.Equal("立即更新", dialog.FindControl<Button>("UpdateButton")!.Content);
+        Assert.Equal(0, service.InstallAttempts);
+    }
+
     [AvaloniaFact]
     public void StartupUpdateOpensAboutPageWithoutDownloading()
     {
@@ -134,12 +208,16 @@ public class AppUpdateTests
 
         public string CurrentVersion => "1.0.18";
 
-        public Task<VersionInfo?> CheckVersionAsync(CancellationToken ct = default) =>
-            Task.FromResult<VersionInfo?>(new VersionInfo
+        public Task<VersionInfo?> GetVersionDetailsAsync(CancellationToken ct = default) => CheckVersionAsync(ct);
+
+        public VersionInfo Details { get; set; } = new VersionInfo
             {
                 Version = "1.0.19",
                 Path = "https://example.com/update.zip",
-            });
+            };
+
+        public Task<VersionInfo?> CheckVersionAsync(CancellationToken ct = default) =>
+            Task.FromResult<VersionInfo?>(Details);
 
         public Task DownloadAndInstallAsync(
             VersionInfo versionInfo,
@@ -149,6 +227,20 @@ public class AppUpdateTests
             InstallAttempts++;
             progress?.Report((100, "正在校验更新包..."));
             return Task.FromException(new InvalidOperationException("模拟签名校验失败"));
+        }
+    }
+
+    private sealed class UpdateResponseHandler : HttpMessageHandler
+    {
+        public VersionInfo Version { get; set; } = new();
+        public Uri? LastUri { get; private set; }
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            LastUri = request.RequestUri;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new VersionCheckResponse { Success = true, Data = Version })
+            });
         }
     }
 

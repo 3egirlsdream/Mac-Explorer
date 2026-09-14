@@ -33,4 +33,8 @@ public class VersionInfo
 
     [JsonPropertyName("VERSION")]
     public string Version { get; set; } = "";
+
+    // Null means an older backend returned only the latest release.
+    [JsonPropertyName("HISTORY")]
+    public List<VersionInfo>? History { get; set; }
 }

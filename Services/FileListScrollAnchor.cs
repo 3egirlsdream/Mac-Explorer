@@ -1,4 +1,5 @@
 using MacExplorer.Models;
+using MacExplorer.ViewModels;
 
 namespace MacExplorer.Services;
 
@@ -24,3 +25,7 @@ public sealed record FileListScrollAnchor(
         return Math.Clamp(double.IsFinite(offset) ? offset : 0, 0, max);
     }
 }
+
+internal sealed record FileListTabViewState(
+    string Path, ViewMode ViewMode, GroupField GroupField,
+    FileListScrollAnchor? Anchor, double OffsetX, double OffsetY, string? FocusedPath);
