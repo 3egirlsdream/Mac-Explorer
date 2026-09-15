@@ -1,36 +1,44 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>插件开发者中心 · Mac Explorer</title><link rel="stylesheet" href="developer.css"><script type="module" src="developer.js?v=2"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>插件开发者中心 · Mac Explorer</title><link rel="stylesheet" href="developer.css?v=3"><script type="module" src="developer.js?v=3"></script></head>
 <body>
 <header><a href="../" class="brand">Mac Explorer <span>开发者中心</span></a><a href="../plugins.md">开发文档 ↗</a></header>
 <main>
-<section class="intro"><p class="eyebrow">MAC EXPLORER / PLUGINS</p><h1>让文件，多一种可能。</h1><p>发布你的文件处理插件，让用户从右键菜单开始使用。</p></section>
+<section class="intro"><h1>插件管理</h1></section>
 <div class="workspace">
 <aside class="account-panel">
-<div class="section-title"><span class="step">01</span><h2>开发者账号</h2></div>
+<div class="section-title"><h2>账号</h2></div>
 <div id="signed-out">
 <div class="tabs" role="tablist" aria-label="账号操作"><button type="button" data-mode="login" role="tab" aria-selected="true">登录</button><button type="button" data-mode="register" role="tab" aria-selected="false">注册</button></div>
 <form id="account-form">
-<label>邮箱<input id="email" type="email" autocomplete="username" required maxlength="254"></label>
+<label><span id="account-label">用户名或邮箱</span><input id="email" type="text" autocomplete="username" required maxlength="254"></label>
 <label id="name-field" hidden>展示名称<input id="display-name" autocomplete="nickname" maxlength="100"></label>
-<label>密码<input id="password" type="password" autocomplete="current-password" required minlength="6" maxlength="128"></label>
+<label>密码<input id="password" type="password" autocomplete="current-password" required minlength="1" maxlength="128"></label>
 <label id="confirm-field" hidden>确认密码<input id="confirm-password" type="password" autocomplete="new-password"></label>
 <label id="code-field" hidden>邮箱验证码<div class="code-row"><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12"><button type="button" id="send-code">发送验证码</button></div></label>
 <button class="primary full" id="submit-account" type="submit">登录</button>
 <button id="recover" class="text-button" type="button">忘记密码？</button>
 </form></div>
-<div id="signed-in" hidden><p id="identity" class="identity"></p><p id="verified-label" class="muted"></p><div id="verify-panel" hidden><label>邮箱验证码<input id="verify-code" inputmode="numeric" autocomplete="one-time-code"></label><div class="button-row"><button id="verify-send" type="button">发送验证码</button><button id="verify-email" type="button">验证邮箱</button></div></div><button id="logout" class="text-button">退出登录</button></div>
+<div id="signed-in" hidden><p id="identity" class="identity"></p><p id="verified-label" class="muted"></p><div id="verify-panel" hidden><label>验证邮箱<input id="verification-email" type="email" autocomplete="email" maxlength="254"></label><label>邮箱验证码<input id="verify-code" inputmode="numeric" autocomplete="one-time-code"></label><div class="button-row"><button id="verify-send" type="button">发送验证码</button><button id="verify-email" type="button">验证邮箱</button></div></div><button id="logout" class="text-button">退出登录</button></div>
 <p id="account-message" role="status" aria-live="polite"></p>
-<div class="account-note">与你的轻影 / Watermark 账号通用。验证邮箱后，即可发布自己的插件。</div>
+
 </aside>
 <section class="publish-panel">
-<div class="section-title"><span class="step">02</span><h2>发布插件</h2><span class="badge">.mexplug</span></div>
-<label class="file-drop" for="package"><strong>选择插件包</strong><span>支持 .mexplug · 最大 512 MB</span><input id="package" type="file" accept=".mexplug"></label>
+<div class="section-title"><h2>发布插件</h2><span class="badge">.mexplug</span></div>
+<label class="file-drop" id="file-drop" for="package">
+<input id="package" type="file" accept=".mexplug" aria-label="选择插件包" aria-describedby="file-hint">
+<span class="upload-icon"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M18.2498 3.50962C18.664 3.50974 19 3.17405 19 2.75984C19 2.34563 18.6644 2.00974 18.2502 2.00962L5.25022 2.00586C4.836 2.00574 4.5 2.34143 4.5 2.75564C4.5 3.16986 4.83557 3.50574 5.24978 3.50586L18.2498 3.50962ZM11.6482 21.9978L11.75 22.0047C12.1297 22.0047 12.4435 21.7225 12.4932 21.3564L12.5 21.2547L12.499 7.56968L16.2208 11.29C16.4871 11.5562 16.9038 11.5804 17.1974 11.3625L17.2815 11.2899C17.5477 11.0236 17.5719 10.6069 17.354 10.3133L17.2814 10.2292L12.2837 5.23262C12.0176 4.96653 11.6012 4.94223 11.3076 5.15979L11.2235 5.23232L6.22003 10.2289C5.92694 10.5216 5.92661 10.9965 6.21931 11.2896C6.48539 11.556 6.90204 11.5805 7.1958 11.3629L7.27997 11.2903L10.999 7.57668L11 21.2547C11 21.6344 11.2822 21.9482 11.6482 21.9978Z" fill="currentColor"/>
+</svg>
+</span>
+<strong id="file-title">拖入插件包</strong><span id="file-hint">.mexplug · 最大 512 MB</span>
+<span class="file-picker" id="file-picker">选择文件</span>
+</label>
 <div id="preview" hidden><h3 id="plugin-name"></h3><p id="plugin-description"></p><dl id="plugin-meta"></dl></div>
-<div class="publish-footer"><p class="muted">校验通过后自动上架。已发布的版本不可覆盖。</p><button class="primary" id="publish" disabled>上传并发布</button></div>
+<div class="publish-footer"><p class="muted"></p><button class="primary" id="publish" disabled>上传并发布</button></div>
 <progress id="upload-progress" max="100" value="0" hidden aria-label="上传进度"></progress><p id="upload-message" role="status" aria-live="polite"></p>
 </section>
 </div>
-<section class="mine"><div class="section-title"><span class="step">03</span><h2>我的插件</h2><button id="refresh-mine" class="text-button">刷新</button></div><div id="my-plugins"><p class="muted">登录后查看你发布的插件。</p></div></section>
-</main><footer>Mac Explorer · 插件账号与付费体验由各开发者提供。</footer>
+<section class="mine"><div class="section-title"><h2>我的插件</h2><button id="refresh-mine" class="text-button">刷新</button></div><div id="my-plugins"><p class="muted">登录后查看</p></div></section>
+</main><footer>Mac Explorer</footer>
 </body></html>
