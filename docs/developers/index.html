@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>插件开发者中心 · Mac Explorer</title><link rel="stylesheet" href="developer.css"><script type="module" src="developer.js?v=2"></script></head>
+<body>
+<header><a href="../" class="brand">Mac Explorer <span>开发者中心</span></a><a href="../plugins.md">开发文档 ↗</a></header>
+<main>
+<section class="intro"><p class="eyebrow">MAC EXPLORER / PLUGINS</p><h1>让文件，多一种可能。</h1><p>发布你的文件处理插件，让用户从右键菜单开始使用。</p></section>
+<div class="workspace">
+<aside class="account-panel">
+<div class="section-title"><span class="step">01</span><h2>开发者账号</h2></div>
+<div id="signed-out">
+<div class="tabs" role="tablist" aria-label="账号操作"><button type="button" data-mode="login" role="tab" aria-selected="true">登录</button><button type="button" data-mode="register" role="tab" aria-selected="false">注册</button></div>
+<form id="account-form">
+<label>邮箱<input id="email" type="email" autocomplete="username" required maxlength="254"></label>
+<label id="name-field" hidden>展示名称<input id="display-name" autocomplete="nickname" maxlength="100"></label>
+<label>密码<input id="password" type="password" autocomplete="current-password" required minlength="6" maxlength="128"></label>
+<label id="confirm-field" hidden>确认密码<input id="confirm-password" type="password" autocomplete="new-password"></label>
+<label id="code-field" hidden>邮箱验证码<div class="code-row"><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12"><button type="button" id="send-code">发送验证码</button></div></label>
+<button class="primary full" id="submit-account" type="submit">登录</button>
+<button id="recover" class="text-button" type="button">忘记密码？</button>
+</form></div>
+<div id="signed-in" hidden><p id="identity" class="identity"></p><p id="verified-label" class="muted"></p><div id="verify-panel" hidden><label>邮箱验证码<input id="verify-code" inputmode="numeric" autocomplete="one-time-code"></label><div class="button-row"><button id="verify-send" type="button">发送验证码</button><button id="verify-email" type="button">验证邮箱</button></div></div><button id="logout" class="text-button">退出登录</button></div>
+<p id="account-message" role="status" aria-live="polite"></p>
+<div class="account-note">与你的轻影 / Watermark 账号通用。验证邮箱后，即可发布自己的插件。</div>
+</aside>
+<section class="publish-panel">
+<div class="section-title"><span class="step">02</span><h2>发布插件</h2><span class="badge">.mexplug</span></div>
+<label class="file-drop" for="package"><strong>选择插件包</strong><span>支持 .mexplug · 最大 512 MB</span><input id="package" type="file" accept=".mexplug"></label>
+<div id="preview" hidden><h3 id="plugin-name"></h3><p id="plugin-description"></p><dl id="plugin-meta"></dl></div>
+<div class="publish-footer"><p class="muted">校验通过后自动上架。已发布的版本不可覆盖。</p><button class="primary" id="publish" disabled>上传并发布</button></div>
+<progress id="upload-progress" max="100" value="0" hidden aria-label="上传进度"></progress><p id="upload-message" role="status" aria-live="polite"></p>
+</section>
+</div>
+<section class="mine"><div class="section-title"><span class="step">03</span><h2>我的插件</h2><button id="refresh-mine" class="text-button">刷新</button></div><div id="my-plugins"><p class="muted">登录后查看你发布的插件。</p></div></section>
+</main><footer>Mac Explorer · 插件账号与付费体验由各开发者提供。</footer>
+</body></html>
