@@ -51,7 +51,11 @@ public partial class SettingsDialog
                 TextWrapping = TextWrapping.Wrap
             };
             status.Classes.Add("settings-description");
-            var details = new StackPanel { Spacing = 6, Children = { name, status } };
+            var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
+            name.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+            name.TextWrapping = TextWrapping.Wrap;
+            header.Children.Add(name);
+            var details = new StackPanel { Spacing = 4, Children = { header, status } };
             if (!string.IsNullOrEmpty(plugin.SupportedTypes))
             {
                 var types = new TextBlock { Text = "支持：" + plugin.SupportedTypes, TextWrapping = TextWrapping.Wrap };
@@ -62,11 +66,13 @@ public partial class SettingsDialog
             var actions = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal };
             if (!plugin.Removed)
             {
-                var enabled = new ToggleSwitch { IsChecked = plugin.Enabled, Content = "启用", Margin = new Thickness(0, 0, 12, 0) };
+                var enabled = new ToggleSwitch { IsChecked = plugin.Enabled, MinHeight = 36, Padding = new Thickness(0) };
+                Avalonia.Automation.AutomationProperties.SetName(enabled, "启用 " + plugin.Manifest.Name);
+                Grid.SetColumn(enabled, 1);
                 enabled.Classes.Add("settings-toggle");
                 enabled.IsCheckedChanged += async (_, _) => await RunPluginActionAsync(() => _plugins.SetEnabledAsync(plugin.Manifest.Id, enabled.IsChecked == true));
-                actions.Children.Add(enabled);
-                var uninstall = new Button { Content = "卸载", Margin = new Thickness(0, 0, 8, 0) };
+                header.Children.Add(enabled);
+                var uninstall = new Button { Content = "卸载" };
                 uninstall.Click += async (_, _) => await RunPluginActionAsync(() => _plugins.UninstallAsync(plugin.Manifest.Id));
                 actions.Children.Add(uninstall);
             }
@@ -115,8 +121,14 @@ public partial class SettingsDialog
                 cancel.Click += async (_, _) => await RunPluginActionAsync(() => _plugins.CancelAsync(plugin.Manifest.Id));
                 actions.Children.Add(cancel);
             }
+            foreach (var button in actions.Children.OfType<Button>())
+            {
+                button.Classes.Add("secondary");
+                button.Classes.Add("plugin-action");
+                button.Margin = new Thickness(0, 6, 6, 0);
+            }
             details.Children.Add(actions);
-            var card = new Border { Padding = new Thickness(16), Child = details };
+            var card = new Border { Padding = new Thickness(12), Child = details };
             card.Classes.Add("settings-group"); PluginRows.Children.Add(card);
         }
     }
@@ -124,6 +136,7 @@ public partial class SettingsDialog
     private async Task RunPluginActionAsync(Func<Task> action)
     {
         try { await action(); if (!_pluginsClosed) PluginStatusText.Text = ""; }
+        catch (OperationCanceledException) { if (!_pluginsClosed) PluginStatusText.Text = "已取消"; }
         catch (Exception ex) { if (!_pluginsClosed) PluginStatusText.Text = ex.Message; }
         finally { if (!_pluginsClosed) RenderPlugins(); }
     }
