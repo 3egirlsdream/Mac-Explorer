@@ -1141,8 +1141,9 @@ public sealed partial class FileListViewModelCreateTests
         IArchiveService? archiveService = null,
         IFileTagService? fileTagService = null,
         IClipboardService? clipboardService = null,
-        IFileConversionService? fileConversionService = null,
-        IContextMenuService? contextMenuService = null)
+        MacExplorer.Services.Plugins.PluginManager? pluginManager = null,
+        IContextMenuService? contextMenuService = null,
+        IApplicationLauncherService? launcherService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1168,12 +1169,13 @@ public sealed partial class FileListViewModelCreateTests
             writer,
             new IndexConfiguration(),
             settingsService: settingsService,
+            launcherService: launcherService,
             contextMenuService: contextMenuService,
             thumbnailService: thumbnailService,
             directoryChangeNotifier: directoryChangeNotifier,
             fileTagService: fileTagService,
             clipboardService: clipboardService,
-            fileConversionService: fileConversionService);
+            pluginManager: pluginManager);
     }
 
     private sealed class FakeFileService(string homeDirectory) : IFileService

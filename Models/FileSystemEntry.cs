@@ -17,6 +17,10 @@ public class FileSystemEntry : INotifyPropertyChanged
     public string FullPath { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public bool IsDirectory { get; init; }
+    // Preserve physical directory semantics for recursive copy/delete operations.
+    public bool IsApplication => IsDirectory && !IsVirtual && Path.IsPathRooted(FullPath)
+        && Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase);
+    public bool IsFolder => IsDirectory && !IsApplication;
     public long Size { get; init; }
     public DateTime LastModified { get; init; }
     public DateTime Created { get; init; }
@@ -90,11 +94,11 @@ public class FileSystemEntry : INotifyPropertyChanged
 
     // Value descriptors keep icon invalidation independent of selection, cut and Git
     // notifications. These properties perform no I/O and do not own UI resources.
-    public FileIconSource DetailsIconSource => new(IconKey, Extension, IsDirectory, IconUrl);
-    public FileIconSource GridIconSource => new(IconKey, Extension, IsDirectory, string.IsNullOrWhiteSpace(ThumbnailUrl) ? IconUrl : ThumbnailUrl);
+    public FileIconSource DetailsIconSource => new(IsApplication ? "app-bundle" : IconKey, Extension, IsFolder, IconUrl);
+    public FileIconSource GridIconSource => new(IsApplication ? "app-bundle" : IconKey, Extension, IsFolder, string.IsNullOrWhiteSpace(ThumbnailUrl) ? IconUrl : ThumbnailUrl);
     public string ModifiedText => _modifiedText ??= LastModified.ToString("yyyy-MM-dd HH:mm");
 
-    public string DisplayName => IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
+    public string DisplayName => IsApplication || IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
     public string IconDisplayName => AbbreviateForIconView(DisplayName);
     public string FormattedSize => IsVirtual ? $"{VirtualItemCount} 项" : FormatSize(Size, IsDirectory);
     public string KindText => IsVirtual ? VirtualFolderType switch
@@ -106,7 +110,7 @@ public class FileSystemEntry : INotifyPropertyChanged
         "location" => "地点",
         "date" => "日期",
         _ => "AI 分类"
-    } : IconKey == "app-bundle" ? "应用程序"
+    } : IsApplication || IconKey == "app-bundle" ? "应用程序"
       : IsDirectory ? "文件夹"
       : Extension.TrimStart('.').ToUpperInvariant();
     public string VirtualCountText => IsVirtual ? $"{VirtualItemCount} 张照片" : string.Empty;

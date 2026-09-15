@@ -1,0 +1,1 @@
+{"id":"example.account-plugin","name":"账号与试用示例","version":"1.0.0","apiVersion":2,"entry":"AccountPlugin.dll","icon":"document","description":"仅供开发与测试：演示插件自有窗口、授权检查和宿主试用记录。模拟购买不产生真实交易。","paid":true,"trialDays":7,"hasUserInterface":true,"platform":"osx","architecture":"arm64","commands":[{"id":"copy","title":"生成文本副本","icon":"document","match":{"extensions":[".txt"]}}]}

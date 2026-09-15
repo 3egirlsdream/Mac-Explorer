@@ -1,0 +1,33 @@
+using System.Diagnostics;
+using MacExplorer.PluginSdk;
+
+namespace PluginTestFixture;
+
+public sealed class TestPlugin : IFileActionPlugin
+{
+    public Task<PluginPreparation> PrepareAsync(PluginInvocation invocation, CancellationToken cancellationToken) => Task.FromResult(new PluginPreparation());
+    public async Task<PluginResult> ExecuteAsync(PluginInvocation invocation, IProgress<PluginProgress> progress, CancellationToken cancellationToken)
+    {
+        progress.Report(new("fixture-started", 1));
+        if (invocation.CommandId == "crash") Environment.Exit(23);
+        if (invocation.CommandId == "invalid-wire")
+        {
+            using var output = new StreamWriter(Console.OpenStandardOutput());
+            await output.WriteLineAsync("not-json"); await output.FlushAsync();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        if (invocation.CommandId is "hang" or "helper" or "crash-helper")
+        {
+            using var helper = Process.Start(new ProcessStartInfo("/bin/sleep", "60") { UseShellExecute = false })!;
+            using var track = PluginChildProcesses.Track(helper);
+            await File.WriteAllTextAsync(Path.Combine(invocation.WorkDirectory, "helper.pid"), helper.Id.ToString(), cancellationToken);
+            if (invocation.CommandId == "crash-helper") Environment.Exit(24);
+            try { await Task.Delay(Timeout.Infinite, invocation.CommandId == "hang" ? CancellationToken.None : cancellationToken); }
+            finally { PluginChildProcesses.KillAll(); }
+        }
+        if (invocation.CommandId == "cancel") await Task.Delay(Timeout.Infinite, cancellationToken);
+        var path = Path.Combine(invocation.WorkDirectory, "result.txt");
+        await File.WriteAllTextAsync(path, Environment.ProcessId.ToString(), cancellationToken);
+        return new([new(path, "result.txt")], []);
+    }
+}

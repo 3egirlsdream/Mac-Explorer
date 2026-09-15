@@ -618,7 +618,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         {
             using var transform = context.PushTransform(Matrix.CreateScale(bounds.Width / 24, bounds.Height / 24)
                 * Matrix.CreateTranslation(bounds.X, bounds.Y));
-            context.DrawGeometry(Secondary, null, entry.IsDirectory ? _folderFallback : _fileFallback);
+            context.DrawGeometry(Secondary, null, entry.IsFolder ? _folderFallback : _fileFallback);
         }
         if (!entry.HasGitBadge) return;
         var badgeSize = IsGrid ? 16 : 10;

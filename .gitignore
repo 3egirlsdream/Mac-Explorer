@@ -13,3 +13,6 @@ index.db-wal
 .claude
 .codegraph
 artifacts
+
+__pycache__/
+*.pyc

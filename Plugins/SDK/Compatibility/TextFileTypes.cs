@@ -1,6 +1,6 @@
 namespace MacExplorer.Services;
 
-internal static class TextFileTypes
+public static class TextFileTypes
 {
     private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
     {

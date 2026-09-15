@@ -8,7 +8,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
     <ApplicationId>com.macexplorer.app</ApplicationId>
-    <Version>1.0.43</Version>
+    <Version>1.0.44</Version>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -20,7 +20,8 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" Exclude="Assets\*.cs;Assets\*.axaml" />
-    <EmbeddedResource Include="Resources/Conversion/*" />
+    <Compile Remove="Plugins/**/*.cs" />
+    <Compile Remove="Tools/PluginTestFixture/**/*.cs" />
     <Compile Remove="Tests/**/*.cs" />
     <Compile Remove="Tools/Performance/FastListBench/**/*.cs" />
     <Compile Remove="Tools/GlassDemo/**/*.cs" />
@@ -28,6 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="Plugins/UI/MacExplorer.PluginUi.csproj" />
+    <ProjectReference Include="Plugins/SDK/MacExplorer.PluginSdk.csproj" />
+    <ProjectReference Include="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="ThirdParty/LiquidGlassAvaloniaUI/LiquidGlassAvaloniaUI.csproj" />
     <None Update="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" TargetPath="LiquidGlassAvaloniaUI.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
@@ -46,8 +50,6 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
-    <PackageReference Include="Markdig" Version="1.3.2" />
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.1" />
     <PackageReference Include="Svg.Skia" Version="5.0.0" />
     <PackageReference Include="SSH.NET" Version="2025.0.0" />
   </ItemGroup>
@@ -61,8 +63,12 @@
     <Exec Command="clang++ -fobjc-arc -dynamiclib 'Platforms/MacOS/NativeFileDrag.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
-  <Target Name="BuildMacOSFileConversionHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="xcrun swiftc -O 'Platforms/MacOS/FileConversionHelper.swift' -framework AppKit -framework WebKit -framework ImageIO -framework UniformTypeIdentifiers -o '$(OutputPath)MacExplorer.FileConversion'" />
+  <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">
+    <PropertyGroup>
+      <_ConversionPluginOutput>$(MSBuildProjectDirectory)/Plugins/FileConversion/bin/$(Configuration)/net10.0/osx-arm64/</_ConversionPluginOutput>
+    </PropertyGroup>
+    <MakeDir Directories="$(OutputPath)BundledPlugins" />
+    <ZipDirectory SourceDirectory="$(_ConversionPluginOutput)" DestinationFile="$(OutputPath)BundledPlugins/FileConversion.mexplug" Overwrite="true" />
   </Target>
 
   <Target Name="BuildMacOSThumbnailHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
@@ -122,13 +128,15 @@
       <_NativeHelpers Include="$(OutputPath)MacExplorer.ImageAnalysis" />
       <_NativeHelpers Include="$(OutputPath)libMacExplorerNativeDrag.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.Thumbnail" />
-      <_NativeHelpers Include="$(OutputPath)MacExplorer.FileConversion" />
+      <_PluginPackages Include="$(OutputPath)BundledPlugins/*.mexplug" />
       <_RuntimeArtwork Include="$(OutputPath)MacExplorer.Folder.png" />
     </ItemGroup>
     <Copy SourceFiles="@(_BundleFiles)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_NativeLibs)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_NativeHelpers)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_RuntimeArtwork)" DestinationFolder="$(_MacOSDir)" Condition="Exists('%(Identity)')" />
+
+    <Copy SourceFiles="@(_PluginPackages)" DestinationFolder="$(_MacOSDir)/BundledPlugins" />
 
     <!-- Codesign (ad-hoc) so the bundle is not quarantined (deep signs all embedded binaries). -->
     <Exec Command="codesign --force --deep --sign - '$(_AppBundleDir)'" />

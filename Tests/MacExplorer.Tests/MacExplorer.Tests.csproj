@@ -16,5 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../MacExplorer.csproj" />
+    <ProjectReference Include="../../Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" />
+    <ProjectReference Include="../../Tools/PluginTestFixture/PluginTestFixture.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

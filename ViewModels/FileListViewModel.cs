@@ -422,7 +422,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IRemoteFileEditService? remoteFileEditService = null,
         IOpenWithAppService? openWithAppService = null,
         IFileTagService? fileTagService = null,
-        IFileConversionService? fileConversionService = null,
+        MacExplorer.Services.Plugins.PluginManager? pluginManager = null,
         IBackgroundTaskManager? conversionTaskManager = null)
     {
         _navigation = navigation;
@@ -457,7 +457,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _remoteFileEditService = remoteFileEditService;
         _openWithAppService = openWithAppService;
         _fileTagService = fileTagService;
-        _fileConversionService = fileConversionService;
+        _pluginManager = pluginManager;
+        if (_pluginManager != null) _pluginManager.Changed += OnPluginsChanged;
         _conversionTaskManager = conversionTaskManager;
         _columnLayoutService = new FileListColumnLayoutService(settingsService);
 
@@ -1358,8 +1359,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (entry.IsDirectory)
         {
             // .app bundles should be launched as applications, not navigated into
-            if (entry.IconKey == "app-bundle" && _launcherService != null)
-                await _launcherService.OpenFileAsync(entry.FullPath);
+            if (entry.IsApplication || entry.IconKey == "app-bundle")
+            {
+                if (_launcherService != null)
+                    await _launcherService.OpenFileAsync(entry.FullPath);
+            }
             else
                 await NavigateToAsync(entry.FullPath);
         }
@@ -2045,7 +2049,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             });
         }
 
-        if (entry.IsDirectory && entry.IconKey == "app-bundle" && !isRemote)
+        if (entry.IsDirectory && (entry.IsApplication || entry.IconKey == "app-bundle") && !isRemote)
         {
             actions.Add(new ContextMenuAction { Label = "显示包内容", IconSvg = Icons.Folder, Execute = () => NavigateToAsync(entry.FullPath) });
         }
@@ -2088,8 +2092,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         actions.Add(ContextMenuAction.Separator);
 
-        var conversionMenu = BuildConversionContextMenu(entry);
-        if (conversionMenu != null) actions.Add(conversionMenu);
+        actions.AddRange(BuildPluginContextMenus(entry));
 
         // Archive (skip for remote paths)
         if (!isRemote)
@@ -4130,6 +4133,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        if (_pluginManager != null) _pluginManager.Changed -= OnPluginsChanged;
+        _pluginLifetime.Cancel();
         _directoryChangeNotifier?.Unsubscribe(this);
 
         try

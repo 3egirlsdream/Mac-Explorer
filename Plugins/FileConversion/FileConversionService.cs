@@ -12,12 +12,12 @@ using Svg.Skia;
 
 namespace MacExplorer.Services.Impl;
 
-public sealed class FileConversionService : IFileConversionService
+public sealed class FileConversionService
 {
     private readonly string _helperPath;
     private readonly TimeSpan _timeout;
 
-    public FileConversionService() : this(Path.Combine(AppContext.BaseDirectory, "MacExplorer.FileConversion"), TimeSpan.FromMinutes(2)) { }
+    public FileConversionService() : this(Path.Combine(Path.GetDirectoryName(typeof(FileConversionService).Assembly.Location)!, "MacExplorer.FileConversion"), TimeSpan.FromMinutes(2)) { }
     internal FileConversionService(string helperPath, TimeSpan timeout) { _helperPath = helperPath; _timeout = timeout; }
 
     public IReadOnlyList<FileConversionFormat> GetAvailableFormats(string path)
@@ -44,7 +44,7 @@ public sealed class FileConversionService : IFileConversionService
         return new(width, height);
     }
 
-    public async Task<FileConversionResult> ConvertAsync(FileConversionRequest request, CancellationToken cancellationToken = default)
+    public async Task<FileConversionResult> ConvertAsync(FileConversionRequest request, string outputDirectory, CancellationToken cancellationToken = default)
     {
         if (!GetAvailableFormats(request.SourcePath).Contains(request.Format))
             throw new InvalidOperationException("此文件不支持所选转换格式。");
@@ -52,7 +52,7 @@ public sealed class FileConversionService : IFileConversionService
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_timeout);
         var token = timeout.Token;
-        var work = Path.Combine(Path.GetTempPath(), "MacExplorer-convert-" + Guid.NewGuid().ToString("N"));
+        var work = Path.Combine(outputDirectory, ".conversion-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(work);
         try
         {
@@ -103,7 +103,9 @@ public sealed class FileConversionService : IFileConversionService
             token.ThrowIfCancellationRequested();
             if (!File.Exists(temporaryOutput) || new FileInfo(temporaryOutput).Length == 0)
                 throw new IOException("转换未生成有效文件。");
-            var output = await CommitOutputAsync(temporaryOutput, request.SourcePath, extension, token);
+            Directory.CreateDirectory(outputDirectory);
+            var output = Path.Combine(outputDirectory, "result." + extension);
+            File.Move(temporaryOutput, output, false);
             return new(output, warnings.Distinct().ToArray());
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -177,6 +179,7 @@ public sealed class FileConversionService : IFileConversionService
         var info = new ProcessStartInfo(_helperPath) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
         using var process = Process.Start(info) ?? throw new IOException("无法启动转换组件。");
+        using var trackedProcess = MacExplorer.PluginSdk.PluginChildProcesses.Track(process);
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
         try { await process.WaitForExitAsync(timeout.Token); }
@@ -192,34 +195,6 @@ public sealed class FileConversionService : IFileConversionService
         if (process.ExitCode != 0) throw new IOException(string.IsNullOrWhiteSpace(error) ? "转换组件执行失败。" : error.Trim());
         return await stdout;
     }
-
-    private static async Task<string> CommitOutputAsync(string temporaryOutput, string source, string extension, CancellationToken token)
-    {
-        var directory = Path.GetDirectoryName(source)!;
-        // Stage on the destination volume, then rename without overwrite. A cancelled
-        // copy never exposes a partial file under the final filename.
-        var staging = Path.Combine(directory, ".MacExplorer-convert-" + Guid.NewGuid().ToString("N") + ".tmp");
-        try
-        {
-            await using (var input = File.OpenRead(temporaryOutput))
-            await using (var output = new FileStream(staging, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
-                await input.CopyToAsync(output, token);
-            var stem = Path.GetFileNameWithoutExtension(source);
-            for (var index = 1; ; index++)
-            {
-                token.ThrowIfCancellationRequested();
-                var target = Path.Combine(directory, stem + (index == 1 ? "" : " " + index) + "." + extension);
-                if (RenameExclusive(staging, target, 4 /* RENAME_EXCL */) == 0) return target;
-                var error = Marshal.GetLastPInvokeError();
-                if (error != 17 /* EEXIST */) throw new IOException("无法保存转换文件：" + new Win32Exception(error).Message);
-            }
-        }
-        finally { if (File.Exists(staging)) File.Delete(staging); }
-    }
-
-    [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "renamex_np", SetLastError = true)]
-    private static extern int RenameExclusive([MarshalAs(UnmanagedType.LPUTF8Str)] string source,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string target, uint flags);
 
     internal static (string Xml, ConversionImageSize Size) ReadSvg(string path)
     {

@@ -11,6 +11,12 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args is [MacExplorer.PluginSdk.PluginProtocol.WorkerArgument, var pluginDirectory])
+        {
+            Environment.ExitCode = Services.Plugins.PluginWorker.Run(Path.GetFullPath(pluginDirectory));
+            return;
+        }
+
         if (args is [Services.Impl.StartupUpdateChecker.WorkerArgument])
         {
             using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };

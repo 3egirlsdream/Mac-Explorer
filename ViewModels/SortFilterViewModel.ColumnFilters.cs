@@ -64,8 +64,8 @@ public partial class SortFilterViewModel
     {
         SortField.Name => GetNameRange(entry.Name),
         SortField.Modified => GetDateGroup(entry.LastModified, today),
-        SortField.Size => entry.IsDirectory ? "文件夹" : GetSizeGroup(entry.Size),
-        _ => entry.IsDirectory ? "文件夹" : string.IsNullOrEmpty(entry.Extension) ? "无后缀" : entry.Extension.ToLowerInvariant()
+        SortField.Size => entry.IsApplication ? "应用程序" : entry.IsFolder ? "文件夹" : GetSizeGroup(entry.Size),
+        _ => entry.IsApplication ? ".app" : entry.IsFolder ? "文件夹" : string.IsNullOrEmpty(entry.Extension) ? "无后缀" : entry.Extension.ToLowerInvariant()
     };
 
     private static string GetNameRange(string name)
@@ -87,11 +87,12 @@ public partial class SortFilterViewModel
 
     private static string GetFilterLabel(string key) => key switch
     {
+        ".app" => "应用程序",
         "小于 1 KB" => "小于 1 KB",
         "小于 1 MB" => "1 KB – 1 MB",
         "1-100 MB" => "1 MB – 100 MB",
         "100 MB-1 GB" => "100 MB – 1 GB",
         "大于 1 GB" => "1 GB 及以上",
-        _ => key
+        _ => key.StartsWith('.') ? key[1..].ToUpperInvariant() : key
     };
 }

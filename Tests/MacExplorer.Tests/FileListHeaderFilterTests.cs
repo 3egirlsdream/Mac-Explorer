@@ -23,6 +23,21 @@ public sealed partial class FileListViewModelCreateTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public void TypeDropdownFiltersApplicationsSeparatelyFromFolders(bool fast)
+    {
+        using var host = new HeaderFilterHost(fast, includeApplication: true);
+        host.Click("TypeFilterButton");
+        Assert.True(host.Popup.IsOpen);
+        host.Check(".app");
+        Assert.Equal(["Example.app"], host.Vm.Entries.Select(e => e.Name));
+        host.Vm.ClearColumnFilter(SortField.Type);
+        host.Check("文件夹");
+        Assert.Equal(["Folder"], host.Vm.Entries.Select(e => e.Name));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void HeaderFiltersSupportMultipleChecksFilenameAndKeyboardWithoutSorting(bool fast)
     {
         using var host = new HeaderFilterHost(fast);
@@ -134,7 +149,7 @@ public sealed partial class FileListViewModelCreateTests
         public Window Window { get; }
         public Popup Popup => View.FindControl<Popup>("ColumnFilterPopup")!;
 
-        public HeaderFilterHost(bool fast = true, double width = 900, bool dark = false)
+        public HeaderFilterHost(bool fast = true, double width = 900, bool dark = false, bool includeApplication = false)
         {
             Application.Current!.Styles.Insert(0, _theme);
             var fileService = new FakeFileService("/test");
@@ -142,8 +157,11 @@ public sealed partial class FileListViewModelCreateTests
             Navigation = new NavigationViewModel(fileService) { CurrentPath = "/test", IsHomePage = false };
             Vm = CreateViewModel(fileService, navigation: Navigation, sortFilter: sort);
             Vm.UseFastFileList = fast;
-            sort.SetRawEntries([FileColumnFilterTests.File("Alpha.txt", 2048), FileColumnFilterTests.File("Alpha.png", 4000000),
-                FileColumnFilterTests.File("Zulu.txt", 1), new FileSystemEntry { Name = "Folder", FullPath = "/test/Folder", IsDirectory = true }]);
+            var entries = new List<FileSystemEntry> { FileColumnFilterTests.File("Alpha.txt", 2048), FileColumnFilterTests.File("Alpha.png", 4000000),
+                FileColumnFilterTests.File("Zulu.txt", 1), new FileSystemEntry { Name = "Folder", FullPath = "/test/Folder", IsDirectory = true } };
+            if (includeApplication)
+                entries.Add(new FileSystemEntry { Name = "Example.app", FullPath = "/test/Example.app", Extension = ".app", IsDirectory = true });
+            sort.SetRawEntries(entries);
             sort.ApplySortAndGroup(entries => Vm.Entries = entries);
             View = new FileListView { DataContext = Vm };
             Window = new Window { Width = width, Height = 560, Content = View,

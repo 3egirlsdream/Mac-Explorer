@@ -730,7 +730,7 @@ if (!ok) {
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var appEntries = entries.Where(e => e.IconKey == "app-bundle" && e.IconUrl == null).ToList();
+        var appEntries = entries.Where(e => (e.IsApplication || e.IconKey == "app-bundle") && e.IconUrl == null).ToList();
         if (appEntries.Count == 0) return;
 
         // Build mapping: appPath → cachedPngPath (skip already cached)
@@ -739,10 +739,13 @@ if (!ok) {
         {
             cancellationToken.ThrowIfCancellationRequested();
             var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes(entry.FullPath))).Substring(0, 16).ToLowerInvariant();
+                System.Text.Encoding.UTF8.GetBytes($"v2:{entry.FullPath}:{entry.LastModified.ToUniversalTime().Ticks}"))).Substring(0, 16).ToLowerInvariant();
             var cachedPngPath = Path.Combine(_iconCacheDir, $"{hash}.png");
 
-            if (File.Exists(cachedPngPath) && new FileInfo(cachedPngPath).Length > 0)
+            // Launch Services can briefly return a placeholder while an app is being
+            // installed. Refresh cached icons so that placeholder is never permanent.
+            if (File.Exists(cachedPngPath) && new FileInfo(cachedPngPath).Length > 0
+                && File.GetLastWriteTimeUtc(cachedPngPath) > DateTime.UtcNow.AddDays(-1))
             {
                 entry.IconUrl = cachedPngPath;
             }

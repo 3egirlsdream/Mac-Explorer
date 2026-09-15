@@ -37,6 +37,7 @@ public static class FileIconRenderer
             "file-3d" => ThreeDFile(ext),
             "file-subtitle" => SubtitleFile(ext),
             "file-executable" => ExecutableFile(ext),
+            "app-bundle" => ExecutableFile("APP"),
             "file-vm" => VirtualMachineFile(ext),
             "file-vs-solution" => VsSolutionFile(),
             "file-vs-project" => VsProjectFile(ext),
