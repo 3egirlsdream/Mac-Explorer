@@ -49,7 +49,7 @@ public partial class SettingsDialog
             var m = item.Manifest;
             var installed = _plugins?.Plugins.FirstOrDefault(p => p.Manifest.Id == m.Id && !p.Removed);
             var update = installed != null && Version.TryParse(m.Version, out var available) && Version.TryParse(installed.Manifest.Version, out var current) && available > current;
-            var info = new StackPanel { Spacing = 8 };
+            var info = new StackPanel { Spacing = 4 };
             info.Children.Add(new TextBlock { Text = m.Name, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
             var pricing = !m.Paid ? "免费" : m.TrialDays > 0 ? $"付费 · 试用 {m.TrialDays} 天" : "付费";
             info.Children.Add(new TextBlock { Text = $"{m.Developer} · {m.Version}\n{pricing}", TextWrapping = TextWrapping.Wrap });
@@ -77,12 +77,18 @@ public partial class SettingsDialog
                 catch (Exception ex) { if (!_pluginsClosed) PluginMarketStatus.Text = ex.Message; }
                 finally { _marketBusy = false; if (!_pluginsClosed) RenderMarket(); }
             };
-            actions.Children.Add(details); actions.Children.Add(install); info.Children.Add(actions);
-            var card = new Border { Padding = new Thickness(14), Child = info }; card.Classes.Add("settings-group"); PluginMarketRows.Children.Add(card);
+            actions.Children.Add(details); actions.Children.Add(install);
+            foreach (var button in actions.Children.OfType<Button>())
+            {
+                button.Classes.Add("secondary"); button.Classes.Add("plugin-action");
+                button.Margin = new Thickness(0, 6, 6, 0);
+            }
+            info.Children.Add(actions);
+            var card = new Border { Padding = new Thickness(12), Child = info }; card.Classes.Add("settings-group"); PluginMarketRows.Children.Add(card);
         }
         if (_marketHasMore)
         {
-            var more = new Button { Content = "加载更多" }; more.Click += async (_, _) => await LoadMarketAsync(true); PluginMarketRows.Children.Add(more);
+            var more = new Button { Content = "加载更多" }; more.Classes.Add("secondary"); more.Classes.Add("plugin-action"); more.Click += async (_, _) => await LoadMarketAsync(true); PluginMarketRows.Children.Add(more);
         }
     }
 }
