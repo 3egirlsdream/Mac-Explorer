@@ -48,11 +48,13 @@ def publish(repo, current, archive, commit, releases):
         notes = Path(temporary) / 'notes.md'
         notes.write_text(f'# Plugin SDK {current}\n\n完整 SDK ZIP，包含基础 SDK、窗口 SDK、源码、示例与打包工具。\n\n要求：Mac Explorer {minimum_host}+、.NET 10；窗口 SDK 使用 Avalonia 12.0.4，协议 API v1/v2。\n\n源码提交：{commit}\n\nSHA-256：`{digest}`\n\n' + (Path(__file__).parent / 'CHANGELOG.md').read_text())
         if existing:
-            if existing.get('target_commitish') != commit: raise ValueError('Draft belongs to a different commit; rerun its original workflow or resolve the draft first')
+            if existing.get('target_commitish') != commit:
+                gh('release', 'edit', tag, '--repo', repo, '--target', commit)
         else:
             gh('release', 'create', tag, '--repo', repo, '--target', commit, '--title', f'Mac Explorer Plugin SDK {current}', '--notes-file', notes, '--draft', '--latest=false')
         gh('release', 'upload', tag, archive, '--repo', repo, '--clobber')
-        release = json.loads(gh('api', f'repos/{repo}/releases/tags/{tag}'))
+        release = next((r for r in list_releases(repo) if r['tag_name'] == tag), None)
+        if release is None: raise ValueError('Uploaded draft release was not found')
         if not release['draft']: raise ValueError('Release must remain a draft until verification succeeds')
         assets = release['assets']
         if len(assets) != 1 or assets[0]['name'] != expected or assets[0]['size'] != archive.stat().st_size:

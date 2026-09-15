@@ -36,7 +36,8 @@ class ReleaseTests(unittest.TestCase):
                 if args[0] == 'api' and args[1].endswith('v1.0.44'):
                     return json.dumps({'draft': False, 'prerelease': False, 'assets': [{'name': 'MacExplorer-1.0.44-macos.zip'}]})
                 if args[0] == 'api':
-                    return json.dumps({**draft, 'assets': [{'name': archive.name, 'size': archive.stat().st_size}]})
+                    self.assertIn('--paginate', args)
+                    return json.dumps([[{**draft, 'assets': [{'name': archive.name, 'size': archive.stat().st_size}]}]])
                 if args[:2] == ('release', 'download'):
                     target = Path(args[args.index('--dir') + 1]) / archive.name
                     target.write_bytes(b'broken' if corrupted else archive.read_bytes())
@@ -46,6 +47,7 @@ class ReleaseTests(unittest.TestCase):
                     sdk_release.publish('owner/repo', '1.0.0', archive, 'commit', [draft])
                 self.assertFalse(any(c[:2] == ('release', 'edit') for c in calls))
                 corrupted = False
+                draft['target_commitish'] = 'older-commit'
                 sdk_release.publish('owner/repo', '1.0.0', archive, 'commit', [draft])
                 self.assertEqual(('release', 'edit'), calls[-1][:2])
                 self.assertIn('--latest=false', calls[-1])
