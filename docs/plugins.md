@@ -12,7 +12,9 @@
 
 ## 开发
 
-引用 `Plugins/SDK/MacExplorer.PluginSdk.csproj`，实现唯一的公开、非抽象 `IFileActionPlugin` 类型及无参数构造函数。SDK 不引用 Avalonia 或主程序。启用 `EnableDynamicLoading`，将插件程序集、`.deps.json`、依赖和资源与 `plugin.json` 一起打成 ZIP，扩展名改为 `.mexplug`。原生可执行文件必须保留 Unix 执行位，并按目标平台签名。
+从[下载 SDK](developers/sdk.html)取得完整 ZIP，按包内 README 构建示例。基础 SDK 包为 `MacExplorer.PluginSdk`，可选窗口包为 `MacExplorer.PluginUi`，通过包内 NuGet.Config 使用本地包源。SDK 1.0.0 配套 Mac Explorer 1.0.44，要求 .NET 10；SDK 及示例使用 MIT，主程序许可不变。
+
+插件实现唯一的公开、非抽象 `IFileActionPlugin` 类型及无参数构造函数。SDK 不引用主程序。启用 `EnableDynamicLoading`，使用包内 `MacExplorer.PluginPack.dll` 将编译结果生成 `.mexplug`。原生可执行文件必须保留 Unix 执行位，并按目标平台签名。
 
 参考 `Plugins/FileConversion/plugin.json` 与 `ConversionPlugin.cs`。清单包含 `id`、`name`、`version`、`apiVersion: 1`、`entry`、`icon` 和 `commands`；命令包含 `id`、`title`、`icon`、`match`。图标支持 `convert`、`document`、`image`、`apps`，均由宿主提供 Fluent 图标。
 
@@ -52,13 +54,13 @@
 
 ### 插件自己的 Avalonia 窗口
 
-引用 `Plugins/UI/MacExplorer.PluginUi.csproj`，使用 `PluginWindows.ShowAsync(() => new YourWindow(), token)` 在插件进程 UI 线程创建窗口；成功后调用 `PluginWindows.Complete(window)`，普通关闭表示取消。当前 UI SDK 使用宿主提供的 Avalonia 12.0.4，不要携带不兼容版本。账号窗口不在主界面进程创建，也不能访问其窗口对象。
+引用 `MacExplorer.PluginUi` 包，使用 `PluginWindows.ShowAsync(() => new YourWindow(), token)` 在插件进程 UI 线程创建窗口；成功后调用 `PluginWindows.Complete(window)`，普通关闭表示取消。当前 UI SDK 使用宿主提供的 Avalonia 12.0.4，不要携带不兼容版本。账号窗口不在主界面进程创建，也不能访问其窗口对象。
 
 参考 `Plugins/Examples/AccountPlugin`：该插件仅模拟登录和购买，授权只在当前会话生效，不会扣款。生产插件需替换为自己的账号 API、安全保存会话并实际检查购买资格，不能把示例按钮当作生产授权。
 
 ```sh
-dotnet build Plugins/Examples/AccountPlugin/AccountPlugin.csproj -c Release
-# 将 bin/Release/net10.0 的内容（不是外层文件夹）压成 .mexplug。
+dotnet build examples/AccountPlugin/AccountPlugin.csproj -c Release --configfile NuGet.Config
+dotnet tools/MacExplorer.PluginPack.dll examples/AccountPlugin/bin/Release/net10.0 AccountPlugin.mexplug
 ```
 
 ## 市场与开发者发布

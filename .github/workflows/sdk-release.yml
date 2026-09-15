@@ -1,0 +1,47 @@
+name: Release Plugin SDK
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Plugins/SDK/**'
+      - 'Plugins/UI/**'
+      - 'Plugins/PackTool/**'
+      - 'Plugins/Examples/**'
+      - 'Tools/PluginSdk/**'
+      - 'docs/plugins.md'
+      - 'docs/developers/sdk*'
+      - '.github/workflows/sdk-release.yml'
+      - 'global.json'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: mac-explorer-plugin-sdk-release
+  cancel-in-progress: false
+jobs:
+  sdk:
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          architecture: arm64
+      - name: Check version and release rules
+        id: version
+        run: |
+          python3 -m unittest discover -s Tools/PluginSdk -p 'test_*.py' -v
+          node --test Tools/PluginSdk/test_download.mjs
+          python3 Tools/PluginSdk/sdk_release.py check
+      - name: Build complete SDK
+        run: python3 Tools/PluginSdk/build_sdk.py
+      - name: Verify outside the source tree with a clean package cache
+        run: python3 Tools/PluginSdk/verify_sdk.py 'artifacts/sdk/MacExplorer-PluginSDK-${{ steps.version.outputs.version }}.zip'
+      - name: Publish verified SDK release
+        if: steps.version.outputs.mode == 'publish'
+        run: python3 Tools/PluginSdk/sdk_release.py publish --archive 'artifacts/sdk/MacExplorer-PluginSDK-${{ steps.version.outputs.version }}.zip'
