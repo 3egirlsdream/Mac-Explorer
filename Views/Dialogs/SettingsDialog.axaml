@@ -97,6 +97,43 @@
             </ScrollViewer>
         </TabItem>
 
+        <TabItem AutomationProperties.Name="插件">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Apps}"/>
+                    <TextBlock Text="插件" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <Grid Margin="24" RowDefinitions="Auto,Auto,*" RowSpacing="14">
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="settings-title" Text="插件"/>
+                    <TextBlock Classes="settings-description" Text="插件是具有文件和网络访问能力的本地程序，请仅安装信任的插件。" TextWrapping="Wrap"/>
+                </StackPanel>
+                <TextBlock Grid.Row="1" x:Name="PluginStatusText" Classes="settings-description" TextWrapping="Wrap"/>
+                <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="18">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="已安装" FontWeight="SemiBold" FontSize="16"/>
+                            <WrapPanel>
+                                <Button Content="安装插件…" Click="OnInstallPlugin" Margin="0,0,8,8"/>
+                                <Button Content="恢复内置插件" Click="OnRestoreBuiltInPlugin" Margin="0,0,0,8"/>
+                            </WrapPanel>
+                        </StackPanel>
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="PluginRows" Spacing="12"/></ScrollViewer>
+                    </Grid>
+                    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+                        <TextBlock Text="插件市场" FontWeight="SemiBold" FontSize="16"/>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox x:Name="PluginMarketSearch" Watermark="搜索插件" KeyDown="OnMarketSearchKey"/>
+                            <Button Grid.Column="1" Content="搜索" Click="OnSearchMarket"/>
+                        </Grid>
+                        <TextBlock Grid.Row="2" x:Name="PluginMarketStatus" Classes="settings-description" TextWrapping="Wrap"/>
+                        <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="PluginMarketRows" Spacing="12"/></ScrollViewer>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </TabItem>
+
         <TabItem AutomationProperties.Name="位置">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">

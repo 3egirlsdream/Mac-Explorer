@@ -77,6 +77,8 @@ public partial class FileListViewModel
             return new ContextMenuAction
             {
                 Label = tag.Name,
+                IconSvg = Icons.Tag,
+                IconColor = tag.ColorHex,
                 IsCheckable = true,
                 IsChecked = all,
                 IsIndeterminate = count > 0 && !all,

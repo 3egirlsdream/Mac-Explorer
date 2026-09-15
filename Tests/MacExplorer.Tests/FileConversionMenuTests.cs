@@ -23,8 +23,9 @@ public sealed partial class FileListViewModelCreateTests
     [AvaloniaFact]
     public void RightPressAndReleaseOpensConversionSubmenuInFastList()
     {
+        using var plugins = new PluginTestEnvironment();
         var files = new FakeFileService("/tmp/FKFinderConversionMenu");
-        using var vm = CreateViewModel(files, sortFilter: new SortFilterViewModel { ViewMode = ViewMode.List }, fileConversionService: new FileConversionService());
+        using var vm = CreateViewModel(files, sortFilter: new SortFilterViewModel { ViewMode = ViewMode.List }, pluginManager: plugins.Manager);
         vm.Entries.Add(new FileSystemEntry { FullPath = "/tmp/FKFinderConversionMenu/document.md", Name = "document.md", Extension = ".md", IconKey = "file-markdown" });
         var view = new FileListView { DataContext = vm };
         var window = new Window { Width = 900, Height = 360, Content = view };
@@ -41,11 +42,14 @@ public sealed partial class FileListViewModelCreateTests
             Dispatcher.UIThread.RunJobs();
             var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
             Assert.True(menu.IsOpen);
-            var conversion = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "转换");
+            var conversion = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "文件转换");
             conversion.IsSubMenuOpen = true;
             Dispatcher.UIThread.RunJobs();
             Assert.True(conversion.IsSubMenuOpen);
             Assert.Equal(new[] { "转为 Word（.docx）", "转为 PDF" }, conversion.Items.OfType<MenuItem>().Select(item => item.Header?.ToString()));
+            Assert.Collection(conversion.Items.OfType<MenuItem>(),
+                item => Assert.NotNull(item.Icon),
+                item => Assert.NotNull(item.Icon));
             menu.Close();
         }
         finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
@@ -58,19 +62,20 @@ public sealed partial class FileListViewModelCreateTests
         Directory.CreateDirectory(root);
         var first = new FileSystemEntry { FullPath = Path.Combine(root, "first.md"), Name = "first.md" };
         var second = new FileSystemEntry { FullPath = Path.Combine(root, "second.md"), Name = "second.md" };
+        using var plugins = new PluginTestEnvironment();
         var files = new FakeFileService(root); files.Seed(first); files.Seed(second);
-        using var vm = CreateViewModel(files, fileConversionService: new FileConversionService());
+        using var vm = CreateViewModel(files, pluginManager: plugins.Manager);
         try
         {
             await vm.RefreshAsync();
             vm.SetSelection([first]);
             await vm.ShowFileContextMenuAsync(first, 0, 0);
-            var fast = Assert.Single(vm.ContextMenuActions, item => item.Label == "转换");
-            var complete = Assert.Single(await vm.LoadCompleteFileContextMenuAsync(first), item => item.Label == "转换");
+            var fast = Assert.Single(vm.ContextMenuActions, item => item.Label == "文件转换");
+            var complete = Assert.Single(await vm.LoadCompleteFileContextMenuAsync(first), item => item.Label == "文件转换");
             Assert.Equal(new[] { "转为 Word（.docx）", "转为 PDF" }, fast.SubItems!.Select(item => item.Label));
             Assert.Equal(fast.SubItems.Select(item => item.Label), complete.SubItems!.Select(item => item.Label));
             vm.SetSelection([first, second]);
-            Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(first), item => item.Label == "转换");
+            Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(first), item => item.Label == "文件转换");
             vm.ClearSelection();
             foreach (var entry in new[]
             {
@@ -80,7 +85,7 @@ public sealed partial class FileListViewModelCreateTests
                 new FileSystemEntry { FullPath = Path.Combine(vm.TrashPath, "file.md"), Name = "file.md" },
                 new FileSystemEntry { FullPath = Path.Combine(root, "file.png"), Name = "file.png" }
             })
-                Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "转换");
+                Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "文件转换");
         }
         finally { Directory.Delete(root, true); }
     }

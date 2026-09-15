@@ -1,0 +1,1 @@
+{"id":"example.simple-plugin","name":"文本副本示例","version":"1.0.0","apiVersion":2,"entry":"SimplePlugin.dll","icon":"document","platform":"osx","architecture":"arm64","commands":[{"id":"copy","title":"生成文本副本","icon":"document","match":{"extensions":[".txt"]}}]}

@@ -20,6 +20,56 @@ namespace MacExplorer.Tests;
 
 public sealed partial class FileListViewModelCreateTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TagMenuAlignsColoredIconsAndLabelsWithStandardItems(bool isChecked)
+    {
+        var root = Directory.CreateTempSubdirectory("FKFinder_TagIcons_");
+        using var tags = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root.FullName, "tags.db")));
+        var path = Path.Combine(root.FullName, "test.txt");
+        await File.WriteAllTextAsync(path, "test", TestContext.Current.CancellationToken);
+        var tag = FileTagCatalog.FinderColors[0];
+        await tags.SetTagAsync([path], tag, isChecked);
+        var files = new FakeFileService(root.FullName);
+        var entry = new FileSystemEntry { Name = "test.txt", FullPath = path };
+        using var vm = CreateViewModel(files, fileTagService: tags);
+        vm.Entries.Add(entry);
+        vm.SetSelection([entry]);
+        var view = new FileListView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Styles.Add(new FluentTheme());
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var showMenu = typeof(FileListView).GetMethod("ShowMenuAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            await (Task)showMenu.Invoke(view, [view, true])!;
+            Dispatcher.UIThread.RunJobs();
+            var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
+            var submenu = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "标签");
+            submenu.IsSubMenuOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            var red = Assert.Single(submenu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == tag.Name);
+            Assert.Equal(isChecked, red.IsChecked);
+            Assert.Equal(MenuItemToggleType.CheckBox, red.ToggleType);
+            var icon = Assert.IsType<PathIcon>(red.Icon);
+            Assert.Equal(Avalonia.Media.Color.Parse(tag.ColorHex), Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(icon.Foreground).Color);
+            Assert.True(icon.IsEffectivelyVisible);
+            Assert.True(icon.Bounds.Width > 0 && icon.Bounds.Height > 0);
+            var newTag = Assert.Single(submenu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "新建标签…");
+            var newTagIcon = Assert.IsType<PathIcon>(newTag.Icon);
+            Assert.Equal(newTagIcon.TranslatePoint(default, newTag)!.Value.X, icon.TranslatePoint(default, red)!.Value.X, 2);
+            var redHeader = red.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                .Single(p => p.Name == "PART_HeaderPresenter");
+            var newTagHeader = newTag.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                .Single(p => p.Name == "PART_HeaderPresenter");
+            Assert.Equal(newTagHeader.TranslatePoint(default, newTag)!.Value.X, redHeader.TranslatePoint(default, red)!.Value.X, 2);
+            menu.Close();
+        }
+        finally { window.Close(); root.Delete(true); }
+    }
+
     [AvaloniaFact]
     public async Task TagMenuAppliesToMultipleFilesAndFoldersAndCutPasteOnlyAddsTag()
     {
@@ -44,6 +94,8 @@ public sealed partial class FileListViewModelCreateTests
             var menu = Assert.Single(actions, a => a.Label == "标签");
             var toggle = Assert.Single(menu.SubItems!, a => a.Label == "项目");
             Assert.False(toggle.IsChecked);
+            Assert.Equal(MacExplorer.Assets.Icons.Tag, toggle.IconSvg);
+            Assert.Equal(tag.ColorHex, toggle.IconColor);
             await toggle.Execute!();
             Assert.Equal(2, (await tags.FindFilePathsAsync(tag)).Count);
             actions = await vm.LoadCompleteFileContextMenuAsync(vm.Entries[0]);

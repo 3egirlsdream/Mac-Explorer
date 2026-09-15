@@ -374,6 +374,9 @@ public partial class FileListView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(FileListViewModel.IsContextMenuVisible) && ViewModel?.IsContextMenuVisible == false)
+            DismissContextMenu();
+
         if (e.PropertyName == nameof(FileListViewModel.ViewMode))
         {
             UpdateViewMode();
@@ -1562,7 +1565,12 @@ public partial class FileListView : UserControl
                 item.Icon = new Image { Source = action.IconImage, Width = 18, Height = 18 };
             else if (!string.IsNullOrEmpty(action.IconSvg))
             {
-                try { item.Icon = new PathIcon { Data = Geometry.Parse(action.IconSvg), Width = 16, Height = 16 }; }
+                try
+                {
+                    var icon = new PathIcon { Data = Geometry.Parse(action.IconSvg), Width = 16, Height = 16 };
+                    if (action.IconColor != null) icon.Foreground = Brush.Parse(action.IconColor);
+                    item.Icon = icon;
+                }
                 catch { }
             }
             if (!string.IsNullOrWhiteSpace(action.IconBase64))
@@ -3249,11 +3257,8 @@ public partial class FileListView : UserControl
     {
         if (ViewModel == null) return;
         CancelSlowRename();
-        if (entry.IsDirectory)
-        {
-            ViewModel.SetSelection([entry], entry);
-            _ = ViewModel.NavigateToAsync(entry.FullPath);
-        }
+        if (entry.IsDirectory) ViewModel.SetSelection([entry], entry);
+        if (entry.IsFolder) _ = ViewModel.NavigateToAsync(entry.FullPath);
         else _ = ViewModel.OpenEntryAsync(entry);
     }
 

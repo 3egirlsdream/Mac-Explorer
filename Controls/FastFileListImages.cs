@@ -186,7 +186,7 @@ internal sealed class FastFileListImages
 
     private readonly record struct TypeKey(string Icon, string Extension, bool IsDirectory, int Pixels)
     {
-        public static TypeKey For(FileSystemEntry e, int pixels) => new(e.IconKey, e.Extension, e.IsDirectory, pixels);
+        public static TypeKey For(FileSystemEntry e, int pixels) => new(e.DetailsIconSource.IconKey, e.Extension, e.IsFolder, pixels);
     }
     private readonly record struct ImageKey(string Path, DateTime Modified, long Size, string? Source, int Pixels)
     {

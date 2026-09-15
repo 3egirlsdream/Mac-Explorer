@@ -77,6 +77,18 @@ public partial class App : Application
                 isPrimary: true);
             desktop.MainWindow = mainWindow;
             mainWindow.Opened += OnStartupWindowOpened;
+            var stoppingPlugins = false;
+            var pluginsStopped = false;
+            desktop.ShutdownRequested += async (_, e) =>
+            {
+                if (pluginsStopped) return;
+                e.Cancel = true;
+                if (stoppingPlugins) return;
+                stoppingPlugins = true;
+                _startupUpdateCancellation.Cancel();
+                try { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
+                finally { pluginsStopped = true; desktop.Shutdown(); }
+            };
             desktop.Exit += (_, _) => _startupUpdateCancellation.Cancel();
 
             if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
@@ -86,6 +98,7 @@ public partial class App : Application
 
         base.OnFrameworkInitializationCompleted();
         _ = Services.GetRequiredService<IFileTagService>().RetryPendingAsync();
+        _ = Services.GetRequiredService<Services.Plugins.PluginManager>().InitializeAsync();
 
         if (mainWindow is { IsVisible: false })
         {
@@ -214,7 +227,8 @@ public partial class App : Application
         services.AddSingleton<IMetadataService, Platforms.MacCatalyst.Services.MacMetadataService>();
         services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
         services.AddSingleton<IQuickLookService, Platforms.MacCatalyst.Services.MacQuickLookService>();
-        services.AddSingleton<IFileConversionService, FileConversionService>();
+        services.AddSingleton<Services.Plugins.PluginManager>();
+        services.AddSingleton<Services.Plugins.PluginMarketClient>();
         services.AddSingleton<IThumbnailService, Platforms.MacCatalyst.Services.MacThumbnailService>();
         services.AddSingleton<IClipboardService, Platforms.MacCatalyst.Services.MacClipboardService>();
         services.AddSingleton<IDragDropService, Platforms.MacCatalyst.Services.MacDragDropBridge>();
@@ -290,7 +304,7 @@ public partial class App : Application
                 sp.GetService<IDisplayNameService>(), sp.GetService<IVolumeMonitorService>(),
                 sp.GetService<IRemoteConnectionService>(), sp.GetService<IRemoteFileService>(),
                 sp.GetService<IRemoteFileEditService>(), sp.GetService<IOpenWithAppService>(),
-                sp.GetService<IFileTagService>(), sp.GetService<IFileConversionService>(),
+                sp.GetService<IFileTagService>(), sp.GetService<Services.Plugins.PluginManager>(),
                 sp.GetService<IBackgroundTaskManager>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());
             return viewModel;

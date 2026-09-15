@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <PluginSdkVersion>1.0.0</PluginSdkVersion>
+    <Version>$(PluginSdkVersion)</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <MinimumHostVersion>1.0.44</MinimumHostVersion>
+    <Authors>Mac Explorer contributors</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/3egirlsdream/Mac-Explorer</RepositoryUrl>
+    <PackageProjectUrl>https://3egirlsdream.github.io/Mac-Explorer/developers/sdk.html</PackageProjectUrl>
+    <Description>Mac Explorer file action plugin SDK</Description>
+  </PropertyGroup>
+</Project>

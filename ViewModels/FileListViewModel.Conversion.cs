@@ -1,5 +1,9 @@
+using System.Text.Json;
+using Avalonia.Threading;
 using MacExplorer.Models;
+using MacExplorer.PluginSdk;
 using MacExplorer.Services;
+using MacExplorer.Services.Plugins;
 using MacExplorer.Views.Dialogs;
 using AppIcons = MacExplorer.Assets.Icons;
 
@@ -7,84 +11,109 @@ namespace MacExplorer.ViewModels;
 
 public partial class FileListViewModel
 {
-    private readonly IFileConversionService? _fileConversionService;
+    private readonly PluginManager? _pluginManager;
     private readonly IBackgroundTaskManager? _conversionTaskManager;
-    private bool _conversionInProgress;
+    private readonly CancellationTokenSource _pluginLifetime = new();
 
-    private ContextMenuAction? BuildConversionContextMenu(FileSystemEntry entry)
+    private IReadOnlyList<ContextMenuAction> BuildPluginContextMenus(FileSystemEntry entry)
     {
         var entries = GetContextEntries(entry);
-        if (_fileConversionService == null || IsTrashActive || IsArchiveView || entries.Count != 1
-            || entry.IsDirectory || !IsUsableLocalEntry(entry)
-            || entry.FullPath.StartsWith(TrashPath.TrimEnd('/') + "/", StringComparison.Ordinal)) return null;
-        var formats = _fileConversionService.GetAvailableFormats(entry.FullPath);
-        if (formats.Count == 0) return null;
-        return new ContextMenuAction
+        if (_pluginManager == null || IsTrashActive || IsArchiveView || entry.IsDirectory ||
+            entries.Any(e => !IsUsableLocalEntry(e) || e.IsDirectory || e.FullPath.StartsWith(TrashPath.TrimEnd('/') + "/", StringComparison.Ordinal))) return [];
+        var files = entries.Select(e => new PluginFile(e.FullPath)).ToArray();
+        return _pluginManager.Plugins.Where(p => p.Enabled && !p.Removed).Select(plugin =>
         {
-            Label = "转换", IconSvg = AppIcons.Convert,
-            SubItems = formats.Select(format => new ContextMenuAction
+            var commands = plugin.Manifest.Commands.Where(command => command.Match.Matches(files)).Select(command => new ContextMenuAction
             {
-                Label = format == FileConversionFormat.Docx ? "转为 Word（.docx）" : "转为 " + format.ToString().ToUpperInvariant(),
-                IconSvg = format switch
-                {
-                    FileConversionFormat.Docx => AppIcons.FileText,
-                    FileConversionFormat.Pdf => AppIcons.FilePdf,
-                    _ => AppIcons.FileImage
-                },
-                IsEnabled = !_conversionInProgress,
-                Execute = () => ConvertFileAsync(entry.FullPath, format)
-            }).ToArray()
-        };
+                Label = command.Title, IconSvg = PluginIcon(command.Icon), IsEnabled = !plugin.Running,
+                Execute = () => ExecutePluginAsync(plugin.Manifest.Id, command, files)
+            }).ToArray();
+            return new ContextMenuAction { Label = plugin.Manifest.Name, IconSvg = PluginIcon(plugin.Manifest.Icon), SubItems = commands };
+        }).Where(action => action.SubItems!.Count > 0).ToArray();
     }
 
-    private async Task ConvertFileAsync(string path, FileConversionFormat format)
+    private static string PluginIcon(string name) => name switch
     {
-        if (_fileConversionService == null || _conversionInProgress) return;
-        _conversionInProgress = true;
+        "image" => AppIcons.Image,
+        "document" => Icons.NewFile,
+        "apps" => AppIcons.Apps,
+        _ => AppIcons.Convert
+    };
+
+    private void OnPluginsChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        if (!_disposed) CloseContextMenu();
+    });
+
+    private async Task ExecutePluginAsync(string pluginId, PluginCommand command, PluginFile[] files)
+    {
+        if (_pluginManager == null) return;
         IsContextMenuVisible = false;
         BackgroundTaskInfo? task = null;
         try
         {
-            ConversionImageSize? size = null;
-            if (format is FileConversionFormat.Png or FileConversionFormat.Jpg)
+            await using var session = await _pluginManager.StartAsync(pluginId, command.Id, files, _pluginLifetime.Token);
+            var request = new PluginInvocation(Guid.NewGuid().ToString("N"), command.Id, files, session.WorkDirectory);
+            var manifest = session.Manifest;
+            if (_topLevelWindow == null || !await PluginAuthorization.EnsureAsync(_pluginManager, manifest, session, request, _topLevelWindow, _pluginLifetime.Token)) return;
+            var preparation = await session.CallAsync<PluginPreparation>("prepare", request, TimeSpan.FromSeconds(30), _pluginLifetime.Token);
+            if (preparation.Configuration is { } configuration)
             {
+                if (configuration.Kind != "image-size" || configuration.Width <= 0 || configuration.Height <= 0 || !Enum.TryParse<FileConversionFormat>(configuration.Format, out var format) ||
+                    format is not (FileConversionFormat.Png or FileConversionFormat.Jpg))
+                    throw new InvalidOperationException("此插件请求的配置窗口与当前应用不兼容。");
                 if (_topLevelWindow == null) return;
-                var originalSize = await _fileConversionService.GetImageSizeAsync(path);
-                var dialog = new ImageConversionDialog(originalSize, format);
-                using var modalBlock = _topLevelWindow is MacExplorer.Views.MainWindow mainWindow ? mainWindow.BlockModalParentInteraction() : null;
-                size = await dialog.ShowDialog<ConversionImageSize?>(_topLevelWindow);
+                var dialog = new ImageConversionDialog(new(configuration.Width, configuration.Height), format);
+                using var modalBlock = _topLevelWindow is Views.MainWindow mainWindow ? mainWindow.BlockModalParentInteraction() : null;
+                using var cancelDialog = _pluginLifetime.Token.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(null)));
+                var size = await dialog.ShowDialog<ConversionImageSize?>(_topLevelWindow);
                 if (size == null) return;
+                request = request with { Parameters = new()
+                {
+                    ["width"] = JsonSerializer.SerializeToElement(size.Width),
+                    ["height"] = JsonSerializer.SerializeToElement(size.Height)
+                } };
             }
-            task = _conversionTaskManager?.AddTask("正在转换 " + Path.GetFileName(path));
-            StatusText = "正在转换 " + Path.GetFileName(path) + "…";
-            var result = await _fileConversionService.ConvertAsync(new(path, format, size), task?.Cts.Token ?? CancellationToken.None);
-            // Once the complete output has been committed, cancellation no longer applies.
+            task = _conversionTaskManager?.AddTask(command.Title + "：" + Path.GetFileName(files[0].Path));
+            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_pluginLifetime.Token, task?.Cts.Token ?? CancellationToken.None);
+            StatusText = "正在处理 " + Path.GetFileName(files[0].Path) + "…";
+            session.Progress += progress => Dispatcher.UIThread.Post(() =>
+            {
+                if (task is { State: BackgroundTaskState.Running } && !_disposed)
+                {
+                    if (progress.Percent is { } percent && double.IsFinite(percent))
+                        _conversionTaskManager?.UpdateProgress(task.Id, Math.Clamp(percent, 0, 100), Path.GetFileName(files[0].Path), progress.Message);
+                    StatusText = progress.Message;
+                }
+            });
+            var result = await session.CallAsync<PluginResult>("execute", request, TimeSpan.FromMinutes(2), cancellation.Token);
+            var outputs = await PluginOutputCommitter.CommitAsync(result.Outputs, files[0].Path, session.WorkDirectory, cancellation.Token);
             if (task != null) { task.CanCancel = false; _conversionTaskManager!.CompleteTask(task.Id); }
-            var directory = Path.GetDirectoryName(path)!;
+            var directory = Path.GetDirectoryName(files[0].Path)!;
             var isCurrentDirectory = string.Equals(CurrentPath, directory, StringComparison.Ordinal);
             _directoryChangeNotifier?.NotifyChanged([directory], isCurrentDirectory ? this : null);
-            if (isCurrentDirectory)
+            if (isCurrentDirectory && !_disposed)
             {
                 await RefreshAsync();
                 if (string.Equals(CurrentPath, directory, StringComparison.Ordinal))
                 {
-                    var output = Entries.FirstOrDefault(item => item.FullPath == result.OutputPath);
+                    var output = Entries.FirstOrDefault(item => item.FullPath == outputs[0]);
                     if (output != null) SelectEntry(output);
                 }
             }
-            StatusText = "已生成 " + Path.GetFileName(result.OutputPath)
-                + (result.Warnings.Count == 0 ? "" : "。" + string.Join("；", result.Warnings));
+            if (!_disposed) StatusText = "已生成 " + string.Join("、", outputs.Select(Path.GetFileName)) +
+                (result.Warnings.Length == 0 ? "" : "。" + string.Join("；", result.Warnings));
         }
         catch (OperationCanceledException)
         {
             if (task != null) _conversionTaskManager!.CancelTask(task.Id);
-            StatusText = "已取消转换";
+            if (!_disposed) StatusText = "已取消处理";
         }
         catch (Exception ex)
         {
-            if (task != null) _conversionTaskManager!.FailTask(task.Id, ex.Message);
-            StatusText = "转换失败：" + ex.Message;
+            if (task != null && task.State == BackgroundTaskState.Running) _conversionTaskManager!.FailTask(task.Id, ex.Message);
+            await _pluginManager.RecordErrorAsync(pluginId, ex.Message);
+            if (!_disposed) StatusText = "插件处理失败：" + ex.Message;
         }
-        finally { _conversionInProgress = false; }
     }
 }

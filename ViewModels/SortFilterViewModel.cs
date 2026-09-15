@@ -111,8 +111,8 @@ public partial class SortFilterViewModel : ObservableObject
     {
         if (entry.Name.EndsWith(".fkfinder-tmp")) return false;
         if (HideSystemFiles && SystemFileNames.Contains(entry.Name)) return false;
-        if (HideDotFiles && !entry.IsDirectory && entry.Name.StartsWith('.')) return false;
-        if (HideDotFolders && entry.IsDirectory && entry.Name.StartsWith('.')) return false;
+        if (HideDotFiles && !entry.IsFolder && entry.Name.StartsWith('.')) return false;
+        if (HideDotFolders && entry.IsFolder && entry.Name.StartsWith('.')) return false;
         return true;
     }
 
@@ -256,31 +256,31 @@ public partial class SortFilterViewModel : ObservableObject
     {
         GroupField.Type => entry.IsVirtual
             ? GetAiTypeLabel(entry.VirtualFolderType!)
-            : entry.IsDirectory ? "文件夹" : GetCategoryName(entry.Extension),
+            : entry.IsApplication ? "应用程序" : entry.IsFolder ? "文件夹" : GetCategoryName(entry.Extension),
         GroupField.Modified => GetDateGroup(entry.LastModified, _filterDate),
-        GroupField.Size => entry.IsDirectory ? "文件夹" : GetSizeGroup(entry.Size),
+        GroupField.Size => entry.IsApplication ? "应用程序" : entry.IsFolder ? "文件夹" : GetSizeGroup(entry.Size),
         _ => string.Empty
     };
 
     private IEnumerable<FileSystemEntry> SortEntries(IReadOnlyList<FileSystemEntry> entries) => SortField switch
     {
         SortField.Name => SortAscending
-            ? entries.OrderBy(e => e.IsDirectory).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-            : entries.OrderBy(e => e.IsDirectory).ThenByDescending(e => e.Name, StringComparer.OrdinalIgnoreCase),
+            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.Name, StringComparer.OrdinalIgnoreCase),
         SortField.Modified => SortAscending
-            ? entries.OrderBy(e => e.IsDirectory).ThenBy(e => e.LastModified)
-            : entries.OrderBy(e => e.IsDirectory).ThenByDescending(e => e.LastModified),
+            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.LastModified)
+            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.LastModified),
         SortField.Size => SortAscending
-            ? entries.OrderBy(e => e.IsDirectory).ThenBy(e => e.Size)
-            : entries.OrderBy(e => e.IsDirectory).ThenByDescending(e => e.Size),
+            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Size)
+            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.Size),
         SortField.Type => SortAscending
-            ? entries.OrderBy(e => e.IsDirectory).ThenBy(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-            : entries.OrderBy(e => e.IsDirectory).ThenByDescending(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase),
-        _ => entries.OrderBy(e => e.IsDirectory).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase),
+        _ => entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
     };
 
     private static readonly string[] DateGroupOrder = ["未来", "今天", "昨天", "最近7天", "最近30天", "最近3个月", "今年更早", "更早"];
-    private static readonly string[] SizeGroupOrder = ["大于 1 GB", "100 MB-1 GB", "1-100 MB", "小于 1 MB", "小于 1 KB", "空文件", "文件夹"];
+    private static readonly string[] SizeGroupOrder = ["大于 1 GB", "100 MB-1 GB", "1-100 MB", "小于 1 MB", "小于 1 KB", "空文件", "应用程序", "文件夹"];
 
     private List<FileGroup> BuildGroups(List<FileSystemEntry> sorted) => GroupField switch
     {
@@ -355,8 +355,8 @@ public partial class SortFilterViewModel : ObservableObject
             if (left == null) return -1;
             if (right == null) return 1;
 
-            // Files always sort before directories, matching OrderBy(e => e.IsDirectory).
-            var directoryOrder = left.IsDirectory.CompareTo(right.IsDirectory);
+            // Files always sort before directories, matching OrderBy(e => e.IsFolder).
+            var directoryOrder = left.IsFolder.CompareTo(right.IsFolder);
             if (directoryOrder != 0) return directoryOrder;
 
             return sortField switch

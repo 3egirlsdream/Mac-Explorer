@@ -8,6 +8,31 @@ namespace MacExplorer.Tests;
 
 public sealed class FileColumnFilterTests
 {
+    [Theory]
+    [InlineData(".app")]
+    [InlineData(".APP")]
+    [InlineData("")]
+    public void ApplicationTypeAndSizeFiltersExcludeOrdinaryFolders(string extension)
+    {
+        var app = new FileSystemEntry { Name = "Example.APP", FullPath = "/test/Example.APP", Extension = extension, IsDirectory = true };
+        var folder = new FileSystemEntry { Name = "Folder", FullPath = "/test/Folder", IsDirectory = true };
+        var vm = new SortFilterViewModel();
+        vm.SetRawEntries([app, folder, File("README", 0)]);
+        var types = vm.GetColumnFilterOptions(SortField.Type);
+        Assert.Equal(1, types.Single(o => o.Key == ".app").Count);
+        Assert.Equal(1, types.Single(o => o.Key == "文件夹").Count);
+        vm.ColumnFilters = FileListFilterState.Empty.Set(SortField.Type, ".app", true);
+        Assert.Equal(["Example.APP"], Apply(vm));
+        vm.ColumnFilters = FileListFilterState.Empty.Set(SortField.Type, "文件夹", true);
+        Assert.Equal(["Folder"], Apply(vm));
+        vm.ColumnFilters = FileListFilterState.Empty;
+        Assert.Equal(1, vm.GetColumnFilterOptions(SortField.Size).Single(o => o.Key == "应用程序").Count);
+        vm.ColumnFilters = FileListFilterState.Empty.Set(SortField.Size, "应用程序", true);
+        Assert.Equal(["Example.APP"], Apply(vm));
+        vm.ColumnFilters = FileListFilterState.Empty.Set(SortField.Size, "文件夹", true);
+        Assert.Equal(["Folder"], Apply(vm));
+    }
+
     [Fact]
     public void SelectionsUnionWithinColumnAndIntersectWithOtherColumnsAndFilename()
     {
