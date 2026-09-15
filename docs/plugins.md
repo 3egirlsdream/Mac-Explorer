@@ -4,7 +4,7 @@
 
 ## 使用
 
-设置 → 插件中安装 `.mexplug`，或启用、禁用、卸载已有插件。文件转换插件随应用默认安装；卸载后可通过“恢复内置文件转换插件”恢复。升级应用保留启用和卸载选择。
+设置 → 插件中安装 `.mexplug`，或启用、禁用、卸载已有插件。文件转换插件随应用默认安装；卸载后可通过“恢复内置插件”恢复。升级应用保留启用和卸载选择。
 
 适用插件以自己的名称显示为文件右键一级菜单，二级菜单是适用于整个选择的命令。文件转换目前只接受一个本地文件，保持既有格式和转换结果。
 
@@ -12,11 +12,13 @@
 
 ## 开发
 
-引用 `Plugins/SDK/MacExplorer.PluginSdk.csproj`，实现唯一的公开、非抽象 `IFileActionPlugin` 类型及无参数构造函数。SDK 不引用 Avalonia 或主程序。启用 `EnableDynamicLoading`，将插件程序集、`.deps.json`、依赖和资源与 `plugin.json` 一起打成 ZIP，扩展名改为 `.mexplug`。原生可执行文件必须保留 Unix 执行位，并按目标平台签名。
+从[下载 SDK](developers/sdk.html)取得完整 ZIP，按包内 README 构建示例。基础 SDK 包为 `MacExplorer.PluginSdk`，可选窗口包为 `MacExplorer.PluginUi`，通过包内 NuGet.Config 使用本地包源。SDK 1.0.0 配套 Mac Explorer 1.0.44，要求 .NET 10；SDK 及示例使用 MIT，主程序许可不变。
 
-参考 `Plugins/FileConversion/plugin.json` 与 `ConversionPlugin.cs`。清单包含 `id`、`name`、`version`、`apiVersion: 1`、`entry`、`icon` 和 `commands`；命令包含 `id`、`title`、`icon`、`match`。图标支持 `convert`、`document`、`image`、`apps`，均由宿主提供 Fluent 图标。
+插件实现唯一的公开、非抽象 `IFileActionPlugin` 类型及无参数构造函数。SDK 不引用主程序。启用 `EnableDynamicLoading`，使用包内 `MacExplorer.PluginPack.dll` 将编译结果生成 `.mexplug`。原生可执行文件必须保留 Unix 执行位，并按目标平台签名。
 
-匹配规则中 `extensions`、`fileNames`、`textFiles` 为“或”，选择数量 `minSelection`、`maxSelection` 和各文件条件为“且”。默认选择数量均为 1。API 1 仅支持本地普通文件。打开菜单只读取清单和已有文件元数据，插件需在执行时重新校验内容。
+新插件参考 SDK ZIP 中的 `examples/SimplePlugin` 与 `examples/AccountPlugin`，推荐使用 API v2。清单包含 `id`、`name`、`version`、`apiVersion: 2`、`entry`、`icon` 和 `commands`；命令包含 `id`、`title`、`icon`、`match`。图标支持 `convert`、`document`、`image`、`apps`，均由宿主提供 Fluent 图标。
+
+匹配规则中 `extensions`、`fileNames`、`textFiles` 为“或”，选择数量 `minSelection`、`maxSelection` 和各文件条件为“且”。默认选择数量均为 1。当前 API v1/v2 均仅支持本地普通文件，目录、远程文件、废纸篓和压缩包内部文件不参与匹配。打开菜单只读取清单和已有文件元数据，插件需在执行时重新校验内容。
 
 - `PrepareAsync`：检查文件并返回配置描述，或无配置。API 1 的 `image-size` 配置包含正数原始宽高、标题、`Png`/`Jpg` 格式；宿主复用比例联动的尺寸窗口并返回 `width`、`height` 参数。其他配置类型会显示不兼容错误。
 - `ExecuteAsync`：读取传入的文件，向宿主创建的 `WorkDirectory` 写入结果，返回输出路径、建议文件名和警告。不要修改源文件。输出必须是工作目录内的非空普通文件，不能使用符号链接或带目录的建议名称。
@@ -34,11 +36,49 @@
 
 安装目录位于 `LocalApplicationData/MacExplorer/Plugins`（可通过 `MACEXPLORER_PLUGIN_PATH` 指定独立测试目录），启用、版本和卸载状态保存在现有设置数据库的 `plugins_state_v1`。日志可在管理页查看；每个插件保留最近一次调用日志，最多 100 万字符。
 
-## 构建与验证
+## 从 SDK 开始
 
-`dotnet build MacExplorer.csproj -p:SkipMacOSReleaseDMG=true` 同时构建插件、Swift 辅助程序并生成 `bin/<配置>/net10.0/osx-arm64/BundledPlugins/FileConversion.mexplug`，应用包内也包含该文件。更新转换插件代码时应递增独立的插件版本，已安装相同版本不会在启动时被覆盖；开发时可手动安装生成的包或恢复内置插件。
+SDK 独立版本为 1.0.0，对应协议 API v2，最低客户端版本为 1.0.44。官网下载入口只选择正式 `sdk-v*` Release 中的完整 SDK ZIP；若尚未发布，会显示提示，不会下载客户端安装包。
 
-转换引擎回归测试继续验证内容、布局、图片和文件完整性。`PluginSystemTests` 从构建后的 `.app` 启动真实工作进程，覆盖打包资源、转换、热更新/卸载、超时、崩溃、协议故障和子进程清理。
+1. 安装 .NET 10 SDK，解压完整 SDK ZIP。
+2. 在解压后的根目录运行下面的命令。首次还原 Avalonia 等依赖需要联网，本地包源配置已随 ZIP 提供。
+3. 在配套客户端的“设置 → 插件 → 安装插件…”选择生成的 `.mexplug`。
+4. 右键本地 `.txt` 文件，选择“文本副本示例 → 生成文本副本”，确认结果保存到当前目录。
+
+```sh
+dotnet restore examples/SimplePlugin/SimplePlugin.csproj --configfile NuGet.Config
+dotnet build examples/SimplePlugin/SimplePlugin.csproj -c Release --no-restore
+dotnet tools/MacExplorer.PluginPack.dll examples/SimplePlugin/bin/Release/net10.0 SimplePlugin.mexplug
+```
+
+示例使用 NuGet 包引用，不需要下载主程序源码。`packages/` 包含基础和 UI SDK 的本地 NuGet 包，`src/` 包含 SDK 与打包工具源码，`examples/` 包含两个示例。SDK、示例和打包工具采用 MIT；依赖许可证见 ZIP 中的 `THIRD-PARTY-NOTICES.md`。主程序许可证不变。
+
+### 最小清单
+
+```json
+{
+  "id": "com.yourcompany.text-copy",
+  "name": "文本副本",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "entry": "SimplePlugin.dll",
+  "icon": "document",
+  "platform": "osx",
+  "architecture": "arm64",
+  "commands": [
+    {
+      "id": "copy",
+      "title": "生成文本副本",
+      "icon": "document",
+      "match": { "extensions": [".txt"] }
+    }
+  ]
+}
+```
+
+将示例 ID 改成自己的稳定 ID，入口名称与编译出的程序集一致。发布新版时递增三段插件版本号，保持 ID 和命令 ID 稳定。不要使用官方内置插件 ID。架构需与目标客户端及原生依赖一致。
+
+打包工具检查清单、入口程序集、依赖描述和路径，拒绝符号链接、路径越界及覆盖已有输出。打包成功不代替功能验收：还需验证取消、损坏输入、输出重名、账号窗口关闭、试用到期和卸载重装等场景。
 
 ## API 2：账号、授权与试用
 
@@ -52,13 +92,13 @@
 
 ### 插件自己的 Avalonia 窗口
 
-引用 `Plugins/UI/MacExplorer.PluginUi.csproj`，使用 `PluginWindows.ShowAsync(() => new YourWindow(), token)` 在插件进程 UI 线程创建窗口；成功后调用 `PluginWindows.Complete(window)`，普通关闭表示取消。当前 UI SDK 使用宿主提供的 Avalonia 12.0.4，不要携带不兼容版本。账号窗口不在主界面进程创建，也不能访问其窗口对象。
+引用 `MacExplorer.PluginUi` 包，使用 `PluginWindows.ShowAsync(() => new YourWindow(), token)` 在插件进程 UI 线程创建窗口；成功后调用 `PluginWindows.Complete(window)`，普通关闭表示取消。当前 UI SDK 使用宿主提供的 Avalonia 12.0.4，不要携带不兼容版本。账号窗口不在主界面进程创建，也不能访问其窗口对象。
 
-参考 `Plugins/Examples/AccountPlugin`：该插件仅模拟登录和购买，授权只在当前会话生效，不会扣款。生产插件需替换为自己的账号 API、安全保存会话并实际检查购买资格，不能把示例按钮当作生产授权。
+参考 SDK 中的 `examples/AccountPlugin`：该插件仅模拟登录和购买，授权只在当前会话生效，不会扣款。生产插件需替换为自己的账号 API、安全保存会话并实际检查购买资格，不能把示例按钮当作生产授权。
 
 ```sh
-dotnet build Plugins/Examples/AccountPlugin/AccountPlugin.csproj -c Release
-# 将 bin/Release/net10.0 的内容（不是外层文件夹）压成 .mexplug。
+dotnet build examples/AccountPlugin/AccountPlugin.csproj -c Release --configfile NuGet.Config
+dotnet tools/MacExplorer.PluginPack.dll examples/AccountPlugin/bin/Release/net10.0 AccountPlugin.mexplug
 ```
 
 ## 市场与开发者发布
@@ -69,4 +109,4 @@ GitHub Pages 开发者入口为 `developers/index.html`，接口地址配置在 
 
 开发者使用已有账号登录后即可上传 `.mexplug`，支持用户名或邮箱登录。包直传七牛，后端验证后自动上架；同一 ID 归属首次申请上传的账号，同一版本不可覆盖。发布页支持登录、注册、验证码、找回密码、查看本人插件和下架。浏览器会话保存在 sessionStorage，密码不会保存。平台不参与插件最终用户的付费订单。
 
-后端代码、SQL 迁移和 API 说明位于 Server.NetCore 仓库的 `docs/plugin-market.md`。本次交付不自动部署生产后台、执行生产迁移或发布 GitHub Pages。
+后端代码、SQL 迁移和 API 说明位于 Server.NetCore 仓库的 `docs/plugin-market.md`。第三方开发者直接使用官网开发者中心，不需要部署平台后端。插件自己的账号与支付服务由开发者维护。
