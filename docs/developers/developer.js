@@ -26,9 +26,7 @@ function setMode(value) {
 function renderAccount() {
   $('signed-out').hidden = !!session; $('signed-in').hidden = !session;
   $('identity').textContent = session?.displayName || '';
-  $('verified-label').textContent = session?.verified ? '已验证' : '发布前请验证邮箱';
-  $('verify-panel').hidden = !session || session.verified;
-  $('publish').disabled = busy || !selected || !session?.verified;
+  $('publish').disabled = busy || !selected || !session;
 }
 for (const button of document.querySelectorAll('[data-mode]')) button.onclick = () => setMode(button.dataset.mode);
 $('recover').onclick = () => setMode(mode === 'recover' ? 'login' : 'recover');
@@ -41,24 +39,23 @@ $('account-form').onsubmit = async event => {
   try {
     const data = await api(submittedMode === 'register' ? 'Register' : submittedMode === 'recover' ? 'Recover' : 'Login', { ...(submittedMode === 'login' ? { username: email } : { email }), password, displayName: $('display-name').value, code: $('code').value.trim() });
     if (submittedMode === 'recover') { setMode('login'); message('account-message', '密码已重置，请重新登录。'); }
-    else { message('account-message',''); saveSession({ ...data, email: email.includes('@') ? email : '' }); $('verification-email').value = session.email; $('password').value = ''; $('confirm-password').value = ''; await loadMine(); }
+    else { message('account-message',''); saveSession({ ...data, email: email.includes('@') ? email : '' }); $('password').value = ''; $('confirm-password').value = ''; await loadMine(); }
   } catch (error) { message('account-message', error.message, true); }
   finally { busy = false; $('submit-account').disabled = false; renderAccount(); }
 };
 async function sendCode() {
   if (countdown) return;
-  const email = session ? $('verification-email').value.trim() : $('email').value.trim();
-  $('send-code').disabled = $('verify-send').disabled = true;
+  const email = $('email').value.trim();
+  $('send-code').disabled = true;
   try {
     await api('SendCode', { email }); message('account-message', '验证码已发送，请检查邮箱。');
     countdown = 60; const timer = setInterval(() => {
-      countdown--; for (const id of ['send-code','verify-send']) { $(id).textContent = countdown ? `${countdown} 秒后重发` : '发送验证码'; $(id).disabled = countdown > 0; }
+      countdown--; for (const id of ['send-code']) { $(id).textContent = countdown ? `${countdown} 秒后重发` : '发送验证码'; $(id).disabled = countdown > 0; }
       if (!countdown) clearInterval(timer);
     }, 1000);
-  } catch (error) { message('account-message', error.message, true); $('send-code').disabled = $('verify-send').disabled = false; }
+  } catch (error) { message('account-message', error.message, true); $('send-code').disabled = false; }
 }
-$('send-code').onclick = $('verify-send').onclick = sendCode;
-$('verify-email').onclick = async () => { try { await api('VerifyEmail', { email: $('verification-email').value.trim(), code: $('verify-code').value.trim() }); saveSession({ ...session, verified: true }); message('account-message', '邮箱已验证。'); } catch (error) { message('account-message', error.message, true); } };
+$('send-code').onclick = sendCode;
 $('logout').onclick = async () => { try { await api('Logout', {}); } finally { saveSession(null); $('my-plugins').textContent = '登录后查看'; } };
 async function selectPackage(file) {
   if (busy) return;
@@ -99,7 +96,7 @@ function upload(ticket,file) {
   });
 }
 $('publish').onclick = async () => {
-  if (!selected || busy || !session?.verified) return;
+  if (!selected || busy || !session) return;
   const { file, manifest } = selected; busy = true; renderAccount(); $('package').disabled = true; $('file-drop').classList.add('is-busy'); $('upload-progress').hidden = false;
   try {
     const ticket = await api('UploadToken', { pluginId: manifest.id, version: manifest.version, size: file.size });
@@ -122,5 +119,4 @@ async function loadMine() {
   } catch (error) { message('account-message',error.message,true); }
 }
 $('refresh-mine').onclick = loadMine;
-$('verification-email').value = session?.email || '';
 renderAccount(); loadMine();

@@ -67,6 +67,6 @@ dotnet build Plugins/Examples/AccountPlugin/AccountPlugin.csproj -c Release
 
 GitHub Pages 开发者入口为 `developers/index.html`，接口地址配置在 `developers/config.js`。默认 HTTPS API 为 `https://thankful.top/api/PluginMarket/`；客户端可通过 `MACEXPLORER_MARKET_URL` 配置相同服务。HTTP 仅允许本机回环地址用于隔离验收。
 
-开发者使用现有 Watermark 账号，邮箱验证后上传 `.mexplug`。包直传七牛，后端验证后自动上架；同一 ID 归属首次申请上传的账号，同一版本不可覆盖。发布页支持登录、注册、验证码、找回密码、查看本人插件和下架。浏览器会话保存在 sessionStorage，密码不会保存。平台不参与插件最终用户的付费订单。
+开发者使用已有账号登录后即可上传 `.mexplug`，支持用户名或邮箱登录。包直传七牛，后端验证后自动上架；同一 ID 归属首次申请上传的账号，同一版本不可覆盖。发布页支持登录、注册、验证码、找回密码、查看本人插件和下架。浏览器会话保存在 sessionStorage，密码不会保存。平台不参与插件最终用户的付费订单。
 
 后端代码、SQL 迁移和 API 说明位于 Server.NetCore 仓库的 `docs/plugin-market.md`。本次交付不自动部署生产后台、执行生产迁移或发布 GitHub Pages。
