@@ -1,8 +1,9 @@
 import unittest
 import json
+import subprocess
 from pathlib import Path
 import tempfile
-from unittest.mock import patch
+from unittest.mock import call, patch
 import sdk_release
 
 
@@ -23,6 +24,15 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError): sdk_release.decide('1.0.0-preview', [])
     def test_draft_retry_and_prerelease_do_not_block(self):
         self.assertEqual('publish', sdk_release.decide('1.0.0', [release('sdk-v1.0.0', draft=True), release('sdk-v2.0.0', prerelease=True)]))
+
+    def test_compatible_host_release_waits_for_transient_missing_release(self):
+        missing = subprocess.CalledProcessError(1, ['gh', 'api'])
+        host = {'draft': False, 'prerelease': False, 'assets': []}
+        with patch('sdk_release.gh', side_effect=[missing, json.dumps(host)]) as gh:
+            with patch('sdk_release.time.sleep') as sleep:
+                self.assertEqual(host, sdk_release.compatible_host_release('owner/repo', '1.0.45', attempts=2, delay=7))
+        gh.assert_has_calls([call('api', 'repos/owner/repo/releases/tags/v1.0.45')] * 2)
+        sleep.assert_called_once_with(7)
 
     def test_failed_verification_keeps_draft_and_retry_completes(self):
         with tempfile.TemporaryDirectory() as folder:

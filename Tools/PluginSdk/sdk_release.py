@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 from build_sdk import version, minimum_host_version
 
 TAG = re.compile(r'^sdk-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')
@@ -31,11 +32,25 @@ def list_releases(repo):
     pages = json.loads(gh('api', '--paginate', '--slurp', f'repos/{repo}/releases?per_page=100'))
     return [release for page in pages for release in page]
 
+def compatible_host_release(repo, minimum_host, attempts=30, delay=10):
+    endpoint = f'repos/{repo}/releases/tags/v{minimum_host}'
+    for attempt in range(attempts):
+        try:
+            return json.loads(gh('api', endpoint))
+        except subprocess.CalledProcessError:
+            if attempt == attempts - 1:
+                raise
+            print(
+                f'Compatible host release v{minimum_host} is not available yet; '
+                f'retrying in {delay}s ({attempt + 1}/{attempts - 1})'
+            )
+            time.sleep(delay)
+
 def publish(repo, current, archive, commit, releases):
     tag = f'sdk-v{current}'
     if decide(current, releases) != 'publish': return
     minimum_host = minimum_host_version()
-    host = json.loads(gh('api', f'repos/{repo}/releases/tags/v{minimum_host}'))
+    host = compatible_host_release(repo, minimum_host)
     if host['draft'] or host['prerelease'] or not any(a['name'] == f'MacExplorer-{minimum_host}-macos.zip' for a in host['assets']):
         raise ValueError(f'Compatible host release v{minimum_host} is not ready')
     archive = Path(archive)
