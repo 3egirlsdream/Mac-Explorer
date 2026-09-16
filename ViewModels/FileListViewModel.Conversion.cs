@@ -45,18 +45,22 @@ public partial class FileListViewModel
         if (!_disposed) CloseContextMenu();
     });
 
+    private static TimeSpan ExecuteTimeout(int fileCount) => TimeSpan.FromSeconds(120 + 30 * (fileCount - 1));
+
     private async Task ExecutePluginAsync(string pluginId, PluginCommand command, PluginFile[] files)
     {
         if (_pluginManager == null) return;
         IsContextMenuVisible = false;
         BackgroundTaskInfo? task = null;
+        CancellationTokenRegistration taskCancel = default;
+        using var run = CancellationTokenSource.CreateLinkedTokenSource(_pluginLifetime.Token);
         try
         {
-            await using var session = await _pluginManager.StartAsync(pluginId, command.Id, files, _pluginLifetime.Token);
+            await using var session = await _pluginManager.StartAsync(pluginId, command.Id, files, run.Token);
             var request = new PluginInvocation(Guid.NewGuid().ToString("N"), command.Id, files, session.WorkDirectory);
             var manifest = session.Manifest;
-            if (_topLevelWindow == null || !await PluginAuthorization.EnsureAsync(_pluginManager, manifest, session, request, _topLevelWindow, _pluginLifetime.Token)) return;
-            var preparation = await session.CallAsync<PluginPreparation>("prepare", request, TimeSpan.FromSeconds(30), _pluginLifetime.Token);
+            if (_topLevelWindow == null || !await PluginAuthorization.EnsureAsync(_pluginManager, manifest, session, request, _topLevelWindow, run.Token)) return;
+            var preparation = await session.CallAsync<PluginPreparation>("prepare", request, TimeSpan.FromSeconds(30), run.Token);
             if (preparation.Configuration is { } configuration)
             {
                 if (configuration.Kind != "image-size" || configuration.Width <= 0 || configuration.Height <= 0 || !Enum.TryParse<FileConversionFormat>(configuration.Format, out var format) ||
@@ -65,7 +69,7 @@ public partial class FileListViewModel
                 if (_topLevelWindow == null) return;
                 var dialog = new ImageConversionDialog(new(configuration.Width, configuration.Height), format);
                 using var modalBlock = _topLevelWindow is Views.MainWindow mainWindow ? mainWindow.BlockModalParentInteraction() : null;
-                using var cancelDialog = _pluginLifetime.Token.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(null)));
+                using var cancelDialog = run.Token.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(null)));
                 var size = await dialog.ShowDialog<ConversionImageSize?>(_topLevelWindow);
                 if (size == null) return;
                 request = request with { Parameters = new()
@@ -74,34 +78,41 @@ public partial class FileListViewModel
                     ["height"] = JsonSerializer.SerializeToElement(size.Height)
                 } };
             }
-            task = _conversionTaskManager?.AddTask(command.Title + "：" + Path.GetFileName(files[0].Path));
-            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_pluginLifetime.Token, task?.Cts.Token ?? CancellationToken.None);
-            StatusText = "正在处理 " + Path.GetFileName(files[0].Path) + "…";
+            var title = files.Length == 1
+                ? command.Title + "：" + Path.GetFileName(files[0].Path)
+                : command.Title + "：" + files.Length + " 个文件";
             session.Progress += progress => Dispatcher.UIThread.Post(() =>
             {
-                if (task is { State: BackgroundTaskState.Running } && !_disposed)
+                if (_disposed) return;
+                // 后台任务由插件通过 ShowInTaskPanel 显式创建，避免弹出配置窗口等交互也占用任务面板。
+                if (progress.ShowInTaskPanel && _conversionTaskManager != null)
                 {
-                    if (progress.Percent is { } percent && double.IsFinite(percent))
-                        _conversionTaskManager?.UpdateProgress(task.Id, Math.Clamp(percent, 0, 100), Path.GetFileName(files[0].Path), progress.Message);
-                    StatusText = progress.Message;
+                    if (task == null)
+                    {
+                        task = _conversionTaskManager.AddTask(string.IsNullOrWhiteSpace(progress.TaskTitle) ? title : progress.TaskTitle);
+                        taskCancel = task.Cts.Token.Register(run.Cancel);
+                    }
+                    if (task.State == BackgroundTaskState.Running)
+                        _conversionTaskManager.UpdateProgress(task.Id, progress.Percent is { } percent && double.IsFinite(percent)
+                            ? Math.Clamp(percent, 0, 100) : task.Progress, progress.Message);
                 }
+                StatusText = progress.Message;
             });
-            var result = await session.CallAsync<PluginResult>("execute", request, TimeSpan.FromMinutes(2), cancellation.Token);
-            var outputs = await PluginOutputCommitter.CommitAsync(result.Outputs, files[0].Path, session.WorkDirectory, cancellation.Token);
+            StatusText = files.Length == 1 ? "正在处理 " + Path.GetFileName(files[0].Path) + "…" : "正在处理 " + files.Length + " 个文件…";
+            var result = await session.CallAsync<PluginResult>("execute", request, ExecuteTimeout(files.Length), run.Token);
+            var outputs = await PluginOutputCommitter.CommitAsync(result.Outputs, files, session.WorkDirectory, run.Token);
             if (task != null) { task.CanCancel = false; _conversionTaskManager!.CompleteTask(task.Id); }
-            var directory = Path.GetDirectoryName(files[0].Path)!;
-            var isCurrentDirectory = string.Equals(CurrentPath, directory, StringComparison.Ordinal);
-            _directoryChangeNotifier?.NotifyChanged([directory], isCurrentDirectory ? this : null);
+            var directories = files.Select(file => Path.GetDirectoryName(file.Path)!).Distinct(StringComparer.Ordinal).ToArray();
+            var isCurrentDirectory = directories.Contains(CurrentPath, StringComparer.Ordinal);
+            _directoryChangeNotifier?.NotifyChanged(directories, isCurrentDirectory ? this : null);
             if (isCurrentDirectory && !_disposed)
             {
                 await RefreshAsync();
-                if (string.Equals(CurrentPath, directory, StringComparison.Ordinal))
-                {
-                    var output = Entries.FirstOrDefault(item => item.FullPath == outputs[0]);
-                    if (output != null) SelectEntry(output);
-                }
+                var outputSet = new HashSet<string>(outputs, StringComparer.Ordinal);
+                var output = Entries.FirstOrDefault(item => outputSet.Contains(item.FullPath));
+                if (output != null) SelectEntry(output);
             }
-            if (!_disposed) StatusText = "已生成 " + string.Join("、", outputs.Select(Path.GetFileName)) +
+            if (!_disposed) StatusText = (files.Length == 1 ? "已生成 " + string.Join("、", outputs.Select(Path.GetFileName)) : "已生成 " + outputs.Length + " 个文件") +
                 (result.Warnings.Length == 0 ? "" : "。" + string.Join("；", result.Warnings));
         }
         catch (OperationCanceledException)
@@ -111,9 +122,10 @@ public partial class FileListViewModel
         }
         catch (Exception ex)
         {
-            if (task != null && task.State == BackgroundTaskState.Running) _conversionTaskManager!.FailTask(task.Id, ex.Message);
+            if (task is { State: BackgroundTaskState.Running }) _conversionTaskManager!.FailTask(task.Id, ex.Message);
             await _pluginManager.RecordErrorAsync(pluginId, ex.Message);
             if (!_disposed) StatusText = "插件处理失败：" + ex.Message;
         }
+        finally { taskCancel.Dispose(); }
     }
 }

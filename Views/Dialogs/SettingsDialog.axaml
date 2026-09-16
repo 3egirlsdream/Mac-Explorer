@@ -550,10 +550,10 @@
                             </StackPanel>
                         </Border>
                     </Popup>
-                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="添加常用应用，设置它们在右键菜单中的展示位置。" Classes="settings-description"/>
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="开启后显示在右键菜单首层，关闭后收进「打开方式」子菜单。" Classes="settings-description"/>
                 </Grid>
 
-                <TextBlock Grid.Row="1" Classes="settings-section-title" Text="常用应用"/>
+                <TextBlock Grid.Row="1" Classes="settings-section-title" Text="右键菜单项"/>
                 <Border Grid.Row="2" Classes="settings-group">
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>

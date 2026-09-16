@@ -2007,6 +2007,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         var actions = new List<ContextMenuAction>();
         var isRemote = VirtualPath.IsRemotePath(entry.FullPath);
+        var builtInStates = await GetBuiltInOpenWithStatesAsync();
 
         // Open
         var opensInsideMacExplorer = entry.IsDirectory
@@ -2026,11 +2027,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var openWith = isRemote
                 ? await BuildOpenWithActionsForRemoteAsync(entry)
                 : await _contextMenuService.GetOpenWithActionsAsync(entry.FullPath);
+            if (!isRemote && _launcherService != null)
+                openWith = [.. openWith, .. BuildDisabledBuiltInOpenWithActions(entry, builtInStates)];
             if (openWith.Count > 0)
             {
                 actions.Add(new ContextMenuAction
                 {
-                    Label = "用…打开",
+                    Label = "打开方式",
                     IconSvg = AppIcons.Apps,
                     SubItems = openWith
                 });
@@ -2040,7 +2043,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             actions.Add(new ContextMenuAction
             {
-                Label = "用…打开",
+                Label = "打开方式",
                 IconSvg = AppIcons.Apps,
                 SubItems =
                 [
@@ -2118,17 +2121,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             actions.Add(ContextMenuAction.Separator);
             if (_launcherService != null)
             {
-                actions.Add(new ContextMenuAction
-                {
-                    Label = "在 Finder 中显示",
-                    IconSvg = Icons.Finder,
-                    LoadIconBase64Async = _openWithAppService == null
-                        ? null
-                        : () => _openWithAppService.GetAppIconBase64ByPathAsync("/System/Library/CoreServices/Finder.app"),
-                    Execute = () => _launcherService.RevealInFinderAsync(entry.FullPath)
-                });
-                var terminalPath = entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
-                actions.Add(new ContextMenuAction { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcherService.OpenInTerminalAsync(terminalPath) });
+                if (builtInStates.RevealInFinder)
+                    actions.Add(BuildRevealInFinderAction(entry.FullPath));
+                if (builtInStates.OpenInTerminal)
+                    actions.Add(BuildOpenInTerminalAction(GetTerminalDirectoryPath(entry)));
             }
             if (_contextMenuService != null && includeDynamicActions)
                 actions.AddRange(await _contextMenuService.GetTopLevelOpenWithActionsAsync(entry.FullPath));
@@ -2168,6 +2164,90 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         return actions;
     }
 
+    private async Task<(bool RevealInFinder, bool OpenInTerminal)> GetBuiltInOpenWithStatesAsync()
+    {
+        if (_openWithAppService == null)
+            return (true, true);
+
+        var topLevel = await _openWithAppService.GetTopLevelAppsAsync();
+        return (
+            topLevel.Any(app => BuiltInOpenWithActions.IsRevealInFinder(app.BundleId)),
+            topLevel.Any(app => BuiltInOpenWithActions.IsOpenInTerminal(app.BundleId)));
+    }
+
+    private IReadOnlyList<ContextMenuAction> BuildDisabledBuiltInOpenWithActions(
+        FileSystemEntry entry,
+        (bool RevealInFinder, bool OpenInTerminal) states)
+    {
+        if (states is { RevealInFinder: true, OpenInTerminal: true })
+            return [];
+
+        var actions = new List<ContextMenuAction>();
+        if (!states.RevealInFinder)
+            actions.Add(BuildRevealInFinderAction(entry.FullPath));
+        if (!states.OpenInTerminal)
+            actions.Add(BuildOpenInTerminalAction(GetTerminalDirectoryPath(entry)));
+        return actions;
+    }
+
+    private ContextMenuAction BuildRevealInFinderAction(string path)
+    {
+        return new ContextMenuAction
+        {
+            Label = BuiltInOpenWithActions.RevealInFinderLabel,
+            IconSvg = Icons.Finder,
+            LoadIconBase64Async = _openWithAppService == null
+                ? null
+                : () => _openWithAppService.GetAppIconBase64Async(BuiltInOpenWithActions.RevealInFinderBundleId),
+            Execute = () => _launcherService!.RevealInFinderAsync(path)
+        };
+    }
+
+    private ContextMenuAction BuildOpenInTerminalAction(string directoryPath)
+    {
+        return new ContextMenuAction
+        {
+            Label = BuiltInOpenWithActions.OpenInTerminalLabel,
+            IconSvg = Icons.Terminal,
+            LoadIconBase64Async = _openWithAppService == null
+                ? null
+                : () => _openWithAppService.GetAppIconBase64Async(BuiltInOpenWithActions.OpenInTerminalBundleId),
+            Execute = () => _launcherService!.OpenInTerminalAsync(directoryPath)
+        };
+    }
+
+    private static string GetTerminalDirectoryPath(FileSystemEntry entry)
+        => entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
+
+    private async Task<List<ContextMenuAction>> BuildBackgroundOpenWithSubmenuAsync(
+        string currentPath,
+        (bool RevealInFinder, bool OpenInTerminal) builtInStates)
+    {
+        if (_openWithAppService == null || _launcherService == null)
+            return [];
+
+        var actions = new List<ContextMenuAction>();
+        foreach (var app in await _openWithAppService.GetSubmenuAppsAsync())
+        {
+            if (BuiltInOpenWithActions.IsBuiltIn(app.BundleId))
+                continue;
+
+            var configuredApp = app;
+            actions.Add(new ContextMenuAction
+            {
+                Label = configuredApp.Label,
+                IconSvg = Icons.Open,
+                LoadIconBase64Async = () => _openWithAppService.GetAppIconBase64Async(configuredApp.BundleId),
+                Execute = () => _launcherService.OpenFileWithAppAsync(currentPath, configuredApp.BundleId)
+            });
+        }
+
+        if (!builtInStates.OpenInTerminal)
+            actions.Add(BuildOpenInTerminalAction(currentPath));
+
+        return actions;
+    }
+
     private async Task<IReadOnlyList<ContextMenuAction>> BuildOpenWithActionsForRemoteAsync(FileSystemEntry entry)
     {
         if (_remoteFileEditService == null || _remoteConnectionService == null || _openWithAppService == null || _launcherService == null)
@@ -2179,6 +2259,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
             foreach (var app in await _openWithAppService.GetSubmenuAppsAsync())
             {
+                if (BuiltInOpenWithActions.IsBuiltIn(app.BundleId))
+                    continue;
                 actions.Add(BuildRemoteOpenWithAction(entry, app, app.Label));
             }
             return actions;
@@ -2200,6 +2282,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         try
         {
             return (await _openWithAppService.GetTopLevelAppsAsync())
+                .Where(app => !BuiltInOpenWithActions.IsBuiltIn(app.BundleId))
                 .Select(app => BuildRemoteOpenWithAction(entry, app, $"在 {app.Label} 中打开"))
                 .ToList();
         }
@@ -2256,14 +2339,23 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         actions.Add(new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ShortcutText = "⌘R", Execute = () => RefreshCommand.ExecuteAsync(null) });
 
-        if (_launcherService != null)
+        var builtInStates = await GetBuiltInOpenWithStatesAsync();
+
+        if (_launcherService != null && builtInStates.OpenInTerminal)
         {
             actions.Add(ContextMenuAction.Separator);
-            actions.Add(new ContextMenuAction { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcherService.OpenInTerminalAsync(currentPath) });
+            actions.Add(BuildOpenInTerminalAction(currentPath));
         }
 
         if (_contextMenuService != null)
             actions.AddRange(await _contextMenuService.GetTopLevelOpenWithActionsAsync(currentPath));
+
+        var openWithSubmenu = await BuildBackgroundOpenWithSubmenuAsync(currentPath, builtInStates);
+        if (openWithSubmenu.Count > 0)
+        {
+            actions.Add(ContextMenuAction.Separator);
+            actions.Add(new ContextMenuAction { Label = "打开方式", IconSvg = AppIcons.Apps, SubItems = openWithSubmenu });
+        }
 
         actions.Add(ContextMenuAction.Separator);
         actions.Add(new ContextMenuAction

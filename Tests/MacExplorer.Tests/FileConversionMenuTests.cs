@@ -75,6 +75,9 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Equal(new[] { "转为 Word（.docx）", "转为 PDF" }, fast.SubItems!.Select(item => item.Label));
             Assert.Equal(fast.SubItems.Select(item => item.Label), complete.SubItems!.Select(item => item.Label));
             vm.SetSelection([first, second]);
+            var batch = Assert.Single(await vm.LoadCompleteFileContextMenuAsync(first), item => item.Label == "文件转换");
+            Assert.Equal(new[] { "转为 Word（.docx）", "转为 PDF" }, batch.SubItems!.Select(item => item.Label));
+            vm.SetSelection([first, new FileSystemEntry { FullPath = Path.Combine(root, "photo.png"), Name = "photo.png" }]);
             Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(first), item => item.Label == "文件转换");
             vm.ClearSelection();
             foreach (var entry in new[]
@@ -88,6 +91,56 @@ public sealed partial class FileListViewModelCreateTests
                 Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "文件转换");
         }
         finally { Directory.Delete(root, true); }
+    }
+
+    [AvaloniaFact]
+    public async Task PluginTaskPanelEntryAppearsOnlyWhenPluginRequestsIt()
+    {
+        using var plugins = new PluginTestEnvironment();
+        await plugins.Manager.InstallAsync(plugins.CreateFixture());
+        var root = Path.Combine(Path.GetTempPath(), "fkfinder-plugin-tasks-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var window = new Window();
+        try
+        {
+            var first = new FileSystemEntry { FullPath = Path.Combine(root, "first.txt"), Name = "first.txt" };
+            var second = new FileSystemEntry { FullPath = Path.Combine(root, "second.txt"), Name = "second.txt" };
+            await File.WriteAllTextAsync(first.FullPath, "first");
+            await File.WriteAllTextAsync(second.FullPath, "second");
+            var files = new FakeFileService(root); files.Seed(first); files.Seed(second);
+            var tasks = new BackgroundTaskManager();
+            using var vm = CreateViewModel(files, pluginManager: plugins.Manager, backgroundTaskManager: tasks);
+            vm.SetOwnerWindow(window);
+            await vm.RefreshAsync();
+
+            vm.SetSelection([first]);
+            await RunPluginCommandAsync(vm, first, "run");
+            Assert.Empty(tasks.Tasks);
+
+            vm.SetSelection([first, second]);
+            await RunPluginCommandAsync(vm, first, "batch");
+            var task = Assert.Single(tasks.Tasks);
+            Assert.Equal("测试批量", task.Label);
+            Assert.Equal(BackgroundTaskState.Completed, task.State);
+            Assert.Equal([Path.Combine(root, "first.txt.copy"), Path.Combine(root, "second.txt.copy")],
+                Directory.GetFiles(root, "*.copy").Order(StringComparer.Ordinal));
+        }
+        finally { window.Close(); Directory.Delete(root, true); }
+    }
+
+    private static async Task RunPluginCommandAsync(FileListViewModel viewModel, FileSystemEntry entry, string commandLabel)
+    {
+        var plugin = Assert.Single(await viewModel.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "测试插件");
+        var execution = Assert.Single(plugin.SubItems!, item => item.Label == commandLabel).Execute!();
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!execution.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+        Assert.True(execution.IsCompleted, "插件命令未在限时内完成。");
+        await execution;
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]

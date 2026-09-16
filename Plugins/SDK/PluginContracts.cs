@@ -60,9 +60,19 @@ public sealed record PluginInvocation(string InvocationId, string CommandId, Plu
     string WorkDirectory, Dictionary<string, JsonElement>? Parameters = null);
 public sealed record PluginConfiguration(string Kind, string Title, int Width, int Height, string Format);
 public sealed record PluginPreparation(PluginConfiguration? Configuration = null);
-public sealed record PluginOutput(string Path, string SuggestedName);
+public sealed record PluginOutput(string Path, string SuggestedName)
+{
+    /// <summary>输出对应的输入文件；一次处理多个文件时必须为每个输出指定。</summary>
+    public string? SourcePath { get; init; }
+}
 public sealed record PluginResult(PluginOutput[] Outputs, string[] Warnings);
-public sealed record PluginProgress(string Message, double? Percent = null);
+public sealed record PluginProgress(string Message, double? Percent = null)
+{
+    /// <summary>设为 true 时，应用会把本次任务显示在后台任务面板；插件不设置则只显示状态栏文字。</summary>
+    public bool ShowInTaskPanel { get; init; }
+    /// <summary>后台任务标题；仅在任务首次创建时生效，省略时使用命令标题。</summary>
+    public string? TaskTitle { get; init; }
+}
 
 public interface IFileActionPlugin
 {

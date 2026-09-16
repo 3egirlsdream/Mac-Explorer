@@ -83,6 +83,8 @@ public class MacContextMenuService : IContextMenuService
 
         foreach (var app in await _openWithService.GetSubmenuAppsAsync())
         {
+            if (BuiltInOpenWithActions.IsBuiltIn(app.BundleId))
+                continue;
             if (!seen.Add(app.BundleId) || !IsAppInstalledForMenu(app.BundleId))
                 continue;
 
@@ -116,7 +118,7 @@ public class MacContextMenuService : IContextMenuService
         var actions = new List<ContextMenuAction>();
         foreach (var app in await _openWithService.GetTopLevelAppsAsync())
         {
-            if (!IsAppInstalledForMenu(app.BundleId))
+            if (BuiltInOpenWithActions.IsBuiltIn(app.BundleId) || !IsAppInstalledForMenu(app.BundleId))
                 continue;
 
             var configuredApp = app;

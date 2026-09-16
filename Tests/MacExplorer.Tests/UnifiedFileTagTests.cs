@@ -21,7 +21,7 @@ public sealed class UnifiedFileTagTests : IDisposable
         {
             SqliteSchema.Initialize(connection);
             Execute(connection, """
-                DELETE FROM schema_version WHERE version = 8;
+                DELETE FROM schema_version WHERE version >= 8;
                 INSERT INTO schema_version VALUES (7);
                 INSERT INTO collections(id, name, sort_order, created_at) VALUES
                     (1, 'Project', 3, 1), (2, 'project', 4, 1), (3, '空标签', 1, 1), (4, 'Red', 2, 1);
@@ -110,7 +110,7 @@ public sealed class UnifiedFileTagTests : IDisposable
         {
             SqliteSchema.Initialize(connection);
             Execute(connection, """
-                DELETE FROM schema_version WHERE version = 8;
+                DELETE FROM schema_version WHERE version >= 8;
                 INSERT INTO collections(id, name, sort_order, created_at) VALUES (1, '大量', 0, 1);
                 WITH RECURSIVE numbers(n) AS (SELECT 0 UNION ALL SELECT n + 1 FROM numbers WHERE n < 6000)
                 INSERT INTO collection_items(collection_id, file_path, added_at) SELECT 1, '/a/' || n, 1 FROM numbers;
@@ -225,7 +225,7 @@ public sealed class UnifiedFileTagTests : IDisposable
         {
             SqliteSchema.Initialize(connection);
             Execute(connection, """
-                DELETE FROM schema_version WHERE version = 8;
+                DELETE FROM schema_version WHERE version >= 8;
                 INSERT INTO schema_version VALUES (7);
                 INSERT INTO collections(id, name, sort_order, created_at) VALUES (1, '红色', 0, 1);
                 INSERT INTO collection_items(collection_id, file_path, added_at) VALUES (1, '/a', 1);
@@ -247,7 +247,7 @@ public sealed class UnifiedFileTagTests : IDisposable
         using var connection = Factory.GetConnection();
         SqliteSchema.Initialize(connection);
         Execute(connection, """
-            DELETE FROM schema_version WHERE version = 8;
+            DELETE FROM schema_version WHERE version >= 8;
             INSERT INTO schema_version VALUES (7);
             INSERT INTO collections(id, name, sort_order, created_at) VALUES (1, '保持', 0, 1);
             INSERT INTO collection_items(collection_id, file_path, added_at) VALUES (1, '/a', 1);

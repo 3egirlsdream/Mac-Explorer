@@ -603,17 +603,18 @@ public partial class SettingsDialog : DialogWindow
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                 Children =
                 {
-                    toggle,
-                    delete
+                    toggle
                 }
             };
+            if (!BuiltInOpenWithActions.IsBuiltIn(app.BundleId))
+                actions.Children.Add(delete);
 
             var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
             var identity = new StackPanel { Spacing = 4 };
             identity.Children.Add(CreateAppIdentity(app.Label, app.IconBase64, 28));
             identity.Children.Add(new TextBlock
             {
-                Text = "显示在右键菜单首层",
+                Text = app.IsTopLevel ? "显示在右键菜单首层" : "收进「打开方式」子菜单",
                 Classes = { "settings-description" },
                 Margin = new Thickness(36, 0, 0, 0)
             });

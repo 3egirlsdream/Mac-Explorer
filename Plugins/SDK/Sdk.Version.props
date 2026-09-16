@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
-    <PluginSdkVersion>1.0.0</PluginSdkVersion>
+    <PluginSdkVersion>1.0.1</PluginSdkVersion>
     <Version>$(PluginSdkVersion)</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <MinimumHostVersion>1.0.44</MinimumHostVersion>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <MinimumHostVersion>1.0.45</MinimumHostVersion>
     <Authors>Mac Explorer contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/3egirlsdream/Mac-Explorer</RepositoryUrl>

@@ -33,8 +33,9 @@ class ReleaseTests(unittest.TestCase):
             corrupted = True
             def fake_gh(*args):
                 calls.append(args)
-                if args[0] == 'api' and args[1].endswith('v1.0.44'):
-                    return json.dumps({'draft': False, 'prerelease': False, 'assets': [{'name': 'MacExplorer-1.0.44-macos.zip'}]})
+                host = 'v' + sdk_release.minimum_host_version()
+                if args[0] == 'api' and args[1].endswith(host):
+                    return json.dumps({'draft': False, 'prerelease': False, 'assets': [{'name': f'MacExplorer-{host[1:]}-macos.zip'}]})
                 if args[0] == 'api':
                     self.assertIn('--paginate', args)
                     return json.dumps([[{**draft, 'assets': [{'name': archive.name, 'size': archive.stat().st_size}]}]])

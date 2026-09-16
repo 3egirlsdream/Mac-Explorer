@@ -1,14 +1,16 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using MacExplorer.PluginSdk;
 
 namespace MacExplorer.Services.Plugins;
 
 internal static class PluginOutputCommitter
 {
-    public static async Task<string[]> CommitAsync(MacExplorer.PluginSdk.PluginOutput[] outputs, string source,
+    public static async Task<string[]> CommitAsync(PluginOutput[] outputs, IReadOnlyList<PluginFile> files,
         string workDirectory, CancellationToken token)
     {
         if (outputs is not { Length: > 0 and <= 100 }) throw new InvalidDataException("插件未返回有效输出文件。");
+        var sources = files.Select(file => Path.GetFullPath(file.Path)).ToHashSet(StringComparer.Ordinal);
         foreach (var output in outputs)
         {
             var path = PluginPackage.ContainedPath(workDirectory, Path.GetRelativePath(workDirectory, output.Path));
@@ -23,12 +25,24 @@ internal static class PluginOutputCommitter
         var results = new List<string>();
         foreach (var output in outputs)
         {
-            var destination = Path.Combine(Path.GetDirectoryName(source)!, output.SuggestedName);
+            var destination = Path.Combine(Path.GetDirectoryName(ResolveSource(output, files, sources))!, output.SuggestedName);
             // Once the first output is committed, finish the remaining complete outputs.
             results.Add(await CommitOutputAsync(output.Path, destination, Path.GetExtension(destination).TrimStart('.'),
                 results.Count == 0 ? token : CancellationToken.None));
         }
         return results.ToArray();
+    }
+
+    private static string ResolveSource(PluginOutput output, IReadOnlyList<PluginFile> files, HashSet<string> sources)
+    {
+        if (output.SourcePath is { Length: > 0 } source)
+        {
+            var path = Path.GetFullPath(source);
+            if (!sources.Contains(path)) throw new InvalidDataException("插件输出引用了本次调用之外的来源文件。");
+            return path;
+        }
+        if (files.Count == 1) return Path.GetFullPath(files[0].Path);
+        throw new InvalidDataException("插件一次处理多个文件时，每个输出都必须指定来源文件。");
     }
 
     internal static async Task<string> CommitOutputAsync(string temporaryOutput, string source, string extension, CancellationToken token)

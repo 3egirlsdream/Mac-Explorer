@@ -74,7 +74,9 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
         {
             try
             {
-                var icon = ReadAppIconBase64(app.BundleId);
+                var icon = BuiltInOpenWithActions.IsBuiltIn(app.BundleId)
+                    ? ReadBuiltInIconBase64(app.BundleId)
+                    : ReadAppIconBase64(app.BundleId);
                 if (icon != null)
                 {
                     using var cmd = connection.CreateCommand();
@@ -115,6 +117,11 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
 
     public Task<string?> GetAppIconBase64Async(string bundleId)
     {
+        if (BuiltInOpenWithActions.IsRevealInFinder(bundleId))
+            return GetAppIconBase64ByPathAsync(BuiltInOpenWithActions.FinderAppPath);
+        if (BuiltInOpenWithActions.IsOpenInTerminal(bundleId))
+            return GetAppIconBase64Async(BuiltInOpenWithActions.TerminalBundleId);
+
         if (_iconCache.TryGetValue(bundleId, out var cachedIcon))
             return Task.FromResult<string?>(cachedIcon);
 
@@ -266,7 +273,8 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
         lock (_lock) { configuredApps = new List<OpenWithApp>(_cache); }
 
         var unavailableIds = await Task.Run(() => configuredApps
-            .Where(app => GetApplicationAvailability(app.BundleId) == ApplicationAvailability.NotInstalled)
+            .Where(app => !BuiltInOpenWithActions.IsBuiltIn(app.BundleId)
+                && GetApplicationAvailability(app.BundleId) == ApplicationAvailability.NotInstalled)
             .Select(app => app.Id)
             .ToList());
         if (unavailableIds.Count == 0)
@@ -452,6 +460,11 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
         }
         catch { return null; }
     }
+
+    private string? ReadBuiltInIconBase64(string bundleId)
+        => BuiltInOpenWithActions.IsRevealInFinder(bundleId)
+            ? ExtractIconBase64(BuiltInOpenWithActions.FinderAppPath)
+            : ReadAppIconBase64(BuiltInOpenWithActions.TerminalBundleId);
 
     private string? ReadAppIconBase64(string bundleId)
     {

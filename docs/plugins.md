@@ -6,8 +6,8 @@
 
 - [下载完整 SDK](developers/sdk.html)，解压后保留整个目录。
 - 安装 .NET 10 SDK。首次还原依赖需要联网。
-- 使用 Mac Explorer 1.0.44 或更新的兼容版本安装、调试插件。
-- SDK 1.0.0 支持协议 API v1 / v2，新插件推荐 API v2。窗口 SDK 使用 Avalonia 12.0.4。
+- 使用 Mac Explorer 1.0.45 或更新的兼容版本安装、调试插件。
+- SDK 1.0.1 支持协议 API v1 / v2，新插件推荐 API v2。窗口 SDK 使用 Avalonia 12.0.4。
 
 SDK 目录：
 
@@ -73,7 +73,7 @@ dotnet tools/MacExplorer.PluginPack.dll examples/SimplePlugin/bin/Release/net10.
 - `name`：右键一级菜单名称；`commands` 定义二级功能项，命令 ID 应保持稳定。
 - `icon`：支持 `convert`、`document`、`image`、`apps`，对应 Fluent 图标。
 - `architecture`：使用与目标环境及原生依赖一致的 `arm64` 或 `x64`。
-- `match`：`extensions`、`fileNames`、`textFiles` 任意一项匹配即可；选中文件数量必须在范围内，且每个文件都适用。数量默认均为 1。
+- `match`：`extensions`、`fileNames`、`textFiles` 任意一项匹配即可；选中文件数量必须在范围内，且每个文件都适用。`minSelection` 与 `maxSelection` 默认均为 1，需要批量处理时把 `maxSelection` 调大（最大 1000），应用会在一次调用中传入全部选中的文件。
 
 当前支持本地普通文件，不匹配目录、远程文件、废纸篓和压缩包内部文件。菜单匹配不读取文件内容，执行时仍需校验输入。
 
@@ -96,11 +96,35 @@ return new PluginResult(
 
 - 保留源文件，输出必须位于工作目录内，是非空普通文件，不能是符号链接。
 - 建议名称只包含文件名，不包含目录。返回后由应用保存最终文件并处理重名。
+- 一次处理多个文件时，每个输出都要用 `SourcePath` 指明对应的输入文件（如 `new PluginOutput(path, "报告.docx") { SourcePath = file.Path }`），且只能是本次调用传入的文件；每个文件的建议名称各自独立。
 - 用 `IProgress<PluginProgress>` 报告阶段；有真实百分比时传入 0–100，否则使用 `null`。
+- 插件调用默认只显示状态栏文字，不会自动创建后台任务。需要出现在后台任务面板时，把 `ShowInTaskPanel` 设为 `true`，应用会创建任务并随进度更新；可用 `TaskTitle` 指定任务标题（仅在任务创建时生效，省略则使用命令标题和文件名）。只打开配置窗口等交互不要设置该标志。
+- 批量处理时建议为每个文件单独报告进度，并在开始时设置 `ShowInTaskPanel`。
 - 响应 `CancellationToken`，及时停止读写并释放资源。辅助进程使用 `PluginChildProcesses.Track` 注册，同时在取消或异常时清理。
 - 不要直接写原始标准输出；使用 `Console.Error.WriteLine` 记录诊断信息，可在插件管理页查看日志。
 
-准备阶段限时 30 秒，执行阶段限时 2 分钟，交互配置等待不计入执行时间。同一插件同时只运行一个会话；失败不会自动重试。
+准备阶段限时 30 秒；执行阶段基础限时 2 分钟，批量调用每增加一个文件增加 30 秒（即 `120 + 30 × (文件数 − 1)` 秒），交互配置等待不计入执行时间。同一插件同时只运行一个会话；失败不会自动重试。
+
+### 批量处理
+
+在 `match` 中把 `maxSelection` 设为大于 1 即可接收批量调用，例如 `"maxSelection": 100`。被选中的文件必须全部符合该命令的匹配条件，`invocation.Files` 会一次传入全部文件：
+
+```csharp
+var outputs = new List<PluginOutput>();
+for (var index = 0; index < invocation.Files.Length; index++)
+{
+    var file = invocation.Files[index];
+    progress.Report(new($"正在处理 {Path.GetFileName(file.Path)}（{index + 1}/{invocation.Files.Length}）",
+        index * 100.0 / invocation.Files.Length) { ShowInTaskPanel = true });
+    var output = Path.Combine(invocation.WorkDirectory, index.ToString(), "result.bin");
+    Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+    await ProcessAsync(file.Path, output, token);
+    outputs.Add(new(output, Path.GetFileNameWithoutExtension(file.Path) + ".bin") { SourcePath = file.Path });
+}
+return new(outputs.ToArray(), []);
+```
+
+每个文件使用独立的工作子目录，避免同名输出互相覆盖；全部输出在一次调用中返回，由应用按 `SourcePath` 保存到各源文件所在目录。
 
 ### 添加尺寸配置
 
@@ -153,7 +177,7 @@ dotnet tools/MacExplorer.PluginPack.dll <构建输出目录> <插件名.mexplug>
 
 工具拒绝路径越界、符号链接、无效入口和覆盖已有输出。再次打包请更换输出文件名；原生辅助程序需保留执行权限，并按目标平台签名。
 
-发布前安装生成的包，验证菜单匹配、实际输出、重名、取消、损坏输入及错误提示。有账号或试用功能时，同时检查窗口关闭、登录失败、授权到期及卸载重装行为。
+发布前安装生成的包，验证菜单匹配、实际输出、重名、取消、损坏输入及错误提示。支持批量时，还要验证多选匹配、每个文件的输出位置与进度显示。有账号或试用功能时，同时检查窗口关闭、登录失败、授权到期及卸载重装行为。
 
 ## 6. 发布插件
 

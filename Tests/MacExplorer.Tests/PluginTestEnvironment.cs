@@ -41,8 +41,8 @@ internal sealed class PluginTestEnvironment : IDisposable
         Directory.CreateDirectory(directory);
         var output = Path.Combine(Repository, "Tools", "PluginTestFixture", "bin", Configuration, "net10.0");
         foreach (var path in Directory.GetFiles(output)) File.Copy(path, Path.Combine(directory, Path.GetFileName(path)));
-        var commands = new[] { "run", "hang", "helper", "crash-helper", "crash", "invalid-wire", "cancel" }.Select(id => new PluginCommand
-        { Id = id, Title = id, Match = new() { Extensions = [".txt"] } }).ToArray();
+        var commands = new[] { "run", "hang", "helper", "crash-helper", "crash", "invalid-wire", "cancel", "batch" }.Select(id => new PluginCommand
+        { Id = id, Title = id, Match = new() { Extensions = [".txt"], MaxSelection = id == "batch" ? 10 : 1 } }).ToArray();
         File.WriteAllText(Path.Combine(directory, "plugin.json"), JsonSerializer.Serialize(new PluginManifest
         {
             Id = "test.fixture", Name = "测试插件", Version = version, ApiVersion = apiVersion,

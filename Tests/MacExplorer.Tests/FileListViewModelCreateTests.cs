@@ -1143,7 +1143,9 @@ public sealed partial class FileListViewModelCreateTests
         IClipboardService? clipboardService = null,
         MacExplorer.Services.Plugins.PluginManager? pluginManager = null,
         IContextMenuService? contextMenuService = null,
-        IApplicationLauncherService? launcherService = null)
+        IApplicationLauncherService? launcherService = null,
+        IOpenWithAppService? openWithAppService = null,
+        IBackgroundTaskManager? backgroundTaskManager = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1175,7 +1177,9 @@ public sealed partial class FileListViewModelCreateTests
             directoryChangeNotifier: directoryChangeNotifier,
             fileTagService: fileTagService,
             clipboardService: clipboardService,
-            pluginManager: pluginManager);
+            openWithAppService: openWithAppService,
+            pluginManager: pluginManager,
+            conversionTaskManager: backgroundTaskManager);
     }
 
     private sealed class FakeFileService(string homeDirectory) : IFileService

@@ -1,10 +1,11 @@
+using MacExplorer.Models;
 using Microsoft.Data.Sqlite;
 
 namespace MacExplorer.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 8;
+    public const int CurrentVersion = 9;
 
     /// <summary>
     /// Whether FTS5 is available (set during Initialize).
@@ -115,6 +116,9 @@ public static class SqliteSchema
 
         if (storedVersion < 8)
             FileTagSchema.MigrateCollections(connection, transaction);
+
+        if (storedVersion < 9)
+            MigrateToV9(connection, transaction);
 
         // Record current version
         ExecuteNonQuery(connection, """
@@ -342,6 +346,37 @@ public static class SqliteSchema
         }
 
         System.Diagnostics.Debug.WriteLine("Schema migrated to v7: open_with_apps");
+    }
+
+    private static void MigrateToV9(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        // "在 Finder 中显示" / "在终端中打开" become configurable menu entries and the
+        // seeded editors move into the "打开方式" submenu by default.
+        ExecuteNonQuery(connection, """
+            UPDATE open_with_apps
+            SET is_top_level = 0
+            WHERE bundle_id IN ('com.microsoft.VSCode', 'com.todesktop.230313mzl4w4u92', 'dev.kiro.desktop', 'com.qoder.ide')
+            """, transaction);
+
+        ExecuteNonQuery(connection, "UPDATE open_with_apps SET sort_order = sort_order + 2", transaction);
+
+        ExecuteNonQuery(connection, """
+            INSERT OR IGNORE INTO open_with_apps (bundle_id, label, is_top_level, sort_order)
+            VALUES (@bundleId, @label, 1, @sortOrder)
+            """, transaction,
+            ("@bundleId", BuiltInOpenWithActions.RevealInFinderBundleId),
+            ("@label", BuiltInOpenWithActions.RevealInFinderLabel),
+            ("@sortOrder", 0));
+
+        ExecuteNonQuery(connection, """
+            INSERT OR IGNORE INTO open_with_apps (bundle_id, label, is_top_level, sort_order)
+            VALUES (@bundleId, @label, 1, @sortOrder)
+            """, transaction,
+            ("@bundleId", BuiltInOpenWithActions.OpenInTerminalBundleId),
+            ("@label", BuiltInOpenWithActions.OpenInTerminalLabel),
+            ("@sortOrder", 1));
+
+        System.Diagnostics.Debug.WriteLine("Schema migrated to v9: built-in open-with actions");
     }
 
     private static void TryCreateAiTagsFts5(SqliteConnection connection, SqliteTransaction transaction)
