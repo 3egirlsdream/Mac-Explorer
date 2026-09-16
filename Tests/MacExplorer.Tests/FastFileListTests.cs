@@ -42,6 +42,30 @@ public sealed class FastFileListTests
         Assert.Same(list.Rows[500], list.EntryAt(new Point(50, 15)));
     }
 
+    [AvaloniaFact]
+    public void ListRowHitAndExtentEndAtKindColumnRightEdge()
+    {
+        var list = new FastFileList();
+        list.Measure(new Size(900, 300));
+        list.Arrange(new Rect(0, 0, 900, 300));
+        var entries = Enumerable.Range(0, 3).Select(Entry).ToArray();
+        list.SetRows(entries);
+        // Default columns total 810 → row right edge = 13 + 22 + 810 = 845.
+        Assert.Same(entries[0], list.EntryAt(new Point(844, 15)));
+        Assert.Equal(0, list.RowIndexAt(new Point(844, 15)));
+        Assert.Null(list.EntryAt(new Point(860, 15)));
+        Assert.Equal(-1, list.RowIndexAt(new Point(860, 15)));
+
+        // Grid mode hits by cell and is unaffected by the row right edge.
+        list.IsGrid = true;
+        var gridEntries = Enumerable.Range(0, 20).Select(Entry).ToArray();
+        list.SetRows(gridEntries);
+        list.Measure(new Size(1000, 300));
+        list.Arrange(new Rect(0, 0, 1000, 300));
+        Assert.Same(gridEntries[7], list.EntryAt(new Point(860, 15)));
+        Assert.Equal(7, list.RowIndexAt(new Point(860, 15)));
+    }
+
     internal static FileSystemEntry Entry(int i) => new()
     {
         Name = $"文件-{i:D6}.txt", FullPath = $"/tmp/FastListTests/文件-{i:D6}.txt",

@@ -310,10 +310,13 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     public int IndexOf(FileSystemEntry entry) => _indices.GetValueOrDefault(entry.FullPath, -1);
     public int IndexOfPath(string path) => _indices.GetValueOrDefault(path, -1);
+    internal double ListRowRight => Inset + IconSlot + _columns.Total;
+
     public int RowIndexAt(Point point)
     {
         if (IsLoading) return -1;
         if (point.X < 0 || point.X >= Bounds.Width || point.Y < 0 || point.Y >= Bounds.Height) return -1;
+        if (!IsGrid && point.X >= ListRowRight) return -1;
         return _layout.IndexAt(new Point(point.X, point.Y + _offset));
     }
 
@@ -555,6 +558,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 RenderGridEntry(context, index);
                 continue;
             }
+            // List rows end at the Kind column's right edge; the rest is background canvas.
+            row = new Rect(row.X, row.Y, Math.Min(row.Width, ListRowRight), row.Height);
             context.DrawRectangle(fill, HasKeyboardFocus(entry) ? new Pen(FocusRing, 1) : null, new RoundedRect(row.Deflate(0.5), Math.Max(0, RowCornerRadius.TopLeft - 0.5)));
             using var opacity = context.PushOpacity(entry.IsCut ? 0.45 : 1);
             context.DrawRectangle(null, null, new RoundedRect(row.Deflate(1), RowCornerRadius), OutlineFor(entry));

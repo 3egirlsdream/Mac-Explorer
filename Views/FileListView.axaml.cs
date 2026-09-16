@@ -2481,12 +2481,11 @@ public partial class FileListView : UserControl
         // Empty-state buttons (retry, clear filters, etc.) are controls, not canvas.
         if (sourceVisual is Button || sourceVisual?.FindAncestorOfType<Button>() != null)
             return;
-        // The list intentionally leaves the transparent remainder of a row as
-        // marquee canvas for left-button drags. A secondary click is different:
-        // Finder treats any point inside that row as the row's context target.
-        // Let OnDismissClick keep the existing multi-selection instead of letting
-        // this canvas handler turn a right-click on row whitespace into a blank
-        // background click.
+        // List rows end at the Kind column's right edge; the remainder is
+        // marquee/background canvas. Inside that extent — including the gaps
+        // between cells — a secondary click is the row's context target:
+        // let OnDismissClick keep the existing multi-selection instead of
+        // letting this canvas handler turn it into a blank background click.
         if (e.GetCurrentPoint(FileScroll).Properties.IsRightButtonPressed
             && EntryAtPointer(e) != null)
             return;
