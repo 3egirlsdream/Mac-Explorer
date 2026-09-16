@@ -127,6 +127,19 @@
                         <TextBlock Grid.Column="1" x:Name="InfoAccessed" Text="—" FontSize="{DynamicResource FontSizeLabel}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
+                    <Grid ColumnDefinitions="72,*,Auto">
+                        <TextBlock Text="哈希值" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" x:Name="InfoHash" Text="—" FontSize="{DynamicResource FontSizeLabel}"
+                                   Margin="0,0,4,0" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" x:Name="CopyHashBtn" IsVisible="False"
+                                AutomationProperties.Name="复制哈希值" ToolTip.Tip="复制哈希值"
+                                Classes="ghost info-panel-icon" Padding="0" Margin="2,0,0,0"
+                                VerticalAlignment="Center" Click="CopyHash">
+                            <PathIcon Data="{x:Static icons:Icons.Copy}" Width="11" Height="11"
+                                      Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Button>
+                    </Grid>
                 </StackPanel>
 
                 <!-- Tab: EXIF Info -->

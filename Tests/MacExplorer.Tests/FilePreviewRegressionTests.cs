@@ -83,6 +83,51 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
+    [AvaloniaFact]
+    public async Task InfoPanelShowsFileHashWithTooltipAndCopyButton()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "fkfinder-hash-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        using var vm = CreateViewModel(new FakeFileService(directory));
+        var panel = new InfoPanelView { DataContext = vm };
+        var window = new Window { Width = 400, Height = 600, Content = panel };
+        try
+        {
+            var bytes = "fkfinder hash content"u8.ToArray();
+            await File.WriteAllBytesAsync(Path.Combine(directory, "h.bin"), bytes);
+            var expected = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+            window.Show();
+            vm.IsInfoPanelVisible = true;
+
+            Select("h.bin");
+            var hash = panel.FindControl<TextBlock>("InfoHash")!;
+            await WaitForPreviewAsync(() => hash.Text == expected);
+            Assert.Equal(expected, ToolTip.GetTip(hash));
+            Assert.True(panel.FindControl<Button>("CopyHashBtn")!.IsVisible);
+
+            Select("folder", isDirectory: true);
+            await WaitForPreviewAsync(() => !panel.FindControl<Button>("CopyHashBtn")!.IsVisible);
+            Assert.Equal("—", hash.Text);
+            Assert.Null(ToolTip.GetTip(hash));
+        }
+        finally
+        {
+            window.Close();
+            Directory.Delete(directory, true);
+        }
+
+        void Select(string name, bool isDirectory = false)
+        {
+            vm.SelectedEntries.Clear();
+            vm.SelectedEntries.Add(new FileSystemEntry
+            {
+                FullPath = Path.Combine(directory, name), Name = name,
+                Extension = Path.GetExtension(name), IsDirectory = isDirectory,
+                IconKey = "file-generic"
+            });
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("ListEntryTemplate", ViewMode.List)]
     [InlineData("GridEntryTemplate", ViewMode.Grid)]
