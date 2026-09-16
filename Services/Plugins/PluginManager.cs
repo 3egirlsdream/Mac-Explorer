@@ -20,6 +20,7 @@ public sealed partial class PluginManager : IAsyncDisposable
     private readonly Dictionary<string, PluginState> _state;
     private readonly Dictionary<string, PluginSession> _sessions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _leasedDirectories = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _scheduledRepairs = new(StringComparer.Ordinal);
     private readonly string _bundledPackage;
     private readonly string _executable;
     private readonly string _assembly;
@@ -114,6 +115,26 @@ public sealed partial class PluginManager : IAsyncDisposable
                 version >= Version.Parse(manifest.Version) && Directory.Exists(previous.Directory)) return;
             var parent = Path.Combine(RootDirectory, manifest.Id);
             Directory.CreateDirectory(parent);
+            // Another instance sharing this root (or an earlier install) may already have this
+            // version on disk; reuse that directory instead of adding a duplicate one.
+            if (!explicitInstall && Version.TryParse(manifest.Version, out var targetVersion) &&
+                FindSiblingVersion(manifest.Id, targetVersion) is { } installed)
+            {
+                _state[manifest.Id] = new()
+                {
+                    Directory = installed, Version = manifest.Version, Name = manifest.Name,
+                    Enabled = previous?.Enabled != false, BuiltIn = builtIn || previous?.BuiltIn == true,
+                    LogPath = previous?.LogPath, FromMarket = fromMarket
+                };
+                try { Save(); }
+                catch
+                {
+                    if (previous == null) _state.Remove(manifest.Id); else _state[manifest.Id] = previous;
+                    throw;
+                }
+                PruneVersions(manifest.Id, previous?.Directory);
+                return;
+            }
             var destination = Path.Combine(parent, manifest.Version + "-" + Guid.NewGuid().ToString("N"));
             Directory.Move(staging, destination);
             _state[manifest.Id] = new()
@@ -128,7 +149,7 @@ public sealed partial class PluginManager : IAsyncDisposable
                 if (previous == null) _state.Remove(manifest.Id); else _state[manifest.Id] = previous;
                 Directory.Delete(destination, true); throw;
             }
-            CleanupVersions(manifest.Id);
+            PruneVersions(manifest.Id, previous?.Directory);
         }
         finally { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
     }
@@ -153,7 +174,7 @@ public sealed partial class PluginManager : IAsyncDisposable
         {
             ThrowIfStopping();
             if (!_state.TryGetValue(id, out var state)) return;
-            state.Removed = true; state.Enabled = false; Save(); CleanupVersions(id); Reload();
+            state.Removed = true; state.Enabled = false; Save(); PurgeVersions(id); Reload();
         }
         finally { _gate.Release(); }
         Changed?.Invoke();
@@ -212,23 +233,71 @@ public sealed partial class PluginManager : IAsyncDisposable
     private async Task ReleaseAsync(string id)
     {
         await _gate.WaitAsync();
-        try { _sessions.Remove(id); _leasedDirectories.Remove(id); CleanupVersions(id); Reload(); }
+        try
+        {
+            _sessions.Remove(id); _leasedDirectories.Remove(id);
+            if (_state.TryGetValue(id, out var state) && state.Removed) PurgeVersions(id);
+            else PruneVersions(id);
+            Reload();
+        }
         finally { _gate.Release(); }
         Changed?.Invoke();
     }
 
-    private void CleanupVersions(string id)
+    private void PurgeVersions(string id)
     {
         var parent = Path.Combine(RootDirectory, id);
         if (!Directory.Exists(parent)) return;
         foreach (var path in Directory.GetDirectories(parent))
         {
             if (_leasedDirectories.TryGetValue(id, out var leased) && leased == path) continue;
-            if (_state.TryGetValue(id, out var state) && !state.Removed && state.Directory == path) continue;
-            try { Directory.Delete(path, true); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            TryDeleteDirectory(path);
         }
+    }
+
+    // A same-version or newer directory may belong to another instance sharing this root, so only
+    // directories this process replaces or explicitly supersedes are removed.
+    private void PruneVersions(string id, string? superseded = null)
+    {
+        if (!_state.TryGetValue(id, out var state) || !Version.TryParse(state.Version, out var current)) return;
+        var parent = Path.Combine(RootDirectory, id);
+        if (!Directory.Exists(parent)) return;
+        foreach (var path in Directory.GetDirectories(parent))
+        {
+            if (path == state.Directory) continue;
+            if (_leasedDirectories.TryGetValue(id, out var leased) && leased == path) continue;
+            if (path == superseded || GetDirectoryVersion(path) is { } version && version < current) TryDeleteDirectory(path);
+        }
+    }
+
+    private string? FindSiblingVersion(string id, Version version)
+    {
+        var parent = Path.Combine(RootDirectory, id);
+        if (!Directory.Exists(parent)) return null;
+        foreach (var path in Directory.GetDirectories(parent).OrderBy(p => p, StringComparer.Ordinal))
+        {
+            if (GetDirectoryVersion(path) != version) continue;
+            try
+            {
+                if (PluginPackage.ReadManifest(path).Id == id) return path;
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException or BadImageFormatException or UnauthorizedAccessException) { }
+        }
+        return null;
+    }
+
+    private static Version? GetDirectoryVersion(string path)
+    {
+        var name = Path.GetFileName(path);
+        var separator = name.IndexOf('-');
+        return separator > 0 && Version.TryParse(name[..separator], out var version) ? version : null;
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try { Directory.Delete(path, true); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private void Reload()
@@ -236,17 +305,67 @@ public sealed partial class PluginManager : IAsyncDisposable
         var plugins = new List<InstalledPlugin>();
         foreach (var (id, state) in _state)
         {
-            PluginManifest manifest;
-            try { manifest = PluginPackage.ReadManifest(state.Directory); }
-            catch (Exception ex)
-            {
-                manifest = new() { Id = id, Name = state.Name, Version = state.Version };
-                if (!state.Removed) state.LastError = ex.Message;
-            }
+            var manifest = ReadManifestOrRecover(id, state);
             plugins.Add(new(manifest, state.Directory, state.Enabled && manifest.Commands.Length > 0, state.BuiltIn,
                 _sessions.ContainsKey(id), state.Removed, state.LastError, state.LogPath, state.FromMarket));
         }
         Volatile.Write(ref _plugins, plugins.OrderBy(p => p.Manifest.Id, StringComparer.Ordinal).ToArray());
+    }
+
+    // Every install lands in a fresh <version>-<guid> directory, so another instance sharing this
+    // root can delete the directory this instance still points at. Recover instead of going broken.
+    private PluginManifest ReadManifestOrRecover(string id, PluginState state)
+    {
+        try { return PluginPackage.ReadManifest(state.Directory); }
+        catch (Exception ex)
+        {
+            if (state.Removed || Directory.Exists(state.Directory))
+            {
+                if (!state.Removed) state.LastError = ex.Message;
+            }
+            else if (Version.TryParse(state.Version, out var version) && FindSiblingVersion(id, version) is { } sibling)
+            {
+                state.Directory = sibling;
+                state.LastError = null;
+                Save();
+                try { return PluginPackage.ReadManifest(sibling); }
+                catch (Exception replacement) { state.LastError = replacement.Message; }
+            }
+            else if (id == BuiltInId && File.Exists(_bundledPackage))
+            {
+                if (ScheduleBuiltInRepair()) state.LastError = "插件文件缺失，正在自动恢复。";
+                else state.LastError ??= "插件文件缺失，请重新安装。";
+            }
+            else state.LastError = "插件文件缺失，请重新安装。";
+            return new() { Id = id, Name = state.Name, Version = state.Version };
+        }
+    }
+
+    private bool ScheduleBuiltInRepair()
+    {
+        lock (_scheduledRepairs) { if (!_scheduledRepairs.Add(BuiltInId)) return false; }
+        _ = Task.Run(async () =>
+        {
+            var completed = false;
+            try
+            {
+                await _gate.WaitAsync();
+                try
+                {
+                    if (!_stopping && _state.TryGetValue(BuiltInId, out var state) && !state.Removed && !Directory.Exists(state.Directory))
+                    {
+                        await InstallCoreAsync(_bundledPackage, true, false, CancellationToken.None);
+                        Reload();
+                    }
+                    completed = true;
+                }
+                finally { _gate.Release(); }
+                Changed?.Invoke();
+            }
+            catch (Exception ex) { await RecordErrorAsync(BuiltInId, "内置插件自动恢复失败：" + ex.Message); }
+            finally { if (completed) lock (_scheduledRepairs) _scheduledRepairs.Remove(BuiltInId); }
+        });
+        return true;
     }
 
     private void Save() => _settings.Set(StateKey, JsonSerializer.Serialize(_state, PluginProtocol.Json));

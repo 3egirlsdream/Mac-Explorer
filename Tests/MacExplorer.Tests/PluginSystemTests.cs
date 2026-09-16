@@ -112,6 +112,57 @@ public sealed class PluginSystemTests
         Assert.False(env.Manager.Plugins.Single(p => p.Manifest.Id == "test.fixture").Running);
     }
 
+    [Fact]
+    public async Task SecondInstanceAdoptsInstalledDirectoryInsteadOfReplacingIt()
+    {
+        using var env = new PluginTestEnvironment();
+        var directory = Assert.Single(env.Manager.Plugins).Directory;
+        await using (var other = NewInstance(env))
+        {
+            await other.InitializeAsync();
+            var plugin = Assert.Single(other.Plugins);
+            Assert.Equal(directory, plugin.Directory);
+            Assert.True(plugin.Enabled, plugin.LastError);
+            Assert.Single(Directory.GetDirectories(Path.Combine(env.Root, "Plugins", PluginManager.BuiltInId)));
+        }
+        Assert.Null(Assert.Single(env.Manager.Plugins).LastError);
+    }
+
+    [Fact]
+    public async Task InstallingSameVersionFromAnotherInstanceKeepsTheRunningDirectory()
+    {
+        using var env = new PluginTestEnvironment();
+        await env.Manager.InstallAsync(env.CreateFixture());
+        var directory = env.Manager.Plugins.Single(p => p.Manifest.Id == "test.fixture").Directory;
+        await using (var other = NewInstance(env)) await other.InstallAsync(env.CreateFixture());
+        await env.Manager.SetEnabledAsync("test.fixture", true);
+        var plugin = env.Manager.Plugins.Single(p => p.Manifest.Id == "test.fixture");
+        Assert.True(plugin.Enabled, plugin.LastError);
+        Assert.Null(plugin.LastError);
+        Assert.Equal(directory, plugin.Directory);
+        Assert.True(Directory.Exists(directory));
+    }
+
+    [Fact]
+    public async Task BuiltInRepairsItselfWhenItsDirectoryDisappears()
+    {
+        using var env = new PluginTestEnvironment();
+        Directory.Delete(Assert.Single(env.Manager.Plugins).Directory, true);
+        await env.Manager.SetEnabledAsync(PluginManager.BuiltInId, true);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        while (env.Manager.Plugins.Single(p => p.Manifest.Id == PluginManager.BuiltInId).LastError != null)
+            await Task.Delay(25, deadline.Token);
+        var plugin = Assert.Single(env.Manager.Plugins);
+        Assert.True(plugin.Enabled, plugin.LastError);
+        Assert.True(Directory.Exists(plugin.Directory));
+        Assert.Single(Directory.GetDirectories(Path.Combine(env.Root, "Plugins", PluginManager.BuiltInId)));
+    }
+
+    private static PluginManager NewInstance(PluginTestEnvironment env) => new(new PluginTestEnvironment.MemorySettings(),
+        Path.Combine(env.Root, "Plugins"), PluginTestEnvironment.BundledPackage,
+        Path.Combine(PluginTestEnvironment.ApplicationOutput, "MacExplorer"),
+        Path.Combine(PluginTestEnvironment.ApplicationOutput, "MacExplorer.dll"));
+
     [Theory]
     [InlineData("../escape.txt", false)]
     [InlineData("/absolute.txt", false)]
