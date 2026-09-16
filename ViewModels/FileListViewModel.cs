@@ -1980,7 +1980,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             ContextMenuActions = new ObservableCollection<ContextMenuAction>
             {
-                new() { Label = "粘贴以添加标签", IconSvg = Icons.Paste, IsEnabled = _clipboardService?.HasClipboardFiles == true, Execute = PasteAsync },
+                new() { Label = "粘贴以添加标签", IconSvg = Icons.Paste, IsEnabled = _clipboardService?.HasClipboardFiles == true || _clipboardService?.GetPasteKind() == ClipboardPasteKind.ExternalFiles, Execute = PasteAsync },
                 new() { Label = "刷新", IconSvg = Icons.Refresh, Execute = RefreshAsync }
             };
         }
@@ -2333,7 +2333,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         actions.Add(ContextMenuAction.Separator);
 
-        actions.Add(new ContextMenuAction { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V", IsQuickAction = true, IsEnabled = _clipboardService?.HasClipboardFiles ?? false, Execute = () => PasteCommand.ExecuteAsync(null) });
+        actions.Add(new ContextMenuAction { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V", IsQuickAction = true, IsEnabled = _clipboardService?.HasPasteableContent ?? false, Execute = () => PasteCommand.ExecuteAsync(null) });
 
         actions.Add(ContextMenuAction.Separator);
 
@@ -2643,7 +2643,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
-                    IsEnabled = _clipboardService?.HasClipboardFiles ?? false,
+                    IsEnabled = _clipboardService?.HasPasteableContent ?? false,
                     Execute = () => PasteCommand.ExecuteAsync(null)
                 });
             }
@@ -2753,7 +2753,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
-                    IsEnabled = _clipboardService?.HasClipboardFiles ?? false,
+                    IsEnabled = _clipboardService?.HasPasteableContent ?? false,
                     Execute = () => PasteCommand.ExecuteAsync(null)
                 });
             }
@@ -3002,13 +3002,30 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task PasteAsync()
     {
+        if (_clipboardService == null) return;
+
         if (CurrentTag is { } tag)
         {
-            var clipboard = _clipboardService?.GetClipboardEntry();
-            if (clipboard != null) await SetFileTagAsync(clipboard.SourcePaths.ToArray(), tag, true);
+            if (_clipboardService.GetPasteKind() == ClipboardPasteKind.Image) return;
+            _clipboardService.TryAdoptExternalFiles();
+            var clipboard = _clipboardService.GetClipboardEntry();
+            if (clipboard is { IsEmpty: false }) await SetFileTagAsync(clipboard.SourcePaths.ToArray(), tag, true);
             return;
         }
-        if (_clipboardService?.HasClipboardFiles != true) return;
+
+        if (IsArchiveView || IsHomePage || string.IsNullOrWhiteSpace(_navigation.CurrentPath)) return;
+
+        var kind = _clipboardService.GetPasteKind();
+        if (kind == ClipboardPasteKind.None) return;
+
+        if (kind == ClipboardPasteKind.Image)
+        {
+            await PasteImageFromClipboardAsync();
+            return;
+        }
+
+        if (kind == ClipboardPasteKind.ExternalFiles && !_clipboardService.TryAdoptExternalFiles()) return;
+        if (!_clipboardService.HasClipboardFiles) return;
 
         try
         {
@@ -3027,6 +3044,39 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException) { StatusText = "粘贴已取消，已复制的文件保留在目标目录"; }
         catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
+    }
+
+    private async Task PasteImageFromClipboardAsync()
+    {
+        var image = _clipboardService?.ReadExternalImage();
+        if (image == null)
+        {
+            StatusText = "无法读取剪贴板中的图片";
+            return;
+        }
+
+        try
+        {
+            await _fileOps.PasteImageAsync(
+                _navigation.CurrentPath,
+                Entries.ToList(),
+                image,
+                msg => StatusText = msg,
+                async createdName =>
+                {
+                    ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
+                    await LoadDirectoryContentsAsync(forceRefresh: true);
+                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
+                    if (newEntry != null)
+                    {
+                        SelectedEntries.Clear();
+                        SelectedEntries.Add(newEntry);
+                    }
+                    RefreshLocationStatus();
+                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
+                });
+        }
+        catch (Exception ex) { StatusText = $"粘贴图片失败: {ex.Message}"; }
     }
 
     [RelayCommand]

@@ -12,3 +12,11 @@ public enum ClipboardOperation
     Copy,
     Cut
 }
+
+public enum ClipboardPasteKind
+{
+    None,
+    InAppFiles,
+    ExternalFiles,
+    Image
+}

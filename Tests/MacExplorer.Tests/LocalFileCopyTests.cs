@@ -237,6 +237,10 @@ public sealed class LocalFileCopyTests : IDisposable
     {
         private ClipboardEntry? _entry;
         public bool HasClipboardFiles => _entry is { IsEmpty: false };
+        public bool HasPasteableContent => HasClipboardFiles;
+        public ClipboardPasteKind GetPasteKind() => HasClipboardFiles ? ClipboardPasteKind.InAppFiles : ClipboardPasteKind.None;
+        public bool TryAdoptExternalFiles() => false;
+        public ClipboardImageData? ReadExternalImage() => null;
         public ClipboardEntry? GetClipboardEntry() => _entry;
         public void CopyFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Copy };
         public void CutFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut };

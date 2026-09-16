@@ -623,6 +623,52 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
+    public async Task PasteAsync_SavesClipboardImageIntoCurrentFolderAndSelectsIt()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var viewModel = CreateViewModel(fileService,
+            clipboardService: new ImageClipboardService(new ClipboardImageData([1, 2, 3], ".png")));
+
+        await viewModel.PasteAsync();
+
+        var written = Assert.Single(fileService.CreatedFiles);
+        Assert.Equal([1, 2, 3], written.Content);
+        Assert.Matches(@"^图片 \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}\.png$", Path.GetFileName(written.Path));
+        Assert.Equal(Path.GetFileName(written.Path), Assert.Single(viewModel.Entries).Name);
+        Assert.Same(Assert.Single(viewModel.Entries), Assert.Single(viewModel.SelectedEntries));
+        Assert.Contains("已粘贴图片", viewModel.StatusText);
+    }
+
+    [AvaloniaFact]
+    public async Task PasteAsync_ReportsStatusWhenClipboardImageCannotBeRead()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var viewModel = CreateViewModel(fileService,
+            clipboardService: new ImageClipboardService { KindOverride = ClipboardPasteKind.Image });
+
+        await viewModel.PasteAsync();
+
+        Assert.Empty(fileService.CreatedFiles);
+        Assert.Equal("无法读取剪贴板中的图片", viewModel.StatusText);
+    }
+
+    [AvaloniaFact]
+    public async Task PasteAsync_DoesNothingOnHomePage()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var navigation = new NavigationViewModel(fileService) { CurrentPath = "", IsHomePage = true };
+        var viewModel = CreateViewModel(fileService,
+            navigation: navigation,
+            clipboardService: new ImageClipboardService(new ClipboardImageData([1, 2, 3], ".png")));
+
+        await viewModel.PasteAsync();
+
+        Assert.Empty(fileService.CreatedFiles);
+        Assert.Empty(viewModel.Entries);
+        Assert.False(viewModel.HasStatusMessage);
+    }
+
+    [AvaloniaFact]
     public async Task ConfirmDeleteSelectedAsync_ReloadsDirectoryAfterDelete()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -1220,6 +1266,8 @@ public sealed partial class FileListViewModelCreateTests
         public Task<FileSystemEntry?> GetEntryAsync(string path)
             => Task.FromResult(_entries.GetValueOrDefault(path));
 
+        public List<(string Path, byte[] Content)> CreatedFiles { get; } = [];
+
         public Task<bool> ExistsAsync(string path)
             => Task.FromResult(_entries.ContainsKey(path));
 
@@ -1242,6 +1290,7 @@ public sealed partial class FileListViewModelCreateTests
         public Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
         {
             var fullPath = Path.Combine(parentPath, name);
+            CreatedFiles.Add((fullPath, content));
             _entries[fullPath] = new FileSystemEntry
             {
                 FullPath = fullPath,

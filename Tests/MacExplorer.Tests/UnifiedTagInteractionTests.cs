@@ -127,6 +127,30 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
+    public async Task TagViewPasteIgnoresClipboardImage()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "fkfinder-tag-image-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var files = new FakeFileService(root);
+        using var tags = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
+        var clipboard = new TagTestClipboard { PasteKindOverride = ClipboardPasteKind.Image };
+        using var vm = CreateViewModel(files, fileTagService: tags, clipboardService: clipboard);
+        try
+        {
+            var tag = await tags.CreateTagAsync("项目");
+            await vm.NavigateToTagAsync(tag);
+
+            await vm.PasteAsync();
+
+            Assert.Equal(0, files.CopyCalls);
+            Assert.Equal(0, files.MoveCalls);
+            Assert.Empty(files.CreatedFiles);
+            Assert.Empty(await tags.FindFilePathsAsync(tag));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [AvaloniaFact]
     public async Task SidebarCreatesEmptyTagWithEnterAndCancelsWithEscape()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-tag-editor-" + Guid.NewGuid().ToString("N"));
@@ -230,7 +254,12 @@ public sealed partial class FileListViewModelCreateTests
     private sealed class TagTestClipboard : IClipboardService
     {
         private ClipboardEntry? _entry;
+        public ClipboardPasteKind PasteKindOverride { get; set; } = ClipboardPasteKind.None;
         public bool HasClipboardFiles => _entry != null;
+        public bool HasPasteableContent => HasClipboardFiles || PasteKindOverride != ClipboardPasteKind.None;
+        public ClipboardPasteKind GetPasteKind() => HasClipboardFiles ? ClipboardPasteKind.InAppFiles : PasteKindOverride;
+        public bool TryAdoptExternalFiles() => false;
+        public ClipboardImageData? ReadExternalImage() => null;
         public void CopyFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Copy };
         public void CutFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut };
         public Task CopyTextAsync(string text) => Task.CompletedTask;

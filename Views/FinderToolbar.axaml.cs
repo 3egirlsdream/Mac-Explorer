@@ -137,7 +137,7 @@ public partial class FinderToolbar : UserControl
         CopyButton.IsEnabled = CopyOverflowButton.IsEnabled = hasSelection;
         DeleteButton.IsEnabled = DeleteOverflowButton.IsEnabled = hasSelection;
         PasteButton.IsEnabled = PasteOverflowButton.IsEnabled = ViewModel != null
-            && (App.Services?.GetService<IClipboardService>()?.HasClipboardFiles ?? false);
+            && (App.Services?.GetService<IClipboardService>()?.HasPasteableContent ?? false);
     }
 
     private void ToggleSortDirection(object? sender, RoutedEventArgs e)
