@@ -333,7 +333,12 @@ public sealed class FastFileList : Control, ILogicalScrollable
         return _layout.VisibleHeaders(y, y + 1).Any(section => y < section.ContentTop);
     }
 
-    public Rect RowBounds(int index) => _layout.Bounds(index).Translate(new Vector(0, -_offset));
+    public Rect RowBounds(int index)
+    {
+        var row = _layout.Bounds(index).Translate(new Vector(0, -_offset));
+        return IsGrid ? row : new Rect(row.X, row.Y, Math.Min(row.Width, ListRowRight), row.Height);
+    }
+
     public Rect NameBounds(int index)
     {
         var text = Texts(_rows[index]).Name;
@@ -391,6 +396,9 @@ public sealed class FastFileList : Control, ILogicalScrollable
     internal IEnumerable<FileSystemEntry> EntriesInRectangle(Rect rectangle)
     {
         if (IsLoading) yield break;
+        // A drag wholly inside the right-hand canvas must not select invisible row area.
+        if (!IsGrid && (rectangle.Left >= Math.Min(Bounds.Width, ListRowRight) || rectangle.Right <= 0))
+            yield break;
         var (first, end) = _layout.VisibleRange(rectangle.Top, rectangle.Bottom + 0.0001);
         for (var i = first; i < end; i++)
         {
@@ -558,8 +566,6 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 RenderGridEntry(context, index);
                 continue;
             }
-            // List rows end at the Kind column's right edge; the rest is background canvas.
-            row = new Rect(row.X, row.Y, Math.Min(row.Width, ListRowRight), row.Height);
             context.DrawRectangle(fill, HasKeyboardFocus(entry) ? new Pen(FocusRing, 1) : null, new RoundedRect(row.Deflate(0.5), Math.Max(0, RowCornerRadius.TopLeft - 0.5)));
             using var opacity = context.PushOpacity(entry.IsCut ? 0.45 : 1);
             context.DrawRectangle(null, null, new RoundedRect(row.Deflate(1), RowCornerRadius), OutlineFor(entry));

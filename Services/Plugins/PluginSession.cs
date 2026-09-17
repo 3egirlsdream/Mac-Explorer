@@ -101,19 +101,21 @@ public sealed class PluginSession : IAsyncDisposable
         int count;
         while ((count = await _process.StandardError.ReadAsync(buffer)) > 0)
         {
-            if (written < 1_000_000) await log.WriteAsync(buffer, 0, Math.Min(count, 1_000_000 - written));
-            written += count;
+            var toWrite = Math.Min(count, 1_000_000 - written);
+            if (toWrite == 0) continue; // Keep draining stderr without overflowing or flushing a capped log.
+            await log.WriteAsync(buffer, 0, toWrite);
+            written += toWrite;
             await log.FlushAsync();
         }
     }
 
-    private async Task SendAsync(PluginRpcMessage message)
+    private async Task SendAsync(PluginRpcMessage message, CancellationToken token)
     {
-        await _writes.WaitAsync();
+        await _writes.WaitAsync(token);
         try
         {
-            await _process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(message, PluginProtocol.Json));
-            await _process.StandardInput.FlushAsync();
+            await _process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(message, PluginProtocol.Json).AsMemory(), token);
+            await _process.StandardInput.FlushAsync(token);
         }
         finally { _writes.Release(); }
     }
@@ -130,13 +132,22 @@ public sealed class PluginSession : IAsyncDisposable
         {
             deadline.Token.ThrowIfCancellationRequested();
             if (_reader.IsCompleted) throw new IOException("插件进程已退出。");
-            await SendAsync(new() { Id = id, Method = method, Params = parameters == null ? null : JsonSerializer.SerializeToElement(parameters, PluginProtocol.Json) });
+            await SendAsync(new() { Id = id, Method = method, Params = parameters == null ? null : JsonSerializer.SerializeToElement(parameters, PluginProtocol.Json) }, deadline.Token);
             var result = await completion.Task.WaitAsync(deadline.Token);
             return result.Deserialize<T>(PluginProtocol.Json) ?? throw new InvalidDataException("插件结果为空。");
         }
         catch (OperationCanceledException)
         {
-            try { await SendAsync(new() { Method = "cancel" }); } catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException) { }
+            // Give cooperative plugins a bounded opportunity to observe cancellation.
+            // If the same pipe is blocked, kill before Close can try flushing it again.
+            using var cancelWrite = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+            try { await SendAsync(new() { Method = "cancel" }, cancelWrite.Token); }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException or InvalidOperationException)
+            {
+                KillChildren();
+                try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) { } // The worker exited concurrently.
+            }
             await StopAsync();
             if (!cancellationToken.IsCancellationRequested && !_cancel.IsCancellationRequested)
                 throw new TimeoutException("插件处理超时，请尝试更小或更简单的文件。");
@@ -154,7 +165,8 @@ public sealed class PluginSession : IAsyncDisposable
     {
         try
         {
-            _process.StandardInput.Close();
+            try { _process.StandardInput.Close(); }
+            catch (IOException) { } // A killed/exited worker can close the pipe first.
             KillChildren();
             await _process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
         }

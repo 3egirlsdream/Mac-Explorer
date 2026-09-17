@@ -128,10 +128,14 @@
                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </Grid>
                     <Grid ColumnDefinitions="72,*,Auto">
-                        <TextBlock Text="哈希值" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="SHA-256" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" x:Name="InfoHash" Text="—" FontSize="{DynamicResource FontSizeLabel}"
                                    Margin="0,0,4,0" TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" x:Name="ComputeHashBtn" IsVisible="False"
+                                Content="计算" Classes="ghost" Padding="6,2" MinHeight="24"
+                                AutomationProperties.Name="计算或取消 SHA-256"
+                                VerticalAlignment="Center" Click="ComputeHash"/>
                         <Button Grid.Column="2" x:Name="CopyHashBtn" IsVisible="False"
                                 AutomationProperties.Name="复制哈希值" ToolTip.Tip="复制哈希值"
                                 Classes="ghost info-panel-icon" Padding="0" Margin="2,0,0,0"

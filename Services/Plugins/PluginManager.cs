@@ -132,7 +132,6 @@ public sealed partial class PluginManager : IAsyncDisposable
                     if (previous == null) _state.Remove(manifest.Id); else _state[manifest.Id] = previous;
                     throw;
                 }
-                PruneVersions(manifest.Id, previous?.Directory);
                 return;
             }
             var destination = Path.Combine(parent, manifest.Version + "-" + Guid.NewGuid().ToString("N"));
@@ -149,7 +148,8 @@ public sealed partial class PluginManager : IAsyncDisposable
                 if (previous == null) _state.Remove(manifest.Id); else _state[manifest.Id] = previous;
                 Directory.Delete(destination, true); throw;
             }
-            PruneVersions(manifest.Id, previous?.Directory);
+            // Installed versions are immutable. Keep old versions until an explicit
+            // uninstall; a process-local session dictionary cannot authorize shared-root GC.
         }
         finally { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
     }
@@ -237,7 +237,6 @@ public sealed partial class PluginManager : IAsyncDisposable
         {
             _sessions.Remove(id); _leasedDirectories.Remove(id);
             if (_state.TryGetValue(id, out var state) && state.Removed) PurgeVersions(id);
-            else PruneVersions(id);
             Reload();
         }
         finally { _gate.Release(); }
@@ -252,21 +251,6 @@ public sealed partial class PluginManager : IAsyncDisposable
         {
             if (_leasedDirectories.TryGetValue(id, out var leased) && leased == path) continue;
             TryDeleteDirectory(path);
-        }
-    }
-
-    // A same-version or newer directory may belong to another instance sharing this root, so only
-    // directories this process replaces or explicitly supersedes are removed.
-    private void PruneVersions(string id, string? superseded = null)
-    {
-        if (!_state.TryGetValue(id, out var state) || !Version.TryParse(state.Version, out var current)) return;
-        var parent = Path.Combine(RootDirectory, id);
-        if (!Directory.Exists(parent)) return;
-        foreach (var path in Directory.GetDirectories(parent))
-        {
-            if (path == state.Directory) continue;
-            if (_leasedDirectories.TryGetValue(id, out var leased) && leased == path) continue;
-            if (path == superseded || GetDirectoryVersion(path) is { } version && version < current) TryDeleteDirectory(path);
         }
     }
 

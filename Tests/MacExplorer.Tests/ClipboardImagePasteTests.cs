@@ -30,7 +30,7 @@ public sealed class ClipboardImagePasteTests : IDisposable
         var viewModel = new FileOpsViewModel(new ImageClipboardService(image), _files);
         var status = new List<string>();
 
-        await viewModel.PasteImageAsync(target, [], image, status.Add);
+        await viewModel.PasteImageAsync(target, image, status.Add);
 
         var created = Assert.Single(Directory.GetFiles(target));
         Assert.Matches(TimestampImageNamePattern, Path.GetFileName(created));
@@ -50,7 +50,7 @@ public sealed class ClipboardImagePasteTests : IDisposable
         for (var offset = 0; offset < 3; offset++)
             await File.WriteAllBytesAsync(Path.Combine(target, $"图片 {stamp.AddSeconds(offset):yyyy-MM-dd HH.mm.ss}.png"), [7]);
 
-        await viewModel.PasteImageAsync(target, await _files.GetDirectoryContentsAsync(target), image);
+        await viewModel.PasteImageAsync(target, image);
 
         var names = Directory.GetFiles(target).Select(Path.GetFileName).ToArray();
         Assert.Equal(4, names.Length);

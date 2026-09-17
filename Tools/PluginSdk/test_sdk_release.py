@@ -27,12 +27,35 @@ class ReleaseTests(unittest.TestCase):
 
     def test_compatible_host_release_waits_for_transient_missing_release(self):
         missing = subprocess.CalledProcessError(1, ['gh', 'api'])
-        host = {'draft': False, 'prerelease': False, 'assets': []}
+        host = {'draft': False, 'prerelease': False, 'assets': [{'name': 'MacExplorer-1.0.45-macos.zip'}]}
         with patch('sdk_release.gh', side_effect=[missing, json.dumps(host)]) as gh:
             with patch('sdk_release.time.sleep') as sleep:
                 self.assertEqual(host, sdk_release.compatible_host_release('owner/repo', '1.0.45', attempts=2, delay=7))
         gh.assert_has_calls([call('api', 'repos/owner/repo/releases/tags/v1.0.45')] * 2)
         sleep.assert_called_once_with(7)
+
+    def test_waits_for_asset_upload_and_draft_publication(self):
+        ready = {'draft': False, 'prerelease': False, 'assets': [{'name': 'MacExplorer-1.0.45-macos.zip'}]}
+        states = [{**ready, 'assets': []}, {**ready, 'draft': True}, ready]
+        with patch('sdk_release.gh', side_effect=[json.dumps(state) for state in states]):
+            with patch('sdk_release.time.sleep') as sleep:
+                self.assertEqual(ready, sdk_release.compatible_host_release('owner/repo', '1.0.45', attempts=3, delay=0))
+                self.assertEqual(2, sleep.call_count)
+
+    def test_unready_release_fails_after_bounded_retries(self):
+        host = {'draft': False, 'prerelease': False, 'assets': []}
+        with patch('sdk_release.gh', return_value=json.dumps(host)) as gh:
+            with patch('sdk_release.time.sleep') as sleep:
+                with self.assertRaisesRegex(ValueError, 'not ready'):
+                    sdk_release.compatible_host_release('owner/repo', '1.0.45', attempts=2, delay=0)
+        self.assertEqual(2, gh.call_count)
+        sleep.assert_called_once_with(0)
+
+    def test_missing_release_preserves_the_last_api_error(self):
+        missing = subprocess.CalledProcessError(1, ['gh', 'api'])
+        with patch('sdk_release.gh', side_effect=missing), patch('sdk_release.time.sleep'):
+            with self.assertRaises(subprocess.CalledProcessError):
+                sdk_release.compatible_host_release('owner/repo', '1.0.45', attempts=2, delay=0)
 
     def test_failed_verification_keeps_draft_and_retry_completes(self):
         with tempfile.TemporaryDirectory() as folder:

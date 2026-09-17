@@ -98,6 +98,7 @@ public sealed partial class FileListViewModelCreateTests
             var expected = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
             window.Show();
             vm.IsInfoPanelVisible = true;
+            await panel.SetLivePreviewStateAsync(true, 1);
 
             Select("h.bin");
             var hash = panel.FindControl<TextBlock>("InfoHash")!;
@@ -106,7 +107,8 @@ public sealed partial class FileListViewModelCreateTests
             Assert.True(panel.FindControl<Button>("CopyHashBtn")!.IsVisible);
 
             Select("folder", isDirectory: true);
-            await WaitForPreviewAsync(() => !panel.FindControl<Button>("CopyHashBtn")!.IsVisible);
+            // No debounce window in which the previous file's hash remains copyable.
+            Assert.False(panel.FindControl<Button>("CopyHashBtn")!.IsVisible);
             Assert.Equal("—", hash.Text);
             Assert.Null(ToolTip.GetTip(hash));
         }

@@ -3,6 +3,7 @@ using MacExplorer.Models;
 using MacExplorer.Services.Impl;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet;
+using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
 
 namespace MacExplorer.Services;
@@ -120,18 +121,8 @@ public class SftpFileService : IRemoteFileService, IDisposable
         });
     }
 
-    public async Task<string> CreateFileAsync(string parentPath, string name)
-    {
-        var client = GetClient();
-        var serverId = GetServerId();
-        return await Task.Run(() =>
-        {
-            var remoteParent = ToRemotePath(parentPath);
-            var fullPath = CombinePath(remoteParent, name);
-            using var stream = client.OpenWrite(fullPath);
-            return VirtualPath.BuildRemotePath(serverId, fullPath);
-        });
-    }
+    public Task<string> CreateFileAsync(string parentPath, string name)
+        => CreateFileWithContentAsync(parentPath, name, []);
 
     public async Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
     {
@@ -140,10 +131,17 @@ public class SftpFileService : IRemoteFileService, IDisposable
         return await Task.Run(() =>
         {
             var remoteParent = ToRemotePath(parentPath);
-            var fullPath = CombinePath(remoteParent, name);
-            using var stream = client.OpenWrite(fullPath);
-            stream.Write(content, 0, content.Length);
-            return VirtualPath.BuildRemotePath(serverId, fullPath);
+            for (var index = 1; ; index++)
+            {
+                var fullPath = CombinePath(remoteParent, NewFileWriter.CandidateName(name, index));
+                SftpFileStream stream;
+                try { stream = client.Open(fullPath, FileMode.CreateNew, FileAccess.Write); }
+                catch (SshException) when (client.Exists(fullPath)) { continue; }
+                // Only an exclusive-open collision is retried. A failed write must not
+                // become an endless loop that creates more partial files on a full disk.
+                using (stream) stream.Write(content, 0, content.Length);
+                return VirtualPath.BuildRemotePath(serverId, fullPath);
+            }
         });
     }
 

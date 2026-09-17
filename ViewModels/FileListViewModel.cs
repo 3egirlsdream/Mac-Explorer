@@ -3006,8 +3006,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (CurrentTag is { } tag)
         {
-            if (_clipboardService.GetPasteKind() == ClipboardPasteKind.Image) return;
-            _clipboardService.TryAdoptExternalFiles();
+            var tagPasteKind = _clipboardService.GetPasteKind();
+            if (tagPasteKind is ClipboardPasteKind.None or ClipboardPasteKind.Image) return;
+            if (tagPasteKind == ClipboardPasteKind.ExternalFiles && !_clipboardService.TryAdoptExternalFiles()) return;
             var clipboard = _clipboardService.GetClipboardEntry();
             if (clipboard is { IsEmpty: false }) await SetFileTagAsync(clipboard.SourcePaths.ToArray(), tag, true);
             return;
@@ -3048,35 +3049,40 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task PasteImageFromClipboardAsync()
     {
-        var image = _clipboardService?.ReadExternalImage();
-        if (image == null)
-        {
-            StatusText = "无法读取剪贴板中的图片";
-            return;
-        }
-
+        var targetPath = _navigation.CurrentPath;
+        bool IsTargetVisible() => !_disposed && _navigation.CurrentPath == targetPath;
         try
         {
-            await _fileOps.PasteImageAsync(
-                _navigation.CurrentPath,
-                Entries.ToList(),
-                image,
-                msg => StatusText = msg,
+            var image = _clipboardService?.ReadExternalImage();
+            if (image == null)
+            {
+                if (IsTargetVisible()) StatusText = "无法读取剪贴板中的图片";
+                return;
+            }
+            await _fileOps.PasteImageAsync(targetPath, image,
+                msg => { if (IsTargetVisible()) StatusText = msg; },
                 async createdName =>
                 {
+                    var refreshHere = IsTargetVisible();
+                    _directoryChangeNotifier?.NotifyChanged([targetPath], refreshHere ? this : null);
+                    if (!refreshHere) return;
                     ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
                     await LoadDirectoryContentsAsync(forceRefresh: true);
-                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
+                    if (!IsTargetVisible()) return;
+                    var createdPath = _fileService.CombinePath(targetPath, createdName);
+                    var newEntry = Entries.FirstOrDefault(e => e.FullPath == createdPath);
                     if (newEntry != null)
                     {
                         SelectedEntries.Clear();
                         SelectedEntries.Add(newEntry);
                     }
                     RefreshLocationStatus();
-                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
                 });
         }
-        catch (Exception ex) { StatusText = $"粘贴图片失败: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            if (IsTargetVisible()) StatusText = $"粘贴图片失败: {ex.Message}";
+        }
     }
 
     [RelayCommand]

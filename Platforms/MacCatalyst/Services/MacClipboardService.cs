@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text.Json;
 using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -126,18 +125,20 @@ public class MacClipboardService : IClipboardService
             var changeCount = CurrentChangeCount();
             if (changeCount >= 0)
             {
-                // 内部条目写入进行中或未被他人改写时，以内部条目为准
-                if (_entry is { IsEmpty: false } && (_entryChangeCount < 0 || changeCount == _entryChangeCount))
+                if (_entry is { IsEmpty: false } && changeCount == _entryChangeCount)
                     return ClipboardPasteKind.InAppFiles;
 
+                // A newer system clipboard (including plain text or empty content)
+                // invalidates an old cut/copy operation; never fall back to stale files.
+                _entry = null;
+                _entryChangeCount = -1;
                 if (changeCount != _probeChangeCount)
                 {
                     _probeKind = ProbeExternalKind();
                     _probeChangeCount = changeCount;
                 }
 
-                if (_probeKind != ClipboardPasteKind.None)
-                    return _probeKind;
+                return _probeKind;
             }
         }
 
@@ -147,7 +148,8 @@ public class MacClipboardService : IClipboardService
     public bool TryAdoptExternalFiles()
     {
         if (!OperatingSystem.IsMacOS()) return false;
-        if (_entry is { IsEmpty: false } && _entryChangeCount >= 0 && _entryChangeCount == CurrentChangeCount())
+        var changeCount = CurrentChangeCount();
+        if (_entry is { IsEmpty: false } && _entryChangeCount >= 0 && _entryChangeCount == changeCount)
             return false;
 
         try
@@ -156,14 +158,14 @@ public class MacClipboardService : IClipboardService
                 .Where(path => File.Exists(path) || Directory.Exists(path))
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
-            if (paths.Length == 0) return false;
+            if (paths.Length == 0 || changeCount < 0 || changeCount != CurrentChangeCount()) return false;
 
             _entry = new ClipboardEntry
             {
                 SourcePaths = paths.ToList(),
                 Operation = ClipboardOperation.Copy
             };
-            _entryChangeCount = CurrentChangeCount();
+            _entryChangeCount = changeCount;
             return true;
         }
         catch
@@ -186,18 +188,15 @@ public class MacClipboardService : IClipboardService
             var data = SendIntPtr(pasteboard, "dataForType:", CreateString(pasteboardType));
             if (data == IntPtr.Zero) return null;
 
+            if (pasteboardType == PasteboardTiff)
+            {
+                // Do not allocate a second full managed TIFF buffer on the PNG path.
+                var pngData = ConvertTiffToPng(data);
+                var pngBytes = pngData == IntPtr.Zero ? [] : ReadDataBytes(pngData);
+                if (pngBytes.Length > 0) return new ClipboardImageData(pngBytes, ".png");
+            }
             var bytes = ReadDataBytes(data);
-            if (bytes.Length == 0) return null;
-
-            if (pasteboardType != PasteboardTiff)
-                return new ClipboardImageData(bytes, extension);
-
-            // TIFF 优先转成 PNG；转换失败时保留原始 TIFF，绝不丢图
-            var pngData = ConvertTiffToPng(data);
-            var pngBytes = pngData == IntPtr.Zero ? [] : ReadDataBytes(pngData);
-            return pngBytes.Length > 0
-                ? new ClipboardImageData(pngBytes, ".png")
-                : new ClipboardImageData(bytes, ".tiff");
+            return bytes.Length == 0 ? null : new ClipboardImageData(bytes, extension);
         }
         catch
         {
@@ -215,10 +214,16 @@ public class MacClipboardService : IClipboardService
     {
         _entry = null;
         _entryChangeCount = -1;
+        _probeChangeCount = -1;
     }
 
     private void SetClipboardEntry(string[] paths, ClipboardOperation operation)
     {
+        if (OperatingSystem.IsMacOS() && !Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.InvokeAsync(() => SetClipboardEntry(paths, operation)).GetAwaiter().GetResult();
+            return;
+        }
         var existingPaths = paths
             .Where(path => File.Exists(path) || Directory.Exists(path))
             .Distinct(StringComparer.Ordinal)
@@ -232,7 +237,7 @@ public class MacClipboardService : IClipboardService
         _entryChangeCount = -1;
 
         if (existingPaths.Length > 0)
-            _ = WriteToSystemPasteboardAsync(existingPaths);
+            WriteToSystemPasteboard(existingPaths);
     }
 
     private ClipboardPasteKind ProbeExternalKind()
@@ -242,10 +247,14 @@ public class MacClipboardService : IClipboardService
         {
             var pasteboard = GeneralPasteboard();
             if (pasteboard == IntPtr.Zero) return ClipboardPasteKind.None;
-            if (TryFindImageType(pasteboard, out _, out _)) return ClipboardPasteKind.Image;
-            return ReadPasteboardFilePaths().Count > 0
-                ? ClipboardPasteKind.ExternalFiles
-                : ClipboardPasteKind.None;
+            var types = Send(pasteboard, "types");
+            // File URLs win over an image representation of the same clipboard item.
+            // Inspect advertised types only: opening a menu must not request image bytes.
+            if (SendBool(types, "containsObject:", CreateString("public.file-url")) ||
+                SendBool(types, "containsObject:", CreateString("NSFilenamesPboardType")))
+                return ClipboardPasteKind.ExternalFiles;
+            return TryFindImageType(pasteboard, out _, out _)
+                ? ClipboardPasteKind.Image : ClipboardPasteKind.None;
         }
         catch
         {
@@ -272,11 +281,12 @@ public class MacClipboardService : IClipboardService
 
     private static bool TryFindImageType(IntPtr pasteboard, out string pasteboardType, out string extension)
     {
+        var types = Send(pasteboard, "types");
         foreach (var (type, ext) in ImagePasteboardTypes)
         {
             var typeString = CreateString(type);
             if (typeString == IntPtr.Zero) continue;
-            if (SendIntPtr(pasteboard, "dataForType:", typeString) == IntPtr.Zero) continue;
+            if (!SendBool(types, "containsObject:", typeString)) continue;
 
             pasteboardType = type;
             extension = ext;
@@ -366,82 +376,50 @@ public class MacClipboardService : IClipboardService
         return objc_msgSend_intptr_long_intptr(rep, sel_registerName("representationUsingType:properties:"), 4, properties);
     }
 
-    private async Task WriteToSystemPasteboardAsync(IReadOnlyList<string> paths)
+    private void WriteToSystemPasteboard(IReadOnlyList<string> paths)
     {
         if (!OperatingSystem.IsMacOS()) return;
-
+        var pool = objc_autoreleasePoolPush();
         try
         {
-            var items = paths
-                .Where(path => File.Exists(path) || Directory.Exists(path))
-                .Select(path => new
-                {
-                    Path = path,
-                    IsDirectory = Directory.Exists(path)
-                })
-                .ToArray();
-
-            if (items.Length == 0) return;
-
-            var script = $$"""
-ObjC.import('AppKit');
-ObjC.import('Foundation');
-
-const items = {{JsonSerializer.Serialize(items)}};
-const urls = $.NSMutableArray.array;
-const filenames = $.NSMutableArray.array;
-let firstUrlString = null;
-for (const item of items) {
-  const url = $.NSURL.fileURLWithPathIsDirectory(item.Path, item.IsDirectory);
-  urls.addObject(url);
-  filenames.addObject(item.Path);
-  if (firstUrlString === null) {
-    firstUrlString = ObjC.unwrap(url.absoluteString);
-  }
-}
-
-const pasteboard = $.NSPasteboard.generalPasteboard;
-pasteboard.clearContents;
-const ok = pasteboard.writeObjects(urls);
-if (!ok) {
-  throw new Error('Failed to write file URLs to NSPasteboard');
-}
-pasteboard.setPropertyListForType(filenames, 'NSFilenamesPboardType');
-const plainText = items.map(item => item.Path).join('\n');
-pasteboard.setStringForType(plainText, 'public.utf8-plain-text');
-pasteboard.setStringForType(plainText, 'public.plain-text');
-pasteboard.setStringForType(plainText, 'public.text');
-pasteboard.setStringForType(plainText, 'NSStringPboardType');
-if (firstUrlString !== null) {
-  pasteboard.setStringForType(firstUrlString, 'NSURLPboardType');
-  pasteboard.setStringForType(firstUrlString, 'Apple URL pasteboard type');
-}
-""";
-            var startInfo = new ProcessStartInfo("/usr/bin/osascript")
+            var pasteboard = GeneralPasteboard();
+            if (pasteboard == IntPtr.Zero) return;
+            _entryChangeCount = CurrentChangeCount();
+            var urls = Send(objc_getClass("NSMutableArray"), "array");
+            var filenames = Send(objc_getClass("NSMutableArray"), "array");
+            if (urls == IntPtr.Zero || filenames == IntPtr.Zero) return;
+            IntPtr firstUrl = IntPtr.Zero;
+            foreach (var path in paths)
             {
-                CreateNoWindow = true,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                UseShellExecute = false
-            };
-            startInfo.ArgumentList.Add("-l");
-            startInfo.ArgumentList.Add("JavaScript");
-            startInfo.ArgumentList.Add("-e");
-            startInfo.ArgumentList.Add(script);
-
-            using var process = Process.Start(startInfo);
-            if (process != null)
-                await process.WaitForExitAsync().ConfigureAwait(false);
+                var name = CreateString(path);
+                var url = SendIntPtr(objc_getClass("NSURL"), "fileURLWithPath:", name);
+                if (url == IntPtr.Zero) throw new IOException("无法创建剪贴板文件地址。");
+                objc_msgSend_void_intptr(urls, sel_registerName("addObject:"), url);
+                objc_msgSend_void_intptr(filenames, sel_registerName("addObject:"), name);
+                if (firstUrl == IntPtr.Zero) firstUrl = url;
+            }
+            Send(pasteboard, "clearContents");
+            if (!SendBool(pasteboard, "writeObjects:", urls))
+                throw new IOException("无法将文件写入系统剪贴板。");
+            SendBool(pasteboard, "setPropertyList:forType:", filenames, CreateString("NSFilenamesPboardType"));
+            var text = CreateString(string.Join("\n", paths));
+            foreach (var type in new[] { "public.utf8-plain-text", "public.plain-text", "public.text", "NSStringPboardType" })
+                SendBool(pasteboard, "setString:forType:", text, CreateString(type));
+            if (firstUrl != IntPtr.Zero)
+            {
+                var urlString = Send(firstUrl, "absoluteString");
+                SendBool(pasteboard, "setString:forType:", urlString, CreateString("NSURLPboardType"));
+                SendBool(pasteboard, "setString:forType:", urlString, CreateString("Apple URL pasteboard type"));
+            }
+            // The write and its ownership snapshot finish in the same UI operation.
+            // No late osascript completion can adopt a newer clipboard as our own.
+            _entryChangeCount = CurrentChangeCount();
         }
-        catch
+        catch (Exception ex)
         {
-            // The in-app clipboard remains valid even if macOS rejects pasteboard sync.
+            Debug.WriteLine("写入系统剪贴板失败：" + ex);
         }
-        finally
-        {
-            // 记录写入后的 changeCount，用于识别内部条目是否已被其他应用覆盖。
-            await Dispatcher.UIThread.InvokeAsync(() => _entryChangeCount = CurrentChangeCount());
-        }
+        finally { objc_autoreleasePoolPop(pool); }
     }
 
     private static bool EnsureAppKitLoaded()
@@ -475,6 +453,10 @@ if (firstUrlString !== null) {
         => receiver == IntPtr.Zero || argument == IntPtr.Zero
             ? IntPtr.Zero
             : objc_msgSend_intptr_intptr(receiver, sel_registerName(selector), argument);
+
+    private static bool SendBool(IntPtr receiver, string selector, IntPtr value)
+        => receiver != IntPtr.Zero && value != IntPtr.Zero
+            && objc_msgSend_bool_intptr(receiver, sel_registerName(selector), value) != 0;
 
     private static bool SendBool(IntPtr receiver, string selector, IntPtr value, IntPtr type)
         => receiver != IntPtr.Zero
@@ -524,6 +506,12 @@ if (firstUrlString !== null) {
         IntPtr selector,
         long first,
         IntPtr second);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern byte objc_msgSend_bool_intptr(IntPtr receiver, IntPtr selector, IntPtr value);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void objc_msgSend_void_intptr(IntPtr receiver, IntPtr selector, IntPtr value);
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern byte objc_msgSend_bool_intptr_intptr(

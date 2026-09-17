@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -52,8 +51,6 @@ public partial class InfoPanelView : UserControl
     private readonly IDirectoryChangeNotifier? _directoryChangeNotifier;
     private readonly IFileTagService? _fileTagService;
     private CancellationTokenSource? _panelLoadCts;
-    private CancellationTokenSource? _hashCts;
-    private long _hashGeneration;
     private string? _currentFilePath;
     private readonly HashSet<string> _selectedSystemTags = new(StringComparer.OrdinalIgnoreCase);
     private const int PreviewSelectionDebounceMs = 120;
@@ -289,7 +286,7 @@ public partial class InfoPanelView : UserControl
             return;
         }
 
-        BeginHashLoad(entry.FullPath);
+        PrepareHash(entry);
         ApplyCurrentMetadata();
         if (!IsLivePreviewEnabled)
         {
@@ -545,57 +542,6 @@ public partial class InfoPanelView : UserControl
         _previewRequestGeneration++;
         _currentPreviewSelection = null;
         CancelHashLoad();
-    }
-
-    private void CancelHashLoad()
-    {
-        _hashCts?.Cancel();
-        _hashCts?.Dispose();
-        _hashCts = null;
-        _hashGeneration++;
-    }
-
-    private void ResetHash()
-    {
-        CancelHashLoad();
-        InfoHash.Text = "—";
-        ToolTip.SetTip(InfoHash, null);
-        CopyHashBtn.IsVisible = false;
-    }
-
-    private void BeginHashLoad(string path)
-    {
-        _hashCts = new CancellationTokenSource();
-        var token = _hashCts.Token;
-        var generation = _hashGeneration;
-        InfoHash.Text = "计算中…";
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
-                    bufferSize: 1024 * 128, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, token)).ToLowerInvariant();
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (generation != _hashGeneration || token.IsCancellationRequested || _currentFilePath != path) return;
-                    InfoHash.Text = hash;
-                    ToolTip.SetTip(InfoHash, hash);
-                    CopyHashBtn.IsVisible = true;
-                }, DispatcherPriority.Background);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch
-            {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (generation != _hashGeneration || token.IsCancellationRequested || _currentFilePath != path) return;
-                    InfoHash.Text = "—";
-                }, DispatcherPriority.Background);
-            }
-        }, token);
     }
 
     private void CancelQueuedPanelUpdate()
@@ -1260,17 +1206,6 @@ public partial class InfoPanelView : UserControl
         var clipboardService = App.Services.GetService<IClipboardService>();
         if (clipboardService != null)
             await clipboardService.CopyTextAsync(ViewModel.SelectedEntries[0].FullPath);
-    }
-
-    private async void CopyHash(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel?.SelectedEntries.Count != 1) return;
-        // Only a completed SHA-256 hex string is 64 characters long.
-        if (InfoHash.Text is not { Length: 64 } hash) return;
-        var clipboardService = _clipboardService ?? App.Services?.GetService<IClipboardService>();
-        if (clipboardService == null) return;
-        await clipboardService.CopyTextAsync(hash);
-        ViewModel.StatusText = "哈希值已复制";
     }
 
     private void OpenInTerminal(object? sender, RoutedEventArgs e)

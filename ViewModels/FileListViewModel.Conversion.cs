@@ -81,25 +81,33 @@ public partial class FileListViewModel
             var title = files.Length == 1
                 ? command.Title + "：" + Path.GetFileName(files[0].Path)
                 : command.Title + "：" + files.Length + " 个文件";
-            session.Progress += progress => Dispatcher.UIThread.Post(() =>
+            var progressPump = new PluginProgressPump(
+                callback => Dispatcher.UIThread.Post(callback, DispatcherPriority.Background), progress =>
             {
                 if (_disposed) return;
-                // 后台任务由插件通过 ShowInTaskPanel 显式创建，避免弹出配置窗口等交互也占用任务面板。
-                if (progress.ShowInTaskPanel && _conversionTaskManager != null)
+                if (progress.ShowInTaskPanel && task == null && _conversionTaskManager != null)
                 {
-                    if (task == null)
-                    {
-                        task = _conversionTaskManager.AddTask(string.IsNullOrWhiteSpace(progress.TaskTitle) ? title : progress.TaskTitle);
-                        taskCancel = task.Cts.Token.Register(run.Cancel);
-                    }
-                    if (task.State == BackgroundTaskState.Running)
-                        _conversionTaskManager.UpdateProgress(task.Id, progress.Percent is { } percent && double.IsFinite(percent)
-                            ? Math.Clamp(percent, 0, 100) : task.Progress, progress.Message);
+                    task = _conversionTaskManager.AddTask(string.IsNullOrWhiteSpace(progress.TaskTitle) ? title : progress.TaskTitle);
+                    taskCancel = task.Cts.Token.Register(run.Cancel);
                 }
+                if (task is { State: BackgroundTaskState.Running })
+                    _conversionTaskManager!.UpdateProgress(task.Id, progress.Percent is { } percent && double.IsFinite(percent)
+                        ? Math.Clamp(percent, 0, 100) : task.Progress, progress.Message);
                 StatusText = progress.Message;
             });
-            StatusText = files.Length == 1 ? "正在处理 " + Path.GetFileName(files[0].Path) + "…" : "正在处理 " + files.Length + " 个文件…";
-            var result = await session.CallAsync<PluginResult>("execute", request, ExecuteTimeout(files.Length), run.Token);
+            session.Progress += progressPump.Report;
+            PluginResult result;
+            try
+            {
+                StatusText = files.Length == 1 ? "正在处理 " + Path.GetFileName(files[0].Path) + "…" : "正在处理 " + files.Length + " 个文件…";
+                result = await session.CallAsync<PluginResult>("execute", request, ExecuteTimeout(files.Length), run.Token);
+                progressPump.Complete();
+            }
+            finally
+            {
+                session.Progress -= progressPump.Report;
+                progressPump.Dispose();
+            }
             var outputs = await PluginOutputCommitter.CommitAsync(result.Outputs, files, session.WorkDirectory, run.Token);
             if (task != null) { task.CanCancel = false; _conversionTaskManager!.CompleteTask(task.Id); }
             var directories = files.Select(file => Path.GetDirectoryName(file.Path)!).Distinct(StringComparer.Ordinal).ToArray();

@@ -318,7 +318,8 @@ public sealed partial class FileListViewModelCreateTests
                 button.PropertyChanged += (_, e) => becameDisabled |= e.Property == InputElement.IsEnabledProperty && !button.IsEnabled;
             Control rows = fast ? view.FindControl<FastFileList>("FastList")! : view.FindControl<ListBox>("FileItemsList")!;
             var origin = rows.TranslatePoint(default, window)!.Value;
-            var whitespace = origin + new Vector(rows.Bounds.Width - 30, 45);
+            var rowRight = rows is FastFileList fastList ? Math.Min(rows.Bounds.Width, fastList.ListRowRight) : rows.Bounds.Width;
+            var whitespace = origin + new Vector(rowRight - 30, 45);
             window.MouseDown(whitespace, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
             Assert.All(buttons, button => Assert.True(button.IsEnabled));

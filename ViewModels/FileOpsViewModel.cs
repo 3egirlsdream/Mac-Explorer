@@ -530,7 +530,7 @@ public partial class FileOpsViewModel : ObservableObject
                 : await _fileService.CreateFileAsync(currentPath, name);
 
             if (refreshCallback != null)
-                await refreshCallback(name);
+                await refreshCallback(Path.GetFileName(fullPath));
         }
         catch (Exception ex)
         {
@@ -541,29 +541,15 @@ public partial class FileOpsViewModel : ObservableObject
 
     public async Task PasteImageAsync(
         string currentPath,
-        IReadOnlyList<FileSystemEntry> rawEntries,
         ClipboardImageData image,
         Action<string>? setStatus = null,
         Func<string, Task>? refreshCallback = null)
     {
-        try
-        {
-            var name = GetUniqueNameInCurrentDir(
-                $"图片 {DateTime.Now:yyyy-MM-dd HH.mm.ss}{image.Extension}",
-                isDirectory: false,
-                rawEntries);
-
-            await _fileService.CreateFileWithContentAsync(currentPath, name, image.Bytes);
-            setStatus?.Invoke($"已粘贴图片：{name}");
-
-            if (refreshCallback != null)
-                await refreshCallback(name);
-        }
-        catch (Exception ex)
-        {
-            setStatus?.Invoke($"粘贴图片失败: {ex.Message}");
-            throw;
-        }
+        var path = await _fileService.CreateFileWithContentAsync(currentPath,
+            $"图片 {DateTime.Now:yyyy-MM-dd HH.mm.ss}{image.Extension}", image.Bytes);
+        var name = Path.GetFileName(path);
+        setStatus?.Invoke($"已粘贴图片：{name}");
+        if (refreshCallback != null) await refreshCallback(name);
     }
 
     public async Task<bool> IsFolderPinnedAsync(string path)

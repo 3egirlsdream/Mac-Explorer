@@ -363,25 +363,12 @@ end tell");
         });
     }
 
-    public async Task<string> CreateFileAsync(string parentPath, string name)
-    {
-        return await Task.Run(() =>
-        {
-            var fullPath = Path.Combine(parentPath, name);
-            File.Create(fullPath).Dispose();
-            return fullPath;
-        });
-    }
+    public Task<string> CreateFileAsync(string parentPath, string name)
+        => CreateFileWithContentAsync(parentPath, name, []);
 
-    public async Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
-    {
-        return await Task.Run(() =>
-        {
-            var fullPath = Path.Combine(parentPath, name);
-            File.WriteAllBytes(fullPath, content);
-            return fullPath;
-        });
-    }
+    public Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
+        => Task.Run(() => NewFileWriter.WriteAsync(Path.Combine(parentPath, name),
+            (stream, token) => stream.WriteAsync(content.AsMemory(), token).AsTask()));
 
     public async Task DeleteAsync(string path, bool moveToTrash = true)
     {

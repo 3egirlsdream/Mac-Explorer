@@ -10,6 +10,8 @@ public interface IFileService
     Task<FileSystemEntry?> GetEntryAsync(string path);
     Task<bool> ExistsAsync(string path);
     Task<string> CreateFolderAsync(string parentPath, string name);
+    // New files never overwrite an existing entry. The returned path is authoritative:
+    // providers may add a numeric suffix when the requested name is already occupied.
     Task<string> CreateFileAsync(string parentPath, string name);
     Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content);
     Task DeleteAsync(string path, bool moveToTrash = true);
