@@ -1437,16 +1437,27 @@ public partial class FileListView : UserControl
     private void FillMenu(
         ItemsControl menu,
         System.Collections.Generic.IList<ContextMenuAction> actions,
-        int requestVersion)
+        int requestVersion,
+        FileSystemEntry? markdownEntry = null)
     {
         menu.Items.Clear();
 
         // Quick actions bar — vertical icon+text buttons at top, evenly distributed
         var quickActions = actions.Where(a => a.IsQuickAction).ToList();
+        var editAction = menu is ContextMenu ? CreateMarkdownEditAction(markdownEntry) : null;
+        if (editAction != null)
+        {
+            quickActions.Insert(0, editAction);
+            // Preserve the existing 44x44 button surfaces; grow the menu instead of squeezing them.
+            menu.Width = double.NaN;
+            menu.MaxWidth = double.PositiveInfinity;
+            menu.MinWidth = Math.Max(menu.MinWidth, quickActions.Count * 44 + 8);
+        }
         if (quickActions.Count > 0)
         {
             var quickGrid = new Grid
             {
+                MinWidth = editAction != null ? quickActions.Count * 44 : 0,
                 HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
             };
             for (int i = 0; i < quickActions.Count; i++)
@@ -1683,7 +1694,7 @@ public partial class FileListView : UserControl
             return;
 
         var menu = new ContextMenu();
-        FillMenu(menu, ViewModel.ContextMenuActions, requestVersion);
+        FillMenu(menu, ViewModel.ContextMenuActions, requestVersion, entry);
         menu.AddHandler(KeyDownEvent, OnContextMenuKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         menu.Closing += OnContextMenuClosing;
         _openMenu = menu;
@@ -1712,7 +1723,7 @@ public partial class FileListView : UserControl
             viewModel.ContextMenuActions = new ObservableCollection<ContextMenuAction>(completeActions);
             var completeRequestVersion = ++_menuRequestVersion;
             DisposeOwnedMenuBitmaps();
-            FillMenu(menu, viewModel.ContextMenuActions, completeRequestVersion);
+            FillMenu(menu, viewModel.ContextMenuActions, completeRequestVersion, entry);
         }
         catch
         {

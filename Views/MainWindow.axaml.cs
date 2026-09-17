@@ -114,6 +114,7 @@ public partial class MainWindow : AppWindow
         _livePreviewCoordinator = new LivePreviewCoordinator(workspace =>
             workspace is ExplorerWorkspaceView view
             && ReferenceEquals(view, ActiveWorkspace)
+            && !IsMarkdownEditorOpen
             && view.Tab != null
             && _vm?.VisiblePanes.Contains(view.Tab) == true);
         DataContextChanged += OnDataContextChanged;
@@ -150,6 +151,9 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (IsMarkdownEditorOpen && !IsModalInteractionBlocked)
+            return;
+
         if (IsModalInteractionBlocked)
         {
             if (!IsInsideVisual(e.Source as Visual, DialogHost))
@@ -216,6 +220,12 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (IsMarkdownEditorOpen && !IsModalInteractionBlocked)
+        {
+            _markdownEditor!.HandleWindowKeyDown(e);
+            return;
+        }
+
         if (IsModalInteractionBlocked)
         {
             if (!IsInsideVisual(e.Source as Visual, DialogHost))
@@ -686,6 +696,12 @@ public partial class MainWindow : AppWindow
         if (_shutdownStarted)
             return;
         _shutdownStarted = true;
+        // Ask before entering the existing shutdown finally block, which always closes the window.
+        if (!await CloseMarkdownEditorForShutdownAsync())
+        {
+            _shutdownStarted = false;
+            return;
+        }
         try
         {
             await ShutdownWorkspaceStateAsync();
@@ -761,6 +777,7 @@ public partial class MainWindow : AppWindow
         _globalSearchPreviewCts = null;
         _globalSearchPreviewBitmap?.Dispose();
         _globalSearchPreviewBitmap = null;
+        DisposeMarkdownEditor();
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
         _taskManager.TasksChanged -= OnTasksChanged;
@@ -770,7 +787,7 @@ public partial class MainWindow : AppWindow
 
     private async Task OpenSuperPreviewAsync(FileSystemEntry entry)
     {
-        if (SuperPreviewControl.IsVisible)
+        if (IsMarkdownEditorOpen || SuperPreviewControl.IsVisible)
             return;
 
         SuperPreviewControl.PasswordPrompt = _vm == null

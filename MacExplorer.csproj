@@ -34,12 +34,19 @@
     <ProjectReference Include="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="ThirdParty/LiquidGlassAvaloniaUI/LiquidGlassAvaloniaUI.csproj" />
     <None Update="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" TargetPath="LiquidGlassAvaloniaUI.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="ThirdParty/Vex/LICENSE" TargetPath="Markdown/Vex.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="ThirdParty/Vex/NOTICE.md" TargetPath="Markdown/NOTICE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="ThirdParty/Vex/FluentIcons.LICENSE.txt" TargetPath="Markdown/FluentIcons.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.0.4" />
     <PackageReference Include="Avalonia.Desktop" Version="12.0.4" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+    <!-- Vex editor core, pinned to the host's Avalonia 12.0.4 line. -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <PackageReference Include="CodeWF.Markdown" Version="12.0.4.3" />
+    <PackageReference Include="CodeWF.Markdown.Themes" Version="12.0.4.3" />
 
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 
@@ -114,6 +121,7 @@
 
     <Copy SourceFiles="Assets/ConversionNotices.txt" DestinationFolder="$(_ResourcesDir)" />
     <Copy SourceFiles="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" DestinationFiles="$(_ResourcesDir)/LiquidGlassAvaloniaUI.LICENSE.txt" />
+    <Copy SourceFiles="ThirdParty/Vex/LICENSE;ThirdParty/Vex/NOTICE.md;ThirdParty/Vex/FluentIcons.LICENSE.txt" DestinationFolder="$(_ResourcesDir)/Markdown" />
 
     <!-- Copy .dll / .dylib / .json next to the executable so they resolve -->
     <ItemGroup>
@@ -130,8 +138,11 @@
       <_NativeHelpers Include="$(OutputPath)MacExplorer.Thumbnail" />
       <_PluginPackages Include="$(OutputPath)BundledPlugins/*.mexplug" />
       <_RuntimeArtwork Include="$(OutputPath)MacExplorer.Folder.png" />
+      <!-- CodeWF.Markdown resolves its translations relative to the app resources. -->
+      <_I18nFiles Include="$(OutputPath)I18n/**/*.json" />
     </ItemGroup>
     <Copy SourceFiles="@(_BundleFiles)" DestinationFolder="$(_MacOSDir)" />
+    <Copy SourceFiles="@(_I18nFiles)" DestinationFiles="@(_I18nFiles->'$(_ResourcesDir)/I18n/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(_NativeLibs)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_NativeHelpers)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_RuntimeArtwork)" DestinationFolder="$(_MacOSDir)" Condition="Exists('%(Identity)')" />

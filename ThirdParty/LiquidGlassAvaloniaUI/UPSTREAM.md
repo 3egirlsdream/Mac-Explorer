@@ -22,4 +22,8 @@ Sidebar action buttons use `LiquidGlassInteractiveSurface` around a transparent
 content presenter, following the upstream demo's liquid-button composition.
 Hover and keyboard-focus styling is scoped to `Views/FinderSidebarView.axaml`;
 the upstream package does not provide a separate application interaction theme.
-No application-wide theme or renderer defaults are installed.
+Full-window overlays (global search, super preview, modal scrim, dialogs, and the
+Markdown editor) set `LiquidGlassBackdrop.IsExcludedFromCapture`: they paint above
+the glass, and background-only changes use the throttled capture cadence, so without
+the exclusion a closing overlay would replay its content inside the sidebar pane for
+a frame. No application-wide theme or renderer defaults are installed.

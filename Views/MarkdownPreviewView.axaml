@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="https://codewf.com"
+             x:Class="MacExplorer.Views.MarkdownPreviewView">
+    <UserControl.Styles>
+        <!-- Scoped to Markdown; do not install Vex/Semi styles over the file manager. -->
+        <md:MarkdownThemes/>
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
+        <!-- The renderer's code-block copy button becomes one of the app's colourless
+             compact icon buttons; the selector outranks the renderer's own
+             Button.MdCopyButton style. -->
+        <Style Selector="Button.md-copy">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.md-copy:pointerover">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.md-copy:pressed">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.md-copy /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        </Style>
+        <Style Selector="Button.md-copy:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.md-copy:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        </Style>
+    </UserControl.Styles>
+    <ScrollViewer x:Name="Scroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <md:MarkdownViewer x:Name="Viewer" Margin="20,14" TypographyTheme="Basic" TypographySize="Small"
+                           ContentFontFamily="{StaticResource FontFamilyUi}"
+                           CodeFontFamily="{StaticResource FontFamilyMono}"
+                           TextBrush="{DynamicResource TextPrimaryBrush}"
+                           MutedTextBrush="{DynamicResource TextMutedBrush}"
+                           AccentBrush="{DynamicResource AccentBrush}"
+                           AccentForegroundBrush="{DynamicResource ButtonPrimaryForegroundBrush}"
+                           BorderLineBrush="{DynamicResource ColorBorderSubtle}"
+                           CodeBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
+                           InlineCodeBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
+                           QuoteBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
+                           TableHeaderBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"/>
+    </ScrollViewer>
+</UserControl>

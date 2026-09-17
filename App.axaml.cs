@@ -29,6 +29,7 @@ public partial class App : Application
         // Runtime XAML loading keeps startup behavior consistent across desktop platforms.
         // This ensures Application.Current is available before theme services initialize.
         AvaloniaXamlLoader.Load(this);
+        MacExplorer.Services.Markdown.MarkdownLocalization.Register();
         Services = ConfigureServices();
         Services.GetRequiredService<IThemeService>().Initialize();
         Services.GetRequiredService<IInteractionStyleService>().Initialize();

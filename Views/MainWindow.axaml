@@ -5,6 +5,7 @@
         xmlns:models="using:MacExplorer.Models"
         xmlns:local="using:MacExplorer.Views"
         xmlns:controls="using:MacExplorer.Controls"
+        xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
         xmlns:chrome="using:Avalonia.Controls.Chrome"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -494,9 +495,12 @@
 	        </Grid>
 	    </Border>
 	    <!-- App-wide quick search. It stays above content but below actual modal dialogs. -->
+	    <!-- Overlays paint above the sidebar glass; exclude them from its backdrop capture,
+	         otherwise the frame after they close replays their content inside the pane. -->
 	    <Border x:Name="GlobalSearchOverlay"
 	            IsVisible="False"
 	            Background="{DynamicResource OverlayBrush}"
+	            glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"
 	            PointerPressed="CloseGlobalSearchFromBackdrop">
 	        <Border x:Name="GlobalSearchPanel"
 	                Classes="global-search-panel"
@@ -658,11 +662,14 @@
 	         without changing its navigation state, and can browse folders and
 	         archive entries recursively. -->
 	    <local:SuperPreviewView x:Name="SuperPreviewControl"
-	                            IsVisible="False"/>
+	                            IsVisible="False"
+	                            glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
 	    <Border x:Name="ModalInteractionOverlay"
 	            IsVisible="False"
 	            Background="{DynamicResource OverlayBrush}"
+	            glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"
 	            IsHitTestVisible="True"/>
-	    <controls:DialogHost x:Name="DialogHost"/>
+	    <controls:DialogHost x:Name="DialogHost"
+	                         glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
 	    </Grid>
 	</controls:AppWindow>

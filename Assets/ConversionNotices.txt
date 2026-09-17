@@ -53,7 +53,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-Fluent UI System Icons - Arrow Swap (MIT)
+Fluent UI System Icons (MIT)
 https://raw.githubusercontent.com/microsoft/fluentui-system-icons/main/LICENSE
 
 MIT License

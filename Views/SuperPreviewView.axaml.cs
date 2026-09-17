@@ -356,10 +356,20 @@ public partial class SuperPreviewView : UserControl
         }
 
         ShowPlaceholder("正在生成预览…");
-        var previewPath = await ResolvePreviewPathAsync(entry, token);
-        if (string.IsNullOrWhiteSpace(previewPath) || version != _operationVersion)
+        string? previewPath;
+        try { previewPath = await ResolvePreviewPathAsync(entry, token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
+        if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
+            return;
+        if (string.IsNullOrWhiteSpace(previewPath))
         {
             ShowPlaceholder("无法读取此文件");
+            return;
+        }
+
+        if (MacExplorer.Services.Markdown.MarkdownDocument.IsMarkdown(entry.Name))
+        {
+            await ShowMarkdownPreviewAsync(previewPath, entry, token, version);
             return;
         }
 
@@ -374,6 +384,8 @@ public partial class SuperPreviewView : UserControl
             var bytes = _thumbnailService == null
                 ? null
                 : await _thumbnailService.GetThumbnailAsync(previewPath, 1800, token);
+            if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
+                return;
             if (bytes != null && bytes.Length > 0)
             {
                 using var stream = new MemoryStream(bytes, writable: false);
@@ -397,6 +409,8 @@ public partial class SuperPreviewView : UserControl
         }
         catch
         {
+            if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
+                return;
             ShowPlaceholder("预览生成失败");
             QuickLookButton.IsVisible = _quickLookService != null;
         }
@@ -556,7 +570,7 @@ public partial class SuperPreviewView : UserControl
             }
 
             var bytes = await File.ReadAllBytesAsync(path, token);
-            if (version != _operationVersion)
+            if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
             PreviewText.Text = DecodeText(bytes);
             PreviewTextScroll.IsVisible = true;
@@ -572,6 +586,8 @@ public partial class SuperPreviewView : UserControl
         }
         catch
         {
+            if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
+                return;
             ShowPlaceholder("无法读取文本内容");
         }
     }
@@ -678,6 +694,7 @@ public partial class SuperPreviewView : UserControl
 
     private void SetPreviewBitmap(Bitmap? bitmap)
     {
+        ClearMarkdownPreview();
         var previous = _previewBitmap;
         _previewBitmap = bitmap;
         PreviewImage.Source = bitmap;
@@ -693,6 +710,7 @@ public partial class SuperPreviewView : UserControl
 
     private void CloseResources()
     {
+        _operationVersion++;
         CancelLoad();
         _previewCts?.Cancel();
         _previewCts?.Dispose();
