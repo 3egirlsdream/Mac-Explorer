@@ -36,7 +36,7 @@ jobs:
         id: version
         run: |
           python3 -m unittest discover -s Tools/PluginSdk -p 'test_*.py' -v
-          node --test Tools/PluginSdk/test_download.mjs
+          node --test Tools/PluginSdk/test_*.mjs
           python3 Tools/PluginSdk/sdk_release.py check
       - name: Build complete SDK
         run: python3 Tools/PluginSdk/build_sdk.py

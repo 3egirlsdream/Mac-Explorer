@@ -21,6 +21,7 @@ internal static class PluginOutputCommitter
             var path = PluginPackage.ContainedPath(root, Path.GetRelativePath(root, output.Path));
             if (!File.Exists(path) || new FileInfo(path).Length == 0 ||
                 string.IsNullOrWhiteSpace(output.SuggestedName) || output.SuggestedName is "." or ".." ||
+                output.SuggestedName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
                 Path.GetFileName(output.SuggestedName) != output.SuggestedName || output.SuggestedName.Contains('\\'))
                 throw new InvalidDataException("插件输出文件或建议名称无效。");
             for (var current = path; current != root; current = Path.GetDirectoryName(current)!)
@@ -33,7 +34,7 @@ internal static class PluginOutputCommitter
         foreach (var (path, destination) in validated)
         {
             // Once the first output is committed, finish the remaining complete outputs.
-            results.Add(await CommitOutputAsync(path, destination, Path.GetExtension(destination).TrimStart('.'),
+            results.Add(await CopyOutputAsync(path, destination,
                 results.Count == 0 ? token : CancellationToken.None));
         }
         return results.ToArray();
@@ -55,10 +56,13 @@ internal static class PluginOutputCommitter
     {
         var destination = Path.Combine(Path.GetDirectoryName(source)!, Path.GetFileNameWithoutExtension(source)
             + (extension.Length == 0 ? "" : "." + extension));
-        return NewFileWriter.WriteAsync(destination, async (output, cancellationToken) =>
+        return CopyOutputAsync(temporaryOutput, destination, token);
+    }
+
+    private static Task<string> CopyOutputAsync(string temporaryOutput, string destination, CancellationToken token)
+        => NewFileWriter.WriteAsync(destination, async (output, cancellationToken) =>
         {
             await using var input = File.OpenRead(temporaryOutput);
             await input.CopyToAsync(output, cancellationToken);
         }, token);
-    }
 }

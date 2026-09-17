@@ -31,7 +31,7 @@ public sealed class PluginMarketClient(HttpClient http)
     public async Task InstallAsync(PluginMarketItem item, PluginManager manager, IProgress<double?> progress, CancellationToken token)
     {
         RequireHttps(item.DownloadUrl);
-        if (item.Size <= 0 || item.Size > 512L * 1024 * 1024 || item.Sha256.Length != 64) throw new InvalidDataException("插件下载信息无效。");
+        if (item.Manifest == null || item.Size <= 0 || item.Size > 512L * 1024 * 1024 || item.Sha256 is not { Length: 64 }) throw new InvalidDataException("插件下载信息无效。");
         var staging = Path.Combine(manager.RootDirectory, ".download-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(staging);
         try
@@ -53,14 +53,7 @@ public sealed class PluginMarketClient(HttpClient http)
                 output.Position = 0;
                 if (!Convert.ToHexString(await SHA256.HashDataAsync(output, token)).Equals(item.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("插件包校验失败。");
             }
-            var inspected = Path.Combine(staging, "inspect"); Directory.CreateDirectory(inspected);
-            await PluginPackage.ExtractAsync(package, inspected, token);
-            var manifest = PluginPackage.ReadManifest(inspected);
-            if (manifest.Id != item.Manifest.Id || manifest.Version != item.Manifest.Version || manifest.ApiVersion != item.Manifest.ApiVersion ||
-                manifest.Paid != item.Manifest.Paid || manifest.TrialDays != item.Manifest.TrialDays || manifest.HasUserInterface != item.Manifest.HasUserInterface ||
-                manifest.Platform != item.Manifest.Platform || manifest.Architecture != item.Manifest.Architecture)
-                throw new InvalidDataException("插件清单与市场声明不匹配。");
-            await manager.InstallAsync(package, token, fromMarket: true);
+            await manager.InstallAsync(package, token, fromMarket: true, expectedManifest: item.Manifest);
         }
         finally { Directory.Delete(staging, true); }
     }

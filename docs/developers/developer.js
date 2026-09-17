@@ -1,17 +1,38 @@
 import { API_BASE } from './config.js';
 import { readManifest } from './package.js';
 const $ = id => document.getElementById(id);
-let mode = 'login', session = null, selected = null, busy = false, countdown = 0;
-try { session = JSON.parse(sessionStorage.getItem('plugin-publisher') || 'null'); } catch { sessionStorage.removeItem('plugin-publisher'); }
-if (session && Date.parse(session.expiresAt) <= Date.now()) { session = null; sessionStorage.removeItem('plugin-publisher'); }
+let mode = 'login', session = null, selected = null, busy = false, countdown = 0, mineRequest = 0;
+function validSession(value) {
+  return value && typeof value.token === 'string' && value.token.length > 0 && typeof value.expiresAt === 'string' &&
+    Number.isFinite(Date.parse(value.expiresAt)) && Date.parse(value.expiresAt) > Date.now();
+}
+function persistSession(value) {
+  // Storage can be disabled; persistence is optional, an in-page session is not.
+  try {
+    if (value) sessionStorage.setItem('plugin-publisher', JSON.stringify(value));
+    else sessionStorage.removeItem('plugin-publisher');
+  } catch { /* Continue without restoring the session on reload. */ }
+}
+try {
+  const cached = JSON.parse(sessionStorage.getItem('plugin-publisher') || 'null');
+  if (validSession(cached)) session = cached;
+  else persistSession(null);
+} catch { persistSession(null); }
 function message(id, text, error = false) { $(id).textContent = text; $(id).classList.toggle('error', error); }
-async function api(action, body) {
-  const response = await fetch(new URL(action, new URL(API_BASE, location.origin)), { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', ...(session ? { 'X-Plugin-Session': session.token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+async function api(action, body, owner = session) {
+  const response = await fetch(new URL(action, new URL(API_BASE, location.origin)), { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', ...(owner ? { 'X-Plugin-Session': owner.token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const data = await response.json();
   if (!response.ok || data.success === false) throw new Error(typeof data.message === 'string' ? data.message : '请求失败，请稍后重试。');
   return data;
 }
-function saveSession(value) { session = value; if (value) sessionStorage.setItem('plugin-publisher', JSON.stringify(value)); else sessionStorage.removeItem('plugin-publisher'); renderAccount(); }
+function saveSession(value) {
+  if (value && !validSession(value)) throw new Error('登录会话无效，请重新登录。');
+  session = value;
+  mineRequest++;
+  persistSession(value);
+  $('my-plugins').textContent = value ? '正在加载…' : '登录后查看';
+  renderAccount();
+}
 function setMode(value) {
   mode = value;
   $('account-label').textContent = value === 'login' ? '用户名或邮箱' : '邮箱';
@@ -27,6 +48,8 @@ function renderAccount() {
   $('signed-out').hidden = !!session; $('signed-in').hidden = !session;
   $('identity').textContent = session?.displayName || '';
   $('publish').disabled = busy || !selected || !session;
+  $('logout').disabled = busy;
+  $('submit-account').disabled = busy;
 }
 for (const button of document.querySelectorAll('[data-mode]')) button.onclick = () => setMode(button.dataset.mode);
 $('recover').onclick = () => setMode(mode === 'recover' ? 'login' : 'recover');
@@ -56,7 +79,15 @@ async function sendCode() {
   } catch (error) { message('account-message', error.message, true); $('send-code').disabled = false; }
 }
 $('send-code').onclick = sendCode;
-$('logout').onclick = async () => { try { await api('Logout', {}); } finally { saveSession(null); $('my-plugins').textContent = '登录后查看'; } };
+$('logout').onclick = async () => {
+  if (busy || !session) return;
+  const owner = session;
+  saveSession(null);
+  try { await api('Logout', {}, owner); }
+  catch (error) {
+    if (!session) message('account-message', '本页面已退出；服务器注销失败：' + error.message, true);
+  }
+};
 async function selectPackage(file) {
   if (busy) return;
   const selection = ++selectionId;
@@ -68,12 +99,20 @@ async function selectPackage(file) {
   if (!file) { message('upload-message', ''); return; }
   try {
     const manifest = await readManifest(file); if (selection !== selectionId) return;
-    $('file-drop').classList.add('has-file');
-    selected = { file, manifest }; $('preview').hidden = false; $('plugin-name').textContent = manifest.name; $('plugin-description').textContent = manifest.description || ''; $('plugin-meta').replaceChildren();
+    $('plugin-name').textContent = manifest.name; $('plugin-description').textContent = manifest.description || ''; $('plugin-meta').replaceChildren();
     const fields = [['插件 ID',manifest.id],['版本',manifest.version],['平台',`${manifest.platform || 'osx'} / ${manifest.architecture || 'arm64'}`],['使用方式',manifest.paid ? `付费${manifest.trialDays ? ` · 试用 ${manifest.trialDays} 天` : ''}` : '免费'],['功能',manifest.commands.map(c => c.title).join('、')]];
     for (const [label,value] of fields) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = label; dd.textContent = value; $('plugin-meta').append(dt,dd); }
+    selected = { file, manifest };
+    $('file-drop').classList.add('has-file');
+    $('preview').hidden = false;
     message('upload-message','');
-  } catch (error) { if (selection !== selectionId) return; message('upload-message', error.message, true); }
+  } catch (error) {
+    if (selection !== selectionId) return;
+    selected = null;
+    $('preview').hidden = true;
+    $('file-drop').classList.remove('has-file');
+    message('upload-message', error.message, true);
+  }
   renderAccount();
 }
 let selectionId = 0;
@@ -106,17 +145,37 @@ $('publish').onclick = async () => {
   finally { busy = false; $('package').disabled = false; $('file-drop').classList.remove('is-busy'); $('upload-progress').hidden = true; renderAccount(); }
 };
 async function loadMine() {
-  if (!session) return;
+  const owner = session;
+  if (!owner) return;
+  const request = ++mineRequest;
   try {
-    const items = await api('Mine'); $('my-plugins').replaceChildren();
+    const items = await api('Mine', undefined, owner);
+    if (session !== owner || request !== mineRequest) return;
+    $('my-plugins').replaceChildren();
     if (!items.length) $('my-plugins').textContent = '暂无插件';
     for (const item of items) {
       const row = document.createElement('div'); row.className = 'plugin-row'; const info = document.createElement('div'), title = document.createElement('strong'), meta = document.createElement('p');
       title.textContent = item.name; meta.textContent = `${item.id} · ${item.blocked ? '已停用' : item.listed ? '已上架' : '未上架'}`; info.append(title,meta); row.append(info);
-      if (item.listed && !item.blocked) { const button = document.createElement('button'); button.textContent = '下架'; button.onclick = async () => { if (!confirm(`下架 ${item.name}？已安装的用户仍可使用。`)) return; button.disabled = true; try { await api('Unlist',{ pluginId:item.id }); await loadMine(); } catch (error) { message('upload-message',error.message,true); button.disabled = false; } }; row.append(button); }
+      if (item.listed && !item.blocked) {
+        const button = document.createElement('button'); button.textContent = '下架';
+        button.onclick = async () => {
+          if (session !== owner || !confirm(`下架 ${item.name}？已安装的用户仍可使用。`)) return;
+          button.disabled = true;
+          try {
+            await api('Unlist', { pluginId: item.id }, owner);
+            if (session === owner) await loadMine();
+          } catch (error) {
+            if (session === owner) message('upload-message', error.message, true);
+            button.disabled = false;
+          }
+        };
+        row.append(button);
+      }
       $('my-plugins').append(row);
     }
-  } catch (error) { message('account-message',error.message,true); }
+  } catch (error) {
+    if (session === owner && request === mineRequest) message('account-message', error.message, true);
+  }
 }
 $('refresh-mine').onclick = loadMine;
 renderAccount(); loadMine();

@@ -49,5 +49,15 @@ export async function readManifest(file) {
   const result = JSON.parse(new TextDecoder().decode(all));
   if (!result || typeof result.id !== 'string' || typeof result.version !== 'string' || typeof result.name !== 'string' ||
       !result.name.trim() || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(result.id) || !/^\d+\.\d+(\.\d+){0,2}$/.test(result.version) || !result.name || !Array.isArray(result.commands)) throw new Error('清单格式不正确。');
+  // Validate the shape consumed by the preview before it can enable publication.
+  // Execution compatibility and package trust remain the server/host's responsibility.
+  const ids = new Set();
+  if (result.commands.length === 0 || result.commands.length > 100) throw new Error('插件命令为空或过多。');
+  for (const command of result.commands) {
+    if (!command || typeof command.id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(command.id) ||
+        typeof command.title !== 'string' || !command.title.trim() || ids.has(command.id))
+      throw new Error('插件命令声明无效或存在重复标识。');
+    ids.add(command.id);
+  }
   return result;
 }

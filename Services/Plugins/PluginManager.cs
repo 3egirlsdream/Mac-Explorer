@@ -85,10 +85,11 @@ public sealed partial class PluginManager : IAsyncDisposable
         { return true; }
     }
 
-    public async Task InstallAsync(string package, CancellationToken token = default, bool fromMarket = false)
+    public async Task InstallAsync(string package, CancellationToken token = default, bool fromMarket = false,
+        PluginManifest? expectedManifest = null)
     {
         await _gate.WaitAsync(token);
-        try { ThrowIfStopping(); await InstallCoreAsync(package, false, true, token, fromMarket); Reload(); }
+        try { ThrowIfStopping(); await InstallCoreAsync(package, false, true, token, fromMarket, expectedManifest); Reload(); }
         finally { _gate.Release(); }
         Changed?.Invoke();
     }
@@ -101,14 +102,27 @@ public sealed partial class PluginManager : IAsyncDisposable
         Changed?.Invoke();
     }
 
-    private async Task InstallCoreAsync(string package, bool builtIn, bool explicitInstall, CancellationToken token, bool fromMarket = false)
+    private async Task InstallCoreAsync(string package, bool builtIn, bool explicitInstall, CancellationToken token,
+        bool fromMarket = false, PluginManifest? expectedManifest = null)
     {
         var staging = Path.Combine(RootDirectory, ".install-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(staging);
         try
         {
-            await PluginPackage.ExtractAsync(package, staging, token);
-            var manifest = PluginPackage.ReadManifest(staging);
+            // ZIP metadata, decompression and assembly inspection must not run on the UI thread.
+            // Inspect this staging tree once, before publishing it or changing installed state.
+            var manifest = await Task.Run(async () =>
+            {
+                await PluginPackage.ExtractAsync(package, staging, token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+                return PluginPackage.ReadManifest(staging);
+            }, token);
+            if (expectedManifest is { } expected &&
+                (manifest.Id != expected.Id || manifest.Version != expected.Version || manifest.ApiVersion != expected.ApiVersion ||
+                 manifest.Paid != expected.Paid || manifest.TrialDays != expected.TrialDays || manifest.HasUserInterface != expected.HasUserInterface ||
+                 manifest.Platform != expected.Platform || manifest.Architecture != expected.Architecture))
+                throw new InvalidDataException("插件清单与市场声明不匹配。");
+            token.ThrowIfCancellationRequested();
             if (builtIn && manifest.Id != BuiltInId) throw new InvalidDataException("内置插件标识不匹配。");
             _state.TryGetValue(manifest.Id, out var previous);
             if (!explicitInstall && previous is { Removed: false } && Version.TryParse(previous.Version, out var version) &&

@@ -11,9 +11,11 @@ internal static class PluginPackage
     private static readonly Regex Identifier = new("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$", RegexOptions.CultureInvariant);
     public static PluginManifest ReadManifest(string directory)
     {
-        var manifest = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(Path.Combine(directory, "plugin.json")), PluginProtocol.Json)
+        using var stream = File.OpenRead(Path.Combine(directory, "plugin.json"));
+        if (stream.Length > 1024 * 1024) throw new InvalidDataException("插件清单过大。");
+        var manifest = JsonSerializer.Deserialize<PluginManifest>(stream, PluginProtocol.Json)
             ?? throw new InvalidDataException("插件清单为空。");
-        if (!Identifier.IsMatch(manifest.Id) || string.IsNullOrWhiteSpace(manifest.Name) || manifest.Name.Length > 100 ||
+        if (manifest.Id == null || !Identifier.IsMatch(manifest.Id) || string.IsNullOrWhiteSpace(manifest.Name) || manifest.Name.Length > 100 ||
             !Version.TryParse(manifest.Version, out _) || !Identifier.IsMatch(manifest.Version))
             throw new InvalidDataException("插件标识、名称或版本无效。");
         if (manifest.ApiVersion < 1 || manifest.ApiVersion > PluginProtocol.ApiVersion) throw new InvalidDataException("插件 API 版本与当前应用不兼容。");
@@ -23,11 +25,12 @@ internal static class PluginPackage
         var entry = ContainedPath(directory, manifest.Entry);
         if (!File.Exists(entry) || !entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("插件入口程序集不存在。");
         _ = AssemblyName.GetAssemblyName(entry); // Read metadata without loading plugin code into the UI process.
-        if (manifest.Commands is not { Length: > 0 and <= 100 } || manifest.Commands.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != manifest.Commands.Length)
+        if (manifest.Commands is not { Length: > 0 and <= 100 } || manifest.Commands.Any(c => c == null) ||
+            manifest.Commands.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != manifest.Commands.Length)
             throw new InvalidDataException("插件命令为空或存在重复标识。");
         foreach (var command in manifest.Commands)
         {
-            if (!Identifier.IsMatch(command.Id) || string.IsNullOrWhiteSpace(command.Title) || command.Match == null ||
+            if (command.Id == null || !Identifier.IsMatch(command.Id) || string.IsNullOrWhiteSpace(command.Title) || command.Match == null ||
                 command.Match.MinSelection < 1 || command.Match.MaxSelection < command.Match.MinSelection || command.Match.MaxSelection > 1000 ||
                 command.Match.Extensions == null || command.Match.FileNames == null)
                 throw new InvalidDataException("插件命令声明无效。");

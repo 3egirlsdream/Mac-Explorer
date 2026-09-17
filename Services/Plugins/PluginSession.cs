@@ -16,6 +16,10 @@ public sealed class PluginSession : IAsyncDisposable
     private readonly Func<Task> _onDisposed;
     private readonly CancellationTokenSource _cancel = new();
     private Task? _stopTask;
+    private readonly object _lifetimeGate = new();
+    private readonly TaskCompletionSource _callsDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private Task? _disposeTask;
+    private int _activeCalls;
     private int _nextId;
     private int _disposed;
     public PluginManifest Manifest { get; }
@@ -46,7 +50,11 @@ public sealed class PluginSession : IAsyncDisposable
         _logReader = ReadLogAsync();
     }
 
-    public void Cancel() => _cancel.Cancel();
+    public void Cancel()
+    {
+        lock (_lifetimeGate)
+            if (_disposed == 0) _cancel.Cancel();
+    }
 
     private async Task ReadAsync()
     {
@@ -94,19 +102,43 @@ public sealed class PluginSession : IAsyncDisposable
 
     private async Task ReadLogAsync()
     {
-        using var log = new StreamWriter(LogPath, false);
-        await log.WriteLineAsync($"[{DateTimeOffset.Now:O}] Plugin worker PID {_process.Id}");
-        var written = 0;
-        var buffer = new char[4096];
-        int count;
-        while ((count = await _process.StandardError.ReadAsync(buffer)) > 0)
+        StreamWriter? log = null;
+        void CloseLog()
         {
-            var toWrite = Math.Min(count, 1_000_000 - written);
-            if (toWrite == 0) continue; // Keep draining stderr without overflowing or flushing a capped log.
-            await log.WriteAsync(buffer, 0, toWrite);
-            written += toWrite;
-            await log.FlushAsync();
+            try { log?.Dispose(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { Debug.WriteLine("关闭插件日志失败：" + ex); }
+            log = null;
         }
+        try
+        {
+            try
+            {
+                log = new StreamWriter(LogPath, false);
+                await log.WriteLineAsync($"[{DateTimeOffset.Now:O}] Plugin worker PID {_process.Id}");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { Debug.WriteLine("创建插件日志失败：" + ex); CloseLog(); }
+            var written = 0;
+            var buffer = new char[4096];
+            int count;
+            while ((count = await _process.StandardError.ReadAsync(buffer)) > 0)
+            {
+                var toWrite = Math.Min(count, 1_000_000 - written);
+                // Logging is optional; draining stderr is not. Disk-full, locked and
+                // unwritable logs must not fill the worker's pipe and stall its RPCs.
+                if (log == null || toWrite == 0) continue;
+                try
+                {
+                    await log.WriteAsync(buffer, 0, toWrite);
+                    written += toWrite;
+                    await log.FlushAsync();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { Debug.WriteLine("写入插件日志失败：" + ex); CloseLog(); }
+            }
+        }
+        finally { CloseLog(); }
     }
 
     private async Task SendAsync(PluginRpcMessage message, CancellationToken token)
@@ -122,7 +154,21 @@ public sealed class PluginSession : IAsyncDisposable
 
     public async Task<T> CallAsync<T>(string method, object? parameters, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed != 0, this);
+            _activeCalls++;
+        }
+        try { return await CallCoreAsync<T>(method, parameters, timeout, cancellationToken).ConfigureAwait(false); }
+        finally
+        {
+            lock (_lifetimeGate)
+                if (--_activeCalls == 0 && _disposed != 0) _callsDrained.TrySetResult();
+        }
+    }
+
+    private async Task<T> CallCoreAsync<T>(string method, object? parameters, TimeSpan timeout, CancellationToken cancellationToken)
+    {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancel.Token);
         deadline.CancelAfter(timeout);
         var id = Interlocked.Increment(ref _nextId);
@@ -136,10 +182,13 @@ public sealed class PluginSession : IAsyncDisposable
             var result = await completion.Task.WaitAsync(deadline.Token);
             return result.Deserialize<T>(PluginProtocol.Json) ?? throw new InvalidDataException("插件结果为空。");
         }
-        catch (OperationCanceledException)
+        catch (Exception cancellation) when (cancellation is OperationCanceledException ||
+            (deadline.IsCancellationRequested && cancellation is (IOException or ObjectDisposedException or InvalidOperationException)))
         {
+            var timedOut = deadline.IsCancellationRequested &&
+                !cancellationToken.IsCancellationRequested && !_cancel.IsCancellationRequested;
             // Give cooperative plugins a bounded opportunity to observe cancellation.
-            // If the same pipe is blocked, kill before Close can try flushing it again.
+            // If the same pipe is blocked, terminate the worker instead of waiting for a write.
             using var cancelWrite = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
             try { await SendAsync(new() { Method = "cancel" }, cancelWrite.Token); }
             catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException or InvalidOperationException)
@@ -149,9 +198,10 @@ public sealed class PluginSession : IAsyncDisposable
                 catch (InvalidOperationException) { } // The worker exited concurrently.
             }
             await StopAsync();
-            if (!cancellationToken.IsCancellationRequested && !_cancel.IsCancellationRequested)
+            if (timedOut)
                 throw new TimeoutException("插件处理超时，请尝试更小或更简单的文件。");
-            throw;
+            if (cancellation is OperationCanceledException) throw;
+            throw new OperationCanceledException("插件处理已取消。", cancellation, deadline.Token);
         }
         finally { _pending.TryRemove(id, out _); }
     }
@@ -165,7 +215,9 @@ public sealed class PluginSession : IAsyncDisposable
     {
         try
         {
-            try { _process.StandardInput.Close(); }
+            // Close the pipe, not StreamWriter: Close() on the writer may synchronously
+            // flush a full pipe or throw while an asynchronous write is still in flight.
+            try { _process.StandardInput.BaseStream.Close(); }
             catch (IOException) { } // A killed/exited worker can close the pipe first.
             KillChildren();
             await _process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
@@ -178,14 +230,28 @@ public sealed class PluginSession : IAsyncDisposable
         catch (InvalidOperationException) { }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        lock (_lifetimeGate)
+        {
+            if (_disposeTask != null) return new ValueTask(_disposeTask);
+            _disposed = 1;
+            if (_activeCalls == 0) _callsDrained.TrySetResult();
+            return new ValueTask(_disposeTask = DisposeCoreAsync());
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        // Publish the shared disposal task before cancellation invokes any callbacks.
+        await Task.Yield();
         _cancel.Cancel();
         try
         {
             await StopAsync();
-            await Task.WhenAll(_reader, _logReader);
+            // RPC finally blocks release _writes and linked tokens. Join them before
+            // disposing those objects, including when callers dispose concurrently.
+            await Task.WhenAll(_reader, _logReader, _callsDrained.Task);
         }
         finally
         {

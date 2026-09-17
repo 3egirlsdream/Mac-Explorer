@@ -6,7 +6,7 @@ import { deflateRawSync } from 'node:zlib';
 // Load the exact browser module without relying on a repository-wide package.json type.
 const code = await readFile(new URL('../../docs/developers/package.js', import.meta.url), 'utf8');
 const { readManifest } = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
-const valid = { id: 'test.plugin', version: '1.0.0', name: '测试插件', commands: [] };
+const valid = { id: 'test.plugin', version: '1.0.0', name: '测试插件', commands: [{ id: 'run', title: '运行' }] };
 
 function crc32(bytes) {
   let crc = 0xffffffff;
@@ -70,4 +70,17 @@ test('reject null manifest with a useful message', async () => {
 test('reject compressed bytes that overlap the central directory', async () => {
   const { bytes, offset, length } = zip(); bytes.writeUInt32LE(length + 1, offset + 20);
   await assert.rejects(read(bytes), /越界/);
+});
+
+for (const [name, commands] of [
+  ['empty commands', []],
+  ['null command', [null]],
+  ['missing title', [{ id: 'run' }]],
+  ['non-string title', [{ id: 'run', title: [] }]],
+  ['blank title', [{ id: 'run', title: '   ' }]],
+  ['invalid id', [{ id: '../run', title: 'Run' }]],
+  ['duplicate id', [{ id: 'run', title: 'One' }, { id: 'run', title: 'Two' }]],
+  ['too many commands', Array.from({ length: 101 }, (_, id) => ({ id: `run${id}`, title: 'Run' }))]
+]) test(`reject ${name} before preview enables publication`, async () => {
+  await assert.rejects(read(zip({ ...valid, commands }).bytes), /插件命令/);
 });

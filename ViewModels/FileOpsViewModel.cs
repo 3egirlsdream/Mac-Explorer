@@ -99,6 +99,15 @@ public partial class FileOpsViewModel : ObservableObject
         if (entry == null) return;
 
         var sourcePaths = entry.SourcePaths.ToArray();
+        var affectedDirs = new HashSet<string>(StringComparer.Ordinal) { currentPath };
+        if (entry.Operation == ClipboardOperation.Cut)
+        {
+            foreach (var sourcePath in sourcePaths)
+            {
+                var directory = Path.GetDirectoryName(sourcePath);
+                if (!string.IsNullOrEmpty(directory)) affectedDirs.Add(directory);
+            }
+        }
         var trackCopy = entry.Operation == ClipboardOperation.Copy
             && !VirtualPath.IsRemotePath(currentPath)
             && sourcePaths.All(path => !VirtualPath.IsRemotePath(path));
@@ -131,22 +140,17 @@ public partial class FileOpsViewModel : ObservableObject
                 else
                 {
                     await _fileService.MoveAsync(sourcePath, currentPath, overwrite);
+                    // Consume only successfully moved paths, before secondary metadata work.
+                    // A retry after a partial failure must not start with a now-missing source.
+                    entry.SourcePaths.Remove(sourcePath);
+                    if (ReferenceEquals(_clipboardService.GetClipboardEntry(), entry) && CutPaths.Remove(sourcePath))
+                        OnPropertyChanged(nameof(CutPaths));
                     if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
                         await _fileTagService.UpdatePathAsync(sourcePath, Path.Combine(currentPath, Path.GetFileName(sourcePath)));
                 }
             }
             ct.ThrowIfCancellationRequested();
             if (taskInfo != null) _taskManager!.CompleteTask(taskInfo.Id);
-            if (entry.Operation == ClipboardOperation.Cut) { _clipboardService.Clear(); CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
-
-            // Notify other windows: current dir + source directories
-            var affectedDirs = new HashSet<string> { currentPath };
-            foreach (var sp in sourcePaths)
-            {
-                var dir = Path.GetDirectoryName(sp);
-                if (!string.IsNullOrEmpty(dir)) affectedDirs.Add(dir);
-            }
-            _directoryChangeNotifier?.NotifyChanged(affectedDirs.ToArray(), null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -164,8 +168,16 @@ public partial class FileOpsViewModel : ObservableObject
         }
         finally
         {
-            // A failed or cancelled copy may still have created files.
-            if (taskInfo != null) _directoryChangeNotifier?.NotifyChanged([currentPath], null);
+            // A newer cut/copy belongs to the user, not to this completed operation.
+            if (entry.Operation == ClipboardOperation.Cut && entry.IsEmpty &&
+                ReferenceEquals(_clipboardService.GetClipboardEntry(), entry))
+            {
+                _clipboardService.Clear();
+                CutPaths.Clear();
+                OnPropertyChanged(nameof(CutPaths));
+            }
+            // Partial moves and copies change directories too, even without a task panel.
+            _directoryChangeNotifier?.NotifyChanged(affectedDirs.ToArray(), null);
         }
     }
 
@@ -492,7 +504,7 @@ public partial class FileOpsViewModel : ObservableObject
             var name = GetUniqueNameInCurrentDir("未命名文件夹", isDirectory: true, rawEntries);
             var fullPath = await _fileService.CreateFolderAsync(currentPath, name);
             if (refreshCallback != null)
-                await refreshCallback(name);
+                await refreshCallback(Path.GetFileName(fullPath));
         }
         catch (Exception ex)
         {
