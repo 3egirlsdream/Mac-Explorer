@@ -222,6 +222,15 @@
         <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
         <Setter Property="BorderThickness" Value="2"/>
     </Style>
+    <!-- Embedded chrome-less inputs must stay flat when focused; their container
+         owns the focus visuals. Declared after the generic :focus style above so
+         the forced 2px border (which shifts the template's inner content by 2)
+         cannot leak back onto them. -->
+    <Style Selector="TextBox.search-input:focus, TextBox.omnibox-input:focus, TextBox.breadcrumb-input:focus, TextBox.home-search-input:focus">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
     <Style Selector="TextBox">
         <Setter Property="SelectionBrush" Value="{DynamicResource InteractionTextHighlightBrush}"/>
         <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextPrimaryBrush}"/>

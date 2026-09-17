@@ -11,6 +11,7 @@ using MacExplorer.Views;
 using MacExplorer.Indexing;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
+using MacExplorer.Services.Search;
 using MacExplorer.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -59,7 +60,7 @@ public partial class App : Application
         // reuses the same pipeline as in-window search, including OCR/AI tags.
         OmniboxService.RegisterProvider(new SearchOmniboxProvider(
             Services.GetService<IFileIndex>(), Services.GetService<IGlobalSearchScopeService>(),
-            Services.GetService<ISearchService>()));
+            Services.GetRequiredService<ISearchService>()));
         OmniboxService.RegisterProvider(new PinnedFolderOmniboxProvider(Services.GetService<IPinnedFolderService>()));
         OmniboxService.RegisterProvider(new RecentDirectoryOmniboxProvider(frequentFolderService));
     }
@@ -86,7 +87,11 @@ public partial class App : Application
                 if (stoppingPlugins) return;
                 stoppingPlugins = true;
                 _startupUpdateCancellation.Cancel();
-                try { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
+                try
+                {
+                    try { await Services.GetRequiredService<SearchIndexer>().DisposeAsync(); }
+                    finally { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
+                }
                 finally { pluginsStopped = true; desktop.Shutdown(); }
             };
             desktop.Exit += (_, _) => _startupUpdateCancellation.Cancel();
@@ -120,6 +125,14 @@ public partial class App : Application
             window.Opened -= OnStartupWindowOpened;
         Dispatcher.UIThread.Post(Views.FileListView.PrepareFileDrag, DispatcherPriority.ApplicationIdle);
         _ = Task.Run(CheckStartupUpdateAsync);
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (_startupUpdateCancellation.IsCancellationRequested) return;
+            var indexer = Services.GetRequiredService<SearchIndexer>();
+            indexer.EnsureRoot("/Applications");
+            indexer.EnsureRoot("/System/Applications");
+            indexer.EnsureRoot(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        }, TimeSpan.FromSeconds(2));
     }
 
     private async Task CheckStartupUpdateAsync()
@@ -232,7 +245,14 @@ public partial class App : Application
         services.AddSingleton<IThumbnailService, Platforms.MacCatalyst.Services.MacThumbnailService>();
         services.AddSingleton<IClipboardService, Platforms.MacCatalyst.Services.MacClipboardService>();
         services.AddSingleton<IDragDropService, Platforms.MacCatalyst.Services.MacDragDropBridge>();
-        services.AddSingleton<ISearchService, Platforms.MacCatalyst.Services.MacSearchService>();
+        services.AddSingleton<SearchCatalog>();
+        services.AddSingleton<IPinyinInitials, Platforms.MacCatalyst.Services.MacPinyinInitials>();
+        services.AddSingleton<ISearchChangeSource, Platforms.MacCatalyst.Services.MacSearchChangeSource>();
+        services.AddSingleton<SearchIndexer>();
+        services.AddSingleton<Platforms.MacCatalyst.Services.MacSearchService>();
+        services.AddSingleton<ISearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
+        services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
+        services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
         services.AddSingleton<IGlobalSearchScopeService, Services.Impl.GlobalSearchScopeService>();
         services.AddSingleton<FileListColumnLayoutService>();

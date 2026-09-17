@@ -90,9 +90,8 @@ public class SearchOmniboxProvider : IOmniboxProvider
             root = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))
                    ?? Path.DirectorySeparatorChar.ToString();
 
-        // Reuse the indexed Mac Explorer pipeline. It combines direct entries,
-        // the FTS index and OCR/AI tags without recursively scanning the whole
-        // disk for every query.
+        // The app injects the shared indexed service. Querying never enumerates
+        // the root directory or starts a per-keystroke recursive scan.
         return await SearchRootsAsync([root], query, cancellationToken);
     }
 
@@ -102,19 +101,20 @@ public class SearchOmniboxProvider : IOmniboxProvider
         CancellationToken cancellationToken)
     {
         var results = new List<FileSystemEntry>(MaxSearchSuggestions);
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var searchService = _searchService
             ?? throw new InvalidOperationException("Search service is unavailable.");
 
         foreach (var root in roots)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) continue;
+            if (string.IsNullOrWhiteSpace(root) || !Path.IsPathFullyQualified(root)) continue;
             var searchResults = _globalSearchService != null
                 ? _globalSearchService.SearchGlobalAsync(root, query, MaxSearchSuggestions, cancellationToken)
                 : searchService.SearchAsync(root, query, MaxSearchSuggestions, cancellationToken);
             await foreach (var entry in searchResults)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!seen.Add(entry.FullPath)) continue;
                 results.Add(entry);
                 if (results.Count >= MaxSearchSuggestions)
@@ -153,8 +153,8 @@ public class SearchOmniboxProvider : IOmniboxProvider
     private static bool IsWithin(string root, string path)
     {
         var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return string.Equals(path, normalizedRoot, StringComparison.OrdinalIgnoreCase)
+        return string.Equals(path, normalizedRoot, StringComparison.Ordinal)
                || path.StartsWith(normalizedRoot + Path.DirectorySeparatorChar,
-                   StringComparison.OrdinalIgnoreCase);
+                   StringComparison.Ordinal);
     }
 }
