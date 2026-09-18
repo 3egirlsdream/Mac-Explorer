@@ -13,12 +13,14 @@ public sealed class SearchIndexer : IAsyncDisposable
     private readonly IndexConfiguration _configuration;
     private readonly IPinyinInitials _pinyin;
     private readonly ISearchChangeSource _changes;
+    private readonly TimeProvider _timeProvider;
     private readonly object _gate = new();
     private readonly Dictionary<string, RootState> _roots = new(StringComparer.Ordinal);
     private readonly Channel<RootState> _work = Channel.CreateUnbounded<RootState>(new() { SingleReader = true });
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Task _worker;
     private bool _disposed;
+    private Task? _disposeTask;
 
     private static readonly HashSet<string> ExcludedNames = new(StringComparer.Ordinal)
     {
@@ -32,12 +34,13 @@ public sealed class SearchIndexer : IAsyncDisposable
     };
 
     public SearchIndexer(SearchCatalog catalog, IndexConfiguration configuration, IPinyinInitials pinyin,
-        ISearchChangeSource changes)
+        ISearchChangeSource changes, TimeProvider? timeProvider = null)
     {
         _catalog = catalog;
         _configuration = configuration;
         _pinyin = pinyin;
         _changes = changes;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _worker = Task.Run(WorkAsync);
     }
 
@@ -50,7 +53,7 @@ public sealed class SearchIndexer : IAsyncDisposable
         public IDisposable? Watcher;
         public bool Queued, Started, RestartWatcher;
         public ulong ObservedId, Checkpoint;
-        public DateTime LastAttempt;
+        public DateTimeOffset LastAttempt;
         public long LastProgressTick;
     }
 
@@ -75,11 +78,12 @@ public sealed class SearchIndexer : IAsyncDisposable
                 _roots.Add(root, state);
                 AddDirty(state, root, recursive: true);
             }
-            // Partial coverage (for example protected system folders) must not trigger
-            // another full-disk scan on every query. Retry only an unavailable root;
-            // explicit refresh/restart or recovery events reconcile partial coverage.
-            else if (state.Status.Phase == SearchIndexPhase.Unavailable &&
-                     DateTime.UtcNow - state.LastAttempt > TimeSpan.FromSeconds(30))
+            // Partial coverage with a working watcher must not rescan on every
+            // query. A failed watcher, however, has no events with which to recover.
+            // Retry it after a cooldown, reconciling changes missed while unwatched.
+            else if (!state.Queued &&
+                     (state.Status.Phase == SearchIndexPhase.Unavailable || state.Watcher == null) &&
+                     _timeProvider.GetUtcNow() - state.LastAttempt > TimeSpan.FromSeconds(30))
                 AddDirty(state, state.Root, recursive: true);
         }
     }
@@ -170,7 +174,7 @@ public sealed class SearchIndexer : IAsyncDisposable
                     observed = state.ObservedId;
                     restart = state.RestartWatcher;
                     state.RestartWatcher = false;
-                    state.LastAttempt = DateTime.UtcNow;
+                    state.LastAttempt = _timeProvider.GetUtcNow();
                 }
                 var fullScan = pending.Any(item => item.Key == state.Root && item.Value);
                 var errors = fullScan ? 0 : state.Status.FailedDirectories;
@@ -260,7 +264,7 @@ public sealed class SearchIndexer : IAsyncDisposable
                 }))
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (IsDatabaseFile(entry.FullName)) continue;
+                    if (IsDatabaseFile(entry.FullName) || entry.Name.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)) continue;
                     try
                     {
                         var attrs = entry.Attributes;
@@ -334,7 +338,9 @@ public sealed class SearchIndexer : IAsyncDisposable
         var userLibrary = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library");
         if (userLibrary != root && SearchPath.IsWithin(userLibrary, root) && SearchPath.IsWithin(directory, userLibrary)) return false;
         var relative = directory[SearchPath.Prefix(root).Length..];
-        return !relative.Split(Path.DirectorySeparatorChar).Any(segment => ExcludedNames.Contains(segment) || Packages.Contains(Path.GetExtension(segment)));
+        return !relative.Split(Path.DirectorySeparatorChar).Any(segment => ExcludedNames.Contains(segment)
+            || segment.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)
+            || Packages.Contains(Path.GetExtension(segment)));
     }
 
     private bool IsDatabaseFile(string path)
@@ -343,18 +349,33 @@ public sealed class SearchIndexer : IAsyncDisposable
         return path == database || path == database + "-wal" || path == database + "-shm" || path == database + "-journal";
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         lock (_gate)
         {
-            if (_disposed) return;
+            if (_disposeTask != null) return new ValueTask(_disposeTask);
             _disposed = true;
             foreach (var state in _roots.Values) Pulse(state);
+            return new ValueTask(_disposeTask = DisposeCoreAsync());
         }
-        _lifetime.Cancel();
-        _work.Writer.TryComplete();
-        await _worker.ConfigureAwait(false);
-        foreach (var state in _roots.Values) state.Watcher?.Dispose();
-        _lifetime.Dispose();
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        // Publish the shared task before cancellation can invoke callbacks. All
+        // callers must join the worker before they can dispose the database.
+        await Task.Yield();
+        try
+        {
+            _lifetime.Cancel();
+            _work.Writer.TryComplete();
+            await _worker.ConfigureAwait(false);
+        }
+        finally
+        {
+            // Never hold _gate while draining native callbacks that also use it.
+            try { foreach (var state in _roots.Values) state.Watcher?.Dispose(); }
+            finally { _lifetime.Dispose(); }
+        }
     }
 }

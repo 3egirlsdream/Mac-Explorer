@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MacExplorer.Services.Markdown;
 
-/// <summary>A loaded file and the exact disk revision that is safe to replace.</summary>
+/// <summary>A loaded file and fingerprint used for optimistic save conflict detection.</summary>
 internal sealed class MarkdownDocument
 {
     public const int MaxReadBytes = 4 * 1024 * 1024;
@@ -79,7 +79,7 @@ internal sealed class MarkdownDocument
         byte[]? expectedFingerprint, CancellationToken cancellationToken) => Task.Run(async () =>
     {
         var directory = Path.GetDirectoryName(writePath)!;
-        var tempPath = Path.Combine(directory, $".mac-explorer-md-{Guid.NewGuid():N}.tmp");
+        var tempPath = Path.Combine(directory, $".mac-explorer-md-{Guid.NewGuid():N}.fkfinder-tmp");
         var committed = false;
         try
         {
@@ -108,7 +108,8 @@ internal sealed class MarkdownDocument
                         new Win32Exception(Marshal.GetLastPInvokeError()));
             }
 
-            // Check again after staging the new file. Never silently overwrite an external edit.
+            // Recheck after staging to detect ordinary external edits. This is optimistic
+            // conflict detection, not an atomic compare-and-swap with other applications.
             await VerifyRevisionAsync(displayPath, writePath, expectedFingerprint, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             File.Move(tempPath, writePath, overwrite: expectedFingerprint != null);

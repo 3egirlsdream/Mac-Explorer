@@ -53,6 +53,8 @@ public partial class FileListViewModel
         IsContextMenuVisible = false;
         BackgroundTaskInfo? task = null;
         CancellationTokenRegistration taskCancel = default;
+        var committedOutputs = new List<string>();
+        var outputsNotified = false;
         using var run = CancellationTokenSource.CreateLinkedTokenSource(_pluginLifetime.Token);
         try
         {
@@ -108,17 +110,23 @@ public partial class FileListViewModel
                 session.Progress -= progressPump.Report;
                 progressPump.Dispose();
             }
-            var outputs = await PluginOutputCommitter.CommitAsync(result.Outputs, files, session.WorkDirectory, run.Token);
+            var outputs = await PluginOutputCommitter.CommitAsync(result.Outputs, files, session.WorkDirectory, run.Token, committedOutputs.Add);
             if (task != null) { task.CanCancel = false; _conversionTaskManager!.CompleteTask(task.Id); }
             var directories = files.Select(file => Path.GetDirectoryName(file.Path)!).Distinct(StringComparer.Ordinal).ToArray();
             var isCurrentDirectory = directories.Contains(CurrentPath, StringComparer.Ordinal);
             _directoryChangeNotifier?.NotifyChanged(directories, isCurrentDirectory ? this : null);
+            outputsNotified = !isCurrentDirectory;
             if (isCurrentDirectory && !_disposed)
             {
+                var refreshPath = CurrentPath;
                 await RefreshAsync();
-                var outputSet = new HashSet<string>(outputs, StringComparer.Ordinal);
-                var output = Entries.FirstOrDefault(item => outputSet.Contains(item.FullPath));
-                if (output != null) SelectEntry(output);
+                outputsNotified = true;
+                if (!_disposed && CurrentPath == refreshPath)
+                {
+                    var outputSet = new HashSet<string>(outputs, StringComparer.Ordinal);
+                    var output = Entries.FirstOrDefault(item => outputSet.Contains(item.FullPath));
+                    if (output != null) SelectEntry(output);
+                }
             }
             if (!_disposed) StatusText = (files.Length == 1 ? "已生成 " + string.Join("、", outputs.Select(Path.GetFileName)) : "已生成 " + outputs.Length + " 个文件") +
                 (result.Warnings.Length == 0 ? "" : "。" + string.Join("；", result.Warnings));
@@ -126,14 +134,25 @@ public partial class FileListViewModel
         catch (OperationCanceledException)
         {
             if (task != null) _conversionTaskManager!.CancelTask(task.Id);
-            if (!_disposed) StatusText = "已取消处理";
+            if (!_disposed) StatusText = committedOutputs.Count == 0 ? "已取消处理"
+                : $"已取消处理，保留已生成的 {committedOutputs.Count} 个文件。";
         }
         catch (Exception ex)
         {
             if (task is { State: BackgroundTaskState.Running }) _conversionTaskManager!.FailTask(task.Id, ex.Message);
-            await _pluginManager.RecordErrorAsync(pluginId, ex.Message);
-            if (!_disposed) StatusText = "插件处理失败：" + ex.Message;
+            try { await _pluginManager.RecordErrorAsync(pluginId, ex.Message); }
+            catch (Exception metadataError) { System.Diagnostics.Debug.WriteLine(metadataError); }
+            if (!_disposed) StatusText = committedOutputs.Count == 0 ? "插件处理失败：" + ex.Message
+                : $"已生成 {committedOutputs.Count} 个文件，其余处理失败：{ex.Message}";
         }
-        finally { taskCancel.Dispose(); }
+        finally
+        {
+            taskCancel.Dispose();
+            // Failed/cancelled batches may still have durable complete outputs.
+            // Include this view too when the success path did not finish refreshing.
+            if (!outputsNotified && committedOutputs.Count > 0)
+                _directoryChangeNotifier?.NotifyChanged(committedOutputs.Select(Path.GetDirectoryName)
+                    .OfType<string>().Distinct(StringComparer.Ordinal).ToArray(), null);
+        }
     }
 }

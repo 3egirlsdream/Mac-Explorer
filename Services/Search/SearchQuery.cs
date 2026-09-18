@@ -114,12 +114,24 @@ public sealed record SearchOptions(bool HideSystemFiles = true, bool HideDotFile
         if (HideSystemFiles && SystemNames.Contains(name)) return false;
         if (name.StartsWith('.') && (isDirectory ? HideDotFolders : HideDotFiles)) return false;
         if (!HideDotFolders) return true;
-        var prefix = SearchPath.Prefix(root);
-        if (!path.StartsWith(prefix, StringComparison.Ordinal)) return true;
-        var segments = path[prefix.Length..].Split(Path.DirectorySeparatorChar);
-        var directoryCount = isDirectory ? segments.Length : segments.Length - 1;
-        for (var i = 0; i < directoryCount; i++)
-            if (segments[i].StartsWith('.')) return false;
+        // This predicate also runs once per SQL candidate (before LIMIT). Walk
+        // the original string instead of allocating a substring and segment array.
+        if (!path.StartsWith(root, StringComparison.Ordinal)) return true;
+        var start = root.Length;
+        var separator = Path.DirectorySeparatorChar;
+        if (!root.EndsWith(separator))
+        {
+            if (start >= path.Length || path[start] != separator) return true;
+            start++;
+        }
+        var end = isDirectory ? path.Length : path.LastIndexOf(separator);
+        while (start < end)
+        {
+            if (path[start] == '.') return false;
+            var next = path.IndexOf(separator, start, end - start);
+            if (next < 0) break;
+            start = next + 1;
+        }
         return true;
     }
 }

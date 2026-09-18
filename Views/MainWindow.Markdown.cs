@@ -8,17 +8,22 @@ namespace MacExplorer.Views;
 public partial class MainWindow
 {
     private MarkdownEditorView? _markdownEditor;
+    private long _markdownOpenGeneration;
     private bool IsMarkdownEditorOpen => _markdownEditor?.IsVisible == true;
 
     public async Task OpenMarkdownEditorAsync(string path)
     {
         if (_shutdownStarted || IsModalInteractionBlocked || !MarkdownDocument.IsMarkdown(path)) return;
+        var generation = ++_markdownOpenGeneration;
         if (IsMarkdownEditorOpen)
         {
             if (string.Equals(_markdownEditor!.FilePath, path, StringComparison.Ordinal)) return;
             if (!await _markdownEditor.TryCloseAsync()) return;
         }
-        if (_shutdownStarted) return;
+        // Multiple requests can await the same unsaved-changes dialog. Only
+        // the newest may attach a replacement; otherwise an untracked editor
+        // remains in the overlay host with live theme/document subscriptions.
+        if (_shutdownStarted || generation != _markdownOpenGeneration) return;
 
         ActiveWorkspace?.CloseTransientUi(null);
         PaneLayoutPopup.IsOpen = false;
@@ -85,6 +90,7 @@ public partial class MainWindow
 
     private void DisposeMarkdownEditor()
     {
+        ++_markdownOpenGeneration;
         if (_markdownEditor is not { } editor) return;
         editor.RequestClose -= OnMarkdownEditorClosed;
         editor.Dispose();

@@ -20,7 +20,7 @@ internal static class NewFileWriter
         token.ThrowIfCancellationRequested();
         var directory = Path.GetDirectoryName(Path.GetFullPath(preferredPath))!;
         var name = Path.GetFileName(preferredPath);
-        var staging = Path.Combine(directory, ".MacExplorer-create-" + Guid.NewGuid().ToString("N") + ".tmp");
+        var staging = Path.Combine(directory, ".MacExplorer-create-" + Guid.NewGuid().ToString("N") + ".fkfinder-tmp");
         try
         {
             await using (var stream = new FileStream(staging, FileMode.CreateNew, FileAccess.Write,
@@ -31,18 +31,7 @@ internal static class NewFileWriter
             {
                 token.ThrowIfCancellationRequested();
                 var destination = Path.Combine(directory, CandidateName(name, index));
-                if (OperatingSystem.IsMacOS())
-                {
-                    if (RenameExclusive(staging, destination, 4 /* RENAME_EXCL */) == 0) return destination;
-                    var error = Marshal.GetLastPInvokeError();
-                    if (error != 17 /* EEXIST */)
-                        throw new IOException("无法保存文件：" + new Win32Exception(error).Message);
-                }
-                else
-                {
-                    try { File.Move(staging, destination, overwrite: false); return destination; }
-                    catch (IOException) when (File.Exists(destination) || Directory.Exists(destination)) { }
-                }
+                if (TryPublish(staging, destination)) return destination;
             }
         }
         finally
@@ -52,6 +41,30 @@ internal static class NewFileWriter
             try { File.Delete(staging); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             { Debug.WriteLine("清理新建文件暂存失败：" + ex); }
+        }
+    }
+
+    // Staging and destination must be on the same volume. False means a name
+    // collision, not an I/O failure; callers decide whether to choose another name.
+    internal static bool TryPublish(string staging, string destination, bool isDirectory = false)
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            if (RenameExclusive(staging, destination, 4 /* RENAME_EXCL */) == 0) return true;
+            var error = Marshal.GetLastPInvokeError();
+            if (error == 17 /* EEXIST */) return false;
+            throw new IOException("无法保存文件：" + new Win32Exception(error).Message);
+        }
+        try
+        {
+            if (isDirectory) Directory.Move(staging, destination);
+            else File.Move(staging, destination, overwrite: false);
+            return true;
+        }
+        catch (IOException) when (File.Exists(destination) || Directory.Exists(destination)
+            || new FileInfo(destination).LinkTarget != null)
+        {
+            return false;
         }
     }
 

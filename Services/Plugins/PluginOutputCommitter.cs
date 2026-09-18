@@ -6,7 +6,7 @@ namespace MacExplorer.Services.Plugins;
 internal static class PluginOutputCommitter
 {
     public static async Task<string[]> CommitAsync(PluginOutput[] outputs, IReadOnlyList<PluginFile> files,
-        string workDirectory, CancellationToken token)
+        string workDirectory, CancellationToken token, Action<string>? outputCommitted = null)
     {
         if (outputs is not { Length: > 0 and <= 100 }) throw new InvalidDataException("插件未返回有效输出文件。");
         token.ThrowIfCancellationRequested();
@@ -33,9 +33,11 @@ internal static class PluginOutputCommitter
         var results = new List<string>(validated.Count);
         foreach (var (path, destination) in validated)
         {
-            // Once the first output is committed, finish the remaining complete outputs.
-            results.Add(await CopyOutputAsync(path, destination,
-                results.Count == 0 ? token : CancellationToken.None));
+            // Each output is atomic, not the whole batch. Keep complete outputs on
+            // cancellation/failure, but never force the user to finish the remaining I/O.
+            var committed = await CopyOutputAsync(path, destination, token);
+            results.Add(committed);
+            outputCommitted?.Invoke(committed);
         }
         return results.ToArray();
     }

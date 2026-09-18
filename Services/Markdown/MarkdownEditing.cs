@@ -19,7 +19,7 @@ internal static class MarkdownEditing
             case "Bold": Wrap(editor, "**", "**", "粗体文字"); break;
             case "Italic": Wrap(editor, "*", "*", "斜体文字"); break;
             case "Strike": Wrap(editor, "~~", "~~", "删除线文字"); break;
-            case "Code": Wrap(editor, "`", "`", "code"); break;
+            case "Code": InsertInlineCode(editor); break;
             case "Link": InsertLink(editor, false); break;
             case "Image": InsertLink(editor, true); break;
             case "Quote": PrefixLines(editor, "> "); break;
@@ -111,11 +111,34 @@ internal static class MarkdownEditing
         editor.SelectionLength = newLength;
     }
 
+    private static void InsertInlineCode(TextEditor editor)
+    {
+        var selected = editor.SelectionLength > 0 ? editor.SelectedText : "code";
+        var delimiter = new string('`', BacktickDelimiterLength(selected, 1));
+        // Keep edge backticks separate from the delimiters. CommonMark removes
+        // one leading/trailing space pair, except when the content is all spaces.
+        var needsPadding = selected.StartsWith('`') || selected.EndsWith('`') ||
+            selected.StartsWith(' ') && selected.EndsWith(' ') && selected.Any(c => c != ' ');
+        var padding = needsPadding ? " " : string.Empty;
+        Wrap(editor, delimiter + padding, padding + delimiter, "code");
+    }
+
+    private static int BacktickDelimiterLength(string text, int minimum)
+    {
+        var length = minimum;
+        var run = 0;
+        foreach (var character in text)
+        {
+            run = character == '`' ? run + 1 : 0;
+            length = Math.Max(length, run + 1);
+        }
+        return length;
+    }
+
     private static void InsertCodeBlock(TextEditor editor, string newLine)
     {
         var selected = editor.SelectionLength > 0 ? editor.SelectedText : "代码";
-        var longest = Regex.Matches(selected, "`+").Select(m => m.Length).DefaultIfEmpty(0).Max();
-        var fence = new string('`', Math.Max(3, longest + 1));
+        var fence = new string('`', BacktickDelimiterLength(selected, 3));
         Wrap(editor, fence + newLine, newLine + fence, "代码");
     }
 

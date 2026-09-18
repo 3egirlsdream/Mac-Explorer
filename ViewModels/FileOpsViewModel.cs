@@ -124,7 +124,7 @@ public partial class FileOpsViewModel : ObservableObject
                 {
                     var itemIndex = index;
                     var itemSkipped = 0;
-                    var progress = taskInfo == null ? null : new PasteProgress(p =>
+                    var progress = taskInfo == null ? null : new FileProgress(p =>
                     {
                         itemSkipped = p.SkippedCount;
                         var skipped = skippedCount + itemSkipped;
@@ -181,7 +181,7 @@ public partial class FileOpsViewModel : ObservableObject
         }
     }
 
-    private sealed class PasteProgress(Action<FileOperationProgress> report) : IProgress<FileOperationProgress>
+    private sealed class FileProgress(Action<FileOperationProgress> report) : IProgress<FileOperationProgress>
     {
         // The manager dispatches UI updates. Report synchronously to avoid queued
         // progress arriving after CompleteTask and resetting its final percentage.
@@ -194,55 +194,69 @@ public partial class FileOpsViewModel : ObservableObject
         Action<string>? setStatus = null,
         FileListViewModel? refreshedViewModel = null)
     {
-        if (selectedEntries.Count == 0) return;
+        // Selection may change while an awaited file operation is in progress.
+        var paths = selectedEntries.Select(entry => entry.FullPath).Distinct(StringComparer.Ordinal).ToArray();
+        if (paths.Length == 0) return;
+        var deletedPaths = new List<string>(paths.Length);
+        var completed = false;
+        var metadataFailures = 0;
         try
         {
-            var deletedPaths = selectedEntries.Select(e => e.FullPath).ToList();
-            foreach (var entry in selectedEntries)
+            foreach (var path in paths)
             {
-                await _fileService.DeleteAsync(entry.FullPath, moveToTrash: true);
-
-                // Record for undo
+                await _fileService.DeleteAsync(path, moveToTrash: true);
+                deletedPaths.Add(path); // The filesystem commit precedes optional metadata.
                 if (_fileOperationHistoryService != null)
-                    await _fileOperationHistoryService.RecordTrashAsync(entry.FullPath, "");
+                {
+                    try { await _fileOperationHistoryService.RecordTrashAsync(path, ""); }
+                    catch (Exception ex)
+                    {
+                        metadataFailures++;
+                        _logger?.LogError(ex, "Failed to record trash history for {Path}", path);
+                    }
+                }
             }
-
-            // Clean up AI analysis data for deleted files
-            if (_aiTagService != null)
-            {
-                try { await _aiTagService.DeleteAnalysisForFilesAsync(deletedPaths); }
-                catch (Exception ex) { _logger?.LogError(ex, "Failed to delete AI analysis data for {Count} files", deletedPaths.Count); }
-            }
-
-            if (_fileTagService != null)
-            {
-                foreach (var deletedPath in deletedPaths)
-                    await _fileTagService.DeletePathAsync(deletedPath);
-            }
-
-            // DeleteSelectedAsync is the centralized delete path for ALL views.
-            // Use the actual parent directories of deleted files so that file-system
-            // directory views (including NormalView) get notified even when the user
-            // is currently in a tag/archive/AI special view.
-            var parentDirs = deletedPaths
-                .Select(p => Path.GetDirectoryName(p))
-                .OfType<string>()
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-            // The initiating view reloads itself immediately after this method
-            // returns. Exclude it from the debounced notification so the same
-            // list is not rebuilt a second time while the confirmation dialog
-            // is closing; other tabs and windows still receive the update.
-            if (parentDirs.Length > 0)
-                _directoryChangeNotifier?.NotifyChanged(parentDirs, refreshedViewModel);
-            else
-                _directoryChangeNotifier?.NotifyChanged([currentPath], refreshedViewModel);
+            completed = true;
         }
         catch (Exception ex)
         {
-            setStatus?.Invoke($"删除失败: {ex.Message}");
+            setStatus?.Invoke($"删除未全部完成（已删除 {deletedPaths.Count}/{paths.Length} 项）: {ex.Message}");
             throw;
         }
+        finally
+        {
+            // Clean only confirmed deletions, including a successful prefix of a
+            // failed batch. Secondary errors must not mask the original I/O error.
+            if (deletedPaths.Count > 0 && _aiTagService != null)
+            {
+                try { await _aiTagService.DeleteAnalysisForFilesAsync(deletedPaths); }
+                catch (Exception ex)
+                {
+                    metadataFailures++;
+                    _logger?.LogError(ex, "Failed to delete AI analysis data for {Count} files", deletedPaths.Count);
+                }
+            }
+            if (_fileTagService != null)
+            {
+                foreach (var path in deletedPaths)
+                {
+                    try { await _fileTagService.DeletePathAsync(path); }
+                    catch (Exception ex)
+                    {
+                        metadataFailures++;
+                        _logger?.LogError(ex, "Failed to delete tags for {Path}", path);
+                    }
+                }
+            }
+            // Even a failed recursive delete can change a directory. On failure
+            // include the initiating view: its success-only refresh will not run.
+            var parentDirs = paths.Select(Path.GetDirectoryName).OfType<string>()
+                .Distinct(StringComparer.Ordinal).ToArray();
+            _directoryChangeNotifier?.NotifyChanged(parentDirs.Length > 0 ? parentDirs : [currentPath],
+                completed ? refreshedViewModel : null);
+        }
+        if (metadataFailures > 0)
+            setStatus?.Invoke($"已删除 {deletedPaths.Count} 项，但有 {metadataFailures} 项历史或标签更新失败。");
     }
 
     public async Task MoveEntryAsync(
@@ -263,13 +277,15 @@ public partial class FileOpsViewModel : ObservableObject
             {
                 await _fileOperationHistoryService.RecordMoveAsync(source.FullPath, movedPath);
             }
-
-            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(source.FullPath) ?? "", targetFolder.FullPath], null);
         }
         catch (Exception ex)
         {
             setStatus?.Invoke($"移动失败: {ex.Message}");
             throw;
+        }
+        finally
+        {
+            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(source.FullPath) ?? "", targetFolder.FullPath], null);
         }
     }
 
@@ -310,30 +326,33 @@ public partial class FileOpsViewModel : ObservableObject
         if (sourcePaths.Count == 0) return;
         var affectedDirectories = GetAffectedMoveDirectories(entries, targetFolder.FullPath);
 
-        bool crossVolume = _fileService.IsCrossVolume(sourcePaths[0], targetFolder.FullPath);
+        // Selections from search/tag views may span multiple source volumes.
+        bool crossVolume = sourcePaths.Any(path => _fileService.IsCrossVolume(path, targetFolder.FullPath));
 
-        if (!crossVolume)
+        if (!crossVolume || _taskManager == null)
         {
             try
             {
                 foreach (var path in sourcePaths)
                 {
-                    await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
+                    if (_fileService.IsCrossVolume(path, targetFolder.FullPath))
+                        await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath);
+                    else
+                        await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
                     if (_fileTagService != null)
                         await _fileTagService.UpdatePathAsync(path, Path.Combine(targetFolder.FullPath, Path.GetFileName(path)));
                 }
-                _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null);
             }
             catch (Exception ex)
             {
                 setStatus?.Invoke($"移动失败: {ex.Message}");
                 throw;
             }
+            finally { _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null); }
             return;
         }
 
         // 跨卷：后台任务 + 进度弹窗
-        if (_taskManager == null) return;
 
         var taskInfo = _taskManager.AddTask("正在移动...", async () => { });
 
@@ -341,31 +360,37 @@ public partial class FileOpsViewModel : ObservableObject
         {
             try
             {
-                var progress = new Progress<Models.FileOperationProgress>(p =>
+                for (var index = 0; index < sourcePaths.Count; index++)
                 {
-                    _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile);
-                });
-                await _fileService.MoveWithProgressAsync(sourcePaths, targetFolder.FullPath,
-                    progress, taskInfo.Cts.Token);
-                if (_fileTagService != null)
-                {
-                    foreach (var path in sourcePaths)
-                        await _fileTagService.UpdatePathAsync(
-                            path,
-                            Path.Combine(targetFolder.FullPath, Path.GetFileName(path)),
-                            taskInfo.Cts.Token);
+                    taskInfo.Cts.Token.ThrowIfCancellationRequested();
+                    var path = sourcePaths[index];
+                    var itemIndex = index;
+                    var progress = new FileProgress(p => _taskManager.UpdateProgress(taskInfo.Id,
+                        (itemIndex * 100d + p.Percentage) / sourcePaths.Count, p.CurrentFile));
+                    if (_fileService.IsCrossVolume(path, targetFolder.FullPath))
+                        await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath,
+                            progress, taskInfo.Cts.Token);
+                    else
+                        await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
+                    // This item has committed. A later cancellation/failure must not
+                    // prevent its metadata from following it to the new location.
+                    if (_fileTagService != null)
+                        await _fileTagService.UpdatePathAsync(path,
+                            Path.Combine(targetFolder.FullPath, Path.GetFileName(path)));
+                    _taskManager.UpdateProgress(taskInfo.Id, (index + 1) * 100d / sourcePaths.Count,
+                        Path.GetFileName(path));
                 }
                 _taskManager.CompleteTask(taskInfo.Id);
-                _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null);
             }
             catch (OperationCanceledException)
             {
-                _taskManager.RemoveTask(taskInfo.Id);
+                _taskManager.CancelTask(taskInfo.Id);
             }
             catch (Exception ex)
             {
                 _taskManager.FailTask(taskInfo.Id, ex.Message);
             }
+            finally { _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null); }
         });
     }
 
@@ -458,13 +483,15 @@ public partial class FileOpsViewModel : ObservableObject
             {
                 await _pinnedFolderService.UpdateFolderPathAsync(oldPath, newPath, newName);
             }
-
-            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(oldPath) ?? ""], null);
         }
         catch (Exception ex)
         {
             setStatus?.Invoke($"重命名失败: {ex.Message}");
             throw;
+        }
+        finally
+        {
+            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(entry.FullPath) ?? ""], null);
         }
     }
 
