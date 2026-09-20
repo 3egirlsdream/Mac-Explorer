@@ -45,10 +45,18 @@ public class MacThumbnailService : IThumbnailService
     private const long MaxMemoryBytes = 64L * 1024 * 1024;
     private const long DefaultMaxDiskBytes = 256L * 1024 * 1024;
     private const double DefaultDiskTargetRatio = 0.8;
+    private static readonly TimeSpan GenerationTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan NativeImageTimeout = TimeSpan.FromSeconds(2);
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
     private readonly ConcurrentQueue<string> _cacheOrder = new();
     private readonly ConcurrentDictionary<string, DateTime> _failedThumbnails = new();
-    private readonly SemaphoreSlim _generationGate = new(1);
+    // Bound native process work independently from cache publication/maintenance.
+    private readonly SemaphoreSlim _generationGate;
+    private readonly SemaphoreSlim _cacheWriteGate = new(1, 1);
+    // Fixed stripes avoid retaining one semaphore for every file ever visited.
+    // A collision only serializes unrelated keys; identical keys always share a gate.
+    private readonly SemaphoreSlim[] _requestGates = Enumerable.Range(0, 64)
+        .Select(_ => new SemaphoreSlim(1, 1)).ToArray();
     private readonly string _diskCacheDirectory;
     private readonly long _maxDiskBytes;
     private readonly long _targetDiskBytes;
@@ -65,12 +73,22 @@ public class MacThumbnailService : IThumbnailService
     }
 
     internal MacThumbnailService(string diskCacheDirectory, long maxDiskBytes, double targetRatio)
+        : this(diskCacheDirectory, maxDiskBytes, targetRatio,
+            Math.Clamp(Environment.ProcessorCount / 2, 1, 4))
+    {
+    }
+
+    internal MacThumbnailService(string diskCacheDirectory, long maxDiskBytes, double targetRatio,
+        int maxConcurrentGenerations)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(diskCacheDirectory);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxDiskBytes);
         if (targetRatio is <= 0 or > 1)
             throw new ArgumentOutOfRangeException(nameof(targetRatio));
 
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxConcurrentGenerations, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxConcurrentGenerations, 4);
+        _generationGate = new SemaphoreSlim(maxConcurrentGenerations, maxConcurrentGenerations);
         _diskCacheDirectory = diskCacheDirectory;
         _maxDiskBytes = maxDiskBytes;
         _targetDiskBytes = Math.Max(1, (long)(maxDiskBytes * targetRatio));
@@ -99,99 +117,142 @@ public class MacThumbnailService : IThumbnailService
         if (!File.Exists(filePath) || !SupportsThumbnailExtension(extension))
             return null;
 
+        // Keep the existing cache identity so previously generated thumbnails stay usable.
+        // Images reserve an extra native-attempt budget; sips keeps its original five seconds.
         var cacheKey = $"{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
-        if (_failedThumbnails.TryGetValue(cacheKey, out var retryAfter) && retryAfter > DateTime.UtcNow)
-            return null;
-        var cachePath = GetCachePath(cacheKey);
-        if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes))
-        {
-            if (File.Exists(cachePath))
-            {
-                TouchCacheFile(cachePath);
-                return new ThumbnailResult(memoryBytes, cachePath);
-            }
+        return await GetOrCreateThumbnailAsync(cacheKey,
+            (outputPath, token) => GenerateThumbnailAsync(filePath, outputPath, maxPixelSize, token),
+            rememberFailure: true, ct,
+            generationTimeout: IsImageFile(extension) ? GenerationTimeout + NativeImageTimeout : GenerationTimeout)
+            .ConfigureAwait(false);
+    }
 
-            await _generationGate.WaitAsync(ct);
-            try
-            {
-                if (!File.Exists(cachePath))
-                {
-                    await WriteCacheFileAtomicallyAsync(cachePath, memoryBytes, ct);
-                    TrimDiskCache(cachePath);
-                }
-                else
-                {
-                    TouchCacheFile(cachePath);
-                }
-                return new ThumbnailResult(memoryBytes, cachePath);
-            }
-            finally
-            {
-                _generationGate.Release();
-            }
+    // Generators write a private staging path, never the final cache path. Publication
+    // and trimming are serialized, but neither consumes a native-generation slot.
+    internal async Task<ThumbnailResult?> GetOrCreateThumbnailAsync(
+        string cacheKey,
+        Func<string, CancellationToken, Task<byte[]?>> generate,
+        bool rememberFailure,
+        CancellationToken ct,
+        TimeSpan? generationTimeout = null)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (rememberFailure && IsFailedThumbnail(cacheKey)) return null;
+        var cachePath = GetCachePath(cacheKey);
+        if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes) && File.Exists(cachePath))
+        {
+            TouchCacheFile(cachePath);
+            return new ThumbnailResult(memoryBytes, cachePath);
         }
 
-        var diskBytes = await TryReadCacheFileAsync(cachePath, ct);
+        // Disk hits, like memory hits, must not wait behind an unrelated generator
+        // that hashes to the same stripe. Keep the locked recheck for actual misses.
+        var diskBytes = await TryReadCacheFileAsync(cachePath, ct).ConfigureAwait(false);
         if (diskBytes != null)
         {
             AddToMemory(cacheKey, diskBytes);
             return new ThumbnailResult(diskBytes, cachePath);
         }
 
-        await _generationGate.WaitAsync(ct);
+        var requestGate = _requestGates[(StringComparer.Ordinal.GetHashCode(cacheKey) & int.MaxValue) % _requestGates.Length];
+        await requestGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            // Recheck after waiting: a different pane may have just completed this key.
             if (_memoryCache.TryGetValue(cacheKey, out memoryBytes))
             {
                 if (!File.Exists(cachePath))
-                {
-                    await WriteCacheFileAtomicallyAsync(cachePath, memoryBytes, ct);
-                    TrimDiskCache(cachePath);
-                }
+                    await PublishCacheAsync(cacheKey, cachePath, memoryBytes, null, ct).ConfigureAwait(false);
                 else
-                {
                     TouchCacheFile(cachePath);
-                }
                 return new ThumbnailResult(memoryBytes, cachePath);
             }
 
-            var cached = await TryReadCacheFileAsync(cachePath, ct);
+            var cached = await TryReadCacheFileAsync(cachePath, ct).ConfigureAwait(false);
             if (cached != null)
             {
                 AddToMemory(cacheKey, cached);
                 return new ThumbnailResult(cached, cachePath);
             }
+            if (rememberFailure && IsFailedThumbnail(cacheKey)) return null;
 
-            if (_failedThumbnails.TryGetValue(cacheKey, out retryAfter) && retryAfter > DateTime.UtcNow)
-                return null;
-
-            // A stalled Quick Look generator must release the shared queue. Start
-            // the timeout after acquiring the slot, not while waiting for it.
-            using var generationCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            generationCts.CancelAfter(TimeSpan.FromSeconds(5));
-            byte[]? generated;
+            var stagingPath = CreateTemporaryPath("generated");
             try
             {
-                generated = await GenerateThumbnailAsync(filePath, cachePath, maxPixelSize, generationCts.Token);
+                byte[]? generated;
+                await _generationGate.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    // Time in the queue does not consume the generator's timeout.
+                    using var generationCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    if (rememberFailure) generationCts.CancelAfter(generationTimeout ?? GenerationTimeout);
+                    try
+                    {
+                        generated = await Task.Run(() => generate(stagingPath, generationCts.Token),
+                            generationCts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested && rememberFailure)
+                    {
+                        generated = null;
+                    }
+                }
+                finally
+                {
+                    _generationGate.Release();
+                }
+
+                // Leaving the viewport is cancellation, not a failed thumbnail.
+                ct.ThrowIfCancellationRequested();
+                if (generated == null)
+                {
+                    if (rememberFailure)
+                    {
+                        if (_failedThumbnails.Count >= MaxMemoryEntries) _failedThumbnails.Clear();
+                        _failedThumbnails[cacheKey] = DateTime.UtcNow.AddMinutes(1);
+                    }
+                    return null;
+                }
+
+                await PublishCacheAsync(cacheKey, cachePath, generated, stagingPath, ct).ConfigureAwait(false);
+                return new ThumbnailResult(generated, cachePath);
             }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            finally
             {
-                generated = null;
+                TryDelete(stagingPath);
             }
-            if (generated == null)
-            {
-                if (_failedThumbnails.Count >= MaxMemoryEntries) _failedThumbnails.Clear();
-                _failedThumbnails[cacheKey] = DateTime.UtcNow.AddMinutes(1);
-                return null;
-            }
-            _failedThumbnails.TryRemove(cacheKey, out _);
-            AddToMemory(cacheKey, generated);
-            TrimDiskCache(cachePath);
-            return new ThumbnailResult(generated, cachePath);
         }
         finally
         {
-            _generationGate.Release();
+            requestGate.Release();
+        }
+    }
+
+    private bool IsFailedThumbnail(string cacheKey)
+        => _failedThumbnails.TryGetValue(cacheKey, out var retryAfter) && retryAfter > DateTime.UtcNow;
+
+    private async Task PublishCacheAsync(string cacheKey, string cachePath, byte[] bytes,
+        string? stagingPath, CancellationToken ct)
+    {
+        await _cacheWriteGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            if (stagingPath != null)
+                PromoteTemporaryFile(stagingPath, cachePath);
+            else if (!File.Exists(cachePath))
+                await WriteCacheFileAtomicallyAsync(cachePath, bytes, ct).ConfigureAwait(false);
+            TouchCacheFile(cachePath);
+            AddToMemory(cacheKey, bytes);
+            _failedThumbnails.TryRemove(cacheKey, out _);
+            // Keep the existing per-write disk budget and current-result protection.
+            // Private .tmp-* staging files are not candidates for eviction.
+            // Await inside this gate: Task.Run moves the scan off the caller thread,
+            // not outside the critical section. Trims cannot overlap in this service.
+            await Task.Run(() => TrimDiskCache(cachePath)).ConfigureAwait(false);
+        }
+        finally
+        {
+            _cacheWriteGate.Release();
         }
     }
 
@@ -211,85 +272,57 @@ public class MacThumbnailService : IThumbnailService
         if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes))
             return memoryBytes;
 
-        var cachePath = GetCachePath(cacheKey);
-        if (File.Exists(cachePath))
-        {
-            try
-            {
-                var diskBytes = await File.ReadAllBytesAsync(cachePath, ct);
-                TouchCacheFile(cachePath);
-                AddToMemory(cacheKey, diskBytes);
-                return diskBytes;
-            }
-            catch
-            {
-                TryDelete(cachePath);
-            }
-        }
+        var result = await GetOrCreateThumbnailAsync(cacheKey,
+            (outputPath, token) => GenerateFaceCropAsync(filePath, outputPath, bx, by, bw, bh, maxPixelSize, token),
+            rememberFailure: false, ct).ConfigureAwait(false);
+        return result?.Bytes;
+    }
 
-        await _generationGate.WaitAsync(ct);
+    private async Task<byte[]?> GenerateFaceCropAsync(string filePath, string outputPath,
+        float bx, float by, float bw, float bh, int maxPixelSize, CancellationToken ct)
+    {
+        var dimensions = await GetDimensionsAsync(filePath, ct).ConfigureAwait(false);
+        if (dimensions == null) return null;
+
+        var (width, height) = dimensions.Value;
+        var cropWidth = Math.Clamp((int)Math.Round(bw * width * 1.6), 1, width);
+        var cropHeight = Math.Clamp((int)Math.Round(bh * height * 1.6), 1, height);
+        var centerX = (bx + bw / 2f) * width;
+        var centerY = (1f - by - bh / 2f) * height;
+        var offsetX = Math.Clamp((int)Math.Round(centerX - cropWidth / 2f), 0, Math.Max(0, width - cropWidth));
+        var offsetY = Math.Clamp((int)Math.Round(centerY - cropHeight / 2f), 0, Math.Max(0, height - cropHeight));
+
+        var croppedPath = CreateTemporaryPath("face-crop");
+        var generatedPath = CreateTemporaryPath("face-result");
         try
         {
-            if (File.Exists(cachePath))
+            var cropArguments = new[]
             {
-                var cached = await File.ReadAllBytesAsync(cachePath, ct);
-                TouchCacheFile(cachePath);
-                AddToMemory(cacheKey, cached);
-                return cached;
-            }
+                "-c", cropHeight.ToString(), cropWidth.ToString(),
+                "--cropOffset", offsetY.ToString(), offsetX.ToString(),
+                "--setProperty", "format", "png",
+                filePath, "--out", croppedPath
+            };
+            if (!await RunSipsAsync(cropArguments, ct).ConfigureAwait(false) || !File.Exists(croppedPath))
+                return null;
 
-            var dimensions = await GetDimensionsAsync(filePath, ct);
-            if (dimensions == null) return null;
-
-            var (width, height) = dimensions.Value;
-            var cropWidth = Math.Clamp((int)Math.Round(bw * width * 1.6), 1, width);
-            var cropHeight = Math.Clamp((int)Math.Round(bh * height * 1.6), 1, height);
-            var centerX = (bx + bw / 2f) * width;
-            var centerY = (1f - by - bh / 2f) * height;
-            var offsetX = Math.Clamp((int)Math.Round(centerX - cropWidth / 2f), 0, Math.Max(0, width - cropWidth));
-            var offsetY = Math.Clamp((int)Math.Round(centerY - cropHeight / 2f), 0, Math.Max(0, height - cropHeight));
-
-            var croppedPath = CreateTemporaryPath("face-crop");
-            var generatedPath = CreateTemporaryPath("face-result");
-            try
+            var resizeArguments = new[]
             {
-                var cropArguments = new[]
-                {
-                    "-c", cropHeight.ToString(), cropWidth.ToString(),
-                    "--cropOffset", offsetY.ToString(), offsetX.ToString(),
-                    "--setProperty", "format", "png",
-                    filePath, "--out", croppedPath
-                };
-                if (!await RunSipsAsync(cropArguments, ct) || !File.Exists(croppedPath))
-                    return null;
+                "-Z", Math.Max(1, maxPixelSize).ToString(),
+                "--setProperty", "format", "png",
+                croppedPath, "--out", generatedPath
+            };
+            if (!await RunSipsAsync(resizeArguments, ct).ConfigureAwait(false) || !File.Exists(generatedPath))
+                return null;
 
-                var resizeArguments = new[]
-                {
-                    "-Z", Math.Max(1, maxPixelSize).ToString(),
-                    "--setProperty", "format", "png",
-                    croppedPath, "--out", generatedPath
-                };
-                if (!await RunSipsAsync(resizeArguments, ct) || !File.Exists(generatedPath))
-                {
-                    return null;
-                }
-
-                PromoteTemporaryFile(generatedPath, cachePath);
-                var bytes = await File.ReadAllBytesAsync(cachePath, ct);
-                TouchCacheFile(cachePath);
-                AddToMemory(cacheKey, bytes);
-                TrimDiskCache(cachePath);
-                return bytes;
-            }
-            finally
-            {
-                TryDelete(croppedPath);
-                TryDelete(generatedPath);
-            }
+            var bytes = await File.ReadAllBytesAsync(generatedPath, ct).ConfigureAwait(false);
+            PromoteTemporaryFile(generatedPath, outputPath);
+            return bytes;
         }
         finally
         {
-            _generationGate.Release();
+            TryDelete(croppedPath);
+            TryDelete(generatedPath);
         }
     }
 
@@ -318,6 +351,43 @@ public class MacThumbnailService : IThumbnailService
         if (!IsImageFile(Path.GetExtension(sourcePath)))
             return await GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, ct);
 
+        return await GenerateImageWithFallbackAsync(
+            token => GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, token,
+                allowQlManageFallback: false),
+            token => GenerateSipsThumbnailAsync(sourcePath, cachePath, maxPixelSize, token),
+            NativeImageTimeout, ct).ConfigureAwait(false);
+    }
+
+    internal static async Task<byte[]?> GenerateImageWithFallbackAsync(
+        Func<CancellationToken, Task<byte[]?>> nativeQuickLook,
+        Func<CancellationToken, Task<byte[]?>> fallback,
+        TimeSpan nativeTimeout,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        // A slow/missing native generator must leave time for the existing image path.
+        using var nativeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        nativeCts.CancelAfter(nativeTimeout);
+        try
+        {
+            var result = await nativeQuickLook(nativeCts.Token).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            if (result != null) return result;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Only the native attempt timed out. The fallback uses the original token.
+        }
+        ct.ThrowIfCancellationRequested();
+        return await fallback(ct).ConfigureAwait(false);
+    }
+
+    private async Task<byte[]?> GenerateSipsThumbnailAsync(
+        string sourcePath,
+        string cachePath,
+        int maxPixelSize,
+        CancellationToken ct)
+    {
         var generatedPath = CreateTemporaryPath("thumbnail");
         try
         {
@@ -352,14 +422,15 @@ public class MacThumbnailService : IThumbnailService
         string sourcePath,
         string cachePath,
         int maxPixelSize,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool allowQlManageFallback = true)
     {
         var outputDirectory = Path.Combine(_diskCacheDirectory, ".quicklook-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outputDirectory);
         try
         {
             var nativeResult = await GenerateWithNativeQuickLookAsync(sourcePath, cachePath, maxPixelSize, outputDirectory, ct);
-            if (nativeResult != null) return nativeResult;
+            if (nativeResult != null || !allowQlManageFallback) return nativeResult;
 
             var startInfo = new ProcessStartInfo
             {
@@ -617,9 +688,8 @@ public class MacThumbnailService : IThumbnailService
     {
         try
         {
-            var files = Directory.EnumerateFiles(_diskCacheDirectory, "*.png", SearchOption.TopDirectoryOnly)
-                .Where(path => !Path.GetFileName(path).StartsWith(".tmp-", StringComparison.Ordinal))
-                .Select(path => new FileInfo(path))
+            var files = new DirectoryInfo(_diskCacheDirectory).EnumerateFiles("*.png", SearchOption.TopDirectoryOnly)
+                .Where(info => !info.Name.StartsWith(".tmp-", StringComparison.Ordinal))
                 .Where(info => info.Exists)
                 .ToList();
             var totalBytes = files.Sum(info => info.Length);

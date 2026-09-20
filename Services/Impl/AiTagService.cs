@@ -36,55 +36,75 @@ public class AiTagService : IAiTagService
     public async Task<IReadOnlyList<(string Path, long ModifiedTicks)>> GetUnanalyzedFilesAsync(
         IReadOnlyList<string> filePaths, IReadOnlyList<long> modifiedTicks)
     {
-        using var connectionLock = await AcquireConnectionAsync();
-        var result = new List<(string, long)>();
-        // Build lookup of existing analysis status
-        var analyzed = new Dictionary<string, (long mtime, int version)>();
+        ArgumentNullException.ThrowIfNull(filePaths);
+        ArgumentNullException.ThrowIfNull(modifiedTicks);
+        if (filePaths.Count != modifiedTicks.Count)
+            throw new ArgumentException("Each file path must have a corresponding modified time.", nameof(modifiedTicks));
+        if (filePaths.Count == 0) return [];
 
-        using (var cmd = _connection.CreateCommand())
+        // Own the inputs before handing work to another thread. Microsoft.Data.Sqlite
+        // executes its async query APIs synchronously, including on the UI thread.
+        var paths = filePaths.ToArray();
+        var times = modifiedTicks.ToArray();
+        return await Task.Run(async () =>
         {
-            cmd.CommandText = "SELECT file_path, file_modified_at, analysis_version FROM ai_analysis_status";
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            using var connectionLock = await AcquireConnectionAsync().ConfigureAwait(false);
+            var result = new List<(string Path, long ModifiedTicks)>();
+            const int batchSize = 256;
+            for (var offset = 0; offset < paths.Length; offset += batchSize)
             {
-                analyzed[reader.GetString(0)] = (reader.GetInt64(1), reader.GetInt32(2));
-            }
-        }
+                var count = Math.Min(batchSize, paths.Length - offset);
+                var analyzed = new Dictionary<string, (long Mtime, int Version)>(count, StringComparer.Ordinal);
+                using (var cmd = _connection.CreateCommand())
+                {
+                    // Bound parameter count and memory by this directory batch, not
+                    // by the lifetime size of ai_analysis_status. file_path is its PK.
+                    var parameters = Enumerable.Range(0, count).Select(i => $"@p{i}").ToArray();
+                    cmd.CommandText = $"SELECT file_path, file_modified_at, analysis_version FROM ai_analysis_status WHERE file_path IN ({string.Join(",", parameters)})";
+                    for (var i = 0; i < count; i++)
+                        cmd.Parameters.AddWithValue(parameters[i], paths[offset + i]);
+                    using var reader = cmd.ExecuteReader();
+                    while (reader.Read())
+                        analyzed[reader.GetString(0)] = (reader.GetInt64(1), reader.GetInt32(2));
+                }
 
-        for (int i = 0; i < filePaths.Count; i++)
-        {
-            var path = filePaths[i];
-            var mtime = modifiedTicks[i];
-            if (!analyzed.TryGetValue(path, out var status) ||
-                status.mtime != mtime ||
-                status.version < CurrentAnalysisVersion)
-            {
-                result.Add((path, mtime));
+                // Preserve caller order and duplicate inputs; SQL IN does not.
+                for (var i = offset; i < offset + count; i++)
+                {
+                    if (!analyzed.TryGetValue(paths[i], out var status)
+                        || status.Mtime != times[i] || status.Version < CurrentAnalysisVersion)
+                        result.Add((paths[i], times[i]));
+                }
             }
-        }
-
-        return result;
+            return (IReadOnlyList<(string Path, long ModifiedTicks)>)result;
+        }).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<string>> GetAnalyzedPathsInDirectoryAsync(string parentPath)
     {
-        using var connectionLock = await AcquireConnectionAsync();
-        var paths = new List<string>();
+        ArgumentNullException.ThrowIfNull(parentPath);
         var prefix = parentPath.EndsWith('/') ? parentPath : parentPath + "/";
+        // '/' immediately precedes '0' in the primary key's BINARY ordering. This
+        // bounds exactly the prefix, without LIKE wildcards or case folding.
+        var prefixEnd = prefix[..^1] + "0";
+        return await Task.Run(async () =>
+        {
+            using var connectionLock = await AcquireConnectionAsync().ConfigureAwait(false);
+            var paths = new List<string>();
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                SELECT file_path FROM ai_analysis_status
+                WHERE file_path >= @prefix AND file_path < @prefixEnd
+                  AND instr(substr(file_path, length(@prefix) + 1), '/') = 0
+                """;
+            cmd.Parameters.AddWithValue("@prefix", prefix);
+            cmd.Parameters.AddWithValue("@prefixEnd", prefixEnd);
 
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
-            SELECT file_path FROM ai_analysis_status
-            WHERE file_path LIKE @prefix AND file_path NOT LIKE @subdir
-            """;
-        cmd.Parameters.AddWithValue("@prefix", prefix + "%");
-        cmd.Parameters.AddWithValue("@subdir", prefix + "%/%");
-
-        using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-            paths.Add(reader.GetString(0));
-
-        return paths;
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                paths.Add(reader.GetString(0));
+            return (IReadOnlyList<string>)paths;
+        }).ConfigureAwait(false);
     }
 
     // ── Save & delete ──
