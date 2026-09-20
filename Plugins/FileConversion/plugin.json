@@ -1,14 +1,14 @@
 {
   "id": "com.macexplorer.file-conversion",
   "name": "文件转换",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "apiVersion": 1,
   "entry": "MacExplorer.FileConversion.Plugin.dll",
   "icon": "convert",
   "commands": [
     { "id": "to-docx", "title": "转为 Word（.docx）", "icon": "document", "match": { "textFiles": true, "maxSelection": 100 } },
     { "id": "to-pdf", "title": "转为 PDF", "icon": "document", "match": { "extensions": [".doc", ".docx"], "textFiles": true, "maxSelection": 100 } },
-    { "id": "to-png", "title": "转为 PNG", "icon": "image", "match": { "extensions": [".svg", ".ico", ".icns"] } },
-    { "id": "to-jpg", "title": "转为 JPG", "icon": "image", "match": { "extensions": [".svg", ".ico", ".icns"] } }
+    { "id": "to-png", "title": "转为 PNG", "icon": "image", "match": { "extensions": [".svg", ".ico", ".icns", ".webp"] } },
+    { "id": "to-jpg", "title": "转为 JPG", "icon": "image", "match": { "extensions": [".svg", ".ico", ".icns", ".webp"] } }
   ]
 }

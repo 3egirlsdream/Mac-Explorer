@@ -26,7 +26,7 @@ public sealed class FileConversionService
         return Path.GetExtension(path).ToLowerInvariant() switch
         {
             ".doc" or ".docx" => [FileConversionFormat.Pdf],
-            ".svg" or ".ico" or ".icns" => [FileConversionFormat.Png, FileConversionFormat.Jpg],
+            ".svg" or ".ico" or ".icns" or ".webp" => [FileConversionFormat.Png, FileConversionFormat.Jpg],
             ".md" or ".markdown" => [FileConversionFormat.Docx, FileConversionFormat.Pdf],
             _ when TextFileTypes.IsText(path) => [FileConversionFormat.Docx, FileConversionFormat.Pdf],
             _ => []
@@ -67,7 +67,11 @@ public sealed class FileConversionService
                 if (sourceExtension == ".svg")
                     await Task.Run(() => RenderSvg(request.SourcePath, temporaryOutput, size, request.Format == FileConversionFormat.Jpg), token);
                 else
-                    await RunHelperAsync(["image", request.SourcePath, temporaryOutput, size.Width.ToString(CultureInfo.InvariantCulture), size.Height.ToString(CultureInfo.InvariantCulture)], token);
+                {
+                    var helperOutput = await RunHelperAsync(["image", request.SourcePath, temporaryOutput, size.Width.ToString(CultureInfo.InvariantCulture), size.Height.ToString(CultureInfo.InvariantCulture)], token);
+                    if (sourceExtension == ".webp" && helperOutput.Trim() == "webp-first-frame")
+                        warnings.Add("WebP 动画仅导出第一帧，本次转换不保留动画。");
+                }
             }
             else if (sourceExtension is ".doc" or ".docx")
             {

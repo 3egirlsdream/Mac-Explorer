@@ -79,22 +79,28 @@ final class HTMLPrinter: NSObject, WKNavigationDelegate {
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { fail("PDF 排版进程意外退出") }
 }
 
-func largestImage(_ path: String) -> CGImage {
-    guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { fail("无法读取图标文件") }
+func conversionImage(_ path: String) -> (image: CGImage, animatedWebP: Bool) {
+    guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { fail("无法读取图像文件") }
+    if URL(fileURLWithPath: path).pathExtension.lowercased() == "webp" {
+        // PNG/JPG output is static. Decode only the first WebP frame, not every animation frame.
+        guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { fail("无法解码 WebP 图像") }
+        return (image, CGImageSourceGetCount(source) > 1)
+    }
+    // ICO/ICNS contain multiple resolutions; keep selecting the largest image.
     var best: CGImage?
     for index in 0..<CGImageSourceGetCount(source) {
         if let image = CGImageSourceCreateImageAtIndex(source, index, nil),
            best == nil || image.width * image.height > best!.width * best!.height { best = image }
     }
     guard let image = best else { fail("图标不包含可读取的图像") }
-    return image
+    return (image, false)
 }
 
 let args = CommandLine.arguments
 guard args.count >= 3 else { fail("usage: FileConversion <word-pdf|html-pdf|image-info|image> <input> [output] [width height]") }
 let mode = args[1], input = args[2]
 if mode == "image-info" {
-    let image = largestImage(input)
+    let image = conversionImage(input).image
     print("\(image.width) \(image.height)")
     exit(0)
 }
@@ -103,7 +109,7 @@ let output = args[3]
 if mode == "image" {
     guard args.count == 6, let width = Int(args[4]), let height = Int(args[5]),
           width > 0, height > 0, width <= 8192, height <= 8192, width * height <= 32_000_000 else { fail("图像尺寸超出限制") }
-    let image = largestImage(input)
+    let (image, animatedWebP) = conversionImage(input)
     let jpeg = URL(fileURLWithPath: output).pathExtension.lowercased() == "jpg"
     guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { fail("无法创建图像") }
@@ -114,6 +120,8 @@ if mode == "image" {
           let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: output) as CFURL, (jpeg ? UTType.jpeg : UTType.png).identifier as CFString, 1, nil) else { fail("无法写入图像") }
     CGImageDestinationAddImage(destination, rendered, [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
     if !CGImageDestinationFinalize(destination) { fail("图像写入失败") }
+    // Machine-readable notice consumed by FileConversionService; image-info stays "width height".
+    if animatedWebP { print("webp-first-frame") }
     exit(0)
 }
 
