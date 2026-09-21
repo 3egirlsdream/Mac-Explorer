@@ -106,6 +106,34 @@
   );
 
   const files = {
+    brief: {
+      name: "设计简报.pdf",
+      kind: "PDF 文稿",
+      icon: "document",
+      type: "document",
+      title: "山野计划 · 设计简报",
+      paragraphs: [
+        "山野计划，交付湖泊主题的视觉素材。",
+        "这是预置文档的文字示例，实际应用可提取 PDF 文字页内容，并通过 OCR 识别扫描页。",
+      ],
+    },
+    memo: {
+      name: "灵感便签.png",
+      kind: "图片文字示例",
+      icon: "image",
+      type: "document",
+      title: "灵感便签 · OCR 文字示例",
+      paragraphs: [
+        "山野计划，周五整理照片。",
+        "这里只展示示例识别文字，未读取或分析你的文件。",
+      ],
+    },
+    people: {
+      name: "同行者.jpg",
+      kind: "人物分类示例",
+      icon: "image",
+      type: "unsupported",
+    },
     brand: { name: "品牌素材", kind: "文件夹", icon: "folder", type: "folder" },
     project: {
       name: "项目文件",
@@ -212,17 +240,37 @@
       }
     });
   });
-  document.getElementById("demo-search").addEventListener("input", (event) => {
-    const query = event.target.value.trim().toLocaleLowerCase();
+  function filterDemoFiles() {
+    const query = document
+      .getElementById("demo-search")
+      .value.trim()
+      .toLocaleLowerCase();
+    const kind = document.getElementById("demo-filter").value;
     fileButtons.forEach((button) => {
-      button.hidden = !button.dataset.name.toLocaleLowerCase().includes(query);
+      const file = files[button.dataset.file];
+      const folder = file.icon === "folder";
+      const matchesKind =
+        kind === "all" ||
+        (kind === "folder" ? folder : file.type === kind && !folder);
+      button.hidden =
+        !button.dataset.name.toLocaleLowerCase().includes(query) ||
+        !matchesKind;
     });
     const visible = fileButtons.filter((button) => !button.hidden);
     document.querySelector(".demo-empty").hidden = visible.length > 0;
     if (!visible.some((button) => button.dataset.file === selectedFile))
       selectFile(visible[0]?.dataset.file || null);
     updateStatus();
-  });
+  }
+  document
+    .getElementById("demo-search")
+    .addEventListener("input", filterDemoFiles);
+  document
+    .getElementById("demo-filter")
+    .addEventListener("change", filterDemoFiles);
+  document.addEventListener("demo-preview", (event) =>
+    openPreview(event.detail),
+  );
 
   const dialog = document.querySelector(".preview-dialog");
   const dialogContent = document.getElementById("dialog-content");

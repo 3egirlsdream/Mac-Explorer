@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Mac Explorer，为 macOS 打造的开源文件管理器。多标签与多窗格、预览、全局搜索、SFTP 和 Git，让文件工作在一个窗口里顺畅完成。"
+      content="Mac Explorer，为 macOS 打造的开源文件管理器。多窗格浏览、Finder 标签收藏、图片与 PDF 文字搜索、预览编辑、文件速递和 SFTP，让文件工作在一个窗口里顺畅完成。"
     />
     <meta name="theme-color" content="#f8f9fb" />
     <meta property="og:type" content="website" />
@@ -15,7 +15,7 @@
     />
     <meta
       property="og:description"
-      content="多窗格展开工作，按下空格深入预览。为你的 Mac，换一种更顺手的文件管理方式。"
+      content="浏览、整理、查找、处理。从多窗格与标签收藏，到文字搜索、文件速递和远程管理，文件工作都在这里。"
     />
     <meta
       property="og:url"
@@ -36,6 +36,7 @@
     <link rel="canonical" href="https://3egirlsdream.github.io/Mac-Explorer/" />
     <link rel="icon" href="Assets/appicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="scenarios.css" />
     <script>
       try {
         const saved = localStorage.getItem("mac-explorer-theme");
@@ -55,6 +56,7 @@
       }
     </script>
     <script src="script.js" defer></script>
+    <script src="scenarios.js" defer></script>
     <title>Mac Explorer — 一个窗口，理顺文件工作。</title>
   </head>
   <body>
@@ -67,8 +69,9 @@
           ></a
         >
         <div class="nav-links" id="nav-links">
-          <a href="#workspace">工作区</a><a href="#preview">预览</a
-          ><a href="#features">更多能力</a><a href="developers/index.html">发布插件</a>
+          <a href="#workspace">浏览</a><a href="#organize">整理</a
+          ><a href="#find">查找</a><a href="#preview">处理</a
+          ><a href="#workflow">连接</a><a href="#extend">扩展</a>
           <a
             href="https://github.com/3egirlsdream/Mac-Explorer"
             class="nav-github"
@@ -113,15 +116,14 @@
     <main id="main">
       <section class="hero wrap" aria-labelledby="hero-title">
         <a class="announcement" href="#workspace"
-          ><span class="status-dot"></span> 全新文件浏览体验
-          <span class="announcement-divider"></span> 为专注而更新
+          ><span class="status-dot"></span> 为 macOS 打造的文件工作台
+          <span class="announcement-divider"></span> 免费 · 开源
           <svg aria-hidden="true" focusable="false" class="icon">
             <use href="Assets/icons/fluent.svg#arrow-right" /></svg
         ></a>
         <h1 id="hero-title">一个窗口，<br /><span>理顺文件工作。</span></h1>
         <p class="hero-description">
-          把文件展开，把切换减少。<br />多窗格、预览和强大搜索，让你的 Mac
-          更顺手。
+          浏览、整理、查找，再到预览、编辑与传输。<br />把每天的文件工作，放进一个熟悉的工作台。
         </p>
         <div class="hero-actions">
           <a
@@ -132,16 +134,32 @@
             </svg>
             下载 Mac Explorer</a
           ><a class="button button-quiet" href="#workspace"
-            >探索新体验
+            >探索功能
             <svg aria-hidden="true" focusable="false" class="icon">
               <use href="Assets/icons/fluent.svg#arrow-right" /></svg
           ></a>
-
         </div>
         <p class="platform-note">
           macOS 15.0+ <span>·</span> Apple Silicon <span>·</span> 免费开源
         </p>
 
+        <div
+          class="hero-scenes segmented"
+          role="group"
+          aria-label="选择首屏场景"
+        >
+          <button type="button" data-hero-scene="browser" aria-pressed="true">
+            <svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#folder" />
+            </svg>
+            文件浏览</button
+          ><button type="button" data-hero-scene="home" aria-pressed="false">
+            <svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#home" />
+            </svg>
+            收藏首页
+          </button>
+        </div>
         <div class="showcase" id="demo">
           <div class="showcase-topline">
             <span
@@ -188,7 +206,7 @@
                   <use href="Assets/icons/fluent.svg#settings" /></svg
               ></span>
             </div>
-            <div class="app-body">
+            <div class="app-body" id="hero-browser">
               <aside class="app-sidebar" aria-label="演示中的常用位置">
                 <span class="sidebar-heading">常用位置</span>
                 <span class="sidebar-item"
@@ -291,6 +309,15 @@
                   /></label>
                 </div>
                 <div class="app-toolbar">
+                  <label class="type-filter"
+                    >类型
+                    <select id="demo-filter" aria-label="筛选示例文件类型">
+                      <option value="all">全部文件</option>
+                      <option value="image">图片</option>
+                      <option value="document">文稿</option>
+                      <option value="folder">文件夹</option>
+                    </select></label
+                  >
                   <span class="decorative-tools" aria-hidden="true"
                     ><span
                       ><svg aria-hidden="true" focusable="false" class="icon">
@@ -557,6 +584,170 @@
                 </div>
               </div>
             </div>
+            <div id="hero-home" hidden>
+              <div
+                class="collection-demo compact-home"
+                data-collection="work"
+                data-size="small"
+              >
+                <div class="recent-strip">
+                  <span
+                    ><svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#arrow-clockwise" />
+                    </svg>
+                    最近使用</span
+                  ><button type="button" data-preview="notes">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#document" />
+                    </svg>
+                    创作笔记.md</button
+                  ><button type="button" data-preview="lake">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#image" />
+                    </svg>
+                    高山湖泊.jpg
+                  </button>
+                </div>
+                <div class="collection-heading">
+                  <strong>收藏夹</strong
+                  ><span class="demo-label">示例文件 · 原位收藏</span>
+                </div>
+                <div
+                  class="collection-tabs segmented"
+                  role="group"
+                  aria-label="首屏收藏夹示例"
+                >
+                  <button
+                    type="button"
+                    data-collection-tab="work"
+                    aria-pressed="true"
+                  >
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#tag" />
+                    </svg>
+                    山野计划</button
+                  ><button
+                    type="button"
+                    data-collection-tab="inspiration"
+                    aria-pressed="false"
+                  >
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#tag" />
+                    </svg>
+                    摄影灵感
+                  </button>
+                </div>
+                <div class="folder-stage">
+                  <div class="collection-card">
+                    <button
+                      type="button"
+                      class="collection-title"
+                      data-expand-collection
+                    >
+                      山野计划
+                      <svg class="icon" aria-hidden="true">
+                        <use href="Assets/icons/fluent.svg#chevron-right" />
+                      </svg>
+                    </button>
+                    <div class="collection-grid">
+                      <button
+                        type="button"
+                        class="collection-file"
+                        data-preview="lake"
+                      >
+                        <span class="collection-art"
+                          ><img
+                            src="Assets/alpine-lake.jpg"
+                            width="1536"
+                            height="1024"
+                            alt=""
+                            loading="lazy" /></span
+                        ><span>高山湖泊.jpg</span></button
+                      ><button
+                        type="button"
+                        class="collection-file"
+                        data-preview="notes"
+                      >
+                        <span class="collection-art"
+                          ><svg class="icon" aria-hidden="true">
+                            <use
+                              href="Assets/icons/fluent.svg#document"
+                            /></svg></span
+                        ><span>创作笔记.md</span></button
+                      ><button
+                        type="button"
+                        class="collection-file"
+                        data-preview="project"
+                      >
+                        <span class="collection-art"
+                          ><svg class="icon" aria-hidden="true">
+                            <use
+                              href="Assets/icons/fluent.svg#folder"
+                            /></svg></span
+                        ><span>项目文件</span></button
+                      ><button
+                        type="button"
+                        class="collection-file"
+                        data-preview="brief"
+                      >
+                        <span class="collection-art"
+                          ><svg class="icon" aria-hidden="true">
+                            <use
+                              href="Assets/icons/fluent.svg#document"
+                            /></svg></span
+                        ><span>设计简报.pdf</span></button
+                      ><button
+                        type="button"
+                        class="collection-file"
+                        data-preview="readme"
+                      >
+                        <span class="collection-art"
+                          ><svg class="icon" aria-hidden="true">
+                            <use
+                              href="Assets/icons/fluent.svg#code"
+                            /></svg></span
+                        ><span>README.md</span></button
+                      ><button
+                        type="button"
+                        class="collection-file"
+                        data-preview="archive"
+                      >
+                        <span class="collection-art"
+                          ><svg class="icon" aria-hidden="true">
+                            <use
+                              href="Assets/icons/fluent.svg#archive"
+                            /></svg></span
+                        ><span>设计归档.zip</span>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      class="resize-handle"
+                      aria-label="调整收藏卡片大小；也可使用左右方向键"
+                      title="拖动或用方向键调整大小"
+                    >
+                      <svg class="icon" aria-hidden="true">
+                        <use href="Assets/icons/fluent.svg#expand" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="collection-controls">
+                  <span class="collection-size" role="status">紧凑 · 3 列</span
+                  ><button type="button" data-resize-collection>调整尺寸</button
+                  ><button type="button" data-expand-collection>
+                    展开收藏夹
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#expand" />
+                    </svg>
+                  </button>
+                </div>
+                <p class="collection-footnote">
+                  高山湖泊.jpg
+                  同时属于「山野计划」与「摄影灵感」，原文件只有一份。
+                </p>
+              </div>
+            </div>
           </div>
           <div class="showcase-bottom">
             <span
@@ -615,7 +806,7 @@
             <h2 id="workspace-title">思路不用切断，<br />工作区可以展开。</h2>
           </div>
           <p class="section-description">
-            把常用文件夹留在标签里，再用多窗格将它们并排打开。从浏览素材到整理归档，让每一步都有自己的位置。
+            用多标签留住工作位置，用多窗格并排打开来源与目标。浏览素材、比较目录、整理归档，每一步都有自己的位置。
           </p>
         </div>
         <div class="workspace-layout">
@@ -710,7 +901,7 @@
               <div>
                 <h3>文件再多，也井然有序</h3>
                 <p>
-                  高性能文件列表覆盖明细、分组和图标网格；刷新时保留选择与滚动位置。
+                  列表与网格自由切换，按类型、日期或大小分组；组合表头筛选，沿面包屑进入子目录。
                 </p>
               </div>
             </article>
@@ -719,16 +910,343 @@
       </section>
 
       <section
+        class="section wrap"
+        id="organize"
+        aria-labelledby="organize-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">02 / 按你的方式整理</p>
+            <h2>
+              <span id="organize-title">位置不变，<br />思路各自成组。</span>
+            </h2>
+          </div>
+          <p class="section-description">
+            给文件加上 Finder
+            标签，就能按项目、用途或灵感聚在一起。最近用过的文件，也在首页等你。
+          </p>
+        </div>
+        <div class="organize-layout">
+          <div class="scene-window">
+            <div
+              class="collection-demo"
+              data-collection="work"
+              data-size="small"
+            >
+              <div class="recent-strip">
+                <span
+                  ><svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#arrow-clockwise" />
+                  </svg>
+                  最近使用</span
+                ><button type="button" data-preview="notes">
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#document" />
+                  </svg>
+                  创作笔记.md</button
+                ><button type="button" data-preview="lake">
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#image" />
+                  </svg>
+                  高山湖泊.jpg
+                </button>
+              </div>
+              <div class="collection-heading">
+                <strong>收藏夹</strong
+                ><span class="demo-label">示例文件 · 原位收藏</span>
+              </div>
+              <div
+                class="collection-tabs segmented"
+                role="group"
+                aria-label="收藏夹示例"
+              >
+                <button
+                  type="button"
+                  data-collection-tab="work"
+                  aria-pressed="true"
+                >
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#tag" />
+                  </svg>
+                  山野计划</button
+                ><button
+                  type="button"
+                  data-collection-tab="inspiration"
+                  aria-pressed="false"
+                >
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#tag" />
+                  </svg>
+                  摄影灵感
+                </button>
+              </div>
+              <div class="folder-stage">
+                <div class="collection-card">
+                  <button
+                    type="button"
+                    class="collection-title"
+                    data-expand-collection
+                  >
+                    山野计划
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#chevron-right" />
+                    </svg>
+                  </button>
+                  <div class="collection-grid">
+                    <button
+                      type="button"
+                      class="collection-file"
+                      data-preview="lake"
+                    >
+                      <span class="collection-art"
+                        ><img
+                          src="Assets/alpine-lake.jpg"
+                          width="1536"
+                          height="1024"
+                          alt=""
+                          loading="lazy" /></span
+                      ><span>高山湖泊.jpg</span></button
+                    ><button
+                      type="button"
+                      class="collection-file"
+                      data-preview="notes"
+                    >
+                      <span class="collection-art"
+                        ><svg class="icon" aria-hidden="true">
+                          <use
+                            href="Assets/icons/fluent.svg#document"
+                          /></svg></span
+                      ><span>创作笔记.md</span></button
+                    ><button
+                      type="button"
+                      class="collection-file"
+                      data-preview="project"
+                    >
+                      <span class="collection-art"
+                        ><svg class="icon" aria-hidden="true">
+                          <use
+                            href="Assets/icons/fluent.svg#folder"
+                          /></svg></span
+                      ><span>项目文件</span></button
+                    ><button
+                      type="button"
+                      class="collection-file"
+                      data-preview="brief"
+                    >
+                      <span class="collection-art"
+                        ><svg class="icon" aria-hidden="true">
+                          <use
+                            href="Assets/icons/fluent.svg#document"
+                          /></svg></span
+                      ><span>设计简报.pdf</span></button
+                    ><button
+                      type="button"
+                      class="collection-file"
+                      data-preview="readme"
+                    >
+                      <span class="collection-art"
+                        ><svg class="icon" aria-hidden="true">
+                          <use
+                            href="Assets/icons/fluent.svg#code"
+                          /></svg></span
+                      ><span>README.md</span></button
+                    ><button
+                      type="button"
+                      class="collection-file"
+                      data-preview="archive"
+                    >
+                      <span class="collection-art"
+                        ><svg class="icon" aria-hidden="true">
+                          <use
+                            href="Assets/icons/fluent.svg#archive"
+                          /></svg></span
+                      ><span>设计归档.zip</span>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    class="resize-handle"
+                    aria-label="调整收藏卡片大小；也可使用左右方向键"
+                    title="拖动或用方向键调整大小"
+                  >
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#expand" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="collection-controls">
+                <span class="collection-size" role="status">紧凑 · 3 列</span
+                ><button type="button" data-resize-collection>调整尺寸</button
+                ><button type="button" data-expand-collection>
+                  展开收藏夹
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#expand" />
+                  </svg>
+                </button>
+              </div>
+              <p class="collection-footnote">
+                高山湖泊.jpg
+                同时属于「山野计划」与「摄影灵感」，原文件只有一份。
+              </p>
+            </div>
+          </div>
+          <div class="scene-notes">
+            <article>
+              <span class="note-number">01</span>
+              <h3>一个文件，可以属于多个项目</h3>
+              <p>
+                收藏夹复用 Finder
+                标签。添加或移除收藏只改变关联，文件仍留在原位置。
+              </p>
+            </article>
+            <article>
+              <span class="note-number">02</span>
+              <h3>给常用内容，恰好的空间</h3>
+              <p>
+                拖动卡片角落调整行列，展开后翻页浏览。缩略图让内容一眼可辨。
+              </p>
+            </article>
+            <article>
+              <span class="note-number">03</span>
+              <h3>重要的，随时回来</h3>
+              <p>最近使用、常用位置与星级评分，帮你找回正在进行的工作。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section
+        class="section find-section"
+        id="find"
+        aria-labelledby="find-title"
+      >
+        <div class="wrap">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">03 / 从线索找到文件</p>
+              <h2>
+                <span id="find-title">记住一点，<br />就有迹可循。</span>
+              </h2>
+            </div>
+            <p class="section-description">
+              文件名、照片里的文字、PDF
+              中的一句话。用不同的线索，找到你需要的内容。
+            </p>
+          </div>
+          <div class="search-scene scene-window">
+            <div class="scene-bar">
+              <svg class="icon" aria-hidden="true">
+                <use href="Assets/icons/fluent.svg#search" />
+              </svg>
+              搜索工作台 <span class="demo-label">交互演示 · 预置内容</span>
+            </div>
+            <div
+              class="search-modes segmented"
+              role="group"
+              aria-label="搜索示例类别"
+            >
+              <button type="button" data-search-mode="name" aria-pressed="true">
+                文件名</button
+              ><button
+                type="button"
+                data-search-mode="text"
+                aria-pressed="false"
+              >
+                图片与 PDF 文字</button
+              ><button
+                type="button"
+                data-search-mode="image"
+                aria-pressed="false"
+              >
+                图片分类
+              </button>
+            </div>
+            <div class="search-body">
+              <div class="search-query">
+                <label for="content-search">试着找一个文件</label>
+                <div class="content-search-field">
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#search" /></svg
+                  ><input
+                    id="content-search"
+                    type="search"
+                    value="设计"
+                    placeholder="输入示例关键词"
+                    autocomplete="off"
+                  /><kbd>↵</kbd>
+                </div>
+                <div class="search-chips" aria-label="示例关键词">
+                  <button type="button" data-query="设计">设计</button
+                  ><button type="button" data-query="笔记">笔记</button
+                  ><button type="button" data-query="湖泊">湖泊</button>
+                </div>
+                <p id="search-scope">
+                  按名称查找，可选当前目录或已配置的全局搜索范围；完整路径可直接定位。
+                </p>
+                <span class="search-keyboard"
+                  ><kbd>⌘ K</kbd> 全局搜索 <span>·</span>
+                  <kbd>⌘ F</kbd> 当前目录</span
+                >
+              </div>
+              <div
+                class="content-results"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <p class="results-label">
+                  匹配文件 <span id="result-count">2 项</span>
+                </p>
+                <div id="search-results">
+                  <button
+                    type="button"
+                    class="search-result"
+                    data-preview="brief"
+                  >
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#document" /></svg
+                    ><span
+                      ><strong>设计简报.pdf</strong
+                      ><small>山野计划 / 文档</small></span
+                    ><svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#chevron-right" />
+                    </svg></button
+                  ><button
+                    type="button"
+                    class="search-result"
+                    data-preview="archive"
+                  >
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#archive" /></svg
+                    ><span
+                      ><strong>设计归档.zip</strong
+                      ><small>山野计划 / 归档</small></span
+                    ><svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#chevron-right" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="section-footnote">
+            图片与 PDF
+            文字检索需开启分析并浏览文件夹建立索引。文字页直接提取，扫描页通过
+            OCR 识别；图片按人物、场景、日期等线索整理。
+          </p>
+        </div>
+      </section>
+      <section
         class="preview-section"
         id="preview"
         aria-labelledby="preview-title"
       >
         <div class="wrap preview-layout">
           <div class="preview-copy">
-            <p class="eyebrow">02 / 先看，再打开</p>
+            <p class="eyebrow">04 / 看清，再动手</p>
             <h2 id="preview-title">一个空格，<br />不止看一眼。</h2>
             <p>
-              图片、文档、视频，选中就能预览。<br />文件夹和压缩包，还能继续向里探索。
+              图片、文档、视频，选中就能预览。<br />文件夹和压缩包，还能继续向里探索；Markdown
+              文稿可以直接编辑。
             </p>
             <div class="format-list">
               <span>图片 & RAW</span><span>PDF & Office</span
@@ -795,181 +1313,453 @@
       </section>
 
       <section
+        class="processing-section wrap"
+        aria-labelledby="processing-title"
+      >
+        <div class="processing-heading">
+          <h2 id="processing-title">看完，就把事情做完。</h2>
+          <p>从一份笔记到一批素材，把常见处理留在文件工作台。</p>
+        </div>
+        <div class="processing-grid">
+          <div class="markdown-scene scene-window">
+            <div class="scene-bar">
+              <svg class="icon" aria-hidden="true">
+                <use href="Assets/icons/fluent.svg#code" />
+              </svg>
+              创作笔记.md <span class="demo-label">编辑与预览 · 示例</span>
+            </div>
+            <div class="markdown-columns">
+              <label for="markdown-input"
+                >Markdown<textarea id="markdown-input" spellcheck="false">
+# 山野计划
+
+把灵感带到更远的地方。
+
+- 整理湖泊照片
+- 准备设计简报
+- 归档交付素材</textarea>
+              </label>
+              <article id="markdown-output" aria-label="Markdown 示例预览">
+                <h3>山野计划</h3>
+                <p>把灵感带到更远的地方。</p>
+                <ul>
+                  <li>整理湖泊照片</li>
+                  <li>准备设计简报</li>
+                  <li>归档交付素材</li>
+                </ul>
+              </article>
+            </div>
+            <p class="inline-note">
+              可编辑示例文字；此演示仅支持标题、段落和列表，不保存内容。
+            </p>
+          </div>
+          <div class="processing-tools">
+            <article>
+              <h3>
+                <svg class="icon" aria-hidden="true">
+                  <use href="Assets/icons/fluent.svg#document" />
+                </svg>
+                批量重命名
+              </h3>
+              <p>替换、前后缀、序号与日期，执行前先看结果。</p>
+              <div class="rename-example">
+                <span>IMG_001.jpg</span
+                ><svg class="icon" aria-hidden="true">
+                  <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+                ><strong>山野_001.jpg</strong>
+              </div>
+            </article>
+            <article>
+              <h3>
+                <svg class="icon" aria-hidden="true">
+                  <use href="Assets/icons/fluent.svg#image" />
+                </svg>
+                文件格式转换
+              </h3>
+              <p>
+                内置转换插件支持 SVG、ICO、ICNS、WebP 转
+                PNG／JPG，以及文本与文档的部分转换。
+              </p>
+              <div class="format-example">
+                <span>WebP</span
+                ><svg class="icon" aria-hidden="true">
+                  <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+                ><span>PNG</span><span>JPG</span>
+              </div>
+            </article>
+            <article>
+              <h3>
+                <svg class="icon" aria-hidden="true">
+                  <use href="Assets/icons/fluent.svg#eye" />
+                </svg>
+                文件信息，一处查看
+              </h3>
+              <p>
+                日期、大小、路径与照片元数据；需要核对文件时，计算并复制
+                SHA-256。
+              </p>
+            </article>
+          </div>
+        </div>
+        <div class="capability-line">
+          <span
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#archive" /></svg
+            >浏览与解压压缩包</span
+          ><span
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#copy" /></svg
+            >复制、移动与原生拖放</span
+          ><span
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#arrow-clockwise" /></svg
+            >撤销支持的文件操作</span
+          ><span
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#branch" /></svg
+            >文件旁显示 Git 状态</span
+          >
+        </div>
+      </section>
+      <section
         class="section wrap"
-        id="features"
-        aria-labelledby="features-title"
+        id="workflow"
+        aria-labelledby="workflow-title"
       >
         <div class="section-heading">
           <div>
-            <p class="eyebrow">03 / 顺手，不止一面</p>
-            <h2 id="features-title">日常需要的，<br />都在手边。</h2>
+            <p class="eyebrow">05 / 连接你的工作流程</p>
+            <h2>
+              <span id="workflow-title">文件到手，<br />工作继续。</span>
+            </h2>
           </div>
           <p class="section-description">
-            从找到一个文件，到管理整个项目。<br />把零散的工具，收进熟悉的文件工作台。
+            从菜单栏取出常用文件，或把远程服务器并排打开。少一点来回切换，多一点顺手。
           </p>
         </div>
-        <div class="feature-grid">
-          <article class="feature-card feature-search">
-            <div class="feature-heading">
-              <span class="feature-icon"
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#search" /></svg></span
-              ><span class="feature-label">找到所需</span>
-            </div>
-            <h3>想得起来，就找得到。</h3>
-            <p>
-              按文件名、图片文字与 AI 标签检索。选定搜索范围，让线索成为入口。
-            </p>
-            <div class="search-illustration" aria-label="搜索结果示意">
-              <div>
-                <svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#search" /></svg
-                ><span>设计</span><kbd>⌘ K</kbd>
-              </div>
-              <span
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#folder" /></svg
-                ><strong><mark>设计</mark>素材</strong
-                ><small>文件夹</small></span
-              ><span
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#document" /></svg
-                ><strong>产品<mark>设计</mark>笔记.md</strong
-                ><small>文稿</small></span
-              >
-            </div>
-          </article>
-          <article class="feature-card">
-            <div class="feature-heading">
-              <span class="feature-icon"
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#server" /></svg></span
-              ><span class="feature-label">连接远程</span>
-            </div>
-            <h3>本地到服务器，一样熟悉。</h3>
-            <p>
-              内置 SFTP 连接，将远程目录纳入工作流，直接浏览、传输和管理文件。
-            </p>
-            <div class="connection-illustration">
-              <span
-                ><svg aria-hidden="true" focusable="false">
-                  <use href="Assets/icons/fluent.svg#desktop" /></svg
-                >你的 Mac</span
-              ><i
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#lock" /></svg
-                ><b></b><small>SFTP</small></i
-              ><span
-                ><svg aria-hidden="true" focusable="false">
-                  <use href="Assets/icons/fluent.svg#server" /></svg
-                >远程服务器</span
-              >
-            </div>
-          </article>
-          <article class="feature-card">
-            <div class="feature-heading">
-              <span class="feature-icon"
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#branch" /></svg></span
-              ><span class="feature-label">掌握改动</span>
-            </div>
-            <h3>项目状态，跟着文件走。</h3>
-            <p>
-              Git 状态直接显示在文件旁。新增、修改与未跟踪，浏览目录时就能看清。
-            </p>
-            <div class="git-illustration">
-              <span
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#code" />
-                </svg>
-                App.axaml <b class="git-modified">M</b></span
-              ><span
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#document" />
-                </svg>
-                README.md <b class="git-added">A</b></span
-              ><span
-                ><svg aria-hidden="true" focusable="false" class="icon">
-                  <use href="Assets/icons/fluent.svg#folder" />
-                </svg>
-                Assets <b class="git-untracked">?</b></span
-              >
-            </div>
-          </article>
-          <article class="feature-simple">
-            <svg aria-hidden="true" focusable="false" class="icon">
-              <use href="Assets/icons/fluent.svg#scan" />
+        <div
+          class="workflow-modes segmented"
+          role="group"
+          aria-label="工作流演示场景"
+        >
+          <button type="button" data-workflow="delivery" aria-pressed="true">
+            <svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#panel-left" />
             </svg>
-            <h3>让图片，也能被理解</h3>
-            <p>
-              基于 Apple Vision 的本地图片分析，按人物、场景与文字线索整理素材。
-            </p>
-          </article>
-          <article class="feature-simple">
-            <svg aria-hidden="true" focusable="false" class="icon">
-              <use href="Assets/icons/fluent.svg#archive" />
+            文件速递</button
+          ><button type="button" data-workflow="sftp" aria-pressed="false">
+            <svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#server" />
             </svg>
-            <h3>压缩包，也像文件夹</h3>
-            <p>
-              浏览归档、处理嵌套目录，支持多种压缩格式、密码保护和分卷操作。
-            </p>
-          </article>
-          <article class="feature-simple">
-            <svg aria-hidden="true" focusable="false" class="icon">
-              <use href="Assets/icons/fluent.svg#tag" />
-            </svg>
-            <h3>留下你的整理方式</h3>
-            <p>
-              收藏常用位置，为文件添加标签与星级评分，让重要内容更容易回到眼前。
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section class="details-section wrap" id="details">
-        <div class="details-copy">
-          <p class="eyebrow">04 / 每天用，每处都舒服</p>
-          <h2>强大的背后，<br />是对细节的在意。</h2>
-          <p>
-            连续的窗口表面、清晰的选中状态、统一的控件与文字层级。亮一点、暗一点，紧凑一点，都能按你的习惯来。
-          </p>
-          <button class="text-link theme-toggle" type="button">
-            切换外观，感受一下
-            <svg aria-hidden="true" focusable="false" class="icon">
-              <use href="Assets/icons/fluent.svg#weather-moon" />
-            </svg>
+            SFTP 远程工作
           </button>
         </div>
-        <div class="detail-list">
-          <div>
-            <svg aria-hidden="true" focusable="false" class="icon">
-              <use href="Assets/icons/fluent.svg#weather-sunny" /></svg
-            ><span
-              ><strong>浅色与深色</strong
-              ><small>跟随系统，也可以自由切换</small></span
-            ><span class="theme-swatches" aria-hidden="true"
-              ><i></i><i></i
-            ></span>
+        <div class="workflow-layout">
+          <div class="workflow-scene" data-flow-step="0">
+            <div id="delivery-scene">
+              <div class="desktop-menubar">
+                <strong>山野计划</strong><span>文件　编辑</span
+                ><button
+                  type="button"
+                  id="delivery-toggle"
+                  aria-expanded="true"
+                  aria-controls="delivery-panel"
+                  aria-label="打开或收起文件速递"
+                >
+                  <img src="Assets/appicon.svg" alt="" width="22" height="22" />
+                </button>
+              </div>
+              <div class="delivery-desktop">
+                <div class="delivery-panel scene-window" id="delivery-panel">
+                  <div
+                    class="delivery-tabs segmented"
+                    role="group"
+                    aria-label="文件速递目录"
+                  >
+                    <button
+                      type="button"
+                      data-delivery-tab="downloads"
+                      aria-pressed="true"
+                    >
+                      下载</button
+                    ><button
+                      type="button"
+                      data-delivery-tab="project"
+                      aria-pressed="false"
+                    >
+                      山野计划
+                    </button>
+                  </div>
+                  <div class="delivery-path">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#folder" />
+                    </svg>
+                    <span>下载</span>
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#chevron-right" />
+                    </svg>
+                  </div>
+                  <button
+                    type="button"
+                    class="delivery-file"
+                    aria-pressed="false"
+                  >
+                    <img
+                      src="Assets/alpine-lake.jpg"
+                      alt=""
+                      width="1536"
+                      height="1024"
+                    /><span
+                      ><strong>高山湖泊.jpg</strong
+                      ><small>JPEG 图像</small></span
+                    ><svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#checkmark" />
+                    </svg>
+                  </button>
+                  <div class="delivery-panel-note">
+                    选择文件，预览或复制拖出
+                  </div>
+                </div>
+                <div class="delivery-target">
+                  <span
+                    ><svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#image" /></svg></span
+                  ><strong>项目素材区</strong><small>示例目标</small>
+                  <div class="received-file" hidden>
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#checkmark" />
+                    </svg>
+                    高山湖泊.jpg 已复制
+                  </div>
+                </div>
+                <div class="flying-file" aria-hidden="true">
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#image" />
+                  </svg>
+                  高山湖泊.jpg
+                </div>
+              </div>
+            </div>
+            <div id="sftp-scene" hidden>
+              <div class="scene-bar">
+                <svg class="icon" aria-hidden="true">
+                  <use href="Assets/icons/fluent.svg#lock" />
+                </svg>
+                SFTP <span class="demo-label">连接与传输示意</span>
+              </div>
+              <div class="remote-panes">
+                <div>
+                  <div class="remote-path">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#desktop" />
+                    </svg>
+                    本地 · 山野计划
+                  </div>
+                  <p>
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#image" />
+                    </svg>
+                    高山湖泊.jpg
+                  </p>
+                  <p>
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#code" />
+                    </svg>
+                    创作笔记.md <b class="git-modified">M</b>
+                  </p>
+                  <p>
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#folder" />
+                    </svg>
+                    交付素材
+                  </p>
+                </div>
+                <div>
+                  <div class="remote-path">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#server" />
+                    </svg>
+                    服务器 · /projects
+                  </div>
+                  <p>
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#folder" />
+                    </svg>
+                    shared
+                  </p>
+                  <p>
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#code" />
+                    </svg>
+                    创作笔记.md
+                  </p>
+                  <p class="remote-received">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="Assets/icons/fluent.svg#image" />
+                    </svg>
+                    <span>等待上传素材</span>
+                  </p>
+                </div>
+              </div>
+              <div class="remote-transfer">
+                <span
+                  ><svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#arrow-right" />
+                  </svg>
+                  上传文件</span
+                ><span
+                  ><svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#code" />
+                  </svg>
+                  本地编辑</span
+                ><span
+                  ><svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#checkmark" />
+                  </svg>
+                  回传修改</span
+                >
+              </div>
+              <p class="inline-note">
+                演示不建立连接；应用通过你配置的 SFTP 服务器管理文件。
+              </p>
+            </div>
+            <div class="flow-controls">
+              <button type="button" id="flow-play" class="small-action">
+                播放过程</button
+              ><button type="button" id="flow-reset" class="text-link">
+                重播</button
+              ><span id="flow-status" role="status">从菜单栏打开文件速递</span>
+            </div>
+            <progress
+              id="flow-progress"
+              max="3"
+              value="0"
+              aria-label="演示进度"
+            ></progress>
           </div>
-          <div>
-            <svg aria-hidden="true" focusable="false" class="icon">
-              <use href="Assets/icons/fluent.svg#list" /></svg
-            ><span
-              ><strong>字号、密度与交互颜色</strong
-              ><small>让常用界面，更贴合自己的习惯</small></span
-            ><span class="type-sample" aria-hidden="true">Aa</span>
+          <div class="scene-notes" id="delivery-copy">
+            <h3>常用文件，随取随用。</h3>
+            <p>
+              下载、桌面和你的收藏夹，在菜单栏里就能打开。浏览目录、空格预览，再把文件复制拖到需要的地方。
+            </p>
+            <p>各入口记住浏览位置。主窗口关闭后，仍可从菜单栏取用文件。</p>
+            <span class="note-rule">只复制拖出，原文件保留。</span>
           </div>
-          <div>
-            <svg aria-hidden="true" focusable="false" class="icon">
-              <use href="Assets/icons/fluent.svg#window" /></svg
-            ><span
-              ><strong>熟悉的快捷键</strong
-              ><small>新建标签、定位路径、快速预览</small></span
-            ><span class="shortcut-sample"><kbd>⌘</kbd><kbd>T</kbd></span>
+          <div class="scene-notes" id="sftp-copy" hidden>
+            <h3>远程文件，也在同一个工作台。</h3>
+            <p>
+              保存 SFTP
+              连接，浏览、上传、下载和管理远程文件。用本地应用编辑后，将修改自动回传。
+            </p>
+            <p>结合多窗格与文件旁的 Git 状态，让素材与项目文件各就各位。</p>
+            <span class="note-rule">使用自己的服务器与连接配置。</span>
+          </div>
+        </div>
+        <p class="section-footnote">
+          交互示意使用预置文件。可播放、暂停或重播；启用减少动态效果时，以静态步骤展示。
+        </p>
+      </section>
+      <section
+        class="section extend-section"
+        id="extend"
+        aria-labelledby="extend-title"
+      >
+        <div class="wrap">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">06 / 按习惯，扩展一点</p>
+              <h2>
+                <span id="extend-title">你的工作台，<br />也有你的用法。</span>
+              </h2>
+            </div>
+            <p class="section-description">
+              把常用命令放在文件旁，用插件补充处理能力，再调整成自己舒服的样子。
+            </p>
+          </div>
+          <div class="extension-layout">
+            <div class="script-scene scene-window">
+              <div class="scene-bar">
+                <svg class="icon" aria-hidden="true">
+                  <use href="Assets/icons/fluent.svg#code" />
+                </svg>
+                项目脚本 <span class="demo-label">首页命令 · 示例</span>
+              </div>
+              <div class="script-demo">
+                <span class="script-filename"
+                  ><svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#code" />
+                  </svg>
+                  prepare.sh</span
+                >
+                <div class="script-menu">
+                  <span>运行命令</span
+                  ><button type="button" data-script-command="prepare">
+                    整理交付素材 <kbd>↵</kbd></button
+                  ><button type="button" data-script-command="check">
+                    检查项目文件
+                  </button>
+                </div>
+                <div class="terminal-sample" role="status">
+                  <span>终端</span
+                  ><code id="terminal-command">选择一个具名命令</code
+                  ><small id="terminal-status"
+                    >实际命令交给默认终端执行。</small
+                  >
+                </div>
+              </div>
+              <p class="inline-note">
+                演示不会运行命令。应用可为首页脚本配置多条命令、Shell
+                和工作目录。
+              </p>
+            </div>
+            <div class="extension-notes">
+              <article>
+                <h3>
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#window" />
+                  </svg>
+                  用插件，接上更多能力
+                </h3>
+                <p>
+                  安装文件处理插件，从右键菜单直接调用。也可以使用 SDK
+                  开发并发布自己的插件。
+                </p>
+                <a class="text-link" href="developers/index.html"
+                  >打开开发者中心
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#arrow-right" /></svg></a
+                ><a class="text-link" href="developers/sdk.html"
+                  >阅读 SDK 文档
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#arrow-right" /></svg
+                ></a>
+              </article>
+              <article>
+                <h3>
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#settings" />
+                  </svg>
+                  熟悉，也合你习惯
+                </h3>
+                <p>
+                  浅色与深色、文字排版和交互颜色，可以按习惯调整。日常导航和操作保留快捷键入口。
+                </p>
+                <button type="button" class="text-link theme-toggle">
+                  切换外观
+                  <svg class="icon" aria-hidden="true">
+                    <use href="Assets/icons/fluent.svg#weather-moon" />
+                  </svg>
+                </button>
+              </article>
+              <div class="shortcut-row">
+                <span><kbd>⌘ T</kbd> 新建标签</span
+                ><span><kbd>⌘ L</kbd> 输入路径</span
+                ><span><kbd>Space</kbd> 预览</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-
       <section
         class="download-section"
         id="download"
@@ -1089,6 +1879,70 @@
         <strong id="dialog-title">高山湖泊.jpg</strong
         ><span><kbd>esc</kbd> 关闭</span>
       </div>
+    </dialog>
+    <dialog class="collection-dialog" aria-labelledby="collection-dialog-title">
+      <div class="dialog-toolbar">
+        <strong id="collection-dialog-title">山野计划 · 收藏夹示例</strong
+        ><button
+          type="button"
+          class="icon-button collection-close"
+          aria-label="关闭收藏夹"
+        >
+          <svg class="icon" aria-hidden="true">
+            <use href="Assets/icons/fluent.svg#dismiss" />
+          </svg>
+        </button>
+      </div>
+      <div class="expanded-grid">
+        <button type="button" class="collection-file" data-preview="lake">
+          <span class="collection-art"
+            ><img
+              src="Assets/alpine-lake.jpg"
+              width="1536"
+              height="1024"
+              alt=""
+              loading="lazy" /></span
+          ><span>高山湖泊.jpg</span></button
+        ><button type="button" class="collection-file" data-preview="notes">
+          <span class="collection-art"
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#document" /></svg></span
+          ><span>创作笔记.md</span></button
+        ><button type="button" class="collection-file" data-preview="brief">
+          <span class="collection-art"
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#document" /></svg></span
+          ><span>设计简报.pdf</span></button
+        ><button type="button" class="collection-file" data-preview="project">
+          <span class="collection-art"
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#folder" /></svg></span
+          ><span>项目文件</span></button
+        ><button type="button" class="collection-file" data-preview="readme">
+          <span class="collection-art"
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#code" /></svg></span
+          ><span>README.md</span></button
+        ><button type="button" class="collection-file" data-preview="archive">
+          <span class="collection-art"
+            ><svg class="icon" aria-hidden="true">
+              <use href="Assets/icons/fluent.svg#archive" /></svg></span
+          ><span>设计归档.zip</span>
+        </button>
+      </div>
+      <div class="collection-pagination">
+        <button type="button" id="collection-prev" aria-label="上一页">
+          <svg class="icon" aria-hidden="true">
+            <use href="Assets/icons/fluent.svg#arrow-left" />
+          </svg></button
+        ><span id="collection-page" role="status">1 / 2</span
+        ><button type="button" id="collection-next" aria-label="下一页">
+          <svg class="icon" aria-hidden="true">
+            <use href="Assets/icons/fluent.svg#arrow-right" />
+          </svg>
+        </button>
+      </div>
+      <p class="inline-note">标签聚合示例 · 文件保留原位置</p>
     </dialog>
   </body>
 </html>
