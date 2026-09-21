@@ -1,14 +1,27 @@
 using System.Diagnostics;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
 public class MacApplicationLauncherService : IApplicationLauncherService
 {
-    public Task OpenFileAsync(string filePath) => RunAsync("/usr/bin/open", filePath);
+    private readonly HomeWorkspaceService? _homeWorkspace;
 
-    public Task OpenFileWithAppAsync(string filePath, string bundleIdentifier)
-        => RunAsync("/usr/bin/open", "-b", bundleIdentifier, filePath);
+    public MacApplicationLauncherService(HomeWorkspaceService? homeWorkspace = null)
+        => _homeWorkspace = homeWorkspace;
+
+    public async Task OpenFileAsync(string filePath)
+    {
+        await RunAsync("/usr/bin/open", filePath);
+        _ = _homeWorkspace?.RecordUseAsync(filePath);
+    }
+
+    public async Task OpenFileWithAppAsync(string filePath, string bundleIdentifier)
+    {
+        await RunAsync("/usr/bin/open", "-b", bundleIdentifier, filePath);
+        _ = _homeWorkspace?.RecordUseAsync(filePath);
+    }
 
     public Task OpenInTerminalAsync(string directoryPath)
         => RunAsync("/usr/bin/open", "-a", "Terminal", directoryPath);
@@ -26,6 +39,7 @@ public class MacApplicationLauncherService : IApplicationLauncherService
             if (cliPath != null)
             {
                 await RunAsync(cliPath, path);
+                _ = _homeWorkspace?.RecordUseAsync(path);
                 return;
             }
         }

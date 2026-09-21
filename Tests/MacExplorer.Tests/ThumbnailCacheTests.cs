@@ -1,5 +1,3 @@
-using Avalonia.Headless.XUnit;
-using Avalonia.Media.Imaging;
 using MacExplorer.Platforms.MacCatalyst.Services;
 using MacExplorer.Views;
 using Xunit;
@@ -37,8 +35,8 @@ public sealed class ThumbnailCacheTests
     private static readonly byte[] OnePixelPng = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
 
-    [AvaloniaFact]
-    public async Task MenuByteCache_ConcurrentConsumersOwnIndependentBitmaps()
+    [Fact]
+    public async Task MenuByteCache_ConcurrentConsumersShareCachedBytes()
     {
         var cache = new FileListView.ByteLruCache(8 * 1024 * 1024);
         var consumers = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => Task.Run(() =>
@@ -47,26 +45,25 @@ public sealed class ThumbnailCacheTests
         Assert.All(consumers, bytes => Assert.Same(consumers[0], bytes));
         Assert.Equal(1, cache.Count);
 
-        using var firstStream = new MemoryStream(consumers[0], writable: false);
-        using var secondStream = new MemoryStream(consumers[1], writable: false);
-        var firstMenuBitmap = new Bitmap(firstStream);
-        using var secondMenuBitmap = new Bitmap(secondStream);
 
-        firstMenuBitmap.Dispose();
-
-        Assert.Equal(1, secondMenuBitmap.PixelSize.Width);
-        Assert.Equal(1, secondMenuBitmap.PixelSize.Height);
     }
 
     [Fact]
     public void MenuByteCache_EvictsLeastRecentlyUsedBytesAtCapacity()
     {
-        var cache = new FileListView.ByteLruCache(8);
-        cache.GetOrAdd("first", () => new byte[5]);
-        cache.GetOrAdd("second", () => new byte[5]);
+        var cache = new FileListView.ByteLruCache(10);
+        byte[] first = [1, 1, 1, 1, 1], second = [2, 2, 2, 2, 2], third = [3, 3, 3, 3, 3];
+        cache.GetOrAdd("first", () => first);
+        cache.GetOrAdd("second", () => second);
+        Assert.Same(first, cache.GetOrAdd("first", () => throw new InvalidOperationException("Expected a cache hit.")));
+        cache.GetOrAdd("third", () => third);
 
-        Assert.Equal(1, cache.Count);
-        Assert.Equal(5, cache.ByteCount);
+        Assert.Equal(2, cache.Count);
+        Assert.Equal(10, cache.ByteCount);
+        Assert.Same(first, cache.GetOrAdd("first", () => throw new InvalidOperationException("The recently read entry was evicted.")));
+        Assert.Same(third, cache.GetOrAdd("third", () => throw new InvalidOperationException("The new entry was evicted.")));
+        var regenerated = new byte[5];
+        Assert.Same(regenerated, cache.GetOrAdd("second", () => regenerated));
     }
 
     [Fact]

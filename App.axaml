@@ -31,5 +31,7 @@
         <StyleInclude Source="avares://MacExplorer/Controls/SurfaceCard.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Controls/AppWindow.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Assets/ComponentStyles.axaml"/>
+        <StyleInclude Source="avares://MacExplorer/Assets/HomeStyles.axaml"/>
+        <StyleInclude Source="avares://MacExplorer/Assets/FileDeliveryStyles.axaml"/>
     </Application.Styles>
 </Application>

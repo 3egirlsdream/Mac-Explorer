@@ -52,7 +52,7 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
                     foreach (var entry in snapshot.Entries) { cancellationToken.ThrowIfCancellationRequested(); yield return entry; }
             yield break;
         }
-        var root = SearchPath.Normalize(directory);
+        var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
         _indexer.EnsureRoot(root);
         var entries = await _catalog.SearchAsync(root, query, options, maxResults,
             _settings?.Get("SearchIncludeAiTags", true) ?? true, cancellationToken).ConfigureAwait(false);
@@ -80,7 +80,7 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
             await foreach (var snapshot in SearchLiveAsync(directory, query, options, limit, cancellationToken)) yield return snapshot;
             yield break;
         }
-        var root = SearchPath.Normalize(directory);
+        var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
         var includeAi = _settings?.Get("SearchIncludeAiTags", true) ?? true;
         _indexer.EnsureRoot(root);
         while (true)

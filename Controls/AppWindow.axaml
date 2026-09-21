@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:local="using:MacExplorer.Controls">
+        xmlns:local="using:MacExplorer.Controls"
+        xmlns:chrome="using:Avalonia.Controls.Chrome">
     <Styles.Resources>
         <ControlTheme x:Key="{x:Type local:AppWindow}" TargetType="local:AppWindow">
             <Setter Property="Background" Value="Transparent"/>
@@ -25,6 +26,7 @@
                                               ContentTemplate="{TemplateBinding ContentTemplate}"
                                               HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            <Grid x:Name="WindowOverlayHost" Grid.RowSpan="2" chrome:WindowDecorationProperties.ElementRole="User"/>
                             <Border x:Name="ModalTitleBarHitShield"
                                     Grid.Row="0"
                                     Background="{DynamicResource OverlayBrush}"

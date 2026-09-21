@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using MacExplorer.Platforms.MacOS;
@@ -62,6 +63,14 @@ public class AppWindow : Window
     }
 
     protected override Type StyleKeyOverride => typeof(AppWindow);
+
+    internal Grid? WindowOverlayHost { get; private set; }
+
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        WindowOverlayHost = e.NameScope.Find<Grid>("WindowOverlayHost");
+    }
 
     public void ApplyNativeWindowChrome() => MacWindowChrome.MakeTransparent(this);
 

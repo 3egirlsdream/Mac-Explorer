@@ -78,85 +78,76 @@
                     <Button x:Name="RetryPreviewButton" Content="重试" Classes="secondary compact" Click="RetryPreview" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <StackPanel x:Name="DetailsPanel" Spacing="0" IsVisible="False">
-                    <TextBlock x:Name="SelectedFileName" Margin="16,16,16,0" FontSize="{DynamicResource FontSizeHeading}" FontWeight="{StaticResource FontWeightMedium}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="SelectedFileSummary" Margin="16,4,16,0" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <!-- Tabs -->
-                <Grid Margin="14,12,14,0" ColumnDefinitions="*,*">
-                    <Button Grid.Column="0" x:Name="TabBasicBtn" Content="基本信息"
-                            Classes="ghost info-tab-active" Click="SwitchToBasicTab"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Height="32" Padding="0,4"/>
-                    <Button Grid.Column="1" x:Name="TabExifBtn" Content="EXIF 信息"
-                            Classes="ghost info-tab" Click="SwitchToExifTab"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Height="32" Padding="0,4"/>
-                </Grid>
-
-                <!-- Tab: Basic Info -->
-                <StackPanel x:Name="BasicTabContent" Margin="16,12,16,0" Spacing="10">
-                    <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="位置" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="InfoPath" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="大小" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="InfoSize" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="类型" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="InfoType" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="修改时间" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="InfoModified" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="创建时间" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="InfoCreated" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="72,*">
-                        <TextBlock Text="访问时间" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="InfoAccessed" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="72,*,Auto">
-                        <TextBlock Text="SHA-256" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" x:Name="InfoHash" Text="—" FontSize="{DynamicResource FontSizeLabel}"
-                                   Margin="0,0,4,0" TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                        <Button Grid.Column="2" x:Name="ComputeHashBtn" IsVisible="False"
-                                Content="计算" Classes="ghost" Padding="6,2" MinHeight="24"
-                                AutomationProperties.Name="计算或取消 SHA-256"
-                                VerticalAlignment="Center" Click="ComputeHash"/>
-                        <Button Grid.Column="2" x:Name="CopyHashBtn" IsVisible="False"
-                                AutomationProperties.Name="复制哈希值" ToolTip.Tip="复制哈希值"
-                                Classes="ghost info-panel-icon" Padding="0" Margin="2,0,0,0"
-                                VerticalAlignment="Center" Click="CopyHash">
-                            <PathIcon Data="{x:Static icons:Icons.Copy}" Width="11" Height="11"
-                                      Foreground="{DynamicResource TextMutedBrush}"/>
-                        </Button>
-                    </Grid>
+                    <TextBlock x:Name="SelectedFileName" Margin="8,16,8,0" FontSize="{DynamicResource FontSizeBodyLarge}" FontWeight="{StaticResource FontWeightSemibold}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="SelectedFileSummary" Margin="8,2,8,0" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <!-- Metadata sections share one scrolling page. -->
+                <StackPanel Margin="8,12,8,0">
+                    <TextBlock Text="信息" Classes="info-section-title"/>
+                    <Border Classes="info-field-row">
+                        <Grid ColumnDefinitions="72,*">
+                            <TextBlock Text="创建时间" Classes="info-field-label"/>
+                            <TextBlock Grid.Column="1" x:Name="InfoCreated" Text="—" Classes="info-field-value"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="info-field-row">
+                        <Grid ColumnDefinitions="72,*">
+                            <TextBlock Text="修改日期" Classes="info-field-label"/>
+                            <TextBlock Grid.Column="1" x:Name="InfoModified" Text="—" Classes="info-field-value"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="info-field-row">
+                        <Grid ColumnDefinitions="72,*">
+                            <TextBlock Text="路径" Classes="info-field-label"/>
+                            <TextBlock Grid.Column="1" x:Name="InfoPath" Text="—" Classes="info-field-value"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="info-field-row">
+                        <Grid ColumnDefinitions="72,*">
+                            <TextBlock Text="大小" Classes="info-field-label"/>
+                            <TextBlock Grid.Column="1" x:Name="InfoSize" Text="—" Classes="info-field-value"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="info-field-row">
+                        <Grid ColumnDefinitions="72,*">
+                            <TextBlock Text="类型" Classes="info-field-label"/>
+                            <TextBlock Grid.Column="1" x:Name="InfoType" Text="—" Classes="info-field-value"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="info-field-row">
+                        <Grid ColumnDefinitions="72,*">
+                            <TextBlock Text="访问时间" Classes="info-field-label"/>
+                            <TextBlock Grid.Column="1" x:Name="InfoAccessed" Text="—" Classes="info-field-value"/>
+                        </Grid>
+                    </Border>
+                    <Border Classes="info-field-row">
+                        <Grid ColumnDefinitions="72,*,Auto">
+                            <TextBlock Text="SHA-256" Classes="info-field-label"/>
+                            <TextBlock Grid.Column="1" x:Name="InfoHash" Text="—" Classes="info-field-value" Margin="0,0,4,0"/>
+                            <Button Grid.Column="2" x:Name="ComputeHashBtn" IsVisible="False"
+                                    Content="计算" Classes="ghost compact" Padding="6,2" MinHeight="24"
+                                    AutomationProperties.Name="计算或取消 SHA-256"
+                                    VerticalAlignment="Center" Click="ComputeHash"/>
+                            <Button Grid.Column="2" x:Name="CopyHashBtn" IsVisible="False"
+                                    AutomationProperties.Name="复制哈希值" ToolTip.Tip="复制哈希值"
+                                    Classes="ghost info-panel-icon" Padding="0" Margin="2,0,0,0"
+                                    VerticalAlignment="Center" Click="CopyHash">
+                                <PathIcon Data="{x:Static icons:Icons.Copy}" Width="11" Height="11"
+                                          Foreground="{DynamicResource TextMutedBrush}"/>
+                            </Button>
+                        </Grid>
+                    </Border>
                 </StackPanel>
 
-                <!-- Tab: EXIF Info -->
-                <StackPanel x:Name="ExifTabContent" IsVisible="False" Margin="14,10,14,0" Spacing="8">
+                <StackPanel Margin="8,16,8,0">
+                    <TextBlock Text="EXIF 信息" Classes="info-section-title"/>
                     <TextBlock x:Name="ExifNoDataLabel" Text="无 EXIF 信息" FontSize="{DynamicResource FontSizeLabel}"
                                Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"/>
-                    <StackPanel x:Name="ExifFieldsPanel" Spacing="8"/>
+                    <StackPanel x:Name="ExifFieldsPanel"/>
                 </StackPanel>
 
                 <!-- Tags Section -->
-                <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="16,12"/>
-                <StackPanel Margin="16,0" Spacing="8">
-                    <TextBlock Text="标签" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <StackPanel Margin="8,16,8,0" Spacing="8">
+                    <TextBlock Text="标签" Classes="info-section-title" Margin="0"/>
 
                     <!-- System color tags (Apple style) -->
                     <StackPanel x:Name="SystemTagsPanel" Spacing="6" Orientation="Horizontal"/>
@@ -173,9 +164,9 @@
                 </StackPanel>
 
                 <!-- Quick Actions -->
-                <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="14,12"/>
-                <StackPanel Margin="14,0,14,14" Spacing="8">
-                    <TextBlock Text="快速操作" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="8,16,8,12"/>
+                <StackPanel Margin="8,0,8,14" Spacing="8">
+                    <TextBlock Text="快速操作" Classes="info-section-title" Margin="0"/>
                     <Button Classes="ghost info-quick-action" Click="CopyPath" AutomationProperties.Name="复制路径" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">
                         <Grid ColumnDefinitions="24,*">
                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.CopyPath}"

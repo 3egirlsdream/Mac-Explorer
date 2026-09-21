@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using MacExplorer.Indexing;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.ViewModels;
@@ -18,6 +19,10 @@ public partial class AiViewModel : ObservableObject
     private readonly IBackgroundTaskManager? _taskManager;
     private readonly ISettingsService? _settingsService;
     private readonly Microsoft.Extensions.Logging.ILogger<AiViewModel>? _logger;
+
+    private readonly PdfAnalysisService? _pdfAnalysisService;
+    private readonly object _analysisLock = new();
+    private CancellationTokenSource? _analysisCancellation;
 
     private const string SettingKeyAiEnabled = "ai_analysis_enabled";
 
@@ -55,7 +60,8 @@ public partial class AiViewModel : ObservableObject
         IImageAnalysisService? imageAnalysisService = null,
         IBackgroundTaskManager? taskManager = null,
         ISettingsService? settingsService = null,
-        Microsoft.Extensions.Logging.ILogger<AiViewModel>? logger = null)
+        Microsoft.Extensions.Logging.ILogger<AiViewModel>? logger = null,
+        PdfAnalysisService? pdfAnalysisService = null)
     {
         _aiTagService = aiTagService;
         _thumbnailService = thumbnailService;
@@ -64,6 +70,7 @@ public partial class AiViewModel : ObservableObject
         _taskManager = taskManager;
         _settingsService = settingsService;
         _logger = logger;
+        _pdfAnalysisService = pdfAnalysisService;
 
         // Load persisted AI analysis enabled state (default: true)
         _isAiAnalysisEnabled = _settingsService?.Get(SettingKeyAiEnabled, true) ?? true;
@@ -72,6 +79,11 @@ public partial class AiViewModel : ObservableObject
     partial void OnIsAiAnalysisEnabledChanged(bool value)
     {
         _settingsService?.Set(SettingKeyAiEnabled, value);
+        if (!value)
+        {
+            lock (_analysisLock) _analysisCancellation?.Cancel();
+            _pdfAnalysisService?.CancelPending();
+        }
     }
 
     [RelayCommand]
@@ -345,88 +357,111 @@ public partial class AiViewModel : ObservableObject
         string currentPath,
         CancellationToken cancellationToken = default)
     {
-        if (_aiTagService == null || _imageAnalysisService == null || _taskManager == null) return;
-        if (!IsAiAnalysisEnabled) return;
-
+        if (_aiTagService == null || _taskManager == null || !AnalysisEnabled) return;
+        if (!Path.IsPathRooted(currentPath)) return;
+        using var run = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        lock (_analysisLock)
+        {
+            _analysisCancellation?.Cancel();
+            _analysisCancellation = run;
+        }
+        var token = run.Token;
         try
         {
-            // 1. Filter image files
-            var imageEntries = entries
-                .Where(e => !e.IsDirectory && ImageExtensionsForAi.Contains(e.Extension))
-                .ToList();
-            if (imageEntries.Count == 0) return;
-
-            // 2. Batch check analysis status — find unanalyzed/outdated files
+            var candidates = entries.Where(e => !e.IsDirectory && !e.IsVirtual
+                && Path.IsPathRooted(e.FullPath)
+                && (ImageExtensionsForAi.Contains(e.Extension) || IsPdf(e.FullPath))).ToList();
             var toAnalyze = await _aiTagService.GetUnanalyzedFilesAsync(
-                imageEntries.Select(e => e.FullPath).ToList(),
-                imageEntries.Select(e => e.LastModified.Ticks).ToList());
-            cancellationToken.ThrowIfCancellationRequested();
+                candidates.Select(e => e.FullPath).ToList(),
+                candidates.Select(e => e.LastModified.Ticks).ToList());
+            token.ThrowIfCancellationRequested();
 
-            // 3. Detect deleted files — clean up orphan AI data
-            var currentPaths = new HashSet<string>(imageEntries.Select(e => e.FullPath));
+            // Use all directory entries: filtered listings must not erase existing PDF tags.
+            var currentPaths = new HashSet<string>(entries.Select(e => e.FullPath), StringComparer.Ordinal);
             var analyzedPaths = await _aiTagService.GetAnalyzedPathsInDirectoryAsync(currentPath);
-            cancellationToken.ThrowIfCancellationRequested();
-            var deletedPaths = analyzedPaths.Where(p => !currentPaths.Contains(p)).ToList();
+            var deletedPaths = analyzedPaths.Where(p => !currentPaths.Contains(p) && !File.Exists(p)).ToList();
+            token.ThrowIfCancellationRequested();
             if (deletedPaths.Count > 0)
-            {
-                try { await _aiTagService.DeleteAnalysisForFilesAsync(deletedPaths); }
-                catch (Exception ex) { _logger?.LogError(ex, "Failed to delete analysis for {Count} files", deletedPaths.Count); }
-            }
+                await _aiTagService.DeleteAnalysisForFilesAsync(deletedPaths);
 
-            // 4. Nothing to analyze
-            if (toAnalyze.Count == 0) return;
-
-            // 5. Run analysis in background
-            var taskInfo = _taskManager.AddTask($"AI 图像分析 0/{toAnalyze.Count}");
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-                taskInfo.Cts.Token,
-                cancellationToken);
-            var token = linkedCts.Token;
-            var completed = 0;
-            var wasCanceled = false;
-
-            try
-            {
-                var queue = new ConcurrentQueue<(string Path, long ModifiedTicks)>(toAnalyze);
-                var workerCount = Math.Min(3, Math.Max(1, toAnalyze.Count));
-                var tasks = Enumerable.Range(0, workerCount)
-                    .Select(_ => Task.Run(async () =>
-                    {
-                        while (queue.TryDequeue(out var file))
-                        {
-                            token.ThrowIfCancellationRequested();
-                            var result = await _imageAnalysisService.AnalyzeImageAsync(file.Path, token);
-                            token.ThrowIfCancellationRequested();
-                            await _aiTagService.SaveAnalysisResultAsync(file.Path, file.ModifiedTicks, result);
-                            var count = Interlocked.Increment(ref completed);
-                            _taskManager.UpdateProgress(taskInfo.Id, (double)count / toAnalyze.Count,
-                                $"AI 图像分析 {count}/{toAnalyze.Count}");
-                        }
-                    }, token));
-
-                await Task.WhenAll(tasks);
-
-                // 6. Run face clustering
-                token.ThrowIfCancellationRequested();
-                await _aiTagService.RunClusteringAsync();
-            }
-            catch (OperationCanceledException)
-            {
-                wasCanceled = true;
-            }
-            finally
-            {
-                if (wasCanceled)
-                    _taskManager.RemoveTask(taskInfo.Id);
-                else
-                    _taskManager.CompleteTask(taskInfo.Id);
-            }
+            await Task.WhenAll(
+                RunAnalysisBatchAsync(toAnalyze.Where(f => !IsPdf(f.Path)).ToList(), false, token),
+                RunAnalysisBatchAsync(toAnalyze.Where(f => IsPdf(f.Path)).ToList(), true, token));
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex)
+        catch (Exception ex) { _logger?.LogError(ex, "AI analysis trigger failed"); }
+        finally
         {
-            _logger?.LogError(ex, "AI analysis trigger failed");
+            lock (_analysisLock)
+                if (ReferenceEquals(_analysisCancellation, run)) _analysisCancellation = null;
         }
+    }
+
+    private bool AnalysisEnabled => IsAiAnalysisEnabled && (_settingsService?.Get(SettingKeyAiEnabled, true) ?? true);
+    private static bool IsPdf(string path) => Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+
+    private async Task RunAnalysisBatchAsync(List<(string Path, long ModifiedTicks)> files, bool pdf, CancellationToken ct)
+    {
+        if (files.Count == 0 || (pdf ? _pdfAnalysisService == null : _imageAnalysisService == null)) return;
+        var title = pdf ? "PDF 文字分析" : "AI 图像分析";
+        var task = _taskManager!.AddTask($"{title} 0/{files.Count}");
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, task.Cts.Token);
+        var token = linked.Token;
+        var failures = new ConcurrentQueue<string>();
+        var completed = 0;
+        try
+        {
+            var queue = new ConcurrentQueue<(string Path, long ModifiedTicks)>(files);
+            var workers = Enumerable.Range(0, pdf ? 1 : Math.Min(3, files.Count)).Select(_ => Task.Run(async () =>
+            {
+                while (queue.TryDequeue(out var file))
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (!AnalysisEnabled) throw new OperationCanceledException();
+                    try
+                    {
+                        if (pdf)
+                        {
+                            var progress = new PdfTaskProgress(update =>
+                            {
+                                var label = $"PDF 文字分析 · {Path.GetFileName(file.Path)} · 第 {update.CompletedPages}/{update.TotalPages} 页";
+                                _taskManager.UpdateProgress(task.Id,
+                                    100.0 * (completed + (double)update.CompletedPages / update.TotalPages) / files.Count,
+                                    file.Path, label);
+                            });
+                            await _pdfAnalysisService!.AnalyzeAsync(file.Path, file.ModifiedTicks, progress, token);
+                        }
+                        else
+                        {
+                            var result = await _imageAnalysisService!.AnalyzeImageAsync(file.Path, token);
+                            token.ThrowIfCancellationRequested();
+                            await _aiTagService!.SaveAnalysisResultAsync(file.Path, file.ModifiedTicks, result, token);
+                        }
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex)
+                    {
+                        failures.Enqueue($"{Path.GetFileName(file.Path)}：{ex.Message}");
+                        _logger?.LogWarning(ex, "Analysis failed for {Path}", file.Path);
+                    }
+                    var count = Interlocked.Increment(ref completed);
+                    _taskManager.UpdateProgress(task.Id, 100.0 * count / files.Count, file.Path, $"{title} {count}/{files.Count}");
+                }
+            }, token));
+            await Task.WhenAll(workers);
+            token.ThrowIfCancellationRequested();
+            if (!pdf) await _aiTagService!.RunClusteringAsync();
+            if (failures.IsEmpty) _taskManager.CompleteTask(task.Id);
+            else _taskManager.FailTask(task.Id, $"{title}：{failures.Count} 个文件失败", string.Join(Environment.NewLine, failures));
+        }
+        catch (OperationCanceledException) { _taskManager.CancelTask(task.Id); }
+        catch (Exception ex) { _taskManager.FailTask(task.Id, ex.Message); }
+    }
+
+    // Reports inline, so delayed SynchronizationContext callbacks cannot overwrite a finished task.
+    private sealed class PdfTaskProgress(Action<PdfAnalysisProgress> report) : IProgress<PdfAnalysisProgress>
+    {
+        public void Report(PdfAnalysisProgress value) => report(value);
     }
 
     private static FileSystemEntry CreateVirtualEntry(FaceCluster cluster) => new()

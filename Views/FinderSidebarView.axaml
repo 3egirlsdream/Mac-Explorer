@@ -9,33 +9,29 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False"
              DragDrop.AllowDrop="True"
-             DragDrop.DragOver="OnPinnedFoldersDragOver"
-             DragDrop.DragLeave="OnPinnedFoldersDragLeave"
-             DragDrop.Drop="OnPinnedFoldersDrop">
+             DragDrop.DragOver="OnSidebarDragOver"
+             DragDrop.DragLeave="OnSidebarDragLeave"
+             DragDrop.Drop="OnSidebarDrop">
 
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="InteractionHoverBrush" Color="Transparent"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="Transparent"/>
                     <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="Transparent"/>
                     <x:Double x:Key="SidebarActionBackdropOpacity">1</x:Double>
                     <x:Double x:Key="SidebarActionRefraction">12</x:Double>
                     <x:Double x:Key="SidebarActionHoverHighlight">0.55</x:Double>
                     <x:Double x:Key="SidebarActionFocusHighlight">0.75</x:Double>
-                    <BoxShadows x:Key="SidebarHoverOutline">inset 0 1 0 0 #CCFFFFFF, inset 0 -1 0 0 #24212730</BoxShadows>
                     <BoxShadows x:Key="SidebarSelectedOutline">inset 0 0 0 1 #702463D4</BoxShadows>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="InteractionHoverBrush" Color="#0CFFFFFF"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#16FFFFFF"/>
                     <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="#1CFFFFFF"/>
                     <x:Double x:Key="SidebarActionBackdropOpacity">0</x:Double>
                     <x:Double x:Key="SidebarActionRefraction">0</x:Double>
                     <x:Double x:Key="SidebarActionHoverHighlight">0</x:Double>
                     <x:Double x:Key="SidebarActionFocusHighlight">0</x:Double>
-                    <BoxShadows x:Key="SidebarHoverOutline">0 0 0 0 Transparent</BoxShadows>
                     <BoxShadows x:Key="SidebarSelectedOutline">0 0 0 0 Transparent</BoxShadows>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
@@ -76,7 +72,7 @@
                     <Setter Property="HighlightOpacity" Value="{DynamicResource SidebarActionFocusHighlight}"/>
                 </Style>
                 <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+                    <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
                 </Style>
             </ControlTheme>
             <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
@@ -104,11 +100,6 @@
             <Setter Property="Height" Value="15"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
-        <Style Selector="Border.sidebar-item.pin-drop-target">
-            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
-            <Setter Property="BorderThickness" Value="0,0,0,2"/>
-        </Style>
         <Style Selector="Border.sidebar-item">
             <Setter Property="Focusable" Value="True"/>
             <Setter Property="FocusAdorner" Value="{x:Null}"/>
@@ -124,6 +115,10 @@
         </Style>
         <Style Selector="Border.sidebar-item.active:pointerover">
             <Setter Property="BoxShadow" Value="{DynamicResource SidebarSelectedOutline}"/>
+        </Style>
+        <Style Selector="Border.sidebar-item.folder-drop-target">
+            <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource SidebarHoverOutline}"/>
         </Style>
         <Style Selector="Border.sidebar-item:focus-visible, Border.sidebar-item.active:focus-visible">
             <Setter Property="BoxShadow" Value="{DynamicResource FocusOutlineShadow}"/>

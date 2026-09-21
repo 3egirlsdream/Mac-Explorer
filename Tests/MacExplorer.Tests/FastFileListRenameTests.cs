@@ -32,7 +32,6 @@ public sealed partial class FileListViewModelCreateTests
             vm.GroupField = GroupField.Type;
             vm.Groups.Add(new FileGroup { Name = "文档", Entries = [entry] });
         }
-        vm.UseFastFileList = true;
         var view = new FileListView { DataContext = vm };
         var list = view.FindControl<FastFileList>("FastList")!;
         var window = new Window { Width = 900, Height = 600, Content = view };

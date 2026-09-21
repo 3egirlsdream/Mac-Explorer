@@ -63,11 +63,11 @@
 
   <!-- Create macOS .app bundle after build (macOS-only: Avalonia Desktop outputs a raw binary, not a bundle) -->
   <Target Name="BuildMacOSImageAnalysisHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="xcrun swiftc -O 'Platforms/MacOS/ImageAnalysisHelper.swift' -framework Vision -framework CoreLocation -o '$(OutputPath)MacExplorer.ImageAnalysis'" />
+    <Exec Command="xcrun swiftc -O 'Platforms/MacOS/ImageAnalysisHelper.swift' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit -o '$(OutputPath)MacExplorer.ImageAnalysis'" />
   </Target>
 
   <Target Name="BuildMacOSNativeDragHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="clang++ -fobjc-arc -dynamiclib 'Platforms/MacOS/NativeFileDrag.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+    <Exec Command="clang++ -fobjc-arc -dynamiclib 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
   <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">

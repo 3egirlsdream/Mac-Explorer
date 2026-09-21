@@ -1,8 +1,12 @@
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 
+typedef void (*MacExplorerDragCallback)(void*, int, double, double, int);
+
 @interface MacExplorerDragSource : NSObject <NSDraggingSource>
 @property(nonatomic) NSDragOperation operationMask;
+@property(nonatomic) void* callbackContext;
+@property(nonatomic) MacExplorerDragCallback callback;
 @end
 
 static NSMutableSet<MacExplorerDragSource*>* MacExplorerActiveDragSources()
@@ -16,6 +20,16 @@ static NSMutableSet<MacExplorerDragSource*>* MacExplorerActiveDragSources()
 }
 
 @implementation MacExplorerDragSource
+
+- (void)draggingSession:(NSDraggingSession*)session willBeginAtPoint:(NSPoint)point
+{
+    if (self.callback) self.callback(self.callbackContext, 0, point.x, point.y, 0);
+}
+
+- (void)draggingSession:(NSDraggingSession*)session movedToPoint:(NSPoint)point
+{
+    if (self.callback) self.callback(self.callbackContext, 1, point.x, point.y, 0);
+}
 
 - (NSDragOperation)draggingSession:(NSDraggingSession*)session
     sourceOperationMaskForDraggingContext:(NSDraggingContext)context
@@ -32,6 +46,7 @@ static NSMutableSet<MacExplorerDragSource*>* MacExplorerActiveDragSources()
            endedAtPoint:(NSPoint)screenPoint
               operation:(NSDragOperation)operation
 {
+    if (self.callback) self.callback(self.callbackContext, 2, screenPoint.x, screenPoint.y, (int)operation);
     [MacExplorerActiveDragSources() removeObject:self];
 }
 
@@ -117,7 +132,7 @@ int MacExplorerBeginFileDragPixels(
     int previewWidth,
     int previewHeight,
     int previewStride,
-    int operationMask)
+    int operationMask, void* callbackContext, MacExplorerDragCallback callback)
 {
     @autoreleasepool
     {
@@ -170,6 +185,8 @@ int MacExplorerBeginFileDragPixels(
 
         MacExplorerDragSource* source = [MacExplorerDragSource new];
         source.operationMask = (NSDragOperation)operationMask;
+        source.callbackContext = callbackContext;
+        source.callback = callback;
         [MacExplorerActiveDragSources() addObject:source];
 
         [view beginDraggingSessionWithItems:draggingItems event:event source:source];

@@ -34,6 +34,8 @@ public partial class BreadcrumbBar : UserControl
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
 
+    public bool HasOpenPopup => DirectoryDropdownPopup.IsOpen || PathSuggestionsPopup.IsOpen;
+
     public void FocusPathInput()
     {
         CloseDirectoryDropdown();
@@ -101,8 +103,11 @@ public partial class BreadcrumbBar : UserControl
         }, DispatcherPriority.Loaded);
     }
 
-    private void OnBrowseModeDoubleTapped(object? sender, TappedEventArgs e)
+    private void OnBrowseModePointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (!BrowseModePanel.IsVisible || ViewModel?.IsHomePage == true
+            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
         if (e.Source is Visual source && source.GetSelfAndVisualAncestors().OfType<Button>().Any())
             return;
         FocusPathInput();
@@ -133,8 +138,9 @@ public partial class BreadcrumbBar : UserControl
         if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(input.Text))
             return;
 
-        var suggestion = PathSuggestionList.SelectedItem as OmniboxSuggestion
-                         ?? (PathSuggestionList.ItemsSource as IEnumerable<OmniboxSuggestion>)?.FirstOrDefault();
+        var suggestion = PathSuggestionList.SelectedItem as OmniboxSuggestion;
+        if (suggestion == null && !OmniboxService.IsNavigablePath(OmniboxService.NormalizePath(input.Text.Trim())))
+            suggestion = (PathSuggestionList.ItemsSource as IEnumerable<OmniboxSuggestion>)?.FirstOrDefault();
         if (suggestion != null)
             await ExecuteSuggestionAsync(suggestion);
         else if (ViewModel != null)

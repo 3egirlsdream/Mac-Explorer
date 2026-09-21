@@ -134,7 +134,7 @@ public sealed class MacDockMenuService
         AddMenuItem(menu, "快速访达", "macExplorerOpenWindow:", null);
         AddSeparator(menu);
 
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var home = RuntimePaths.HomeDirectory;
         AddMenuItem(menu, "文稿", "macExplorerOpenFolder:", Path.Combine(home, "Documents"));
         AddMenuItem(menu, "下载", "macExplorerOpenFolder:", Path.Combine(home, "Downloads"));
         AddMenuItem(menu, "应用程序", "macExplorerOpenFolder:", "/Applications");

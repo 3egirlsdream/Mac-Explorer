@@ -37,11 +37,9 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task CrossTabMoveRefreshesInactiveSourceAndDestination(bool fast, bool grid)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CrossTabMoveRefreshesInactiveSourceAndDestination(bool grid)
     {
         using var theme = new FastListTestTheme();
         var root = Directory.CreateTempSubdirectory("cross-tab-refresh-").FullName;
@@ -60,7 +58,6 @@ public sealed partial class FileListViewModelCreateTests
             { CurrentPath = targetDirectory, IsHomePage = false });
         await target.RefreshAsync();
         source.SetSelection([Assert.Single(source.Entries)]);
-        target.UseFastFileList = fast;
         target.SetViewMode(grid ? ViewMode.Grid : ViewMode.List);
         var tabs = new MainWindowViewModel(source);
         var sourceTab = tabs.SelectedTab;

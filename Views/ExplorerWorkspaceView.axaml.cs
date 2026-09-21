@@ -151,6 +151,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         var showAiSearch = fileList?.IsAiView == true && fileList.AiViewMode == AiViewMode.TextSearch;
         FileListControl.IsVisible = fileList != null && !fileList.IsHomePage && !showAiSearch;
         HomeViewControl.IsVisible = fileList?.IsHomePage == true;
+        WorkspaceSurface.Classes.Set("home", fileList?.IsHomePage == true);
         AiViewControl.IsVisible = showAiSearch;
         UpdatePageSearchPresentation();
     }

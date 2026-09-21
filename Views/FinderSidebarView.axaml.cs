@@ -25,7 +25,9 @@ public partial class FinderSidebarView : UserControl
     private Border? _activeTagEditorRow;
     private TextBox? _activeTagInput;
     private bool _isCommittingTagEdit;
-    private Border? _pinnedDropTarget;
+    private Border? _folderDropTarget;
+    private string? _folderDropPath;
+    private IDisposable? _folderHoverTimer;
     private FileListViewModel? _subscribedViewModel;
     private readonly Dictionary<Control, RailSecondaryState> _railSecondaryStates = [];
     private bool _isRailMode;
@@ -115,6 +117,7 @@ public partial class FinderSidebarView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        ClearFolderDropTarget();
         if (_subscribedViewModel != null)
         {
             _subscribedViewModel.PinnedFolders.CollectionChanged -= OnSidebarTagChanged;
@@ -297,25 +300,15 @@ public partial class FinderSidebarView : UserControl
         if (ViewModel == null)
             return false;
 
-        string? path = null;
+        var path = GetSidebarFolderPath(border);
         AiViewMode? aiMode = null;
 
-        if (border == UsernameItem) path = ViewModel.HomeDirectory;
-        else if (border == DesktopItem) path = ViewModel.HomeDirectory + "/Desktop";
-        else if (border == DocumentsItem) path = ViewModel.HomeDirectory + "/Documents";
-        else if (border == DownloadsItem) path = ViewModel.HomeDirectory + "/Downloads";
-        else if (border == PicturesItem) path = ViewModel.HomeDirectory + "/Pictures";
-        else if (border == MusicItem) path = ViewModel.HomeDirectory + "/Music";
-        else if (border == VolumeItem) path = "/";
-        else if (border == ApplicationsItem) path = "/Applications";
-        else if (border == TrashItem) path = ViewModel.TrashPath;
+        if (border == TrashItem) path = ViewModel.TrashPath;
         else if (border == AiPeopleItem) aiMode = AiViewMode.People;
         else if (border == AiCategoriesItem) aiMode = AiViewMode.Categories;
         else if (border == AiLocationsItem) aiMode = AiViewMode.Locations;
         else if (border == AiDatesItem) aiMode = AiViewMode.Dates;
         else if (border == AiTextSearchItem) aiMode = AiViewMode.TextSearch;
-        else if (border.Tag is string taggedPath) path = taggedPath;
-        else if (border.Tag is VolumeInfo volume) path = volume.Path;
 
         if (path != null)
             await ViewModel.NavigateToCommand.ExecuteAsync(path);
@@ -360,59 +353,135 @@ public partial class FinderSidebarView : UserControl
         e.Handled = true;
     }
 
-    private void OnPinnedFoldersDragOver(object? sender, DragEventArgs e)
+    private string? GetSidebarFolderPath(Border? border)
     {
-        ClearPinnedDropTarget();
-        var paths = GetDroppedPaths(e.DataTransfer);
-        if (paths.Length == 0 || paths.Any(path => !Directory.Exists(path)))
+        if (border == null || ViewModel == null) return null;
+        if (border == UsernameItem) return ViewModel.HomeDirectory;
+        if (border == DesktopItem) return ViewModel.HomeDirectory + "/Desktop";
+        if (border == DocumentsItem) return ViewModel.HomeDirectory + "/Documents";
+        if (border == DownloadsItem) return ViewModel.HomeDirectory + "/Downloads";
+        if (border == PicturesItem) return ViewModel.HomeDirectory + "/Pictures";
+        if (border == MusicItem) return ViewModel.HomeDirectory + "/Music";
+        if (border == VolumeItem) return "/";
+        if (border == ApplicationsItem) return "/Applications";
+        return border.Tag switch
         {
-            e.DragEffects = DragDropEffects.None;
-            return;
-        }
-
-        _pinnedDropTarget = FindPinnedFolderBorder(e.Source as Visual);
-        _pinnedDropTarget?.Classes.Add("pin-drop-target");
-        e.DragEffects = DragDropEffects.Move;
-        e.Handled = true;
+            string path => path,
+            VolumeInfo volume => volume.Path,
+            _ => null
+        };
     }
 
-    private void OnPinnedFoldersDragLeave(object? sender, RoutedEventArgs e) => ClearPinnedDropTarget();
-
-    private async void OnPinnedFoldersDrop(object? sender, DragEventArgs e)
+    private Border? FindSidebarDropRow(DragEventArgs e)
     {
-        var targetPath = _pinnedDropTarget?.Tag as string;
-        ClearPinnedDropTarget();
-        if (ViewModel == null) return;
-
-        var paths = GetDroppedPaths(e.DataTransfer)
-            .Where(Directory.Exists)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        foreach (var path in paths)
-        {
-            if (!await ViewModel.IsFolderPinnedAsync(path))
-                await ViewModel.PinFolderAsync(path, new DirectoryInfo(path).Name);
-            if (!string.IsNullOrWhiteSpace(targetPath))
-                await ViewModel.ReorderPinnedFolderAsync(path, targetPath);
-        }
-        e.Handled = true;
-    }
-
-    private static string[] GetDroppedPaths(IDataTransfer data) => data.TryGetFiles()?
-        .Select(item => item.Path.LocalPath)
-        .Where(path => !string.IsNullOrWhiteSpace(path))
-        .ToArray() ?? [];
-
-    private Border? FindPinnedFolderBorder(Visual? visual)
-    {
-        for (; visual != null; visual = visual.GetVisualParent())
-        {
-            if (ReferenceEquals(visual, PinnedFoldersControl)) break;
-            if (visual is Border { Tag: string } border && IsDescendantOf(border, PinnedFoldersControl))
+        // Resolve the release position again, including when Source is the sidebar itself.
+        for (var visual = this.InputHitTest(e.GetPosition(this)) as Visual;
+             visual != null && visual != this; visual = visual.GetVisualParent())
+            if (visual is Border border && border.Classes.Contains("sidebar-item"))
                 return border;
-        }
         return null;
     }
+
+    private void OnSidebarDragOver(object? sender, DragEventArgs e)
+    {
+        var paths = GetDroppedPaths(e.DataTransfer);
+        var row = FindSidebarDropRow(e);
+        var targetPath = GetSidebarFolderPath(row);
+        e.Handled = true;
+        e.DragEffects = DragDropEffects.None;
+        if (targetPath != null)
+        {
+            e.DragEffects = FileDropPolicy.GetEffect(paths, targetPath);
+            if (e.DragEffects != DragDropEffects.None)
+            {
+                if (_folderDropTarget != row || _folderDropPath != targetPath)
+                {
+                    ClearFolderDropTarget();
+                    _folderDropTarget = row;
+                    _folderDropPath = targetPath;
+                    row!.Classes.Add("folder-drop-target");
+                    _folderHoverTimer = DispatcherTimer.RunOnce(
+                        () => OpenHoveredFolderAsync(row, targetPath), TimeSpan.FromMilliseconds(600));
+                }
+                return;
+            }
+        }
+        ClearFolderDropTarget();
+        if (row == null && IsPinnedFolderDropArea(e) && paths.Length > 0 && paths.All(Directory.Exists))
+            e.DragEffects = DragDropEffects.Copy;
+    }
+
+    private async void OpenHoveredFolderAsync(Border row, string path)
+    {
+        _folderHoverTimer = null;
+        var viewModel = ViewModel;
+        if (_folderDropTarget != row || _folderDropPath != path || viewModel == null
+            || !row.IsEffectivelyVisible || TopLevel.GetTopLevel(row) == null || viewModel.CurrentPath == path)
+            return;
+        try
+        {
+            await viewModel.NavigateToAsync(path);
+        }
+        catch (Exception ex)
+        {
+            viewModel.StatusText = $"打开文件夹失败: {ex.Message}";
+        }
+    }
+
+    private void OnSidebarDragLeave(object? sender, DragEventArgs e) => ClearFolderDropTarget();
+
+    private async void OnSidebarDrop(object? sender, DragEventArgs e)
+    {
+        var row = FindSidebarDropRow(e);
+        var targetPath = GetSidebarFolderPath(row);
+        ClearFolderDropTarget();
+        e.Handled = true;
+        e.DragEffects = DragDropEffects.None;
+        var viewModel = ViewModel;
+        if (viewModel == null) return;
+        var paths = GetDroppedPaths(e.DataTransfer).Distinct(StringComparer.Ordinal).ToArray();
+        try
+        {
+            if (targetPath != null)
+            {
+                var effect = FileDropPolicy.GetEffect(paths, targetPath);
+                if (effect == DragDropEffects.None || !Directory.Exists(targetPath)) return;
+                if (effect == DragDropEffects.Copy)
+                {
+                    var copied = await App.Services.GetRequiredService<IDragDropService>()
+                        .DropFilesAsync(paths, targetPath, forceCopy: true, forceMove: false);
+                    e.DragEffects = copied ? effect : DragDropEffects.None;
+                    return;
+                }
+                paths = paths.Where(path => !FileDropPolicy.IsSameDestination(path, targetPath)).ToArray();
+                var fileService = App.Services.GetRequiredService<IFileService>();
+                var target = await fileService.GetEntryAsync(targetPath);
+                if (target is not { IsDirectory: true, IsWritable: true }) return;
+                var entries = (await Task.WhenAll(paths.Select(fileService.GetEntryAsync)))
+                    .OfType<FileSystemEntry>().ToArray();
+                if (entries.Length == 0) return;
+                e.DragEffects = effect;
+                await viewModel.MoveEntriesAsync(entries, target);
+                return;
+            }
+
+            if (row != null || !IsPinnedFolderDropArea(e) || paths.Length == 0 || !paths.All(Directory.Exists)) return;
+            e.DragEffects = DragDropEffects.Copy;
+            foreach (var path in paths)
+                if (!await viewModel.IsFolderPinnedAsync(path))
+                    await viewModel.PinFolderAsync(path, new DirectoryInfo(path).Name);
+        }
+        catch (Exception ex)
+        {
+            e.DragEffects = DragDropEffects.None;
+            viewModel.StatusText = $"拖放失败: {ex.Message}";
+        }
+    }
+
+    private bool IsPinnedFolderDropArea(DragEventArgs e)
+        => this.InputHitTest(e.GetPosition(this)) is Visual hit && IsDescendantOf(hit, PinnedFoldersControl);
+
+    private static string[] GetDroppedPaths(IDataTransfer data) => FileListView.GetDroppedPaths(data);
 
     private static bool IsDescendantOf(Visual visual, Visual ancestor)
     {
@@ -421,10 +490,19 @@ public partial class FinderSidebarView : UserControl
         return false;
     }
 
-    private void ClearPinnedDropTarget()
+    private void ClearFolderDropTarget()
     {
-        _pinnedDropTarget?.Classes.Remove("pin-drop-target");
-        _pinnedDropTarget = null;
+        _folderHoverTimer?.Dispose();
+        _folderHoverTimer = null;
+        _folderDropTarget?.Classes.Remove("folder-drop-target");
+        _folderDropTarget = null;
+        _folderDropPath = null;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        ClearFolderDropTarget();
+        base.OnDetachedFromVisualTree(e);
     }
 
     // ── ListBox selection handlers ──
@@ -624,6 +702,7 @@ public partial class FinderSidebarView : UserControl
 
     private void OnTagDragOver(object? sender, DragEventArgs e)
     {
+        ClearFolderDropTarget();
         var paths = GetDroppedPaths(e.DataTransfer);
         e.DragEffects = paths.Length > 0 && paths.All(Services.Impl.FileTagService.IsSupportedPath)
             ? DragDropEffects.Copy : DragDropEffects.None;
@@ -632,6 +711,7 @@ public partial class FinderSidebarView : UserControl
 
     private async void OnTagDrop(object? sender, DragEventArgs e)
     {
+        ClearFolderDropTarget();
         if (sender is not Border { Tag: FileTag tag } || ViewModel == null) return;
         e.Handled = true;
         await ViewModel.SetFileTagAsync(GetDroppedPaths(e.DataTransfer), tag, true);

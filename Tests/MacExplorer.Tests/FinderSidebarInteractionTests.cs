@@ -234,7 +234,7 @@ public sealed class FinderSidebarInteractionTests
         Assert.Contains("inline-rename-editor", editor.Classes);
         Assert.Equal(22, editor.Height);
         Assert.Equal(72, editor.MinWidth);
-        Assert.Equal(new Thickness(1), editor.BorderThickness);
+        Assert.Equal(new Thickness(0), editor.BorderThickness);
         Assert.Equal(new CornerRadius(4), editor.CornerRadius);
         Assert.Equal(global::Avalonia.Layout.HorizontalAlignment.Left, editor.HorizontalAlignment);
         Assert.Equal(global::Avalonia.Layout.VerticalAlignment.Center, editor.VerticalAlignment);

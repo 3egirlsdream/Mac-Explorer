@@ -50,6 +50,13 @@ public partial class NavigationViewModel : ObservableObject
 
     public bool CanGoBack => _historyIndex > 0;
     public bool CanGoForward => _historyIndex < _historyStack.Count - 1;
+    internal void ResetHistoryToCurrentLocation()
+    {
+        _historyStack.Clear();
+        _historyIndex = -1;
+        if (!string.IsNullOrEmpty(CurrentPath)) PushHistoryEntry(CreatePathHistoryEntry(CurrentPath));
+        else NotifyHistoryChanged();
+    }
     public NavigationHistoryEntry? CurrentHistoryEntry
         => _historyIndex >= 0 && _historyIndex < _historyStack.Count
             ? _historyStack[_historyIndex]

@@ -17,7 +17,6 @@ using SkiaSharp;
 
 internal static class Program
 {
-    public static bool CompareStyles => Environment.GetEnvironmentVariable("FKFINDER_COMPARE_LIST_STYLES") == "1";
     public static string OutputDirectory { get; private set; } = "";
     [STAThread]
     public static void Main(string[] args)
@@ -35,12 +34,6 @@ public sealed class BenchApp : Application
         Styles.Add(new FluentTheme());
         Resources.MergedDictionaries.Add((ResourceDictionary)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/TypographyTokens.axaml")));
         Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ThemeTokens.axaml")));
-        if (Program.CompareStyles)
-        {
-            Resources["BoolNotConverter"] = new MacExplorer.Views.BoolNotConverter();
-            Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
-            Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
-        }
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -63,8 +56,7 @@ public sealed class BenchApp : Application
             {
                 try
                 {
-                    if (Program.CompareStyles) await StyleComparison.RunAsync(window, Program.OutputDirectory);
-                    else await RunAsync(list);
+                    await RunAsync(list);
                     desktop.Shutdown();
                 }
                 catch (Exception ex)

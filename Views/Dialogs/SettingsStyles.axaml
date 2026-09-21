@@ -1,20 +1,19 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:icons="using:MacExplorer.Assets">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <ControlTheme x:Key="SettingsNavigationItem" TargetType="TabItem">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="Margin" Value="0,2"/>
-            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="MinHeight" Value="32"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="FocusAdorner" Value="{StaticResource KeyboardFocusAdorner}"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="NavigationSurface" Background="{TemplateBinding Background}"
-                            CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            CornerRadius="6" Padding="{TemplateBinding Padding}">
                         <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Header}"
                                           ContentTemplate="{TemplateBinding HeaderTemplate}"
                                           HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -47,33 +46,24 @@
         </Setter>
         <Setter Property="Template">
             <ControlTemplate>
-                <Grid ColumnDefinitions="196,*">
-                    <Border Background="{DynamicResource SurfaceMutedBrush}"
+                <Grid ColumnDefinitions="176,*">
+                    <Border Background="{DynamicResource TitleBarBackgroundBrush}"
                             BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="0,0,1,0">
-                        <DockPanel Margin="16,24,16,20">
-                            <Grid DockPanel.Dock="Top" ColumnDefinitions="36,*" ColumnSpacing="10" Margin="8,0,0,24">
-                                <Image Source="/Assets/appicon.ico" Width="36" Height="36"/>
+                        <DockPanel Margin="10,14,10,14">
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="28,*" ColumnSpacing="8" Margin="8,0,0,16">
+                                <Image Source="/Assets/appicon.ico" Width="28" Height="28"/>
                                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="设置" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="设置" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
                                     <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeCaption}"
                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </StackPanel>
                             </Grid>
-                            <StackPanel DockPanel.Dock="Bottom" Margin="12,20,0,0" Spacing="8">
-                                <Border Height="1" Background="{DynamicResource ColorBorderSubtle}" Margin="0,0,12,4"/>
-                                <StackPanel Orientation="Horizontal" Spacing="7">
-                                    <PathIcon Data="{x:Static icons:Icons.Checkmark}" Width="12" Height="12"
-                                              Foreground="{DynamicResource TextMutedBrush}"/>
-                                    <TextBlock Text="更改自动保存" FontSize="{DynamicResource FontSizeCaption}"
-                                               Foreground="{DynamicResource TextMutedBrush}"/>
-                                </StackPanel>
-                            </StackPanel>
                             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                                 <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
                             </ScrollViewer>
                         </DockPanel>
                     </Border>
-                    <Border Grid.Column="1" Background="{DynamicResource SurfaceBackgroundBrush}">
+                    <Border Grid.Column="1" Background="{DynamicResource TitleBarBackgroundBrush}">
                         <ContentPresenter Name="PART_SelectedContentHost"
                                           Content="{TemplateBinding SelectedContent}"
                                           ContentTemplate="{TemplateBinding SelectedContentTemplate}"
@@ -85,6 +75,8 @@
     </Style>
     <Style Selector="TabControl.settings-shell > TabItem">
         <Setter Property="Theme" Value="{StaticResource SettingsNavigationItem}"/>
+        <Setter Property="Padding" Value="10,5"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     </Style>
@@ -104,14 +96,14 @@
     </Style>
     <Style Selector="StackPanel.settings-page, Grid.settings-page">
         <Setter Property="MaxWidth" Value="760"/>
-        <Setter Property="Margin" Value="32,28,32,32"/>
+        <Setter Property="Margin" Value="20,16,20,24"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
     </Style>
     <Style Selector="StackPanel.settings-page">
-        <Setter Property="Spacing" Value="24"/>
+        <Setter Property="Spacing" Value="18"/>
     </Style>
     <Style Selector="StackPanel.settings-header">
-        <Setter Property="Spacing" Value="6"/>
+        <Setter Property="Spacing" Value="3"/>
         <Setter Property="Margin" Value="0,0,0,4"/>
     </Style>
     <Style Selector="Border.settings-compact-row TextBlock.settings-label">
@@ -127,43 +119,17 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="FocusAdorner" Value="{StaticResource KeyboardFocusAdorner}"/>
     </Style>
-    <Style Selector="ToggleSwitch.settings-toggle /template/ Border#OuterBorder,
-                     ToggleSwitch.settings-toggle /template/ Border#SwitchKnobBounds">
-        <Setter Property="Width" Value="44"/>
-        <Setter Property="Height" Value="24"/>
-        <Setter Property="CornerRadius" Value="12"/>
-    </Style>
-    <Style Selector="ToggleSwitch.settings-toggle /template/ Canvas#PART_SwitchKnob">
-        <Setter Property="Width" Value="20"/>
-        <Setter Property="Height" Value="24"/>
-    </Style>
-    <Style Selector="ToggleSwitch.settings-toggle /template/ Grid#PART_MovingKnobs">
-        <Setter Property="Width" Value="24"/>
-        <Setter Property="Height" Value="24"/>
-    </Style>
-    <Style Selector="ToggleSwitch.settings-toggle:unchecked /template/ Border#OuterBorder">
-        <Setter Property="Background" Value="{DynamicResource BorderStrongBrush}"/>
-        <Setter Property="BorderThickness" Value="0"/>
-    </Style>
-    <Style Selector="ToggleSwitch.settings-toggle:unchecked /template/ Ellipse#SwitchKnobOff">
-        <Setter Property="Fill" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-    </Style>
-    <Style Selector="ToggleSwitch.settings-toggle /template/ Ellipse#SwitchKnobOn,
-                     ToggleSwitch.settings-toggle /template/ Ellipse#SwitchKnobOff">
-        <Setter Property="Width" Value="18"/>
-        <Setter Property="Height" Value="18"/>
-    </Style>
     <Style Selector="ComboBox">
-        <Setter Property="MinHeight" Value="36"/>
-        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="8,3"/>
+        <Setter Property="MinHeight" Value="28"/>
     </Style>
     <Style Selector="Button.interaction-token-row">
-        <Setter Property="MinHeight" Value="62"/>
+        <Setter Property="MinHeight" Value="48"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
     </Style>
     <Style Selector="TextBlock.settings-title">
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeDisplay}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
         <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Margin" Value="0"/>
@@ -171,21 +137,21 @@
 
     <Style Selector="TextBlock.settings-section-title">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        <Setter Property="Margin" Value="4,0,0,2"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Margin" Value="10,0,0,0"/>
     </Style>
 
     <Style Selector="Border.settings-group">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
         <Setter Property="ClipToBounds" Value="True"/>
     </Style>
 
     <Style Selector="Border.settings-row">
-        <Setter Property="Padding" Value="20,16"/>
+        <Setter Property="Padding" Value="12,9"/>
         <Setter Property="MinHeight" Value="{DynamicResource TypographySettingsRowMinHeight}"/>
         <Setter Property="CornerRadius" Value="0"/>
     </Style>
@@ -196,12 +162,31 @@
     </Style>
 
     <Style Selector="Border.settings-compact-row">
-        <Setter Property="Padding" Value="20,10"/>
+        <Setter Property="Padding" Value="12,2"/>
         <Setter Property="MinHeight" Value="{DynamicResource TypographySettingsCompactRowMinHeight}"/>
         <Setter Property="CornerRadius" Value="0"/>
     </Style>
 
     <Style Selector="Border.settings-compact-row.settings-divider">
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+
+    <Style Selector="TextBox.settings-inline-input, ComboBox.settings-inline-input">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="8,3"/>
+        <Setter Property="MinHeight" Value="28"/>
+    </Style>
+    <Style Selector="TextBox.settings-command-editor">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="MinHeight" Value="68"/>
+        <Setter Property="MaxHeight" Value="140"/>
+        <Setter Property="FontFamily" Value="Menlo,monospace"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    </Style>
+    <Style Selector="Border.settings-divider-row">
         <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
@@ -215,15 +200,15 @@
 
     <Style Selector="TextBlock.settings-description">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
-        <Setter Property="Margin" Value="0,3,0,0"/>
+        <Setter Property="Margin" Value="0,2,0,0"/>
     </Style>
 
     <Style Selector="Border.settings-note">
         <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
         <Setter Property="CornerRadius" Value="8"/>
-        <Setter Property="Padding" Value="16"/>
+        <Setter Property="Padding" Value="12"/>
     </Style>
 
     <Style Selector="Border.settings-about-card">
@@ -231,13 +216,13 @@
         <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="Padding" Value="28"/>
+        <Setter Property="Padding" Value="16"/>
     </Style>
 
     <Style Selector="ToggleSwitch.settings-toggle">
         <Setter Property="OnContent" Value=""/>
         <Setter Property="OffContent" Value=""/>
-        <Setter Property="MinWidth" Value="38"/>
+        <Setter Property="MinWidth" Value="36"/>
     </Style>
 
     <Style Selector="Button.openwith-delete">
@@ -257,7 +242,7 @@
     <Style Selector="Button.interaction-token-row">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="Padding" Value="10,6"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     </Style>

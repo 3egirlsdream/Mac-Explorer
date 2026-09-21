@@ -67,7 +67,8 @@
     </UserControl.Styles>
 
     <Border Classes="breadcrumb-bar" Classes.home-location="{Binding IsHomePage}"
-            Classes.path-editing="{Binding #PathInput.IsVisible}" Padding="4,2">
+            Classes.path-editing="{Binding #PathInput.IsVisible}" Padding="4,2"
+            PointerPressed="OnBrowseModePointerPressed">
         <Grid ColumnDefinitions="*">
             <TextBlock Text="首页" IsVisible="{Binding IsHomePage}" Margin="8,0"
                        FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
@@ -86,7 +87,6 @@
             <ScrollViewer Grid.Column="0"
                           x:Name="BrowseModePanel"
                           IsVisible="{Binding IsHomePage, Converter={StaticResource BoolNotConverter}}"
-                          DoubleTapped="OnBrowseModeDoubleTapped"
                           HorizontalScrollBarVisibility="Hidden"
                           VerticalScrollBarVisibility="Disabled">
                 <ItemsControl Classes="breadcrumb-segments" ItemsSource="{Binding Breadcrumbs}">

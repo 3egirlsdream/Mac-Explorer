@@ -75,6 +75,20 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _metadataLoadDebounceCts;
     private int _selectionPreviewSuppressionDepth;
     private bool _disposed;
+    public bool IsBrowseOnly { get; init; }
+    internal void ResetBrowseHistory()
+    {
+        if (IsBrowseOnly) _navigation.ResetHistoryToCurrentLocation();
+    }
+    private bool _directoryNotificationsPaused;
+
+    public void SetDirectoryNotificationsPaused(bool paused)
+    {
+        _directoryNotificationsPaused = paused;
+        if (paused) StopDirectoryWork();
+        else if (!string.IsNullOrEmpty(CurrentPath) && !TagPathHelper.IsTagPath(CurrentPath))
+            _navigation.SetWatchedDirectory(CurrentPath);
+    }
     private Window? _topLevelWindow;
 
     private const string LastDirectorySettingKey = "navigation_last_directory";
@@ -90,11 +104,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private ObservableCollection<FileSystemEntry> _selectedEntries = new MacExplorer.Collections.RangeObservableCollection<FileSystemEntry>();
 
-    internal const string UseFastFileListSettingKey = "UseFastFileList";
-    [ObservableProperty]
-    private bool _useFastFileList;
-
-    partial void OnUseFastFileListChanged(bool value) => _settingsService?.Set(UseFastFileListSettingKey, value);
     internal string? SelectionAnchorPath => _lastClickedPath;
 
     private readonly HashSet<FileSystemEntry> _selectedEntriesSet = [];
@@ -209,6 +218,25 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
     }
     public string HomeDirectory => _fileService.HomeDirectory;
+
+    public string CurrentLocationIcon
+    {
+        get
+        {
+            if (IsSearchMode) return AppIcons.Search;
+            if (IsHomePage) return AppIcons.Home;
+            if (IsTagView) return AppIcons.Tag;
+
+            var path = CurrentPath == "/" ? "/" : CurrentPath.TrimEnd('/');
+            var item = SidebarFavorites.Concat(SidebarLocations).Concat(SidebarAiItems)
+                .FirstOrDefault(item => string.Equals(item.Path, path, StringComparison.Ordinal));
+            if (!string.IsNullOrWhiteSpace(item?.IconData)) return item.IconData;
+            if (path == "/Applications") return AppIcons.Apps;
+            if (path == _fileService.TrashDirectory || path == VirtualPath.SystemTrash) return AppIcons.Trash;
+            if (ExternalVolumes.Any(volume => volume.Path == path)) return AppIcons.ExternalDrive;
+            return AppIcons.Folder;
+        }
+    }
 
     public string? GetRestorableDirectoryPath()
     {
@@ -444,7 +472,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _clipboardService = clipboardService;
         _launcherService = launcherService;
         _settingsService = settingsService;
-        _useFastFileList = settingsService?.Get(UseFastFileListSettingKey, true) ?? true;
         _archiveService = archiveService;
         _dragDropBridge = dragDropBridge;
         _directoryChangeNotifier = directoryChangeNotifier;
@@ -763,7 +790,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             if (_disposed) return;
             await LoadSidebarTagsAsync();
-            if (IsTagView)
+            if (IsTagView && !_directoryNotificationsPaused)
                 await RefreshAsync();
         }, DispatcherPriority.Background);
     }
@@ -887,6 +914,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (e.PropertyName is nameof(NavigationViewModel.CurrentPath)
             or nameof(NavigationViewModel.IsHomePage)
+            or nameof(NavigationViewModel.IsSearchMode))
+        {
+            OnPropertyChanged(nameof(CurrentLocationIcon));
+        }
+
+        if (e.PropertyName is nameof(NavigationViewModel.CurrentPath)
+            or nameof(NavigationViewModel.IsHomePage)
             or nameof(NavigationViewModel.IsArchiveView)
             or nameof(NavigationViewModel.IsAiView)
             or nameof(NavigationViewModel.IsRemoteView)
@@ -978,7 +1012,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task RefreshFromNotification()
     {
-        if (_disposed || _isRefreshingFromNotification) return;
+        if (_disposed || _directoryNotificationsPaused || _isRefreshingFromNotification) return;
         if (!_navigation.NeedsRefreshFromNotification(IsArchiveView, IsAiView)) return;
         _isRefreshingFromNotification = true;
         try
@@ -998,6 +1032,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateToAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
+        if (IsBrowseOnly && !TagPathHelper.IsTagPath(path) && !Path.IsPathFullyQualified(path)) return;
 
         CaptureCurrentNavigationViewState();
         if (_navigation.IsSearchMode)
@@ -1245,6 +1280,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void GoHome()
     {
+        if (IsBrowseOnly) return;
         CaptureCurrentNavigationViewState();
         CancelDirectoryWork();
         _navigation.GoHome();
@@ -1260,6 +1296,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task OpenEntryAsync(FileSystemEntry entry)
     {
+        if (IsBrowseOnly)
+        {
+            if (entry.IsFolder) await NavigateToAsync(entry.FullPath);
+            else if (_quickLookService != null) await _quickLookService.PreviewFileAsync(entry.FullPath);
+            return;
+        }
         _logger?.LogDebug("[OpenEntry] Called: path={Path}, isDir={IsDir}, isVirtual={IsVirtual}, iconKey={IconKey}, isArchiveView={IsArchiveView}",
             entry.FullPath, entry.IsDirectory, entry.IsVirtual, entry.IconKey, IsArchiveView);
 
@@ -1923,6 +1965,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task ShowFileContextMenuAsync(FileSystemEntry entry, double x, double y)
     {
+        if (IsBrowseOnly) return;
         _ = Task.Run(ActivateAppWindow);
 
         ContextMenuEntry = entry;
@@ -1959,6 +2002,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task ShowBackgroundContextMenuAsync(double x, double y)
     {
+        if (IsBrowseOnly) return;
         _ = Task.Run(ActivateAppWindow);
 
         ContextMenuEntry = null;
@@ -1999,7 +2043,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     // ── Direct menu builders (no service dependency) ──────────────
 
     public async Task<IReadOnlyList<ContextMenuAction>> LoadCompleteFileContextMenuAsync(FileSystemEntry entry)
-        => await BuildFileContextMenuAsync(entry, includeDynamicActions: true);
+        => IsBrowseOnly ? [] : await BuildFileContextMenuAsync(entry, includeDynamicActions: true);
 
     private async Task<List<ContextMenuAction>> BuildFileContextMenuAsync(
         FileSystemEntry entry,
@@ -2958,6 +3002,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void CopySelected()
     {
+        if (IsBrowseOnly) return;
         if (SelectedEntries.Count == 0) return;
         _fileOps.CopySelectedCommand.Execute(SelectedEntries.ToList());
         StatusText = $"已拷贝 {SelectedEntries.Count} 项";
@@ -2979,6 +3024,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void CutSelected()
     {
+        if (IsBrowseOnly) return;
         if (SelectedEntries.Count == 0) return;
         _fileOps.CutSelectedCommand.Execute(SelectedEntries.ToList());
         StatusText = $"已剪切 {SelectedEntries.Count} 项";
@@ -3002,6 +3048,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task PasteAsync()
     {
+        if (IsBrowseOnly) return;
         if (_clipboardService == null) return;
 
         if (CurrentTag is { } tag)
@@ -3088,6 +3135,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task ConfirmPasteAsync()
     {
+        if (IsBrowseOnly) return;
         IsPasteConfirmDialogVisible = false;
         try
         {
@@ -3130,6 +3178,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     // Capture the selection before displaying a dialog or starting any I/O.
     public async Task RequestDeleteSelectedAsync()
     {
+        if (IsBrowseOnly) return;
         if (_deleteInProgress || IsDeleteConfirmDialogVisible || IsArchiveView || SelectedEntries.Count == 0) return;
         var entries = SelectedEntries.Where(entry => !entry.IsVirtual).ToArray();
         if (entries.Length == 0) return;
@@ -3151,6 +3200,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task ConfirmDeleteSelectedAsync()
     {
+        if (IsBrowseOnly) return;
         var entries = _pendingDeleteEntries;
         CancelDeleteConfirmDialog();
         if (entries != null) await ExecuteDeleteSelectedAsync(entries);
@@ -3167,6 +3217,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void ShowTagDeleteConfirmDialog(FileTag tag)
     {
+        if (IsBrowseOnly) return;
         if (tag.IsFinderColor) return;
         IsContextMenuVisible = false;
         PendingDeleteTag = tag;
@@ -3176,6 +3227,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task ConfirmDeleteTagAsync()
     {
+        if (IsBrowseOnly) return;
         IsTagDeleteConfirmDialogVisible = false;
         var tag = PendingDeleteTag;
         PendingDeleteTag = null;
@@ -3216,6 +3268,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task CreateNewFolderAsync()
     {
+        if (IsBrowseOnly) return;
         try
         {
             var rawEntries = Entries.ToList();
@@ -3245,6 +3298,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task CreateNewFileAsync(string? extension = null)
     {
+        if (IsBrowseOnly) return;
         try
         {
             var rawEntries = Entries.ToList();
@@ -3274,6 +3328,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task MoveEntryAsync(FileSystemEntry source, FileSystemEntry targetFolder)
     {
+        if (IsBrowseOnly) return;
         try
         {
             await _fileOps.MoveEntryAsync(source, targetFolder, msg => StatusText = msg);
@@ -3285,6 +3340,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task MoveEntriesAsync(IReadOnlyList<FileSystemEntry> entries, FileSystemEntry targetFolder)
     {
+        if (IsBrowseOnly) return;
         try
         {
             var conflicts = _fileOps.GetMoveConflicts(entries, targetFolder.FullPath);
@@ -3311,6 +3367,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task ConfirmMoveAsync()
     {
+        if (IsBrowseOnly) return;
         IsMoveConfirmDialogVisible = false;
         if (_pendingMoveEntries == null || _pendingMoveTarget == null) return;
 
@@ -3347,11 +3404,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void RequestRename(FileSystemEntry entry)
     {
+        if (IsBrowseOnly) return;
         RenameRequested?.Invoke(entry);
     }
 
     public async Task<bool> RenameEntryAsync(FileSystemEntry entry, string newName)
     {
+        if (IsBrowseOnly) return false;
         // Virtual face cluster rename
         if (entry.IsVirtual && entry.VirtualFolderType == "face")
         {
@@ -3455,6 +3514,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void ExtractHere(FileSystemEntry entry)
     {
+        if (IsBrowseOnly) return;
         _ = _archive.ExtractHereAsync(
             entry,
             _navigation.CurrentPath,
@@ -3466,6 +3526,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void ExtractToNamedFolder(FileSystemEntry entry)
     {
+        if (IsBrowseOnly) return;
         _ = _archive.ExtractToNamedFolderAsync(
             entry,
             _navigation.CurrentPath,
@@ -3477,6 +3538,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void ShowCompressDialog()
     {
+        if (IsBrowseOnly) return;
         _archive.ShowCompressDialog(
             SelectedEntries.ToList(),
             ContextMenuEntry,
@@ -3488,6 +3550,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void ConfirmCompress(CompressOptions options)
     {
+        if (IsBrowseOnly) return;
         _archive.ConfirmCompress(
             options,
             _fileTagService,
@@ -3768,6 +3831,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task EjectVolumeAsync(VolumeInfo vol)
     {
+        if (IsBrowseOnly) return;
         if (_volumeMonitorService == null) return;
         var success = await _volumeMonitorService.EjectVolumeAsync(vol.Path);
         if (!success)
@@ -3831,6 +3895,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             foreach (var vol in _volumeMonitorService.ExternalVolumes)
                 ExternalVolumes.Add(vol);
         }
+        OnPropertyChanged(nameof(CurrentLocationIcon));
     }
 
     private async void OnVolumesChanged()
@@ -3956,6 +4021,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task SetRatingAsync(string filePath, int rating)
     {
+        if (IsBrowseOnly) return;
         await _pinnedFolders.SetRatingAsync(filePath, rating, () => OnPropertyChanged(nameof(Entries)));
     }
 
@@ -3968,12 +4034,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task PinFolderAsync(string path, string displayName)
     {
+        if (IsBrowseOnly) return;
         await _fileOps.PinFolderAsync(path, displayName);
         await _pinnedFolders.LoadPinnedFoldersAsync();
     }
 
     public async Task UnpinFolderAsync(string path)
     {
+        if (IsBrowseOnly) return;
         await _fileOps.UnpinFolderAsync(path);
         await _pinnedFolders.LoadPinnedFoldersAsync();
     }
@@ -4044,7 +4112,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void QueueDirectoryIndexUpdate(string directoryPath, IReadOnlyList<FileSystemEntry> entries, DirectoryWork work)
     {
-        if (_fileIndexWriter == null || !_indexConfig.ShouldIndex(directoryPath) || entries.Count == 0)
+        if (_fileIndexWriter == null || !_indexConfig.ShouldIndex(directoryPath))
             return;
 
         var snapshot = entries.ToList();
@@ -4052,8 +4120,16 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             try
             {
+                // The batch API treats an absent directory as empty. Recheck before
+                // reconciling so a directory removed during enumeration cannot erase its index.
+                if (directoryPath != _fileService.TrashDirectory)
+                {
+                    var attributes = File.GetAttributes(directoryPath);
+                    if (!attributes.HasFlag(FileAttributes.Directory)) return;
+                }
                 await _fileIndexWriter.UpdateDirectoryAsync(directoryPath, snapshot, work.Token);
             }
+            catch (OperationCanceledException) when (work.Token.IsCancellationRequested) { }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Failed to update index for directory {Path}", directoryPath);

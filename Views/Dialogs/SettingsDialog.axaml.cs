@@ -99,6 +99,7 @@ public partial class SettingsDialog : DialogWindow
         _interactionStyleService.Initialize();
         LoadInteractionStyleSettings();
         LoadSearchLocations();
+        FileDeliveryToggle.IsChecked = _settingsService.Get(Services.Impl.FileDeliveryService.EnabledKey, true);
 
         if (ViewModel == null) return;
 
@@ -107,7 +108,6 @@ public partial class SettingsDialog : DialogWindow
         HideSystemFilesToggle.IsChecked = ViewModel.HideSystemFiles;
         HideDotFilesToggle.IsChecked = ViewModel.HideDotFiles;
         HideDotFoldersToggle.IsChecked = ViewModel.HideDotFolders;
-        FastFileListToggle.IsChecked = ViewModel.UseFastFileList;
         ConfirmBeforeTrashToggle.IsChecked = ViewModel.ConfirmBeforeTrash;
         DoubleClickEmptyAreaGoUpToggle.IsChecked = ViewModel.DoubleClickEmptyAreaGoUp;
         UsernameSettingLabel.Text = ViewModel.UserName;
@@ -128,19 +128,17 @@ public partial class SettingsDialog : DialogWindow
             FontSizePreset.Large => 2,
             _ => 1
         };
-        VibrancyToggle.IsChecked = _settingsService.Get("vibrancy_enabled", false);
-        VibrancySlider.Value = _settingsService.Get("vibrancy_alpha", 0.30);
-        VibrancySlider.IsEnabled = VibrancyToggle.IsChecked == true;
-        UpdateVibrancyLabel();
 
         AboutVersion.Text = $"版本 {_appUpdateService.CurrentVersion}";
     }
 
-    private void OnFastFileListChanged(object? sender, RoutedEventArgs e)
+    private void OnFileDeliveryChanged(object? sender, RoutedEventArgs e)
     {
-        if (!_initializing && ViewModel != null)
-            ViewModel.UseFastFileList = FastFileListToggle.IsChecked == true;
+        if (!_initializing)
+            App.Services.GetRequiredService<Services.Impl.FileDeliveryService>().Enabled = FileDeliveryToggle.IsChecked == true;
     }
+
+
 
     private void OnConfirmBeforeTrashChanged(object? sender, RoutedEventArgs e)
     {
@@ -440,31 +438,6 @@ public partial class SettingsDialog : DialogWindow
         return value is "hover" or "selected" or "selected-hover" or "text-highlight";
     }
 
-    private void OnVibrancyChanged(object? sender, RoutedEventArgs e)
-    {
-        if (_initializing) return;
-        var enabled = VibrancyToggle.IsChecked == true;
-        VibrancySlider.IsEnabled = enabled;
-        _settingsService.Set("vibrancy_enabled", enabled);
-        (Owner as MainWindow)?.ApplyAppearanceSettings();
-    }
-
-    private void OnVibrancyAlphaChanged(object? sender, global::Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
-    {
-        UpdateVibrancyLabel();
-        if (!_initializing)
-        {
-            _settingsService.Set("vibrancy_alpha", VibrancySlider.Value);
-            (Owner as MainWindow)?.ApplyAppearanceSettings();
-        }
-    }
-
-    private void UpdateVibrancyLabel()
-    {
-        if (VibrancyValueText != null)
-            VibrancyValueText.Text = $"{(int)Math.Round(VibrancySlider.Value * 100)}%";
-    }
-
     private async void ToggleAddApplicationPopup(object? sender, RoutedEventArgs e)
     {
         AddApplicationPopup.IsOpen = !AddApplicationPopup.IsOpen;
@@ -576,11 +549,10 @@ public partial class SettingsDialog : DialogWindow
             var toggle = new ToggleSwitch
             {
                 Tag = app,
-                Classes = { "settings-toggle" },
+                Classes = { "settings-toggle", "compact" },
                 IsChecked = app.IsTopLevel,
                 OnContent = string.Empty,
                 OffContent = string.Empty,
-                MinWidth = 38,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
             AutomationProperties.SetName(toggle, $"在右键菜单首层显示 {app.Label}");

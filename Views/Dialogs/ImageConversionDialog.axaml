@@ -7,16 +7,8 @@
     <controls:DialogWindow.Styles>
         <Style Selector="NumericUpDown">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        </Style>
-        <!-- Draw focus above the entire field so spinner backgrounds cannot cover its outline. -->
-        <Style Selector="Grid.image-size-field:focus-within > Border.focus-ring">
-            <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
-        </Style>
-        <Style Selector="NumericUpDown:focus-within, NumericUpDown:focus">
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
         </Style>
         <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
             <Setter Property="IsVisible" Value="False"/>
@@ -40,15 +32,11 @@
             <Grid Grid.Row="1" Classes="image-size-field">
                 <NumericUpDown x:Name="WidthInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
                                FormatString="0" ValueChanged="WidthChanged" AutomationProperties.Name="宽度（像素）"/>
-                <Border Classes="focus-ring" BorderThickness="1" CornerRadius="{DynamicResource InteractionCornerRadius}"
-                        IsHitTestVisible="False"/>
             </Grid>
             <TextBlock Grid.Row="1" Grid.Column="1" Text="×" VerticalAlignment="Center"/>
             <Grid Grid.Row="1" Grid.Column="2" Classes="image-size-field">
                 <NumericUpDown x:Name="HeightInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
                                FormatString="0" ValueChanged="HeightChanged" AutomationProperties.Name="高度（像素）"/>
-                <Border Classes="focus-ring" BorderThickness="1" CornerRadius="{DynamicResource InteractionCornerRadius}"
-                        IsHitTestVisible="False"/>
             </Grid>
         </Grid>
         <TextBlock Text="已锁定宽高比例，文件将保存到原文件旁。" FontSize="{DynamicResource FontSizeLabel}"

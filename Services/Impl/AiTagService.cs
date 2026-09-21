@@ -109,12 +109,13 @@ public class AiTagService : IAiTagService
 
     // ── Save & delete ──
 
-    public async Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result)
+    public async Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result, CancellationToken ct = default)
     {
         using var connectionLock = await AcquireConnectionAsync();
         using var transaction = _connection.BeginTransaction();
         try
         {
+            ct.ThrowIfCancellationRequested();
             // Clear old data (supports re-analysis)
             await DeleteAnalysisDataAsync(filePath, transaction);
 
@@ -129,6 +130,7 @@ public class AiTagService : IAiTagService
             // Insert text tags
             foreach (var text in result.RecognizedTexts)
             {
+                ct.ThrowIfCancellationRequested();
                 await InsertTagAsync(filePath, "text", text.Text, text.Confidence, now, transaction);
                 foreach (var keyword in text.Keywords)
                 {
@@ -189,6 +191,7 @@ public class AiTagService : IAiTagService
                 await statusCmd.ExecuteNonQueryAsync();
             }
 
+            ct.ThrowIfCancellationRequested();
             transaction.Commit();
         }
         catch

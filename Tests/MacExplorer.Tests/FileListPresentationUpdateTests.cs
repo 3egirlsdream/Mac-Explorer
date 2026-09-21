@@ -25,10 +25,7 @@ public class FileListPresentationUpdateTests
         var notifications = new List<string?>();
         entry.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
         entry.ThumbnailUrl = "/cache/a.png";
-        Assert.Contains(nameof(FileSystemEntry.ThumbnailUrl), notifications);
-        Assert.Contains(nameof(FileSystemEntry.GridIconSource), notifications);
-        Assert.DoesNotContain(nameof(FileSystemEntry.DetailsIconSource), notifications);
-        Assert.DoesNotContain(notifications, string.IsNullOrEmpty);
+        Assert.Equal(new[] { nameof(FileSystemEntry.ThumbnailUrl), nameof(FileSystemEntry.GridIconSource) }, notifications);
     }
 
     [Fact]

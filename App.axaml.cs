@@ -73,7 +73,8 @@ public partial class App : Application
         {
             _desktop = desktop;
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            var startupPath = desktop.Args?.FirstOrDefault(path => Directory.Exists(path) || File.Exists(path));
+            var startupPath = RuntimePaths.TestRoot
+                ?? desktop.Args?.FirstOrDefault(path => Directory.Exists(path) || File.Exists(path));
             mainWindow = CreateWindow(
                 string.IsNullOrEmpty(startupPath) ? null : Path.GetFullPath(startupPath),
                 isPrimary: true);
@@ -95,7 +96,11 @@ public partial class App : Application
                 }
                 finally { pluginsStopped = true; desktop.Shutdown(); }
             };
-            desktop.Exit += (_, _) => _startupUpdateCancellation.Cancel();
+            desktop.Exit += (_, _) =>
+            {
+                _startupUpdateCancellation.Cancel();
+                Services.GetRequiredService<FileDeliveryController>().Dispose();
+            };
 
             if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
                 activatable.Activated += OnApplicationActivated;
@@ -114,6 +119,7 @@ public partial class App : Application
 
         if (OperatingSystem.IsMacOS())
         {
+            Services.GetRequiredService<FileDeliveryController>().Initialize();
             DispatcherTimer.RunOnce(
                 () => Services.GetRequiredService<Platforms.MacCatalyst.Services.MacDockMenuService>().Register(),
                 TimeSpan.FromSeconds(1));
@@ -130,9 +136,8 @@ public partial class App : Application
         {
             if (_startupUpdateCancellation.IsCancellationRequested) return;
             var indexer = Services.GetRequiredService<SearchIndexer>();
-            indexer.EnsureRoot("/Applications");
-            indexer.EnsureRoot("/System/Applications");
-            indexer.EnsureRoot(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+            foreach (var root in RuntimePaths.StartupIndexRoots)
+                indexer.EnsureRoot(root);
         }, TimeSpan.FromSeconds(2));
     }
 
@@ -219,6 +224,7 @@ public partial class App : Application
 
     private static IServiceProvider ConfigureServices()
     {
+        RuntimePaths.PrepareTestRoot();
         var services = new ServiceCollection();
         var indexConfig = new IndexConfiguration();
         services.AddSingleton(indexConfig);
@@ -255,6 +261,10 @@ public partial class App : Application
         services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<HomeWorkspaceService>();
+        services.AddSingleton<FileDeliveryService>();
+        services.AddSingleton<FileDeliveryController>();
+        services.AddSingleton<HomeScriptRunner>();
         services.AddSingleton<IGlobalSearchScopeService, Services.Impl.GlobalSearchScopeService>();
         services.AddSingleton<FileListColumnLayoutService>();
         services.AddSingleton<WindowPlacementService>();
@@ -262,7 +272,7 @@ public partial class App : Application
         services.AddSingleton<IFinderTagQueryService, Platforms.MacCatalyst.Services.MacFinderTagQueryService>();
         services.AddSingleton<IFileTagStore, Platforms.MacCatalyst.Services.MacFileTagStore>();
         services.AddSingleton<IFileTagService, Services.Impl.FileTagService>();
-        services.AddSingleton<IFrequentFolderService>(sp => new Services.Impl.FrequentFolderService(sp.GetRequiredService<DatabaseConnectionFactory>(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
+        services.AddSingleton<IFrequentFolderService>(sp => new Services.Impl.FrequentFolderService(sp.GetRequiredService<DatabaseConnectionFactory>(), RuntimePaths.HomeDirectory));
         services.AddSingleton<IGitStatusService>(sp => new Services.Impl.GitStatusService(sp.GetService<ILoggerFactory>()));
         services.AddSingleton<IPinnedFolderService>(sp => new Services.Impl.PinnedFolderService(sp.GetRequiredService<DatabaseConnectionFactory>()));
         services.AddSingleton<IArchiveService, Services.Impl.ArchiveService>();
@@ -283,6 +293,8 @@ public partial class App : Application
         services.AddSingleton<NavigationBridge>();
         services.AddSingleton<IAiTagService>(sp => new Services.Impl.AiTagService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILoggerFactory>()));
         services.AddSingleton<IImageAnalysisService, Platforms.MacCatalyst.Services.MacImageAnalysisService>();
+        services.AddSingleton<IPdfTextExtractionService, Platforms.MacCatalyst.Services.MacPdfTextExtractionService>();
+        services.AddSingleton<PdfAnalysisService>();
         services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
         services.AddSingleton<IThemeService, Platforms.MacCatalyst.Services.MacThemeService>();
         services.AddSingleton<IInteractionStyleService, Services.Impl.InteractionStyleService>();
@@ -300,11 +312,16 @@ public partial class App : Application
             sp.GetRequiredService<IFileTagService>()));
         services.AddSingleton<IVolumeMonitorService>(sp => new Platforms.MacCatalyst.Services.MacVolumeMonitorService(sp.GetRequiredService<IAiTagService>(), sp.GetService<ILoggerFactory>()?.CreateLogger<Platforms.MacCatalyst.Services.MacVolumeMonitorService>()));
         services.AddSingleton<Platforms.MacCatalyst.Services.MacDockMenuService>();
-        services.AddScoped<NavigationViewModel>();
+        services.AddScoped<NavigationViewModel>(sp =>
+        {
+            var navigation = ActivatorUtilities.CreateInstance<NavigationViewModel>(sp);
+            navigation.TrackHomeUsageWith(sp.GetRequiredService<HomeWorkspaceService>());
+            return navigation;
+        });
         services.AddScoped<FileOpsViewModel>();
         services.AddScoped<SearchViewModel>();
         services.AddScoped<ArchiveViewModel>();
-        services.AddScoped<AiViewModel>(sp => new AiViewModel(sp.GetService<IAiTagService>(), sp.GetService<IThumbnailService>(), sp.GetService<IFileIndex>(), sp.GetService<IImageAnalysisService>(), sp.GetService<IBackgroundTaskManager>(), sp.GetService<ISettingsService>(), sp.GetService<ILogger<AiViewModel>>()));
+        services.AddScoped<AiViewModel>(sp => new AiViewModel(sp.GetService<IAiTagService>(), sp.GetService<IThumbnailService>(), sp.GetService<IFileIndex>(), sp.GetService<IImageAnalysisService>(), sp.GetService<IBackgroundTaskManager>(), sp.GetService<ISettingsService>(), sp.GetService<ILogger<AiViewModel>>(), sp.GetService<PdfAnalysisService>()));
         services.AddScoped<PinnedFoldersViewModel>();
         services.AddScoped<SortFilterViewModel>();
         services.AddScoped<FileListViewModel>(sp =>

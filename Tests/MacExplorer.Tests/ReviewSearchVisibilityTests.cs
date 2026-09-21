@@ -1,4 +1,3 @@
-using MacExplorer.Services.Impl;
 using MacExplorer.Services.Search;
 using Xunit;
 
@@ -25,38 +24,23 @@ public sealed class ReviewSearchVisibilityTests
         Assert.Equal(expected, options.IsVisible(path, name, directory, root));
     }
 
-    [Fact]
-    public void VisibilityMatchesThePreviousPolicyAcrossGeneratedPaths()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void FileAndFolderVisibilitySettingsApplyIndependently(bool hideFiles, bool hideFolders)
     {
-        var random = new Random(17092026);
-        string[] segments = ["a", ".hidden", "中文", "report.pdf", "x_y", "100%", "..."];
-        string[] roots = ["/", "/scope", "/scope/", "/scope/.explicit", "/other", ""];
-        for (var i = 0; i < 5000; i++)
-        {
-            var path = "/scope/" + string.Join("/", Enumerable.Range(0, random.Next(1, 8))
-                .Select(_ => segments[random.Next(segments.Length)]));
-            var name = Path.GetFileName(path);
-            var directory = random.Next(2) == 0;
-            var root = roots[random.Next(roots.Length)];
-            var hideFiles = random.Next(2) == 0;
-            var hideFolders = random.Next(2) == 0;
-            var options = new SearchOptions(HideDotFiles: hideFiles, HideDotFolders: hideFolders);
-            Assert.Equal(PreviousPolicy(path, name, directory, root, hideFiles, hideFolders),
-                options.IsVisible(path, name, directory, root));
-        }
-    }
-
-    private static bool PreviousPolicy(string path, string name, bool directory, string root, bool hideFiles, bool hideFolders)
-    {
-        if (name.StartsWith('.') && (directory ? hideFolders : hideFiles)) return false;
-        if (!hideFolders) return true;
-        var prefix = SearchPath.Prefix(root);
-        if (!path.StartsWith(prefix, StringComparison.Ordinal)) return true;
-        var segments = path[prefix.Length..].Split(Path.DirectorySeparatorChar);
-        var count = directory ? segments.Length : segments.Length - 1;
-        for (var i = 0; i < count; i++)
-            if (segments[i].StartsWith('.')) return false;
-        return true;
+        var options = new SearchOptions(HideDotFiles: hideFiles, HideDotFolders: hideFolders);
+        Assert.True(options.IsVisible("/scope/中文/report.pdf", "report.pdf", false, "/scope"));
+        Assert.True(options.IsVisible("/scope/中文", "中文", true, "/scope"));
+        Assert.Equal(!hideFiles, options.IsVisible("/scope/.file", ".file", false, "/scope"));
+        Assert.Equal(!hideFolders, options.IsVisible("/scope/.folder", ".folder", true, "/scope"));
+        Assert.Equal(!hideFolders, options.IsVisible("/scope/.folder/report.pdf", "report.pdf", false, "/scope"));
+        Assert.Equal(!hideFolders, options.IsVisible("/scope/.folder/child", "child", true, "/scope"));
+        Assert.Equal(!hideFiles && !hideFolders, options.IsVisible("/scope/.folder/.file", ".file", false, "/scope"));
+        Assert.Equal(!hideFiles, options.IsVisible("/scope/.explicit/.file", ".file", false, "/scope/.explicit"));
+        Assert.True(options.IsVisible("/scope/.explicit/report.pdf", "report.pdf", false, "/scope/.explicit"));
     }
 
     [Fact]

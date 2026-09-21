@@ -20,12 +20,10 @@ namespace MacExplorer.Tests;
 
 public sealed partial class FileListViewModelCreateTests
 {
-    [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TypeDropdownFiltersApplicationsSeparatelyFromFolders(bool fast)
+    [AvaloniaFact]
+    public void TypeDropdownFiltersApplicationsSeparatelyFromFolders()
     {
-        using var host = new HeaderFilterHost(fast, includeApplication: true);
+        using var host = new HeaderFilterHost(includeApplication: true);
         host.Click("TypeFilterButton");
         Assert.True(host.Popup.IsOpen);
         host.Check(".app");
@@ -35,12 +33,10 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(["Folder"], host.Vm.Entries.Select(e => e.Name));
     }
 
-    [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void HeaderFiltersSupportMultipleChecksFilenameAndKeyboardWithoutSorting(bool fast)
+    [AvaloniaFact]
+    public void HeaderFiltersSupportMultipleChecksFilenameAndKeyboardWithoutSorting()
     {
-        using var host = new HeaderFilterHost(fast);
+        using var host = new HeaderFilterHost();
         host.Click("TypeFilterButton");
         Assert.True(host.Popup.IsOpen);
         host.Check(".txt");
@@ -149,14 +145,13 @@ public sealed partial class FileListViewModelCreateTests
         public Window Window { get; }
         public Popup Popup => View.FindControl<Popup>("ColumnFilterPopup")!;
 
-        public HeaderFilterHost(bool fast = true, double width = 900, bool dark = false, bool includeApplication = false)
+        public HeaderFilterHost(double width = 900, bool dark = false, bool includeApplication = false)
         {
             Application.Current!.Styles.Insert(0, _theme);
             var fileService = new FakeFileService("/test");
             var sort = new SortFilterViewModel();
             Navigation = new NavigationViewModel(fileService) { CurrentPath = "/test", IsHomePage = false };
             Vm = CreateViewModel(fileService, navigation: Navigation, sortFilter: sort);
-            Vm.UseFastFileList = fast;
             var entries = new List<FileSystemEntry> { FileColumnFilterTests.File("Alpha.txt", 2048), FileColumnFilterTests.File("Alpha.png", 4000000),
                 FileColumnFilterTests.File("Zulu.txt", 1), new FileSystemEntry { Name = "Folder", FullPath = "/test/Folder", IsDirectory = true } };
             if (includeApplication)

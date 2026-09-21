@@ -38,36 +38,6 @@
         <Style Selector="local|ExplorerWorkspaceView:split Border.workspace-surface.active">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
         </Style>
-        <Style Selector="Button.workspace-nav-button">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="MinWidth" Value="32"/>
-            <Setter Property="MinHeight" Value="32"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.workspace-nav-button PathIcon">
-            <Setter Property="Width" Value="13"/>
-            <Setter Property="Height" Value="13"/>
-        </Style>
-        <Style Selector="Border.workspace-search">
-            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
-        </Style>
-        <Style Selector="Border.workspace-search:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-        <Style Selector="Border.workspace-search:focus-within">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
-        </Style>
-        <Style Selector="Button.workspace-nav-button:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-
         <Style Selector="Grid.workspace-search-host">
             <Setter Property="Width" Value="220"/>
             <Setter Property="Height" Value="32"/>
@@ -96,9 +66,16 @@
             <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}"/>
             <Setter Property="Opacity" Value="0.96"/>
         </Style>
+        <Style Selector="Grid#PageSurface">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
+        <Style Selector="Border#PageContentSurface">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
     </UserControl.Styles>
 
     <Border x:Name="WorkspaceSurface" Classes="workspace-surface" ClipToBounds="False">
+        <Grid>
         <SplitView x:Name="SidebarSplitView"
                    ClipToBounds="False"
                    PanePlacement="Left"
@@ -123,7 +100,7 @@
 
             <SplitView.Content>
                 <!-- Capture only the sidebar material, even while a cached compact layout is expanding. -->
-                <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource SurfaceBrush}"
+                <Grid x:Name="PageSurface" RowDefinitions="Auto,Auto,*"
                       glass:LiquidGlassBackdrop.IsExcludedFromCapture="True">
                     <Grid Grid.Row="0" x:Name="NavigationRow" Height="40"
                           IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}"
@@ -203,7 +180,7 @@
                         <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
                     </Border>
 
-                    <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}">
+                    <Border Grid.Row="2" x:Name="PageContentSurface">
                             <Grid RowDefinitions="Auto,*,Auto">
                                 <Border Grid.Row="0" IsVisible="{Binding FileList.IsSearchMode}" Padding="12,8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -300,5 +277,6 @@
                 </Grid>
             </SplitView.Content>
         </SplitView>
+        </Grid>
     </Border>
 </UserControl>

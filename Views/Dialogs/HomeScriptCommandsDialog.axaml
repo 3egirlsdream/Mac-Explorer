@@ -1,0 +1,33 @@
+<controls:DialogWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:controls="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
+                       x:Class="MacExplorer.Views.Dialogs.HomeScriptCommandsDialog"
+                       Width="620" Height="400" MinWidth="460" MinHeight="300" CanResize="True" Title="脚本命令">
+    <Window.Resources>
+        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
+    </Window.Resources>
+    <Window.Styles>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+        <Style Selector=":is(controls|AppWindow) /template/ Border#WindowFrame">
+            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+        </Style>
+    </Window.Styles>
+    <Grid RowDefinitions="*,Auto,Auto" Margin="16,6,16,16">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="CommandRows" Spacing="10" Margin="0,0,8,0"/>
+        </ScrollViewer>
+        <TextBlock Grid.Row="1" x:Name="ErrorText" IsVisible="False" TextWrapping="Wrap"
+                   Margin="0,8,0,0" Foreground="{DynamicResource DangerBrush}"/>
+        <DockPanel Grid.Row="2" LastChildFill="False" Margin="0,14,0,0">
+            <Button x:Name="AddButton" DockPanel.Dock="Left" Classes="ghost compact" Click="OnAdd">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Data="{x:Static icons:Icons.Plus}" Width="12" Height="12"/>
+                    <TextBlock Text="添加命令" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+                <Button Content="取消" Classes="secondary compact" Click="OnCancel"/>
+                <Button Content="保存" Classes="primary compact" Click="OnSave"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</controls:DialogWindow>

@@ -15,6 +15,16 @@ namespace LiquidGlassAvaloniaUI
                 "IsExcludedFromCapture",
                 false);
 
+        // Popup contents must not feed back into another popup's foreground snapshot.
+        public static readonly AttachedProperty<bool> IsExcludedFromForegroundCaptureProperty =
+            AvaloniaProperty.RegisterAttached<LiquidGlassBackdrop, Visual, bool>("IsExcludedFromForegroundCapture");
+
+        public static bool GetIsExcludedFromForegroundCapture(Visual visual) =>
+            visual.GetValue(IsExcludedFromForegroundCaptureProperty);
+
+        public static void SetIsExcludedFromForegroundCapture(Visual visual, bool value) =>
+            visual.SetValue(IsExcludedFromForegroundCaptureProperty, value);
+
         public static bool GetIsExcludedFromCapture(Visual visual)
         {
             if (visual is null)

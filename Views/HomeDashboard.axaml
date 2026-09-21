@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:MacExplorer.Assets" xmlns:controls="using:MacExplorer.Controls" x:Class="MacExplorer.Views.HomeDashboard">
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Margin="24,0,16,14" Spacing="6">
+            <TextBlock Text="最近使用" FontSize="18" FontWeight="SemiBold"/>
+            <ScrollViewer MaxHeight="100" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <WrapPanel x:Name="RecentItems" SizeChanged="OnRecentAreaSizeChanged"/>
+            </ScrollViewer>
+            <TextBlock x:Name="RecentEmpty" Text="打开文件或访问文件夹后，会在这里显示。" Classes="home-secondary" Margin="8,4"/>
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16,0,10,24" Spacing="16">
+                <TextBlock Text="收藏夹" Margin="8,0,0,0" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock x:Name="StatusMessage" IsVisible="False" Classes="home-secondary" TextWrapping="Wrap"/>
+                <controls:HomeFolderPanel Margin="0,0,0,8" x:Name="FolderItems" SizeChanged="OnFolderAreaSizeChanged"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

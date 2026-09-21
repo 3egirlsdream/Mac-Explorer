@@ -158,7 +158,7 @@ public sealed partial class FileListViewModelCreateTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ImageSizeSpinnersKeepFocusRingStableDuringRepeatedClicks(bool dark)
+    public void ImageSizeSpinnersStayBorderlessDuringRepeatedClicks(bool dark)
     {
         var fluent = new FluentTheme();
         var components = (Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
@@ -179,9 +179,8 @@ public sealed partial class FileListViewModelCreateTests
                 var editor = input.GetVisualDescendants().OfType<TextBox>().Single();
                 editor.Focus();
                 Dispatcher.UIThread.RunJobs();
-                var ring = ((Grid)input.Parent!).Children.OfType<Border>().Single();
-                var border = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(ring.BorderBrush).Color;
-                Assert.NotEqual(Avalonia.Media.Colors.Transparent, border);
+                Assert.Empty(((Grid)input.Parent!).Children.OfType<Border>());
+                Assert.Equal(new Thickness(0), input.BorderThickness);
                 var editorBorder = editor.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_BorderElement");
                 var initial = input.Value;
                 foreach (var button in input.GetVisualDescendants().OfType<RepeatButton>())
@@ -189,7 +188,7 @@ public sealed partial class FileListViewModelCreateTests
                     var presenter = button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
                         .Single(p => p.Name == "PART_ContentPresenter");
                     Assert.Equal(Avalonia.Media.Colors.Transparent, Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(presenter.BorderBrush).Color);
-                    Assert.Equal(new Thickness(1), ring.BorderThickness);
+                    Assert.Equal(new Thickness(0), input.BorderThickness);
                     var bounds = button.Bounds;
                     var point = button.TranslatePoint(new Point(bounds.Width / 2, bounds.Height / 2), dialog)!.Value;
                     for (var click = 0; click < 3; click++)
@@ -200,14 +199,14 @@ public sealed partial class FileListViewModelCreateTests
                             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                             Dispatcher.UIThread.RunJobs();
                             Assert.True(input.IsKeyboardFocusWithin);
-                            Assert.Equal(border, Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(ring.BorderBrush).Color);
+                            Assert.Equal(new Thickness(0), input.BorderThickness);
                             Assert.False(editorBorder.IsVisible);
                             Assert.Equal(bounds, button.Bounds);
                         }
                         dialog.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
                         Dispatcher.UIThread.RunJobs();
                         Assert.True(input.IsKeyboardFocusWithin);
-                        Assert.Equal(border, Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(ring.BorderBrush).Color);
+                        Assert.Equal(new Thickness(0), input.BorderThickness);
                     }
                 }
                 Assert.Equal(initial, input.Value);

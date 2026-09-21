@@ -238,10 +238,18 @@
         <Style Selector="ListBox.global-search-results ListBoxItem:selected">
             <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         </Style>
+        <Style Selector="Border#RootLayout">
+            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+        </Style>
+        <Style Selector="controls|ChromiumTabStripSurface">
+            <Setter Property="Fill" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
     </controls:AppWindow.Styles>
 
     <controls:AppWindow.TitleBarBackgroundContent>
-        <controls:ChromiumTabStripSurface x:Name="TabSurface" Fill="{DynamicResource SurfaceBrush}"/>
+        <Grid>
+            <controls:ChromiumTabStripSurface x:Name="TabSurface"/>
+        </Grid>
     </controls:AppWindow.TitleBarBackgroundContent>
 
     <controls:AppWindow.TitleBarContent>
@@ -281,7 +289,7 @@
                                              and 2-DIP content join when balancing the visible spacing. -->
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7"
                                               Margin="28,0,22,2">
-                                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Folder}"
+                                            <PathIcon Grid.Column="0" Data="{Binding FileList.CurrentLocationIcon}"
                                                       Width="14" Height="14"
                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Title}"
@@ -422,8 +430,7 @@
     </controls:AppWindow.TitleBarContent>
 
     <Grid>
-    <Border x:Name="RootLayout" CornerRadius="0"
-            Background="{DynamicResource ColorBgContent}">
+    <Border x:Name="RootLayout" CornerRadius="0">
         <Grid>
             <!-- Match the tab and toolbar through the top inset, including translucent themes.
                  Paint this band once so stacked translucent fills cannot create a dark seam. -->
@@ -434,6 +441,8 @@
             </Grid>
         </Grid>
     </Border>
+    <Grid x:Name="HomeFolderOverlayHost" IsVisible="False" Background="Transparent"
+          glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
     <!-- Task overlay panel — bottom-right overlay (before DialogHost so dialogs paint above it) -->
     <Border x:Name="TaskOverlayPanel"
             IsVisible="False"

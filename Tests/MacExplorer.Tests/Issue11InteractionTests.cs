@@ -191,15 +191,11 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(true, false, false)]
-    [InlineData(true, true, false)]
-    [InlineData(false, false, true)]
-    [InlineData(false, true, true)]
-    [InlineData(true, false, true)]
-    [InlineData(true, true, true)]
-    public async Task Issue11BackgroundDoubleClickIsOptInInEveryFileView(bool fast, bool grid, bool grouped)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Issue11BackgroundDoubleClickIsOptInInEveryFileView(bool grid, bool grouped)
     {
         using var theme = new FastListTestTheme();
         var root = Directory.CreateTempSubdirectory("issue11-background-").FullName;
@@ -208,7 +204,6 @@ public sealed partial class FileListViewModelCreateTests
         var files = new FakeFileService(child);
         files.Seed(new FileSystemEntry { FullPath = Path.Combine(child, "a.txt"), Name = "a.txt", Extension = ".txt" });
         using var vm = CreateViewModel(files);
-        vm.UseFastFileList = fast;
         vm.SetViewMode(grid ? ViewMode.Grid : ViewMode.List);
         vm.GroupField = grouped ? GroupField.Type : GroupField.None;
         await vm.RefreshAsync();
@@ -232,10 +227,8 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Directory.Delete(root, true); }
     }
 
-    [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Issue11BackgroundPreferenceDoesNotOverrideFolderDoubleClick(bool fast)
+    [AvaloniaFact]
+    public async Task Issue11BackgroundPreferenceDoesNotOverrideFolderDoubleClick()
     {
         using var theme = new FastListTestTheme();
         var root = Directory.CreateTempSubdirectory("issue11-folder-").FullName;
@@ -244,7 +237,6 @@ public sealed partial class FileListViewModelCreateTests
         var files = new FakeFileService(root);
         files.Seed(new FileSystemEntry { FullPath = child, Name = "child", IsDirectory = true });
         using var vm = CreateViewModel(files);
-        vm.UseFastFileList = fast;
         vm.DoubleClickEmptyAreaGoUp = true;
         await vm.RefreshAsync();
         var view = new FileListView { DataContext = vm };
@@ -253,7 +245,7 @@ public sealed partial class FileListViewModelCreateTests
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            var host = fast ? (Control)view.FindControl<FastFileList>("FastList")! : view.FindControl<ListBox>("FileItemsList")!;
+            var host = view.FindControl<FastFileList>("FastList")!;
             var point = host.TranslatePoint(new Point(750, 14), window)!.Value;
             DoubleClickIssue11(window, point);
             await WaitForIssue11Async(() => vm.CurrentPath == child && !vm.IsDirectoryLoading);
@@ -262,17 +254,14 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task Issue11GroupHeaderDoubleClickIsNotBackground(bool fast, bool grid)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Issue11GroupHeaderDoubleClickIsNotBackground(bool grid)
     {
         using var theme = new FastListTestTheme();
         var files = new FakeFileService("/tmp/Issue11");
         files.Seed(new FileSystemEntry { FullPath = "/tmp/Issue11/a.txt", Name = "a.txt", Extension = ".txt" });
         using var vm = CreateViewModel(files);
-        vm.UseFastFileList = fast;
         vm.SetViewMode(grid ? ViewMode.Grid : ViewMode.List);
         vm.GroupField = GroupField.Type;
         vm.DoubleClickEmptyAreaGoUp = true;
@@ -283,9 +272,7 @@ public sealed partial class FileListViewModelCreateTests
         {
             window.Show();
             RenderIssue11(window);
-            var header = fast ? (Control)view.FindControl<FastFileList>("FastList")!
-                : view.GetVisualDescendants().OfType<Control>()
-                    .First(control => control.Classes.Contains("file-group-row") && control.IsEffectivelyVisible);
+            var header = view.FindControl<FastFileList>("FastList")!;
             DoubleClickIssue11(window, header.TranslatePoint(new Point(50, 10), window)!.Value);
             Assert.Equal(files.HomeDirectory, vm.CurrentPath);
         }
@@ -353,18 +340,17 @@ public sealed partial class FileListViewModelCreateTests
 
     public static IEnumerable<object[]> Issue11FileAreaDropCases()
     {
-        foreach (var fast in new[] { false, true })
         foreach (var grid in new[] { false, true })
         foreach (var onFolder in new[] { false, true })
         foreach (var sameDirectory in new[] { false, true })
         foreach (var modifiers in new[] { KeyModifiers.None, KeyModifiers.Alt })
-            yield return [fast, grid, onFolder, sameDirectory, modifiers];
+            yield return [grid, onFolder, sameDirectory, modifiers];
     }
 
     [AvaloniaTheory]
     [MemberData(nameof(Issue11FileAreaDropCases))]
     public async Task Issue11FileAreaDropMovesToFinalPositionAndIgnoresSourceDirectory(
-        bool fast, bool grid, bool onFolder, bool sameDirectory, KeyModifiers modifiers)
+        bool grid, bool onFolder, bool sameDirectory, KeyModifiers modifiers)
     {
         using var theme = new FastListTestTheme();
         var root = Directory.CreateTempSubdirectory("issue11-drop-").FullName;
@@ -379,7 +365,6 @@ public sealed partial class FileListViewModelCreateTests
         files.Seed(sourceEntry);
         files.Seed(childEntry);
         using var vm = CreateViewModel(files);
-        vm.UseFastFileList = fast;
         vm.SetViewMode(grid ? ViewMode.Grid : ViewMode.List);
         await vm.RefreshAsync();
         // Cross-tab drops use the transfer, not the target tab's selection.
@@ -401,25 +386,8 @@ public sealed partial class FileListViewModelCreateTests
             RenderIssue11(window);
             Point GetFolderPoint()
             {
-                if (fast)
-                {
-                    var list = view.FindControl<FastFileList>("FastList")!;
-                    return list.TranslatePoint(list.RowBounds(list.IndexOfPath(child)).Center, surface)!.Value;
-                }
-                var row = view.GetVisualDescendants().OfType<Control>()
-                    .First(control => control.Classes.Contains("entry-content")
-                        && control.DataContext is FileSystemEntry entry && entry.FullPath == child && control.IsEffectivelyVisible);
-                return row.TranslatePoint(new Point(row.Bounds.Width / 2, row.Bounds.Height / 2), surface)!.Value;
-            }
-            if (!fast)
-            {
-                // Virtualized grid rows settle their clipping after the first layout pass.
-                await WaitForIssue11Async(() =>
-                {
-                    RenderIssue11(window);
-                    return surface.InputHitTest(GetFolderPoint()) is Control
-                        { DataContext: FileSystemEntry entry } && entry.FullPath == child;
-                });
+                var list = view.FindControl<FastFileList>("FastList")!;
+                return list.TranslatePoint(list.RowBounds(list.IndexOfPath(child)).Center, surface)!.Value;
             }
             var folderPoint = GetFolderPoint();
             var over = new DragEventArgs(DragDrop.DragOverEvent, data, surface, folderPoint, modifiers);

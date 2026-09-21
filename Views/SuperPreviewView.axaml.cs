@@ -65,7 +65,7 @@ public partial class SuperPreviewView : UserControl
         var location = await BuildInitialLocationAsync(entry);
         if (location == null)
         {
-            ShowPlaceholder("此项目无法在超级预览中显示");
+            ShowPlaceholder("此项目无法在预览中显示");
             return;
         }
 
@@ -173,6 +173,7 @@ public partial class SuperPreviewView : UserControl
                 var match = preferred == null
                     ? null
                     : _entries.FirstOrDefault(e => string.Equals(e.FullPath, preferred.FullPath, StringComparison.Ordinal));
+                match ??= _entries.FirstOrDefault();
                 ItemsList.SelectedItem = match;
                 _selectedEntry = match;
             }

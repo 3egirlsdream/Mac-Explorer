@@ -311,10 +311,33 @@ public sealed class FileConversionTests : IDisposable
     public async Task HelperTimeoutTerminatesProcess()
     {
         if (!OperatingSystem.IsMacOS()) return;
-        var helper = Write("slow-helper", "#!/bin/sh\nexec sleep 30\n");
+        var pidFile = Path.Combine(_root, "helper.pid");
+        var helper = Write("slow-helper", "#!/bin/sh\necho $$ > \"$1\"\nexec sleep 30\n");
         File.SetUnixFileMode(helper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        var service = new FileConversionService(helper, TimeSpan.FromMilliseconds(100));
-        await Assert.ThrowsAsync<TimeoutException>(() => service.RunHelperAsync([], CancellationToken.None));
+        var service = new FileConversionService(helper, TimeSpan.FromSeconds(2));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var run = service.RunHelperAsync([pidFile], deadline.Token);
+        Process? child = null;
+        try
+        {
+            string pid;
+            while (!File.Exists(pidFile) || string.IsNullOrWhiteSpace(pid = await File.ReadAllTextAsync(pidFile, deadline.Token)))
+                await Task.Delay(10, deadline.Token);
+            child = Process.GetProcessById(int.Parse(pid));
+            Assert.False(child.HasExited);
+            await Assert.ThrowsAsync<TimeoutException>(() => run.WaitAsync(deadline.Token));
+            await child.WaitForExitAsync(deadline.Token);
+            Assert.True(child.HasExited);
+        }
+        finally
+        {
+            if (child is { HasExited: false }) child.Kill(entireProcessTree: true);
+            child?.Dispose();
+            deadline.Cancel();
+            try { await run; }
+            catch (TimeoutException) { }
+            catch (OperationCanceledException) { }
+        }
     }
 
     [Fact]

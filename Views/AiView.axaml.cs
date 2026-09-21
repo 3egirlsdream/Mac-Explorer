@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Automation;
 using MacExplorer.ViewModels;
 
 namespace MacExplorer.Views;
@@ -56,15 +57,29 @@ public partial class AiView : UserControl
 
         foreach (var token in ViewModel.TextTokens)
         {
-            var button = AppTypography.BindFontSize(new Button
+            var label = new TextBlock { Text = token.TagValue, Classes = { "tag-label" } };
+            var count = new Border
             {
-                Content = $"{token.TagValue}  {token.FileCount}",
-                Padding = new global::Avalonia.Thickness(12, 6),
-                Margin = new global::Avalonia.Thickness(0, 0, 8, 8),
-                CornerRadius = new global::Avalonia.CornerRadius(6),
+                Classes = { "tag-count" },
+                Child = new TextBlock { Text = token.FileCount.ToString(), Classes = { "tag-count-text" } }
+            };
+            Grid.SetColumn(count, 1);
+            var content = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                ColumnSpacing = 8,
+                Children = { label, count }
+            };
+            var button = new Button
+            {
+                Content = content,
+                Classes = { "ghost", "compact", "tag-chip" },
+                Margin = new global::Avalonia.Thickness(0, 0, 6, 6),
                 Tag = token.TagValue
-            }, AppTypography.Label);
-            button.Classes.Add("secondary");
+            };
+            var description = $"{token.TagValue}，{token.FileCount} 个文件";
+            AutomationProperties.SetName(button, description);
+            ToolTip.SetTip(button, description);
             button.Click += async (_, _) =>
             {
                 if (ViewModel == null || button.Tag is not string query) return;
@@ -93,8 +108,8 @@ public partial class AiView : UserControl
             EmptyState.IsVisible = ViewModel?.TextTokens.Count == 0;
             EmptyTitle.Text = "还没有可搜索的识别内容";
             EmptyHint.Text = ViewModel?.IsAiAnalysisEnabled == true
-                ? "浏览图片文件夹，完成识别后可在这里搜索文字"
-                : "AI 智能分析已关闭，可在设置中开启后浏览图片文件夹";
+                ? "浏览包含图片与 PDF 的文件夹，完成识别后可在这里搜索文字"
+                : "AI 智能分析已关闭，可在设置中开启后浏览包含图片与 PDF 的文件夹";
         }
     }
 

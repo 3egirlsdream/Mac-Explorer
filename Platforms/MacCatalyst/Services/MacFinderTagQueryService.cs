@@ -36,6 +36,11 @@ public sealed class MacFinderTagQueryService : IFinderTagQueryService
             CreateNoWindow = true
         };
         startInfo.ArgumentList.Add("-0");
+        if (RuntimePaths.TestRoot is { } root)
+        {
+            startInfo.ArgumentList.Add("-onlyin");
+            startInfo.ArgumentList.Add(root);
+        }
         startInfo.ArgumentList.Add(query);
 
         using var process = new Process { StartInfo = startInfo };

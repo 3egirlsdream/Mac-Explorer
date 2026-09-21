@@ -9,7 +9,7 @@
         MinWidth="780" MinHeight="540"
         CanResize="True"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource SurfaceBackgroundBrush}">
+        Background="{DynamicResource TitleBarBackgroundBrush}">
 
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
@@ -30,29 +30,29 @@
                         <TextBlock Classes="settings-description" Text="让 MacExplorer 更贴合你的日常使用习惯。"/>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="系统"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="设为默认文件管理器"/>
                                             <TextBlock Classes="settings-description"
                                                        Text="通过系统打开文件夹及兼容应用的「在 Finder 中显示」时使用 MacExplorer。更改后需重启电脑。"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="DefaultManagerToggle" AutomationProperties.Name="设为默认文件管理器" Classes="settings-toggle"
+                                        <ToggleSwitch Grid.Column="1" x:Name="DefaultManagerToggle" AutomationProperties.Name="设为默认文件管理器" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnDefaultManagerChanged"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="AI 智能分析"/>
                                             <TextBlock Classes="settings-description"
-                                                       Text="浏览文件夹时自动分析图片内容。"/>
+                                                       Text="浏览文件夹时自动分析图片内容与 PDF 文字。"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="AiAnalysisToggle" AutomationProperties.Name="AI 智能分析" Classes="settings-toggle"
+                                        <ToggleSwitch Grid.Column="1" x:Name="AiAnalysisToggle" AutomationProperties.Name="AI 智能分析" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnAiAnalysisChanged"/>
                                     </Grid>
                                 </Border>
@@ -63,31 +63,46 @@
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="settings-section-title" Text="文件速递"/>
+                        <Border Classes="settings-group settings-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel>
+                                    <TextBlock Classes="settings-label" Text="在菜单栏显示文件速递"/>
+                                    <TextBlock Classes="settings-description" Text="从常用文件夹和收藏夹快速拖文件到其他软件，关闭主窗口后仍可使用。"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" x:Name="FileDeliveryToggle" Classes="settings-toggle compact"
+                                              AutomationProperties.Name="在菜单栏显示文件速递" VerticalAlignment="Center"
+                                              IsCheckedChanged="OnFileDeliveryChanged"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="文件操作"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="移到废纸篓前确认"/>
                                             <TextBlock Classes="settings-description"
                                                        Text="默认开启。关闭后直接移到废纸篓；远程删除、永久删除和清空废纸篓仍需确认。"/>
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" x:Name="ConfirmBeforeTrashToggle"
-                                                      AutomationProperties.Name="移到废纸篓前确认" Classes="settings-toggle"
+                                                      AutomationProperties.Name="移到废纸篓前确认" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnConfirmBeforeTrashChanged"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="双击空白处返回上级"/>
                                             <TextBlock Classes="settings-description"
                                                        Text="默认关闭。开启后，双击文件区域背景返回上级；双击文件或文件夹仍打开项目。"/>
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" x:Name="DoubleClickEmptyAreaGoUpToggle"
-                                                      AutomationProperties.Name="双击空白处返回上级" Classes="settings-toggle"
+                                                      AutomationProperties.Name="双击空白处返回上级" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnDoubleClickEmptyAreaGoUpChanged"/>
                                     </Grid>
                                 </Border>
@@ -105,13 +120,13 @@
                     <TextBlock Text="插件" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
-            <Grid Margin="24" RowDefinitions="Auto,*" RowSpacing="16" Classes="plugin-page">
-                <StackPanel Spacing="6">
+            <Grid RowDefinitions="Auto,*" RowSpacing="16" Classes="settings-page plugin-page">
+                <StackPanel Classes="settings-header">
                     <TextBlock Classes="settings-title" Text="插件"/>
                     <TextBlock Classes="settings-description" Text="插件可访问本地文件和网络，请仅安装信任的插件。" TextWrapping="Wrap"/>
                     <TextBlock x:Name="PluginStatusText" IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}" Classes="settings-description" TextWrapping="Wrap"/>
                 </StackPanel>
-                <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="Auto,32,*" ColumnSpacing="18" RowSpacing="10">
+                <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="Auto,32,*" ColumnSpacing="12" RowSpacing="10">
                     <TextBlock Text="已安装" Classes="settings-section-title"/>
                     <TextBlock Grid.Column="1" Text="插件市场" Classes="settings-section-title"/>
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
@@ -158,7 +173,7 @@
                             <PathIcon Data="{x:Static icons:Icons.Plus}"/>
                         </Button>
                     </Grid>
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title"
                                    Text="搜索文件夹"/>
                         <Border Classes="settings-group">
@@ -237,53 +252,40 @@
                 <StackPanel Classes="settings-page">
                     <StackPanel Classes="settings-header">
                         <TextBlock Classes="settings-title" Text="文件显示"/>
-                        <TextBlock Classes="settings-description" Text="调整浏览性能，以及文件和文件夹的可见性。"/>
+                        <TextBlock Classes="settings-description" Text="调整文件和文件夹的可见性。"/>
                     </StackPanel>
 
-                    <Border Classes="settings-group">
-                        <Border Classes="settings-row">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                <StackPanel>
-                                    <TextBlock Classes="settings-label" Text="高性能文件列表（试用）"/>
-                                    <TextBlock Classes="settings-description" Text="用于明细、分组和图标视图；需要逐项屏幕阅读时请关闭"/>
-                                </StackPanel>
-                                <ToggleSwitch Grid.Column="1" x:Name="FastFileListToggle" AutomationProperties.Name="高性能文件列表" Classes="settings-toggle"
-                                              IsCheckedChanged="OnFastFileListChanged"/>
-                            </Grid>
-                        </Border>
-                    </Border>
-
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="可见性"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="隐藏系统文件"/>
                                             <TextBlock Classes="settings-description" Text=".DS_Store、Thumbs.db 等系统文件"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="HideSystemFilesToggle" AutomationProperties.Name="隐藏系统文件" Classes="settings-toggle"
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideSystemFilesToggle" AutomationProperties.Name="隐藏系统文件" Classes="settings-toggle compact"
                                                       IsCheckedChanged="OnFileDisplayChanged" Tag="system"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row settings-divider">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="隐藏点文件"/>
                                             <TextBlock Classes="settings-description" Text="以 . 开头的隐藏文件"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFilesToggle" AutomationProperties.Name="隐藏点文件" Classes="settings-toggle"
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFilesToggle" AutomationProperties.Name="隐藏点文件" Classes="settings-toggle compact"
                                                       IsCheckedChanged="OnFileDisplayChanged" Tag="files"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="隐藏点文件夹"/>
                                             <TextBlock Classes="settings-description" Text="例如 .git、.config 等隐藏文件夹"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFoldersToggle" AutomationProperties.Name="隐藏点文件夹" Classes="settings-toggle"
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFoldersToggle" AutomationProperties.Name="隐藏点文件夹" Classes="settings-toggle compact"
                                                       IsCheckedChanged="OnFileDisplayChanged" Tag="folders"/>
                                     </Grid>
                                 </Border>
@@ -308,40 +310,40 @@
                         <TextBlock Classes="settings-description" Text="选择常用入口，打造顺手的侧边栏。"/>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="收藏"/>
                         <Border Classes="settings-group">
                             <StackPanel>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Person}"/><TextBlock Grid.Column="1" x:Name="UsernameSettingLabel" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示用户主目录" Tag="sidebar_show_username" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Desktop}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="桌面"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示桌面" Tag="sidebar_show_desktop" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.FileText}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文稿"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示文稿" Tag="sidebar_show_documents" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Download}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="下载"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示下载" Tag="sidebar_show_downloads" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Image}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="图片"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示图片" Tag="sidebar_show_pictures" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Music}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="音乐"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示音乐" Tag="sidebar_show_music" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Person}"/><TextBlock Grid.Column="1" x:Name="UsernameSettingLabel" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示用户主目录" Tag="sidebar_show_username" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Desktop}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="桌面"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示桌面" Tag="sidebar_show_desktop" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.FileText}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文稿"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示文稿" Tag="sidebar_show_documents" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Download}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="下载"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示下载" Tag="sidebar_show_downloads" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Image}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="图片"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示图片" Tag="sidebar_show_pictures" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Music}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="音乐"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示音乐" Tag="sidebar_show_music" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="位置"/>
                         <Border Classes="settings-group">
                             <StackPanel>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.ExternalDrive}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="Macintosh HD"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示Macintosh HD" Tag="sidebar_show_macintosh_hd" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Apps}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="应用程序"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示应用程序" Tag="sidebar_show_applications" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Trash}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="废纸篓"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示废纸篓" Tag="sidebar_show_trash" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.ExternalDrive}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="Macintosh HD"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示Macintosh HD" Tag="sidebar_show_macintosh_hd" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Apps}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="应用程序"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示应用程序" Tag="sidebar_show_applications" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Trash}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="废纸篓"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示废纸篓" Tag="sidebar_show_trash" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="AI 智能"/>
                         <Border Classes="settings-group">
                             <StackPanel>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.People}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="人物"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示人物" Tag="sidebar_show_ai_people" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Grid}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="分类"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示分类" Tag="sidebar_show_ai_categories" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Location}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="地点"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示地点" Tag="sidebar_show_ai_locations" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Calendar}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="日期"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示日期" Tag="sidebar_show_ai_dates" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Search}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文字搜索"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle" AutomationProperties.Name="显示文字搜索" Tag="sidebar_show_ai_text_search" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.People}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="人物"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示人物" Tag="sidebar_show_ai_people" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Grid}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="分类"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示分类" Tag="sidebar_show_ai_categories" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Location}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="地点"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示地点" Tag="sidebar_show_ai_locations" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Calendar}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="日期"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示日期" Tag="sidebar_show_ai_dates" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Search}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文字搜索"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示文字搜索" Tag="sidebar_show_ai_text_search" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -363,12 +365,12 @@
                         <TextBlock Classes="settings-description" Text="自定义主题、文字和交互反馈。"/>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="主题"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="界面主题"/>
                                             <TextBlock Classes="settings-description" Text="跟随系统或固定使用浅色、深色。"/>
@@ -384,11 +386,11 @@
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="字体"/>
                         <Border Classes="settings-group">
                             <Border Classes="settings-row">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel>
                                         <TextBlock Classes="settings-label" Text="界面字号"/>
                                         <TextBlock Classes="settings-description" Text="同时调整侧栏、文件列表和其他页面文字，修改后立即生效。"/>
@@ -404,12 +406,12 @@
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Spacing="7">
+                    <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="交互反馈"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="配置主题"/>
                                             <TextBlock Classes="settings-description" Text="浅色与深色分别保存颜色；切换主题时自动应用对应的一套。"/>
@@ -488,38 +490,6 @@
                         </Border>
                         <TextBlock x:Name="InteractionStyleStatusText" IsVisible="False" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource DangerBrush}"/>
                     </StackPanel>
-
-                    <StackPanel Spacing="7">
-                        <TextBlock Classes="settings-section-title" Text="材质"/>
-                        <Border Classes="settings-group">
-                            <StackPanel>
-                                <Border Classes="settings-row settings-divider">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                        <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="毛玻璃效果"/>
-                                            <TextBlock Classes="settings-description" Text="让窗口背景保留轻微透视层次。"/>
-                                        </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="VibrancyToggle" AutomationProperties.Name="毛玻璃效果" Classes="settings-toggle" IsCheckedChanged="OnVibrancyChanged"/>
-                                    </Grid>
-                                </Border>
-                                <Border Classes="settings-row">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                                        <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="透明度"/>
-                                            <TextBlock Classes="settings-description" Text="控制底层原生毛玻璃的透视强度。"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                            <Slider x:Name="VibrancySlider" AutomationProperties.Name="毛玻璃透明度" Width="126" Minimum="0" Maximum="1" TickFrequency="0.05" ValueChanged="OnVibrancyAlphaChanged"/>
-                                            <TextBlock x:Name="VibrancyValueText" Width="38" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-                        <Border Classes="settings-note">
-                            <TextBlock Text="毛玻璃设置会立即应用到主窗口。" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
-                        </Border>
-                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
@@ -531,11 +501,11 @@
                     <TextBlock Text="打开方式" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
-            <Grid Classes="settings-page" RowDefinitions="Auto,Auto,*" RowSpacing="20">
+            <Grid Classes="settings-page" RowDefinitions="Auto,Auto,*" RowSpacing="16">
                 <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
                     <TextBlock Grid.Row="0" Grid.Column="0" Classes="settings-title" Text="打开方式"/>
                     <Button x:Name="AddApplicationButton" AutomationProperties.Name="添加应用" Grid.Row="0" Grid.Column="1" Classes="secondary" Padding="12,7" VerticalAlignment="Top" Click="ToggleAddApplicationPopup">
-                        <StackPanel Orientation="Horizontal" Spacing="7">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
                             <TextBlock Text="添加" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -585,11 +555,11 @@
                         <TextBlock Classes="settings-description" Text="版本信息与软件更新。"/>
                     </StackPanel>
                     <Border Classes="settings-about-card">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                             <Border Width="76" Height="76" CornerRadius="10" ClipToBounds="True">
                                 <Image Source="/Assets/appicon.ico" VerticalAlignment="Center"/>
                             </Border>
-                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
                                 <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <Border Background="{DynamicResource ColorBgHover}" CornerRadius="20" Padding="12,4" HorizontalAlignment="Left">
                                     <TextBlock x:Name="AboutVersion" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -602,7 +572,7 @@
                     <Border Classes="settings-group">
                         <StackPanel>
                             <Border Classes="settings-row settings-divider">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel>
                                         <TextBlock Classes="settings-label" Text="软件更新"/>
                                         <TextBlock x:Name="UpdateStatus" Classes="settings-description"/>

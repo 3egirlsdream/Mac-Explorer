@@ -5,7 +5,7 @@ namespace MacExplorer.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 9;
+    public const int CurrentVersion = 10;
 
     /// <summary>
     /// Whether FTS5 is available (set during Initialize).
@@ -65,7 +65,9 @@ public static class SqliteSchema
                 """, transaction);
 
             ExecuteNonQuery(connection, """
-                CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
+                CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE OF name, path ON files
+                WHEN old.name IS NOT new.name OR old.path IS NOT new.path
+                BEGIN
                     INSERT INTO files_fts(files_fts, rowid, name, path) VALUES ('delete', old.rowid, old.name, old.path);
                     INSERT INTO files_fts(rowid, name, path) VALUES (new.rowid, new.name, new.path);
                 END
@@ -120,6 +122,9 @@ public static class SqliteSchema
         if (storedVersion < 9)
             MigrateToV9(connection, transaction);
 
+        if (storedVersion < 10 && IsFts5Available)
+            MigrateToV10(connection, transaction);
+
         // Record current version
         ExecuteNonQuery(connection, """
             INSERT OR REPLACE INTO schema_version (version) VALUES (@version)
@@ -127,6 +132,19 @@ public static class SqliteSchema
             ("@version", CurrentVersion));
 
         transaction.Commit();
+    }
+
+    private static void MigrateToV10(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        ExecuteNonQuery(connection, "DROP TRIGGER IF EXISTS files_au", transaction);
+        ExecuteNonQuery(connection, """
+            CREATE TRIGGER files_au AFTER UPDATE OF name, path ON files
+            WHEN old.name IS NOT new.name OR old.path IS NOT new.path
+            BEGIN
+                INSERT INTO files_fts(files_fts, rowid, name, path) VALUES ('delete', old.rowid, old.name, old.path);
+                INSERT INTO files_fts(rowid, name, path) VALUES (new.rowid, new.name, new.path);
+            END
+            """, transaction);
     }
 
     private static int GetStoredVersion(SqliteConnection connection, SqliteTransaction transaction)

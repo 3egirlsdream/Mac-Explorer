@@ -11,7 +11,7 @@ public interface IAiTagService : IDisposable
     Task<IReadOnlyList<string>> GetAnalyzedPathsInDirectoryAsync(string parentPath);
 
     // Save & delete
-    Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result);
+    Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result, CancellationToken ct = default);
     Task DeleteAnalysisForFileAsync(string filePath);
     Task DeleteAnalysisForFilesAsync(IReadOnlyList<string> filePaths);
     Task DeleteAnalysisForPathPrefixAsync(string pathPrefix);

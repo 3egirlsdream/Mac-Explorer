@@ -14,6 +14,28 @@ namespace MacExplorer.Tests;
 
 public class AppWindowTests
 {
+    [AvaloniaFact]
+    public void WindowOverlayCoversTitleBarAndContentWithoutDisablingThem()
+    {
+        var content = new Button { Content = "Content" };
+        var window = new AppWindow { Width = 640, Height = 480, Content = content };
+        window.Show();
+        try
+        {
+            var host = Assert.IsType<Grid>(window.WindowOverlayHost);
+            var overlay = new Border { Background = Avalonia.Media.Brushes.Transparent };
+            host.Children.Add(overlay);
+            window.UpdateLayout();
+            var titleBar = window.GetVisualDescendants().OfType<WindowTitleBar>().Single();
+            var point = titleBar.TranslatePoint(new Point(100, 10), window)!.Value;
+            window.MouseMove(point);
+            Assert.Same(overlay, window.InputHitTest(point));
+            Assert.Equal(window.Bounds.Size, host.Bounds.Size);
+            Assert.True(content.IsEffectivelyEnabled);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData("MinimizeButton")]
     [InlineData("FullScreenButton")]

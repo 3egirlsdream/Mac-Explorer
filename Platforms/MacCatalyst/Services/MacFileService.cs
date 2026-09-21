@@ -18,14 +18,14 @@ public class MacFileService : IFileService
     {
         _iconCache = iconCache;
         _iconCacheDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            RuntimePaths.LocalApplicationData,
             "MacExplorer", "icon-cache");
         if (!Directory.Exists(_iconCacheDir))
             Directory.CreateDirectory(_iconCacheDir);
     }
 
-    public string HomeDirectory => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-    public string RootDirectory => "/";
+    public string HomeDirectory => RuntimePaths.HomeDirectory;
+    public string RootDirectory => RuntimePaths.TestRoot ?? "/";
     // Use a sentinel path for trash - actual enumeration uses Finder AppleScript
     public string TrashDirectory => VirtualPath.SystemTrash;
 

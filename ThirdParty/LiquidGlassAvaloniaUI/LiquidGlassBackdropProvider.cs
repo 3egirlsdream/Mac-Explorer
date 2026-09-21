@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -24,6 +25,7 @@ namespace LiquidGlassAvaloniaUI
         private sealed class BackdropState
         {
             public bool CaptureQueued;
+            public bool CaptureForeground;
             public LiquidGlassBackdropSnapshot? Snapshot;
             public ulong SnapshotHash;
             public PixelSize SnapshotPixelSize;
@@ -53,6 +55,11 @@ namespace LiquidGlassAvaloniaUI
         }
 
         private static readonly ConditionalWeakTable<TopLevel, BackdropState> s_states = new();
+        private static readonly ConditionalWeakTable<TopLevel, BackdropState> s_foregroundStates = new();
+        private static ConditionalWeakTable<TopLevel, BackdropState> GetStates(bool foreground) =>
+            foreground ? s_foregroundStates : s_states;
+        private static bool CapturesForeground(Control control) => control is LiquidGlassSurface { CaptureForeground: true };
+
         private static int s_captureDepth;
         private static PropertyInfo? s_topLevelRendererProperty;
         private static PropertyInfo? s_dirtyRectProperty;
@@ -62,24 +69,46 @@ namespace LiquidGlassAvaloniaUI
             get => s_captureDepth > 0;
         }
 
+        // Native popups are separate visual roots. Sample their owning window using screen
+        // coordinates, so submenus keep native placement and can extend beyond the window.
+        internal static TopLevel? GetBackdropRoot(Control control)
+        {
+            var root = TopLevel.GetTopLevel(control);
+            while (root is PopupRoot popup) root = popup.ParentTopLevel;
+            return root;
+        }
+
+        internal static Matrix? GetBackdropTransform(Control control, TopLevel root)
+        {
+            var ownRoot = TopLevel.GetTopLevel(control);
+            if (ownRoot is null) return null;
+            var transform = control.TransformToVisual(ownRoot);
+            if (ReferenceEquals(ownRoot, root) || transform is null) return transform;
+            var origin = root.PointToClient(ownRoot.PointToScreen(default));
+            var scale = ownRoot.RenderScaling / root.RenderScaling;
+            return transform.Value * Matrix.CreateScale(scale, scale)
+                * Matrix.CreateTranslation(origin.X, origin.Y);
+        }
+
         public static LiquidGlassBackdropSnapshot? TryGetSnapshot(Control control)
         {
-            TopLevel? topLevel = TopLevel.GetTopLevel(control);
+            TopLevel? topLevel = GetBackdropRoot(control);
             if (topLevel is null)
                 return null;
 
-            return s_states.TryGetValue(topLevel, out BackdropState? state)
+            return GetStates(CapturesForeground(control)).TryGetValue(topLevel, out BackdropState? state)
                 ? System.Threading.Volatile.Read(ref state.Snapshot)
                 : null;
         }
 
         public static void EnsureSnapshot(Control control)
         {
-            TopLevel? topLevel = TopLevel.GetTopLevel(control);
+            TopLevel? topLevel = GetBackdropRoot(control);
             if (topLevel is null)
                 return;
 
-            BackdropState? state = s_states.GetOrCreateValue(topLevel);
+            BackdropState state = GetStates(CapturesForeground(control)).GetOrCreateValue(topLevel);
+            state.CaptureForeground = CapturesForeground(control);
             TrackSubscriber(state, control);
             CleanupSubscribers(state);
             EnsureRendererSubscription(topLevel, state);
@@ -108,11 +137,11 @@ namespace LiquidGlassAvaloniaUI
 
         public static void NotifySubscriberOnlyInvalidation(Control control)
         {
-            TopLevel? topLevel = TopLevel.GetTopLevel(control);
+            TopLevel? topLevel = GetBackdropRoot(control);
             if (topLevel is null)
                 return;
 
-            if (!s_states.TryGetValue(topLevel, out BackdropState? state))
+            if (!GetStates(CapturesForeground(control)).TryGetValue(topLevel, out BackdropState? state))
                 return;
 
             if (!TryCalculateControlVisualBounds(control, topLevel, out Rect bounds))
@@ -133,7 +162,7 @@ namespace LiquidGlassAvaloniaUI
         {
             for (int i = state.Subscribers.Count - 1; i >= 0; i--)
             {
-                if (!state.Subscribers[i].TryGetTarget(out _))
+                if (!state.Subscribers[i].TryGetTarget(out var subscriber) || !subscriber.IsAttachedToVisualTree())
                     state.Subscribers.RemoveAt(i);
             }
         }
@@ -214,7 +243,7 @@ namespace LiquidGlassAvaloniaUI
 
                 long nowTicks = DateTime.UtcNow.Ticks;
                 HashSet<Visual> excludedRoots = GetExcludedRoots(topLevel, state);
-                RenderVisualWithClip(state.ScratchBitmap, topLevel, clip.DipRect, excludedRoots);
+                RenderVisualWithClip(state.ScratchBitmap, topLevel, clip.DipRect, excludedRoots, state.CaptureForeground);
 
                 PixelPoint originInPixels = clip.PixelRect.Position;
 
@@ -318,7 +347,7 @@ namespace LiquidGlassAvaloniaUI
                     if (!topLevel.IsVisible)
                         return;
 
-                    if (!s_states.TryGetValue(topLevel, out BackdropState? current) || !ReferenceEquals(current, state))
+                    if (!GetStates(state.CaptureForeground).TryGetValue(topLevel, out BackdropState? current) || !ReferenceEquals(current, state))
                         return;
 
                     CleanupSubscribers(state);
@@ -498,14 +527,14 @@ namespace LiquidGlassAvaloniaUI
             if (!control.IsVisible || control.Bounds.Width <= 0 || control.Bounds.Height <= 0)
                 return false;
 
-            if (!ReferenceEquals(TopLevel.GetTopLevel(control), root))
+            if (!ReferenceEquals(GetBackdropRoot(control), root))
                 return false;
 
-            TransformedBounds? transformed = control.GetTransformedBounds();
-            if (transformed is null)
+            var transform = GetBackdropTransform(control, root);
+            if (transform is null)
                 return false;
 
-            bounds = transformed.Value.Bounds.TransformToAABB(transformed.Value.Transform);
+            bounds = new Rect(control.Bounds.Size).TransformToAABB(transform.Value);
             return true;
         }
 
@@ -626,10 +655,10 @@ namespace LiquidGlassAvaloniaUI
             return s_topLevelRendererProperty?.GetValue(topLevel);
         }
 
-        private static void RenderVisualWithClip(RenderTargetBitmap target, Visual visual, Rect clipRect, ISet<Visual>? excludedRoots)
+        private static void RenderVisualWithClip(RenderTargetBitmap target, Visual visual, Rect clipRect, ISet<Visual>? excludedRoots, bool captureForeground)
         {
             using DrawingContext ctx = target.CreateDrawingContext();
-            LiquidGlassVisualRenderer.Render(ctx, visual, clipRect, excludedRoots);
+            LiquidGlassVisualRenderer.Render(ctx, visual, clipRect, excludedRoots, captureForeground);
         }
 
         private static void TrackSubscriber(BackdropState state, Control control)

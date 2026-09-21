@@ -102,13 +102,14 @@ public class PathOmniboxProvider : IOmniboxProvider
                     Path.DirectorySeparatorChar,
                     Path.AltDirectorySeparatorChar));
 
+        var isFile = File.Exists(normalized);
         return new OmniboxSuggestion(
             OmniboxSuggestionKind.Path,
             string.IsNullOrEmpty(title) ? normalized : title,
             normalized,
             normalized,
-            AppIcons.Folder,
-            "#54A3F7");
+            isFile ? AppIcons.File : AppIcons.Folder,
+            isFile ? "#7C8798" : "#54A3F7");
     }
 
     internal static bool LooksLikePath(string value)
@@ -119,24 +120,8 @@ public class PathOmniboxProvider : IOmniboxProvider
            || value.Contains(Path.AltDirectorySeparatorChar);
 
     internal static bool IsNavigablePath(string path)
-        => Directory.Exists(path) || VirtualPath.IsRemotePath(path);
+        => OmniboxService.IsNavigablePath(path);
 
     internal static string NormalizePath(string value)
-    {
-        if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.IsFile)
-            value = uri.LocalPath;
-        else
-        {
-            try { value = Uri.UnescapeDataString(value); }
-            catch (UriFormatException) { }
-        }
-
-        if (value.StartsWith('~'))
-        {
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            value = home + value[1..];
-        }
-
-        return value;
-    }
+        => OmniboxService.NormalizePath(value);
 }

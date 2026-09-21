@@ -27,14 +27,7 @@ public class IndexConfiguration
     /// <summary>
     /// Database file path.
     /// </summary>
-    public string DatabasePath { get; set; } =
-        Environment.GetEnvironmentVariable("MACEXPLORER_DB_PATH")
-        ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Documents",
-            "MacExplorer",
-            "index.db"
-        );
+    public string DatabasePath { get; set; } = RuntimePaths.DatabasePath;
 
     /// <summary>
     /// Check if a path should be indexed.

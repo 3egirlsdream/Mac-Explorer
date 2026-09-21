@@ -407,10 +407,65 @@ public sealed class FileListLoadingPipelineTests
         }
     }
 
+    [AvaloniaFact]
+    public async Task SuccessfulEmptyDirectoryStillUpdatesItsIndex()
+    {
+        var root = Path.Combine("/tmp", "fkfinder-empty-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var writer = new FakeFileIndexWriter();
+            using var vm = CreateViewModel(new StreamingFakeFileService(root, []), indexWriter: writer);
+            await vm.RefreshAsync();
+            var updated = await writer.Updated.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            Assert.Equal(root, updated.Path);
+            Assert.Empty(updated.Entries);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [AvaloniaFact]
+    public async Task VirtualTrashListingDoesNotRequireAPhysicalSentinelDirectory()
+    {
+        var writer = new FakeFileIndexWriter();
+        var service = new StreamingFakeFileService(TestHome, []);
+        using var vm = CreateViewModel(service, indexWriter: writer);
+        await vm.NavigateToAsync(service.TrashDirectory);
+        var updated = await writer.Updated.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(service.TrashDirectory, updated.Path);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingOrFailedDirectoryDoesNotClearIndex(bool failEnumeration)
+    {
+        var root = Path.Combine("/tmp", "fkfinder-failed-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var writer = new FakeFileIndexWriter();
+            var service = new StreamingFakeFileService(root, []);
+            using var vm = CreateViewModel(service, indexWriter: writer);
+            await vm.RefreshAsync();
+            await writer.Updated.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            writer.Updated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (failEnumeration) service.EnumerationError = new UnauthorizedAccessException("test denied");
+            else Directory.Delete(root);
+            await vm.RefreshAsync();
+            // The queue runs off-thread; allow an incorrectly queued empty write to reach the spy.
+            await Task.Delay(200, TestContext.Current.CancellationToken);
+            Assert.False(writer.Updated.Task.IsCompleted);
+            if (failEnumeration) Assert.Contains("test denied", vm.ReadErrorMessage);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     private static FileListViewModel CreateViewModel(
         IFileService fileService,
         IRemoteFileService? remoteFileService = null,
-        IRemoteConnectionService? remoteConnectionService = null)
+        IRemoteConnectionService? remoteConnectionService = null,
+        FakeFileIndexWriter? indexWriter = null)
     {
         var navigation = new NavigationViewModel(fileService)
         {
@@ -418,7 +473,7 @@ public sealed class FileListLoadingPipelineTests
             IsHomePage = false
         };
         var index = new FakeFileIndex();
-        var writer = new FakeFileIndexWriter();
+        var writer = indexWriter ?? new FakeFileIndexWriter();
         var fileOps = new FileOpsViewModel(
             fileService: fileService,
             directoryChangeNotifier: null);
@@ -442,6 +497,7 @@ public sealed class FileListLoadingPipelineTests
 
     private sealed class StreamingFakeFileService(string homeDirectory, IReadOnlyList<FileSystemEntry> entries) : IFileService
     {
+        public Exception? EnumerationError { get; set; }
         public string HomeDirectory { get; } = homeDirectory;
         public string RootDirectory => "/";
         public string TrashDirectory => Path.Combine(HomeDirectory, ".Trash");
@@ -455,6 +511,7 @@ public sealed class FileListLoadingPipelineTests
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.Yield();
+            if (EnumerationError != null) throw EnumerationError;
             for (var i = 0; i < entries.Count; i += batchSize)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -599,7 +656,12 @@ public sealed class FileListLoadingPipelineTests
 
     private sealed class FakeFileIndexWriter : IFileIndexWriter
     {
-        public Task UpdateDirectoryAsync(string directoryPath, IReadOnlyList<FileSystemEntry> entries, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public TaskCompletionSource<(string Path, IReadOnlyList<FileSystemEntry> Entries)> Updated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task UpdateDirectoryAsync(string directoryPath, IReadOnlyList<FileSystemEntry> entries, CancellationToken cancellationToken = default)
+        {
+            Updated.TrySetResult((directoryPath, entries));
+            return Task.CompletedTask;
+        }
         public Task InvalidateDirectoriesAsync(IEnumerable<string> directoryPaths) => Task.CompletedTask;
         public Task RenameEntryAsync(string oldPath, string newPath, string newName) => Task.CompletedTask;
         public Task RemoveEntryAsync(string path) => Task.CompletedTask;

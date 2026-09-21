@@ -91,7 +91,7 @@ public sealed partial class FileListViewModelCreateTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public void FastListUsesLegacyNameAndSelectionGeometryAcrossThemesAndFontSizes(bool grid, bool grouped)
+    public void FastListKeepsContentGeometryAndThemeTokensAcrossFontSizes(bool grid, bool grouped)
     {
         using var theme = new FastListTestTheme();
         var styles = (Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml"));
@@ -125,29 +125,24 @@ public sealed partial class FileListViewModelCreateTests
                 window.Resources["FontSizeCaption"] = 11 * scale;
                 window.Resources["FontSizeMeta"] = 10 * scale;
                 window.Resources["TypographyListRowMinHeight"] = 28 * scale;
-                vm.UseFastFileList = false;
                 Dispatcher.UIThread.RunJobs();
-                var labels = view.GetVisualDescendants().OfType<TextBlock>()
-                    .Where(c => c.IsEffectivelyVisible && c.Classes.Contains("entry-name-text"))
-                    .ToDictionary(c => ((FileSystemEntry)c.DataContext!).FullPath);
-                Assert.Equal(names.Length, labels.Count);
-                var expected = labels.ToDictionary(pair => pair.Key, pair => BoundsInView(pair.Value));
-                var targets = view.GetVisualDescendants().OfType<Border>()
-                    .Where(c => c.IsEffectivelyVisible && c.Classes.Contains("file-grid-icon-target"))
-                    .ToDictionary(c => ((FileSystemEntry)c.DataContext!).FullPath, BoundsInView);
-                var foreground = labels.Values.First().Foreground;
-                var fontWeight = labels.Values.First().FontWeight;
-                vm.UseFastFileList = true;
-                Dispatcher.UIThread.RunJobs();
-                var origin = fast.TranslatePoint(default, view)!.Value;
                 foreach (var entry in vm.Entries)
                 {
                     var index = fast.IndexOf(entry);
-                    Assert.Equal(expected[entry.FullPath], fast.NameBounds(index).Translate((Vector)origin));
-                    if (grid) Assert.Equal(targets[entry.FullPath], fast.GridIconTargetBounds(index).Translate((Vector)origin));
+                    var name = fast.NameBounds(index);
+                    Assert.True(name.Width > 0 && name.Height > 0);
+                    Assert.Same(entry, fast.EntryAt(name.Center, contentOnly: true));
+                    if (grid)
+                    {
+                        var icon = fast.GridIconTargetBounds(index);
+                        Assert.True(icon.Bottom <= name.Top);
+                        Assert.Same(entry, fast.EntryAt(icon.Center, contentOnly: true));
+                    }
+                    else Assert.True(name.Right <= 12 + 22 + fast.ColumnWidths.Name);
                 }
+                Assert.Equal(FontWeight.Light, fast.FontWeight);
+                Assert.True(window.TryFindResource("TextPrimaryBrush", window.ActualThemeVariant, out var foreground));
                 Assert.Equal(foreground, fast.Foreground);
-                Assert.Equal(fontWeight, fast.FontWeight);
                 Assert.Equal(12 * scale, fast.DetailFontSize);
                 Assert.Equal(10 * scale, fast.MetaFontSize);
                 Assert.Equal(default, fast.SelectionOutline);
@@ -155,7 +150,5 @@ public sealed partial class FileListViewModelCreateTests
             }
         }
         finally { window.Close(); Application.Current!.Styles.Remove(styles); }
-
-        Rect BoundsInView(Control control) => new(control.TranslatePoint(default, view)!.Value, control.Bounds.Size);
     }
 }

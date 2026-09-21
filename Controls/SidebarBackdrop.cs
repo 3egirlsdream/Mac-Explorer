@@ -5,12 +5,14 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 
 namespace MacExplorer.Controls;
 
 // Kept beside the glass surface so the backdrop provider can capture it.
 public sealed class SidebarBackdrop : Control
 {
+    public bool UseWindowCoordinates { get; set; }
     private Bitmap? _bitmap;
     private (bool Dark, double Scale) _key;
 
@@ -38,7 +40,12 @@ public sealed class SidebarBackdrop : Control
             _bitmap = bitmap;
             _key = key;
         }
-        context.DrawImage(_bitmap, new Rect(Bounds.Size));
+        if (UseWindowCoordinates && TopLevel.GetTopLevel(this) is { } window && this.TranslatePoint(default, window) is { } offset)
+        {
+            using (context.PushClip(new Rect(Bounds.Size)))
+                context.DrawImage(_bitmap, new Rect(-offset.X, -offset.Y, window.Bounds.Width, window.Bounds.Height));
+        }
+        else context.DrawImage(_bitmap, new Rect(Bounds.Size));
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

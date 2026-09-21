@@ -21,7 +21,7 @@ namespace MacExplorer.Controls;
 /// <summary>Visible files and group headers share geometry for painting, selection and scrolling.</summary>
 public sealed class FastFileList : Control, ILogicalScrollable
 {
-    public const double RowHeight = FileListScrollAnchor.DetailsRowHeight;
+    public const double RowHeight = 30;
     private const double Inset = 13;
     private const double IconSlot = 22;
     private const int TextCacheLimit = 1024;
@@ -34,6 +34,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public static readonly StyledProperty<IBrush?> HoverProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Hover));
     public static readonly StyledProperty<IBrush?> SelectedProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Selected));
     public static readonly StyledProperty<IBrush?> SelectedHoverProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(SelectedHover));
+    public static readonly StyledProperty<IBrush?> AlternateRowProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(AlternateRow));
     public static readonly StyledProperty<IBrush?> DropBrushProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(DropBrush));
     public static readonly StyledProperty<FontFamily> FontFamilyProperty = AvaloniaProperty.Register<FastFileList, FontFamily>(nameof(FontFamily), FontFamily.Default);
     public static readonly StyledProperty<FontWeight> FontWeightProperty = AvaloniaProperty.Register<FastFileList, FontWeight>(nameof(FontWeight), FontWeight.Normal);
@@ -57,6 +58,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public IBrush? Hover { get => GetValue(HoverProperty); set => SetValue(HoverProperty, value); }
     public IBrush? Selected { get => GetValue(SelectedProperty); set => SetValue(SelectedProperty, value); }
     public IBrush? SelectedHover { get => GetValue(SelectedHoverProperty); set => SetValue(SelectedHoverProperty, value); }
+    public IBrush? AlternateRow { get => GetValue(AlternateRowProperty); set => SetValue(AlternateRowProperty, value); }
     public IBrush? DropBrush { get => GetValue(DropBrushProperty); set => SetValue(DropBrushProperty, value); }
     public FontFamily FontFamily { get => GetValue(FontFamilyProperty); set => SetValue(FontFamilyProperty, value); }
     public FontWeight FontWeight { get => GetValue(FontWeightProperty); set => SetValue(FontWeightProperty, value); }
@@ -151,7 +153,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     static FastFileList()
     {
         AffectsRender<FastFileList>(IsGridProperty, IsLoadingProperty, BackgroundProperty, ForegroundProperty, SecondaryProperty, HoverProperty,
-            SelectedProperty, SelectedHoverProperty, DropBrushProperty, FontFamilyProperty, FontWeightProperty,
+            SelectedProperty, SelectedHoverProperty, AlternateRowProperty, DropBrushProperty, FontFamilyProperty, FontWeightProperty,
             FontSizeProperty, DetailFontSizeProperty, CaptionFontSizeProperty, MetaFontSizeProperty, GroupMinHeightProperty,
             MutedProperty, DividerProperty, FocusRingProperty, SelectionOutlineProperty, FocusOutlineProperty, RowCornerRadiusProperty);
     }
@@ -195,7 +197,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             // Keep only compact metrics for this directory; formatted text stays bounded to the viewport cache.
             if (entry.IsVirtual && countHeight == null)
             {
-                var count = Format("0 张照片", MetaFontSize, Foreground, 100);
+                var count = Format("0 张照片", MetaFontSize, Secondary, 100);
                 countHeight = Math.Ceiling(count.Height);
                 count.Release();
             }
@@ -542,7 +544,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             if (!_headerTexts.TryGetValue(label, out var text))
             {
                 if (_headerTexts.Count >= TextCacheLimit) ClearHeaderTexts();
-                var title = Format(section.Name!, DetailFontSize, Foreground, Math.Max(1, Bounds.Width - 28), weight: FontWeight.SemiBold);
+                var title = Format(section.Name!, DetailFontSize, Secondary, Math.Max(1, Bounds.Width - 28), weight: FontWeight.SemiBold);
                 _headerTexts[label] = text = (title, Format($"· {section.Count} 项", CaptionFontSize, Muted, Math.Max(1, Bounds.Width - 28)));
             }
             var y = section.Top - _offset + 6;
@@ -560,7 +562,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             var entry = _rows[index];
             var row = RowBounds(index);
             var fill = entry.IsSelected ? index == hover ? SelectedHover : Selected
-                : index == hover ? Hover : null;
+                : index == hover ? Hover : index % 2 == 1 ? AlternateRow : null;
             if (IsGrid)
             {
                 RenderGridEntry(context, index);
@@ -660,7 +662,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var text = new RowText(entry,
             IsGrid ? GridName(entry).Retain() : Format(entry.DisplayName, FontSize, Foreground, _columns.Name - 16),
             CellText(FileListColumn.Modified, IsGrid ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
-            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Foreground, 100) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
+            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, 100) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
             CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8).Retain());
         _texts[entry.FullPath] = _textLru.AddFirst(text);
         if (_texts.Count > TextCacheLimit && _textLru.Last is { } last)

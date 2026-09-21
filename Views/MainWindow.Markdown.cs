@@ -33,7 +33,7 @@ public partial class MainWindow
         // Use the exact same overlay host as SuperPreview, below the app's modal DialogHost.
         // Construct lazily: starting the file manager should not construct an editor or Markdown renderer.
         var host = SuperPreviewControl.Parent as Panel
-            ?? throw new InvalidOperationException("超级预览缺少窗内浮层容器。");
+            ?? throw new InvalidOperationException("预览缺少窗内浮层容器。");
         var editor = new MarkdownEditorView
         {
             IsVisible = true,

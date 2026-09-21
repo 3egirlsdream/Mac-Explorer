@@ -30,7 +30,6 @@ public sealed class MacFileEnumerationPerformanceTests : IDisposable
         Assert.Equal(8, batched.Count);
         foreach (var actual in legacy.Concat(batched))
         {
-            // GetEntryAsync already used cached FileInfo/DirectoryInfo before this change.
             var expected = await service.GetEntryAsync(actual.FullPath);
             Assert.NotNull(expected);
             Assert.Equal(expected.Name, actual.Name);
@@ -45,9 +44,31 @@ public sealed class MacFileEnumerationPerformanceTests : IDisposable
             Assert.Equal(File.GetCreationTime(actual.FullPath), actual.Created);
             Assert.True(actual.IsReadable);
         }
-        Assert.Equal(2, batched.Count(entry => entry.IsHidden));
-        Assert.Equal(".jpg", batched.Single(entry => entry.Name == "PHOTO.JPG").Extension);
-        Assert.Equal("file-image", batched.Single(entry => entry.Name == "PHOTO.JPG").IconKey);
+        foreach (var snapshot in new[] { legacy, batched })
+        {
+            foreach (var name in new[] { "ordinary.txt", "PHOTO.JPG", ".hidden", "空 格.md" })
+            {
+                var file = Assert.Single(snapshot, entry => entry.Name == name);
+                Assert.Equal(Path.Combine(_root, name), file.FullPath);
+                Assert.False(file.IsDirectory);
+                Assert.False(file.IsSymbolicLink);
+                Assert.Equal(123, file.Size);
+                Assert.True(file.IsReadable);
+                Assert.True(file.IsWritable);
+                Assert.Equal(name == ".hidden", file.IsHidden);
+            }
+            foreach (var name in new[] { "folder", "Example.app", "Photo Booth Library", ".hidden-folder" })
+            {
+                var folder = Assert.Single(snapshot, entry => entry.Name == name);
+                Assert.True(folder.IsDirectory);
+                Assert.False(folder.IsSymbolicLink);
+                Assert.Equal(0, folder.Size);
+                Assert.Equal(name == ".hidden-folder", folder.IsHidden);
+                Assert.Equal(name is "Example.app" or "Photo Booth Library" ? "app-bundle" : "folder", folder.IconKey);
+            }
+            Assert.Equal(".jpg", snapshot.Single(entry => entry.Name == "PHOTO.JPG").Extension);
+            Assert.Equal("file-image", snapshot.Single(entry => entry.Name == "PHOTO.JPG").IconKey);
+        }
     }
 
     [Theory]

@@ -1,9 +1,17 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
+using MacExplorer.Controls;
+using MacExplorer.Models;
+using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Views;
+using MacExplorer.ViewModels;
 using Xunit;
 
 namespace MacExplorer.Tests;
@@ -148,23 +156,6 @@ public sealed class ExplorerWorkspaceViewTests
     }
 
     [AvaloniaFact]
-    public void CompactOverflowItemsMatchPrimaryActionStateAndTooltips()
-    {
-        var toolbar = new FinderToolbar { IsCompact = true };
-        var window = new Window { Width = 600, Height = 100, Content = toolbar };
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-
-        AssertActionPair(toolbar, "CutButton", "CutOverflowButton");
-        AssertActionPair(toolbar, "CopyButton", "CopyOverflowButton");
-        AssertActionPair(toolbar, "PasteButton", "PasteOverflowButton");
-        AssertActionPair(toolbar, "DeleteButton", "DeleteOverflowButton");
-        AssertActionPair(toolbar, "HomeButton", "HomeOverflowButton");
-
-        window.Close();
-    }
-
-    [AvaloniaFact]
     public void CompactToolbarKeepsTheFullStyleOfVisibleButtons()
     {
         var toolbar = new FinderToolbar { IsCompact = true };
@@ -208,24 +199,76 @@ public sealed class ExplorerWorkspaceViewTests
         Assert.False(panel.IsLivePreviewEnabled);
         window.Close();
     }
+}
 
-    [AvaloniaFact]
-    public void DisposeIsIdempotentAndClosesViewOwnedState()
+public sealed partial class FileListViewModelCreateTests
+{
+    [AvaloniaTheory]
+    [InlineData("NewDropdown")]
+    [InlineData("SortDropdown")]
+    [InlineData("MoreDropdown")]
+    [InlineData("PathInput")]
+    [InlineData("ContextMenu")]
+    public void DisposedWorkspaceClosesTransientUiAndStopsReactingToItsTab(string transientUi)
     {
-        var workspace = new ExplorerWorkspaceView();
+        using var vm = CreateViewModel(new FakeFileService("/tmp/workspace-dispose"));
+        vm.IsInfoPanelVisible = true;
+        vm.Entries.Add(new FileSystemEntry { FullPath = "/tmp/workspace-dispose/readme.txt", Name = "readme.txt" });
+        using var tab = new ExplorerTabViewModel(vm) { IsActive = true };
+        using var workspace = new ExplorerWorkspaceView { DataContext = tab };
+        var window = new Window { Width = 1280, Height = 800, Content = workspace };
+        window.Styles.Add(new FluentTheme());
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var surface = workspace.FindControl<Border>("WorkspaceSurface")!;
+            var list = workspace.FindControl<FileListView>("FileListControl")!;
+            var drawer = workspace.FindControl<SplitView>("InfoDrawer")!;
+            Assert.Contains("active", surface.Classes);
+            Assert.True(list.IsVisible);
+            Assert.True(drawer.IsPaneOpen);
+            Func<bool> isOpen;
+            if (transientUi == "ContextMenu")
+            {
+                var fast = list.FindControl<FastFileList>("FastList")!;
+                var point = fast.TranslatePoint(new Point(70, 15), window)!.Value;
+                window.MouseDown(point, MouseButton.Right, RawInputModifiers.RightMouseButton);
+                window.MouseUp(point, MouseButton.Right, RawInputModifiers.None);
+                Dispatcher.UIThread.RunJobs();
+                var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>(), item => item.IsOpen);
+                Assert.True(vm.IsContextMenuVisible);
+                isOpen = () => menu.IsOpen;
+            }
+            else if (transientUi == "PathInput")
+            {
+                var breadcrumb = workspace.FindControl<BreadcrumbBar>("BreadcrumbControl")!;
+                breadcrumb.FocusPathInput();
+                var input = breadcrumb.FindControl<TextBox>("PathInput")!;
+                isOpen = () => input.IsVisible;
+            }
+            else
+            {
+                var toolbar = workspace.FindControl<FinderToolbar>("ToolbarControl")!;
+                var popup = toolbar.FindControl<Popup>(transientUi)!;
+                popup.IsOpen = true;
+                isOpen = () => popup.IsOpen;
+            }
+            Assert.True(isOpen());
 
-        workspace.Dispose();
-        workspace.Dispose();
+            workspace.Dispose();
+            workspace.Dispose();
+            Assert.True(workspace.IsDisposed);
+            Assert.False(isOpen());
+            Assert.False(vm.IsContextMenuVisible);
 
-        Assert.True(workspace.IsDisposed);
-    }
-
-    private static void AssertActionPair(FinderToolbar toolbar, string primaryName, string overflowName)
-    {
-        var primary = toolbar.FindControl<Button>(primaryName)!;
-        var overflow = toolbar.FindControl<Button>(overflowName)!;
-        Assert.Equal(primary.IsEnabled, overflow.IsEnabled);
-        Assert.Equal(ToolTip.GetTip(primary), ToolTip.GetTip(overflow));
-        Assert.Same(primary.DataContext, overflow.DataContext);
+            tab.IsActive = false;
+            vm.IsInfoPanelVisible = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("active", surface.Classes);
+            Assert.True(list.IsVisible);
+            Assert.True(drawer.IsPaneOpen);
+        }
+        finally { window.Close(); }
     }
 }

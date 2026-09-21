@@ -111,8 +111,6 @@ public sealed partial class FileListViewModelCreateTests
         {
             foreach (var selected in new[] { false, true, false })
             {
-                window.Content = null;
-                window.Content = toolbar;
                 vm.SelectedEntries.Clear();
                 if (selected)
                     vm.SelectedEntries.Add(new MacExplorer.Models.FileSystemEntry
@@ -120,8 +118,20 @@ public sealed partial class FileListViewModelCreateTests
                 Dispatcher.UIThread.RunJobs();
                 foreach (var action in new[] { "Cut", "Copy", "Delete" })
                 {
-                    Assert.Equal(selected, toolbar.FindControl<Button>(action + "Button")!.IsEnabled);
-                    Assert.Equal(selected, toolbar.FindControl<Button>(action + "OverflowButton")!.IsEnabled);
+                    var primary = toolbar.FindControl<Button>(action + "Button")!;
+                    var overflow = toolbar.FindControl<Button>(action + "OverflowButton")!;
+                    Assert.Equal(selected, primary.IsEnabled);
+                    Assert.Equal(selected, overflow.IsEnabled);
+                }
+                foreach (var action in new[] { "Cut", "Copy", "Paste", "Delete", "Home" })
+                {
+                    var primary = toolbar.FindControl<Button>(action + "Button")!;
+                    var overflow = toolbar.FindControl<Button>(action + "OverflowButton")!;
+                    Assert.False(string.IsNullOrWhiteSpace(ToolTip.GetTip(primary) as string));
+                    Assert.Equal(ToolTip.GetTip(primary), ToolTip.GetTip(overflow));
+                    Assert.Equal(primary.IsEnabled, overflow.IsEnabled);
+                    Assert.Same(vm, primary.DataContext);
+                    Assert.Same(vm, overflow.DataContext);
                 }
             }
         }

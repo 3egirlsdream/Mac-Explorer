@@ -21,6 +21,7 @@ namespace LiquidGlassAvaloniaUI
         private static bool s_loaded;
 
         private readonly Rect _bounds;
+        private readonly Matrix? _backdropTransform;
         private readonly LiquidGlassDrawParameters _parameters;
         private readonly LiquidGlassBackdropSnapshot? _backdropSnapshot;
         private readonly LiquidGlassDrawPass _pass;
@@ -29,9 +30,10 @@ namespace LiquidGlassAvaloniaUI
             Rect bounds,
             LiquidGlassDrawParameters parameters,
             LiquidGlassBackdropSnapshot? snapshot,
-            LiquidGlassDrawPass pass)
+            LiquidGlassDrawPass pass, Matrix? backdropTransform = null)
         {
             _bounds = bounds;
+            _backdropTransform = backdropTransform;
             _parameters = parameters;
             _backdropSnapshot = snapshot is not null && snapshot.TryAddLease() ? snapshot : null;
             _pass = pass;
@@ -71,7 +73,12 @@ namespace LiquidGlassAvaloniaUI
             switch (_pass)
             {
                 case LiquidGlassDrawPass.Lens:
-                    RenderLens(canvas, lease.GrContext);
+                    if (_backdropSnapshot is not null)
+                    {
+                        lock (_backdropSnapshot.FilteredSyncRoot)
+                            RenderLens(canvas, lease.GrContext);
+                    }
+                    else RenderLens(canvas, lease.GrContext);
                     break;
                 case LiquidGlassDrawPass.InteractiveHighlight:
                     RenderInteractiveHighlight(canvas);
@@ -132,7 +139,18 @@ namespace LiquidGlassAvaloniaUI
                 return;
             }
 
+            // A subtree capture starts its canvas at (0,0), while the backdrop
+            // remains in window coordinates. Sample using the surface's actual
+            // window transform so screenshots match the live glass.
             SKMatrix currentTransform = canvas.TotalMatrix;
+            if (_backdropTransform is { } transform)
+            {
+                var scale = _backdropSnapshot.Scaling;
+                currentTransform = new SKMatrix(
+                    (float)(transform.M11 * scale), (float)(transform.M21 * scale), (float)(transform.M31 * scale),
+                    (float)(transform.M12 * scale), (float)(transform.M22 * scale), (float)(transform.M32 * scale),
+                    0, 0, 1);
+            }
             if (!currentTransform.TryInvert(out SKMatrix currentInvertedTransform))
                 return;
 
@@ -455,8 +473,19 @@ namespace LiquidGlassAvaloniaUI
                 canvas.DrawImage(filterSource, 0, 0, paint);
                 canvas.Flush();
 
-                SKImage? filteredImage = surface.Snapshot();
-                return new LiquidGlassBackdropSnapshot.FilteredResult(filteredImage, filteredOrigin);
+                // The snapshot cache is shared by compositor rendering and UI-thread
+                // RenderTargetBitmap captures. Never let cache eviction on either
+                // thread release a texture owned by the other thread's GRContext.
+                SKImage filteredImage = surface.Snapshot();
+                if (!filteredImage.IsTextureBacked)
+                    return new LiquidGlassBackdropSnapshot.FilteredResult(filteredImage, filteredOrigin);
+
+                using (filteredImage)
+                {
+                    var rasterImage = filteredImage.ToRasterImage();
+                    return rasterImage is null ? null
+                        : new LiquidGlassBackdropSnapshot.FilteredResult(rasterImage, filteredOrigin);
+                }
             }
         }
 

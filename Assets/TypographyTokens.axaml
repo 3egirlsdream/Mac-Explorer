@@ -43,6 +43,6 @@
     <sys:Double x:Key="TypographyListRowMinHeight">28</sys:Double>
     <sys:Double x:Key="TypographyTextControlMinHeight">34</sys:Double>
     <sys:Double x:Key="TypographyInlineEditorHeight">22</sys:Double>
-    <sys:Double x:Key="TypographySettingsRowMinHeight">52</sys:Double>
-    <sys:Double x:Key="TypographySettingsCompactRowMinHeight">40</sys:Double>
+    <sys:Double x:Key="TypographySettingsRowMinHeight">44</sys:Double>
+    <sys:Double x:Key="TypographySettingsCompactRowMinHeight">32</sys:Double>
 </ResourceDictionary>

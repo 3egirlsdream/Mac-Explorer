@@ -25,25 +25,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Views;
 
-public sealed class FileListPresentationRow
-{
-    public string GroupName { get; init; } = string.Empty;
-    public int GroupItemCount { get; init; }
-    public FileSystemEntry? Entry { get; init; }
-    public bool IsGroupHeader => Entry == null;
-    public bool HasEntries => Entry != null;
-    public IReadOnlyList<FileSystemEntry> Entries => Entry == null ? [] : [Entry];
-}
-
-public sealed class FileGridPresentationRow
-{
-    public string GroupName { get; init; } = string.Empty;
-    public int GroupItemCount { get; init; }
-    public IReadOnlyList<FileSystemEntry> Entries { get; init; } = [];
-    public bool IsGroupHeader => Entries.Count == 0;
-    public bool HasEntries => Entries.Count > 0;
-}
-
 public partial class FileListView : UserControl
 {
     private static readonly ByteLruCache MenuIconCache = new(8L * 1024 * 1024);
@@ -54,30 +35,8 @@ public partial class FileListView : UserControl
     internal static Bitmap? TryGetCachedEntryImage(string source)
         => EntryImageCache.TryGet(source, out var bitmap) ? bitmap : null;
     private static readonly SemaphoreSlim EntryImageLoadGate = new(4);
-    private readonly ObservableCollection<FileListPresentationRow> _groupedListRows = [];
-    private readonly ObservableCollection<FileGridPresentationRow> _gridRows = [];
-    private readonly Dictionary<string, FileListPresentationRow> _groupedRowByPath = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, FileGridPresentationRow> _gridRowByPath = new(StringComparer.Ordinal);
-    private int _gridColumnCount;
     private FileListColumnWidths? _lastAppliedColumnWidths;
     private bool _anyCutApplied;
-
-    private sealed class EntryImageLoadState
-    {
-        public required string Source { get; set; }
-        public required CancellationTokenSource Cancellation { get; init; }
-    }
-
-    // Carries the pending thumbnail subscription for an icon so recycled virtualization
-    // containers can detach it deterministically instead of accumulating lambdas.
-    private sealed class EntryThumbnailAwaitState
-    {
-        public required FileSystemEntry Entry { get; init; }
-        public required PropertyChangedEventHandler Handler { get; init; }
-    }
-
-    private static readonly AttachedProperty<EntryThumbnailAwaitState?> ThumbnailAwaitProperty =
-        AvaloniaProperty.RegisterAttached<FileListView, Image, EntryThumbnailAwaitState?>("ThumbnailAwait");
 
     private sealed class BitmapLruCache
     {
@@ -198,10 +157,7 @@ public partial class FileListView : UserControl
     private ContextMenu? _openMenu;
     private readonly List<Bitmap> _menuOwnedBitmaps = [];
     private int _menuRequestVersion;
-    private bool _syncingSelection;
-    private bool _clearingPresentationSelection;
     private TextBox? _renameEditor;
-    private TextBlock? _renameLabel;
     private bool _finishingRename;
     private string? _activeRenamePath;
     private string? _suppressSlowRenamePath;
@@ -222,38 +178,21 @@ public partial class FileListView : UserControl
     private CancellationTokenSource? _renameDelayCts;
     private bool _collapseSelectionOnRelease;
     private FileSystemEntry? _pressedEntry;
-    private Control? _dragOverVisual;
     private FileSystemEntry? _dragOverTargetEntry;
     private FileSystemEntry? _rightPressedEntry;
     private Control? _rightPressedAnchor;
-    private FileSystemEntry[]? _rightClickSelectionSnapshot;
-    // Avalonia's ListBox can raise a deferred SelectionChanged after a secondary
-    // click has already been released. Keep a guard for the whole context-menu
-    // interaction instead of only while the pointer is physically pressed.
-    private bool _contextMenuSelectionGuard;
     private bool _selectionSyncQueued;
     private bool _entriesVisualRefreshQueued;
     private bool _sizeRefreshQueued;
-    private Vector _pendingEntriesScrollOffset;
     private int _scrollRestoreVersion;
-    private int _savedScrollOffsetAppliedVersion;
-    private bool _applyingViewModelEntries;
     private bool _restoringNavigationSelection;
     private bool _restoringNavigationSelectionToTop;
-    private bool _allowRestoreBringIntoView;
-    private DateTime _ignoreEmptySelectionUntilUtc;
     private Point? _marqueeStart;
     private IPointer? _marqueePointer;
     private bool _marqueeActive;
-    private bool _suppressControlSelectionDuringMarquee;
     private KeyModifiers _marqueeModifiers;
     private FileSystemEntry? _marqueeClickEntry;
     private HashSet<FileSystemEntry> _marqueeBaseSelection = [];
-    // An entry can have several separate Finder-style hit regions (icon, name,
-    // modified date, size and kind). Keeping those rectangles separate prevents
-    // the whitespace between columns, or to the right of a row, from selecting
-    // an unrelated item merely because it shares the same vertical row.
-    private readonly Dictionary<FileSystemEntry, List<Rect>> _marqueeEntryBounds = [];
     private readonly DispatcherTimer _marqueeScrollTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
     private Point _marqueeCurrentViewportPoint;
     private ScrollViewer? _marqueeScrollViewer;
@@ -263,8 +202,6 @@ public partial class FileListView : UserControl
         InitializeComponent();
         InitializeSnapshotAnchoring();
         InitializeFastFileList();
-        GroupedListItems.ItemsSource = _groupedListRows;
-        GridViewItems.ItemsSource = _gridRows;
         SizeChanged += (_, _) =>
         {
             if (_sizeRefreshQueued) return;
@@ -272,7 +209,6 @@ public partial class FileListView : UserControl
             Dispatcher.UIThread.Post(() =>
             {
                 _sizeRefreshQueued = false;
-                RebuildGridRowsIfColumnCountChanged();
                 ApplyListColumnWidths();
             }, DispatcherPriority.Render);
         };
@@ -280,7 +216,7 @@ public partial class FileListView : UserControl
         AddHandler(PointerReleasedEvent, OnGlobalPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(Control.RequestBringIntoViewEvent, OnRequestBringIntoView, RoutingStrategies.Bubble, handledEventsToo: true);
         // Track the complete gesture at the view root. On macOS, pointer capture can
-        // reroute subsequent moves above the inner ListBox/FileScroll control; root
+        // reroute subsequent moves above the file surface; root
         // tunnel handlers keep the press -> move -> release chain intact.
         AddHandler(PointerPressedEvent, OnEmptyAreaPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerMovedEvent, OnMarqueePointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -323,7 +259,7 @@ public partial class FileListView : UserControl
 
         UpdateViewMode();
         UpdateEmptyState();
-        RebuildPresentationRows();
+        SyncFastListRows();
         QueueSelectionSynchronization();
         UpdateCutStates();
         ApplyListColumnWidths();
@@ -380,7 +316,7 @@ public partial class FileListView : UserControl
         if (e.PropertyName == nameof(FileListViewModel.ViewMode))
         {
             UpdateViewMode();
-            RebuildPresentationRows();
+            SyncFastListRows();
             Dispatcher.UIThread.Post(() =>
             {
                 ApplyListColumnWidths();
@@ -390,7 +326,6 @@ public partial class FileListView : UserControl
 
         if (e.PropertyName is nameof(FileListViewModel.GroupField)
             or nameof(FileListViewModel.Groups)
-            or nameof(FileListViewModel.UseFastFileList)
             or nameof(FileListViewModel.IsHomePage)
             or nameof(FileListViewModel.CurrentPath)
             or nameof(FileListViewModel.IsRemoteView)
@@ -423,32 +358,17 @@ public partial class FileListView : UserControl
                 return;
             }
 
-            _applyingViewModelEntries = true;
             SubscribeEntriesCollection(ViewModel?.Entries);
             var scrollMode = ViewModel?.ScrollBehaviorAfterLoad ?? FileListViewModel.ScrollMode.ResetToTop;
             var preservedOffset = GetActiveScrollViewer()?.Offset ?? default;
             UpdateEmptyState();
-            RebuildPresentationRows();
+            SyncFastListRows();
             Dispatcher.UIThread.Post(() =>
             {
-                try
-                {
-                    ApplyListColumnWidths();
-                    if (scrollMode == FileListViewModel.ScrollMode.RestoreNavigation)
-                    {
-                        ApplyScrollBehavior(scrollMode, preservedOffset);
-                    }
-                    else
-                    {
-                        SynchronizeSelectionControls();
-                        ApplyScrollBehavior(scrollMode, preservedOffset);
-                    }
-                    UpdateCutStates();
-                }
-                finally
-                {
-                    _applyingViewModelEntries = false;
-                }
+                ApplyListColumnWidths();
+                SynchronizeSelectionControls();
+                ApplyScrollBehavior(scrollMode, preservedOffset);
+                UpdateCutStates();
             }, DispatcherPriority.Loaded);
         }
 
@@ -482,29 +402,15 @@ public partial class FileListView : UserControl
 
     private void QueueEntriesVisualRefresh()
     {
-        if (_entriesVisualRefreshQueued)
-            return;
-
+        if (_entriesVisualRefreshQueued) return;
         _entriesVisualRefreshQueued = true;
-        _pendingEntriesScrollOffset = GetActiveScrollViewer()?.Offset ?? default;
         Dispatcher.UIThread.Post(() =>
         {
             _entriesVisualRefreshQueued = false;
-            var usesPresentationRows = GridViewItems.IsVisible || GroupedListItems.IsVisible;
-            if (usesPresentationRows)
-                RebuildPresentationRows();
-
+            SyncFastListRows();
             ApplyListColumnWidths();
             UpdateCutStates();
             QueueSelectionSynchronization();
-
-            if (usesPresentationRows)
-            {
-                var preservedOffset = _pendingEntriesScrollOffset;
-                Dispatcher.UIThread.Post(
-                    () => ApplyScrollBehavior(FileListViewModel.ScrollMode.PreservePosition, preservedOffset),
-                    DispatcherPriority.Loaded);
-            }
         }, DispatcherPriority.Background);
     }
 
@@ -520,151 +426,6 @@ public partial class FileListView : UserControl
             entry.IsCut = isCut;
             if (isCut) _anyCutApplied = true;
         }
-    }
-
-    private void OnEntryImageLoaded(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Image image)
-        {
-            ObserveEntryImage(image);
-            _ = LoadEntryImageAsync(image);
-        }
-    }
-
-    private void OnEntryImageUnloaded(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Image image) return;
-        CancelEntryImageLoad(image);
-        DetachThumbnailAwait(image);
-        image.Tag = null;
-    }
-
-    private void OnEntryImageDataContextChanged(object? sender, EventArgs e)
-    {
-        if (sender is not Image image) return;
-        CancelEntryImageLoad(image);
-        DetachThumbnailAwait(image);
-        image.Tag = null;
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (!image.IsLoaded) return;
-            ObserveEntryImage(image);
-            _ = LoadEntryImageAsync(image);
-        }, DispatcherPriority.Loaded);
-    }
-
-    private void ObserveEntryImage(Image image)
-    {
-        DetachThumbnailAwait(image);
-        if (image.DataContext is not FileSystemEntry entry) return;
-        PropertyChangedEventHandler handler = (_, args) =>
-        {
-            if (args.PropertyName is not (nameof(FileSystemEntry.ThumbnailUrl) or nameof(FileSystemEntry.IconUrl))) return;
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (image.IsLoaded && ReferenceEquals(image.DataContext, entry))
-                    _ = LoadEntryImageAsync(image);
-            }, DispatcherPriority.Loaded);
-        };
-        entry.PropertyChanged += handler;
-        image.SetValue(ThumbnailAwaitProperty, new EntryThumbnailAwaitState { Entry = entry, Handler = handler });
-    }
-
-    private async System.Threading.Tasks.Task LoadEntryImageAsync(Image image)
-    {
-        if (!image.IsLoaded || !image.IsEffectivelyVisible || image.DataContext is not FileSystemEntry entry) return;
-        var entryPath = entry.FullPath;
-        var source = !string.IsNullOrWhiteSpace(entry.IconUrl) ? entry.IconUrl : null;
-
-        if (image.Tag is EntryImageLoadState activeState
-            && !activeState.Cancellation.IsCancellationRequested
-            && ReferenceEquals(image.DataContext, entry))
-            return;
-
-        source = !string.IsNullOrWhiteSpace(entry.ThumbnailUrl) ? entry.ThumbnailUrl : source;
-        var pixelSize = GetEntryThumbnailPixelSize(image);
-        var needsLargerThumbnail = entry.GeneratedThumbnailPixelSize > 0
-            && entry.GeneratedThumbnailPixelSize < pixelSize;
-
-        if (string.IsNullOrWhiteSpace(source) && (entry.IsVirtual || entry.IsDirectory)) return;
-
-        if (!needsLargerThumbnail && image.Tag is string currentSource && currentSource == source && image.Source != null) return;
-
-        var cts = new CancellationTokenSource();
-        var state = new EntryImageLoadState { Source = entryPath, Cancellation = cts };
-        image.Tag = state;
-        try
-        {
-            // Briefly defer cold work: recycled rows cancel before starting a helper.
-            await Task.Delay(100, cts.Token);
-            if (!image.IsLoaded || !image.IsEffectivelyVisible) return;
-            if (entry.ThumbnailUrl is { Length: > 0 } thumbnailUrl
-                && Path.IsPathFullyQualified(thumbnailUrl)
-                && !await Task.Run(() => File.Exists(thumbnailUrl), cts.Token))
-            {
-                entry.ThumbnailUrl = null;
-                source = entry.IconUrl;
-            }
-            // The macOS thumbnail service supports both images and Quick Look documents.
-            // Do not gate it on the icon classification: that prevented PDF, text and
-            // Office documents from ever reaching the service.
-            if (!entry.IsDirectory && !entry.IsVirtual
-                && (string.IsNullOrWhiteSpace(entry.ThumbnailUrl) || needsLargerThumbnail))
-            {
-                var viewModel = ViewModel;
-                var thumbnail = viewModel == null
-                    ? null
-                    : await Task.Run(() => viewModel.GetListThumbnailAsync(entry, pixelSize, cts.Token), cts.Token);
-                if (thumbnail is { Bytes.Length: > 0 })
-                {
-                    if (!cts.IsCancellationRequested && ReferenceEquals(image.DataContext, entry) && entry.FullPath == entryPath)
-                    {
-                        entry.ThumbnailUrl = thumbnail.CachePath;
-                        entry.GeneratedThumbnailPixelSize = pixelSize;
-                    }
-                }
-            }
-
-            source = !string.IsNullOrWhiteSpace(entry.ThumbnailUrl) ? entry.ThumbnailUrl : source;
-            if (string.IsNullOrWhiteSpace(source) || !ReferenceEquals(image.DataContext, entry)) return;
-
-            state.Source = source;
-            var bitmap = await GetEntryBitmapAsync(source, cts.Token);
-            if (bitmap != null
-                && ReferenceEquals(image.DataContext, entry)
-                && entry.FullPath == entryPath
-                && ReferenceEquals(image.Tag, state)
-                && !cts.IsCancellationRequested)
-            {
-                image.SetCurrentValue(Image.SourceProperty, bitmap);
-                image.Tag = source;
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch
-        {
-        }
-        finally
-        {
-            if (ReferenceEquals(image.Tag, state))
-                image.Tag = null;
-            cts.Dispose();
-        }
-    }
-
-    private static void CancelEntryImageLoad(Image image)
-    {
-        if (image.Tag is EntryImageLoadState state)
-            state.Cancellation.Cancel();
-    }
-
-    private static void DetachThumbnailAwait(Image image)
-    {
-        if (image.GetValue(ThumbnailAwaitProperty) is not { } state) return;
-        image.SetValue(ThumbnailAwaitProperty, null);
-        state.Entry.PropertyChanged -= state.Handler;
     }
 
     internal static async System.Threading.Tasks.Task<Bitmap?> GetEntryBitmapAsync(
@@ -778,7 +539,7 @@ public partial class FileListView : UserControl
         PositionFastRenameEditor();
 
         // Re-runs on every batched load and resize; when the widths are unchanged skip
-        // the header assignments and the walk over the whole visual tree.
+        // the header assignments.
         if (_lastAppliedColumnWidths == effective)
             return;
         _lastAppliedColumnWidths = effective;
@@ -788,36 +549,6 @@ public partial class FileListView : UserControl
             ListHeaderGrid.ColumnDefinitions[column].Width = new GridLength(
                 effective[(FileListColumn)(column - 1)]);
 
-        foreach (var grid in this.GetVisualDescendants().OfType<Grid>()
-                     .Where(grid => grid.Classes.Contains("file-list-row-grid")))
-            ApplyColumnWidthsToRow(grid);
-    }
-
-    // Attached (not Loaded) so recycled and fresh rows get the effective widths
-    // before their first measure; otherwise rows flash at the template's hardcoded
-    // widths for a frame and snap into place once the Loaded pass corrects them.
-    private void OnFileListRowAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
-    {
-        if (sender is Grid grid)
-            ApplyColumnWidthsToRow(grid);
-    }
-
-    private void ApplyColumnWidthsToRow(Grid grid)
-    {
-        for (var column = 1; column <= 4 && column < grid.ColumnDefinitions.Count; column++)
-            grid.ColumnDefinitions[column].Width = new GridLength(
-                _effectiveColumnWidths[(FileListColumn)(column - 1)]);
-
-        // A left-aligned name hit target sizes to its text. Without updating its
-        // constraint when columns shrink, a long filename can extend over the date
-        // column both visually and for pointer hit testing. Keep an 8-point gutter
-        // at each side and clip the target to the effective Name column width.
-        var nameTargetWidth = Math.Max(
-            0,
-            _effectiveColumnWidths[FileListColumn.Name] - 16);
-        foreach (var target in grid.GetVisualDescendants().OfType<Control>()
-                     .Where(control => control.Classes.Contains("list-name-hit")))
-            target.MaxWidth = nameTargetWidth;
     }
 
     private double GetAvailableDataWidth()
@@ -864,14 +595,7 @@ public partial class FileListView : UserControl
         }
     }
 
-    private ScrollViewer? GetActiveScrollViewer()
-    {
-        if (FastListActive) return FastListHost;
-        var host = FileItemsList.IsVisible ? (Control)FileItemsList
-            : GridViewItems.IsVisible ? GridViewItems
-            : GroupedListItems;
-        return host.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
-    }
+    private ScrollViewer? GetActiveScrollViewer() => FastListActive ? FastListHost : null;
 
     private void QueueBringSelectedEntryIntoView(bool restoreSavedViewport)
     {
@@ -929,82 +653,20 @@ public partial class FileListView : UserControl
 
     private ScrollRestoreResult TryRestoreSelectedEntryPosition(int version, bool restoreSavedViewport)
     {
-        if (version != _scrollRestoreVersion || ViewModel == null)
-            return ScrollRestoreResult.Cancelled;
-
-        var selected = ViewModel.SelectedEntries.FirstOrDefault();
-        if (selected == null)
-            return ScrollRestoreResult.NoAnchor;
-
-        if (FastListActive)
-        {
-            if (FastList.Viewport.Height <= 0) return ScrollRestoreResult.Pending;
-            if (restoreSavedViewport && ViewModel.RestoredNavigationScrollOffsetY is { } saved)
-                FastList.ScrollToOffset(saved);
-            var y = restoreSavedViewport ? ViewModel.RestoredNavigationAnchorViewportY : null;
-            return FastList.ScrollToEntry(selected, y.HasValue ? y.Value - 4 : null)
-                ? ScrollRestoreResult.Aligned : ScrollRestoreResult.NoAnchor;
-        }
-
-        if (restoreSavedViewport)
-        {
-            if (_savedScrollOffsetAppliedVersion != version
-                && ViewModel.RestoredNavigationScrollOffsetY is { } savedOffset)
-            {
-                if (!TryApplySavedScrollOffset(savedOffset))
-                    return ScrollRestoreResult.Pending;
-
-                _savedScrollOffsetAppliedVersion = version;
-                return ScrollRestoreResult.Pending;
-            }
-
-            if (FindVisibleEntryContent(selected) == null)
-            {
-                TryBringSelectedEntryIntoView(selected);
-                return ScrollRestoreResult.Pending;
-            }
-
-            SynchronizeSelectionControls();
-            if (ViewModel.RestoredNavigationAnchorViewportY != null
-                && !AlignSelectedEntryToSavedViewportPosition())
-            {
-                return ScrollRestoreResult.Pending;
-            }
-
-            return ScrollRestoreResult.Aligned;
-        }
-
-        if (FindVisibleEntryContent(selected) == null)
-        {
-            TryBringSelectedEntryIntoView(selected);
-            return ScrollRestoreResult.Pending;
-        }
-
-        SynchronizeSelectionControls();
-
-        return ScrollRestoreResult.NoAnchor;
+        if (version != _scrollRestoreVersion || ViewModel == null) return ScrollRestoreResult.Cancelled;
+        if (ViewModel.SelectedEntries.FirstOrDefault() is not { } selected) return ScrollRestoreResult.NoAnchor;
+        if (!FastListActive || FastList.Viewport.Height <= 0) return ScrollRestoreResult.Pending;
+        if (restoreSavedViewport && ViewModel.RestoredNavigationScrollOffsetY is { } saved)
+            FastList.ScrollToOffset(saved);
+        var y = restoreSavedViewport ? ViewModel.RestoredNavigationAnchorViewportY : null;
+        return FastList.ScrollToEntry(selected, y.HasValue ? y.Value - 4 : null)
+            ? ScrollRestoreResult.Aligned : ScrollRestoreResult.NoAnchor;
     }
 
     private void CompleteRestoreWithBestEffort(int version, bool restoreSavedViewport)
     {
-        if (version != _scrollRestoreVersion || ViewModel == null)
-            return;
-
-        if (restoreSavedViewport)
-        {
-            if (_savedScrollOffsetAppliedVersion != version
-                && ViewModel.RestoredNavigationScrollOffsetY is { } savedOffset)
-            {
-                TryApplySavedScrollOffset(savedOffset);
-            }
-
-            if (!AlignSelectedEntryToSavedViewportPosition())
-                TryBringSelectedEntryIntoView();
-            CompleteScrollRestore(version);
-            return;
-        }
-
-        TryBringSelectedEntryIntoView();
+        if (version != _scrollRestoreVersion || ViewModel == null) return;
+        TryRestoreSelectedEntryPosition(version, restoreSavedViewport);
         CompleteScrollRestore(version);
     }
 
@@ -1016,12 +678,11 @@ public partial class FileListView : UserControl
         ViewModel.ScrollBehaviorAfterLoad = FileListViewModel.ScrollMode.PreservePosition;
         _restoringNavigationSelection = false;
         _restoringNavigationSelectionToTop = false;
-        _ignoreEmptySelectionUntilUtc = DateTime.UtcNow.AddMilliseconds(250);
     }
 
     private void OnRequestBringIntoView(object? sender, RequestBringIntoViewEventArgs e)
     {
-        if (_allowRestoreBringIntoView || !IsRestoringNavigationSelectionToTop())
+        if (!IsRestoringNavigationSelectionToTop())
             return;
 
         if (e.Source is Visual visual && !IsWithinVisual(visual, FileScroll))
@@ -1035,8 +696,7 @@ public partial class FileListView : UserControl
 
     private bool IsRestoringNavigationSelectionToTop()
         => _restoringNavigationSelectionToTop
-           || ViewModel?.ScrollBehaviorAfterLoad == FileListViewModel.ScrollMode.RestoreNavigation
-           || DateTime.UtcNow <= _ignoreEmptySelectionUntilUtc;
+           || ViewModel?.ScrollBehaviorAfterLoad == FileListViewModel.ScrollMode.RestoreNavigation;
 
     private bool BringSelectedEntryIntoView()
     {
@@ -1056,52 +716,6 @@ public partial class FileListView : UserControl
         return result != ScrollRestoreResult.Pending && result != ScrollRestoreResult.Cancelled;
     }
 
-    private static bool IsSameEntry(FileSystemEntry left, FileSystemEntry right)
-        => ReferenceEquals(left, right)
-           || string.Equals(left.FullPath, right.FullPath, StringComparison.Ordinal);
-
-    private bool TryBringSelectedEntryIntoView(FileSystemEntry? selected = null)
-    {
-        selected ??= ViewModel?.SelectedEntries.FirstOrDefault();
-        if (selected == null) return false;
-        if (FastListActive) return FastList.ScrollToEntry(selected);
-
-        if (FileItemsList.IsVisible)
-        {
-            if (!FileItemsList.Items.Contains(selected))
-                return false;
-            ScrollIntoViewForRestore(FileItemsList, selected);
-            return true;
-        }
-        else if (GroupedListItems.IsVisible
-                 && _groupedRowByPath.TryGetValue(selected.FullPath, out var groupedRow))
-        {
-            ScrollIntoViewForRestore(GroupedListItems, groupedRow);
-            return true;
-        }
-        else if (GridViewItems.IsVisible
-                 && _gridRowByPath.TryGetValue(selected.FullPath, out var gridRow))
-        {
-            ScrollIntoViewForRestore(GridViewItems, gridRow);
-            return true;
-        }
-
-        return false;
-    }
-
-    private void ScrollIntoViewForRestore(ListBox listBox, object item)
-    {
-        _allowRestoreBringIntoView = true;
-        try
-        {
-            listBox.ScrollIntoView(item);
-        }
-        finally
-        {
-            _allowRestoreBringIntoView = false;
-        }
-    }
-
     private void OnCaptureNavigationAnchorRequested()
     {
         var (viewportY, scrollOffsetY) = CaptureSelectedEntryNavigationAnchor();
@@ -1110,81 +724,11 @@ public partial class FileListView : UserControl
 
     private (double? ViewportY, double? ScrollOffsetY) CaptureSelectedEntryNavigationAnchor()
     {
-        var scroll = GetActiveScrollViewer();
         if (ViewModel?.SelectedEntries.FirstOrDefault() is not { } selected)
-            return (null, scroll?.Offset.Y);
-
-        if (FastListActive)
-        {
-            var index = FastList.IndexOf(selected);
-            return (index < 0 ? null : FastList.RowBounds(index).Y + 4, FastList.Offset.Y);
-        }
-
-        var visual = FindVisibleEntryContent(selected);
-        if (scroll == null)
-            return (null, null);
-        if (visual == null)
-            return (null, scroll.Offset.Y);
-
-        return (visual.TranslatePoint(new Point(0, 0), scroll)?.Y, scroll.Offset.Y);
+            return (null, GetActiveScrollViewer()?.Offset.Y);
+        var index = FastList.IndexOf(selected);
+        return (index < 0 ? null : FastList.RowBounds(index).Y + 4, FastList.Offset.Y);
     }
-
-    private bool TryApplySavedScrollOffset(double savedOffsetY)
-    {
-        var scroll = GetActiveScrollViewer();
-        if (scroll == null || scroll.Viewport.Height <= 0)
-            return false;
-
-        var maxOffset = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
-        if (scroll.Extent.Height <= 0 && ViewModel?.Entries.Count > 0)
-            return false;
-
-        scroll.Offset = new Vector(scroll.Offset.X, Math.Clamp(savedOffsetY, 0, maxOffset));
-        return true;
-    }
-
-    private bool AlignSelectedEntryToSavedViewportPosition()
-    {
-        var viewModel = ViewModel;
-        var targetY = viewModel?.RestoredNavigationAnchorViewportY;
-        if (viewModel == null || targetY == null || viewModel.SelectedEntries.FirstOrDefault() is not { } selected)
-            return false;
-
-        var scroll = GetActiveScrollViewer();
-        var visual = FindVisibleEntryContent(selected);
-        if (scroll == null || visual == null)
-            return false;
-
-        var point = visual.TranslatePoint(new Point(0, 0), scroll);
-        if (point == null)
-            return false;
-
-        var maxOffset = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
-        var desiredOffsetY = scroll.Offset.Y + point.Value.Y - targetY.Value;
-        scroll.Offset = new Vector(scroll.Offset.X, Math.Clamp(desiredOffsetY, 0, maxOffset));
-        return true;
-    }
-
-    private Control? FindVisibleEntryContent(FileSystemEntry entry)
-    {
-        var host = FileItemsList.IsVisible ? (Control)FileItemsList
-            : GridViewItems.IsVisible ? GridViewItems
-            : GroupedListItems;
-
-        return host.GetVisualDescendants()
-            .OfType<Control>()
-            .FirstOrDefault(control =>
-                IsEntryDataContext(control.DataContext, entry)
-                && control.Classes.Contains("entry-content"))
-            ?? host.GetVisualDescendants()
-                .OfType<Control>()
-                .FirstOrDefault(control => IsEntryDataContext(control.DataContext, entry));
-    }
-
-    private static bool IsEntryDataContext(object? dataContext, FileSystemEntry entry)
-        => ReferenceEquals(dataContext, entry)
-           || (dataContext is FileSystemEntry candidate
-               && string.Equals(candidate.FullPath, entry.FullPath, StringComparison.Ordinal));
 
     private void OnSelectedEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -1202,75 +746,9 @@ public partial class FileListView : UserControl
 
     private void OnRenameRequested(FileSystemEntry entry)
     {
+        if (ViewModel?.IsBrowseOnly == true || !FastListActive) return;
         CancelActiveRename();
-        if (FastListActive)
-        {
-            BeginFastRename(entry);
-            return;
-        }
-
-        var label = this.GetVisualDescendants()
-            .OfType<TextBlock>()
-            .FirstOrDefault(text => IsEntryNameLabelFor(text, entry));
-        if (label?.Parent is not Control labelHost)
-            return;
-
-        // List view keeps the name inside a clipped Border so the rest of the
-        // Name column remains canvas for marquee selection. Grid is still a
-        // Panel, while Border is a Decorator; support both hosts when swapping
-        // the label for the inline editor.
-        var parent = labelHost as Panel;
-        var decorator = labelHost as Decorator;
-        if (parent == null && decorator == null)
-            return;
-
-        var layoutParent = parent ?? labelHost.FindAncestorOfType<Panel>();
-
-        var index = parent?.Children.IndexOf(label) ?? -1;
-        if (parent != null && index < 0)
-            return;
-
-        var isGridIconLabel = label.FindAncestorOfType<Border>()?.Classes.Contains("file-grid-content") == true;
-        var editorWidth = GetInlineRenameEditorWidth(label, layoutParent, isGridIconLabel);
-        var editor = new TextBox
-        {
-            Text = entry.Name,
-            Margin = label.Margin,
-            HorizontalAlignment = isGridIconLabel
-                ? global::Avalonia.Layout.HorizontalAlignment.Center
-                : global::Avalonia.Layout.HorizontalAlignment.Left,
-            VerticalAlignment = label.VerticalAlignment,
-            VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
-            TextAlignment = isGridIconLabel ? TextAlignment.Center : TextAlignment.Left,
-            MinWidth = isGridIconLabel ? 0 : 72,
-            MinHeight = 0,
-            Width = editorWidth
-        };
-        AppTypography.BindFontSize(editor, isGridIconLabel ? AppTypography.Caption : AppTypography.Body);
-        editor.Bind(TextBox.FontWeightProperty, editor.GetResourceObservable("FontWeightLight"));
-        editor.Classes.Add("inline-rename-editor");
-        if (parent is Grid)
-        {
-            Grid.SetColumn(editor, Grid.GetColumn(label));
-            Grid.SetColumnSpan(editor, Grid.GetColumnSpan(label));
-            Grid.SetRow(editor, Grid.GetRow(label));
-            Grid.SetRowSpan(editor, Grid.GetRowSpan(label));
-        }
-
-        if (parent != null)
-        {
-            parent.Children.RemoveAt(index);
-            parent.Children.Insert(index, editor);
-        }
-        else
-        {
-            decorator!.Child = editor;
-        }
-        _renameEditor = editor;
-        _renameLabel = label;
-        _activeRenamePath = entry.FullPath;
-
-        BindRenameEditor(editor, entry);
+        BeginFastRename(entry);
     }
 
     private void BindRenameEditor(TextBox editor, FileSystemEntry entry)
@@ -1300,52 +778,6 @@ public partial class FileListView : UserControl
         });
     }
 
-    private static double GetInlineRenameEditorWidth(TextBlock label, Panel? parent, bool isGridIconLabel)
-    {
-        var parentWidth = parent?.Bounds.Width ?? 0;
-        if (isGridIconLabel)
-            return parentWidth > 0 ? parentWidth : 84;
-
-        var availableWidth = 320d;
-        if (parent is Grid grid)
-        {
-            // In list view the label is inside the clipped name Border, so the
-            // attached Grid column belongs to that Border rather than the label.
-            var columnHost = label.Parent as Control;
-            var column = columnHost?.Parent is Grid
-                ? Grid.GetColumn(columnHost)
-                : Grid.GetColumn(label);
-            if (column >= 0 && column < grid.ColumnDefinitions.Count)
-            {
-                var columnWidth = grid.ColumnDefinitions[column].ActualWidth;
-                if (columnWidth > 0)
-                {
-                    const double trailingGap = 4;
-                    availableWidth = columnWidth - label.Margin.Left - label.Margin.Right - trailingGap;
-                }
-            }
-        }
-        else if (parentWidth > 0)
-        {
-            availableWidth = parentWidth - label.Margin.Left - label.Margin.Right;
-        }
-
-        const double minimumWidth = 72;
-        const double editorChromeWidth = 12;
-        var maximumWidth = Math.Max(minimumWidth, availableWidth);
-        var desiredWidth = Math.Ceiling(label.TextLayout.WidthIncludingTrailingWhitespace + editorChromeWidth);
-        return Math.Clamp(desiredWidth, minimumWidth, maximumWidth);
-    }
-
-    private static bool IsEntryNameLabelFor(TextBlock text, FileSystemEntry entry)
-    {
-        if (text.DataContext is not FileSystemEntry candidate)
-            return false;
-
-        var isNameLabel = text.Classes.Contains("entry-name-text") || text.Name == "EntryNameText";
-        return isNameLabel && string.Equals(candidate.FullPath, entry.FullPath, StringComparison.Ordinal);
-    }
-
     private async System.Threading.Tasks.Task FinishRenameAsync(FileSystemEntry entry, bool commit)
     {
         if (_finishingRename || _renameEditor == null) return;
@@ -1362,9 +794,8 @@ public partial class FileListView : UserControl
         finally
         {
             // Keep the editor (and the submitted name) visible while the file
-            // operation runs. Restoring afterward binds the label to the final
-            // entry instead of briefly painting the old name.
-            RestoreRenameLabel();
+            // operation runs, then let the list draw the updated entry name.
+            RemoveRenameEditor();
             _finishingRename = false;
         }
     }
@@ -1375,41 +806,19 @@ public partial class FileListView : UserControl
         _finishingRename = true;
         if (!string.IsNullOrWhiteSpace(_activeRenamePath))
             SuppressImmediateSlowRename(_activeRenamePath);
-        RestoreRenameLabel();
+        RemoveRenameEditor();
         _finishingRename = false;
     }
 
-    private void RestoreRenameLabel()
+    private void RemoveRenameEditor()
     {
         var editor = _renameEditor;
-        var label = _renameLabel;
         _renameEditor = null;
-        _renameLabel = null;
         _activeRenamePath = null;
-
-        if (editor?.Parent == FastRenameOverlay)
-        {
-            FastRenameOverlay.Children.Remove(editor);
-            FastList.EditingPath = null;
-            FastList.InvalidateVisual();
-            FastList.Focus();
-            return;
-        }
-
-        if (editor == null || label == null)
-            return;
-
-        if (editor.Parent is Panel parent)
-        {
-            var index = parent.Children.IndexOf(editor);
-            if (index < 0) return;
-            parent.Children.RemoveAt(index);
-            parent.Children.Insert(index, label);
-        }
-        else if (editor.Parent is Decorator decorator)
-        {
-            decorator.Child = label;
-        }
+        if (editor != null) FastRenameOverlay.Children.Remove(editor);
+        FastList.EditingPath = null;
+        FastList.InvalidateVisual();
+        FastList.Focus();
     }
 
     private void SuppressImmediateSlowRename(string path)
@@ -1488,7 +897,7 @@ public partial class FileListView : UserControl
                 btnContent.Children.Add(AppTypography.BindFontSize(new TextBlock
                 {
                     Text = qa.Label,
-                    Foreground = new SolidColorBrush(Color.Parse("#636366")),
+                    Classes = { "menu-quick-label" },
                     HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center
                 }, AppTypography.Meta));
 
@@ -1506,18 +915,16 @@ public partial class FileListView : UserControl
                     VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 };
                 btn.Classes.Add("ghost");
-                var hoverBackground = new SolidColorBrush(Color.Parse("#0E000000"));
+                btn.Classes.Add("menu-quick-action");
                 var buttonSurface = new Border
                 {
                     Width = 44,
                     Height = 44,
                     CornerRadius = new CornerRadius(6),
-                    Background = Brushes.Transparent,
                     HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                     Child = btn
                 };
-                buttonSurface.PointerEntered += (_, _) => buttonSurface.Background = hoverBackground;
-                buttonSurface.PointerExited += (_, _) => buttonSurface.Background = Brushes.Transparent;
+                buttonSurface.Classes.Add("menu-quick-surface");
                 ToolTip.SetTip(btn, qa.Label);
                 if (qa.Execute != null)
                 {
@@ -1677,7 +1084,7 @@ public partial class FileListView : UserControl
 
     private async System.Threading.Tasks.Task ShowMenuAsync(Control anchor, bool hasSelection)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null || ViewModel.IsBrowseOnly) return;
 
         var requestVersion = ++_menuRequestVersion;
         CloseCurrentMenu();
@@ -1754,12 +1161,6 @@ public partial class FileListView : UserControl
         _menuRequestVersion++;
         CloseCurrentMenu();
         ViewModel?.CloseContextMenu();
-        // The menu is no longer consuming pointer/selection events. Release the
-        // secondary-click guard so keyboard and subsequent ListBox selection can
-        // resume normally even when the menu was dismissed with Escape or by an
-        // action rather than by a new left click.
-        _contextMenuSelectionGuard = false;
-        _rightClickSelectionSnapshot = null;
         _rightPressedEntry = null;
         _rightPressedAnchor = null;
     }
@@ -1793,8 +1194,6 @@ public partial class FileListView : UserControl
         menu.Closing -= OnContextMenuClosing;
         DisposeOwnedMenuBitmaps();
         ViewModel?.CloseContextMenu();
-        _contextMenuSelectionGuard = false;
-        _rightClickSelectionSnapshot = null;
         _rightPressedEntry = null;
     }
 
@@ -1812,8 +1211,6 @@ public partial class FileListView : UserControl
         {
             _rightPressedEntry = null;
             _rightPressedAnchor = null;
-            _rightClickSelectionSnapshot = null;
-            _contextMenuSelectionGuard = false;
             DismissContextMenu();
             return;
         }
@@ -1828,40 +1225,18 @@ public partial class FileListView : UserControl
         if (entry == null && !IsWithinVisual(sourceVisual, FileScroll))
             return;
         _rightPressedEntry = entry;
-        _rightPressedAnchor = entry == null ? FileScroll : FindEntryAnchor(sourceVisual) ?? FileScroll;
-        _contextMenuSelectionGuard = true;
+        _rightPressedAnchor = entry == null ? FileScroll : FastList;
         if (entry != null && !ViewModel.IsEntrySelected(entry))
         {
             ViewModel.SelectEntryForContextMenu(entry);
             QueueSelectionSynchronization();
         }
-        _rightClickSelectionSnapshot = entry == null
-            ? []
-            : ViewModel.SelectedEntries.ToArray();
         if (entry == null)
         {
             ViewModel.ClearSelection();
         }
 
-        // Prevent the nested ListBox from applying its default left-click-style
-        // selection policy to a secondary (right) click. Finder keeps an existing
-        // multi-selection when the context menu is opened on one of its members.
         e.Handled = true;
-        ScheduleRightClickSelectionRestore();
-    }
-
-    private static Control? FindEntryAnchor(Visual? visual)
-    {
-        Control? fallback = null;
-        for (; visual != null; visual = visual.GetVisualParent())
-        {
-            if (visual is not Control { DataContext: FileSystemEntry } control)
-                continue;
-            fallback ??= control;
-            if (control.Classes.Contains("entry-content"))
-                return control;
-        }
-        return fallback;
     }
 
     private static bool IsWithinVisual(Visual? visual, Visual ancestor)
@@ -1872,33 +1247,11 @@ public partial class FileListView : UserControl
         return false;
     }
 
-    private void OnListItemPointerPressed(object? sender, PointerPressedEventArgs e)
-        => HandleItemPointerPressed(sender, e);
-
-    private void OnGridItemPointerPressed(object? sender, PointerPressedEventArgs e)
-        => HandleItemPointerPressed(sender, e);
-
-    private void HandleItemPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Control control || control.DataContext is not FileSystemEntry entry || ViewModel == null)
-            return;
-
-        HandleEntryPointerPressed(control, entry, e);
-    }
-
     private void HandleEntryPointerPressed(Control control, FileSystemEntry entry, PointerPressedEventArgs e)
     {
         if (ViewModel == null) return;
 
-        // A virtualized ListBox can finish dispatching a SelectionChanged event
-        // after the previous marquee has already been released. A real item press
-        // starts a new interaction, so it is the safe point to resume the normal
-        // control -> view-model selection flow.
-        _suppressControlSelectionDuringMarquee = false;
-
-        var owner = control.FindAncestorOfType<ListBox>();
-        owner?.Focus();
-        if (ReferenceEquals(control, FastList)) FastList.Focus();
+        FastList.Focus();
         var point = e.GetCurrentPoint(control);
 
         if (point.Properties.IsRightButtonPressed)
@@ -1907,13 +1260,10 @@ public partial class FileListView : UserControl
             ViewModel.NotifyTransientInteractionStarted();
             _rightPressedEntry = entry;
             _rightPressedAnchor = control;
-            _contextMenuSelectionGuard = true;
             if (!ViewModel.IsEntrySelected(entry))
                 ViewModel.SelectEntryForContextMenu(entry);
-            _rightClickSelectionSnapshot = ViewModel.SelectedEntries.ToArray();
             QueueSelectionSynchronization();
             e.Handled = true;
-            ScheduleRightClickSelectionRestore();
             return;
         }
 
@@ -1921,8 +1271,6 @@ public partial class FileListView : UserControl
         {
             _rightPressedEntry = null;
             _rightPressedAnchor = null;
-            _rightClickSelectionSnapshot = null;
-            _contextMenuSelectionGuard = false;
             CancelSlowRename();
             DismissContextMenu();
             var modifiers = e.KeyModifiers;
@@ -1950,7 +1298,7 @@ public partial class FileListView : UserControl
             _dragCaptureControl = control;
             control.PointerCaptureLost += OnItemPointerCaptureLost;
             e.Pointer.Capture(control);
-            if (wasAlreadySingleSelected && !suppressSlowRename && !entry.IsVirtual && !ViewModel.IsArchiveView)
+            if (!ViewModel.IsBrowseOnly && wasAlreadySingleSelected && !suppressSlowRename && !entry.IsVirtual && !ViewModel.IsArchiveView)
                 _ = ScheduleSlowRenameAsync(entry);
             e.Handled = true;
         }
@@ -2021,7 +1369,7 @@ public partial class FileListView : UserControl
                 e.Pointer.Capture(null);
                 if (MacExplorer.Platforms.MacOS.MacNativeFileDrag.TryBeginFileDrag(
                     topLevel, e.GetPosition(topLevel), dragPaths, nativePreview,
-                    DragDropEffects.Copy | DragDropEffects.Move))
+                    AllowedDragEffects, OnNativeDragSession))
                 {
                     ResetDragState();
                     return;
@@ -2050,12 +1398,15 @@ public partial class FileListView : UserControl
             using var preview = CreateDragPreviewBitmap(representativeEntry, storageItems.Count, _dragStartPreviewBitmap);
             using var data = CreateDragData(storageItems, preview);
             _dragStorageItemsTask = null; // DataTransfer now owns the storage items.
+            var fallbackEffect = DragDropEffects.None;
+            DragSessionChanged?.Invoke(new(FileDragPhase.Started, default, DragDropEffects.None));
             try
             {
-                await DragDrop.DoDragDropAsync(_dragPointerEvent, data, DragDropEffects.Copy | DragDropEffects.Move);
+                fallbackEffect = await DragDrop.DoDragDropAsync(_dragPointerEvent, data, AllowedDragEffects);
             }
             finally
             {
+                DragSessionChanged?.Invoke(new(FileDragPhase.Ended, default, fallbackEffect));
                 ResetDragState();
             }
         }
@@ -2109,17 +1460,7 @@ public partial class FileListView : UserControl
     }
 
     private static Bitmap? GetVisibleEntryBitmap(Control control, FileSystemEntry entry)
-    {
-        if (control is MacExplorer.Controls.FastFileList fastList)
-            return fastList.GetEntryBitmap(entry);
-        // A press on the name or another column must find the sibling icon too.
-        var row = control.FindAncestorOfType<ListBoxItem>() as Control ?? control;
-        var visible = row.GetVisualDescendants().OfType<Image>()
-            .FirstOrDefault(image => image.Classes.Contains("entry-icon-image")
-                                     && ReferenceEquals(image.DataContext, entry))?.Source as Bitmap;
-        var source = !string.IsNullOrWhiteSpace(entry.ThumbnailUrl) ? entry.ThumbnailUrl : entry.IconUrl;
-        return visible ?? (string.IsNullOrWhiteSpace(source) ? null : TryGetCachedEntryImage(source));
-    }
+        => (control as MacExplorer.Controls.FastFileList)?.GetEntryBitmap(entry);
 
     internal static void PrepareFileDrag()
     {
@@ -2236,51 +1577,10 @@ public partial class FileListView : UserControl
 
         var contextAnchor = _rightPressedAnchor;
         var hasSelection = _rightPressedEntry != null;
-        RestoreRightClickSelection();
         _rightPressedAnchor = null;
         e.Handled = true;
         ResetDragState();
         await ShowMenuAsync(contextAnchor, hasSelection);
-        // Keep the guard and snapshot until the next real pointer interaction.
-        // This covers a virtualized ListBox callback that arrives after the
-        // PointerReleased event and after the menu has been opened.
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_contextMenuSelectionGuard)
-                RestoreRightClickSelection();
-        }, DispatcherPriority.Input);
-    }
-
-    private void ScheduleRightClickSelectionRestore()
-    {
-        if (!_contextMenuSelectionGuard || _rightPressedEntry == null)
-            return;
-
-        var contextEntry = _rightPressedEntry;
-        Dispatcher.UIThread.Post(() =>
-        {
-            // The pointer may already have been released or replaced by another
-            // context click. Only restore the snapshot belonging to this press.
-            if (!ReferenceEquals(_rightPressedEntry, contextEntry))
-                return;
-            RestoreRightClickSelection();
-        }, DispatcherPriority.Input);
-    }
-
-    private void RestoreRightClickSelection()
-    {
-        if (ViewModel == null || _rightClickSelectionSnapshot is not { } snapshot)
-            return;
-
-        var currentPaths = ViewModel.SelectedEntries
-            .Select(entry => entry.FullPath)
-            .ToArray();
-        var snapshotPaths = snapshot
-            .Select(entry => entry.FullPath)
-            .ToArray();
-        if (!currentPaths.SequenceEqual(snapshotPaths, StringComparer.Ordinal))
-            ViewModel.SetSelection(snapshot, snapshot.LastOrDefault());
-        QueueSelectionSynchronization();
     }
 
     private void ResetDragState()
@@ -2308,6 +1608,7 @@ public partial class FileListView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
+        if (ViewModel?.IsBrowseOnly == true) { e.DragEffects = DragDropEffects.None; e.Handled = true; return; }
         var paths = GetDroppedPaths(e.DataTransfer);
         if (paths.Length == 0 || ViewModel == null || ViewModel.IsHomePage || ViewModel.IsArchiveView)
         {
@@ -2343,7 +1644,6 @@ public partial class FileListView : UserControl
             return;
         }
 
-        SetDragOverVisual(target == null ? null : FindEntryContent(e.Source as Visual));
         if (FastListActive) FastList.DropTargetPath = target?.FullPath;
 
         e.DragEffects = effect;
@@ -2358,6 +1658,7 @@ public partial class FileListView : UserControl
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
+        if (ViewModel?.IsBrowseOnly == true) { e.DragEffects = DragDropEffects.None; e.Handled = true; return; }
         // Re-hit-test the release position. A previously hovered folder must not
         // receive files after the pointer has moved onto blank space or another tab.
         var target = FindDropTarget(e);
@@ -2426,47 +1727,9 @@ public partial class FileListView : UserControl
     }
 
     private FileSystemEntry? FindDropTarget(DragEventArgs e)
-    {
-        if (FastListActive)
-            return FastList.EntryAt(e.GetPosition(FastList)) is { IsDirectory: true } directory ? directory : null;
-        var sourceTarget = FindDropTarget(e.Source as Visual);
-        if (sourceTarget != null)
-            return sourceTarget;
+        => FastList.EntryAt(e.GetPosition(FastList)) is { IsDirectory: true } directory ? directory : null;
 
-        var hit = FileScroll.InputHitTest(e.GetPosition(FileScroll));
-        return hit is Visual visual ? FindDropTarget(visual) : null;
-    }
-
-    private static Control? FindEntryContent(Visual? visual)
-    {
-        for (; visual != null; visual = visual.GetVisualParent())
-            if (visual is Control control && control.Classes.Contains("entry-content"))
-                return control;
-        return null;
-    }
-
-    private void SetDragOverVisual(Control? control)
-    {
-        if (ReferenceEquals(_dragOverVisual, control)) return;
-        ClearDragOverVisual();
-        _dragOverVisual = control;
-        _dragOverVisual?.Classes.Add("drag-over");
-    }
-
-    private void ClearDragOverVisual()
-    {
-        FastList.DropTargetPath = null;
-        _dragOverVisual?.Classes.Remove("drag-over");
-        _dragOverVisual = null;
-    }
-
-    private static FileSystemEntry? FindDropTarget(Visual? visual)
-    {
-        for (; visual != null; visual = visual.GetVisualParent())
-            if (visual is Control { DataContext: FileSystemEntry { IsDirectory: true } entry })
-                return entry;
-        return null;
-    }
+    private void ClearDragOverVisual() => FastList.DropTargetPath = null;
 
     internal static string[] GetDroppedPaths(IDataTransfer data)
     {
@@ -2500,12 +1763,8 @@ public partial class FileListView : UserControl
         if (e.GetCurrentPoint(FileScroll).Properties.IsRightButtonPressed
             && EntryAtPointer(e) != null)
             return;
-        // A ListBoxItem owns the complete layout cell, including the transparent
-        // spacing around an icon. Finder treats that spacing as canvas: only the
-        // visible entry card starts an item click/drag; its surrounding gap starts
-        // a marquee gesture.
-        if (FindEntryContentInAncestors(sourceVisual) is not null
-            || FastListActive && IsWithinVisual(sourceVisual, FastList) && FastList.EntryAt(e.GetPosition(FastList), contentOnly: true) != null)
+        // Icon and name content starts an item gesture; surrounding gaps start a marquee.
+        if (FastListActive && IsWithinVisual(sourceVisual, FastList) && FastList.EntryAt(e.GetPosition(FastList), contentOnly: true) != null)
             return;
 
         Focus();
@@ -2538,21 +1797,14 @@ public partial class FileListView : UserControl
 
         if (point.Properties.IsLeftButtonPressed)
         {
-            // Nested ListBoxes can emit delayed SelectionChanged events while
-            // their visual selection is being cleared. Those events describe the
-            // previous selection and must not feed it back into the shared model
-            // during the new rubber-band gesture.
-            _suppressControlSelectionDuringMarquee = true;
             _rightPressedEntry = null;
             _rightPressedAnchor = null;
-            _marqueeScrollViewer = GetActiveFileScrollViewer();
+            _marqueeScrollViewer = GetActiveScrollViewer();
             _marqueeCurrentViewportPoint = e.GetPosition(FileScroll);
             _marqueeStart = ViewportToContent(_marqueeCurrentViewportPoint);
             _marqueeModifiers = e.KeyModifiers;
             _marqueeClickEntry = rowEntry;
             _marqueeBaseSelection = ViewModel.SelectedEntries.ToHashSet();
-            _marqueeEntryBounds.Clear();
-            CaptureRealizedEntryBounds();
             // Row whitespace can still become a click. Keep the previous selection
             // until release replaces it or movement produces the marquee selection.
             if (rowEntry == null && !HasAdditiveSelectionModifier(_marqueeModifiers))
@@ -2561,7 +1813,7 @@ public partial class FileListView : UserControl
             // Keep the fast list under the pointer while waiting to distinguish
             // a row-whitespace click from a marquee, so its hover does not flash off.
             _marqueePointer = e.Pointer;
-            e.Pointer.Capture(FastListActive ? FastList : this);
+            e.Pointer.Capture(FastList);
             e.Handled = true;
         }
         else if (point.Properties.IsRightButtonPressed)
@@ -2569,21 +1821,13 @@ public partial class FileListView : UserControl
             _marqueeClickEntry = null;
             _rightPressedEntry = null;
             _rightPressedAnchor = FileScroll;
-            _contextMenuSelectionGuard = true;
-            _rightClickSelectionSnapshot = [];
             ViewModel.ClearSelection();
             e.Handled = true;
         }
     }
 
     private bool IsGroupHeaderAtPointer(PointerEventArgs e)
-    {
-        if (FastListActive && IsWithinVisual(e.Source as Visual, FastList))
-            return FastList.IsGroupHeaderAt(e.GetPosition(FastList));
-        for (var visual = e.Source as Visual; visual != null; visual = visual.GetVisualParent())
-            if (visual is Control control && control.Classes.Contains("file-group-row")) return true;
-        return false;
-    }
+        => IsWithinVisual(e.Source as Visual, FastList) && FastList.IsGroupHeaderAt(e.GetPosition(FastList));
 
     private void OnMarqueePointerMoved(object? sender, PointerEventArgs e)
     {
@@ -2635,14 +1879,9 @@ public partial class FileListView : UserControl
         _marqueeActive = false;
         _marqueeClickEntry = null;
         _marqueeBaseSelection.Clear();
-        _marqueeEntryBounds.Clear();
         _marqueeScrollViewer = null;
         _marqueeScrollTimer.Stop();
         SelectionMarquee.IsVisible = false;
-        // Keep suppressing delayed nested-ListBox callbacks until the next real
-        // pointer interaction. Some recycled containers report their old
-        // selection after ApplicationIdle; releasing the guard too early would
-        // re-add those stale entries to the final marquee result.
     }
 
     private static bool HasAdditiveSelectionModifier(KeyModifiers modifiers) =>
@@ -2656,198 +1895,6 @@ public partial class FileListView : UserControl
         Math.Min(first.X, second.X), Math.Min(first.Y, second.Y),
         Math.Abs(second.X - first.X), Math.Abs(second.Y - first.Y));
 
-    private void CaptureRealizedEntryBounds()
-    {
-        if (FastListActive) return;
-        var offset = _marqueeScrollViewer?.Offset ?? default;
-        var realizedBounds = new Dictionary<FileSystemEntry, List<Rect>>();
-        foreach (var control in FileScroll.GetVisualDescendants().OfType<Control>()
-                     .Where(control => control.DataContext is FileSystemEntry
-                                       && control.Classes.Contains("entry-content")
-                                       && IsInActivePresentation(control)))
-        {
-            var origin = control.TranslatePoint(default, FileScroll);
-            if (origin is { } point && control.DataContext is FileSystemEntry entry)
-            {
-                var bounds = new Rect(
-                    new Point(point.X + offset.X, point.Y + offset.Y),
-                    control.Bounds.Size);
-                if (bounds.Width <= 0 || bounds.Height <= 0)
-                    continue;
-                if (!realizedBounds.TryGetValue(entry, out var entryBounds))
-                    realizedBounds[entry] = entryBounds = [];
-                entryBounds.Add(bounds);
-            }
-        }
-
-        // Replace rather than append: virtualized controls are recycled while
-        // scrolling, so their translated rectangles must follow the current item.
-        foreach (var (entry, bounds) in realizedBounds)
-            _marqueeEntryBounds[entry] = bounds;
-        var realizedEntries = realizedBounds.Keys.ToHashSet();
-
-        // Virtualization may provide data items before it materializes their visual
-        // templates (especially on the first drag after navigation). Finder list rows
-        // are uniform, so fill any missing logical bounds from the list index instead
-        // of treating the gesture as a background click with zero hits.
-        if (FileItemsList.IsVisible && ViewModel != null
-            && FileItemsList.TranslatePoint(default, FileScroll) is { } listOrigin)
-        {
-            var entryIndexes = ViewModel.Entries
-                .Select((entry, index) => (entry, index))
-                .ToDictionary(item => item.entry, item => item.index);
-            var realizedRows = FileItemsList.GetVisualDescendants()
-                .OfType<ListBoxItem>()
-                .Select(row =>
-                {
-                    var origin = row.TranslatePoint(default, FileScroll);
-                    return (row, origin);
-                })
-                .Where(item => item.origin is not null
-                               && item.row.DataContext is FileSystemEntry entry
-                               && entryIndexes.ContainsKey(entry))
-                .Select(item =>
-                {
-                    var entry = (FileSystemEntry)item.row.DataContext!;
-                    return (entry, index: entryIndexes[entry],
-                        top: item.origin!.Value.Y + offset.Y,
-                        height: item.row.Bounds.Height);
-                })
-                .OrderBy(item => item.index)
-                .ToArray();
-
-            // Derive the pitch from the actual virtualized ListBoxItem positions.
-            // The inner hit targets are shorter than a row and are not suitable
-            // for this measurement; using their height caused cumulative drift at
-            // the bottom of large folders.
-            var measuredPitches = realizedRows
-                .Zip(realizedRows.Skip(1), (first, second) =>
-                    (second.top - first.top) / Math.Max(1, second.index - first.index))
-                .Where(pitch => pitch > 0.1)
-                .OrderBy(pitch => pitch)
-                .ToArray();
-            var rowHeight = measuredPitches.Length > 0
-                ? measuredPitches[measuredPitches.Length / 2]
-                : realizedRows.Select(row => row.height).Where(height => height > 0)
-                    .DefaultIfEmpty(30).Max() + 2;
-            rowHeight = Math.Max(1, rowHeight);
-
-            var logicalOriginY = realizedRows.Length > 0
-                ? realizedRows.Average(row => row.top - row.index * rowHeight)
-                : listOrigin.Y + offset.Y;
-            var fallbackX = listOrigin.X + 12;
-            var fallbackWidth = 22 + Math.Max(0, _effectiveColumnWidths[FileListColumn.Name]);
-            for (var index = 0; index < ViewModel.Entries.Count; index++)
-            {
-                var entry = ViewModel.Entries[index];
-                // Rebuild every row on each pass. A recycled row may still expose
-                // its previous visual bounds for one layout turn after scrolling;
-                // the logical row model is authoritative for marquee selection.
-                _marqueeEntryBounds[entry] = [new Rect(
-                    fallbackX + offset.X,
-                    logicalOriginY + index * rowHeight,
-                    fallbackWidth,
-                    rowHeight)];
-            }
-        }
-
-        if (GridViewItems.IsVisible && ViewModel != null
-            && GridViewItems.TranslatePoint(default, FileScroll) is { } gridOrigin)
-        {
-            const double cellWidth = 120;
-            const double cellHeight = 116;
-            const double cardInsetX = 10;
-            const double cardInsetY = 6;
-            const double cardWidth = 100;
-            const double cardHeight = 104;
-            var columns = Math.Max(1, _gridColumnCount > 0 ? _gridColumnCount : CalculateGridColumnCount());
-            if (ViewModel.GroupField == GroupField.None)
-            {
-                for (var index = 0; index < ViewModel.Entries.Count; index++)
-                {
-                    var entry = ViewModel.Entries[index];
-                    if (!realizedEntries.Contains(entry))
-                        _marqueeEntryBounds[entry] = [new Rect(
-                            gridOrigin.X + offset.X + index % columns * cellWidth + cardInsetX,
-                            gridOrigin.Y + offset.Y + index / columns * cellHeight + cardInsetY,
-                            cardWidth,
-                            cardHeight)];
-                }
-            }
-            else
-            {
-                var y = gridOrigin.Y;
-                foreach (var row in _gridRows)
-                {
-                    if (row.IsGroupHeader)
-                    {
-                        y += 32;
-                        continue;
-                    }
-                    for (var column = 0; column < row.Entries.Count; column++)
-                    {
-                        var entry = row.Entries[column];
-                        if (!realizedEntries.Contains(entry))
-                            _marqueeEntryBounds[entry] = [new Rect(
-                                gridOrigin.X + offset.X + column * cellWidth + cardInsetX,
-                                y + offset.Y + cardInsetY,
-                                cardWidth,
-                                cardHeight)];
-                    }
-                    y += cellHeight;
-                }
-            }
-        }
-
-        if (GroupedListItems.IsVisible
-            && GroupedListItems.TranslatePoint(default, FileScroll) is { } groupedOrigin)
-        {
-            var y = groupedOrigin.Y;
-            foreach (var row in _groupedListRows)
-            {
-                if (row.IsGroupHeader)
-                {
-                    y += 32;
-                    continue;
-                }
-                if (row.Entry is { } entry && !realizedEntries.Contains(entry))
-                    _marqueeEntryBounds[entry] = [new Rect(
-                        groupedOrigin.X + offset.X + 12,
-                        y + offset.Y,
-                        22 + Math.Max(0, _effectiveColumnWidths[FileListColumn.Name]),
-                        30)];
-                y += 30;
-            }
-        }
-    }
-
-    private ScrollViewer? GetActiveFileScrollViewer() => GetActiveScrollViewer();
-
-    /// <summary>
-    /// Hidden presentation hosts remain in Avalonia's visual tree when the user
-    /// switches between list and icon modes. Their recycled item containers still
-    /// have coordinates, but must never participate in the current marquee hit
-    /// test. Walk up to the presentation host instead of relying on the child's
-    /// local IsVisible value (which can remain true under a hidden ancestor).
-    /// </summary>
-    private bool IsInActivePresentation(Visual visual)
-    {
-        for (Visual? current = visual; current != null && !ReferenceEquals(current, FileScroll); current = current.GetVisualParent())
-        {
-            if (ReferenceEquals(current, FileItemsList))
-                return FileItemsList.IsVisible;
-            if (ReferenceEquals(current, GroupedListItems))
-                return GroupedListItems.IsVisible;
-            if (ReferenceEquals(current, GridViewItems))
-                return GridViewItems.IsVisible;
-        }
-
-        return false;
-    }
-
-    private bool IsListMarqueePresentation =>
-        FastListActive || FileItemsList.IsVisible || GroupedListItems.IsVisible;
-
     private Point ViewportToContent(Point point)
     {
         var offset = _marqueeScrollViewer?.Offset ?? default;
@@ -2857,7 +1904,6 @@ public partial class FileListView : UserControl
     private void UpdateMarqueeSelection(Point currentContentPoint)
     {
         if (_marqueeStart == null || ViewModel == null) return;
-        CaptureRealizedEntryBounds();
         var rectangle = RectFromPoints(_marqueeStart.Value, currentContentPoint);
         var offset = _marqueeScrollViewer?.Offset ?? default;
         var visibleContent = new Rect(offset.X, offset.Y, FileScroll.Bounds.Width, FileScroll.Bounds.Height);
@@ -2882,15 +1928,7 @@ public partial class FileListView : UserControl
         // their vertical centers. Icon view uses the center of a visible card,
         // so grazing an adjacent card at an edge does not select it.
         var fastOrigin = FastList.TranslatePoint(default, FileScroll) ?? default;
-        var hits = FastListActive
-            ? FastList.EntriesInRectangle(rectangle.Translate(new Vector(-fastOrigin.X, -fastOrigin.Y))).ToHashSet()
-            : _marqueeEntryBounds
-            .Where(item => IsListMarqueePresentation
-                ? item.Value.Any(bounds => rectangle.Top <= bounds.Center.Y
-                                           && bounds.Center.Y <= rectangle.Bottom)
-                : item.Value.Any(bounds => rectangle.Contains(bounds.Center)))
-            .Select(item => item.Key)
-            .ToHashSet();
+        var hits = FastList.EntriesInRectangle(rectangle.Translate(new Vector(-fastOrigin.X, -fastOrigin.Y))).ToHashSet();
         IEnumerable<FileSystemEntry> selection;
         var command = _marqueeModifiers.HasFlag(KeyModifiers.Meta) || _marqueeModifiers.HasFlag(KeyModifiers.Control);
         if (command)
@@ -2962,121 +2000,7 @@ public partial class FileListView : UserControl
         }, DispatcherPriority.Render);
     }
 
-    private static object? FindDataContextInAncestors(Visual? visual)
-    {
-        for (; visual != null; visual = visual.GetVisualParent())
-            if (visual is Control { DataContext: FileSystemEntry entry })
-                return entry;
-        return null;
-    }
-
-    internal static FileSystemEntry? FindEntryContentInAncestors(Visual? visual)
-    {
-        for (; visual != null; visual = visual.GetVisualParent())
-            if (visual is Control { DataContext: FileSystemEntry entry } control
-                && control.Classes.Contains("entry-content"))
-                return entry;
-        return null;
-    }
-
-    private void OnControlSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (_contextMenuSelectionGuard)
-        {
-            // A ListBox may still raise SelectionChanged after the tunnel handler
-            // consumed the secondary-click press. Never feed that transient,
-            // single-item control state back into the shared multi-selection.
-            RestoreRightClickSelection();
-            e.Handled = true;
-            return;
-        }
-
-        if (_syncingSelection || _suppressControlSelectionDuringMarquee
-            || _marqueeStart != null
-            || sender is not ListBox listBox || ViewModel == null)
-            return;
-
-        var selected = listBox.SelectedItems?.OfType<FileSystemEntry>().ToList() ?? [];
-        if (selected.Count == 0
-            && ViewModel.SelectedEntries.Count > 0
-            && (_applyingViewModelEntries
-                || _restoringNavigationSelection
-                || DateTime.UtcNow <= _ignoreEmptySelectionUntilUtc
-                || ViewModel.ScrollBehaviorAfterLoad is FileListViewModel.ScrollMode.RestoreNavigation
-                    or FileListViewModel.ScrollMode.ScrollToSelected))
-        {
-            e.Handled = true;
-            return;
-        }
-
-        ViewModel.SetSelection(selected, selected.LastOrDefault());
-    }
-
-    private void OnPresentationRowSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (_clearingPresentationSelection || sender is not ListBox listBox || listBox.SelectedIndex < 0)
-            return;
-
-        _clearingPresentationSelection = true;
-        try
-        {
-            listBox.SelectedIndex = -1;
-            e.Handled = true;
-        }
-        finally
-        {
-            _clearingPresentationSelection = false;
-        }
-    }
-
-
-    private void SynchronizeSelectionControls()
-    {
-        if (ViewModel == null || _syncingSelection) return;
-        if (FastListActive)
-        {
-            FastList.InvalidateVisual();
-            return;
-        }
-        _syncingSelection = true;
-        try
-        {
-            var selectedPaths = ViewModel.SelectedEntries.Select(entry => entry.FullPath).ToHashSet(StringComparer.Ordinal);
-            if (selectedPaths.Count == 0)
-            {
-                // Batched loads re-run this per batch; with nothing selected just drop
-                // stale control selections instead of scanning every item.
-                foreach (var listBox in GetActiveSelectionLists())
-                {
-                    if (listBox.SelectedItems is { Count: > 0 })
-                        listBox.SelectedItems.Clear();
-                }
-                return;
-            }
-            foreach (var listBox in GetActiveSelectionLists())
-            {
-                if (listBox.SelectedItems == null) continue;
-                var desiredItems = listBox.Items
-                    .OfType<FileSystemEntry>()
-                    .Where(entry => selectedPaths.Contains(entry.FullPath))
-                    .ToList();
-                var currentItems = listBox.SelectedItems.OfType<FileSystemEntry>().ToList();
-                if (currentItems.Count == desiredItems.Count
-                    && currentItems.SequenceEqual(desiredItems))
-                {
-                    continue;
-                }
-
-                listBox.SelectedItems.Clear();
-                foreach (var entry in desiredItems)
-                    listBox.SelectedItems.Add(entry);
-            }
-        }
-        finally
-        {
-            _syncingSelection = false;
-        }
-    }
+    private void SynchronizeSelectionControls() => FastList.InvalidateVisual();
 
     private void QueueSelectionSynchronization()
     {
@@ -3095,134 +2019,16 @@ public partial class FileListView : UserControl
         }, DispatcherPriority.Background);
     }
 
-    private IEnumerable<ListBox> GetActiveSelectionLists()
-    {
-        if (FileItemsList.IsVisible)
-        {
-            foreach (var list in GetSelectionListsWithin(FileItemsList))
-                yield return list;
-        }
-        if (GroupedListItems.IsVisible)
-        {
-            foreach (var list in GetSelectionListsWithin(GroupedListItems))
-                yield return list;
-        }
-        if (GridViewItems.IsVisible)
-        {
-            foreach (var list in GetSelectionListsWithin(GridViewItems))
-                yield return list;
-        }
-    }
-
-    private static IEnumerable<ListBox> GetSelectionListsWithin(ListBox root)
-    {
-        yield return root;
-        foreach (var list in root.GetVisualDescendants().OfType<ListBox>())
-            yield return list;
-    }
-
     private void UpdateViewMode()
     {
-        if (ViewModel == null)
-        {
-            FileItemsList.ItemsSource = null;
-            FastList.SetRows(Array.Empty<FileSystemEntry>());
-            return;
-        }
-        var isGrid = ViewModel.ViewMode == ViewMode.Grid;
-        var isGrouped = ViewModel.GroupField != GroupField.None;
-        var useFast = CanUseFastFileList;
-        if (useFast != FastListActive) CancelActiveRename();
-        FastListHost.IsVisible = useFast;
-        FastList.IsVisible = useFast;
-        FastList.IsGrid = isGrid;
-        FileItemsList.IsVisible = !isGrid && !isGrouped && !useFast;
-        FileItemsList.ItemsSource = useFast ? null : ViewModel.Entries;
+        var visible = ViewModel is { IsHomePage: false };
+        if (visible != FastListActive) CancelActiveRename();
+        FastListHost.IsVisible = visible;
+        FastList.IsVisible = visible;
+        FastList.IsGrid = ViewModel?.ViewMode == ViewMode.Grid;
         SyncFastListRows();
-        GroupedListItems.IsVisible = !isGrid && isGrouped && !useFast;
-        GridViewItems.IsVisible = isGrid && !useFast;
-        ListHeaderPanel.IsVisible = !isGrid;
+        ListHeaderPanel.IsVisible = visible && !FastList.IsGrid;
         UpdateSortHeaders();
-    }
-
-    private void RebuildPresentationRows()
-    {
-        if (ViewModel == null) return;
-        FileItemsList.ItemsSource = FastListActive ? null : ViewModel.Entries;
-        SyncFastListRows();
-
-        _groupedListRows.Clear();
-        _groupedRowByPath.Clear();
-        // Presentation rows are only materialized while their host is on screen;
-        // switching view/group modes re-runs this after UpdateViewMode flipped
-        // visibility, so off-screen row sets stay empty.
-        if (GroupedListItems.IsVisible && ViewModel.GroupField != GroupField.None)
-        {
-            foreach (var group in ViewModel.Groups)
-            {
-                _groupedListRows.Add(new FileListPresentationRow
-                {
-                    GroupName = group.Name,
-                    GroupItemCount = group.Entries.Count
-                });
-                foreach (var entry in group.Entries)
-                {
-                    var row = new FileListPresentationRow { Entry = entry };
-                    _groupedListRows.Add(row);
-                    _groupedRowByPath[entry.FullPath] = row;
-                }
-            }
-        }
-
-        if (GridViewItems.IsVisible)
-            RebuildGridRows(CalculateGridColumnCount());
-    }
-
-    private int CalculateGridColumnCount()
-        => Math.Max(1, (int)Math.Floor(Math.Max(120, Bounds.Width - 16) / 120));
-
-    private void RebuildGridRowsIfColumnCountChanged()
-    {
-        if (!GridViewItems.IsVisible) return;
-        var columns = CalculateGridColumnCount();
-        if (columns == _gridColumnCount) return;
-        RebuildGridRows(columns);
-    }
-
-    private void RebuildGridRows(int columns)
-    {
-        if (ViewModel == null) return;
-        _gridColumnCount = columns;
-        _gridRows.Clear();
-        _gridRowByPath.Clear();
-
-        IEnumerable<(string? Header, IReadOnlyList<FileSystemEntry> Entries)> groups =
-            ViewModel.GroupField == GroupField.None
-                ? [(null, ViewModel.Entries)]
-                : ViewModel.Groups.Select(group => ((string?)group.Name, (IReadOnlyList<FileSystemEntry>)group.Entries));
-        foreach (var (header, entries) in groups)
-        {
-            if (header != null)
-                _gridRows.Add(new FileGridPresentationRow
-                {
-                    GroupName = header,
-                    GroupItemCount = entries.Count
-                });
-            for (var i = 0; i < entries.Count; i += columns)
-            {
-                var take = Math.Min(columns, entries.Count - i);
-                var slice = new FileSystemEntry[take];
-                for (var j = 0; j < take; j++)
-                    slice[j] = entries[i + j];
-                var row = new FileGridPresentationRow
-                {
-                    Entries = slice
-                };
-                _gridRows.Add(row);
-                foreach (var entry in slice)
-                    _gridRowByPath[entry.FullPath] = row;
-            }
-        }
     }
 
     private async void ClearEmptySearch(object? sender, RoutedEventArgs e)
@@ -3248,19 +2054,12 @@ public partial class FileListView : UserControl
             : disconnected ? "请从侧栏或“连接远程服务器”入口连接"
             : ViewModel.HasFileListFilters ? "试试减少筛选条件，或清除筛选查看全部文件。"
             : ViewModel.IsSearchMode ? $"“{ViewModel.SearchQuery}”\n范围：{ViewModel.SearchScopePath}（包含已索引子文件夹）"
-            : ViewModel.IsTagView ? "拖入或粘贴文件以添加标签，原文件位置保持不变。"
+            : ViewModel.IsTagView && !ViewModel.IsBrowseOnly ? "拖入或粘贴文件以添加标签，原文件位置保持不变。"
             : string.Empty;
         EmptyStateHint.IsVisible = !string.IsNullOrEmpty(EmptyStateHint.Text);
         ClearEmptyFiltersButton.IsVisible = ViewModel.HasFileListFilters && !readFailed && !searchFailed && !disconnected;
         ClearEmptySearchButton.IsVisible = ViewModel.IsSearchMode;
         RetryReadButton.IsVisible = readFailed;
-    }
-
-    private void OnFileItemDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (sender is not Control { DataContext: FileSystemEntry entry } || ViewModel == null) return;
-        OpenEntryFromGesture(entry);
-        e.Handled = true;
     }
 
     private void OpenEntryFromGesture(FileSystemEntry entry)
@@ -3274,19 +2073,13 @@ public partial class FileListView : UserControl
 
     private void OnFileListKeyDown(object? sender, KeyEventArgs e)
     {
-        // EndMarquee intentionally holds this guard through one idle turn to
-        // absorb stale virtualized ListBox callbacks. A keyboard gesture is a
-        // new, intentional selection interaction and must release that guard;
-        // otherwise Arrow/Shift+Arrow selection would remain disabled until the
-        // user clicked an item again.
-        if (!IsTextInputSource(e.Source))
-            _suppressControlSelectionDuringMarquee = false;
         TryHandleFileShortcut(e);
         HandleFastListNavigation(e);
     }
 
     public bool TryHandleFileShortcut(KeyEventArgs e)
     {
+        if (ViewModel?.IsBrowseOnly == true) return TryHandleBrowseShortcut(e);
         if (ColumnFilterPopup.IsOpen) return false;
         if (ViewModel == null) return false;
         if (e.Handled || IsTextInputSource(e.Source)) return false;

@@ -13,6 +13,7 @@ using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Indexing;
+using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.ViewModels;
@@ -32,17 +33,14 @@ public sealed partial class FileListViewModelCreateTests
     [InlineData(ViewMode.List, GroupField.Type, true)]
     [InlineData(ViewMode.Grid, GroupField.None, true)]
     [InlineData(ViewMode.Grid, GroupField.Type, true)]
-    [InlineData(ViewMode.List, GroupField.None, false, true)]
-    [InlineData(ViewMode.List, GroupField.None, true, true)]
     public void ScrollBarInteractionScrollsWithoutStartingMarqueeOrChangingSelection(
-        ViewMode viewMode, GroupField groupField, bool clickTrack, bool useFast = false)
+        ViewMode viewMode, GroupField groupField, bool clickTrack)
     {
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
         var fluentTheme = new FluentTheme();
         application.Styles.Insert(0, fluentTheme);
         using var viewModel = CreateViewModel(new FakeFileService("/tmp/FKFinderTests"),
             sortFilter: new SortFilterViewModel { ViewMode = viewMode, GroupField = groupField });
-        viewModel.UseFastFileList = useFast;
         Window? window = null;
 
         try
@@ -67,8 +65,7 @@ public sealed partial class FileListViewModelCreateTests
             Dispatcher.UIThread.RunJobs();
 
             var selected = viewModel.SelectedEntries.ToArray();
-            var host = useFast ? (Control)view.FindControl<ScrollViewer>("FastListHost")! : view.FindControl<ListBox>(viewMode == ViewMode.Grid ? "GridViewItems"
-                : groupField == GroupField.None ? "FileItemsList" : "GroupedListItems")!;
+            var host = view.FindControl<ScrollViewer>("FastListHost")!;
             var scrollBar = host.GetVisualDescendants().OfType<ScrollBar>()
                 .Single(bar => bar.IsEffectivelyVisible && bar.Orientation == Orientation.Vertical);
             var scrollViewer = scrollBar.FindAncestorOfType<ScrollViewer>()!;
@@ -158,25 +155,14 @@ public sealed partial class FileListViewModelCreateTests
         }
 
         var view = new FileListView { DataContext = viewModel };
-        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
-        var firstRow = Assert.IsAssignableFrom<Border>(rowTemplate.Build(viewModel.Entries[0]));
-        firstRow.DataContext = viewModel.Entries[0];
-        firstRow.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-        view.FindControl<Grid>("FileScroll")!.Children.Add(firstRow);
+        var fastList = view.FindControl<FastFileList>("FastList")!;
         var window = new Window { Width = 900, Height = 520, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var rowOrigin = firstRow.TranslatePoint(default, window)!.Value;
-        var rowMidY = rowOrigin.Y + firstRow.Bounds.Height / 2;
-        var hitRects = firstRow.GetVisualDescendants().OfType<Control>()
-            .Where(control => control.Classes.Contains("list-entry-hit"))
-            .Select(control => new Rect(control.TranslatePoint(default, window)!.Value, control.Bounds.Size))
-            .ToArray();
-        var blankX = Enumerable.Range(1, Math.Max(1, (int)firstRow.Bounds.Width - 2))
-            .Select(offset => rowOrigin.X + firstRow.Bounds.Width - offset)
-            .First(x => hitRects.All(rect => !rect.Contains(new Point(x, rowMidY))));
-        var start = new Point(blankX, rowMidY);
+        var rowOrigin = fastList.TranslatePoint(default, window)!.Value;
+        var rowMidY = rowOrigin.Y + fastList.RowBounds(0).Center.Y;
+        var start = new Point(rowOrigin.X + fastList.ListRowRight - 4, rowMidY);
         var end = new Point(8, Math.Min(window.Bounds.Height - 8, rowMidY + 90));
 
         window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
@@ -212,31 +198,16 @@ public sealed partial class FileListViewModelCreateTests
         });
 
         var view = new FileListView { DataContext = viewModel };
-        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
-        var fileScroll = view.FindControl<Grid>("FileScroll")!;
-        var rows = viewModel.Entries.Select((entry, index) =>
-        {
-            var row = Assert.IsAssignableFrom<Border>(rowTemplate.Build(entry));
-            row.DataContext = entry;
-            row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-            row.Margin = new Thickness(0, index * 30, 0, 0);
-            fileScroll.Children.Add(row);
-            return row;
-        }).ToArray();
+        var fastList = view.FindControl<FastFileList>("FastList")!;
         var window = new Window { Width = 900, Height = 520, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        for (var index = 0; index < rows.Length; index++)
+        for (var index = 0; index < viewModel.Entries.Count; index++)
         {
-            var row = rows[index];
-            var rowOrigin = row.TranslatePoint(default, window)!.Value;
-            var hitRects = row.GetVisualDescendants().OfType<Control>()
-                .Where(control => control.Classes.Contains("list-entry-hit"))
-                .Select(control => new Rect(control.TranslatePoint(default, window)!.Value, control.Bounds.Size))
-                .ToArray();
-            var point = new Point(rowOrigin.X + row.Bounds.Width - 4, rowOrigin.Y + row.Bounds.Height / 2);
-            Assert.All(hitRects, rect => Assert.False(rect.Contains(point)));
+            var local = new Point(fastList.ListRowRight - 4, fastList.RowBounds(index).Center.Y);
+            Assert.Null(fastList.EntryAt(local, contentOnly: true));
+            var point = fastList.TranslatePoint(local, window)!.Value;
 
             window.MouseDown(point, MouseButton.Left, RawInputModifiers.LeftMouseButton);
             window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
@@ -269,26 +240,12 @@ public sealed partial class FileListViewModelCreateTests
             viewModel.Entries.Add(entry);
 
             var view = new FileListView { DataContext = viewModel };
-            var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
-            var rowBorder = Assert.IsAssignableFrom<Border>(rowTemplate.Build(entry));
-            var listRow = new ListBoxItem
-            {
-                DataContext = entry,
-                Content = rowBorder,
-                Width = 800,
-                Height = 28,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
-            };
-            view.FindControl<Grid>("FileScroll")!.Children.Add(listRow);
-            var window = new Window { Width = 900, Height = 520, Content = view };
+            var fastList = view.FindControl<FastFileList>("FastList")!;
+        var window = new Window { Width = 900, Height = 520, Content = view };
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            var rowBackground = Assert.IsAssignableFrom<ISolidColorBrush>(rowBorder.Background);
-            Assert.Equal(0, rowBackground.Color.A);
-            var rowOrigin = listRow.TranslatePoint(default, window)!.Value;
-            var blankPoint = new Point(rowOrigin.X + 760, rowOrigin.Y + 14);
+            var blankPoint = fastList.TranslatePoint(new Point(fastList.ListRowRight - 4, 14), window)!.Value;
             window.MouseDown(blankPoint, MouseButton.Left, RawInputModifiers.LeftMouseButton);
             window.MouseUp(blankPoint, MouseButton.Left, RawInputModifiers.None);
             window.MouseDown(blankPoint, MouseButton.Left, RawInputModifiers.LeftMouseButton);
@@ -326,22 +283,13 @@ public sealed partial class FileListViewModelCreateTests
         });
 
         var view = new FileListView { DataContext = viewModel };
-        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
-        var row = Assert.IsAssignableFrom<Border>(rowTemplate.Build(viewModel.Entries[0]));
-        row.DataContext = viewModel.Entries[0];
-        row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-        view.FindControl<Grid>("FileScroll")!.Children.Add(row);
+        var fastList = view.FindControl<FastFileList>("FastList")!;
         var window = new Window { Width = 1100, Height = 520, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var entryTargets = view.GetVisualDescendants().OfType<Control>()
-            .Where(control => control.Classes.Contains("entry-content"))
-            .Select(control => new Rect(control.TranslatePoint(default, window)!.Value, control.Bounds.Size))
-            .ToArray();
-        Assert.NotEmpty(entryTargets);
-        var x = Math.Min(window.Bounds.Width - 8, entryTargets.Max(rect => rect.Right) + 24);
-        var rowBounds = new Rect(row.TranslatePoint(default, window)!.Value, row.Bounds.Size);
+        var rowBounds = fastList.RowBounds(0).Translate((Vector)fastList.TranslatePoint(default, window)!.Value);
+        var x = window.Bounds.Width - 16;
         var firstY = rowBounds.Top + 1;
         var lastY = rowBounds.Bottom + 1;
 
@@ -374,30 +322,17 @@ public sealed partial class FileListViewModelCreateTests
         }
 
         var view = new FileListView { DataContext = viewModel };
-        var rowTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
-        var fileScroll = view.FindControl<Grid>("FileScroll")!;
-        var rows = new List<Border>();
-        for (var index = 0; index < viewModel.Entries.Count; index++)
-        {
-            var row = Assert.IsAssignableFrom<Border>(rowTemplate.Build(viewModel.Entries[index]));
-            row.DataContext = viewModel.Entries[index];
-            row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-            row.Margin = new Thickness(0, index * 30, 0, 0);
-            fileScroll.Children.Add(row);
-            rows.Add(row);
-        }
-
+        var fastList = view.FindControl<FastFileList>("FastList")!;
         var window = new Window { Width = 900, Height = 360, Content = view };
         // The headless platform needs the themed window's overlay layer to host the context menu.
         window.Styles.Add(new FluentTheme());
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var firstOrigin = rows[0].TranslatePoint(default, window)!.Value;
-        var lastOrigin = rows[^1].TranslatePoint(default, window)!.Value;
-        var blankX = window.Bounds.Width - 16;
-        var start = new Point(blankX, firstOrigin.Y + 1);
-        var end = new Point(blankX, lastOrigin.Y + rows[^1].Bounds.Height - 1);
+        var origin = fastList.TranslatePoint(default, window)!.Value;
+        var blankX = origin.X + fastList.ListRowRight - 4;
+        var start = new Point(blankX, origin.Y + fastList.RowBounds(0).Top + 1);
+        var end = new Point(blankX, origin.Y + fastList.RowBounds(3).Bottom - 1);
         window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
         window.MouseMove(end, RawInputModifiers.LeftMouseButton);
         Dispatcher.UIThread.RunJobs();
@@ -407,25 +342,11 @@ public sealed partial class FileListViewModelCreateTests
             .ToArray();
         Assert.Equal(4, selectedBeforeContextMenu.Length);
 
-        var targetOrigin = rows[1].TranslatePoint(default, window)!.Value;
-        // Use the transparent right-hand part of the list row. It is a marquee
-        // canvas for left drags, but a right-click there must still target the
-        // row and preserve the multi-selection.
-        var targetPoint = new Point(
-            Math.Max(targetOrigin.X + 1, Math.Min(window.Bounds.Width - 16, targetOrigin.X + rows[1].Bounds.Width - 4)),
-            targetOrigin.Y + rows[1].Bounds.Height / 2);
+        window.MouseUp(end, MouseButton.Left);
+        var targetPoint = new Point(blankX, origin.Y + fastList.RowBounds(1).Center.Y);
         window.MouseDown(targetPoint, MouseButton.Right, RawInputModifiers.RightMouseButton);
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal(selectedBeforeContextMenu, viewModel.SelectedEntries.Select(entry => entry.FullPath));
-
-        // A virtualized ListBox can report a transient single/empty selection
-        // after the secondary click. The view must restore the context-menu
-        // snapshot instead of feeding that callback back into the view model.
-        var list = view.FindControl<ListBox>("FileItemsList")!;
-        Assert.NotNull(list.SelectedItems);
-        list.SelectedItems!.Clear();
-        Dispatcher.UIThread.RunJobs();
         Assert.Equal(selectedBeforeContextMenu, viewModel.SelectedEntries.Select(entry => entry.FullPath));
 
         window.MouseUp(targetPoint, MouseButton.Right, RawInputModifiers.None);
@@ -471,12 +392,11 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
-    public void SwitchingFromListToGridIgnoresHiddenListHitRegions()
+    public void SwitchingFromListToGridUsesOnlyGridHitRegions()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
         using var viewModel = CreateViewModel(fileService, sortFilter: sortFilter);
-        viewModel.UseFastFileList = false;
         for (var index = 0; index < 12; index++)
         {
             viewModel.Entries.Add(new FileSystemEntry
@@ -493,18 +413,12 @@ public sealed partial class FileListViewModelCreateTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var list = view.FindControl<ListBox>("FileItemsList")!;
-        Assert.True(list.IsVisible);
-
+        var list = view.FindControl<FastFileList>("FastList")!;
+        Assert.False(list.IsGrid);
         sortFilter.ViewMode = ViewMode.Grid;
         Dispatcher.UIThread.RunJobs();
-        var grid = view.FindControl<ListBox>("GridViewItems")!;
-        Assert.False(list.IsVisible);
-        Assert.True(grid.IsVisible);
+        Assert.True(list.IsGrid);
 
-        // Start in the canvas gap above the first row, then sweep across the
-        // third and fourth cards. The hidden list rows occupy the same visual
-        // tree but must not add their old row centers to this grid marquee.
         var fileScroll = view.FindControl<Grid>("FileScroll")!;
         var areaOrigin = fileScroll.TranslatePoint(default, window)!.Value;
         var start = new Point(areaOrigin.X + 225, areaOrigin.Y + 1);
@@ -570,23 +484,16 @@ public sealed partial class FileListViewModelCreateTests
         });
 
         var view = new FileListView { DataContext = viewModel };
-        var gridTemplate = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["GridEntryTemplate"]);
-        var card = Assert.IsAssignableFrom<Border>(gridTemplate.Build(viewModel.Entries[0]));
-        card.DataContext = viewModel.Entries[0];
-        card.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-        card.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-        view.FindControl<Grid>("FileScroll")!.Children.Add(card);
+        var fastList = view.FindControl<FastFileList>("FastList")!;
         var window = new Window { Width = 760, Height = 520, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
         var targetEntry = viewModel.Entries[0];
-        var icon = view.GetVisualDescendants().OfType<Control>()
-            .Single(control => ReferenceEquals(control.DataContext, targetEntry)
-                               && control.Classes.Contains("file-grid-icon-target"));
-        var origin = icon.TranslatePoint(default, window)!.Value;
+        var icon = fastList.GridIconTargetBounds(0);
+        var origin = fastList.TranslatePoint(icon.TopLeft, window)!.Value;
         var start = new Point(origin.X - 3, origin.Y - 3);
-        var end = new Point(origin.X + icon.Bounds.Width + 3, origin.Y + icon.Bounds.Height + 3);
+        var end = new Point(origin.X + icon.Width + 3, origin.Y + icon.Height + 3);
 
         window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
         window.MouseMove(end, RawInputModifiers.LeftMouseButton);
@@ -1191,7 +1098,8 @@ public sealed partial class FileListViewModelCreateTests
         IContextMenuService? contextMenuService = null,
         IApplicationLauncherService? launcherService = null,
         IOpenWithAppService? openWithAppService = null,
-        IBackgroundTaskManager? backgroundTaskManager = null)
+        IBackgroundTaskManager? backgroundTaskManager = null,
+        bool browseOnly = false, IQuickLookService? quickLookService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1225,7 +1133,7 @@ public sealed partial class FileListViewModelCreateTests
             clipboardService: clipboardService,
             openWithAppService: openWithAppService,
             pluginManager: pluginManager,
-            conversionTaskManager: backgroundTaskManager);
+            conversionTaskManager: backgroundTaskManager, quickLookService: quickLookService) { IsBrowseOnly = browseOnly };
     }
 
     private sealed class FakeFileService(string homeDirectory) : IFileService

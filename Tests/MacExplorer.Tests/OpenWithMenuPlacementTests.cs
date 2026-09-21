@@ -29,7 +29,7 @@ public sealed class OpenWithSchemaMigrationTests : IDisposable
         {
             SqliteSchema.Initialize(connection);
             Execute(connection, """
-                DELETE FROM schema_version WHERE version = 9;
+                DELETE FROM schema_version WHERE version >= 9;
                 INSERT INTO schema_version VALUES (8);
                 DELETE FROM open_with_apps;
                 INSERT INTO open_with_apps(bundle_id, label, is_top_level, sort_order) VALUES

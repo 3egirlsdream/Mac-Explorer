@@ -10,7 +10,7 @@ namespace LiquidGlassAvaloniaUI
 {
     internal static class LiquidGlassVisualRenderer
     {
-        public static void Render(DrawingContext context, Visual visual, Rect clipRect, ISet<Visual>? excludedRoots)
+        public static void Render(DrawingContext context, Visual visual, Rect clipRect, ISet<Visual>? excludedRoots, bool captureForeground = false)
         {
             if (clipRect.Width <= 0 || clipRect.Height <= 0)
                 return;
@@ -19,7 +19,7 @@ namespace LiquidGlassAvaloniaUI
             using (context.PushTransform(Matrix.CreateTranslation(-clipRect.Position.X, -clipRect.Position.Y)))
             using (context.PushClip(targetClip))
             {
-                Render(context, visual, new Rect(visual.Bounds.Size), Matrix.Identity, clipRect, excludedRoots);
+                Render(context, visual, new Rect(visual.Bounds.Size), Matrix.Identity, clipRect, excludedRoots, captureForeground);
             }
         }
 
@@ -29,12 +29,15 @@ namespace LiquidGlassAvaloniaUI
             Rect bounds,
             Matrix parentTransform,
             Rect clipRect,
-            ISet<Visual>? excludedRoots)
+            ISet<Visual>? excludedRoots,
+            bool captureForeground)
         {
             if (excludedRoots is not null && excludedRoots.Contains(visual))
                 return;
 
-            if (LiquidGlassBackdrop.GetIsExcludedFromCapture(visual))
+            if (captureForeground
+                ? LiquidGlassBackdrop.GetIsExcludedFromForegroundCapture(visual)
+                : LiquidGlassBackdrop.GetIsExcludedFromCapture(visual))
                 return;
 
             if (!visual.IsVisible || visual.Opacity <= 0)
@@ -79,7 +82,7 @@ namespace LiquidGlassAvaloniaUI
 
                 foreach (Visual? child in children)
                 {
-                    Render(context, child, child.Bounds, totalTransform, clipRect, excludedRoots);
+                    Render(context, child, child.Bounds, totalTransform, clipRect, excludedRoots, captureForeground);
                 }
             }
         }

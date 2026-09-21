@@ -26,7 +26,7 @@
         <Setter Property="CornerRadius" Value="5"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
         <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>

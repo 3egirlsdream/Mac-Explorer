@@ -1,6 +1,8 @@
 import Foundation
 import Vision
 import CoreLocation
+import PDFKit
+import AppKit
 
 struct FaceResult: Codable {
     let BoundingBoxX: Float
@@ -103,6 +105,107 @@ func reverseGeocode(latitude: Double, longitude: Double) -> String? {
     return result
 }
 
+enum PdfExtractionError: LocalizedError {
+    case failed(String)
+    var errorDescription: String? {
+        switch self { case .failed(let message): return message }
+    }
+}
+
+func extractPdf(at url: URL) throws -> AnalysisResult {
+    guard let document = PDFDocument(url: url) else {
+        throw PdfExtractionError.failed("无法读取 PDF，文件可能已损坏。")
+    }
+    guard !document.isLocked else {
+        throw PdfExtractionError.failed("PDF 已加密，需要先解锁文件。")
+    }
+    guard document.allowsCopying else {
+        throw PdfExtractionError.failed("PDF 不允许提取文字。")
+    }
+    guard document.pageCount > 0 else {
+        throw PdfExtractionError.failed("PDF 没有可读取的页面。")
+    }
+    var result = AnalysisResult()
+    var characterCount = 0
+    func append(_ text: String, confidence: Float) throws {
+        for line in text.components(separatedBy: .newlines) {
+            // PDF font maps may emit compatibility radicals/ligatures; normalize the search text.
+            let line = line.precomposedStringWithCompatibilityMapping.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.isEmpty { continue }
+            characterCount += line.utf16.count
+            guard characterCount <= 5_000_000 else {
+                throw PdfExtractionError.failed("PDF 文字超过 500 万字符，已停止分析。")
+            }
+            result.RecognizedTexts.append(TextResult(Text: line, Confidence: confidence, Keywords: keywords(from: line)))
+        }
+    }
+    func report(_ completed: Int) {
+        let line = "PDF_PROGRESS {\"CompletedPages\":\(completed),\"TotalPages\":\(document.pageCount)}\n"
+        FileHandle.standardError.write(Data(line.utf8))
+    }
+    report(0)
+    for index in 0..<document.pageCount {
+        try autoreleasepool {
+            guard let page = document.page(at: index) else {
+                throw PdfExtractionError.failed("无法读取 PDF 第 \(index + 1) 页。")
+            }
+            if let text = page.string, text.unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) }) {
+                try append(text, confidence: 1)
+            } else {
+                let bounds = page.bounds(for: .cropBox)
+                guard bounds.width.isFinite, bounds.height.isFinite, bounds.width > 0, bounds.height > 0 else {
+                    throw PdfExtractionError.failed("PDF 第 \(index + 1) 页尺寸无效。")
+                }
+                let scale = min(200.0 / 72.0, 3000.0 / max(bounds.width, bounds.height))
+                let rotated = abs(page.rotation % 180) == 90
+                let width = Int(max(1, floor((rotated ? bounds.height : bounds.width) * scale)))
+                let height = Int(max(1, floor((rotated ? bounds.width : bounds.height) * scale)))
+                guard let pageRef = page.pageRef,
+                      let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                        bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                    throw PdfExtractionError.failed("无法渲染 PDF 第 \(index + 1) 页。")
+                }
+                let target = CGRect(x: 0, y: 0, width: width, height: height)
+                context.setFillColor(CGColor(gray: 1, alpha: 1))
+                context.fill(target)
+                context.concatenate(pageRef.getDrawingTransform(.cropBox, rect: target, rotate: 0, preserveAspectRatio: true))
+                context.drawPDFPage(pageRef)
+                guard let image = context.makeImage() else {
+                    throw PdfExtractionError.failed("无法渲染 PDF 第 \(index + 1) 页。")
+                }
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en"]
+                try VNImageRequestHandler(cgImage: image).perform([request])
+                for observation in request.results ?? [] {
+                    if let candidate = observation.topCandidates(1).first {
+                        try append(candidate.string, confidence: candidate.confidence)
+                    }
+                }
+            }
+        }
+        report(index + 1)
+    }
+    return result
+}
+
+if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "--pdf" {
+    do {
+        guard CommandLine.arguments.count == 3 else {
+            throw PdfExtractionError.failed("missing PDF path")
+        }
+        let result = try extractPdf(at: URL(fileURLWithPath: CommandLine.arguments[2]))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        FileHandle.standardOutput.write(try encoder.encode(result))
+        exit(0)
+    } catch {
+        FileHandle.standardError.write(Data("PDF error: \(error.localizedDescription)\n".utf8))
+        exit(1)
+    }
+}
+
 guard CommandLine.arguments.count > 1 else {
     fputs("missing image path\n", stderr)
     exit(2)
@@ -190,4 +293,3 @@ let encoder = JSONEncoder()
 encoder.outputFormatting = [.withoutEscapingSlashes]
 let json = try encoder.encode(output)
 FileHandle.standardOutput.write(json)
-

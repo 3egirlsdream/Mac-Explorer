@@ -264,71 +264,129 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
 
     public async Task UpdateDirectoryAsync(string directoryPath, IReadOnlyList<FileSystemEntry> entries, CancellationToken cancellationToken = default)
     {
-        await _writeLock.WaitAsync(cancellationToken);
+        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             using var transaction = _writeConnection.BeginTransaction();
-
-            try
+            // /Applications also displays entries from /System/Applications. Read their
+            // existing rows too, but only remove absent rows owned by directoryPath.
+            var parents = entries.Select(e => Path.GetDirectoryName(e.FullPath) ?? "/")
+                .Append(directoryPath).Distinct(StringComparer.Ordinal).ToArray();
+            var existing = new Dictionary<string, DirectoryIndexEntry>(StringComparer.Ordinal);
+            using (var read = _writeConnection.CreateCommand())
             {
-                // Delete old entries for this directory
-                using (var cmd = _writeConnection.CreateCommand())
+                read.Transaction = transaction;
+                read.CommandText = """
+                    SELECT path, name, extension, parent_path, size, is_directory,
+                           created_at, modified_at, content_type, is_hidden
+                    FROM files WHERE parent_path = @parentPath
+                    """;
+                read.Parameters.Add("@parentPath", SqliteType.Text);
+                read.Prepare();
+                foreach (var parent in parents)
                 {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "DELETE FROM files WHERE parent_path = @parentPath";
-                    cmd.Parameters.AddWithValue("@parentPath", directoryPath);
-                    await cmd.ExecuteNonQueryAsync();
-                }
-
-                // Insert new entries with one reusable command. This avoids
-                // recompiling the same INSERT statement for large directories.
-                using (var insertCmd = _writeConnection.CreateCommand())
-                {
-                    insertCmd.Transaction = transaction;
-                    insertCmd.CommandText = """
-                        INSERT OR REPLACE INTO files (path, name, extension, parent_path, size, is_directory, created_at, modified_at, content_type, is_hidden, indexed_at)
-                        VALUES (@path, @name, @extension, @parentPath, @size, @isDirectory, @createdAt, @modifiedAt, @contentType, @isHidden, @indexedAt)
-                        """;
-                    AddReusableEntryParameters(insertCmd);
-                    insertCmd.Prepare();
-
-                    var indexedAt = DateTime.UtcNow.Ticks;
-                    foreach (var entry in entries)
+                    read.Parameters["@parentPath"].Value = parent;
+                    using var reader = read.ExecuteReader();
+                    while (reader.Read())
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        SetEntryParameterValues(insertCmd, entry, indexedAt);
-                        await insertCmd.ExecuteNonQueryAsync(cancellationToken);
+                        existing.Add(reader.GetString(0), new DirectoryIndexEntry(
+                            reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2),
+                            reader.GetString(3), reader.GetInt64(4), reader.GetInt64(5),
+                            reader.GetInt64(6), reader.GetInt64(7),
+                            reader.IsDBNull(8) ? null : reader.GetString(8), reader.GetInt64(9)));
                     }
                 }
-
-                // Update directory metadata
-                using (var cmd = _writeConnection.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = """
-                        INSERT OR REPLACE INTO directories (path, file_count, total_size, last_scanned, scan_status)
-                        VALUES (@path, @fileCount, @totalSize, @lastScanned, @scanStatus)
-                        """;
-                    cmd.Parameters.AddWithValue("@path", directoryPath);
-                    cmd.Parameters.AddWithValue("@fileCount", entries.Count);
-                    cmd.Parameters.AddWithValue("@totalSize", entries.Sum(e => e.IsDirectory ? 0 : e.Size));
-                    cmd.Parameters.AddWithValue("@lastScanned", DateTime.UtcNow.Ticks);
-                    cmd.Parameters.AddWithValue("@scanStatus", "complete");
-                    await cmd.ExecuteNonQueryAsync();
-                }
-
-                transaction.Commit();
             }
-            catch
+            var added = new List<FileSystemEntry>();
+            var updated = new List<FileSystemEntry>();
+            foreach (var entry in entries)
             {
-                transaction.Rollback();
-                throw;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!existing.Remove(entry.FullPath, out var old)) added.Add(entry);
+                else if (old != DirectoryIndexEntry.FromEntry(entry)) updated.Add(entry);
             }
+            var deleted = existing.Where(pair => pair.Value.ParentPath == directoryPath)
+                .Select(pair => pair.Key).ToArray();
+            var indexedAt = DateTime.UtcNow.Ticks;
+            using (var insert = _writeConnection.CreateCommand())
+            using (var update = _writeConnection.CreateCommand())
+            using (var delete = _writeConnection.CreateCommand())
+            {
+                insert.Transaction = update.Transaction = delete.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO files (path, name, extension, parent_path, size, is_directory,
+                                       created_at, modified_at, content_type, is_hidden, indexed_at)
+                    VALUES (@path, @name, @extension, @parentPath, @size, @isDirectory,
+                            @createdAt, @modifiedAt, @contentType, @isHidden, @indexedAt)
+                    """;
+                update.CommandText = """
+                    UPDATE files SET name=@name, extension=@extension, parent_path=@parentPath,
+                        size=@size, is_directory=@isDirectory, created_at=@createdAt,
+                        modified_at=@modifiedAt, content_type=@contentType, is_hidden=@isHidden,
+                        indexed_at=@indexedAt WHERE path=@path
+                    """;
+                delete.CommandText = "DELETE FROM files WHERE path=@path";
+                AddReusableEntryParameters(insert);
+                AddReusableEntryParameters(update);
+                delete.Parameters.Add("@path", SqliteType.Text);
+                insert.Prepare();
+                update.Prepare();
+                delete.Prepare();
+                foreach (var entry in added)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    SetEntryParameterValues(insert, entry, indexedAt);
+                    insert.ExecuteNonQuery();
+                }
+                foreach (var entry in updated)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    SetEntryParameterValues(update, entry, indexedAt);
+                    update.ExecuteNonQuery();
+                }
+                foreach (var path in deleted)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    delete.Parameters["@path"].Value = path;
+                    delete.ExecuteNonQuery();
+                }
+            }
+            using (var cmd = _writeConnection.CreateCommand())
+            {
+                cmd.Transaction = transaction;
+                cmd.CommandText = """
+                    INSERT INTO directories (path, file_count, total_size, last_scanned, scan_status)
+                    VALUES (@path, @fileCount, @totalSize, @lastScanned, 'complete')
+                    ON CONFLICT(path) DO UPDATE SET file_count=excluded.file_count,
+                        total_size=excluded.total_size, last_scanned=excluded.last_scanned,
+                        scan_status=excluded.scan_status
+                    """;
+                cmd.Parameters.AddWithValue("@path", directoryPath);
+                cmd.Parameters.AddWithValue("@fileCount", entries.Count);
+                cmd.Parameters.AddWithValue("@totalSize", entries.Sum(e => e.IsDirectory ? 0 : e.Size));
+                cmd.Parameters.AddWithValue("@lastScanned", indexedAt);
+                cancellationToken.ThrowIfCancellationRequested();
+                cmd.ExecuteNonQuery();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            transaction.Commit();
+            // Disposing an uncommitted transaction rolls back every mutation on failure/cancellation.
         }
         finally
         {
             _writeLock.Release();
         }
+    }
+
+    private readonly record struct DirectoryIndexEntry(string Name, string? Extension, string ParentPath,
+        long Size, long IsDirectory, long Created, long Modified, string? ContentType, long IsHidden)
+    {
+        public static DirectoryIndexEntry FromEntry(FileSystemEntry entry) => new(entry.Name,
+            string.IsNullOrEmpty(entry.Extension) ? null : entry.Extension,
+            Path.GetDirectoryName(entry.FullPath) ?? "/", entry.Size, entry.IsDirectory ? 1 : 0,
+            entry.Created.ToUniversalTime().Ticks, entry.LastModified.ToUniversalTime().Ticks,
+            null, entry.IsHidden ? 1 : 0);
     }
 
     public async Task InvalidateDirectoriesAsync(IEnumerable<string> directoryPaths)

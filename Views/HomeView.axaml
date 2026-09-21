@@ -3,20 +3,19 @@
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
              xmlns:models="using:MacExplorer.Models"
+             xmlns:views="using:MacExplorer.Views"
+             xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              x:Class="MacExplorer.Views.HomeView"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
-    <Grid Background="{DynamicResource ColorBgContent}" x:Name="HomeRoot">
-        <Grid.ContextMenu><ContextMenu x:Name="HomeCtxMenu"/></Grid.ContextMenu>
-        <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                    Spacing="20" Margin="24,24,24,80" MaxWidth="560">
-            <StackPanel Spacing="6">
-                <TextBlock Text="打开位置或搜索文件" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <TextBlock Text="输入路径直接打开，或搜索索引中的文件。⌘K 打开全局搜索。" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-            </StackPanel>
+    <Grid Background="Transparent" x:Name="HomeRoot" RowDefinitions="Auto,*">
+        <Grid x:Name="HeaderLayout" Margin="24,24,24,20"
+              glass:LiquidGlassBackdrop.IsExcludedFromCapture="True">
+            <Grid x:Name="HeaderActions" ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
             <Grid>
-                <Border x:Name="HomeSearchContainer" Classes="home-search-box">
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}" Height="44">
+                <Border x:Name="HomeSearchContainer" Classes="home-search-box" Height="44" CornerRadius="{StaticResource RadiusLg}">
                     <Grid ColumnDefinitions="Auto,*">
                         <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
                                   Width="18" Height="18" Margin="14,0,8,0"
@@ -30,6 +29,7 @@
                                  KeyDown="OnHomeSearchKeyDown"/>
                     </Grid>
                 </Border>
+                </glass:LiquidGlassSurface>
                 <Popup x:Name="HomeSearchPopup"
                        PlacementTarget="{Binding #HomeSearchContainer}"
                        Placement="Bottom"
@@ -68,27 +68,19 @@
                     </Border>
                 </Popup>
             </Grid>
-
-            <WrapPanel HorizontalAlignment="Left" Margin="-6,0">
-                <Button Classes="ghost home-shortcut" Click="NavigateHomeDirectory" AutomationProperties.Name="打开主目录" Margin="6,0,6,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <PathIcon Data="{x:Static icons:Icons.Home}" Width="24" Height="24" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock Text="主目录" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
-                    </StackPanel>
-                </Button>
-                <Button Classes="ghost home-shortcut" Click="NavigateDesktop" AutomationProperties.Name="打开桌面" Margin="6,0,6,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="24" Height="24" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock Text="桌面" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
-                    </StackPanel>
-                </Button>
-                <Button Classes="ghost home-shortcut" Click="NavigateMacintoshHd" AutomationProperties.Name="打开Macintosh HD" Margin="6,0,6,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="24" Height="24" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock Text="Macintosh HD" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBody}"/>
-                    </StackPanel>
-                </Button>
-            </WrapPanel>
-        </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateHomeDirectory" ToolTip.Tip="主目录" AutomationProperties.Name="打开主目录">
+                    <PathIcon Data="{x:Static icons:Icons.Home}" Width="18" Height="18"/>
+                </Button></glass:LiquidGlassSurface>
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateDesktop" ToolTip.Tip="桌面" AutomationProperties.Name="打开桌面">
+                    <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="18" Height="18"/>
+                </Button></glass:LiquidGlassSurface>
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateMacintoshHd" ToolTip.Tip="Macintosh HD" AutomationProperties.Name="打开Macintosh HD">
+                    <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="18" Height="18"/>
+                </Button></glass:LiquidGlassSurface>
+            </StackPanel>
+            </Grid>
+        </Grid>
+        <views:HomeDashboard Grid.Row="1"/>
     </Grid>
 </UserControl>

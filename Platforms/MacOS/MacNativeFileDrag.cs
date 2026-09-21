@@ -5,11 +5,28 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using MacExplorer.Views;
 
 namespace MacExplorer.Platforms.MacOS;
 
 internal static class MacNativeFileDrag
 {
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void DragCallback(IntPtr context, int phase, double x, double y, int operation);
+    private static readonly DragCallback SessionCallback = OnSession;
+
+    private static void OnSession(IntPtr context, int phase, double x, double y, int operation)
+    {
+        var handle = GCHandle.FromIntPtr(context);
+        try
+        {
+            if (handle.Target is Action<FileDragSessionEvent> callback)
+                callback(new((FileDragPhase)phase, new Point(x, y),
+                    (operation & 1) != 0 ? DragDropEffects.Copy : (operation & 16) != 0 ? DragDropEffects.Move : DragDropEffects.None));
+        }
+        catch (Exception ex) { System.Diagnostics.Trace.TraceError($"Native drag callback: {ex}"); }
+        finally { if (phase == (int)FileDragPhase.Ended) handle.Free(); }
+    }
     public static void Prepare(Bitmap preview)
     {
         using var pixels = CopyPreviewPixels(preview);
@@ -39,7 +56,8 @@ internal static class MacNativeFileDrag
         Point point,
         IReadOnlyList<string> paths,
         Bitmap preview,
-        DragDropEffects allowedEffects)
+        DragDropEffects allowedEffects,
+        Action<FileDragSessionEvent>? callback = null)
     {
         if (!OperatingSystem.IsMacOS() || paths.Count == 0)
             return false;
@@ -52,12 +70,15 @@ internal static class MacNativeFileDrag
         if (payload.Length == 0)
             return false;
 
+        GCHandle callbackHandle = default;
+        var started = false;
         try
         {
+            if (callback != null) callbackHandle = GCHandle.Alloc(callback);
             using var pixels = CopyPreviewPixels(preview);
             using var buffer = pixels.Lock();
             // AppKit copies these pixels before returning; no encoded image or file is needed.
-            return MacExplorerBeginFileDragPixels(
+            started = MacExplorerBeginFileDragPixels(
                 nsView,
                 point.X,
                 point.Y,
@@ -67,7 +88,10 @@ internal static class MacNativeFileDrag
                 buffer.Size.Width,
                 buffer.Size.Height,
                 buffer.RowBytes,
-                ToNSDragOperation(allowedEffects)) != 0;
+                ToNSDragOperation(allowedEffects),
+                callback == null ? IntPtr.Zero : GCHandle.ToIntPtr(callbackHandle),
+                callback == null ? null : SessionCallback) != 0;
+            return started;
         }
         catch (DllNotFoundException)
         {
@@ -77,6 +101,7 @@ internal static class MacNativeFileDrag
         {
             return false;
         }
+        finally { if (!started && callbackHandle.IsAllocated) callbackHandle.Free(); }
     }
 
     private static IntPtr GetNSView(TopLevel topLevel)
@@ -130,5 +155,5 @@ internal static class MacNativeFileDrag
         int previewWidth,
         int previewHeight,
         int previewStride,
-        int operationMask);
+        int operationMask, IntPtr context, DragCallback? callback);
 }

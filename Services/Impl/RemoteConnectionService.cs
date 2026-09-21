@@ -24,7 +24,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
     {
         _logger = logger;
         _configPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            RuntimePaths.LocalApplicationData,
             "MacExplorer", "remote-servers.json");
         LoadSavedServers();
     }

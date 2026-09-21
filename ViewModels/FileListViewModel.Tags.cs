@@ -14,7 +14,7 @@ public partial class FileListViewModel
     {
         Dispatcher.UIThread.Post(async () =>
         {
-            if (_disposed) return;
+            if (_disposed || IsBrowseOnly) return;
             _navigation.RenameTagHistory(e.OldName, e.NewName);
             if (CurrentTag is { } current && string.Equals(current.Name, e.OldName, StringComparison.OrdinalIgnoreCase))
             {
@@ -28,7 +28,7 @@ public partial class FileListViewModel
     {
         var paths = _newTagPaths;
         _newTagPaths = [];
-        if (_fileTagService == null) return;
+        if (IsBrowseOnly || _fileTagService == null) return;
         await RunTagActionAsync(async () =>
         {
             var tag = await _fileTagService.CreateTagAsync(name);
@@ -43,7 +43,7 @@ public partial class FileListViewModel
 
     public async Task SetFileTagAsync(IReadOnlyList<string> paths, FileTag tag, bool applied)
     {
-        if (_fileTagService == null) return;
+        if (IsBrowseOnly || _fileTagService == null) return;
         await RunTagActionAsync(async () =>
         {
             var result = await _fileTagService.SetTagAsync(paths, tag, applied);
@@ -55,7 +55,7 @@ public partial class FileListViewModel
 
     private async Task RunTagActionAsync(Func<Task> action)
     {
-        if (_fileTagService == null) return;
+        if (IsBrowseOnly || _fileTagService == null) return;
         try { await action(); }
         catch (OperationCanceledException) { }
         catch (Exception ex) { StatusText = $"标签操作失败：{ex.Message}"; }

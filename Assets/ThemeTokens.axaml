@@ -33,6 +33,15 @@
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <!-- Shared sidebar/menu hover and restrained popup glass. -->
+                    <SolidColorBrush x:Key="SidebarHoverBrush" Color="Transparent"/>
+                    <BoxShadows x:Key="SidebarHoverOutline">inset 0 1 0 0 #CCFFFFFF, inset 0 -1 0 0 #24212730</BoxShadows>
+                    <Color x:Key="PopupGlassColor">#F2FFFFFF</Color>
+                    <sys:Double x:Key="PopupGlassBackdrop">1</sys:Double>
+                    <sys:Double x:Key="PopupGlassRefraction">6</sys:Double>
+                    <sys:Double x:Key="PopupGlassHighlight">0.22</sys:Double>
+                    <SolidColorBrush x:Key="InputCaretBrush" Color="#007AFF"/>
+                    <SolidColorBrush x:Key="CheckBoxSurfaceBrush" Color="#E9E9E9"/>
                     <SolidColorBrush x:Key="PanePreviewFillBrush" Color="#E0E3E8"/>
                     <SolidColorBrush x:Key="PanePreviewBorderBrush" Color="#CBD0D8"/>
                     <SolidColorBrush x:Key="PanePreviewSelectedFillBrush" Color="#9FC7FF"/>
@@ -47,12 +56,13 @@
                     <BoxShadows x:Key="HomeSearchFocusShadow">0 0 42 -24 #30000000, inset 0 0 0 1 #10000000</BoxShadows>
                     <DropShadowEffect x:Key="ViewModeToggleShadow" OffsetX="0" OffsetY="0.5" BlurRadius="4.5" Color="#606068" Opacity="0.16"/>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F4F6"/>
-                    <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#ECEEF1"/>
+                    <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#F7F7F8"/>
                     <SolidColorBrush x:Key="WindowBorderBrush" Color="#18000000"/>
                     <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#F3F4F6"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#F3F4F6"/>
+                    <SolidColorBrush x:Key="FileListAlternateRowBrush" Color="#F7F8FA"/>
                     <SolidColorBrush x:Key="ButtonPrimaryForegroundBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="DangerHoverBrush" Color="#A32E38"/>
@@ -184,6 +194,15 @@
                     <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#FFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <!-- Shared sidebar/menu hover and restrained popup glass. -->
+                    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#0CFFFFFF"/>
+                    <BoxShadows x:Key="SidebarHoverOutline">0 0 0 0 Transparent</BoxShadows>
+                    <Color x:Key="PopupGlassColor">#F230302F</Color>
+                    <sys:Double x:Key="PopupGlassBackdrop">0.85</sys:Double>
+                    <sys:Double x:Key="PopupGlassRefraction">0</sys:Double>
+                    <sys:Double x:Key="PopupGlassHighlight">0</sys:Double>
+                    <SolidColorBrush x:Key="InputCaretBrush" Color="#0A84FF"/>
+                    <SolidColorBrush x:Key="CheckBoxSurfaceBrush" Color="#454545"/>
                     <SolidColorBrush x:Key="PanePreviewFillBrush" Color="#424750"/>
                     <SolidColorBrush x:Key="PanePreviewBorderBrush" Color="#5A626E"/>
                     <SolidColorBrush x:Key="PanePreviewSelectedFillBrush" Color="#365E97"/>
@@ -204,6 +223,7 @@
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#1B1D21"/>
                     <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#292D34"/>
                     <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#24272D"/>
+                    <SolidColorBrush x:Key="FileListAlternateRowBrush" Color="#202329"/>
                     <SolidColorBrush x:Key="ButtonPrimaryForegroundBrush" Color="#17253D"/>
                     <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#381A20"/>
                     <SolidColorBrush x:Key="DangerHoverBrush" Color="#FFA6AC"/>

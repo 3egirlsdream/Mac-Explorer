@@ -188,6 +188,9 @@ namespace LiquidGlassAvaloniaUI
             TemplateProperty.OverrideDefaultValue<LiquidGlassSurface>(CreateDefaultTemplate());
         }
 
+        /// <summary>Popup lenses sample visible page content; ordinary materials keep their background-only capture.</summary>
+        public bool CaptureForeground { get; init; }
+
         internal LiquidGlassInteractiveOverlay? InteractiveOverlay { get; private set; }
         internal LiquidGlassFrontOverlay? FrontOverlay { get; private set; }
 
@@ -480,7 +483,9 @@ namespace LiquidGlassAvaloniaUI
             LiquidGlassBackdropProvider.EnsureSnapshot(this);
             LiquidGlassBackdropSnapshot? snapshot = LiquidGlassBackdropProvider.TryGetSnapshot(this);
 
-            context.Custom(new LiquidGlassDrawOperation(controlBounds, parameters, snapshot, LiquidGlassDrawPass.Lens));
+            var topLevel = LiquidGlassBackdropProvider.GetBackdropRoot(this);
+            Matrix? backdropTransform = topLevel is null ? null : LiquidGlassBackdropProvider.GetBackdropTransform(this, topLevel);
+            context.Custom(new LiquidGlassDrawOperation(controlBounds, parameters, snapshot, LiquidGlassDrawPass.Lens, backdropTransform));
         }
 
         internal LiquidGlassDrawParameters CreateDrawParameters()
@@ -728,7 +733,7 @@ namespace LiquidGlassAvaloniaUI
         {
             luminance = 0.0;
 
-            TopLevel? topLevel = TopLevel.GetTopLevel(this);
+            TopLevel? topLevel = LiquidGlassBackdropProvider.GetBackdropRoot(this);
             if (topLevel is null)
                 return false;
 
@@ -806,7 +811,7 @@ namespace LiquidGlassAvaloniaUI
         {
             pixelRect = default;
 
-            Matrix? transform = this.TransformToVisual(topLevel);
+            Matrix? transform = LiquidGlassBackdropProvider.GetBackdropTransform(this, topLevel);
             if (transform is null)
                 return false;
 

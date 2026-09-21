@@ -32,8 +32,8 @@ public sealed partial class PluginManager : IAsyncDisposable
     public event Action? Changed;
 
     public PluginManager(ISettingsService settings) : this(settings,
-        Environment.GetEnvironmentVariable("MACEXPLORER_PLUGIN_PATH")
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MacExplorer", "Plugins"),
+        (RuntimePaths.TestRoot == null ? Environment.GetEnvironmentVariable("MACEXPLORER_PLUGIN_PATH") : null)
+            ?? Path.Combine(RuntimePaths.LocalApplicationData, "MacExplorer", "Plugins"),
         Path.Combine(AppContext.BaseDirectory, "BundledPlugins", "FileConversion.mexplug"),
         Environment.ProcessPath!, typeof(PluginManager).Assembly.Location) { }
 

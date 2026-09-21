@@ -264,15 +264,15 @@ public partial class InfoPanelView : UserControl
         SelectedFileSummary.Text = $"{entry.KindText} · {entry.FormattedSize}";
 
         // Basic info
-        InfoPath.Text = Path.GetDirectoryName(entry.FullPath) ?? "/";
+        InfoPath.Text = entry.FullPath;
         ToolTip.SetTip(InfoPath, InfoPath.Text);
         InfoSize.Text = entry.FormattedSize;
         InfoType.Text = entry.KindText;
-        InfoModified.Text = entry.LastModified.ToString("yyyy-MM-dd HH:mm");
-        InfoCreated.Text = entry.Created.ToString("yyyy-MM-dd HH:mm");
+        InfoModified.Text = entry.LastModified.ToString("yy/MM/dd HH:mm");
+        InfoCreated.Text = entry.Created.ToString("yy/MM/dd HH:mm");
         InfoAccessed.Text = "—";
         ResetHash();
-        UpdateExifTab(null);
+        UpdateExifSection(null);
         UpdateTagsFromMetadata(entry.FullPath, []);
 
         // Folder metadata invokes several native probes (owner, type, xattrs and tags).
@@ -281,7 +281,7 @@ public partial class InfoPanelView : UserControl
         if (entry.IsDirectory)
         {
             ShowFileIcon("文件夹");
-            UpdateExifTab(null);
+            UpdateExifSection(null);
             UpdateTagsFromMetadata(entry.FullPath, []);
             return;
         }
@@ -321,8 +321,8 @@ public partial class InfoPanelView : UserControl
         if (metadata?.FullPath != entry.FullPath)
             return;
 
-        InfoAccessed.Text = metadata.LastAccessed.ToString("yyyy-MM-dd HH:mm");
-        UpdateExifTab(metadata.ImageInfo);
+        InfoAccessed.Text = metadata.LastAccessed.ToString("yy/MM/dd HH:mm");
+        UpdateExifSection(metadata.ImageInfo);
         UpdateTagsFromMetadata(entry.FullPath, metadata.Tags);
     }
 
@@ -833,37 +833,15 @@ public partial class InfoPanelView : UserControl
         InfoCreated.Text = "—";
         InfoAccessed.Text = "—";
         ResetHash();
-        UpdateExifTab(null);
+        UpdateExifSection(null);
         ResetPreviewContent("选择文件以预览");
         CustomTagsPanel.Children.Clear();
         UpdateSystemTagCheckmarks();
     }
 
-    // ── Tabs ──
-
-    private void SwitchToBasicTab(object? sender, RoutedEventArgs e)
-    {
-        BasicTabContent.IsVisible = true;
-        ExifTabContent.IsVisible = false;
-        TabBasicBtn.Classes.Remove("info-tab");
-        TabBasicBtn.Classes.Add("info-tab-active");
-        TabExifBtn.Classes.Remove("info-tab-active");
-        TabExifBtn.Classes.Add("info-tab");
-    }
-
-    private void SwitchToExifTab(object? sender, RoutedEventArgs e)
-    {
-        BasicTabContent.IsVisible = false;
-        ExifTabContent.IsVisible = true;
-        TabExifBtn.Classes.Remove("info-tab");
-        TabExifBtn.Classes.Add("info-tab-active");
-        TabBasicBtn.Classes.Remove("info-tab-active");
-        TabBasicBtn.Classes.Add("info-tab");
-    }
-
     // ── EXIF ──
 
-    private void UpdateExifTab(ImageMetadata? image)
+    private void UpdateExifSection(ImageMetadata? image)
     {
         ExifFieldsPanel.Children.Clear();
         if (image == null)
@@ -902,27 +880,29 @@ public partial class InfoPanelView : UserControl
         foreach (var (label, value) in fields)
         {
             if (string.IsNullOrWhiteSpace(value)) continue;
-            ExifFieldsPanel.Children.Add(new Grid
+            var valueText = new TextBlock
             {
-                ColumnDefinitions = new ColumnDefinitions("72,*"),
-                Children =
+                [Grid.ColumnProperty] = 1,
+                Classes = { "info-field-value" },
+                Text = value,
+                TextWrapping = TextWrapping.Wrap
+            };
+            ToolTip.SetTip(valueText, value);
+            ExifFieldsPanel.Children.Add(new Border
+            {
+                Classes = { "info-field-row" },
+                Child = new Grid
                 {
-                    AppTypography.BindFontSize(new TextBlock
+                    ColumnDefinitions = new ColumnDefinitions("72,*"),
+                    Children =
                     {
-                        Text = label,
-                        Foreground = Brush.Parse("#8E8E93"),
-                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                    }, AppTypography.Caption),
-                    AppTypography.BindFontSize(new TextBlock
-                    {
-                        [Grid.ColumnProperty] = 1,
-                        Text = value,
-                        TextWrapping = TextWrapping.Wrap,
-                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                    }, AppTypography.Label)
+                        new TextBlock { Classes = { "info-field-label" }, Text = label },
+                        valueText
+                    }
                 }
             });
         }
+        ExifNoDataLabel.IsVisible = ExifFieldsPanel.Children.Count == 0;
     }
 
     // ── Tags (Apple Finder style) ──

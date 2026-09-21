@@ -45,7 +45,7 @@
                         <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
                     </Button>
                     <StackPanel Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center">
-                        <TextBlock x:Name="TitleText" Text="超级预览" FontSize="18"
+                        <TextBlock x:Name="TitleText" Text="预览" FontSize="18"
                                    FontWeight="{StaticResource FontWeightSemibold}"
                                    TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="BreadcrumbText" Text="" FontSize="11"
@@ -54,8 +54,8 @@
                     </StackPanel>
                     <TextBlock Grid.Column="2" x:Name="ItemCountText" VerticalAlignment="Center"
                                FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
-                    <Button AutomationProperties.Name="关闭超级预览（Esc）" Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="6"
-                            Click="ClosePreview" ToolTip.Tip="关闭超级预览（Esc）">
+                    <Button AutomationProperties.Name="关闭预览（Esc）" Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="6"
+                            Click="ClosePreview" ToolTip.Tip="关闭预览（Esc）">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
                     </Button>
                 </Grid>
@@ -140,7 +140,7 @@
                 <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="16,0,16,12">
                     <TextBlock x:Name="StatusText" Text="空格关闭 · Esc 退出 · 双击进入文件夹或压缩包"
                                FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                    <TextBlock Grid.Column="1" Text="超级预览" FontSize="11"
+                    <TextBlock Grid.Column="1" Text="预览" FontSize="11"
                                Foreground="{DynamicResource AccentBrush}"/>
                 </Grid>
             </Grid>

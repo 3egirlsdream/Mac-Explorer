@@ -19,9 +19,11 @@ namespace LiquidGlassAvaloniaUI
             _controlBounds = controlBounds;
             _parameters = parameters;
 
-            double radius = Math.Max(0.0, parameters.ShadowRadius);
+            double radius = Clamp(parameters.ShadowRadius, 0.0, 512.0);
             Vector offset = parameters.ShadowOffset;
-            double pad = radius * 2.0;
+            // Skia's blur radius is sigma. Reserve the Gaussian tail and antialiasing,
+            // then include the offset in both scene bounds and the temporary layer.
+            double pad = Math.Ceiling(radius * 3.0) + 1.0;
 
             double leftPad = pad + Math.Max(0.0, -offset.X);
             double topPad = pad + Math.Max(0.0, -offset.Y);
@@ -100,8 +102,9 @@ namespace LiquidGlassAvaloniaUI
                 IsAntialias = true
             };
 
-            float pad = radius * 2.0f;
-            SKRect layerBounds = SKRect.Create(-pad, -pad, size.Width + pad * 2.0f, size.Height + pad * 2.0f);
+            SKRect layerBounds = SKRect.Create(
+                (float)_operationBounds.X, (float)_operationBounds.Y,
+                (float)_operationBounds.Width, (float)_operationBounds.Height);
 
             canvas.SaveLayer(layerBounds, null);
 

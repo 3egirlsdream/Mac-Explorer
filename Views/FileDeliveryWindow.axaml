@@ -1,0 +1,46 @@
+<controls:AppWindow xmlns="https://github.com/avaloniaui"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:controls="using:MacExplorer.Controls"
+                   xmlns:views="using:MacExplorer.Views"
+                   xmlns:icons="using:MacExplorer.Assets"
+                   x:Class="MacExplorer.Views.FileDeliveryWindow"
+                   Classes="file-delivery" Title="文件速递"
+                   Width="560" Height="395.979797" CanResize="False" CanMaximize="False"
+                   ShowInTaskbar="False" ShowActivated="False" WindowDecorations="None">
+
+    <Border CornerRadius="{DynamicResource RadiusLg}" ClipToBounds="True" controls:PopupGlass.IsEnabled="True">
+        <Grid>
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                <Grid ColumnDefinitions="*,Auto" Margin="12,8,8,0" ColumnSpacing="4">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="EntryTabs" Orientation="Horizontal" Spacing="4"/>
+                    </ScrollViewer>
+                    <Button Grid.Column="1" x:Name="AddEntryButton" Classes="workspace-nav-button" Click="OnAddEntry"
+                            ToolTip.Tip="添加入口" AutomationProperties.Name="添加入口">
+                        <PathIcon Data="{x:Static icons:Icons.Plus}"/>
+                    </Button>
+                </Grid>
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="8,6" ColumnSpacing="2">
+                    <Button x:Name="BackButton" Classes="workspace-nav-button" Click="OnBack" ToolTip.Tip="后退" AutomationProperties.Name="后退">
+                        <PathIcon Data="{x:Static icons:Icons.Back}"/>
+                    </Button>
+                    <Button Grid.Column="1" x:Name="ForwardButton" Classes="workspace-nav-button" Click="OnForward" ToolTip.Tip="前进" AutomationProperties.Name="前进">
+                        <PathIcon Data="{x:Static icons:Icons.Forward}"/>
+                    </Button>
+                    <Button Grid.Column="2" Classes="workspace-nav-button" Click="OnUp" ToolTip.Tip="上一级" AutomationProperties.Name="上一级">
+                        <PathIcon Data="{x:Static icons:Icons.Up}"/>
+                    </Button>
+                    <views:BreadcrumbBar Grid.Column="3" x:Name="LocationBreadcrumb" Margin="4,0" VerticalAlignment="Center"/>
+                    <Button Grid.Column="4" Classes="workspace-nav-button" Click="OnViewMode" ToolTip.Tip="切换列表／图标" AutomationProperties.Name="切换视图">
+                        <PathIcon x:Name="ViewModeIcon" Data="{x:Static icons:Icons.Grid}"/>
+                    </Button>
+                </Grid>
+                <views:FileListView Grid.Row="2" x:Name="Files"/>
+                <StackPanel Grid.Row="2" x:Name="EmptyEntries" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <TextBlock Text="点击页签右侧 + 添加文件夹或收藏夹" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <TextBlock Grid.Row="3" x:Name="StatusText" Margin="14,6" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </Grid>
+        </Grid>
+    </Border>
+</controls:AppWindow>

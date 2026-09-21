@@ -131,9 +131,9 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaTheory]
-    [InlineData("ListEntryTemplate", ViewMode.List)]
-    [InlineData("GridEntryTemplate", ViewMode.Grid)]
-    public async Task RealizedFileIconsLoadThumbnailsOffThreadAndKeepThemAfterPresentationChanges(string templateName, ViewMode mode)
+    [InlineData(ViewMode.List)]
+    [InlineData(ViewMode.Grid)]
+    public async Task RealizedFileIconsLoadThumbnailsOffThreadAndKeepThemAfterPresentationChanges(ViewMode mode)
     {
         var cachePath = Path.Combine(Path.GetTempPath(), "fkfinder-thumb-" + Guid.NewGuid().ToString("N") + ".png");
         await File.WriteAllBytesAsync(cachePath, PreviewTestPng);
@@ -142,31 +142,23 @@ public sealed partial class FileListViewModelCreateTests
             sortFilter: new SortFilterViewModel { ViewMode = mode }, thumbnailService: service);
         var view = new FileListView { DataContext = vm };
         var entry = new FileSystemEntry { FullPath = "/tmp/visible.png", Name = "visible.png", Extension = ".png" };
-        if (mode == ViewMode.Grid)
-        {
-            // Simulate a small thumbnail retained from the details list.
-            entry.ThumbnailUrl = cachePath;
-            entry.GeneratedThumbnailPixelSize = 32;
-        }
-        var template = Assert.IsAssignableFrom<IDataTemplate>(view.Resources[templateName]);
-        var card = Assert.IsAssignableFrom<Control>(template.Build(entry));
-        card.DataContext = entry;
-        var window = new Window { Width = 600, Height = 200, Content = card };
+        vm.Entries.Add(entry);
+        var list = view.FindControl<MacExplorer.Controls.FastFileList>("FastList")!;
+        var window = new Window { Width = 600, Height = 200, Content = view };
         try
         {
             window.Show();
-            await WaitForPreviewAsync(() => entry.ThumbnailUrl == cachePath
-                && FileListView.TryGetCachedEntryImage(cachePath) != null);
-            var image = card.GetVisualDescendants().OfType<Image>().Single(i => i.Classes.Contains("entry-icon-image"));
-            await WaitForPreviewAsync(() => ReferenceEquals(image.Source, FileListView.TryGetCachedEntryImage(cachePath)));
+            var images = (MacExplorer.Controls.FastFileListImages)typeof(MacExplorer.Controls.FastFileList)
+                .GetField("_images", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(list)!;
+            await WaitForPreviewAsync(() => images.CachedBytes > 0);
+            var bitmap = list.GetEntryBitmap(entry);
             Assert.False(service.CalledOnUiThread);
             Assert.InRange(service.PixelSize, 32, 256);
-            Assert.Equal(service.PixelSize, entry.GeneratedThumbnailPixelSize);
             entry.IsSelected = true;
             entry.GitStatus = GitFileStatus.Modified;
             entry.RaiseIconBindingChanged();
             Dispatcher.UIThread.RunJobs();
-            Assert.Same(FileListView.TryGetCachedEntryImage(cachePath), image.Source);
+            Assert.Same(bitmap, list.GetEntryBitmap(entry));
             Assert.Equal(1, service.CallCount);
         }
         finally
@@ -183,10 +175,8 @@ public sealed partial class FileListViewModelCreateTests
         using var vm = CreateViewModel(new FakeFileService("/tmp"), thumbnailService: service);
         var view = new FileListView { DataContext = vm };
         var entry = new FileSystemEntry { FullPath = "/tmp/slow.png", Name = "slow.png", Extension = ".png" };
-        var template = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["ListEntryTemplate"]);
-        var card = Assert.IsAssignableFrom<Control>(template.Build(entry));
-        card.DataContext = entry;
-        var window = new Window { Width = 600, Height = 200, Content = card };
+        vm.Entries.Add(entry);
+        var window = new Window { Width = 600, Height = 200, Content = view };
         try
         {
             window.Show();

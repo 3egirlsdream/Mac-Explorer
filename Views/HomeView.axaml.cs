@@ -7,7 +7,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -22,7 +21,6 @@ public partial class HomeView : UserControl
     public HomeView()
     {
         InitializeComponent();
-        HomeCtxMenu.Opened += OnContextMenuOpened;
     }
 
     public void FocusOmnibox()
@@ -32,58 +30,6 @@ public partial class HomeView : UserControl
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
-
-    private async void OnContextMenuOpened(object? sender, EventArgs e)
-    {
-        if (ViewModel == null) { HomeCtxMenu.Items.Clear(); return; }
-        await ViewModel.ShowBackgroundContextMenuAsync(0, 0);
-        PopulateMenu(HomeCtxMenu, ViewModel.ContextMenuActions);
-    }
-
-    private static void PopulateMenu(ItemsControl parent, System.Collections.Generic.IList<ContextMenuAction> actions)
-    {
-        parent.Items.Clear();
-        if (actions.Count == 0) return;
-
-        foreach (var action in actions)
-        {
-            if (action.IsSeparator)
-            {
-                parent.Items.Add(new Separator());
-                continue;
-            }
-
-            var item = new MenuItem { Header = action.Label, IsEnabled = action.IsEnabled };
-
-            if (!string.IsNullOrEmpty(action.ShortcutText))
-                item.InputGesture = ParseShortcut(action.ShortcutText);
-
-            if (!string.IsNullOrEmpty(action.IconSvg))
-            {
-                try { item.Icon = new PathIcon { Data = Geometry.Parse(action.IconSvg), Width = 16, Height = 16 }; }
-                catch { }
-            }
-
-            if (action.Execute != null) { var c = action; item.Click += async (_, _) => await c.Execute(); }
-            if (action.SubItems is { Count: > 0 })
-            {
-                PopulateMenu(item, action.SubItems.ToList());
-                ContextMenuPopupStyler.Attach(item);
-            }
-
-            parent.Items.Add(item);
-        }
-    }
-
-    private static KeyGesture? ParseShortcut(string text)
-    {
-        var parsed = text
-            .Replace("⌘", "Cmd+").Replace("⇧", "Shift+").Replace("⌥", "Alt+")
-            .Replace("⌃", "Ctrl+").Replace("⌫", "Back").Replace("⌦", "Delete")
-            .Replace("↩", "Enter").Replace("⇥", "Tab").Replace("⎋", "Escape");
-        try { return KeyGesture.Parse(parsed); } catch { return null; }
-    }
-
 
     private void OnHomeSearchGotFocus(object? sender, RoutedEventArgs e)
         => _ = RefreshHomeSuggestionsAsync();
@@ -123,8 +69,9 @@ public partial class HomeView : UserControl
         if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(HomeSearchBox.Text))
             return;
 
-        var suggestion = HomeSearchSuggestionList.SelectedItem as OmniboxSuggestion
-                         ?? (HomeSearchSuggestionList.ItemsSource as IEnumerable<OmniboxSuggestion>)?.FirstOrDefault();
+        var suggestion = HomeSearchSuggestionList.SelectedItem as OmniboxSuggestion;
+        if (suggestion == null && !OmniboxService.IsNavigablePath(OmniboxService.NormalizePath(HomeSearchBox.Text.Trim())))
+            suggestion = (HomeSearchSuggestionList.ItemsSource as IEnumerable<OmniboxSuggestion>)?.FirstOrDefault();
         if (suggestion != null)
             await ExecuteHomeSuggestionAsync(suggestion);
         else if (ViewModel != null)

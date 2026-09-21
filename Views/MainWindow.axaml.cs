@@ -82,7 +82,6 @@ public partial class MainWindow : AppWindow
     private CancellationTokenSource? _globalSearchPreviewCts;
     private global::Avalonia.Media.Imaging.Bitmap? _globalSearchPreviewBitmap;
     private readonly Dictionary<string, global::Avalonia.Media.Imaging.Bitmap> _globalSearchFolderThumbnailBitmaps = new(StringComparer.OrdinalIgnoreCase);
-    private DateTime _lastUnmodifiedDKeyDownUtc;
 
     // Task overlay panel state machine
     private enum PanelMode { None, Auto, Manual }
@@ -220,6 +219,11 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (_homeFolderTransition != null)
+        {
+            if (e.Key == Key.Escape) { _homeFolderTransition.Close(); e.Handled = true; }
+            return;
+        }
         if (IsMarkdownEditorOpen && !IsModalInteractionBlocked)
         {
             _markdownEditor!.HandleWindowKeyDown(e);
@@ -262,13 +266,8 @@ public partial class MainWindow : AppWindow
             }
             else if (e.Key == Key.Enter)
             {
-                var suggestion = GlobalSearchResults.SelectedItem as OmniboxSuggestion
-                                 ?? _globalSearchSuggestions.FirstOrDefault();
-                if (suggestion != null)
-                {
-                    e.Handled = true;
-                    _ = OpenGlobalSearchSuggestionAsync(suggestion);
-                }
+                e.Handled = true;
+                _ = ExecuteGlobalSearchInputAsync();
             }
             return;
         }
@@ -304,8 +303,7 @@ public partial class MainWindow : AppWindow
             return;
         }
 
-        // The global quick search has conventional shortcuts plus the double-D
-        // gesture from the reference interaction. Do not intercept normal typing.
+        // Conventional shortcuts for global quick search.
         if ((e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.K)
             || (e.KeyModifiers.HasFlag(KeyModifiers.Meta)
                 && e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key == Key.F))
@@ -313,21 +311,6 @@ public partial class MainWindow : AppWindow
             e.Handled = true;
             OpenGlobalSearch();
             return;
-        }
-
-        if (e.Key == Key.D && e.KeyModifiers == KeyModifiers.None
-            && !IsInsideTextInput(e.Source as Visual))
-        {
-            var now = DateTime.UtcNow;
-            if (now - _lastUnmodifiedDKeyDownUtc <= TimeSpan.FromMilliseconds(450))
-            {
-                _lastUnmodifiedDKeyDownUtc = DateTime.MinValue;
-                e.Handled = true;
-                OpenGlobalSearch();
-                return;
-            }
-
-            _lastUnmodifiedDKeyDownUtc = now;
         }
 
         // Finder/browser tab shortcuts. Handle these before the file list so
@@ -534,6 +517,7 @@ public partial class MainWindow : AppWindow
         else if (e.PropertyName is nameof(MainWindowViewModel.SelectedTab)
                  or nameof(MainWindowViewModel.ActivePaneSlotIndex))
         {
+            CloseHomeFolderImmediately();
             TouchSelectedWorkspace();
             _ = ActivateSelectedWorkspaceAsync();
         }
@@ -765,6 +749,7 @@ public partial class MainWindow : AppWindow
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        CloseHomeFolderImmediately();
         if (Application.Current != null)
             Application.Current.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         _taskPanelAnimCts?.Cancel();
@@ -1600,10 +1585,11 @@ public partial class MainWindow : AppWindow
         _globalSearchCts = new CancellationTokenSource();
         var cancellationToken = _globalSearchCts.Token;
         var query = GlobalSearchBox.Text?.Trim() ?? string.Empty;
+        _globalSearchSuggestions.Clear();
+        GlobalSearchResults.SelectedIndex = -1;
 
         if (query.Length == 0)
         {
-            _globalSearchSuggestions.Clear();
             GlobalSearchResults.IsVisible = false;
             GlobalSearchEmptyHint.Text = "输入内容即可搜索已索引的本地文件、常用位置和最近位置";
             GlobalSearchEmptyHint.IsVisible = true;
@@ -1673,13 +1659,36 @@ public partial class MainWindow : AppWindow
 
         if (e.Key == Key.Enter)
         {
-            var suggestion = GlobalSearchResults.SelectedItem as OmniboxSuggestion
-                             ?? _globalSearchSuggestions.FirstOrDefault();
-            if (suggestion != null)
-            {
-                e.Handled = true;
-                await OpenGlobalSearchSuggestionAsync(suggestion);
-            }
+            e.Handled = true;
+            await ExecuteGlobalSearchInputAsync();
+        }
+    }
+
+    private async Task ExecuteGlobalSearchInputAsync()
+    {
+        if (_vm?.FileList == null)
+            return;
+
+        var suggestion = GlobalSearchResults.SelectedItem as OmniboxSuggestion
+                         ?? _globalSearchSuggestions.FirstOrDefault();
+        if (suggestion != null)
+        {
+            await OpenGlobalSearchSuggestionAsync(suggestion);
+            return;
+        }
+
+        var input = GlobalSearchBox.Text?.Trim() ?? string.Empty;
+        if (!OmniboxService.IsNavigablePath(OmniboxService.NormalizePath(input)))
+            return;
+
+        CloseGlobalSearch();
+        try
+        {
+            await OmniboxService.ExecuteInputAsync(_vm.FileList, input);
+        }
+        catch (Exception ex)
+        {
+            _vm.FileList.StatusText = $"打开位置失败: {ex.Message}";
         }
     }
 

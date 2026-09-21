@@ -64,7 +64,7 @@ public class MacThumbnailService : IThumbnailService
 
     public MacThumbnailService() : this(
         Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            RuntimePaths.LocalApplicationData,
             "MacExplorer",
             "thumbnail-cache"),
         DefaultMaxDiskBytes,

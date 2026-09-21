@@ -17,7 +17,6 @@ public partial class FileListView
     private IReadOnlyList<FileGroup>? _fastSourceGroups;
     private string? _fastRowsPath;
     private bool FastListActive => FastListHost.IsVisible;
-    private bool CanUseFastFileList => ViewModel is { UseFastFileList: true, IsHomePage: false };
 
     private void InitializeFastFileList()
     {
@@ -81,7 +80,7 @@ public partial class FileListView
     private FileSystemEntry? EntryAtPointer(PointerEventArgs e)
         => FastListActive && IsWithinVisual(e.Source as Visual, FastList)
             ? FastList.EntryAt(e.GetPosition(FastList))
-            : FindDataContextInAncestors(e.Source as Visual) as FileSystemEntry;
+            : null;
 
     private void HandleFastListNavigation(KeyEventArgs e)
     {

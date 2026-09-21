@@ -53,7 +53,6 @@ public sealed partial class FileListViewModelCreateTests
             }
         }).ToArray());
         using var vm = CreateViewModel(files, navigation: navigation, sortFilter: sort);
-        vm.UseFastFileList = true;
         vm.SetSort(SortField.Size);
         var view = new FileListView { DataContext = vm };
         var list = view.FindControl<FastFileList>("FastList")!;
@@ -70,9 +69,6 @@ public sealed partial class FileListViewModelCreateTests
                 Assert.True(list.IsEffectivelyVisible);
                 Assert.Equal(50, list.Rows.Count);
                 Assert.Equal(grid, list.IsGrid);
-                Assert.False(view.FindControl<ListBox>("GroupedListItems")!.IsVisible);
-                Assert.False(view.FindControl<ListBox>("GridViewItems")!.IsVisible);
-                Assert.Null(view.FindControl<ListBox>("FileItemsList")!.ItemsSource);
                 vm.SetSelection(list.Rows.Take(2));
                 var origin = list.TranslatePoint(default, window)!.Value;
                 var rightClick = origin + (Vector)list.RowBounds(1).Center;
@@ -81,9 +77,6 @@ public sealed partial class FileListViewModelCreateTests
                 window.MouseUp(rightClick, MouseButton.Right);
                 window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             }
-            vm.UseFastFileList = false;
-            Assert.False(list.IsEffectivelyVisible);
-            Assert.True(view.FindControl<ListBox>("GridViewItems")!.IsVisible);
         }
         finally { window.Close(); }
     }
@@ -97,7 +90,6 @@ public sealed partial class FileListViewModelCreateTests
         var files = new FakeFileService("/tmp/FastListTests");
         foreach (var entry in Enumerable.Range(0, 200).Select(FastFileListTests.Entry)) files.Seed(entry);
         using var vm = CreateViewModel(files);
-        vm.UseFastFileList = true;
         vm.GroupField = GroupField.Type;
         vm.SetViewMode(grid ? ViewMode.Grid : ViewMode.List);
         await vm.RefreshAsync();
@@ -150,7 +142,6 @@ public sealed partial class FileListViewModelCreateTests
         var files = new FakeFileService(root.FullName);
         files.Seed(new FileSystemEntry { FullPath = Path.Combine(root.FullName, "local.txt"), Name = "local.txt" });
         using var vm = CreateViewModel(files, archiveService: archive);
-        vm.UseFastFileList = true;
         var view = new FileListView { DataContext = vm };
         var list = view.FindControl<FastFileList>("FastList")!;
         var window = new Window { Width = 900, Height = 600, Content = view };

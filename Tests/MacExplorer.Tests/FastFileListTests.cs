@@ -289,14 +289,11 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void RowWhitespaceSelectionNeverTemporarilyDisablesToolbar(bool fast)
+    [AvaloniaFact]
+    public void RowWhitespaceSelectionNeverTemporarilyDisablesToolbar()
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/FastListTests"));
-        vm.UseFastFileList = fast;
         vm.Entries = new ObservableCollection<FileSystemEntry>(Enumerable.Range(0, 10).Select(FastFileListTests.Entry));
         var view = new FileListView { DataContext = vm };
         var toolbar = new FinderToolbar { DataContext = vm };
@@ -316,7 +313,7 @@ public sealed partial class FileListViewModelCreateTests
             var becameDisabled = false;
             foreach (var button in buttons)
                 button.PropertyChanged += (_, e) => becameDisabled |= e.Property == InputElement.IsEnabledProperty && !button.IsEnabled;
-            Control rows = fast ? view.FindControl<FastFileList>("FastList")! : view.FindControl<ListBox>("FileItemsList")!;
+            Control rows = view.FindControl<FastFileList>("FastList")!;
             var origin = rows.TranslatePoint(default, window)!.Value;
             var rowRight = rows is FastFileList fastList ? Math.Min(rows.Bounds.Width, fastList.ListRowRight) : rows.Bounds.Width;
             var whitespace = origin + new Vector(rowRight - 30, 45);
@@ -364,7 +361,6 @@ public sealed partial class FileListViewModelCreateTests
         };
         files.Seed(new FileSystemEntry { Name = "ready.txt", FullPath = Path.Combine(second, "ready.txt") });
         using var vm = CreateViewModel(files);
-        vm.UseFastFileList = true;
         vm.Entries.Add(FastFileListTests.Entry(0));
         var view = new FileListView { DataContext = vm };
         var list = view.FindControl<FastFileList>("FastList")!;
@@ -424,22 +420,22 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
-    public void FastListBindsInitialReplacementMutationAndViewModesAndCanBeDisabled()
+    public void FastListIsTheOnlyRendererAndBindsReplacementMutationAndViewModes()
     {
         using var theme = new FastListTestTheme();
-        using var vm = CreateViewModel(new FakeFileService("/tmp/FastListTests"));
-        Assert.True(vm.UseFastFileList);
+        var settings = new StartupSettings();
+        settings.Set("UseFastFileList", false); // Existing profiles must also use the sole renderer.
+        using var vm = CreateViewModel(new FakeFileService("/tmp/FastListTests"), settingsService: settings);
         vm.Entries = new ObservableCollection<FileSystemEntry>(Enumerable.Range(0, 100).Select(FastFileListTests.Entry));
         var view = new FileListView { DataContext = vm };
         var list = view.FindControl<FastFileList>("FastList")!;
-        var legacy = view.FindControl<ListBox>("FileItemsList")!;
         var window = new Window { Width = 900, Height = 600, Content = view };
         try
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
             Assert.True(list.IsEffectivelyVisible);
-            Assert.Null(legacy.ItemsSource);
+            Assert.Empty(view.GetVisualDescendants().OfType<ListBox>());
             Assert.Equal(100, list.Rows.Count);
             vm.Entries = new ObservableCollection<FileSystemEntry>(vm.Entries.Reverse());
             Assert.Equal(99, list.Rows[0].Size);
@@ -451,13 +447,8 @@ public sealed partial class FileListViewModelCreateTests
             Assert.True(list.IsGrid);
             Assert.Equal(99, list.Rows.Count);
             vm.SetViewMode(ViewMode.List);
-            vm.UseFastFileList = false;
-            Assert.True(legacy.IsVisible);
-            Assert.Same(vm.Entries, legacy.ItemsSource);
-            vm.UseFastFileList = true;
             vm.GroupField = GroupField.Type;
             Assert.True(list.IsEffectivelyVisible);
-            Assert.False(view.FindControl<ListBox>("GroupedListItems")!.IsVisible);
         }
         finally { window.Close(); }
     }
@@ -467,7 +458,6 @@ public sealed partial class FileListViewModelCreateTests
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/FastListTests"));
-        vm.UseFastFileList = true;
         vm.Entries = new ObservableCollection<FileSystemEntry>(Enumerable.Range(0, 100).Select(FastFileListTests.Entry));
         var view = new FileListView { DataContext = vm };
         var list = view.FindControl<FastFileList>("FastList")!;
@@ -525,7 +515,6 @@ public sealed partial class FileListViewModelCreateTests
         var files = new FakeFileService("/tmp/FastListTests");
         foreach (var entry in Enumerable.Range(0, 1000).Select(FastFileListTests.Entry)) files.Seed(entry);
         using var vm = CreateViewModel(files);
-        vm.UseFastFileList = true;
         await vm.RefreshAsync();
         var view = new FileListView { DataContext = vm };
         var list = view.FindControl<FastFileList>("FastList")!;

@@ -34,7 +34,6 @@ public sealed partial class FileListViewModelCreateTests
         files.Seed(app);
         using var vm = CreateViewModel(files, launcherService: launcher,
             sortFilter: new SortFilterViewModel { ViewMode = mode });
-        vm.UseFastFileList = true;
         vm.Entries.Add(app);
         var view = new FileListView { DataContext = vm };
         var window = new Window { Width = 900, Height = 400, Content = view };

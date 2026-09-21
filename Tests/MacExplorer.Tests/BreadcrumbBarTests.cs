@@ -72,7 +72,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
-    public async Task BreadcrumbArrowRepeatedClicksDoNotHighlightTheBarButPathEditingDoes()
+    public async Task BreadcrumbArrowRepeatedClicksAndPathEditingKeepTheBarFlat()
     {
         using var host = new BreadcrumbTestHost();
         host.Seed("Child", true);
@@ -93,9 +93,44 @@ public sealed partial class FileListViewModelCreateTests
         host.Bar.FocusPathInput();
         Dispatcher.UIThread.RunJobs();
         Assert.True(input.IsFocused);
-        Assert.NotEqual(default, surface.BoxShadow);
+        Assert.Equal(default, surface.BoxShadow);
         host.Bar.CloseTransientUi();
         Assert.Equal(default, surface.BoxShadow);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void BreadcrumbBlankSingleClickEditsPathIncludingOuterPadding(bool inWorkspace, bool padding)
+    {
+        using var host = new BreadcrumbTestHost(inWorkspace);
+        var surface = Assert.IsType<Border>(host.Bar.Content);
+        var input = host.Bar.FindControl<TextBox>("PathInput")!;
+        var point = surface.TranslatePoint(new Point(surface.Bounds.Width - (padding ? 2 : 20),
+            surface.Bounds.Height / 2), host.Window)!.Value;
+
+        host.Window.MouseDown(point, MouseButton.Right);
+        host.Window.MouseUp(point, MouseButton.Right);
+        Assert.False(input.IsVisible);
+
+        host.Window.MouseDown(point, MouseButton.Left);
+        host.Window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(input.IsVisible);
+        Assert.True(input.IsFocused);
+        Assert.Equal(host.Root, input.Text);
+        Assert.Equal(input.Text.Length, Math.Abs(input.SelectionEnd - input.SelectionStart));
+
+        host.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+        Assert.False(input.IsVisible);
+        Assert.True(host.Bar.FindControl<ScrollViewer>("BrowseModePanel")!.IsVisible);
+
+        var label = host.Bar.GetVisualDescendants().OfType<Button>()
+            .Last(button => button.Classes.Contains("breadcrumb-label"));
+        host.Click(label);
+        Assert.False(input.IsVisible);
     }
 
     [AvaloniaTheory]

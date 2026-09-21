@@ -1,0 +1,160 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <sys:Double x:Key="HomeGlassBlur">8</sys:Double>
+                    <sys:Double x:Key="HomeExpandedGlassBlur">8</sys:Double>
+                    <sys:Double x:Key="HomeGlassRefraction">8</sys:Double>
+                    <sys:Double x:Key="HomeGlassRefractionHeight">14</sys:Double>
+                    <sys:Double x:Key="HomeGlassHighlight">0.35</sys:Double>
+                    <sys:Double x:Key="HomeExpandedGlassHighlight">0.35</sys:Double>
+                    <sys:Double x:Key="HomeGlassBackdrop">1</sys:Double>
+                    <sys:Double x:Key="HomeExpandedGlassBackdrop">1</sys:Double>
+                    <x:Boolean x:Key="HomeGlassDepth">false</x:Boolean>
+                    <x:Boolean x:Key="HomeGlassShadow">true</x:Boolean>
+                    <LinearGradientBrush x:Key="HomeLaunchpadScrimBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Offset="0" Color="#FFE5EDFA"/>
+                        <GradientStop Offset="0.5" Color="#FFF6F2EC"/>
+                        <GradientStop Offset="1" Color="#FFE8E2F4"/>
+                    </LinearGradientBrush>
+                    <Color x:Key="HomeGlassColor">#28FFFFFF</Color>
+                    <SolidColorBrush x:Key="HomeTileBrush" Color="#48FFFFFF"/>
+                    <SolidColorBrush x:Key="HomeEdgeBrush" Color="#B8FFFFFF"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <sys:Double x:Key="HomeGlassBlur">12</sys:Double>
+                    <sys:Double x:Key="HomeExpandedGlassBlur">12</sys:Double>
+                    <sys:Double x:Key="HomeGlassRefraction">0</sys:Double>
+                    <sys:Double x:Key="HomeGlassRefractionHeight">18</sys:Double>
+                    <sys:Double x:Key="HomeGlassHighlight">0</sys:Double>
+                    <sys:Double x:Key="HomeExpandedGlassHighlight">0</sys:Double>
+                    <sys:Double x:Key="HomeGlassBackdrop">0.28</sys:Double>
+                    <sys:Double x:Key="HomeExpandedGlassBackdrop">0.28</sys:Double>
+                    <x:Boolean x:Key="HomeGlassDepth">false</x:Boolean>
+                    <x:Boolean x:Key="HomeGlassShadow">false</x:Boolean>
+                    <LinearGradientBrush x:Key="HomeLaunchpadScrimBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Offset="0" Color="#FF2B3449"/>
+                        <GradientStop Offset="0.5" Color="#FF37353D"/>
+                        <GradientStop Offset="1" Color="#FF3B3049"/>
+                    </LinearGradientBrush>
+                    <Color x:Key="HomeGlassColor">#CC30302F</Color>
+                    <SolidColorBrush x:Key="HomeTileBrush" Color="#283F4148"/>
+                    <SolidColorBrush x:Key="HomeEdgeBrush" Color="Transparent"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Styles.Resources>
+    <Style Selector="glass|LiquidGlassSurface.home-glass">
+        <Setter Property="SurfaceColor" Value="{DynamicResource HomeGlassColor}"/>
+        <Setter Property="TintColor" Value="Transparent"/>
+        <!-- Dark values match SidebarAppearance: matte glass without a bright rim. -->
+        <Setter Property="BackdropOpacity" Value="{DynamicResource HomeGlassBackdrop}"/>
+        <Setter Property="DepthEffect" Value="{DynamicResource HomeGlassDepth}"/>
+        <Setter Property="ShadowEnabled" Value="{DynamicResource HomeGlassShadow}"/>
+        <Setter Property="InnerShadowEnabled" Value="False"/>
+        <Setter Property="BlurRadius" Value="{DynamicResource HomeGlassBlur}"/>
+        <Setter Property="RefractionAmount" Value="{DynamicResource HomeGlassRefraction}"/>
+        <Setter Property="RefractionHeight" Value="{DynamicResource HomeGlassRefractionHeight}"/>
+        <Setter Property="ChromaticAberration" Value="False"/>
+        <Setter Property="HighlightOpacity" Value="{DynamicResource HomeGlassHighlight}"/>
+        <Setter Property="ShadowRadius" Value="5"/>
+        <Setter Property="ShadowColor" Value="#10000000"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="glass|LiquidGlassSurface.home-expanded-glass">
+        <Setter Property="BackdropOpacity" Value="{DynamicResource HomeExpandedGlassBackdrop}"/>
+        <Setter Property="BlurRadius" Value="{DynamicResource HomeExpandedGlassBlur}"/>
+        <Setter Property="HighlightOpacity" Value="{DynamicResource HomeExpandedGlassHighlight}"/>
+    </Style>
+    <Style Selector="Border.home-search-box">
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeTileBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeEdgeBrush}"/>
+    </Style>
+    <Style Selector="Button.home-card-menu, Button.home-page-button">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.home-quick-action">
+        <Setter Property="Width" Value="44"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeTileBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeEdgeBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <!-- Content stays legible; shared theme brushes supply light/dark and contrast behavior. -->
+    <Style Selector="Border.home-folder">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeEdgeBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Padding" Value="13,10,13,18"/>
+    </Style>
+    <Style Selector="Border.home-folder.drop-target">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.home-grid-item">
+        <Setter Property="Width" Value="72"/>
+        <Setter Property="Height" Value="72"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource HomeTileBrush}"/>
+        <Setter Property="Margin" Value="3"/>
+        <Setter Property="Padding" Value="2"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="MinWidth" Value="0"/>
+    </Style>
+    <Style Selector="Button.home-recent-item">
+        <Setter Property="Height" Value="46"/>
+        <Setter Property="Background" Value="{DynamicResource HomeTileBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeEdgeBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.home-selected">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.home-secondary">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+    </Style>
+    <Style Selector="TextBlock.home-section-title">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+    </Style>
+    <Style Selector="Button.home-resize-grip">
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Padding" Value="2,0"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector=".home-card:pointerover Button.home-resize-grip, Button.home-resize-grip:focus, Button.home-resize-grip.resizing">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Border.home-dialog-surface">
+        <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+        <Setter Property="Padding" Value="24"/>
+    </Style>
+</Styles>

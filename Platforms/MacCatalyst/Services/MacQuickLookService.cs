@@ -3,9 +3,10 @@ using MacExplorer.Services;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
-public class MacQuickLookService : IQuickLookService
+public class MacQuickLookService : IQuickLookService, IDisposable
 {
     private Process? _previewProcess;
+    public bool IsOpen => _previewProcess != null;
 
     public Task PreviewFileAsync(string filePath)
     {
@@ -14,9 +15,7 @@ public class MacQuickLookService : IQuickLookService
 
         try
         {
-            if (_previewProcess is { HasExited: false })
-                _previewProcess.Kill();
-            _previewProcess?.Dispose();
+            Dispose();
 
             var process = new Process
             {
@@ -33,9 +32,11 @@ public class MacQuickLookService : IQuickLookService
             };
             process.Exited += (_, _) =>
             {
-                process.Dispose();
-                if (ReferenceEquals(_previewProcess, process))
-                    _previewProcess = null;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (ReferenceEquals(_previewProcess, process)) _previewProcess = null;
+                    process.Dispose();
+                });
             };
             process.Start();
             _previewProcess = process;
@@ -46,5 +47,15 @@ public class MacQuickLookService : IQuickLookService
             _previewProcess = null;
         }
         return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        var process = _previewProcess;
+        _previewProcess = null;
+        if (process == null) return;
+        try { if (!process.HasExited) process.Kill(); }
+        catch (InvalidOperationException) { }
+        finally { process.Dispose(); }
     }
 }

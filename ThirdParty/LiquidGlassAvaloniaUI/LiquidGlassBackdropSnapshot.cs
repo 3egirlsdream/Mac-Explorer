@@ -104,6 +104,7 @@ namespace LiquidGlassAvaloniaUI
         private int _disposeRequested;
         private int _disposed;
         private readonly object _filteredLock = new();
+        internal object FilteredSyncRoot => _filteredLock;
         private Dictionary<FilteredKey, FilteredResult>? _filtered;
         private Queue<FilteredKey>? _filteredOrder;
         private const int MaxFilteredEntries = 8;

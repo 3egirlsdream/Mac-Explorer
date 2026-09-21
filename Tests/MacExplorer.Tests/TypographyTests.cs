@@ -78,22 +78,7 @@ public sealed class TypographyTests
         Assert.StartsWith("System Font", Assert.IsType<FontFamily>(fontResource).Name);
 
         var fileList = new FileListView();
-        var listTemplate = Assert.IsAssignableFrom<IDataTemplate>(fileList.Resources["ListEntryTemplate"]);
-        var fileRow = Assert.IsAssignableFrom<Control>(listTemplate.Build(new FileSystemEntry()));
-        fileRow.DataContext = new FileSystemEntry
-        {
-            FullPath = "/tmp/example.txt",
-            Name = "example.txt",
-            Extension = ".txt"
-        };
-
-        var groupTemplate = Assert.IsAssignableFrom<IDataTemplate>(fileList.Resources["GroupedListRowTemplate"]);
-        var groupRow = Assert.IsAssignableFrom<Control>(groupTemplate.Build(new FileListPresentationRow()));
-        groupRow.DataContext = new FileListPresentationRow
-        {
-            GroupName = "今天",
-            GroupItemCount = 1
-        };
+        var fileName = fileList.FindControl<MacExplorer.Controls.FastFileList>("FastList")!;
 
         var sidebar = new FinderSidebarView();
         var remoteServers = sidebar.FindControl<ItemsControl>("RemoteServersList")!;
@@ -108,7 +93,7 @@ public sealed class TypographyTests
         var textBox = new TextBox { Text = "动态字号" };
         var host = new StackPanel
         {
-            Children = { fileRow, groupRow, sidebar, remoteRow, textBox }
+            Children = { fileList, sidebar, remoteRow, textBox }
         };
         var window = new Window { Width = 900, Height = 700, Content = host };
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
@@ -119,12 +104,6 @@ public sealed class TypographyTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var fileName = fileRow.GetVisualDescendants().OfType<TextBlock>()
-            .Single(text => text.Classes.Contains("entry-name-text"));
-        var groupHeader = groupRow.GetVisualDescendants().OfType<TextBlock>()
-            .Single(text => text.Classes.Contains("file-group-header"));
-        var groupContainer = groupRow.GetVisualDescendants().OfType<Border>()
-            .Single(border => border.Classes.Contains("file-group-row"));
         var sidebarTitle = sidebar.GetVisualDescendants().OfType<TextBlock>()
             .First(text => text.Classes.Contains("sidebar-section-title"));
         var sidebarItem = sidebar.FindControl<Border>("VolumeItem")!;
@@ -139,7 +118,7 @@ public sealed class TypographyTests
         Assert.Equal(13, fileName.FontSize);
         Assert.StartsWith("System Font", fileName.FontFamily.Name);
         Assert.Equal(Color.Parse("#252830"), Assert.IsType<SolidColorBrush>(fileName.Foreground).Color);
-        Assert.Equal(12, groupHeader.FontSize);
+        Assert.Equal(12, fileName.DetailFontSize);
         Assert.Equal(11, sidebarTitle.FontSize);
         Assert.Equal("PingFang SC", sidebarTitle.FontFamily.Name);
         Assert.Equal(FontWeight.Medium, sidebarTitle.FontWeight);
@@ -155,11 +134,10 @@ public sealed class TypographyTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(15, fileName.FontSize);
-        Assert.Equal(14, groupHeader.FontSize);
+        Assert.Equal(14, fileName.DetailFontSize);
         Assert.Equal(12.5, sidebarTitle.FontSize);
         Assert.Equal(16, remoteAddress.FontSize);
         Assert.Equal(15, remoteStatus.FontSize);
-        Assert.Equal(32, groupContainer.MinHeight);
         Assert.Equal(32, sidebarItem.MinHeight);
         Assert.Equal(39, textBox.MinHeight);
 

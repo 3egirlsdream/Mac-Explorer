@@ -53,18 +53,24 @@ public class FrequentFolderService : IFrequentFolderService, IDisposable
         return true;
     }
 
-    public async Task RecordVisitAsync(string folderPath)
+    public Task RecordVisitAsync(string folderPath)
     {
-        if (!ShouldTrack(folderPath)) return;
+        if (!ShouldTrack(folderPath)) return Task.CompletedTask;
+        // Microsoft.Data.Sqlite executes SQL synchronously, including busy waits.
+        return Task.Run(() => RecordVisitCoreAsync(folderPath));
+    }
 
+    private async Task RecordVisitCoreAsync(string folderPath)
+    {
         try
         {
             var name = Path.GetFileName(folderPath);
             if (string.IsNullOrEmpty(name)) return;
 
-            await _connectionLock.WaitAsync();
+            await _connectionLock.WaitAsync().ConfigureAwait(false);
             try
             {
+                if (_disposed) return;
                 using var cmd = _connection.CreateCommand();
                 cmd.CommandText = """
                     INSERT INTO frequent_folders (path, name, visit_count, last_visited)
@@ -95,7 +101,7 @@ public class FrequentFolderService : IFrequentFolderService, IDisposable
         var folders = new List<FrequentFolder>();
         try
         {
-            await _connectionLock.WaitAsync();
+            await _connectionLock.WaitAsync().ConfigureAwait(false);
             try
             {
                 using var cmd = _connection.CreateCommand();
@@ -133,10 +139,14 @@ public class FrequentFolderService : IFrequentFolderService, IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _connection.Close();
-        _connection.Dispose();
-        _connectionLock.Dispose();
-        _disposed = true;
+        _connectionLock.Wait();
+        try
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _connection.Dispose();
+        }
+        finally { _connectionLock.Release(); }
+        // Queued visit workers still acquire this gate to observe _disposed.
     }
 }

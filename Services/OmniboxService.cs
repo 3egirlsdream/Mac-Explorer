@@ -82,7 +82,7 @@ public static class OmniboxService
         var value = input.Trim();
         var path = NormalizePath(value);
         if (IsNavigablePath(path))
-            await NavigateToPathAsync(viewModel, path);
+            await NavigateToPathAsync(viewModel, value);
         else
             await viewModel.SearchAsync(value);
     }
@@ -90,7 +90,7 @@ public static class OmniboxService
     // ── Static helpers used by ExecuteAsync / ExecuteInputAsync ──
 
     internal static bool IsNavigablePath(string path)
-        => Directory.Exists(path) || VirtualPath.IsRemotePath(path);
+        => Directory.Exists(path) || File.Exists(path) || VirtualPath.IsRemotePath(path);
 
     internal static string NormalizePath(string value)
     {
@@ -104,7 +104,7 @@ public static class OmniboxService
 
         if (value.StartsWith('~'))
         {
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var home = RuntimePaths.HomeDirectory;
             value = home + value[1..];
         }
 
@@ -131,5 +131,11 @@ public static class OmniboxService
 
         if (Directory.Exists(path))
             await viewModel.NavigateToAsync(Path.GetFullPath(path));
+        else if (File.Exists(path))
+            await viewModel.RevealFileAsync(new FileSystemEntry
+            {
+                FullPath = Path.GetFullPath(path),
+                Name = Path.GetFileName(path)
+            });
     }
 }

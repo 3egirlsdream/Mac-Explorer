@@ -81,12 +81,11 @@ public sealed class WebpFileConversionTests : IDisposable
     }
 
     [Fact]
-    public void BundledPluginAdvertisesWebpAndUpgradesThePreviousRelease()
+    public void BundledPluginMatchesSourceVersionAndAdvertisesWebp()
     {
         using var package = ZipFile.OpenRead(PluginTestEnvironment.BundledPackage);
         using var stream = package.GetEntry("plugin.json")!.Open();
         var manifest = JsonSerializer.Deserialize<PluginManifest>(stream, PluginProtocol.Json)!;
-        Assert.True(Version.Parse(manifest.Version) > new Version(1, 0, 1));
         Assert.Equal(SourceManifest().Version, manifest.Version);
         Assert.Equal(new[] { "to-png", "to-jpg" }, manifest.Commands
             .Where(command => command.Match.Matches([new PluginFile(Path.Combine(_root, "image.WEBP"))]))

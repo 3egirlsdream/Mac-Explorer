@@ -25,16 +25,11 @@ public sealed partial class FileListViewModelCreateTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    [InlineData(false, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(true, false, false)]
-    [InlineData(true, true, false)]
-    public void FileDragKeepsCaptureOutsideItemAndCancelsRenameWhileDataIsPending(bool grid, bool multiple, bool useFast = true)
+    public void FileDragKeepsCaptureOutsideItemAndCancelsRenameWhileDataIsPending(bool grid, bool multiple)
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/DragStartTests"),
             sortFilter: new SortFilterViewModel { ViewMode = grid ? ViewMode.Grid : ViewMode.List });
-        vm.UseFastFileList = useFast;
         vm.Entries.Add(new FileSystemEntry { FullPath = "/tmp/DragStartTests/a.txt", Name = "a.txt" });
         vm.Entries.Add(new FileSystemEntry { FullPath = "/tmp/DragStartTests/folder", Name = "folder", IsDirectory = true });
         var view = new FileListView { DataContext = vm };
@@ -47,10 +42,8 @@ public sealed partial class FileListViewModelCreateTests
             if (multiple) vm.SelectEntry(vm.Entries[1], true);
             Dispatcher.UIThread.RunJobs();
             var fast = view.FindControl<FastFileList>("FastList")!;
-            var hit = useFast ? (Control)fast : view.GetVisualDescendants().OfType<Control>()
-                .First(control => control.Classes.Contains("entry-content") && control.IsEffectivelyVisible
-                    && ReferenceEquals(control.DataContext, vm.Entries[0]));
-            var start = hit.TranslatePoint(useFast ? fast.NameBounds(0).Center : new Point(hit.Bounds.Width / 2, hit.Bounds.Height / 2), window)!.Value;
+            var hit = fast;
+            var start = hit.TranslatePoint(fast.NameBounds(0).Center, window)!.Value;
             window.MouseDown(start, MouseButton.Left);
             var press = Assert.IsType<PointerPressedEventArgs>(DragField("_dragPointerEvent").GetValue(view));
             Assert.Same(hit, press.Pointer.Captured);
@@ -83,7 +76,6 @@ public sealed partial class FileListViewModelCreateTests
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/DragStartTests"));
-        vm.UseFastFileList = true;
         vm.Entries.Add(new FileSystemEntry { FullPath = "/tmp/DragStartTests/a.txt", Name = "a.txt" });
         var view = new FileListView { DataContext = vm };
         var window = new Window { Width = 900, Height = 600, Content = view };

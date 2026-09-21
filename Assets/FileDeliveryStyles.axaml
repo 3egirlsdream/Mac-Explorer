@@ -1,0 +1,29 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:MacExplorer.Controls">
+        <Style Selector="controls|AppWindow.file-delivery /template/ controls|WindowTitleBar">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="controls|AppWindow.file-delivery /template/ Border#WindowFrame">
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource WindowBorderBrush}"/>
+        </Style>
+        <Style Selector="Button.delivery-tab">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.delivery-tab TextBlock">
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="LineHeight" Value="18"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.delivery-tab.selected">
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+</Styles>
