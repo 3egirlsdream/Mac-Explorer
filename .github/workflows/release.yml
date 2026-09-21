@@ -167,7 +167,7 @@ jobs:
 
       - name: Run tests
         shell: bash
-        run: dotnet test "$TEST_PROJECT" -c Release --no-restore -p:SkipMacOSReleaseDMG=true -p:TestingPlatformShowTestsFailure=true
+        run: bash Tools/Testing/run-isolated.sh dotnet test "$TEST_PROJECT" -c Release --no-restore -p:SkipMacOSReleaseDMG=true -p:TestingPlatformShowTestsFailure=true
 
       - name: Publish application
         shell: bash
