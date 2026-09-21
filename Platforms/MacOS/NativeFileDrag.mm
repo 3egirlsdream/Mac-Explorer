@@ -1,6 +1,8 @@
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 
+void MacExplorerDeliveryPrepareDrag(NSView* view);
+
 typedef void (*MacExplorerDragCallback)(void*, int, double, double, int);
 
 @interface MacExplorerDragSource : NSObject <NSDraggingSource>
@@ -189,6 +191,7 @@ int MacExplorerBeginFileDragPixels(
         source.callback = callback;
         [MacExplorerActiveDragSources() addObject:source];
 
+        MacExplorerDeliveryPrepareDrag(view);
         [view beginDraggingSessionWithItems:draggingItems event:event source:source];
         return 1;
     }

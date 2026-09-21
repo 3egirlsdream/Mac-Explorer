@@ -1,4 +1,5 @@
 #import <AppKit/AppKit.h>
+#import <objc/runtime.h>
 
 typedef void (*DeliveryCallback)(int);
 
@@ -30,6 +31,29 @@ typedef void (*DeliveryCallback)(int);
 @end
 
 static FileDeliveryStatusItem* delivery;
+
+static void ConfigureDeliveryDragActivation(NSView* view)
+{
+    // Only the delivery view delays activation; ordinary browser windows keep
+    // Avalonia's input behavior. A click still activates on mouse-up.
+    static Class deliveryViewClass;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        deliveryViewClass = objc_allocateClassPair(object_getClass(view), "MacExplorerDeliveryView", 0);
+        Method method = class_getInstanceMethod(NSView.class, @selector(shouldDelayWindowOrderingForEvent:));
+        class_addMethod(deliveryViewClass, @selector(shouldDelayWindowOrderingForEvent:),
+            imp_implementationWithBlock(^BOOL(id self, NSEvent* event) { return YES; }),
+            method_getTypeEncoding(method));
+        objc_registerClassPair(deliveryViewClass);
+    });
+    object_setClass(view, deliveryViewClass);
+}
+
+void MacExplorerDeliveryPrepareDrag(NSView* view)
+{
+    if (view.window == delivery.panel)
+        [NSApp preventWindowOrdering];
+}
 
 // The white folder/search artwork from Assets/appicon.svg, without its gradient tile.
 // A template image lets the menu bar choose the correct monochrome contrast.
@@ -110,6 +134,7 @@ void MacExplorerDeliveryPlace(void* viewHandle)
     NSWindow* window = view.window;
     if (!window || !delivery.item.button.window) return;
     delivery.panel = window;
+    ConfigureDeliveryDragActivation(view);
     window.level = NSFloatingWindowLevel;
     window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces
         | NSWindowCollectionBehaviorFullScreenAuxiliary | NSWindowCollectionBehaviorIgnoresCycle;
