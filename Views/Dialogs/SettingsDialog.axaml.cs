@@ -100,6 +100,7 @@ public partial class SettingsDialog : DialogWindow
         LoadInteractionStyleSettings();
         LoadSearchLocations();
         FileDeliveryToggle.IsChecked = _settingsService.Get(Services.Impl.FileDeliveryService.EnabledKey, true);
+        FolderPhotoCoversToggle.IsChecked = _settingsService.Get(FileListViewModel.FolderPhotoCoverSettingKey, false);
 
         if (ViewModel == null) return;
 
@@ -136,6 +137,12 @@ public partial class SettingsDialog : DialogWindow
     {
         if (!_initializing)
             App.Services.GetRequiredService<Services.Impl.FileDeliveryService>().Enabled = FileDeliveryToggle.IsChecked == true;
+    }
+
+    private void OnFolderPhotoCoversChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_initializing)
+            _settingsService.Set(FileListViewModel.FolderPhotoCoverSettingKey, FolderPhotoCoversToggle.IsChecked == true);
     }
 
 

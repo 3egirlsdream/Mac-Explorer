@@ -24,6 +24,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public const double RowHeight = 30;
     private const double Inset = 13;
     private const double IconSlot = 22;
+    private const double TreeStep = 16;
+    private const double TreeDisclosureWidth = 16;
     private const int TextCacheLimit = 1024;
 
     public static readonly StyledProperty<IBrush?> BackgroundProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Background));
@@ -75,6 +77,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public CornerRadius RowCornerRadius { get => GetValue(RowCornerRadiusProperty); set => SetValue(RowCornerRadiusProperty, value); }
 
     private IReadOnlyList<FileSystemEntry> _rows = Array.Empty<FileSystemEntry>();
+    private IReadOnlyList<FileTreeRow> _treeRows = [];
     private readonly Dictionary<string, int> _indices = new(StringComparer.Ordinal);
     private readonly Dictionary<string, LinkedListNode<RowText>> _texts = new(StringComparer.Ordinal);
     private readonly LinkedList<RowText> _textLru = new();
@@ -91,6 +94,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private bool _hasVirtualRows;
     private readonly Geometry _fileFallback = Geometry.Parse(Icons.File);
     private readonly Geometry _folderFallback = Geometry.Parse(Icons.Folder);
+    private readonly Geometry _chevronRight = Geometry.Parse(Icons.ChevronRight);
+    private readonly Geometry _chevronDown = Geometry.Parse(Icons.ChevronDown);
     private FileListColumnWidths _columns = FileListColumnLayoutService.Defaults;
     private double _offset;
     private bool _visibleUpdateQueued;
@@ -100,13 +105,38 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private Point? _pointerPosition;
     private string? _dropPath;
     private string? _editingPath;
+    private bool _folderCoversEnabled;
 
     internal Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? ThumbnailProvider
     {
         get => _images.ThumbnailProvider;
         set { _images.ThumbnailProvider = value; ScheduleVisibleUpdate(); }
     }
+    internal Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? FolderCoverProvider
+    {
+        get => _images.FolderCoverProvider;
+        set { _images.FolderCoverProvider = value; InvalidateFolderCovers(); }
+    }
+    internal bool FolderCoversEnabled
+    {
+        get => _folderCoversEnabled;
+        set
+        {
+            if (_folderCoversEnabled == value) return;
+            _folderCoversEnabled = value;
+            if (!value) _images.CancelFolderCoverRequests();
+            ScheduleVisibleUpdate();
+            InvalidateVisual();
+        }
+    }
+
+    internal void InvalidateFolderCovers()
+    {
+        _images.InvalidateFolderCovers();
+        ScheduleVisibleUpdate();
+    }
     public IReadOnlyList<FileSystemEntry> Rows => _rows;
+    public bool IsTree => _treeRows.Count == _rows.Count && _treeRows.Count > 0;
     internal int CachedTextCount => _texts.Count;
     internal int ObservedRowCount => _observed.Count;
     internal int LastRenderedRowCount { get; private set; }
@@ -162,6 +192,18 @@ public sealed class FastFileList : Control, ILogicalScrollable
         => SetRows(rows, []);
 
     internal void SetRows(IReadOnlyList<FileSystemEntry> rows, IReadOnlyList<FastFileListGroup> groups)
+    {
+        _treeRows = [];
+        ApplyRows(rows, groups);
+    }
+
+    internal void SetTreeRows(IReadOnlyList<FileTreeRow> rows, IReadOnlyList<FastFileListGroup> groups)
+    {
+        _treeRows = rows;
+        ApplyRows(rows.Select(row => row.Entry).ToArray(), groups);
+    }
+
+    private void ApplyRows(IReadOnlyList<FileSystemEntry> rows, IReadOnlyList<FastFileListGroup> groups)
     {
         _rows = rows;
         _groups = groups;
@@ -343,13 +385,13 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     public Rect NameBounds(int index)
     {
-        var text = Texts(_rows[index]).Name;
+        var text = Texts(_rows[index], index).Name;
         var row = RowBounds(index);
         var width = Math.Ceiling(Math.Min(IsGrid ? 92 : _columns.Name - 16, text.WidthIncludingTrailingWhitespace));
         var height = Math.Ceiling(text.Height);
         if (IsGrid)
             return new Rect(Math.Round(row.Center.X - width / 2), row.Y + 91, width, height);
-        return new Rect(Inset + IconSlot + 8, row.Y + Math.Round((RowHeight - height) / 2), width, height);
+        return new Rect(NameX(index), row.Y + Math.Round((RowHeight - height) / 2), width, height);
     }
 
     internal Rect GridIconTargetBounds(int index)
@@ -374,7 +416,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private IEnumerable<Rect> ContentBounds(int index)
     {
-        var text = Texts(_rows[index]);
+        var text = Texts(_rows[index], index);
         var row = RowBounds(index);
         if (IsGrid)
         {
@@ -383,7 +425,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
             yield break;
         }
         var y = row.Y;
-        yield return new Rect(Inset, y + 4, IconSlot, IconSlot);
+        if (IsTree && _treeRows[index].CanExpand) yield return TreeDisclosureBounds(index);
+        yield return new Rect(Inset + TreeIndent(index), y + 4, IconSlot, IconSlot);
         yield return NameBounds(index);
         var modifiedX = Inset + IconSlot + _columns.Name;
         yield return new Rect(modifiedX, y + 4, text.Modified.Width, 22);
@@ -426,6 +469,32 @@ public sealed class FastFileList : Control, ILogicalScrollable
         return true;
     }
 
+    public int TreeDisclosureIndexAt(Point point)
+    {
+        var index = RowIndexAt(point);
+        return index >= 0 && IsTree && _treeRows[index].CanExpand
+            && TreeDisclosureBounds(index).Contains(point) ? index : -1;
+    }
+
+    public FileTreeRow? TreeRowAt(int index)
+        => IsTree && index >= 0 && index < _treeRows.Count ? _treeRows[index] : null;
+
+    private double TreeIndent(int index)
+    {
+        if (!IsTree) return 0;
+        return Math.Min(TreeDisclosureWidth + _treeRows[index].Depth * TreeStep,
+            Math.Max(TreeDisclosureWidth, _columns.Name - 96));
+    }
+
+    private double NameX(int index) => Inset + IconSlot + 8 + TreeIndent(index);
+
+    private Rect TreeDisclosureBounds(int index)
+    {
+        var row = RowBounds(index);
+        return new Rect(Inset + TreeIndent(index) - TreeDisclosureWidth, row.Y + 4,
+            TreeDisclosureWidth, IconSlot);
+    }
+
     public void ScrollToOffset(double y)
     {
         // Publish geometry before asking the presenter to coerce the desired offset.
@@ -440,7 +509,11 @@ public sealed class FastFileList : Control, ILogicalScrollable
         base.OnPointerMoved(e);
         var position = e.GetPosition(this);
         UpdatePointerPosition(position);
-        ToolTip.SetTip(this, EditingPath == null ? EntryAt(position)?.DisplayName : null);
+        var disclosure = TreeDisclosureIndexAt(position);
+        ToolTip.SetTip(this, EditingPath != null ? null
+            : disclosure >= 0 && _treeRows[disclosure].HasError ? "读取失败，点击重试"
+            : disclosure >= 0 && _treeRows[disclosure].IsLoading ? "正在读取文件夹"
+            : EntryAt(position)?.DisplayName);
     }
 
     internal void UpdatePointerPosition(Point point)
@@ -466,7 +539,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
             var (first, end) = VisibleRange;
             var visible = IsEffectivelyVisible && !IsLoading ? Enumerable.Range(first, end - first).Select(i => _rows[i]).ToArray() : [];
             ObserveRows(visible);
-            _images.UpdateVisible(visible, FileThumbnailSizing.GetPixelSize(IsGrid ? 56 : 18, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1), IsGrid ? 128 : 48);
+            _images.UpdateVisible(visible, FileThumbnailSizing.GetPixelSize(IsGrid ? 56 : 18, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1),
+                IsGrid ? 128 : 48, IsGrid && _folderCoversEnabled);
         }, DispatcherPriority.Background);
     }
 
@@ -540,12 +614,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var (first, end) = VisibleRange;
         foreach (var section in _layout.VisibleHeaders(_offset, _offset + Bounds.Height))
         {
-            var label = $"{section.Name} · {section.Count} 项";
+            var group = _groups.FirstOrDefault(candidate => candidate.Name == section.Name);
+            var displayedCount = group.DisplayCount ?? section.Count;
+            var label = $"{section.Name} · {displayedCount} 项";
             if (!_headerTexts.TryGetValue(label, out var text))
             {
                 if (_headerTexts.Count >= TextCacheLimit) ClearHeaderTexts();
                 var title = Format(section.Name!, DetailFontSize, Secondary, Math.Max(1, Bounds.Width - 28), weight: FontWeight.SemiBold);
-                _headerTexts[label] = text = (title, Format($"· {section.Count} 项", CaptionFontSize, Muted, Math.Max(1, Bounds.Width - 28)));
+                _headerTexts[label] = text = (title, Format($"· {displayedCount} 项", CaptionFontSize, Muted, Math.Max(1, Bounds.Width - 28)));
             }
             var y = section.Top - _offset + 6;
             text.Title.Draw(context, new Point(14, y + Math.Round((GroupMinHeight - Math.Ceiling(text.Title.Height)) / 2)));
@@ -573,10 +649,12 @@ public sealed class FastFileList : Control, ILogicalScrollable
             context.DrawRectangle(null, null, new RoundedRect(row.Deflate(1), RowCornerRadius), OutlineFor(entry));
             if (entry.FullPath == _dropPath)
                 foreach (var content in ContentBounds(index)) context.DrawRectangle(DropBrush, null, content);
-            var iconRect = new Rect(Inset + 2, row.Y + 6, 18, 18);
+            if (IsTree && _treeRows[index].CanExpand)
+                DrawTreeDisclosure(context, index);
+            var iconRect = new Rect(Inset + TreeIndent(index) + 2, row.Y + 6, 18, 18);
             DrawIcon(context, entry, iconRect);
-            var text = Texts(entry);
-            if (entry.FullPath != EditingPath) DrawText(text.Name, Inset + IconSlot + 8);
+            var text = Texts(entry, index);
+            if (entry.FullPath != EditingPath) DrawText(text.Name, NameX(index));
             var modifiedX = Inset + IconSlot + _columns.Name;
             DrawText(text.Modified, modifiedX);
             DrawText(text.Size, modifiedX + _columns.Modified + _columns.Size - 12 - Math.Ceiling(text.Size.Width));
@@ -604,7 +682,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         DrawTarget(GridIconTargetBounds(index), RowCornerRadius);
         if (entry.FullPath != EditingPath) DrawTarget(GridNameTargetBounds(index), new CornerRadius(4));
         DrawIcon(context, entry, new Rect(row.Center.X - 28, row.Y + 22, 56, 56));
-        var text = Texts(entry);
+        var text = Texts(entry, index);
         if (entry.FullPath != EditingPath) text.Name.Draw(context, name.Position);
         if (entry.IsVirtual)
             text.Size.Draw(context, new Point(Math.Round(row.Center.X - Math.Ceiling(text.Size.Width) / 2), name.Bottom + 3));
@@ -620,7 +698,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private void DrawIcon(DrawingContext context, FileSystemEntry entry, Rect bounds)
     {
-        var image = _images.Get(entry);
+        var image = _images.Get(entry, IsGrid && _folderCoversEnabled);
         if (image != null)
         {
             var scale = Math.Min(bounds.Width / image.Size.Width, bounds.Height / image.Size.Height);
@@ -645,11 +723,33 @@ public sealed class FastFileList : Control, ILogicalScrollable
         glyph.Draw(context, new Point(Math.Round(badge.Center.X - Math.Ceiling(glyph.Width) / 2), Math.Round(badge.Center.Y - Math.Ceiling(glyph.Height) / 2)));
     }
 
-    private RowText Texts(FileSystemEntry entry)
+    private void DrawTreeDisclosure(DrawingContext context, int index)
     {
+        var state = _treeRows[index];
+        var bounds = TreeDisclosureBounds(index);
+        if (state.IsLoading)
+        {
+            context.DrawEllipse(null, new Pen(Secondary, 1.4), bounds.Center, 4, 4);
+            return;
+        }
+        if (state.HasError)
+        {
+            var marker = Format("!", DetailFontSize, Secondary, 12, weight: FontWeight.SemiBold);
+            marker.Draw(context, new Point(bounds.X + 6, bounds.Y + 3));
+            marker.Release();
+            return;
+        }
+        using var transform = context.PushTransform(Matrix.CreateScale(0.5, 0.5)
+            * Matrix.CreateTranslation(bounds.X + 2, bounds.Y + 5));
+        context.DrawGeometry(Secondary, null, state.IsExpanded ? _chevronDown : _chevronRight);
+    }
+
+    private RowText Texts(FileSystemEntry entry, int index)
+    {
+        var nameWidth = IsGrid ? 92 : Math.Max(1, _columns.Name - 16 - TreeIndent(index));
         if (_texts.TryGetValue(entry.FullPath, out var node))
         {
-            if (node.Value.Matches(entry))
+            if (node.Value.Matches(entry, nameWidth))
             {
                 _textLru.Remove(node);
                 _textLru.AddFirst(node);
@@ -660,10 +760,10 @@ public sealed class FastFileList : Control, ILogicalScrollable
             node.Value.Release();
         }
         var text = new RowText(entry,
-            IsGrid ? GridName(entry).Retain() : Format(entry.DisplayName, FontSize, Foreground, _columns.Name - 16),
+            IsGrid ? GridName(entry).Retain() : Format(entry.DisplayName, FontSize, Foreground, nameWidth),
             CellText(FileListColumn.Modified, IsGrid ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
             IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, 100) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
-            CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8).Retain());
+            CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth);
         _texts[entry.FullPath] = _textLru.AddFirst(text);
         if (_texts.Count > TextCacheLimit && _textLru.Last is { } last)
         {
@@ -718,10 +818,11 @@ public sealed class FastFileList : Control, ILogicalScrollable
         public void Release() { if (--_references == 0) layout.Dispose(); }
     }
 
-    private sealed record RowText(FileSystemEntry Entry, CachedText Name, CachedText Modified, CachedText Size, CachedText Kind)
+    private sealed record RowText(FileSystemEntry Entry, CachedText Name, CachedText Modified, CachedText Size, CachedText Kind, double NameWidth)
     {
         public void Release() { Name.Release(); Modified.Release(); Size.Release(); Kind.Release(); }
-        public bool Matches(FileSystemEntry other) => Entry.Name == other.Name && Entry.Size == other.Size
+        public bool Matches(FileSystemEntry other, double nameWidth) => NameWidth == nameWidth
+            && Entry.Name == other.Name && Entry.Size == other.Size
             && Entry.LastModified == other.LastModified && Entry.Extension == other.Extension
             && Entry.IsDirectory == other.IsDirectory && Entry.IconKey == other.IconKey
             && Entry.IsVirtual == other.IsVirtual && Entry.VirtualItemCount == other.VirtualItemCount

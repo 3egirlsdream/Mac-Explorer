@@ -7,6 +7,7 @@ namespace MacExplorer.Platforms.MacOS;
 
 internal static class MacWindowChrome
 {
+    private const string NativeDragLibrary = "libMacExplorerNativeDrag";
     private const string LibObjC = "/usr/lib/libobjc.A.dylib";
     // Keep this aligned with the previously verified Mac Catalyst implementation:
     // NSVisualEffectMaterialHUDWindow provides the continuous window material.
@@ -54,6 +55,9 @@ internal static class MacWindowChrome
             // Same fallback as above.
         }
     }
+
+    public static bool IsCurrentMouseDoubleClick() =>
+        OperatingSystem.IsMacOS() && MacExplorerCurrentLeftMouseClickCount() == 2;
 
     public static void SetVibrancy(TopLevel topLevel, bool enabled, double alpha)
     {
@@ -233,6 +237,9 @@ internal static class MacWindowChrome
 
     [DllImport(LibObjC)]
     private static extern IntPtr objc_getClass(string name);
+
+    [DllImport(NativeDragLibrary)]
+    private static extern int MacExplorerCurrentLeftMouseClickCount();
 
     [DllImport(LibObjC)]
     private static extern IntPtr sel_registerName(string name);

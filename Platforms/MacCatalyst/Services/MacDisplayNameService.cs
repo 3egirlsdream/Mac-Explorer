@@ -24,6 +24,12 @@ public class MacDisplayNameService : IDisplayNameService
         return _cache.GetOrAdd(path, ResolveDisplayName);
     }
 
+    public void RecordRename(string oldPath, string newPath)
+    {
+        _cache.TryRemove(oldPath, out _);
+        _cache[newPath] = System.IO.Path.GetFileName(newPath);
+    }
+
     public string GetUserName()
     {
         // macOS full user display name (e.g., "张三" not "zhangsan")

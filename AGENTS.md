@@ -18,6 +18,7 @@
 - 实现复用 `DialogWindow` / `AppWindow`、`SettingsStyles.axaml` 的分组与字段行，以及全局按钮、输入框和主题色；完成后检查浅色、深色、窄窗口、长文本和图标是否完整显示。
 
 # 组件样式
+- 文件列表视图切换复用全局 `view-mode-segmented`；三项工具栏追加 `three` 样式和 `ViewModeTrackThreeGeometry`，保持统一高度、圆角及选中态。
 - 文字搜索页使用紧凑间距；热门文字复用全局 `Button.tag-chip` 胶囊标签，`tag-label` 与 `tag-count` / `tag-count-text` 分别显示文字和文件数，内容双向居中，长标签省略并通过提示显示完整文字。
 - 脚本命令编辑复用 `SettingsStyles.axaml` 的分组和紧凑字段行；组内输入使用 `settings-inline-input` 透明表面，命令使用 `settings-command-editor` 等宽多行编辑，分隔线使用 `settings-divider-row`。标题栏透明并与窗口表面一体，说明放入提示，不重复显示标题与完整路径。
 - `ComboBox.icon-picker` 宽 64px、内边距 `8,6`，为 Fluent 模板的 32px 箭头列与 16px 图标保留完整空间。
@@ -25,6 +26,7 @@
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
+- 紧凑设置中的文字选项复用全局 `segmented-control` 容器和 `segment-btn` 按钮，等宽居中排布，选中项追加 `active`，使用主题选中色而非主要操作按钮色。
 - 设置页复用 `SettingsStyles.axaml` 的紧凑导航、分组和字段行，页面背景与工具栏统一使用 `TitleBarBackgroundBrush`；正文与说明分别使用主文字和次级文字资源。紧凑开关统一使用全局 `ToggleSwitch.compact`，轨道 36×20、滑块 16px，保留原生交互与焦点。
 - 主窗口顶部标题／标签栏统一复用 `TitleBarBackgroundBrush`，浅色主题使用浅雾灰 `#F7F7F8`，与白色内容区柔和衔接；采用上述紧凑设置风格的对话框使用透明标题栏，与窗口表面一体。
 - 首页收藏夹与图标格样式集中在 `Assets/HomeStyles.axaml`，颜色复用全局动态主题资源；文件展示复用 `HomeFileImage` 与文件列表缩略图服务，异步按可见范围加载，无法预览时回退 `FileEntryToIconConverter`。

@@ -21,15 +21,17 @@ internal sealed class FastFileListImages
     private int _typePixelSize = 48;
     private int _lifetime;
     private long _bytes;
+    private CancellationTokenSource? _coverSchedule;
 
     public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? ThumbnailProvider { get; set; }
+    public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? FolderCoverProvider { get; set; }
     public event Action? Changed;
     internal int PendingCount => _requests.Count;
     internal long CachedBytes => _bytes;
 
-    public Bitmap? Get(FileSystemEntry entry)
+    public Bitmap? Get(FileSystemEntry entry, bool folderCoversEnabled = false)
     {
-        var key = ImageKey.For(entry, _pixelSize);
+        var key = ImageKey.ForView(entry, _pixelSize, folderCoversEnabled && FolderCoverProvider != null);
         if (_cache.TryGetValue(key, out var node))
         {
             _lru.Remove(node);
@@ -39,30 +41,78 @@ internal sealed class FastFileListImages
         return _types.GetValueOrDefault(TypeKey.For(entry, _typePixelSize));
     }
 
-    public void UpdateVisible(IReadOnlyList<FileSystemEntry> entries, int pixelSize, int typePixelSize = 48)
+    public void UpdateVisible(IReadOnlyList<FileSystemEntry> entries, int pixelSize, int typePixelSize = 48,
+        bool folderCoversEnabled = false)
     {
         _pixelSize = pixelSize;
         _typePixelSize = typePixelSize;
-        _visible = entries.Select(e => ImageKey.For(e, pixelSize)).ToHashSet();
+        var loadCovers = folderCoversEnabled && FolderCoverProvider != null;
+        var nextVisible = entries.Select(e => ImageKey.ForView(e, pixelSize, loadCovers)).ToHashSet();
+        var viewportChanged = !_visible.SetEquals(nextVisible);
+        _visible = nextVisible;
+        if (viewportChanged && _coverSchedule != null)
+        {
+            _coverSchedule.Cancel();
+            _coverSchedule = null;
+        }
         foreach (var (key, cancellation) in _requests.ToArray())
         {
             if (_visible.Contains(key)) continue;
             _requests.Remove(key);
             cancellation.Cancel();
         }
+        List<FileSystemEntry>? coversToSchedule = null;
         foreach (var entry in entries)
         {
             var type = TypeKey.For(entry, typePixelSize);
             if (!_types.ContainsKey(type) && _pendingTypes.Add(type))
                 _ = LoadTypeAsync(type, _lifetime);
-            var key = ImageKey.For(entry, pixelSize);
+            var key = ImageKey.ForView(entry, pixelSize, loadCovers);
+            if (key.IsFolderCover)
+            {
+                if (_coverSchedule == null && !_cache.ContainsKey(key) && !_requests.ContainsKey(key)
+                    && (!_failed.TryGetValue(key, out var coverUntil) || coverUntil <= DateTime.UtcNow))
+                    (coversToSchedule ??= []).Add(entry);
+                continue;
+            }
             if (_cache.ContainsKey(key) || _requests.ContainsKey(key)
                 || _failed.TryGetValue(key, out var until) && until > DateTime.UtcNow) continue;
-            if (string.IsNullOrEmpty(key.Source)
+            if (string.IsNullOrEmpty(key.Source) && !key.IsFolderCover
                 && (entry.IsDirectory || entry.IsVirtual || !Path.IsPathRooted(entry.FullPath) || ThumbnailProvider == null)) continue;
             var cancellation = new CancellationTokenSource();
             _requests[key] = cancellation;
-            _ = LoadThumbnailAsync(entry, key, cancellation);
+            _ = LoadThumbnailAsync(entry, key, cancellation, 100);
+        }
+        if (loadCovers && _coverSchedule == null && coversToSchedule is { Count: > 0 })
+        {
+            var schedule = new CancellationTokenSource();
+            _coverSchedule = schedule;
+            _ = ScheduleFolderCoversAsync(coversToSchedule.ToArray(), pixelSize, schedule);
+        }
+    }
+
+    private async Task ScheduleFolderCoversAsync(FileSystemEntry[] entries, int pixels, CancellationTokenSource schedule)
+    {
+        try
+        {
+            await Task.Delay(180, schedule.Token);
+            foreach (var entry in entries)
+            {
+                schedule.Token.ThrowIfCancellationRequested();
+                var key = ImageKey.ForView(entry, pixels, true);
+                if (!key.IsFolderCover || !_visible.Contains(key) || _cache.ContainsKey(key) || _requests.ContainsKey(key)
+                    || _failed.TryGetValue(key, out var until) && until > DateTime.UtcNow) continue;
+                var request = new CancellationTokenSource();
+                _requests[key] = request;
+                _ = LoadThumbnailAsync(entry, key, request, 0);
+                await Task.Delay(18, schedule.Token);
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (ReferenceEquals(_coverSchedule, schedule)) _coverSchedule = null;
+            schedule.Dispose();
         }
     }
 
@@ -92,20 +142,25 @@ internal sealed class FastFileListImages
         finally { if (lifetime == _lifetime) _pendingTypes.Remove(key); }
     }
 
-    private async Task LoadThumbnailAsync(FileSystemEntry entry, ImageKey key, CancellationTokenSource cancellation)
+    private async Task LoadThumbnailAsync(FileSystemEntry entry, ImageKey key, CancellationTokenSource cancellation, int delayMs)
     {
         Bitmap? bitmap = null;
         var token = cancellation.Token;
         var provider = ThumbnailProvider;
         try
         {
-            // Scrolling past a row cancels it before a Quick Look helper is queued.
-            await Task.Delay(100, token);
+            // Scrolling past an entry cancels it before a Quick Look helper is queued.
+            await Task.Delay(delayMs, token);
             bitmap = await Task.Run(async () =>
             {
                 token.ThrowIfCancellationRequested();
                 byte[]? bytes = null;
-                if (!entry.IsDirectory && !entry.IsVirtual && Path.IsPathRooted(entry.FullPath) && provider != null)
+                if (key.IsFolderCover && FolderCoverProvider != null)
+                {
+                    var result = await FolderCoverProvider(entry, key.Pixels, token).ConfigureAwait(false);
+                    bytes = result?.Bytes;
+                }
+                else if (!entry.IsDirectory && !entry.IsVirtual && Path.IsPathRooted(entry.FullPath) && provider != null)
                 {
                     var result = await provider(entry, key.Pixels, token).ConfigureAwait(false);
                     bytes = result?.Bytes;
@@ -153,7 +208,34 @@ internal sealed class FastFileListImages
     private void MarkFailed(ImageKey key)
     {
         if (_failed.Count >= 1024) _failed.Clear();
-        _failed[key] = DateTime.UtcNow.AddSeconds(30);
+        _failed[key] = DateTime.UtcNow.Add(key.IsFolderCover ? TimeSpan.FromMinutes(2) : TimeSpan.FromSeconds(30));
+    }
+
+    public void InvalidateFolderCovers()
+    {
+        CancelFolderCoverRequests();
+        foreach (var key in _cache.Keys.Where(key => key.IsFolderCover).ToArray())
+        {
+            var node = _cache[key];
+            _lru.Remove(node);
+            _cache.Remove(key);
+            _bytes -= node.Value.Bytes;
+            node.Value.Bitmap.Dispose();
+        }
+        foreach (var key in _failed.Keys.Where(key => key.IsFolderCover).ToArray()) _failed.Remove(key);
+        Changed?.Invoke();
+    }
+
+    public void CancelFolderCoverRequests()
+    {
+        _coverSchedule?.Cancel();
+        _coverSchedule = null;
+        foreach (var (key, cancellation) in _requests.ToArray())
+        {
+            if (!key.IsFolderCover) continue;
+            _requests.Remove(key);
+            cancellation.Cancel();
+        }
     }
     private void Add(ImageKey key, Bitmap bitmap)
     {
@@ -172,6 +254,8 @@ internal sealed class FastFileListImages
     public void Clear()
     {
         _lifetime++;
+        _coverSchedule?.Cancel();
+        _coverSchedule = null;
         foreach (var cancellation in _requests.Values) cancellation.Cancel();
         _requests.Clear();
         _visible.Clear();
@@ -188,10 +272,14 @@ internal sealed class FastFileListImages
     {
         public static TypeKey For(FileSystemEntry e, int pixels) => new(e.DetailsIconSource.IconKey, e.Extension, e.IsFolder, pixels);
     }
-    private readonly record struct ImageKey(string Path, DateTime Modified, long Size, string? Source, int Pixels)
+    private readonly record struct ImageKey(string Path, DateTime Modified, long Size, string? Source, int Pixels, bool IsFolderCover)
     {
-        public static ImageKey For(FileSystemEntry e, int pixels) => new(e.FullPath, e.LastModified, e.Size,
-            string.IsNullOrWhiteSpace(e.ThumbnailUrl) ? e.IconUrl : e.ThumbnailUrl, pixels);
+        public static ImageKey For(FileSystemEntry e, int pixels) => ForView(e, pixels, false);
+        public static ImageKey ForView(FileSystemEntry e, int pixels, bool folderCoversEnabled) => new(
+            e.FullPath, e.LastModified, e.Size,
+            string.IsNullOrWhiteSpace(e.ThumbnailUrl) ? e.IconUrl : e.ThumbnailUrl, pixels,
+            folderCoversEnabled && e.IsFolder && e.IsReadable && !e.IsSymbolicLink && !e.IsVirtual
+                && System.IO.Path.IsPathFullyQualified(e.FullPath));
     }
     private sealed record CachedImage(ImageKey Key, Bitmap Bitmap, long Bytes);
 }

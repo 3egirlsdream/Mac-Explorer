@@ -111,6 +111,14 @@ public partial class NavigationViewModel : ObservableObject
     private string Localize(string fullPath, string fallback)
         => _localizedNames.GetValueOrDefault(fullPath, fallback);
 
+    internal void RecordDirectoryRename(string oldPath, string newPath)
+    {
+        _displayNameService?.RecordRename(oldPath, newPath);
+        _localizedNames.Remove(oldPath);
+        // Spotlight can briefly return the old display name after a rename.
+        _localizedNames[newPath] = Path.GetFileName(newPath);
+    }
+
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView)
     {
         return !isArchiveView && !isAiView && !IsSearchMode

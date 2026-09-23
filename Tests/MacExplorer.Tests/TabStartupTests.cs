@@ -35,6 +35,7 @@ public sealed partial class FileListViewModelCreateTests
 
     private sealed class StartupSettings : ISettingsService
     {
+        public event Action<string>? SettingChanged { add { } remove { } }
         private readonly Dictionary<string, object> _values = new()
         {
             ["ViewMode"] = ViewMode.Grid,

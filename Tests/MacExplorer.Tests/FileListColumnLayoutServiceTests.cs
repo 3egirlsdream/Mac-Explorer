@@ -120,6 +120,7 @@ public sealed class FileListColumnLayoutServiceTests
 
     private sealed class MemorySettingsService : ISettingsService
     {
+        public event Action<string>? SettingChanged { add { } remove { } }
         private readonly Dictionary<string, object?> _values = new(StringComparer.Ordinal);
 
         public string? Get(string key) => _values.TryGetValue(key, out var value) ? value?.ToString() : null;

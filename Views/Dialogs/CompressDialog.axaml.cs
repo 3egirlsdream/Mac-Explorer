@@ -65,8 +65,7 @@ public partial class CompressDialog : DialogWindow
 
     private static void SetSegmentSelected(Button button, bool selected)
     {
-        button.Classes.Set("secondary", !selected);
-        button.Classes.Set("primary", selected);
+        button.Classes.Set("active", selected);
     }
 
     private void TogglePasswordVisibility(object? sender, RoutedEventArgs e)

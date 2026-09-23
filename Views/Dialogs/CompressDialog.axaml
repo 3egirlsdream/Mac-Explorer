@@ -3,74 +3,96 @@
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="clr-namespace:MacExplorer.Assets"
         x:Class="MacExplorer.Views.Dialogs.CompressDialog"
-        Title="压缩文件" Width="450" Height="460"
+        Title="压缩文件" Width="420" SizeToContent="Height"
         CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource GlassEffectBg}">
+        WindowStartupLocation="CenterOwner">
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-        <StackPanel Grid.Row="1" Spacing="14">
-            <StackPanel Spacing="4">
-                <TextBlock Text="压缩包名称" FontSize="{DynamicResource FontSizeLabel}"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBox x:Name="ArchiveNameBox" Text="Archive.zip"/>
+    <Window.Resources>
+        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
+    </Window.Resources>
+    <Window.Styles>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+        <Style Selector=":is(controls|AppWindow) /template/ Border#WindowFrame">
+            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto" RowSpacing="12" Margin="16,6,16,16">
+        <Border Classes="settings-group">
+            <StackPanel>
+                <Border Classes="settings-compact-row settings-divider">
+                    <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
+                        <TextBlock Classes="settings-label" Text="名称"/>
+                        <TextBox Grid.Column="1" x:Name="ArchiveNameBox"
+                                 Classes="settings-inline-input" Text="Archive.zip"
+                                 AutomationProperties.Name="压缩包名称"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="settings-compact-row settings-divider">
+                    <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
+                        <TextBlock Classes="settings-label" Text="格式"/>
+                        <Border Grid.Column="1" Classes="segmented-control">
+                            <Grid ColumnDefinitions="*,*,*">
+                                <Button x:Name="BtnZip" Classes="segment-btn"
+                                        Click="OnFormatChanged" Tag="Zip">ZIP</Button>
+                                <Button Grid.Column="1" x:Name="BtnTarGz" Classes="segment-btn"
+                                        Click="OnFormatChanged" Tag="TarGz">tar.gz</Button>
+                                <Button Grid.Column="2" x:Name="BtnTarBz2" Classes="segment-btn"
+                                        Click="OnFormatChanged" Tag="TarBz2">tar.bz2</Button>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Classes="settings-compact-row settings-divider">
+                    <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
+                        <TextBlock Classes="settings-label" Text="压缩级别"/>
+                        <Border Grid.Column="1" Classes="segmented-control">
+                            <Grid ColumnDefinitions="*,*,*">
+                                <Button x:Name="BtnFast" Classes="segment-btn"
+                                        Click="OnLevelChanged" Tag="Fast">快速</Button>
+                                <Button Grid.Column="1" x:Name="BtnStandard" Classes="segment-btn"
+                                        Click="OnLevelChanged" Tag="Standard">标准</Button>
+                                <Button Grid.Column="2" x:Name="BtnMaximum" Classes="segment-btn"
+                                        Click="OnLevelChanged" Tag="Maximum">最大</Button>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="PasswordSection" Classes="settings-compact-row"
+                        ToolTip.Tip="仅 ZIP 格式支持密码；留空则不加密">
+                    <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
+                        <TextBlock Classes="settings-label" Text="密码（可选）"/>
+                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                            <TextBox x:Name="PasswordBox" Classes="settings-inline-input"
+                                     PasswordChar="●" PlaceholderText="留空则不加密"
+                                     AutomationProperties.Name="压缩密码"/>
+                            <Button Grid.Column="1" x:Name="TogglePasswordBtn"
+                                    Width="28" Height="28" Padding="0"
+                                    Classes="secondary compact"
+                                    ToolTip.Tip="显示或隐藏密码"
+                                    AutomationProperties.Name="显示或隐藏密码"
+                                    Click="TogglePasswordVisibility">
+                                <PathIcon Data="{x:Static icons:Icons.Eye}" Width="16" Height="16"/>
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
             </StackPanel>
+        </Border>
 
-            <StackPanel Spacing="4">
-                <TextBlock Text="压缩格式" FontSize="{DynamicResource FontSizeLabel}"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <Button x:Name="BtnZip" Classes="secondary"
-                            Click="OnFormatChanged" Tag="Zip">ZIP</Button>
-                    <Button x:Name="BtnTarGz" Classes="secondary"
-                            Click="OnFormatChanged" Tag="TarGz">tar.gz</Button>
-                    <Button x:Name="BtnTarBz2" Classes="secondary"
-                            Click="OnFormatChanged" Tag="TarBz2">tar.bz2</Button>
-                </StackPanel>
-            </StackPanel>
-
-            <StackPanel Spacing="4">
-                <TextBlock Text="压缩级别" FontSize="{DynamicResource FontSizeLabel}"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <Button x:Name="BtnFast" Classes="secondary"
-                            Click="OnLevelChanged" Tag="Fast">快速</Button>
-                    <Button x:Name="BtnStandard" Classes="secondary"
-                            Click="OnLevelChanged" Tag="Standard">标准</Button>
-                    <Button x:Name="BtnMaximum" Classes="secondary"
-                            Click="OnLevelChanged" Tag="Maximum">最大</Button>
-                </StackPanel>
-            </StackPanel>
-
-            <StackPanel Spacing="4" x:Name="PasswordSection">
-                <TextBlock Text="密码（可选，仅 ZIP 格式）" FontSize="{DynamicResource FontSizeLabel}"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBox x:Name="PasswordBox" Grid.Column="0"
-                             PasswordChar="●"
-                             PlaceholderText="留空则不加密"
-                             VerticalAlignment="Center"/>
-                    <Button Grid.Column="1" x:Name="TogglePasswordBtn"
-                            Width="36" Height="36"
-                            Classes="secondary"
-                            VerticalAlignment="Center" Margin="4,0,0,0"
-                            Click="TogglePasswordVisibility">
-                        <PathIcon Data="{x:Static icons:Icons.Eye}" Width="16" Height="16"/>
-                    </Button>
-                </Grid>
-            </StackPanel>
-        </StackPanel>
-
-        <StackPanel Grid.Row="2" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
-            <Button Content="取消" Width="80" Classes="secondary"
-                    HorizontalContentAlignment="Center"
+        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Spacing="8">
+            <Button Content="取消" Width="72" Height="30" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Classes="secondary compact"
                     Click="CancelClick"/>
-            <Button Content="压缩" Width="80" Classes="primary"
-                    x:Name="ConfirmBtn"
-                    HorizontalContentAlignment="Center"
+            <Button Content="压缩" Width="72" Height="30" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Classes="primary compact"
+                    x:Name="ConfirmBtn" IsDefault="True"
                     Click="ConfirmClick"/>
         </StackPanel>
     </Grid>

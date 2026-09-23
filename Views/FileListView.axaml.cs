@@ -239,12 +239,14 @@ public partial class FileListView : UserControl
             _subscribedViewModel.RenameRequested -= OnRenameRequested;
             _subscribedViewModel.ScrollToSelectionRequested -= OnScrollToSelectionRequested;
             _subscribedViewModel.CaptureNavigationAnchorRequested -= OnCaptureNavigationAnchorRequested;
+            _subscribedViewModel.FolderCoversRefreshRequested -= OnFolderCoversRefreshRequested;
         }
         SubscribeEntriesCollection(null);
 
         base.OnDataContextChanged(e);
         _subscribedViewModel = ViewModel;
         FastList.ThumbnailProvider = _subscribedViewModel == null ? null : _subscribedViewModel.GetListThumbnailAsync;
+        FastList.FolderCoverProvider = _subscribedViewModel == null ? null : _subscribedViewModel.GetFolderPhotoCoverAsync;
         if (_subscribedViewModel != null)
         {
             _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -252,6 +254,7 @@ public partial class FileListView : UserControl
             _subscribedViewModel.RenameRequested += OnRenameRequested;
             _subscribedViewModel.ScrollToSelectionRequested += OnScrollToSelectionRequested;
             _subscribedViewModel.CaptureNavigationAnchorRequested += OnCaptureNavigationAnchorRequested;
+            _subscribedViewModel.FolderCoversRefreshRequested += OnFolderCoversRefreshRequested;
             SubscribeEntriesCollection(_subscribedViewModel.Entries);
             _columnLayoutService = _subscribedViewModel.ColumnLayoutService;
             SubscribeColumnLayoutService();
@@ -324,6 +327,12 @@ public partial class FileListView : UserControl
             });
         }
 
+        if (e.PropertyName == nameof(FileListViewModel.ShowFolderPhotoCovers))
+        {
+            FastList.InvalidateFolderCovers();
+            UpdateViewMode();
+        }
+
         if (e.PropertyName is nameof(FileListViewModel.GroupField)
             or nameof(FileListViewModel.Groups)
             or nameof(FileListViewModel.IsHomePage)
@@ -372,6 +381,9 @@ public partial class FileListView : UserControl
             }, DispatcherPriority.Loaded);
         }
 
+        if (e.PropertyName == nameof(FileListViewModel.TreeRows))
+            SyncFastListRows();
+
         if (e.PropertyName is nameof(FileListViewModel.IsLoading) or nameof(FileListViewModel.ReadErrorMessage)
             or nameof(FileListViewModel.SearchQuery) or nameof(FileListViewModel.SearchScopePath) or nameof(FileListViewModel.IsSearchMode) or nameof(FileListViewModel.StatusText))
             UpdateEmptyState();
@@ -381,6 +393,12 @@ public partial class FileListView : UserControl
 
         if (e.PropertyName == nameof(FileListViewModel.CutPaths))
             Dispatcher.UIThread.Post(UpdateCutStates);
+    }
+
+    private void OnFolderCoversRefreshRequested()
+    {
+        if (Dispatcher.UIThread.CheckAccess()) FastList.InvalidateFolderCovers();
+        else Dispatcher.UIThread.Post(FastList.InvalidateFolderCovers);
     }
 
     private void SubscribeEntriesCollection(ObservableCollection<FileSystemEntry>? entries)
@@ -654,10 +672,10 @@ public partial class FileListView : UserControl
     private ScrollRestoreResult TryRestoreSelectedEntryPosition(int version, bool restoreSavedViewport)
     {
         if (version != _scrollRestoreVersion || ViewModel == null) return ScrollRestoreResult.Cancelled;
-        if (ViewModel.SelectedEntries.FirstOrDefault() is not { } selected) return ScrollRestoreResult.NoAnchor;
         if (!FastListActive || FastList.Viewport.Height <= 0) return ScrollRestoreResult.Pending;
         if (restoreSavedViewport && ViewModel.RestoredNavigationScrollOffsetY is { } saved)
             FastList.ScrollToOffset(saved);
+        if (ViewModel.SelectedEntries.FirstOrDefault() is not { } selected) return ScrollRestoreResult.NoAnchor;
         var y = restoreSavedViewport ? ViewModel.RestoredNavigationAnchorViewportY : null;
         return FastList.ScrollToEntry(selected, y.HasValue ? y.Value - 4 : null)
             ? ScrollRestoreResult.Aligned : ScrollRestoreResult.NoAnchor;
@@ -718,6 +736,7 @@ public partial class FileListView : UserControl
 
     private void OnCaptureNavigationAnchorRequested()
     {
+        if (!IsEffectivelyVisible || VisualRoot == null) return;
         var (viewportY, scrollOffsetY) = CaptureSelectedEntryNavigationAnchor();
         ViewModel?.SaveCurrentNavigationAnchor(viewportY, scrollOffsetY);
     }
@@ -1769,7 +1788,7 @@ public partial class FileListView : UserControl
 
         Focus();
         var point = e.GetCurrentPoint(FileScroll);
-        var rowEntry = ViewModel.ViewMode == ViewMode.List
+        var rowEntry = ViewModel.ViewMode is ViewMode.List or ViewMode.Tree
             ? EntryAtPointer(e)
             : null;
         if (point.Properties.IsLeftButtonPressed
@@ -2026,6 +2045,9 @@ public partial class FileListView : UserControl
         FastListHost.IsVisible = visible;
         FastList.IsVisible = visible;
         FastList.IsGrid = ViewModel?.ViewMode == ViewMode.Grid;
+        FastList.FolderCoversEnabled = visible && FastList.IsGrid
+            && ViewModel?.ShowFolderPhotoCovers == true
+            && ViewModel.IsRemoteView == false && ViewModel.IsArchiveView == false;
         SyncFastListRows();
         ListHeaderPanel.IsVisible = visible && !FastList.IsGrid;
         UpdateSortHeaders();

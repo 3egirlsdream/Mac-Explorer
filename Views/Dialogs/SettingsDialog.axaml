@@ -252,7 +252,7 @@
                 <StackPanel Classes="settings-page">
                     <StackPanel Classes="settings-header">
                         <TextBlock Classes="settings-title" Text="文件显示"/>
-                        <TextBlock Classes="settings-description" Text="调整文件和文件夹的可见性。"/>
+                        <TextBlock Classes="settings-description" Text="调整文件和文件夹的显示方式。"/>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
@@ -290,6 +290,22 @@
                                     </Grid>
                                 </Border>
                             </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="settings-section-title" Text="图标视图"/>
+                        <Border Classes="settings-group">
+                            <Border Classes="settings-row">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel>
+                                        <TextBlock Classes="settings-label" Text="文件夹照片封面"/>
+                                        <TextBlock Classes="settings-description" Text="在文件夹图标内展示按文件名排序的前三张照片。"/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" x:Name="FolderPhotoCoversToggle"
+                                                  Classes="settings-toggle compact" AutomationProperties.Name="文件夹照片封面"
+                                                  VerticalAlignment="Center" IsCheckedChanged="OnFolderPhotoCoversChanged"/>
+                                </Grid>
+                            </Border>
                         </Border>
                     </StackPanel>
                 </StackPanel>

@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -280,6 +282,7 @@ public sealed partial class FileListViewModelCreateTests
         public ManualResetEventSlim Release { get; } = new();
         public bool CalledOnUiThread { get; private set; }
         public string GetUserName() => "Test";
+        public void RecordRename(string oldPath, string newPath) { }
         public string GetDisplayName(string path)
         {
             CalledOnUiThread |= Dispatcher.UIThread.CheckAccess();
@@ -540,6 +543,84 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Same(vm.Entries, list.Rows);
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ViewMode.List, false)]
+    [InlineData(ViewMode.List, true)]
+    [InlineData(ViewMode.Grid, false)]
+    [InlineData(ViewMode.Grid, true)]
+    [InlineData(ViewMode.Tree, false)]
+    [InlineData(ViewMode.Tree, true)]
+    public async Task BackRestoresViewportWithOrWithoutSelection(ViewMode mode, bool selectFolder)
+    {
+        using var theme = new FastListTestTheme();
+        var root = Directory.CreateTempSubdirectory("FastListBack-");
+        var child = Directory.CreateDirectory(Path.Combine(root.FullName, "child"));
+        var files = new FakeFileService(root.FullName);
+        for (var i = 0; i < 160; i++)
+            files.Seed(new FileSystemEntry
+            {
+                FullPath = Path.Combine(root.FullName, $"file-{i:D3}.txt"),
+                Name = $"file-{i:D3}.txt",
+                Extension = ".txt"
+            });
+        for (var i = 0; i < 60; i++)
+            files.Seed(new FileSystemEntry
+            {
+                FullPath = Path.Combine(root.FullName, $"folder-{i:D3}"),
+                Name = $"folder-{i:D3}", IsDirectory = true
+            });
+        files.Seed(new FileSystemEntry
+        {
+            FullPath = child.FullName, Name = "folder-060", IsDirectory = true
+        });
+        var navigation = new NavigationViewModel(files);
+        using var vm = CreateViewModel(files, navigation: navigation);
+        vm.SetViewMode(mode);
+        await vm.NavigateToAsync(root.FullName);
+        using var tab = new ExplorerTabViewModel(vm) { IsActive = true };
+        using var workspace = new ExplorerWorkspaceView { DataContext = tab };
+        var view = workspace.FileListView;
+        var list = view.FindControl<FastFileList>("FastList")!;
+        var window = new Window { Width = 900, Height = 600, Content = workspace };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            list.ScrollToOffset(1500);
+            Dispatcher.UIThread.RunJobs();
+            var savedOffset = list.Offset.Y;
+            Assert.True(savedOffset > 0);
+            var hostOffset = view.FindControl<ScrollViewer>("FastListHost")!.Offset.Y;
+            Assert.Equal(savedOffset, hostOffset);
+            if (selectFolder)
+                vm.SetSelection([Assert.Single(vm.Entries, entry => entry.FullPath == child.FullName)]);
+            else
+                Assert.Empty(vm.SelectedEntries);
+
+            var parentHistory = navigation.CurrentHistoryEntry!;
+            await vm.NavigateToAsync(child.FullName);
+            Assert.Equal(savedOffset, parentHistory.SelectedEntryScrollOffsetY);
+            var restored = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            vm.SnapshotApplied += () => restored.TrySetResult();
+            var back = workspace.GetVisualDescendants().OfType<Button>()
+                .Single(button => AutomationProperties.GetName(button) == "后退");
+            back.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await restored.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(root.FullName, vm.CurrentPath);
+            Assert.Same(parentHistory, navigation.CurrentHistoryEntry);
+            Assert.InRange(list.Offset.Y, savedOffset - 1, savedOffset + 1);
+            if (selectFolder)
+                Assert.Equal(child.FullName, Assert.Single(vm.SelectedEntries).FullPath);
+        }
+        finally
+        {
+            window.Close();
+            root.Delete(recursive: true);
+        }
     }
 }
 

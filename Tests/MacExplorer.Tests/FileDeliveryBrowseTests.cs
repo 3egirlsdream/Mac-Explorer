@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.Views;
@@ -73,6 +74,43 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
+    public async Task DeliveryTabsShowLocationAndTagIcons()
+    {
+        using var fixture = new FileDeliveryTests.Fixture();
+        var desktop = Directory.CreateDirectory(Path.Combine(fixture.Root, "Desktop")).FullName;
+        var other = Directory.CreateDirectory(Path.Combine(fixture.Root, "Other")).FullName;
+        var tag = await fixture.Tags.CreateTagAsync("素材");
+        using var service = new MacExplorer.Services.Impl.FileDeliveryService(fixture.Settings, fixture.Tags);
+        foreach (var entry in service.Preferences.Entries.ToArray()) service.Remove(entry.Id);
+        service.AddFolder(desktop);
+        service.AddFolder(other);
+        service.AddTag(tag);
+        using var vm = CreateViewModel(new FakeFileService(fixture.Root), browseOnly: true);
+        var window = new FileDeliveryWindow(service, fixture.Tags, vm);
+        try
+        {
+            window.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var tabs = window.FindControl<StackPanel>("EntryTabs")!;
+            foreach (var (name, iconData) in new[]
+                     {
+                         ("Desktop", Assets.Icons.Desktop),
+                         ("Other", Assets.Icons.Folder),
+                         (tag.Name, Assets.Icons.Tag)
+                     })
+            {
+                var tab = Assert.Single(tabs.Children.OfType<Button>(), button =>
+                    Assert.IsType<StackPanel>(button.Content).Children.OfType<TextBlock>().Single().Text == name);
+                var content = Assert.IsType<StackPanel>(tab.Content);
+                var icon = Assert.IsType<PathIcon>(content.Children[0]);
+                Assert.True(icon.IsEffectivelyVisible);
+                Assert.Equal(Geometry.Parse(iconData).ToString(), icon.Data?.ToString());
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task DeliveryTabDeleteRemovesOnlyTheEntryAndClosesItsMenu()
     {
         using var fixture = new FileDeliveryTests.Fixture();
@@ -92,7 +130,8 @@ public sealed partial class FileListViewModelCreateTests
             var tabs = window.FindControl<StackPanel>("EntryTabs")!;
             foreach (var name in new[] { tag.Name, Path.GetFileName(fixture.Root) })
             {
-                var tab = Assert.Single(tabs.Children.OfType<Button>(), b => Equals(b.Content, name));
+                var tab = Assert.Single(tabs.Children.OfType<Button>(), b =>
+                    Assert.IsType<StackPanel>(b.Content).Children.OfType<TextBlock>().Single().Text == name);
                 var menu = tab.ContextMenu!;
                 menu.Open(tab);
                 Assert.True(window.HasOpenPopup);

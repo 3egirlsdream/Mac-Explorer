@@ -1,9 +1,11 @@
 using System.ComponentModel;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Icons = MacExplorer.Assets.Icons;
@@ -28,7 +30,9 @@ public partial class FileDeliveryWindow : AppWindow
     public bool IsChoosingFolder { get; private set; }
     private ContextMenu? _addEntryMenu;
     private ContextMenu? _entryContextMenu;
-    public bool HasOpenPopup => _addEntryMenu?.IsOpen == true || _entryContextMenu?.IsOpen == true || LocationBreadcrumb.HasOpenPopup || Files.HasOpenBrowsePopup;
+    private ContextMenu? _viewModeMenu;
+    public bool HasOpenPopup => _addEntryMenu?.IsOpen == true || _entryContextMenu?.IsOpen == true
+        || _viewModeMenu?.IsOpen == true || LocationBreadcrumb.HasOpenPopup || Files.HasOpenBrowsePopup;
     public FileListView FileList => Files;
     public event Action? DismissRequested;
 
@@ -67,6 +71,7 @@ public partial class FileDeliveryWindow : AppWindow
         SavePosition();
         _addEntryMenu?.Close();
         _entryContextMenu?.Close();
+        _viewModeMenu?.Close();
         LocationBreadcrumb.CloseTransientUi();
         Files.DeactivateTabInteraction();
         _files.SetDirectoryNotificationsPaused(true);
@@ -115,7 +120,11 @@ public partial class FileDeliveryWindow : AppWindow
         EntryTabs.Children.Clear();
         foreach (var entry in _delivery.Preferences.Entries)
         {
-            var button = new Button { Content = entry.Name, Classes = { "ghost", "compact", "delivery-tab" } };
+            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            content.Children.Add(new PathIcon { Data = Geometry.Parse(_files.GetLocationIcon(entry.Location)), Width = 14, Height = 14 });
+            content.Children.Add(new TextBlock { Text = entry.Name, VerticalAlignment = VerticalAlignment.Center });
+            var button = new Button { Content = content, Classes = { "ghost", "compact", "delivery-tab" } };
+            AutomationProperties.SetName(button, entry.Name);
             button.Classes.Set("selected", entry.Id == _entryId);
             ToolTip.SetTip(button, entry.Location);
             button.Click += async (_, _) => await SelectEntryAsync(entry.Id);
@@ -168,13 +177,46 @@ public partial class FileDeliveryWindow : AppWindow
         BackButton.IsEnabled = _files.CanGoBack;
         ForwardButton.IsEnabled = _files.CanGoForward;
         StatusText.Text = EmptyEntries.IsVisible ? "" : string.IsNullOrEmpty(_files.StatusText) ? "选择文件，拖到其他软件即可使用" : _files.StatusText;
-        ViewModeIcon.Data = Geometry.Parse(_files.ViewMode == ViewMode.List ? Icons.Grid : Icons.List);
+        ViewModeIcon.Data = Geometry.Parse(_files.ViewMode switch
+        {
+            ViewMode.Grid => Icons.Grid,
+            ViewMode.Tree => Icons.ListTree,
+            _ => Icons.List
+        });
     }
 
     private async void OnBack(object? sender, RoutedEventArgs e) => await _files.NavigateBackAsync();
     private async void OnUp(object? sender, RoutedEventArgs e) => await _files.NavigateUpAsync();
     private async void OnForward(object? sender, RoutedEventArgs e) => await _files.NavigateForwardAsync();
-    private void OnViewMode(object? sender, RoutedEventArgs e) => _files.ToggleViewMode();
+    private void OnViewMode(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModeMenu?.IsOpen == true) { _viewModeMenu.Close(); return; }
+        var menu = new ContextMenu
+        {
+            Placement = PlacementMode.BottomEdgeAlignedRight,
+            VerticalOffset = -10,
+            HorizontalOffset = 12
+        };
+        AddMode("图标视图", Icons.Grid, ViewMode.Grid);
+        AddMode("列表视图", Icons.List, ViewMode.List);
+        AddMode("树形列表", Icons.ListTree, ViewMode.Tree);
+        _viewModeMenu = menu;
+        ViewModeButton.ContextMenu = menu;
+        menu.Open(ViewModeButton);
+
+        void AddMode(string title, string icon, ViewMode mode)
+        {
+            var item = new MenuItem
+            {
+                Header = title,
+                Icon = new PathIcon { Data = Geometry.Parse(icon), Width = 16, Height = 16 },
+                ToggleType = MenuItemToggleType.Radio,
+                IsChecked = _files.ViewMode == mode
+            };
+            item.Click += (_, _) => _files.SetViewMode(mode);
+            menu.Items.Add(item);
+        }
+    }
 
     private async void OnAddEntry(object? sender, RoutedEventArgs e)
     {
@@ -234,6 +276,7 @@ public partial class FileDeliveryWindow : AppWindow
     {
         if (e.Key != Key.Escape) return;
         if (_addEntryMenu?.IsOpen == true) _addEntryMenu.Close();
+        else if (_viewModeMenu?.IsOpen == true) _viewModeMenu.Close();
         else if (LocationBreadcrumb.TryCloseTransientUi()) { }
         else if (_entryContextMenu?.IsOpen == true) _entryContextMenu.Close();
         else if (!Files.DismissBrowsePopup()) DismissRequested?.Invoke();

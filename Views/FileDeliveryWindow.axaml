@@ -31,7 +31,7 @@
                         <PathIcon Data="{x:Static icons:Icons.Up}"/>
                     </Button>
                     <views:BreadcrumbBar Grid.Column="3" x:Name="LocationBreadcrumb" Margin="4,0" VerticalAlignment="Center"/>
-                    <Button Grid.Column="4" Classes="workspace-nav-button" Click="OnViewMode" ToolTip.Tip="切换列表／图标" AutomationProperties.Name="切换视图">
+                    <Button Grid.Column="4" x:Name="ViewModeButton" Classes="workspace-nav-button" Click="OnViewMode" ToolTip.Tip="选择视图" AutomationProperties.Name="选择视图">
                         <PathIcon x:Name="ViewModeIcon" Data="{x:Static icons:Icons.Grid}"/>
                     </Button>
                 </Grid>

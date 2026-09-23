@@ -162,6 +162,10 @@ public class MacFSEventsWatcher : IFSEventsWatcher, IDisposable
                     dirs.Add(dir);
                 // Also add the path itself in case it's a directory
                 dirs.Add(path);
+                const uint mustScanSubDirs = 0x00000001;
+                if (((uint)Marshal.ReadInt32(eventFlags, i * sizeof(int)) & mustScanSubDirs) != 0)
+                    foreach (var expanded in instance._notifier.GetExpandedDirectoriesUnder(path))
+                        dirs.Add(expanded);
             }
 
             if (dirs.Count > 0)
@@ -170,7 +174,8 @@ public class MacFSEventsWatcher : IFSEventsWatcher, IDisposable
                 string[] watched;
                 lock (instance._lock)
                 {
-                    watched = dirs.Where(d => instance._watchedPaths.ContainsKey(d)).ToArray();
+                    watched = dirs.Where(d => instance._watchedPaths.ContainsKey(d)
+                        || instance._notifier.IsExpandedDirectoryWatched(d)).ToArray();
                 }
 
                 if (watched.Length > 0)

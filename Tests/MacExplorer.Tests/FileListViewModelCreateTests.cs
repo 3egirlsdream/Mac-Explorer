@@ -643,6 +643,41 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
+    public async Task NewlyCreatedFolderKeepsRenamedBreadcrumbAfterLocalization()
+    {
+        const string parent = "/tmp/FKFinderTests";
+        var fileService = new FakeFileService(parent);
+        var renamedPath = Path.Combine(parent, "新名称");
+        var displayNames = new StaleRenamedDisplayNames(renamedPath);
+        var navigation = new NavigationViewModel(fileService,
+            displayNameService: displayNames)
+        {
+            CurrentPath = parent,
+            IsHomePage = false
+        };
+        using var viewModel = CreateViewModel(fileService, navigation: navigation);
+        var localized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var breadcrumbUpdates = 0;
+        navigation.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(NavigationViewModel.Breadcrumbs)
+                && navigation.CurrentPath == renamedPath
+                && ++breadcrumbUpdates == 2)
+                localized.TrySetResult();
+        };
+
+        await viewModel.CreateNewFolderAsync();
+        var created = Assert.Single(viewModel.Entries);
+        Assert.True(await viewModel.RenameEntryAsync(created, "新名称"));
+        Assert.Equal((created.FullPath, renamedPath), displayNames.RecordedRename);
+        await viewModel.NavigateToAsync(renamedPath);
+        await localized.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(renamedPath, navigation.Breadcrumbs[^1].FullPath);
+        Assert.Equal("新名称", navigation.Breadcrumbs[^1].DisplayName);
+    }
+
+    [AvaloniaFact]
     public async Task RefreshAsync_ReplacesCollectionWithFreshEntries()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -1134,6 +1169,19 @@ public sealed partial class FileListViewModelCreateTests
             openWithAppService: openWithAppService,
             pluginManager: pluginManager,
             conversionTaskManager: backgroundTaskManager, quickLookService: quickLookService) { IsBrowseOnly = browseOnly };
+    }
+
+    private sealed class StaleRenamedDisplayNames(string renamedPath) : IDisplayNameService
+    {
+        public (string OldPath, string NewPath)? RecordedRename { get; private set; }
+
+        public string GetDisplayName(string path)
+            => path == renamedPath ? "未命名文件夹" : Path.GetFileName(path);
+
+        public string GetUserName() => "Test";
+
+        public void RecordRename(string oldPath, string newPath)
+            => RecordedRename = (oldPath, newPath);
     }
 
     private sealed class FakeFileService(string homeDirectory) : IFileService

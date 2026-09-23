@@ -142,7 +142,7 @@
                             chrome:WindowDecorationProperties.ElementRole="User">
                     <Button x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
                             AutomationProperties.Name="关闭窗口">
-                        <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                        <Viewbox Width="14" Height="14" IsHitTestVisible="False">
                             <Grid Width="12" Height="12">
                                 <Ellipse Classes="traffic-light traffic-close"/>
                                 <Path Classes="window-control-symbol" Data="M3.75,3.75 L8.25,8.25 M8.25,3.75 L3.75,8.25"
@@ -153,7 +153,7 @@
                     </Button>
                     <Button x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
                             AutomationProperties.Name="最小化窗口">
-                        <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                        <Viewbox Width="14" Height="14" IsHitTestVisible="False">
                             <Grid Width="12" Height="12">
                                 <Ellipse Classes="traffic-light traffic-minimize"/>
                                 <Path Classes="window-control-symbol" Data="M3,6 H9"
@@ -164,7 +164,7 @@
                     </Button>
                     <Button x:Name="FullScreenButton" Classes="window-control" ToolTip.Tip="进入全屏"
                             AutomationProperties.Name="进入全屏">
-                        <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                        <Viewbox Width="14" Height="14" IsHitTestVisible="False">
                             <Grid Width="12" Height="12">
                                 <Ellipse Classes="traffic-light traffic-fullscreen"/>
                                 <Path Classes="window-control-symbol fullscreen-symbol"

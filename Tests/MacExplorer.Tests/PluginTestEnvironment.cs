@@ -59,6 +59,7 @@ internal sealed class PluginTestEnvironment : IDisposable
     }
     internal sealed class MemorySettings : ISettingsService
     {
+        public event Action<string>? SettingChanged { add { } remove { } }
         private readonly Dictionary<string, string> _values = new();
         public string? Get(string key) => _values.GetValueOrDefault(key);
         public T Get<T>(string key, T fallback) => Get(key) is { } value ? JsonSerializer.Deserialize<T>(value)! : fallback;

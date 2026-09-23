@@ -1,6 +1,13 @@
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 
+extern "C" __attribute__((visibility("default")))
+int MacExplorerCurrentLeftMouseClickCount()
+{
+    NSEvent* event = NSApp.currentEvent;
+    return event.type == NSEventTypeLeftMouseDown ? (int)event.clickCount : 0;
+}
+
 void MacExplorerDeliveryPrepareDrag(NSView* view);
 
 typedef void (*MacExplorerDragCallback)(void*, int, double, double, int);

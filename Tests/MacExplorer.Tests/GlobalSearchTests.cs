@@ -65,6 +65,7 @@ public sealed class GlobalSearchTests
 
     private sealed class InMemorySettings : ISettingsService
     {
+        public event Action<string>? SettingChanged { add { } remove { } }
         private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
 
         public string? Get(string key) => _values.TryGetValue(key, out var value) ? value : null;

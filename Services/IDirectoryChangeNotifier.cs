@@ -27,4 +27,11 @@ public interface IDirectoryChangeNotifier
 
     /// <summary>Unregister a VM (call on window dispose).</summary>
     void Unsubscribe(FileListViewModel vm);
+
+    // Expanded paths are routing interests under the already watched current root.
+    // They do not create additional native FSEvents streams.
+    void RegisterExpandedDirectory(FileListViewModel vm, string path) { }
+    void UnregisterExpandedDirectory(FileListViewModel vm, string path) { }
+    bool IsExpandedDirectoryWatched(string path) => false;
+    IReadOnlyList<string> GetExpandedDirectoriesUnder(string path) => [];
 }

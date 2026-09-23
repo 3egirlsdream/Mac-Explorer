@@ -5,6 +5,7 @@ namespace MacExplorer.Services.Impl;
 
 public class SettingsService : ISettingsService, IDisposable
 {
+    public event Action<string>? SettingChanged;
     private bool _disposed;
     private readonly SqliteConnection _connection;
     private readonly Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
@@ -78,21 +79,19 @@ public class SettingsService : ISettingsService, IDisposable
 
     public void Set(string key, string value)
     {
+        bool changed;
         lock (_lock)
         {
+            changed = !_cache.TryGetValue(key, out var previous) || previous != value;
             _cache[key] = value;
             Persist(key, value);
         }
+        if (changed) SettingChanged?.Invoke(key);
     }
 
     public void Set<T>(string key, T value)
     {
-        var str = value?.ToString() ?? "";
-        lock (_lock)
-        {
-            _cache[key] = str;
-            Persist(key, str);
-        }
+        Set(key, value?.ToString() ?? "");
     }
 
     public Dictionary<string, string> GetAll()

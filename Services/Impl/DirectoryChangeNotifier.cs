@@ -16,6 +16,7 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
     private readonly ILogger<DirectoryChangeNotifier>? _logger;
     private readonly object _lock = new();
     private readonly List<WeakReference<FileListViewModel>> _viewModels = new();
+    private readonly Dictionary<string, HashSet<FileListViewModel>> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _pendingChanges = new(StringComparer.Ordinal);
     private readonly HashSet<FileListViewModel> _excludedVms = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, DateTimeOffset> _suppressedRefreshUntil = new(StringComparer.Ordinal);
@@ -46,7 +47,46 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
         {
             _viewModels.RemoveAll(wr => !wr.TryGetTarget(out var t) || ReferenceEquals(t, vm));
             _excludedVms.Remove(vm);
+            foreach (var path in _expanded.Keys.ToArray())
+            {
+                _expanded[path].Remove(vm);
+                if (_expanded[path].Count == 0) _expanded.Remove(path);
+            }
         }
+    }
+
+    public void RegisterExpandedDirectory(FileListViewModel vm, string path)
+    {
+        path = NormalizeDirectoryPath(path);
+        lock (_lock)
+        {
+            if (!_expanded.TryGetValue(path, out var subscribers))
+                _expanded[path] = subscribers = new HashSet<FileListViewModel>(ReferenceEqualityComparer.Instance);
+            subscribers.Add(vm);
+        }
+    }
+
+    public void UnregisterExpandedDirectory(FileListViewModel vm, string path)
+    {
+        path = NormalizeDirectoryPath(path);
+        lock (_lock)
+        {
+            if (!_expanded.TryGetValue(path, out var subscribers)) return;
+            subscribers.Remove(vm);
+            if (subscribers.Count == 0) _expanded.Remove(path);
+        }
+    }
+
+    public bool IsExpandedDirectoryWatched(string path)
+    {
+        lock (_lock) return _expanded.ContainsKey(NormalizeDirectoryPath(path));
+    }
+
+    public IReadOnlyList<string> GetExpandedDirectoriesUnder(string path)
+    {
+        var prefix = NormalizeDirectoryPath(path).TrimEnd('/') + '/';
+        lock (_lock)
+            return _expanded.Keys.Where(candidate => candidate.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
     }
 
     public void NotifyChanged(string[] directoryPaths, FileListViewModel? excludeVm = null)
@@ -130,7 +170,7 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
     {
         HashSet<string> dirs;
         HashSet<FileListViewModel> excluded;
-        List<FileListViewModel> targets = new();
+        List<(FileListViewModel Vm, string Path)> targets = new();
 
         lock (_lock)
         {
@@ -151,13 +191,18 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
                     continue;
                 }
 
-                if (excluded.Contains(vm)) continue;
                 if (vm.IsHomePage) continue;
                 if (string.IsNullOrEmpty(vm.CurrentPath)) continue;
                 var currentPath = NormalizeDirectoryPath(vm.CurrentPath);
-                if (!dirs.Contains(currentPath)) continue;
-
-                targets.Add(vm);
+                if (dirs.Contains(currentPath) && !excluded.Contains(vm))
+                {
+                    // Root refresh reloads open branches; avoid submitting those paths twice.
+                    targets.Add((vm, currentPath));
+                    continue;
+                }
+                foreach (var path in dirs)
+                    if (_expanded.TryGetValue(path, out var subscribers) && subscribers.Contains(vm))
+                        targets.Add((vm, path));
             }
         }
 
@@ -165,11 +210,14 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
 
         Dispatcher.UIThread.Post(async () =>
         {
-            foreach (var vm in targets)
+            foreach (var (vm, path) in targets)
             {
                 try
                 {
-                    await vm.RefreshFromNotification();
+                    if (string.Equals(path, NormalizeDirectoryPath(vm.CurrentPath), StringComparison.Ordinal))
+                        await vm.RefreshFromNotification();
+                    else
+                        await vm.RefreshExpandedDirectoryFromNotificationAsync(path);
                 }
                 catch (Exception ex)
                 {

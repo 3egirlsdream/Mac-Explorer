@@ -15,6 +15,9 @@ public partial class FileListView
     private string? _fastFocusedPath;
     private IReadOnlyList<FileSystemEntry>? _fastSourceEntries;
     private IReadOnlyList<FileGroup>? _fastSourceGroups;
+    private IReadOnlyList<FileTreeRow>? _fastSourceTreeRows;
+    private ViewMode? _fastSourceMode;
+    private bool _fastSourceUsesTree;
     private string? _fastRowsPath;
     private bool FastListActive => FastListHost.IsVisible;
 
@@ -22,6 +25,16 @@ public partial class FileListView
     {
         FastList.PointerPressed += (_, e) =>
         {
+            if (e.GetCurrentPoint(FastList).Properties.IsLeftButtonPressed
+                && ViewModel?.ViewMode == ViewMode.Tree
+                && FastList.TreeDisclosureIndexAt(e.GetPosition(FastList)) is var treeIndex and >= 0)
+            {
+                var state = FastList.TreeRowAt(treeIndex)!.Value;
+                if (state.HasError) _ = ViewModel.RetryTreeDirectoryAsync(state.Entry);
+                else _ = ViewModel.ToggleTreeDirectoryAsync(state.Entry);
+                e.Handled = true;
+                return;
+            }
             if (e.Handled || FastList.EntryAt(e.GetPosition(FastList), contentOnly: true) is not { } entry) return;
             _fastFocusedPath = entry.FullPath;
             if (e.ClickCount == 2 && e.GetCurrentPoint(FastList).Properties.IsLeftButtonPressed)
@@ -43,19 +56,32 @@ public partial class FileListView
         {
             _fastSourceEntries = null;
             _fastSourceGroups = null;
+            _fastSourceTreeRows = null;
+            _fastSourceMode = null;
+            _fastSourceUsesTree = false;
             _fastRowsPath = null;
             if (FastList.Rows.Count > 0) FastList.SetRows([]);
             UpdateFastListLoading();
             return;
         }
         var groups = vm.GroupField == GroupField.None ? null : vm.Groups;
+        var useTree = vm.ViewMode == ViewMode.Tree && vm.IsTreeExpansionEnabled;
         var entriesChanged = force || !ReferenceEquals(_fastSourceEntries, vm.Entries);
-        if (entriesChanged || !ReferenceEquals(_fastSourceGroups, groups))
+        var treeChanged = useTree && !ReferenceEquals(_fastSourceTreeRows, vm.TreeRows);
+        if (entriesChanged || treeChanged || _fastSourceMode != vm.ViewMode
+            || _fastSourceUsesTree != useTree
+            || !ReferenceEquals(_fastSourceGroups, groups))
         {
             _fastSourceEntries = vm.Entries;
             _fastSourceGroups = groups;
+            _fastSourceTreeRows = useTree ? vm.TreeRows : null;
+            _fastSourceMode = vm.ViewMode;
+            _fastSourceUsesTree = useTree;
             if (entriesChanged) _fastRowsPath = vm.CurrentPath;
-            if (groups == null) FastList.SetRows(vm.Entries);
+            if (useTree)
+                FastList.SetTreeRows(vm.TreeRows,
+                    vm.TreeGroups.Select(group => new FastFileListGroup(group.Name, group.VisibleCount, group.DirectCount)).ToArray());
+            else if (groups == null) FastList.SetRows(vm.Entries);
             else FastList.SetRows(groups.SelectMany(group => group.Entries).ToArray(),
                 groups.Select(group => new FastFileListGroup(group.Name, group.Entries.Count)).ToArray());
         }
@@ -90,6 +116,32 @@ public partial class FileListView
         var current = _fastFocusedPath == null ? -1 : FastList.IndexOfPath(_fastFocusedPath);
         if (current < 0 && ViewModel.SelectedEntries.LastOrDefault() is { } selected)
             current = FastList.IndexOf(selected);
+        if (ViewModel.ViewMode == ViewMode.Tree && current >= 0 && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            var row = FastList.TreeRowAt(current);
+            if (row is { } treeRow && e.Key == Key.Right)
+            {
+                if (treeRow.CanExpand && !treeRow.IsExpanded) _ = ViewModel.ExpandTreeDirectoryAsync(treeRow.Entry);
+                else if (treeRow.IsExpanded && current + 1 < FastList.Rows.Count
+                         && FastList.TreeRowAt(current + 1)?.Depth > treeRow.Depth)
+                    FocusTreeRow(current + 1);
+                e.Handled = true;
+                return;
+            }
+            if (row is { } leftRow && e.Key == Key.Left)
+            {
+                if (leftRow.IsExpanded) ViewModel.CollapseTreeDirectory(leftRow.Entry);
+                else
+                    for (var i = current - 1; i >= 0; i--)
+                        if (FastList.TreeRowAt(i)?.Depth == leftRow.Depth - 1)
+                        {
+                            FocusTreeRow(i);
+                            break;
+                        }
+                e.Handled = true;
+                return;
+            }
+        }
         var page = Math.Max(1, (int)(FastList.Viewport.Height / FastList.ItemHeight) - 1);
         var next = e.Key switch
         {
@@ -114,6 +166,18 @@ public partial class FileListView
         FastList.ScrollToEntry(entry);
         FastList.InvalidateVisual();
         e.Handled = true;
+    }
+
+    private void FocusTreeRow(int index)
+    {
+        if (ViewModel == null || index < 0 || index >= FastList.Rows.Count) return;
+        var entry = FastList.Rows[index];
+        _fastFocusedPath = entry.FullPath;
+        FastList.KeyboardFocusPath = entry.FullPath;
+        FastList.Focus(NavigationMethod.Directional);
+        ViewModel.SelectEntry(entry);
+        FastList.ScrollToEntry(entry);
+        FastList.InvalidateVisual();
     }
 
     private void BeginFastRename(FileSystemEntry entry)

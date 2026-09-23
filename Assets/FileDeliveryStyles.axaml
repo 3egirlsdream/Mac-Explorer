@@ -21,6 +21,9 @@
             <Setter Property="LineHeight" Value="18"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
+        <Style Selector="Button.delivery-tab PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
         <Style Selector="Button.delivery-tab.selected">
             <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>

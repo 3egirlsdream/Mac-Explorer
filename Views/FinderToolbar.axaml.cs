@@ -93,6 +93,12 @@ public partial class FinderToolbar : UserControl
         SyncViewModeToggles();
     }
 
+    private void ToggleTreeView(object? sender, RoutedEventArgs e)
+    {
+        ViewModel?.SetViewMode(ViewMode.Tree);
+        SyncViewModeToggles();
+    }
+
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         SubscribeToViewModel(ViewModel);
@@ -127,6 +133,7 @@ public partial class FinderToolbar : UserControl
         var viewMode = ViewModel?.ViewMode;
         GridViewToggle.IsChecked = viewMode == ViewMode.Grid;
         ListViewToggle.IsChecked = viewMode == ViewMode.List;
+        TreeViewToggle.IsChecked = viewMode == ViewMode.Tree;
         UpdateActionAvailability();
     }
 

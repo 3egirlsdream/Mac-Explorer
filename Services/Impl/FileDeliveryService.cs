@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MacExplorer.Models;
+using MacExplorer.ViewModels;
 
 namespace MacExplorer.Services.Impl;
 
@@ -116,10 +117,16 @@ public sealed class FileDeliveryService : IDisposable
 internal sealed class FileDeliverySettings(ISettingsService inner) : ISettingsService
 {
     private const string Prefix = "file_delivery_view_";
-    public string? Get(string key) => inner.Get(Prefix + key);
-    public T Get<T>(string key, T defaultValue) => inner.Get(Prefix + key, defaultValue);
-    public void Set(string key, string value) => inner.Set(Prefix + key, value);
-    public void Set<T>(string key, T value) => inner.Set(Prefix + key, value);
+    private static string StorageKey(string key) => key == FileListViewModel.FolderPhotoCoverSettingKey ? key : Prefix + key;
+    public event Action<string>? SettingChanged
+    {
+        add => inner.SettingChanged += value;
+        remove => inner.SettingChanged -= value;
+    }
+    public string? Get(string key) => inner.Get(StorageKey(key));
+    public T Get<T>(string key, T defaultValue) => inner.Get(StorageKey(key), defaultValue);
+    public void Set(string key, string value) => inner.Set(StorageKey(key), value);
+    public void Set<T>(string key, T value) => inner.Set(StorageKey(key), value);
     public Dictionary<string, string> GetAll() => inner.GetAll().Where(p => p.Key.StartsWith(Prefix, StringComparison.Ordinal))
         .ToDictionary(p => p.Key[Prefix.Length..], p => p.Value);
 }

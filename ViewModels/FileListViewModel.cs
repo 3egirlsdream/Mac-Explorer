@@ -25,6 +25,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private readonly IContextMenuService? _contextMenuService;
     private readonly IMetadataService? _metadataService;
     private readonly IThumbnailService? _thumbnailService;
+    private readonly FolderPhotoCoverService? _folderPhotoCoverService;
     private readonly IQuickLookService? _quickLookService;
     private readonly INativeContextMenuService? _nativeContextMenuService;
     private readonly IDragDropBridge? _dragDropBridge;
@@ -87,7 +88,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _directoryNotificationsPaused = paused;
         if (paused) StopDirectoryWork();
         else if (!string.IsNullOrEmpty(CurrentPath) && !TagPathHelper.IsTagPath(CurrentPath))
+        {
             _navigation.SetWatchedDirectory(CurrentPath);
+            UpdateTreeSubscriptions();
+            _ = RestoreTreeBranchesAsync();
+        }
     }
     private Window? _topLevelWindow;
 
@@ -225,17 +230,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             if (IsSearchMode) return AppIcons.Search;
             if (IsHomePage) return AppIcons.Home;
-            if (IsTagView) return AppIcons.Tag;
-
-            var path = CurrentPath == "/" ? "/" : CurrentPath.TrimEnd('/');
-            var item = SidebarFavorites.Concat(SidebarLocations).Concat(SidebarAiItems)
-                .FirstOrDefault(item => string.Equals(item.Path, path, StringComparison.Ordinal));
-            if (!string.IsNullOrWhiteSpace(item?.IconData)) return item.IconData;
-            if (path == "/Applications") return AppIcons.Apps;
-            if (path == _fileService.TrashDirectory || path == VirtualPath.SystemTrash) return AppIcons.Trash;
-            if (ExternalVolumes.Any(volume => volume.Path == path)) return AppIcons.ExternalDrive;
-            return AppIcons.Folder;
+            return GetLocationIcon(CurrentPath);
         }
+    }
+
+    public string GetLocationIcon(string location)
+    {
+        if (TagPathHelper.IsTagPath(location)) return AppIcons.Tag;
+        var path = location == "/" ? "/" : location.TrimEnd('/');
+        var item = SidebarFavorites.Concat(SidebarLocations).Concat(SidebarAiItems)
+            .FirstOrDefault(item => string.Equals(item.Path, path, StringComparison.Ordinal));
+        if (!string.IsNullOrWhiteSpace(item?.IconData)) return item.IconData;
+        if (path == "/Applications") return AppIcons.Apps;
+        if (path == _fileService.TrashDirectory || path == VirtualPath.SystemTrash) return AppIcons.Trash;
+        if (ExternalVolumes.Any(volume => volume.Path == path)) return AppIcons.ExternalDrive;
+        return AppIcons.Folder;
     }
 
     public string? GetRestorableDirectoryPath()
@@ -467,11 +476,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _contextMenuService = contextMenuService;
         _metadataService = metadataService;
         _thumbnailService = thumbnailService;
+        if (thumbnailService != null) _folderPhotoCoverService = new FolderPhotoCoverService(thumbnailService);
         _quickLookService = quickLookService;
         _nativeContextMenuService = nativeContextMenuService;
         _clipboardService = clipboardService;
         _launcherService = launcherService;
         _settingsService = settingsService;
+        if (_settingsService != null) _settingsService.SettingChanged += OnSettingsChanged;
         _archiveService = archiveService;
         _dragDropBridge = dragDropBridge;
         _directoryChangeNotifier = directoryChangeNotifier;
@@ -560,6 +571,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         value.CollectionChanged += OnEntriesCollectionChanged;
         OnPropertyChanged(nameof(StatusSummaryText));
+        RebuildTreeRows();
     }
 
     partial void OnStatusTextChanged(string value)
@@ -572,6 +584,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(StatusSummaryText));
+        RebuildTreeRows();
     }
 
     private int _locationStatusGeneration;
@@ -898,6 +911,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (e.PropertyName == nameof(NavigationViewModel.CurrentPath))
         {
+            OnTreeLocationChanged();
             ClearFileListFilters();
             StatusText = string.Empty;
             ReadErrorMessage = string.Empty;
@@ -927,6 +941,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             or nameof(NavigationViewModel.CurrentRemoteServerId))
         {
             RefreshLocationStatus();
+            RebuildTreeRows();
         }
     }
 
@@ -965,15 +980,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (e.PropertyName == nameof(SortFilterViewModel.ColumnFilters))
         {
+            BeginTreeQueryChange();
             var selection = CaptureEntryLoadSelectionState();
             SnapshotApplying?.Invoke();
             _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
-            var selected = Entries.Where(entry => selection.SelectedPaths.Contains(entry.FullPath)).ToArray();
+            var selected = GetSelectableEntries().Where(entry => selection.SelectedPaths.Contains(entry.FullPath)).ToArray();
             ReplaceSelection(selected, selected.FirstOrDefault(entry => entry.FullPath == selection.AnchorPath));
             SnapshotApplied?.Invoke();
             OnPropertyChanged(nameof(ColumnFilters));
             OnPropertyChanged(nameof(FileNameFilter));
             OnPropertyChanged(nameof(HasFileListFilters));
+            _ = ReprojectTreeBranchesAsync();
         }
 
         if (e.PropertyName is nameof(SortFilterViewModel.ViewMode)
@@ -985,6 +1002,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             or nameof(SortFilterViewModel.HideDotFiles)
             or nameof(SortFilterViewModel.HideDotFolders))
         {
+            if (e.PropertyName == nameof(SortFilterViewModel.ViewMode)) OnTreeModeChanged();
+            if (e.PropertyName == nameof(SortFilterViewModel.Groups)) RebuildTreeRows();
             OnPropertyChanged(e.PropertyName);
         }
 
@@ -996,7 +1015,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             or nameof(SortFilterViewModel.HideDotFiles)
             or nameof(SortFilterViewModel.HideDotFolders))
         {
+            BeginTreeQueryChange();
             _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
+            _ = ReprojectTreeBranchesAsync();
         }
     }
 
@@ -1745,7 +1766,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     // ── Selection ──
 
     private IReadOnlyList<FileSystemEntry> GetSelectableEntries() =>
-        GroupField != GroupField.None
+        ViewMode == ViewMode.Tree && IsTreeExpansionEnabled
+            ? _treeVisibleEntries
+            : GroupField != GroupField.None
             ? Groups.SelectMany(g => g.Entries).ToList()
             : Entries;
 
@@ -2428,7 +2451,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private IReadOnlyList<FileSystemEntry> GetContextEntries(FileSystemEntry entry)
         => _selectedEntriesSet.Contains(entry) && SelectedEntries.Count > 0
-            ? SelectedEntries.ToArray()
+            ? NormalizeTreeOperationEntries(SelectedEntries)
             : [entry];
 
     private static bool IsUsableLocalEntry(FileSystemEntry entry)
@@ -2665,7 +2688,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
-                    Execute = async () => { _fileOps.CopySelectedCommand.Execute(SelectedEntries.ToList()); await Task.CompletedTask; }
+                    Execute = async () => { _fileOps.CopySelectedCommand.Execute(NormalizeTreeOperationEntries(SelectedEntries)); await Task.CompletedTask; }
                 });
             }
             else if (action.Label == "剪切")
@@ -2676,7 +2699,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
-                    Execute = async () => { _fileOps.CutSelectedCommand.Execute(SelectedEntries.ToList()); await Task.CompletedTask; }
+                    Execute = async () => { _fileOps.CutSelectedCommand.Execute(NormalizeTreeOperationEntries(SelectedEntries)); await Task.CompletedTask; }
                 });
             }
             else if (action.Label == "粘贴")
@@ -3004,8 +3027,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly) return;
         if (SelectedEntries.Count == 0) return;
-        _fileOps.CopySelectedCommand.Execute(SelectedEntries.ToList());
-        StatusText = $"已拷贝 {SelectedEntries.Count} 项";
+        var entries = NormalizeTreeOperationEntries(SelectedEntries);
+        _fileOps.CopySelectedCommand.Execute(entries);
+        StatusText = $"已拷贝 {entries.Count} 项";
     }
 
     public async Task CopyPathAsync()
@@ -3026,8 +3050,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly) return;
         if (SelectedEntries.Count == 0) return;
-        _fileOps.CutSelectedCommand.Execute(SelectedEntries.ToList());
-        StatusText = $"已剪切 {SelectedEntries.Count} 项";
+        var entries = NormalizeTreeOperationEntries(SelectedEntries);
+        _fileOps.CutSelectedCommand.Execute(entries);
+        StatusText = $"已剪切 {entries.Count} 项";
     }
 
     // Paste conflict dialog state
@@ -3180,7 +3205,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly) return;
         if (_deleteInProgress || IsDeleteConfirmDialogVisible || IsArchiveView || SelectedEntries.Count == 0) return;
-        var entries = SelectedEntries.Where(entry => !entry.IsVirtual).ToArray();
+        var entries = NormalizeTreeOperationEntries(SelectedEntries.Where(entry => !entry.IsVirtual)).ToArray();
         if (entries.Length == 0) return;
         IsContextMenuVisible = false;
         // SFTP ignores moveToTrash and deletes permanently. Never let a preference
@@ -3341,6 +3366,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task MoveEntriesAsync(IReadOnlyList<FileSystemEntry> entries, FileSystemEntry targetFolder)
     {
         if (IsBrowseOnly) return;
+        entries = NormalizeTreeOperationEntries(entries);
         try
         {
             var conflicts = _fileOps.GetMoveConflicts(entries, targetFolder.FullPath);
@@ -3456,6 +3482,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var wasPinned = entry.IsDirectory && await _fileOps.IsFolderPinnedAsync(oldPath);
             await _fileOps.RenameEntryAsync(entry, newName, IsAiView, msg => StatusText = msg);
 
+            if (entry.IsDirectory)
+                _navigation.RecordDirectoryRename(oldPath, Path.Combine(Path.GetDirectoryName(oldPath) ?? "", newName));
+
             if (wasPinned)
                 await _pinnedFolders.LoadPinnedFoldersAsync();
 
@@ -3540,7 +3569,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly) return;
         _archive.ShowCompressDialog(
-            SelectedEntries.ToList(),
+            NormalizeTreeOperationEntries(SelectedEntries).ToList(),
             ContextMenuEntry,
             _navigation.CurrentPath,
             IsArchiveView,
@@ -4000,6 +4029,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 ?? Task.FromResult<ThumbnailResult?>(null)
             : Task.FromResult<ThumbnailResult?>(null);
 
+    internal Task<ThumbnailResult?> GetFolderPhotoCoverAsync(FileSystemEntry entry, int pixelSize, CancellationToken ct)
+        => entry.IsFolder && entry.IsReadable && !entry.IsSymbolicLink && !entry.IsVirtual && !IsRemoteView && !IsArchiveView
+            && _folderPhotoCoverService != null
+            ? _folderPhotoCoverService.CreateAsync(entry.FullPath, pixelSize, ct)
+            : Task.FromResult<ThumbnailResult?>(null);
+
+    internal event Action? FolderCoversRefreshRequested;
+
     partial void OnIsPreviewPaneVisibleChanged(bool value)
     {
         _settingsService?.Set(PreviewPaneVisibleSettingKey, value);
@@ -4102,8 +4139,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         if (!IsCurrentDirectoryWork(work)) return;
 
+        if (forceRefresh || showPlaceholder) FolderCoversRefreshRequested?.Invoke();
         StartDirectoryBackgroundWork(entries, work, includeAnalysis: true);
         QueueDirectoryIndexUpdate(_navigation.CurrentPath, entries, work);
+        _ = RefreshOpenTreeBranchesAsync();
         RefreshLocationStatus();
 
         // Batch load ratings for current directory
@@ -4351,14 +4390,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         CancelDirectoryWork();
         _navigation.SetWatchedDirectory(null);
+        PauseTreeWork();
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        if (_settingsService != null) _settingsService.SettingChanged -= OnSettingsChanged;
         if (_pluginManager != null) _pluginManager.Changed -= OnPluginsChanged;
         _pluginLifetime.Cancel();
+        StopTreeWork();
         _directoryChangeNotifier?.Unsubscribe(this);
 
         try
@@ -4528,7 +4570,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 }
 
 // Enums - kept here for backward compatibility
-public enum ViewMode { Grid, List }
+public enum ViewMode { Grid, List, Tree }
 public enum SortField { Name, Modified, Size, Type }
 public enum GroupField { None, Type, Modified, Size }
 

@@ -24,6 +24,23 @@
             C 68.00000,9.47782 68.00000,11.77523 68.00000,16.00000
             Z
         </StreamGeometry>
+        <StreamGeometry x:Key="ViewModeTrackThreeGeometry">
+            M 100,16 L 100,16
+            C 100,20.22477 100,22.52218 99.17597,25.05357
+            C 98.14034,27.89894 95.89894,30.14034 93.05357,31.17597
+            C 90.44752,32 88.02661,32 83.18469,32
+            L 16.81531,32
+            C 11.97339,32 9.55248,32 6.94643,31.17597
+            C 4.10106,30.14034 1.85966,27.89894 0.82403,25.05357
+            C 0,22.52218 0,20.22477 0,16
+            C 0,11.77523 0,9.47782 0.82403,6.94643
+            C 1.85966,4.10106 4.10106,1.85966 6.94643,0.82403
+            C 9.55248,0 11.97339,0 16.81531,0
+            L 83.18469,0
+            C 88.02661,0 90.44752,0 93.05357,0.82403
+            C 95.89894,1.85966 98.14034,4.10106 99.17597,6.94643
+            C 100,9.47782 100,11.77523 100,16 Z
+        </StreamGeometry>
         <StreamGeometry x:Key="ViewModeSegmentGeometry">
             M 32.00000,14.00000
             L 32.00000,14.24202
@@ -308,6 +325,9 @@
         <Setter Property="Width" Value="68"/>
         <Setter Property="Height" Value="32"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Grid.view-mode-segmented.three">
+        <Setter Property="Width" Value="100"/>
     </Style>
 
     <Style Selector="ToggleButton.view-mode-toggle">
@@ -848,18 +868,47 @@
         <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
 
-    <!-- ═══ Compress Dialog ═══ -->
-    <Style Selector="Button.segment-btn">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+    <!-- Compact text choices in settings-style rows. -->
+    <Style Selector="Border.segmented-control">
+        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="Padding" Value="10,6"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-        <Setter Property="Margin" Value="0,0,4,0"/>
+        <Setter Property="Padding" Value="2"/>
     </Style>
-
+    <Style Selector="Button.segment-btn">
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="Center"
+                                      VerticalContentAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.segment-btn:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
     <Style Selector="Button.segment-btn.active">
-        <Setter Property="Background" Value="{DynamicResource ColorAccent}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+    </Style>
+    <Style Selector="Button.segment-btn.active:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
     </Style>
 
     <!-- ═══ About Panel ═══ -->

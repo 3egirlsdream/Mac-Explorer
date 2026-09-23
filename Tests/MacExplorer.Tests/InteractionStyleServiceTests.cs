@@ -131,6 +131,7 @@ public sealed class InteractionStyleServiceTests
 
     private sealed class MemorySettingsService : ISettingsService
     {
+        public event Action<string>? SettingChanged { add { } remove { } }
         private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
 
         public string? Get(string key) => _values.GetValueOrDefault(key);

@@ -4,6 +4,7 @@ public partial class FileListViewModel
 {
     internal const string ConfirmBeforeTrashSettingKey = "confirm_before_trash";
     internal const string DoubleClickEmptyAreaGoUpSettingKey = "double_click_empty_area_go_up";
+    internal const string FolderPhotoCoverSettingKey = "folder_photo_covers";
 
     private bool _confirmBeforeTrash = true;
     private bool _doubleClickEmptyAreaGoUp;
@@ -32,5 +33,19 @@ public partial class FileListViewModel
             _settingsService?.Set(DoubleClickEmptyAreaGoUpSettingKey, value);
             OnPropertyChanged();
         }
+    }
+
+    public bool ShowFolderPhotoCovers => _settingsService?.Get(FolderPhotoCoverSettingKey, false) ?? false;
+
+    private void OnSettingsChanged(string key)
+    {
+        if (key != FolderPhotoCoverSettingKey || _disposed) return;
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            OnPropertyChanged(nameof(ShowFolderPhotoCovers));
+        else
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (!_disposed) OnPropertyChanged(nameof(ShowFolderPhotoCovers));
+            });
     }
 }

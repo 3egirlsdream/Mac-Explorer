@@ -257,6 +257,7 @@ public class AppUpdateTests
 
     private sealed class SettingsServiceStub : ISettingsService
     {
+        public event Action<string>? SettingChanged { add { } remove { } }
         public string? Get(string key) => null;
 
         public T Get<T>(string key, T defaultValue) => defaultValue;

@@ -2,7 +2,7 @@ using Avalonia;
 
 namespace MacExplorer.Controls;
 
-internal readonly record struct FastFileListGroup(string Name, int Count);
+internal readonly record struct FastFileListGroup(string Name, int Count, int? DisplayCount = null);
 
 /// <summary>One section per group; file positions are calculated without per-file layout objects.</summary>
 internal sealed class FastFileListLayout

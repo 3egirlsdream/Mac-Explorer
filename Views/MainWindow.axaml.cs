@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -105,6 +106,8 @@ public partial class MainWindow : AppWindow
     public MainWindow()
     {
         InitializeComponent();
+        WindowDecorationProperties.SetElementRole(TitleBarDragArea,
+            OperatingSystem.IsMacOS() ? WindowDecorationsElementRole.User : WindowDecorationsElementRole.TitleBar);
         TabSurface.TabStrip = TabList;
         _navigationBridge = App.Services.GetRequiredService<NavigationBridge>();
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
@@ -183,6 +186,26 @@ public partial class MainWindow : AppWindow
             || (!isTitleBarPress && !IsInsideVisual(e.Source as Visual, PaneLayoutPopup.Child as Visual)))
             PaneLayoutPopup.IsOpen = false;
         ClearTextInputFocusFromPointerSource(e.Source);
+    }
+
+    private void OnTitleBarBlankPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!OperatingSystem.IsMacOS() || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        e.Handled = true;
+        // Avalonia counts consecutive downs even after a drag; AppKit resets its click count.
+        if (MacWindowChrome.IsCurrentMouseDoubleClick())
+        {
+            if (WindowState == WindowState.Normal)
+                WindowState = WindowState.Maximized;
+            else if (WindowState == WindowState.Maximized)
+                WindowState = WindowState.Normal;
+        }
+        else
+        {
+            BeginMoveDrag(e);
+        }
     }
 
     private void ClearTextInputFocusFromPointerSource(object? source)

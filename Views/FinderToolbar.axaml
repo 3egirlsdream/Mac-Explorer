@@ -90,8 +90,8 @@
             <Border Grid.Column="7" MinWidth="12"/>
 
             <!-- View mode toggle -->
-            <Grid Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented">
-                <Path Data="{DynamicResource ViewModeTrackGeometry}"
+            <Grid Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented three">
+                <Path Data="{DynamicResource ViewModeTrackThreeGeometry}"
                       Fill="{DynamicResource ViewModeToggleBg}" IsHitTestVisible="False"/>
                 <StackPanel Orientation="Horizontal" Margin="2">
                     <ToggleButton x:Name="GridViewToggle" Classes="view-mode-toggle"
@@ -101,6 +101,10 @@
                     <ToggleButton x:Name="ListViewToggle" Classes="view-mode-toggle"
                                   ToolTip.Tip="列表视图" AutomationProperties.Name="列表视图" Click="ToggleListView">
                         <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.List}"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="TreeViewToggle" Classes="view-mode-toggle"
+                                  ToolTip.Tip="树形列表" AutomationProperties.Name="树形列表" Click="ToggleTreeView">
+                        <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.ListTree}"/>
                     </ToggleButton>
                 </StackPanel>
             </Grid>
