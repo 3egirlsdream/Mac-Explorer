@@ -81,21 +81,21 @@ public partial class FinderToolbar : UserControl
     private async void PasteItems(object? sender, RoutedEventArgs e) { if (ViewModel != null) await ViewModel.PasteAsync(); }
     private void DeleteSelected(object? sender, RoutedEventArgs e) => ViewModel?.ShowDeleteConfirmDialog();
 
-    private void ToggleGridView(object? sender, RoutedEventArgs e)
+    private async void ToggleGridView(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.SetViewMode(ViewMode.Grid);
+        await InvokeUiCapabilityAsync("ui.view-mode", new { mode = nameof(ViewMode.Grid) });
         SyncViewModeToggles();
     }
 
-    private void ToggleListView(object? sender, RoutedEventArgs e)
+    private async void ToggleListView(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.SetViewMode(ViewMode.List);
+        await InvokeUiCapabilityAsync("ui.view-mode", new { mode = nameof(ViewMode.List) });
         SyncViewModeToggles();
     }
 
-    private void ToggleTreeView(object? sender, RoutedEventArgs e)
+    private async void ToggleTreeView(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.SetViewMode(ViewMode.Tree);
+        await InvokeUiCapabilityAsync("ui.view-mode", new { mode = nameof(ViewMode.Tree) });
         SyncViewModeToggles();
     }
 
@@ -147,11 +147,14 @@ public partial class FinderToolbar : UserControl
             && (App.Services?.GetService<IClipboardService>()?.HasPasteableContent ?? false);
     }
 
-    private void ToggleSortDirection(object? sender, RoutedEventArgs e)
+    private async void ToggleSortDirection(object? sender, RoutedEventArgs e)
     {
         if (ViewModel != null)
         {
-            ViewModel.SetSort(ViewModel.SortField, !ViewModel.SortAscending);
+            await InvokeUiCapabilityAsync("ui.sort", new
+            {
+                field = ViewModel.SortField.ToString(), ascending = !ViewModel.SortAscending
+            });
             SortDirectionButton.Content = ViewModel.SortAscending ? "升序 ↑" : "降序 ↓";
         }
         SortDropdown.IsOpen = false;
@@ -166,35 +169,53 @@ public partial class FinderToolbar : UserControl
             SortDirectionButton.Content = ViewModel.SortAscending ? "升序 ↑" : "降序 ↓";
     }
 
-    private void SelectSortField(object? sender, RoutedEventArgs e)
+    private async void SelectSortField(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string value } && Enum.TryParse<SortField>(value, out var field))
-            ViewModel?.SetSort(field);
+            await InvokeUiCapabilityAsync("ui.sort", new { field = field.ToString() });
         SortDropdown.IsOpen = false;
     }
 
-    private void SelectGroupField(object? sender, RoutedEventArgs e)
+    private async void SelectGroupField(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string value } && Enum.TryParse<GroupField>(value, out var field) && ViewModel != null)
-            ViewModel.GroupField = field;
+            await InvokeUiCapabilityAsync("ui.group", new { field = field.ToString() });
         SortDropdown.IsOpen = false;
     }
 
-    private void GoHome(object? sender, RoutedEventArgs e) => ViewModel?.GoHome();
+    private async void GoHome(object? sender, RoutedEventArgs e)
+        => await InvokeUiCapabilityAsync("ui.home");
 
-    private void TogglePreviewPane(object? sender, RoutedEventArgs e)
+    private async void TogglePreviewPane(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.TogglePreviewPane();
+        if (ViewModel != null)
+            await InvokeUiCapabilityAsync("ui.preview-pane", new { visible = !ViewModel.IsPreviewPaneVisible });
     }
 
-    private void ToggleMetadataPanel(object? sender, RoutedEventArgs e)
+    private async void ToggleMetadataPanel(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.ToggleMetadataPanel();
+        if (ViewModel != null)
+            await InvokeUiCapabilityAsync("ui.metadata-panel", new { visible = !ViewModel.IsMetadataPanelVisible });
     }
 
-    private void ToggleInfoPanel(object? sender, RoutedEventArgs e)
+    private async void ToggleInfoPanel(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.ToggleInfoPanel();
+        if (ViewModel != null)
+            await InvokeUiCapabilityAsync("ui.info-panel", new { visible = !ViewModel.IsInfoPanelVisible });
+    }
+
+    private async Task InvokeUiCapabilityAsync(string id, object? arguments = null)
+    {
+        var viewModel = ViewModel;
+        if (viewModel == null) return;
+        try
+        {
+            var json = arguments == null ? "{}" : System.Text.Json.JsonSerializer.Serialize(arguments);
+            var result = await App.Services.GetRequiredService<MacExplorer.Copilot.IAppCapabilityRegistry>()
+                .ExecuteUiAsync(id, json, viewModel);
+            if (!result.Success) viewModel.StatusText = result.Message;
+        }
+        catch (Exception ex) { viewModel.StatusText = ex.Message; }
     }
 
     private void ToggleMoreDropdown(object? sender, RoutedEventArgs e)

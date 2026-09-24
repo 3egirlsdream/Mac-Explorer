@@ -20,7 +20,9 @@ public partial class FileOpsViewModel : ObservableObject
     private readonly IFileIndex? _fileIndex;
     private readonly IFileOperationHistoryService? _fileOperationHistoryService;
     private readonly IFileTagService? _fileTagService;
+    private readonly FileOperationService _operations;
     private readonly Microsoft.Extensions.Logging.ILogger<FileOpsViewModel>? _logger;
+    public FileOperationResult? LastOperationResult { get; private set; }
 
     /// <summary>被剪切文件的完整路径集合，用于 UI 半透明显示</summary>
     public HashSet<string> CutPaths { get; } = [];
@@ -49,6 +51,8 @@ public partial class FileOpsViewModel : ObservableObject
         _fileOperationHistoryService = fileOperationHistoryService;
         _fileTagService = fileTagService;
         _logger = logger;
+        _operations = new FileOperationService(_fileService, directoryChangeNotifier, aiTagService,
+            fileTagService, fileOperationHistoryService, taskManager, logger);
     }
 
     // Rename support: event to notify the view to start inline rename
@@ -94,92 +98,81 @@ public partial class FileOpsViewModel : ObservableObject
 
     public async Task PasteAsync(string currentPath, bool overwrite = false)
     {
+        LastOperationResult = null;
         if (_clipboardService == null || !_clipboardService.HasClipboardFiles) return;
         var entry = _clipboardService.GetClipboardEntry();
         if (entry == null) return;
-
         var sourcePaths = entry.SourcePaths.ToArray();
+        if (entry.Operation == ClipboardOperation.Copy)
+        {
+            try { LastOperationResult = await _operations.CopyDetailedAsync(sourcePaths, currentPath); }
+            catch (FileOperationPartialException ex)
+            {
+                LastOperationResult = ex.Result;
+                throw;
+            }
+            return;
+        }
+
         var affectedDirs = new HashSet<string>(StringComparer.Ordinal) { currentPath };
-        if (entry.Operation == ClipboardOperation.Cut)
+        foreach (var sourcePath in sourcePaths)
+        {
+            var directory = Path.GetDirectoryName(sourcePath);
+            if (!string.IsNullOrEmpty(directory)) affectedDirs.Add(directory);
+        }
+        var completed = new List<string>();
+        var warnings = new List<string>();
+        try
         {
             foreach (var sourcePath in sourcePaths)
             {
-                var directory = Path.GetDirectoryName(sourcePath);
-                if (!string.IsNullOrEmpty(directory)) affectedDirs.Add(directory);
-            }
-        }
-        var trackCopy = entry.Operation == ClipboardOperation.Copy
-            && !VirtualPath.IsRemotePath(currentPath)
-            && sourcePaths.All(path => !VirtualPath.IsRemotePath(path));
-        var taskInfo = trackCopy ? _taskManager?.AddTask($"粘贴：复制 {sourcePaths.Length} 项", BackgroundTaskKind.Copy) : null;
-        var ct = taskInfo?.Cts.Token ?? CancellationToken.None;
-        try
-        {
-            var skippedCount = 0;
-            for (var index = 0; index < sourcePaths.Length; index++)
-            {
-                var sourcePath = sourcePaths[index];
-                ct.ThrowIfCancellationRequested();
-                if (entry.Operation == ClipboardOperation.Copy)
+                await _fileService.MoveAsync(sourcePath, currentPath, overwrite);
+                var movedPath = _fileService.CombinePath(currentPath, Path.GetFileName(sourcePath));
+                completed.Add(movedPath);
+                // Consume only confirmed moves so a retry cannot move a missing source.
+                entry.SourcePaths.Remove(sourcePath);
+                if (ReferenceEquals(_clipboardService.GetClipboardEntry(), entry) && CutPaths.Remove(sourcePath))
+                    OnPropertyChanged(nameof(CutPaths));
+                if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
                 {
-                    var itemIndex = index;
-                    var itemSkipped = 0;
-                    var progress = taskInfo == null ? null : new FileProgress(p =>
+                    try { await _fileTagService.UpdatePathAsync(sourcePath, movedPath); }
+                    catch (Exception ex)
                     {
-                        itemSkipped = p.SkippedCount;
-                        var skipped = skippedCount + itemSkipped;
-                        _taskManager!.UpdateProgress(taskInfo.Id,
-                            (itemIndex * 100d + p.Percentage) / sourcePaths.Length, p.CurrentFile,
-                            skipped == 0 ? null : $"粘贴：复制 {sourcePaths.Length} 项（已跳过 {skipped} 个运行时通信文件）");
-                    });
-                    var destination = await _fileService.CopyWithProgressAsync(sourcePath, currentPath, progress, ct);
-                    skippedCount += itemSkipped;
-                    if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
-                        await _fileTagService.CopyPathAsync(sourcePath, destination, ct);
-                }
-                else
-                {
-                    await _fileService.MoveAsync(sourcePath, currentPath, overwrite);
-                    // Consume only successfully moved paths, before secondary metadata work.
-                    // A retry after a partial failure must not start with a now-missing source.
-                    entry.SourcePaths.Remove(sourcePath);
-                    if (ReferenceEquals(_clipboardService.GetClipboardEntry(), entry) && CutPaths.Remove(sourcePath))
-                        OnPropertyChanged(nameof(CutPaths));
-                    if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
-                        await _fileTagService.UpdatePathAsync(sourcePath, Path.Combine(currentPath, Path.GetFileName(sourcePath)));
+                        warnings.Add($"{movedPath}：标签未同步（{ex.Message}）");
+                        _logger?.LogError(ex, "Failed to update pasted file tags");
+                    }
                 }
             }
-            ct.ThrowIfCancellationRequested();
-            if (taskInfo != null) _taskManager!.CompleteTask(taskInfo.Id);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            if (taskInfo != null) _taskManager!.CancelTask(taskInfo.Id);
-            throw;
+            LastOperationResult = new(completed, [], warnings);
         }
         catch (Exception ex)
         {
-            if (taskInfo != null)
-                _taskManager!.FailTask(taskInfo.Id,
-                    ex is AggregateException aggregate ? $"复制未完整完成，{aggregate.InnerExceptions.Count} 项失败" : ex.Message,
-                    ex.ToString());
+            LastOperationResult = new(completed, sourcePaths.Skip(completed.Count).Take(1).ToArray(),
+                warnings, sourcePaths.Skip(completed.Count + 1).ToArray());
             _logger?.LogError(ex, "Paste failed");
+            if (completed.Count > 0)
+                throw new FileOperationPartialException(LastOperationResult, ex);
             throw;
         }
         finally
         {
-            // A newer cut/copy belongs to the user, not to this completed operation.
-            if (entry.Operation == ClipboardOperation.Cut && entry.IsEmpty &&
-                ReferenceEquals(_clipboardService.GetClipboardEntry(), entry))
+            if (entry.IsEmpty && ReferenceEquals(_clipboardService.GetClipboardEntry(), entry))
             {
                 _clipboardService.Clear();
                 CutPaths.Clear();
                 OnPropertyChanged(nameof(CutPaths));
             }
-            // Partial moves and copies change directories too, even without a task panel.
             _directoryChangeNotifier?.NotifyChanged(affectedDirs.ToArray(), null);
         }
     }
+
+    public Task<IReadOnlyList<string>> CopyEntriesAsync(
+        IReadOnlyList<string> sourcePaths, string destinationDirectory)
+        => _operations.CopyAsync(sourcePaths, destinationDirectory);
+
+    public Task<FileOperationResult> CopyEntriesDetailedAsync(
+        IReadOnlyList<string> sourcePaths, string destinationDirectory)
+        => _operations.CopyDetailedAsync(sourcePaths, destinationDirectory);
 
     private sealed class FileProgress(Action<FileOperationProgress> report) : IProgress<FileOperationProgress>
     {
@@ -188,106 +181,22 @@ public partial class FileOpsViewModel : ObservableObject
         public void Report(FileOperationProgress value) => report(value);
     }
 
-    public async Task DeleteSelectedAsync(
+    public Task DeleteSelectedAsync(
         IReadOnlyList<FileSystemEntry> selectedEntries,
         string currentPath,
         Action<string>? setStatus = null,
         FileListViewModel? refreshedViewModel = null)
-    {
-        // Selection may change while an awaited file operation is in progress.
-        var paths = selectedEntries.Select(entry => entry.FullPath).Distinct(StringComparer.Ordinal).ToArray();
-        if (paths.Length == 0) return;
-        var deletedPaths = new List<string>(paths.Length);
-        var completed = false;
-        var metadataFailures = 0;
-        try
-        {
-            foreach (var path in paths)
-            {
-                await _fileService.DeleteAsync(path, moveToTrash: true);
-                deletedPaths.Add(path); // The filesystem commit precedes optional metadata.
-                if (_fileOperationHistoryService != null)
-                {
-                    try { await _fileOperationHistoryService.RecordTrashAsync(path, ""); }
-                    catch (Exception ex)
-                    {
-                        metadataFailures++;
-                        _logger?.LogError(ex, "Failed to record trash history for {Path}", path);
-                    }
-                }
-            }
-            completed = true;
-        }
-        catch (Exception ex)
-        {
-            setStatus?.Invoke($"删除未全部完成（已删除 {deletedPaths.Count}/{paths.Length} 项）: {ex.Message}");
-            throw;
-        }
-        finally
-        {
-            // Clean only confirmed deletions, including a successful prefix of a
-            // failed batch. Secondary errors must not mask the original I/O error.
-            if (deletedPaths.Count > 0 && _aiTagService != null)
-            {
-                try { await _aiTagService.DeleteAnalysisForFilesAsync(deletedPaths); }
-                catch (Exception ex)
-                {
-                    metadataFailures++;
-                    _logger?.LogError(ex, "Failed to delete AI analysis data for {Count} files", deletedPaths.Count);
-                }
-            }
-            if (_fileTagService != null)
-            {
-                foreach (var path in deletedPaths)
-                {
-                    try { await _fileTagService.DeletePathAsync(path); }
-                    catch (Exception ex)
-                    {
-                        metadataFailures++;
-                        _logger?.LogError(ex, "Failed to delete tags for {Path}", path);
-                    }
-                }
-            }
-            // Even a failed recursive delete can change a directory. On failure
-            // include the initiating view: its success-only refresh will not run.
-            var parentDirs = paths.Select(Path.GetDirectoryName).OfType<string>()
-                .Distinct(StringComparer.Ordinal).ToArray();
-            _directoryChangeNotifier?.NotifyChanged(parentDirs.Length > 0 ? parentDirs : [currentPath],
-                completed ? refreshedViewModel : null);
-        }
-        if (metadataFailures > 0)
-            setStatus?.Invoke($"已删除 {deletedPaths.Count} 项，但有 {metadataFailures} 项历史或标签更新失败。");
-    }
+        => _operations.DeleteToTrashAsync(selectedEntries, currentPath, setStatus, refreshedViewModel);
 
-    public async Task MoveEntryAsync(
+    public Task MoveEntryAsync(
         FileSystemEntry source,
         FileSystemEntry targetFolder,
         Action<string>? setStatus = null)
-    {
-        if (!targetFolder.IsDirectory) return;
-        try
-        {
-            await _fileService.MoveAsync(source.FullPath, targetFolder.FullPath);
-            var movedPath = Path.Combine(targetFolder.FullPath, Path.GetFileName(source.FullPath));
-            if (_fileTagService != null)
-                await _fileTagService.UpdatePathAsync(source.FullPath, movedPath);
+        => _operations.MoveAsync(source, targetFolder, setStatus);
 
-            // Record for undo
-            if (_fileOperationHistoryService != null)
-            {
-                await _fileOperationHistoryService.RecordMoveAsync(source.FullPath, movedPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            setStatus?.Invoke($"移动失败: {ex.Message}");
-            throw;
-        }
-        finally
-        {
-            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(source.FullPath) ?? "", targetFolder.FullPath], null);
-        }
-    }
+    public Task<FileOperationResult> MoveEntryDetailedAsync(
+        FileSystemEntry source, FileSystemEntry targetFolder, Action<string>? setStatus = null)
+        => _operations.MoveDetailedAsync(source, targetFolder, setStatus);
 
     public List<string> GetMoveConflicts(IReadOnlyList<FileSystemEntry> entries, string targetDirectory)
     {
@@ -313,6 +222,7 @@ public partial class FileOpsViewModel : ObservableObject
         Action<string>? setStatus = null,
         bool overwrite = false)
     {
+        LastOperationResult = null;
         if (!targetFolder.IsDirectory) return;
 
         var allSourcePaths = entries.Select(e => e.FullPath).ToList();
@@ -331,6 +241,8 @@ public partial class FileOpsViewModel : ObservableObject
 
         if (!crossVolume || _taskManager == null)
         {
+            var completed = new List<string>();
+            var warnings = new List<string>();
             try
             {
                 foreach (var path in sourcePaths)
@@ -339,14 +251,34 @@ public partial class FileOpsViewModel : ObservableObject
                         await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath);
                     else
                         await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
+                    completed.Add(_fileService.CombinePath(targetFolder.FullPath, Path.GetFileName(path)));
                     if (_fileTagService != null)
-                        await _fileTagService.UpdatePathAsync(path, Path.Combine(targetFolder.FullPath, Path.GetFileName(path)));
+                    {
+                        try { await _fileTagService.UpdatePathAsync(path, _fileService.CombinePath(targetFolder.FullPath, Path.GetFileName(path))); }
+                        catch (Exception ex)
+                        {
+                            warnings.Add($"{path}：标签未同步（{ex.Message}）");
+                            _logger?.LogError(ex, "Failed to update moved file tags");
+                        }
+                    }
                 }
+                LastOperationResult = new(completed, [], warnings);
+                if (warnings.Count > 0)
+                    setStatus?.Invoke($"已移动 {completed.Count} 项；{string.Join("；", warnings)}");
             }
             catch (Exception ex)
             {
-                setStatus?.Invoke($"移动失败: {ex.Message}");
-                throw;
+                if (completed.Count == 0)
+                {
+                    setStatus?.Invoke($"移动失败: {ex.Message}");
+                    throw;
+                }
+                var result = new FileOperationResult(completed,
+                    sourcePaths.Skip(completed.Count).Take(1).ToArray(), warnings,
+                    sourcePaths.Skip(completed.Count + 1).ToArray());
+                LastOperationResult = result;
+                setStatus?.Invoke($"移动未完整完成；已移动：{string.Join("、", completed)}；{ex.Message}");
+                throw new FileOperationPartialException(result, ex);
             }
             finally { _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null); }
             return;
@@ -375,8 +307,16 @@ public partial class FileOpsViewModel : ObservableObject
                     // This item has committed. A later cancellation/failure must not
                     // prevent its metadata from following it to the new location.
                     if (_fileTagService != null)
-                        await _fileTagService.UpdatePathAsync(path,
-                            Path.Combine(targetFolder.FullPath, Path.GetFileName(path)));
+                    {
+                        try { await _fileTagService.UpdatePathAsync(path,
+                            _fileService.CombinePath(targetFolder.FullPath, Path.GetFileName(path))); }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogError(ex, "Failed to update moved file tags");
+                            _taskManager.UpdateProgress(taskInfo.Id, (index + 1) * 100d / sourcePaths.Count,
+                                $"{Path.GetFileName(path)} 已移动，标签未同步");
+                        }
+                    }
                     _taskManager.UpdateProgress(taskInfo.Id, (index + 1) * 100d / sourcePaths.Count,
                         Path.GetFileName(path));
                 }

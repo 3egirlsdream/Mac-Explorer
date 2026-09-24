@@ -121,44 +121,15 @@ public partial class BatchRenameDialog : DialogWindow
     {
         if (_viewModel == null) return;
 
-        var service = App.Services.GetService<IBatchRenameService>();
+        var service = App.Services.GetService<BatchRenameOperationService>();
         if (service == null) { Close(false); return; }
-        var taskManager = App.Services.GetService<IBackgroundTaskManager>();
-        var historyService = App.Services.GetService<IFileOperationHistoryService>();
-        var task = taskManager?.AddTask(
-            $"批量重命名 {_previewItems.Count} 项",
-            BackgroundTaskKind.BatchRename);
-        var token = task?.Cts.Token ?? default;
-        var progress = task == null || taskManager == null
-            ? null
-            : new Progress<BatchRenameProgress>(update =>
-            {
-                taskManager.UpdateProgress(
-                    task.Id,
-                    update.Percent,
-                    update.CurrentPath,
-                    $"批量重命名 {update.CompletedCount}/{update.TotalCount}");
-            });
 
         ApplyButton.IsEnabled = false;
         ApplyButton.Content = "正在重命名...";
 
         try
         {
-            var result = await service.ExecuteAsync(_previewItems, progress, token);
-            if (historyService != null)
-            {
-                foreach (var item in result.SuccessfulItems)
-                    await historyService.RecordRenameAsync(item.OriginalPath, item.NewPath);
-            }
-
-            if (taskManager != null && task != null)
-            {
-                if (result.FailedCount > 0)
-                    taskManager.FailTask(task.Id, $"成功 {result.SuccessCount}，失败 {result.FailedCount}", string.Join(Environment.NewLine, result.Errors));
-                else
-                    taskManager.CompleteTask(task.Id);
-            }
+            var result = await service.ExecuteAsync(_previewItems);
 
             if (result.FailedCount > 0)
             {
@@ -173,16 +144,12 @@ public partial class BatchRenameDialog : DialogWindow
         }
         catch (OperationCanceledException)
         {
-            if (taskManager != null && task != null)
-                taskManager.CancelTask(task.Id);
             StatusText.Content = "已取消";
             ApplyButton.IsEnabled = true;
             ApplyButton.Content = "应用";
         }
         catch
         {
-            if (taskManager != null && task != null)
-                taskManager.FailTask(task.Id, "批量重命名失败");
             ApplyButton.IsEnabled = true;
             ApplyButton.Content = "应用";
         }

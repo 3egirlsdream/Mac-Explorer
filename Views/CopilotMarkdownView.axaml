@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="https://codewf.com"
+             x:Class="MacExplorer.Views.CopilotMarkdownView">
+    <UserControl.Styles>
+        <md:MarkdownThemes/>
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
+    </UserControl.Styles>
+    <md:MarkdownViewer x:Name="Viewer" TypographyTheme="Basic" TypographySize="Small"
+                       DocumentBottomPadding="0" ParagraphMargin="0"
+                       ContentFontFamily="{StaticResource FontFamilyUi}"
+                       CodeFontFamily="{StaticResource FontFamilyMono}"
+                       TextBrush="{DynamicResource TextPrimaryBrush}"
+                       MutedTextBrush="{DynamicResource TextMutedBrush}"
+                       AccentBrush="{DynamicResource AccentBrush}"
+                       AccentForegroundBrush="{DynamicResource ButtonPrimaryForegroundBrush}"
+                       BorderLineBrush="{DynamicResource ColorBorderSubtle}"
+                       CodeBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
+                       InlineCodeBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
+                       QuoteBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
+                       TableHeaderBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"/>
+</UserControl>

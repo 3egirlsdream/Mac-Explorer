@@ -56,7 +56,8 @@ public partial class App : Application
     {
         var frequentFolderService = Services.GetService<IFrequentFolderService>();
         OmniboxService.RegisterProvider(new PathOmniboxProvider());
-        OmniboxService.RegisterProvider(new CommandOmniboxProvider());
+        OmniboxService.RegisterProvider(new CommandOmniboxProvider(
+            Services.GetRequiredService<Copilot.IAppCapabilityRegistry>()));
         // Search suggestions are backed by the app-wide FTS index, so the omnibox
         // reuses the same pipeline as in-window search, including OCR/AI tags.
         OmniboxService.RegisterProvider(new SearchOmniboxProvider(
@@ -261,6 +262,12 @@ public partial class App : Application
         services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<Copilot.CopilotSettings>();
+        services.AddSingleton<Copilot.CopilotKeychain>();
+        services.AddSingleton<Copilot.CopilotStore>();
+        services.AddSingleton<Copilot.CopilotSkillCatalog>();
+        services.AddSingleton<Copilot.CopilotContentExtractor>();
+        services.AddSingleton<Copilot.IAppCapabilityRegistry, Copilot.AppCapabilityRegistry>();
         services.AddSingleton<HomeWorkspaceService>();
         services.AddSingleton<FileDeliveryService>();
         services.AddSingleton<FileDeliveryController>();
@@ -290,6 +297,7 @@ public partial class App : Application
             sp.GetService<IDirectoryChangeNotifier>(),
             sp.GetService<IFileTagService>(),
             sp.GetService<ILogger<Services.Impl.FileOperationHistoryService>>()));
+        services.AddSingleton<BatchRenameOperationService>();
         services.AddSingleton<NavigationBridge>();
         services.AddSingleton<IAiTagService>(sp => new Services.Impl.AiTagService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILoggerFactory>()));
         services.AddSingleton<IImageAnalysisService, Platforms.MacCatalyst.Services.MacImageAnalysisService>();
@@ -343,7 +351,7 @@ public partial class App : Application
                 sp.GetService<IRemoteConnectionService>(), sp.GetService<IRemoteFileService>(),
                 sp.GetService<IRemoteFileEditService>(), sp.GetService<IOpenWithAppService>(),
                 sp.GetService<IFileTagService>(), sp.GetService<Services.Plugins.PluginManager>(),
-                sp.GetService<IBackgroundTaskManager>());
+                sp.GetService<IBackgroundTaskManager>(), sp.GetRequiredService<Copilot.IAppCapabilityRegistry>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());
             return viewModel;
         });

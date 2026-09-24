@@ -9,9 +9,9 @@ namespace MacExplorer.Services.Plugins;
 public sealed record PluginMarketItem(PluginManifest Manifest, string DownloadUrl, long Size, string Sha256);
 public sealed record PluginMarketPage(PluginMarketItem[] Items, bool HasMore);
 
-public sealed class PluginMarketClient(HttpClient http)
+public sealed class PluginMarketClient(HttpClient http, string? baseUrl = null)
 {
-    public string BaseUrl { get; } = Environment.GetEnvironmentVariable("MACEXPLORER_MARKET_URL") ?? "https://thankful.top/api/PluginMarket/";
+    public string BaseUrl { get; } = baseUrl ?? Environment.GetEnvironmentVariable("MACEXPLORER_MARKET_URL") ?? "https://thankful.top/api/PluginMarket/";
     public async Task<PluginMarketPage> ListAsync(string keyword, int page, CancellationToken token)
     {
         var url = BaseUrl.TrimEnd('/') + "/List?platform=osx&architecture=" + RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()

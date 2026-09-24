@@ -86,6 +86,7 @@ public partial class SettingsDialog : DialogWindow
 
     private async void OnOpened(object? sender, EventArgs e)
     {
+        LoadCopilotSettings();
         LoadSettings();
         await InitializePluginsAsync();
         await _openWithService.RemoveUnavailableAppsAsync();
