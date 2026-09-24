@@ -260,6 +260,12 @@ public partial class MainWindow : AppWindow
             return;
         }
 
+        if (CopilotPanel.IsVisible && IsInsideVisual(e.Source as Visual, CopilotInput))
+        {
+            CopilotInputKeyDown(sender, e);
+            if (e.Handled) return;
+        }
+
         if (e.Key == Key.Escape && PaneLayoutPopup.IsOpen)
         {
             PaneLayoutPopup.IsOpen = false;
@@ -1274,7 +1280,7 @@ public partial class MainWindow : AppWindow
     private async void AddTab(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        await AddTabAsync();
+        await ExecuteWindowCapabilityAsync("ui.new-tab", "{}");
     }
 
     private async Task AddTabAsync(bool select = true)
@@ -1311,6 +1317,21 @@ public partial class MainWindow : AppWindow
         }
     }
 
+    public async Task OpenNewTabAsync()
+    {
+        var before = _vm?.Tabs.Count ?? 0;
+        await AddTabAsync();
+        if (_vm == null || _vm.Tabs.Count <= before)
+            throw new InvalidOperationException(_vm?.FileList.StatusText ?? "无法新建标签页。");
+    }
+
+    public async Task SetPaneLayoutAsync(PaneLayout layout)
+    {
+        await ApplyPaneLayoutAsync(layout);
+        if (_vm?.PaneLayout != layout)
+            throw new InvalidOperationException(_vm?.FileList.StatusText ?? "无法切换窗格布局。");
+    }
+
     private async void CloseTab(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -1344,9 +1365,9 @@ public partial class MainWindow : AppWindow
         e.Handled = true;
     }
 
-    private void OpenSettingsFromTitleBar(object? sender, RoutedEventArgs e)
+    private async void OpenSettingsFromTitleBar(object? sender, RoutedEventArgs e)
     {
-        OpenSettings();
+        await ExecuteWindowCapabilityAsync("ui.settings", "{}");
         e.Handled = true;
     }
 
@@ -1374,8 +1395,23 @@ public partial class MainWindow : AppWindow
             || !Enum.TryParse<PaneLayout>(value, out var layout))
             return;
 
-        await ApplyPaneLayoutAsync(layout);
+        await ExecuteWindowCapabilityAsync("ui.pane-layout",
+            System.Text.Json.JsonSerializer.Serialize(new { layout = layout.ToString() }));
         e.Handled = true;
+    }
+
+    private async Task ExecuteWindowCapabilityAsync(string id, string argumentsJson)
+    {
+        if (_activeFileList == null) return;
+        try
+        {
+            await App.Services.GetRequiredService<MacExplorer.Copilot.IAppCapabilityRegistry>()
+                .ExecuteUiAsync(id, argumentsJson, _activeFileList);
+        }
+        catch (Exception ex)
+        {
+            _activeFileList.StatusText = ex.Message;
+        }
     }
 
     private async Task ApplyPaneLayoutAsync(PaneLayout layout)
@@ -1385,7 +1421,11 @@ public partial class MainWindow : AppWindow
 
         var required = MainWindowViewModel.GetPaneCount(layout);
         while (_vm.Tabs.Count < required)
+        {
+            var before = _vm.Tabs.Count;
             await AddTabAsync(select: false);
+            if (_vm.Tabs.Count <= before) return;
+        }
         _vm.SetPaneLayout(layout);
     }
 

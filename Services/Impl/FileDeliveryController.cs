@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
 
-internal sealed class FileDeliveryController(IServiceProvider services, FileDeliveryService delivery) : IDisposable
+public sealed class FileDeliveryController(IServiceProvider services, FileDeliveryService delivery) : IDisposable
 {
     private MacFileDeliveryStatusItem? _statusItem;
     private FileDeliveryWindow? _window;
@@ -80,12 +80,19 @@ internal sealed class FileDeliveryController(IServiceProvider services, FileDeli
         if (_disposed || _dragging || !delivery.Enabled) return;
         try
         {
-            EnsureWindow();
-            var window = _window!;
-            Show();
-            await window.ResumeAsync();
+            await ShowPanelAsync();
         }
         catch (Exception ex) { services.GetService<ILogger<FileDeliveryController>>()?.LogError(ex, "Unable to show file delivery"); }
+    }
+
+    public async Task ShowPanelAsync()
+    {
+        if (_disposed || _dragging || !delivery.Enabled)
+            throw new InvalidOperationException("文件速递当前不可用。");
+        EnsureWindow();
+        var window = _window!;
+        Show();
+        await window.ResumeAsync();
     }
 
     private void Show()

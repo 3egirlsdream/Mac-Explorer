@@ -57,6 +57,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private readonly SortFilterViewModel _sortFilter;
 
     public ArchiveViewModel Archive => _archive;
+    public Window? OwnerWindow => _topLevelWindow;
 
     public void SetOwnerWindow(Window? owner)
     {
@@ -460,7 +461,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IOpenWithAppService? openWithAppService = null,
         IFileTagService? fileTagService = null,
         MacExplorer.Services.Plugins.PluginManager? pluginManager = null,
-        IBackgroundTaskManager? conversionTaskManager = null)
+        IBackgroundTaskManager? conversionTaskManager = null,
+        MacExplorer.Copilot.IAppCapabilityRegistry? appCapabilities = null)
     {
         _navigation = navigation;
         _fileOps = fileOps;
@@ -498,6 +500,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _pluginManager = pluginManager;
         if (_pluginManager != null) _pluginManager.Changed += OnPluginsChanged;
         _conversionTaskManager = conversionTaskManager;
+        _appCapabilities = appCapabilities;
         _columnLayoutService = new FileListColumnLayoutService(settingsService);
 
         // Initialize sidebar names with cheap defaults. macOS localized names are
@@ -2604,19 +2607,22 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (!await dialog.ShowDialogAsync(_topLevelWindow))
             return;
 
-        try
-        {
-            foreach (var item in entries)
-                await _fileService.DeletePermanentlyAsync(item.FullPath);
-
-            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = "已永久删除";
-        }
+        try { await PermanentlyDeleteCheckedAsync(entries); }
         catch (Exception ex)
         {
             StatusText = $"永久删除失败: {ex.Message}";
         }
+    }
+
+    public async Task PermanentlyDeleteCheckedAsync(IReadOnlyList<FileSystemEntry> entries)
+    {
+        if (IsBrowseOnly || entries.Count == 0 || entries.Any(item => !IsUsableLocalEntry(item)))
+            throw new InvalidOperationException("当前文件无法永久删除。");
+        foreach (var item in entries)
+            await _fileService.DeletePermanentlyAsync(item.FullPath);
+        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+        await LoadDirectoryContentsAsync(forceRefresh: true);
+        StatusText = "已永久删除";
     }
 
     private List<ContextMenuAction> BuildTrashBackgroundContextMenu()
@@ -3273,21 +3279,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _deleteInProgress = true;
         try
         {
-            await _fileOps.DeleteSelectedAsync(
-                entries,
-                _navigation.CurrentPath,
-                msg => StatusText = msg,
-                this
-            );
-
-            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await RefreshAsync();
-
-            RefreshLocationStatus();
-            _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
+            await DeleteEntriesCheckedAsync(entries);
         }
         catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
         finally { _deleteInProgress = false; }
+    }
+
+    public async Task DeleteEntriesCheckedAsync(IReadOnlyList<FileSystemEntry> entries)
+    {
+        if (IsBrowseOnly) throw new InvalidOperationException("只读窗格不能修改文件。");
+        await _fileOps.DeleteSelectedAsync(entries, _navigation.CurrentPath,
+            msg => StatusText = msg, this);
+        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+        await RefreshAsync();
+        RefreshLocationStatus();
+        _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
     }
 
     [RelayCommand]
@@ -3356,11 +3362,28 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (IsBrowseOnly) return;
         try
         {
-            await _fileOps.MoveEntryAsync(source, targetFolder, msg => StatusText = msg);
-            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await LoadDirectoryContentsAsync(forceRefresh: true);
+            await MoveEntryCheckedAsync(source, targetFolder);
         }
         catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
+    }
+
+    public async Task MoveEntryCheckedAsync(FileSystemEntry source, FileSystemEntry targetFolder)
+    {
+        if (IsBrowseOnly) throw new InvalidOperationException("只读窗格不能修改文件。");
+        await _fileOps.MoveEntryAsync(source, targetFolder, msg => StatusText = msg);
+        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+        await LoadDirectoryContentsAsync(forceRefresh: true);
+    }
+
+    public async Task<IReadOnlyList<string>> CopyEntryCheckedAsync(
+        FileSystemEntry source, FileSystemEntry targetFolder)
+    {
+        if (IsBrowseOnly) throw new InvalidOperationException("只读窗格不能复制文件。");
+        if (!targetFolder.IsDirectory) throw new InvalidOperationException("目标不是文件夹。");
+        var outputs = await _fileOps.CopyEntriesAsync([source.FullPath], targetFolder.FullPath);
+        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+        await LoadDirectoryContentsAsync(forceRefresh: true);
+        return outputs;
     }
 
     public async Task MoveEntriesAsync(IReadOnlyList<FileSystemEntry> entries, FileSystemEntry targetFolder)
@@ -4005,6 +4028,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         return _quickLookService.PreviewFileAsync(SelectedEntries[0].FullPath);
     }
+
+    public Task QuickLookPathAsync(string path)
+        => _quickLookService?.PreviewFileAsync(path) ?? Task.CompletedTask;
 
     /// <summary>
     /// Lets in-window preview surfaces reuse the same archive password prompt

@@ -254,7 +254,7 @@
 
     <controls:AppWindow.TitleBarContent>
         <!-- Browser-style tabs share the native traffic-light row. -->
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto"
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
             <Border x:Name="TitleBarDragArea" Grid.ColumnSpan="4" Background="Transparent"
                     PointerPressed="OnTitleBarBlankPointerPressed"/>
@@ -423,7 +423,12 @@
                             <TextBlock x:Name="TaskButtonText" IsVisible="False"/>
                         </Grid>
                     </Button>
-                    <Button Grid.Column="3" x:Name="WindowSettingsButton" Classes="title-nav-button"
+                    <Button Grid.Column="3" x:Name="CopilotStatusButton" Classes="title-nav-button"
+                            Margin="2,4,0,0" Click="ToggleCopilot"
+                            ToolTip.Tip="Copilot" AutomationProperties.Name="打开 Copilot">
+                        <PathIcon Data="{x:Static icons:Icons.Copilot}"/>
+                    </Button>
+                    <Button Grid.Column="4" x:Name="WindowSettingsButton" Classes="title-nav-button"
                             Margin="2,4,0,0" Click="OpenSettingsFromTitleBar"
                             ToolTip.Tip="设置" AutomationProperties.Name="设置">
                         <PathIcon Data="{x:Static icons:Icons.Settings}"/>
@@ -445,6 +450,103 @@
     </Border>
     <Grid x:Name="HomeFolderOverlayHost" IsVisible="False" Background="Transparent"
           glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
+    <Border x:Name="CopilotPanel" IsVisible="False"
+            glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Width="440" Height="570" MaxHeight="650" Margin="0,0,12,46"
+            Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1"
+            CornerRadius="{DynamicResource RadiusLg}" BoxShadow="{DynamicResource WindowShadow}">
+        <Grid ColumnDefinitions="Auto,*">
+          <Border x:Name="CopilotHistoryPane" IsVisible="False" Grid.Column="0"
+                  Width="224" Background="{DynamicResource SurfaceMutedBrush}"
+                  BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="0,0,1,0"
+                  CornerRadius="{DynamicResource RadiusLg}" Padding="12,14,10,12">
+            <Grid RowDefinitions="Auto,*">
+              <TextBlock Text="历史会话" FontSize="12" FontWeight="SemiBold"
+                         Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,0,12"/>
+              <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="CopilotHistoryList" Spacing="3"/>
+              </ScrollViewer>
+            </Grid>
+          </Border>
+          <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto,Auto,Auto" Margin="14,12,14,14">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="2,0,0,12">
+                <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                    <PathIcon Data="{x:Static icons:Icons.Copilot}" Width="17" Height="17"
+                              Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Copilot" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button x:Name="CopilotHistoryToggle" Grid.Column="1" Classes="ghost compact copilot-history-toggle"
+                        Click="ToggleCopilotHistory" ToolTip.Tip="历史会话"
+                        AutomationProperties.Name="展开历史会话">
+                    <PathIcon Data="{x:Static icons:Icons.ListTree}" Width="16" Height="16"/>
+                </Button>
+                <Button Grid.Column="2" Classes="ghost compact" Content="新对话"
+                        Click="NewCopilotSession" AutomationProperties.Name="新建 Copilot 对话"/>
+                <Button Grid.Column="3" Classes="ghost compact copilot-close"
+                        Click="ToggleCopilot" ToolTip.Tip="关闭 Copilot"
+                        AutomationProperties.Name="关闭 Copilot">
+                    <PathIcon Data="{x:Static icons:Icons.Close}" Width="11" Height="11"/>
+                </Button>
+            </Grid>
+            <ScrollViewer Grid.Row="1" x:Name="CopilotTranscriptScroll"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="CopilotTranscript" Spacing="10" Margin="2,6,8,12"/>
+            </ScrollViewer>
+            <Border Grid.Row="2" x:Name="CopilotApprovalCard" Classes="copilot-approval-card"
+                    IsVisible="False" Margin="0,8,0,0">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="操作确认" FontWeight="SemiBold"/>
+                    <ScrollViewer MaxHeight="155" VerticalScrollBarVisibility="Auto">
+                        <TextBlock x:Name="CopilotApprovalText" TextWrapping="Wrap"/>
+                    </ScrollViewer>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Classes="secondary compact" Content="拒绝" Click="RejectCopilotPlan"/>
+                        <Button x:Name="CopilotApproveButton" Classes="primary compact"
+                                Content="确认执行" Click="ApproveCopilotPlan"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border Grid.Row="3" x:Name="CopilotAttachmentDropZone"
+                    Classes="copilot-attachment-drop-zone" Margin="0,2,0,0"
+                    DragDrop.AllowDrop="True" DragDrop.DragOver="CopilotAttachmentDragOver"
+                    DragDrop.DragLeave="CopilotAttachmentDragLeave"
+                    DragDrop.Drop="CopilotAttachmentDrop"
+                    ToolTip.Tip="将文件列表中的文件或文件夹拖到这里，仅添加路径作为附件">
+                <StackPanel Spacing="3">
+                    <StackPanel x:Name="CopilotAttachmentEmptyHint" Orientation="Horizontal" Spacing="5">
+                        <PathIcon Data="{x:Static icons:Icons.File}" Width="13" Height="13"
+                                  Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="拖入文件或文件夹作为附件" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
+                    </StackPanel>
+                    <ScrollViewer x:Name="CopilotAttachmentScroll" IsVisible="False"
+                                  MaxHeight="84" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <WrapPanel x:Name="CopilotAttachmentList" IsVisible="False"/>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+            <Border Grid.Row="4" Classes="copilot-composer" Margin="0,4,0,0">
+                <Grid RowDefinitions="Auto,Auto" RowSpacing="5">
+                    <TextBox x:Name="CopilotInput" Classes="multiline copilot-input"
+                             MinHeight="50" MaxHeight="118" AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             PlaceholderText="询问文件、整理任务，或描述你想完成的操作…"
+                             AutomationProperties.Name="Copilot 消息"/>
+                    <Button x:Name="CopilotSendButton" Grid.Row="1" HorizontalAlignment="Right"
+                            Classes="primary compact copilot-send"
+                            Click="SendCopilotMessage" ToolTip.Tip="发送消息"
+                            AutomationProperties.Name="发送 Copilot 消息">
+                        <PathIcon Data="{x:Static icons:Icons.Up}" Width="14" Height="14"/>
+                    </Button>
+                </Grid>
+            </Border>
+          </Grid>
+        </Grid>
+    </Border>
     <!-- Task overlay panel — bottom-right overlay (before DialogHost so dialogs paint above it) -->
     <Border x:Name="TaskOverlayPanel"
             IsVisible="False"
