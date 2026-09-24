@@ -28,19 +28,19 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 
 ## 最近更新
 
-当前功能介绍对应 **v1.0.40**，完整版本记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
+当前源码功能介绍对应 **v1.0.47**；可下载版本和完整更新记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
 
-- **统一 Finder 标签**：侧边栏、文件列表和信息面板共用标签，支持自定义标签、固定标签及按标签浏览文件；原有收藏集自动迁移为标签。
-- **表头筛选与面包屑导航**：按名称、类型、修改日期、大小组合筛选；在面包屑下拉中搜索子目录并直接跳转。
-- **新版文件列表**：默认启用自绘虚拟化列表，支持列表与网格、分组、框选、拖放和行内重命名，按可见区域加载缩略图。
-- **多工作区与预览**：支持最多四个窗格及多种分屏布局；空格打开窗口内预览，继续浏览文件夹、压缩包及嵌套压缩包。
+- **应用内 Copilot**：通过已登记的应用能力协助查找和整理文件；修改文件及发送文件正文前显示计划并等待确认。模型地址、模型名和 API Key 由用户配置。
+- **文件速递**：从菜单栏打开独立面板，以页签浏览常用目录或收藏夹，预览文件并拖出复制。
+- **树形列表与文件夹封面**：在列表中展开本地文件夹；图标视图可选用文件夹内照片生成封面，缩略图按可见范围加载。
+- **文件编辑与处理**：支持 Markdown 预览和编辑，以及批量重命名和文件格式转换。
 
 ## 核心功能
 
 | 功能 | 说明 |
 |------|------|
 | **多标签与分屏** | 标签页独立维护导航历史、排序和视图；支持横向、纵向、四宫格及主次窗格布局 |
-| **列表、网格与筛选** | 切换列表/网格，按类型、日期或大小分组；表头支持多选筛选，同列选项取并集，不同列条件取交集 |
+| **列表、网格、树形列表与筛选** | 切换视图，在树形列表中展开本地文件夹，按类型、日期或大小分组；表头支持多选筛选，同列选项取并集，不同列条件取交集 |
 | **路径导航** | 面包屑逐级跳转、子目录下拉搜索、路径输入，以及置顶文件夹与最近访问入口 |
 | **Finder 标签** | 为文件添加或移除标签，在侧边栏按标签聚合浏览，并写入 macOS Finder 标签；添加标签不移动或复制文件 |
 | **文件搜索** | 当前目录搜索与全局搜索，结合 SQLite FTS5 文件名索引、已生成的 OCR 文本和 AI 标签；支持搜索结果预览 |
@@ -48,9 +48,15 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 | **预览** | 空格预览图片、PDF、文本及系统支持的文档/媒体；文件夹和压缩包可继续浏览，具体格式效果取决于 macOS Quick Look 支持 |
 | **压缩包管理** | 浏览和解压 ZIP、TAR、7Z 等格式；创建 ZIP、TAR.GZ、TAR.BZ2，支持 ZIP 密码保护，以及解压到当前目录或独立目录 |
 | **SFTP 远程管理** | 保存服务器连接，浏览、上传、下载和管理远程文件；通过本地应用编辑远程文件后自动回传修改 |
+| **Copilot 文件助手** | 使用已登记的应用能力查找与整理文件；修改文件或向模型发送文件正文前显示确认计划，对话与执行记录保存在本地；需自行配置模型服务 |
+| **文件速递** | 从菜单栏打开独立浏览面板，使用目录与收藏夹页签预览文件并拖出复制 |
 | **批量重命名** | 查找替换、前后缀、序号、日期和大小写转换，执行前预览结果 |
 | **Git 与文件操作** | 显示 Git 状态，支持复制、移动、拖放、废纸篓操作和可撤销的文件操作 |
 | **外观与更新** | 浅色/深色主题、毛玻璃效果、标准/紧凑/舒适排版密度、交互颜色设置，以及应用内更新检查与下载 |
+
+### 使用 Copilot
+
+在“设置 → Copilot”填写兼容 OpenAI 的 API 地址、模型名和 API Key，再点击窗口右上角的 Copilot 图标。API Key 存储在 macOS Keychain；对话和执行记录保存在本机。文件修改及向模型发送文件正文会先显示计划，确认前请核对路径和接收方。
 
 ### 标签与文件位置
 
@@ -86,19 +92,19 @@ Mac Explorer is a file manager built for macOS. Browse several folders side by s
 
 ## Recent Updates
 
-This overview reflects **v1.0.40**. See [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for the full release history.
+This source overview reflects **v1.0.47**. See [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
 
-- **Unified Finder tags**: the sidebar, file list and information panel share custom tags, pinned tags and tag-based browsing. Existing collections migrate to tags automatically.
-- **Column filters and breadcrumb navigation**: combine name, type, modification date and size filters; search subfolders inside breadcrumb dropdowns and navigate directly.
-- **Updated file views**: a custom virtualized file list is enabled by default, with list/grid views, grouping, selection rectangles, drag and drop, inline renaming, and thumbnails loaded for visible items.
-- **Multiple panes and Super Preview**: use up to four panes in several layouts; press Space to open an in-window preview and explore folders, archives and nested archives.
+- **In-app Copilot**: find and organize files through registered app capabilities. File changes and disclosure of file contents require a plan and confirmation. You configure the model endpoint, model name and API key.
+- **File Delivery**: open a separate menu bar panel, browse frequent folders or favorites in tabs, preview files and drag out copies.
+- **Tree list and folder covers**: expand local folders within the list; optionally create icon-view covers from photos inside folders, with thumbnails loaded for visible items.
+- **Editing and file processing**: preview and edit Markdown, batch rename files and convert file formats.
 
 ## Core Features
 
 | Feature | Description |
 |---------|-------------|
 | **Tabs and split panes** | Independent navigation history, sorting and view per tab; horizontal, vertical, four-pane grid and main/secondary layouts |
-| **List, grid and filters** | Switch views, group by type/date/size, and select column filters; options within a column use OR, while different columns use AND |
+| **List, grid, tree list and filters** | Switch views, expand local folders in the tree list, group by type/date/size, and select column filters; options within a column use OR, while different columns use AND |
 | **Path navigation** | Clickable breadcrumbs, searchable subfolder dropdowns, direct path entry, pinned folders and recent locations |
 | **Finder tags** | Apply or remove tags, browse tagged files from the sidebar, and write tags to macOS Finder; tagging keeps files in place |
 | **File search** | Current-folder and global search using SQLite FTS5 filename indexing, generated OCR text and AI tags, with previews in search results |
@@ -106,9 +112,15 @@ This overview reflects **v1.0.40**. See [GitHub Releases](https://github.com/3eg
 | **Super Preview** | Press Space to preview images, PDFs, text and system-supported documents/media, or browse folders and archives; format coverage depends on macOS Quick Look support |
 | **Archive management** | Browse and extract ZIP, TAR, 7Z and other formats; create ZIP, TAR.GZ and TAR.BZ2 archives, protect ZIPs with passwords, and extract into the current or a separate folder |
 | **SFTP remote access** | Save connections, browse, upload, download and manage remote files; edit through a local application and automatically upload changes |
+| **Copilot file assistant** | Find and organize files through registered app capabilities; file changes and sending file contents to the model require confirmation, with conversations and execution history stored locally; bring your own model service |
+| **File Delivery** | Open a separate menu bar panel, browse folder and favorite tabs, preview files and drag out copies |
 | **Batch rename** | Preview find/replace, prefixes, suffixes, sequences, dates and case conversions before applying changes |
 | **Git and file operations** | Git status indicators, copy, move, drag and drop, Trash actions, and undo for supported file operations |
 | **Appearance and updates** | Light/dark themes, frosted glass, standard/compact/comfortable typography, configurable interaction colors, and in-app update checks and downloads |
+
+### Using Copilot
+
+Enter an OpenAI-compatible API endpoint, model name and API key under Settings → Copilot, then open Copilot from the upper-right window button. The API key is stored in macOS Keychain; conversations and execution history stay on this Mac. Review the paths and recipient shown in the plan before confirming file changes or sending file contents to the model.
 
 ### Tags Keep Files in Place
 
@@ -149,6 +161,7 @@ An **Apple Silicon Mac running macOS 15 or later** is recommended. Current relea
 | Microsoft.Data.Sqlite / SQLite FTS5 | 文件索引、标签与设置存储 · File indexing, tags and settings |
 | SharpCompress / DotNetZip | 压缩包读取、写入与 ZIP 加密 · Archives and encrypted ZIP creation |
 | SSH.NET | SFTP 远程文件访问 · Remote file access |
+| Microsoft Agents AI / Microsoft.Extensions.AI | 应用内 Copilot 与模型接入 · In-app Copilot and model integration |
 | Svg.Skia / Fluent UI System Icons | SVG 渲染与界面图标 · SVG rendering and UI icons |
 | Apple Vision / Quick Look / AppKit | 图片分析、预览与原生系统集成 · Image analysis, previews and native integration |
 
@@ -159,6 +172,7 @@ Mac-Explorer/
 ├── App.axaml / App.axaml.cs   应用入口、依赖注入与生命周期
 ├── Assets/                   应用图标、主题、排版与组件样式
 ├── Controls/                 自绘文件列表、窗口与自定义控件
+├── Copilot/                  文件助手、能力目录、会话与技能
 ├── Views/                    工作区、文件列表、侧边栏、预览与设置
 ├── ViewModels/               标签页、导航、筛选、标签等视图模型
 ├── Models/                   文件、标签、筛选与操作数据模型
