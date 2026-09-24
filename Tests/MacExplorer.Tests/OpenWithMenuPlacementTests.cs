@@ -165,10 +165,11 @@ public sealed partial class FileListViewModelCreateTests
         apps.TopLevel.Insert(0, new OpenWithApp { Id = 9, BundleId = "com.microsoft.VSCode", Label = "VS Code" });
         var service = new MacContextMenuService(new PlacementLauncher(), apps);
         var vsCodeInstalled = service.IsAppInstalled("com.microsoft.VSCode");
+        var kiroInstalled = service.IsAppInstalled("dev.kiro.desktop");
         var filePath = Path.Combine(Path.GetTempPath(), "fkfinder-placement.txt");
 
         var submenu = await service.GetOpenWithActionsAsync(filePath);
-        Assert.Contains(submenu, action => action.Label == "Kiro");
+        Assert.Equal(kiroInstalled, submenu.Any(action => action.Label == "Kiro"));
         Assert.DoesNotContain(submenu, action => action.Label == BuiltInOpenWithActions.RevealInFinderLabel);
         Assert.DoesNotContain(submenu, action => action.Label == BuiltInOpenWithActions.OpenInTerminalLabel);
         if (vsCodeInstalled)
