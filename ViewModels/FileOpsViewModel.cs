@@ -5,6 +5,7 @@ using MacExplorer.Indexing;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using Microsoft.Extensions.Logging;
+using System.Runtime.ExceptionServices;
 
 namespace MacExplorer.ViewModels;
 
@@ -109,6 +110,7 @@ public partial class FileOpsViewModel : ObservableObject
             catch (FileOperationPartialException ex)
             {
                 LastOperationResult = ex.Result;
+                ExceptionDispatchInfo.Capture(ex.InnerException!).Throw();
                 throw;
             }
             return;
@@ -122,12 +124,13 @@ public partial class FileOpsViewModel : ObservableObject
         }
         var completed = new List<string>();
         var warnings = new List<string>();
+        Exception? metadataError = null;
         try
         {
             foreach (var sourcePath in sourcePaths)
             {
                 await _fileService.MoveAsync(sourcePath, currentPath, overwrite);
-                var movedPath = _fileService.CombinePath(currentPath, Path.GetFileName(sourcePath));
+                var movedPath = CombineDestinationPath(currentPath, Path.GetFileName(sourcePath));
                 completed.Add(movedPath);
                 // Consume only confirmed moves so a retry cannot move a missing source.
                 entry.SourcePaths.Remove(sourcePath);
@@ -138,6 +141,7 @@ public partial class FileOpsViewModel : ObservableObject
                     try { await _fileTagService.UpdatePathAsync(sourcePath, movedPath); }
                     catch (Exception ex)
                     {
+                        metadataError ??= ex;
                         warnings.Add($"{movedPath}：标签未同步（{ex.Message}）");
                         _logger?.LogError(ex, "Failed to update pasted file tags");
                     }
@@ -150,8 +154,6 @@ public partial class FileOpsViewModel : ObservableObject
             LastOperationResult = new(completed, sourcePaths.Skip(completed.Count).Take(1).ToArray(),
                 warnings, sourcePaths.Skip(completed.Count + 1).ToArray());
             _logger?.LogError(ex, "Paste failed");
-            if (completed.Count > 0)
-                throw new FileOperationPartialException(LastOperationResult, ex);
             throw;
         }
         finally
@@ -164,6 +166,7 @@ public partial class FileOpsViewModel : ObservableObject
             }
             _directoryChangeNotifier?.NotifyChanged(affectedDirs.ToArray(), null);
         }
+        if (metadataError != null) ExceptionDispatchInfo.Capture(metadataError).Throw();
     }
 
     public Task<IReadOnlyList<string>> CopyEntriesAsync(
@@ -251,10 +254,11 @@ public partial class FileOpsViewModel : ObservableObject
                         await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath);
                     else
                         await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
-                    completed.Add(_fileService.CombinePath(targetFolder.FullPath, Path.GetFileName(path)));
+                    var movedPath = CombineDestinationPath(targetFolder.FullPath, Path.GetFileName(path));
+                    completed.Add(movedPath);
                     if (_fileTagService != null)
                     {
-                        try { await _fileTagService.UpdatePathAsync(path, _fileService.CombinePath(targetFolder.FullPath, Path.GetFileName(path))); }
+                        try { await _fileTagService.UpdatePathAsync(path, movedPath); }
                         catch (Exception ex)
                         {
                             warnings.Add($"{path}：标签未同步（{ex.Message}）");
@@ -278,7 +282,7 @@ public partial class FileOpsViewModel : ObservableObject
                     sourcePaths.Skip(completed.Count + 1).ToArray());
                 LastOperationResult = result;
                 setStatus?.Invoke($"移动未完整完成；已移动：{string.Join("、", completed)}；{ex.Message}");
-                throw new FileOperationPartialException(result, ex);
+                throw;
             }
             finally { _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null); }
             return;
@@ -309,7 +313,7 @@ public partial class FileOpsViewModel : ObservableObject
                     if (_fileTagService != null)
                     {
                         try { await _fileTagService.UpdatePathAsync(path,
-                            _fileService.CombinePath(targetFolder.FullPath, Path.GetFileName(path))); }
+                            CombineDestinationPath(targetFolder.FullPath, Path.GetFileName(path))); }
                         catch (Exception ex)
                         {
                             _logger?.LogError(ex, "Failed to update moved file tags");
@@ -350,6 +354,11 @@ public partial class FileOpsViewModel : ObservableObject
         }
         return dirs.ToArray();
     }
+
+    private string CombineDestinationPath(string directory, string name)
+        => VirtualPath.IsRemotePath(directory)
+            ? _fileService.CombinePath(directory, name)
+            : Path.Combine(directory, name);
 
     private static bool IsInvalidMoveTarget(IEnumerable<string> sourcePaths, string targetDirectory)
     {

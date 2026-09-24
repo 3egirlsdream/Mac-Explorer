@@ -3128,7 +3128,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = ex.Message + $" 已完成：{string.Join("、", ex.Result.CompletedPaths)}";
         }
-        catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
+            {
+                await LoadDirectoryContentsAsync(forceRefresh: true);
+                StatusText = result.FailedPaths.Count == 0
+                    ? $"已粘贴 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}"
+                    : $"粘贴未完整完成；已完成：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+            }
+            else StatusText = $"粘贴失败: {ex.Message}";
+        }
     }
 
     private async Task PasteImageFromClipboardAsync()
@@ -3188,7 +3198,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = ex.Message + $" 已完成：{string.Join("、", ex.Result.CompletedPaths)}";
         }
-        catch (Exception ex) { StatusText = $"粘贴失败: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
+            {
+                await LoadDirectoryContentsAsync(forceRefresh: true);
+                StatusText = result.FailedPaths.Count == 0
+                    ? $"已粘贴 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}"
+                    : $"粘贴未完整完成；已完成：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+            }
+            else StatusText = $"粘贴失败: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -3444,7 +3464,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = $"移动未完整完成；已移动：{string.Join("、", ex.Result.CompletedPaths)}；{ex.InnerException?.Message}";
         }
-        catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
+            {
+                await LoadDirectoryContentsAsync(forceRefresh: true);
+                StatusText = $"移动未完整完成；已移动：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+            }
+            else StatusText = $"移动失败: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -3472,7 +3500,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = $"移动未完整完成；已移动：{string.Join("、", ex.Result.CompletedPaths)}；{ex.InnerException?.Message}";
         }
-        catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
+            {
+                await LoadDirectoryContentsAsync(forceRefresh: true);
+                StatusText = $"移动未完整完成；已移动：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+            }
+            else StatusText = $"移动失败: {ex.Message}";
+        }
         finally
         {
             _pendingMoveEntries = null;

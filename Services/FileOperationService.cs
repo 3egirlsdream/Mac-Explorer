@@ -1,6 +1,7 @@
 using MacExplorer.Models;
 using MacExplorer.ViewModels;
 using Microsoft.Extensions.Logging;
+using System.Runtime.ExceptionServices;
 
 namespace MacExplorer.Services;
 
@@ -23,7 +24,14 @@ public sealed class FileOperationService(
 {
     public async Task<IReadOnlyList<string>> CopyAsync(
         IReadOnlyList<string> sourcePaths, string destinationDirectory)
-        => (await CopyDetailedAsync(sourcePaths, destinationDirectory)).CompletedPaths;
+    {
+        try { return (await CopyDetailedAsync(sourcePaths, destinationDirectory)).CompletedPaths; }
+        catch (FileOperationPartialException ex)
+        {
+            ExceptionDispatchInfo.Capture(ex.InnerException!).Throw();
+            throw;
+        }
+    }
 
     public async Task<FileOperationResult> CopyDetailedAsync(
         IReadOnlyList<string> sourcePaths, string destinationDirectory)
@@ -166,15 +174,21 @@ public sealed class FileOperationService(
             setStatus?.Invoke($"已删除 {deletedPaths.Count} 项，但有 {metadataFailures} 项历史或标签更新失败。");
     }
 
-    public async Task MoveAsync(FileSystemEntry source, FileSystemEntry targetFolder,
+    public Task MoveAsync(FileSystemEntry source, FileSystemEntry targetFolder,
         Action<string>? setStatus = null)
-        => await MoveDetailedAsync(source, targetFolder, setStatus);
+        => MoveCoreAsync(source, targetFolder, setStatus, throwOnMetadataFailure: true);
 
-    public async Task<FileOperationResult> MoveDetailedAsync(FileSystemEntry source, FileSystemEntry targetFolder,
+    public Task<FileOperationResult> MoveDetailedAsync(FileSystemEntry source, FileSystemEntry targetFolder,
         Action<string>? setStatus = null)
+        => MoveCoreAsync(source, targetFolder, setStatus, throwOnMetadataFailure: false);
+
+    private async Task<FileOperationResult> MoveCoreAsync(FileSystemEntry source, FileSystemEntry targetFolder,
+        Action<string>? setStatus, bool throwOnMetadataFailure)
     {
         if (!targetFolder.IsDirectory) throw new InvalidOperationException("目标不是文件夹。");
-        var movedPath = files.CombinePath(targetFolder.FullPath, Path.GetFileName(source.FullPath));
+        var movedPath = VirtualPath.IsRemotePath(targetFolder.FullPath)
+            ? files.CombinePath(targetFolder.FullPath, Path.GetFileName(source.FullPath))
+            : Path.Combine(targetFolder.FullPath, Path.GetFileName(source.FullPath));
         var warnings = new List<string>();
         try
         {
@@ -192,12 +206,14 @@ public sealed class FileOperationService(
         try { if (tags != null) await tags.UpdatePathAsync(source.FullPath, movedPath); }
         catch (Exception ex)
         {
+            if (throwOnMetadataFailure) throw;
             warnings.Add($"标签未同步：{ex.Message}");
             logger?.LogError(ex, "Failed to update tags for {Path}", movedPath);
         }
         try { if (history != null) await history.RecordMoveAsync(source.FullPath, movedPath); }
         catch (Exception ex)
         {
+            if (throwOnMetadataFailure) throw;
             warnings.Add($"移动历史未记录：{ex.Message}");
             logger?.LogError(ex, "Failed to record move for {Path}", movedPath);
         }
