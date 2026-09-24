@@ -239,18 +239,20 @@ public sealed partial class FileListViewModelCreateTests
             (Dictionary<ExplorerTabViewModel, ExplorerWorkspaceView>)typeof(MainWindow)
                 .GetField("_workspaceViews", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Window)!;
 
-        private TabCacheFixture(FakeFileService files, FileListViewModel first)
+        private TabCacheFixture(FakeFileService files, FileListViewModel first,
+            Action<IServiceCollection>? configureServices)
         {
             Files = files;
             _previousServices = App.Services;
             var settings = new StartupSettings();
-            _services = new ServiceCollection()
+            var services = new ServiceCollection()
                 .AddSingleton<NavigationBridge>()
                 .AddSingleton<ISettingsService>(settings)
                 .AddSingleton<IBackgroundTaskManager, BackgroundTaskManager>()
                 .AddSingleton<IGlobalSearchScopeService, GlobalSearchScopeService>()
-                .AddSingleton<IDragDropBridge>(new MacDragDropBridge(files, new DirectoryChangeNotifier()))
-                .BuildServiceProvider();
+                .AddSingleton<IDragDropBridge>(new MacDragDropBridge(files, new DirectoryChangeNotifier()));
+            configureServices?.Invoke(services);
+            _services = services.BuildServiceProvider();
             typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _services);
             Model = new MainWindowViewModel(first);
             Window = new MainWindow { Width = 1280, Height = 800, DataContext = Model };
@@ -259,7 +261,8 @@ public sealed partial class FileListViewModelCreateTests
             Dispatcher.UIThread.RunJobs();
         }
 
-        public static async Task<TabCacheFixture> CreateAsync(int entries = 200)
+        public static async Task<TabCacheFixture> CreateAsync(int entries = 200,
+            Action<IServiceCollection>? configureServices = null)
         {
             var files = new FakeFileService("/tmp/tab-cache-tests");
             for (var i = 0; i < entries; i++) files.Seed(new FileSystemEntry
@@ -267,7 +270,7 @@ public sealed partial class FileListViewModelCreateTests
             var first = CreateViewModel(files);
             first.SetViewMode(ViewMode.List);
             await first.RefreshAsync();
-            return new TabCacheFixture(files, first);
+            return new TabCacheFixture(files, first, configureServices);
         }
 
         public ExplorerTabViewModel AddTab()

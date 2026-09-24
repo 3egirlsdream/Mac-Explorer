@@ -26,6 +26,10 @@
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
+- Copilot 对话与输入框复用 `ComponentStyles.axaml` 的 `copilot-*` 样式：助手气泡靠左、用户气泡靠右，过程用左侧细线，工具与确认用轻边框卡片；输入框和卡片使用全局 `RadiusLg`，发送按钮使用全局 `RadiusFull`。
+- Copilot 同轮工具调用收在可展开的 `copilot-tool-card`，思考过程使用 `copilot-thinking-card` 和 Fluent Brain 图标；两者标题复用内容宽度的 `ghost compact copilot-tool-toggle`，展开明细沿左侧细线紧凑缩进，执行时展开，完成后自动收起。用户消息只显示右侧气泡，不显示“你”。
+- Copilot 历史列表复用全局 `copilot-history-row` / `copilot-history-title` / `copilot-history-more` 样式；悬停、聚焦和当前会话统一使用主题选中色。默认收起，展开按钮使用 `copilot-history-toggle`，关闭按钮使用居中的 `copilot-close`。
+- Copilot 附件区复用全局 `copilot-attachment-drop-zone` 和 `copilot-attachment-chip`；输入区与对话列表中的短附件标签统一使用 `RadiusSm` 和四边等距内边距，附件行与输入框留 4px 间距。右上角的红色圆形移除按钮仅在悬停或键盘聚焦时显示，悬停不变色。拖入文件或文件夹只记录路径，发送后清空暂存区，历史消息只显示只读附件标签。
 - 紧凑设置中的文字选项复用全局 `segmented-control` 容器和 `segment-btn` 按钮，等宽居中排布，选中项追加 `active`，使用主题选中色而非主要操作按钮色。
 - 设置页复用 `SettingsStyles.axaml` 的紧凑导航、分组和字段行，页面背景与工具栏统一使用 `TitleBarBackgroundBrush`；正文与说明分别使用主文字和次级文字资源。紧凑开关统一使用全局 `ToggleSwitch.compact`，轨道 36×20、滑块 16px，保留原生交互与焦点。
 - 主窗口顶部标题／标签栏统一复用 `TitleBarBackgroundBrush`，浅色主题使用浅雾灰 `#F7F7F8`，与白色内容区柔和衔接；采用上述紧凑设置风格的对话框使用透明标题栏，与窗口表面一体。

@@ -557,6 +557,77 @@
             </Grid>
         </TabItem>
 
+        <TabItem AutomationProperties.Name="Copilot">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Copilot}"/>
+                    <TextBlock Text="Copilot" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="settings-page" Spacing="12">
+                    <StackPanel Classes="settings-header">
+                        <TextBlock Classes="settings-title" Text="Copilot"/>
+                        <TextBlock Classes="settings-description" Text="连接模型并管理应用内技能。"/>
+                    </StackPanel>
+                    <TextBlock Classes="settings-section-title" Text="模型连接"/>
+                    <Border Classes="settings-group">
+                        <StackPanel>
+                            <Border Classes="settings-row settings-divider">
+                                <Grid ColumnDefinitions="110,*" ColumnSpacing="10">
+                                    <TextBlock Classes="settings-label" Text="API 地址" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" x:Name="CopilotEndpointBox" Classes="settings-inline-input"
+                                             AutomationProperties.Name="Copilot API 地址"/>
+                                </Grid>
+                            </Border>
+                            <Border Classes="settings-row settings-divider">
+                                <Grid ColumnDefinitions="110,*" ColumnSpacing="10">
+                                    <TextBlock Classes="settings-label" Text="模型" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" x:Name="CopilotModelBox" Classes="settings-inline-input"
+                                             AutomationProperties.Name="Copilot 模型"/>
+                                </Grid>
+                            </Border>
+                            <Border Classes="settings-row">
+                                <Grid ColumnDefinitions="110,*,Auto" ColumnSpacing="10">
+                                    <TextBlock Classes="settings-label" Text="API Key" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" x:Name="CopilotKeyBox" Classes="settings-inline-input"
+                                             PasswordChar="●" Watermark="输入 API Key"
+                                             AutomationProperties.Name="Copilot API Key"/>
+                                    <Button Grid.Column="2" Classes="secondary compact" Content="保存连接"
+                                            Click="SaveCopilotConnection"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock x:Name="CopilotSettingsStatus"
+                               IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"
+                               Classes="settings-description" TextWrapping="Wrap"/>
+                    <TextBlock Classes="settings-section-title" Text="技能"/>
+                    <Border Classes="settings-group" Padding="12">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                                <ComboBox x:Name="CopilotSkillPicker" SelectionChanged="OnCopilotSkillSelectionChanged"
+                                          AutomationProperties.Name="选择 Copilot 技能"/>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="新建" Click="NewCopilotSkill"/>
+                                <Button Grid.Column="2" Classes="secondary compact" Content="启用/禁用" Click="ToggleCopilotSkill"/>
+                                <Button Grid.Column="3" Classes="secondary compact" Content="重置" Click="ResetCopilotSkill"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
+                                <TextBlock Classes="settings-label" Text="名称" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="CopilotSkillNameBox" Classes="settings-inline-input"
+                                         Watermark="小写字母、数字和连字符"/>
+                            </Grid>
+                            <TextBox x:Name="CopilotSkillContentBox" Classes="settings-command-editor"
+                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="170" MaxHeight="300"
+                                     Watermark="---&#10;name: my-skill&#10;description: ...&#10;---"/>
+                            <Button Classes="primary compact" Content="保存技能" Click="SaveCopilotSkill"
+                                    HorizontalAlignment="Right"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
         <TabItem x:Name="AboutTab" AutomationProperties.Name="关于">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
