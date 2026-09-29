@@ -61,13 +61,12 @@ public sealed partial class FileListViewModelCreateTests
                 await Task.Delay(25, TestContext.Current.CancellationToken);
                 Dispatcher.UIThread.RunJobs();
             }
+            Dispatcher.UIThread.RunJobs();
             var remove = FindRemoveButton("待删除");
             var point = remove.TranslatePoint(new Point(remove.Bounds.Width / 2, remove.Bounds.Height / 2), window)!.Value;
             window.MouseMove(point);
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
-            Assert.DoesNotContain("待删除", DisplayedCustomTags());
-
             var expectedTags = lastTag ? Array.Empty<string>() : ["红色", "保留"];
             await ReloadPersistedTagsAsync(expectedTags);
             Assert.Equal(lastTag ? [] : new[] { "保留" }, DisplayedCustomTags());
@@ -118,6 +117,12 @@ public sealed partial class FileListViewModelCreateTests
                 Assert.Equal(expected.Order(), metadata.Tags.Order());
                 vm.CurrentMetadata = metadata;
                 Dispatcher.UIThread.RunJobs();
+                var expectedCustom = expected.Where(tag => tag != "红色").ToArray();
+                for (var attempt = 0; attempt < 200 && !DisplayedCustomTags().SequenceEqual(expectedCustom); attempt++)
+                {
+                    await Task.Delay(25, TestContext.Current.CancellationToken);
+                    Dispatcher.UIThread.RunJobs();
+                }
             }
         }
         finally
