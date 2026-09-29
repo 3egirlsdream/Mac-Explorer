@@ -1,0 +1,20 @@
+<controls:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MacExplorer.Controls"
+        x:Class="MacExplorer.Views.Dialogs.LocalSendPinDialog"
+        Title="输入 LocalSend PIN"
+        Width="360" Height="150" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource TitleBarBackgroundBrush}">
+    <Window.Styles>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+    </Window.Styles>
+    <Grid RowDefinitions="Auto,Auto" RowSpacing="12" Margin="16">
+        <TextBox x:Name="PinBox" Classes="settings-inline-input" PlaceholderText="对方设备显示的 PIN"
+                 MaxLength="12" Height="32"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Classes="secondary compact" Content="取消" IsCancel="True" Click="OnCancel"/>
+            <Button Classes="primary compact" Content="继续" IsDefault="True" Click="OnContinue"/>
+        </StackPanel>
+    </Grid>
+</controls:DialogWindow>

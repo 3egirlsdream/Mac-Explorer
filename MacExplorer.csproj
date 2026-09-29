@@ -8,7 +8,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
     <ApplicationId>com.macexplorer.app</ApplicationId>
-    <Version>1.0.48</Version>
+    <Version>1.0.49</Version>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -29,6 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="Plugins/UI/MacExplorer.PluginUi.csproj" />
     <ProjectReference Include="Plugins/SDK/MacExplorer.PluginSdk.csproj" />
     <ProjectReference Include="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" ReferenceOutputAssembly="false" />
@@ -37,8 +38,20 @@
     <None Update="ThirdParty/Vex/LICENSE" TargetPath="Markdown/Vex.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="ThirdParty/Vex/NOTICE.md" TargetPath="Markdown/NOTICE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="ThirdParty/Vex/FluentIcons.LICENSE.txt" TargetPath="Markdown/FluentIcons.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="ThirdParty/LibRaw/$(RuntimeIdentifier)/libraw.dylib" TargetPath="libraw.dylib" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Copilot/Skills/**/SKILL.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="VerifyLibRawArchitecture" BeforeTargets="GetCopyToOutputDirectoryItems" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <PropertyGroup>
+      <_LibRawArchitecture Condition="'$(RuntimeIdentifier)' == 'osx-arm64'">arm64</_LibRawArchitecture>
+      <_LibRawArchitecture Condition="'$(RuntimeIdentifier)' == 'osx-x64'">x86_64</_LibRawArchitecture>
+      <_LibRawPath>$(MSBuildProjectDirectory)/ThirdParty/LibRaw/$(RuntimeIdentifier)/libraw.dylib</_LibRawPath>
+    </PropertyGroup>
+    <Error Condition="'$(_LibRawArchitecture)' == ''" Text="Unsupported LibRaw runtime identifier: $(RuntimeIdentifier)" />
+    <Error Condition="!Exists('$(_LibRawPath)')" Text="Missing LibRaw library for $(RuntimeIdentifier): $(_LibRawPath)" />
+    <Exec Command="lipo '$(_LibRawPath)' -verify_arch $(_LibRawArchitecture)" />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.0.4" />
@@ -135,8 +148,10 @@
     <Copy SourceFiles="$(_IconSource)" DestinationFolder="$(_ResourcesDir)" Condition="Exists('$(_IconSource)')" />
 
     <Copy SourceFiles="Assets/ConversionNotices.txt" DestinationFolder="$(_ResourcesDir)" />
+    <Copy SourceFiles="Assets/localsend-logo.png;Assets/localsend-LICENSE.txt;Assets/localsend-ATTRIBUTION.txt" DestinationFolder="$(_ResourcesDir)/LocalSend" />
     <Copy SourceFiles="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" DestinationFiles="$(_ResourcesDir)/LiquidGlassAvaloniaUI.LICENSE.txt" />
     <Copy SourceFiles="ThirdParty/Vex/LICENSE;ThirdParty/Vex/NOTICE.md;ThirdParty/Vex/FluentIcons.LICENSE.txt" DestinationFolder="$(_ResourcesDir)/Markdown" />
+    <Copy SourceFiles="ThirdParty/LibRaw/COPYRIGHT;ThirdParty/LibRaw/LICENSE.LGPL;ThirdParty/LibRaw/LICENSE.CDDL" DestinationFolder="$(_ResourcesDir)/LibRaw" />
 
     <!-- Copy .dll / .dylib / .json next to the executable so they resolve -->
     <ItemGroup>

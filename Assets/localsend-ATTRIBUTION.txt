@@ -1,0 +1,4 @@
+LocalSend logo
+Source: https://github.com/localsend/localsend/blob/main/app/assets/img/logo-512.png
+Copyright: LocalSend contributors
+License: Apache License 2.0 (see localsend-LICENSE.txt)

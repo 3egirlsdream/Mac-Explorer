@@ -19,4 +19,8 @@
     <ProjectReference Include="../../Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" />
     <ProjectReference Include="../../Tools/PluginTestFixture/PluginTestFixture.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="TestData/generated-orientation-6.dng" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="TestData/generated-monochrome.dng" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

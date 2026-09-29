@@ -1,0 +1,52 @@
+<controls:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MacExplorer.Controls"
+        x:Class="MacExplorer.Views.Dialogs.LocalSendReceiveDialog"
+        Title="接收文件"
+        Width="480" MinWidth="420" MaxWidth="600"
+        MinHeight="280" MaxHeight="540"
+        CanResize="False" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource TitleBarBackgroundBrush}">
+    <Window.Styles>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+    </Window.Styles>
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10" Margin="16">
+        <Border Classes="settings-group">
+            <StackPanel>
+                <Border Classes="settings-row settings-divider">
+                    <Grid ColumnDefinitions="80,*" ColumnSpacing="12">
+                        <TextBlock Classes="settings-label" Text="来自"/>
+                        <TextBlock x:Name="DeviceName" Grid.Column="1" Classes="settings-label"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                </Border>
+                <Border Classes="settings-row settings-divider">
+                    <Grid ColumnDefinitions="80,*" ColumnSpacing="12">
+                        <TextBlock Classes="settings-label" Text="文件"/>
+                        <TextBlock x:Name="FileSummary" Grid.Column="1" Classes="settings-description"/>
+                    </Grid>
+                </Border>
+                <Border Classes="settings-row">
+                    <Grid ColumnDefinitions="80,*,Auto" ColumnSpacing="10">
+                        <TextBlock Classes="settings-label" Text="保存到" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="DirectoryName" Grid.Column="1" Classes="settings-description"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Classes="secondary compact" Content="更改…" Click="OnChooseDirectory"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </Border>
+        <ListBox x:Name="FileNames" Grid.Row="1" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" ToolTip.Tip="{Binding}" TextTrimming="CharacterEllipsis"
+                               Margin="8,3" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Classes="secondary compact" Content="取消" IsCancel="True" Click="OnCancel"/>
+            <Button Classes="primary compact" Content="接收" IsDefault="True" Click="OnAccept"/>
+        </StackPanel>
+    </Grid>
+</controls:DialogWindow>

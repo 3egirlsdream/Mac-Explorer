@@ -15,6 +15,7 @@ using MacExplorer.Services.Search;
 using MacExplorer.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MacExplorer.Views.Dialogs;
 
 namespace MacExplorer;
 
@@ -92,8 +93,12 @@ public partial class App : Application
                 _startupUpdateCancellation.Cancel();
                 try
                 {
-                    try { await Services.GetRequiredService<SearchIndexer>().DisposeAsync(); }
-                    finally { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
+                    try { await ((IAsyncDisposable)Services.GetRequiredService<ILocalSendService>()).DisposeAsync(); }
+                    finally
+                    {
+                        try { await Services.GetRequiredService<SearchIndexer>().DisposeAsync(); }
+                        finally { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
+                    }
                 }
                 finally { pluginsStopped = true; desktop.Shutdown(); }
             };
@@ -109,6 +114,13 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+        if (!Design.IsDesignMode && mainWindow != null)
+        {
+            var localSend = Services.GetRequiredService<ILocalSendService>();
+            localSend.ConfirmReceiveAsync = ShowLocalSendReceiveAsync;
+            localSend.RequestPinAsync = ShowLocalSendPinAsync;
+            _ = StartLocalSendAsync(localSend);
+        }
         _ = Services.GetRequiredService<IFileTagService>().RetryPendingAsync();
         _ = Services.GetRequiredService<Services.Plugins.PluginManager>().InitializeAsync();
 
@@ -125,6 +137,47 @@ public partial class App : Application
                 () => Services.GetRequiredService<Platforms.MacCatalyst.Services.MacDockMenuService>().Register(),
                 TimeSpan.FromSeconds(1));
         }
+    }
+
+    private static async Task StartLocalSendAsync(ILocalSendService localSend)
+    {
+        try { await localSend.StartAsync(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LocalSend startup failed: " + ex); }
+    }
+
+    private static Window? LocalSendOwner()
+        => _desktop?.Windows.OfType<MainWindow>().LastOrDefault(window => window.IsActive && window.IsVisible)
+           ?? _desktop?.Windows.OfType<MainWindow>().LastOrDefault(window => window.IsVisible);
+
+    private static Task<LocalSendReceiveDecision> ShowLocalSendReceiveAsync(
+        LocalSendIncomingRequest request, System.Threading.CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource<LocalSendReceiveDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                var dialog = new LocalSendReceiveDialog(request);
+                completion.TrySetResult(await dialog.ShowRequestAsync(LocalSendOwner(), cancellationToken));
+            }
+            catch (Exception ex) { completion.TrySetException(ex); }
+        });
+        return completion.Task;
+    }
+
+    private static Task<string?> ShowLocalSendPinAsync(System.Threading.CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                var dialog = new LocalSendPinDialog();
+                completion.TrySetResult(await dialog.ShowRequestAsync(LocalSendOwner(), cancellationToken));
+            }
+            catch (Exception ex) { completion.TrySetException(ex); }
+        });
+        return completion.Task;
     }
 
     private void OnStartupWindowOpened(object? sender, EventArgs e)
@@ -262,6 +315,7 @@ public partial class App : Application
         services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<ILocalSendService, Services.Impl.LocalSendService>();
         services.AddSingleton<Copilot.CopilotSettings>();
         services.AddSingleton<Copilot.CopilotKeychain>();
         services.AddSingleton<Copilot.CopilotStore>();
@@ -351,7 +405,8 @@ public partial class App : Application
                 sp.GetService<IRemoteConnectionService>(), sp.GetService<IRemoteFileService>(),
                 sp.GetService<IRemoteFileEditService>(), sp.GetService<IOpenWithAppService>(),
                 sp.GetService<IFileTagService>(), sp.GetService<Services.Plugins.PluginManager>(),
-                sp.GetService<IBackgroundTaskManager>(), sp.GetRequiredService<Copilot.IAppCapabilityRegistry>());
+                sp.GetService<IBackgroundTaskManager>(), sp.GetRequiredService<Copilot.IAppCapabilityRegistry>(),
+                sp.GetService<ILocalSendService>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());
             return viewModel;
         });

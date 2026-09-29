@@ -28,8 +28,10 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 
 ## 最近更新
 
-当前源码功能介绍对应 **v1.0.48**；可下载版本和完整更新记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
+当前源码功能介绍对应 **v1.0.49**；可下载版本和完整更新记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
 
+- **LocalSend 收发**：从本地文件右键菜单发现设备并发送，或在接收确认后保存文件；可设置设备名称、接收位置和扫描网段，支持通过 IP 连接。
+- **RAW 缩略图回退**：系统预览无法解码部分相机 RAW 文件时，尝试使用随应用打包的 LibRaw 生成缩略图。
 - **应用内 Copilot**：通过已登记的应用能力协助查找和整理文件；修改文件及发送文件正文前显示计划并等待确认。模型地址、模型名和 API Key 由用户配置。
 - **文件速递**：从菜单栏打开独立面板，以页签浏览常用目录或收藏夹，预览文件并拖出复制。
 - **树形列表与文件夹封面**：在列表中展开本地文件夹；图标视图可选用文件夹内照片生成封面，缩略图按可见范围加载。
@@ -92,8 +94,10 @@ Mac Explorer is a file manager built for macOS. Browse several folders side by s
 
 ## Recent Updates
 
-This source overview reflects **v1.0.48**. See [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
+This source overview reflects **v1.0.49**. See [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
 
+- **LocalSend transfers**: discover devices from a local file's context menu and send files, or accept incoming files before saving. Configure the device name, receive folder, and scan subnet, or connect by IP.
+- **RAW thumbnail fallback**: when macOS cannot decode certain camera RAW files, the bundled LibRaw library can generate thumbnails.
 - **In-app Copilot**: find and organize files through registered app capabilities. File changes and disclosure of file contents require a plan and confirmation. You configure the model endpoint, model name and API key.
 - **File Delivery**: open a separate menu bar panel, browse frequent folders or favorites in tabs, preview files and drag out copies.
 - **Tree list and folder covers**: expand local folders within the list; optionally create icon-view covers from photos inside folders, with thumbnails loaded for visible items.

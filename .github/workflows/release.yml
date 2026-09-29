@@ -224,6 +224,13 @@ jobs:
             for binary in MacExplorer MacExplorer.ImageAnalysis MacExplorer.Thumbnail libMacExplorerNativeDrag.dylib; do
               lipo "${app_path}/Contents/MacOS/${binary}" -verify_arch "$arch"
             done
+            raw_library="${app_path}/Contents/MacOS/libraw.dylib"
+            test -f "$raw_library"
+            lipo "$raw_library" -verify_arch "$arch"
+            if otool -L "$raw_library" | tail -n +2 | awk '{print $1}' | grep -Ev '^(@rpath/libraw.dylib|/usr/lib/libz.1.dylib|/usr/lib/libSystem.B.dylib|/usr/lib/libc\+\+.1.dylib)$'; then
+              echo "LibRaw has an unexpected external dependency" >&2
+              exit 1
+            fi
             while IFS= read -r -d '' binary; do
               lipo "$binary" -verify_arch "$arch"
             done < <(find "${app_path}/Contents/MacOS" -maxdepth 1 -name '*.dylib' -print0)
@@ -236,6 +243,9 @@ jobs:
             ditto -x -k "${dist_dir}/${package_zip_name}" "$package_verify_dir"
             zipped_app="${package_verify_dir}/Mac Explorer.app"
             test -x "${zipped_app}/Contents/MacOS/MacExplorer"
+            test -f "${zipped_app}/Contents/MacOS/libraw.dylib"
+            test -f "${zipped_app}/Contents/Resources/LibRaw/LICENSE.LGPL"
+            lipo "${zipped_app}/Contents/MacOS/libraw.dylib" -verify_arch "$arch"
             codesign --verify --deep --strict "$zipped_app"
 
             plugin_dir="${package_verify_dir}/FileConversion"

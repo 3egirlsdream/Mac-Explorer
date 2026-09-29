@@ -32,6 +32,7 @@ public partial class SettingsDialog : DialogWindow
     private readonly IOpenWithAppService _openWithService;
     private readonly IAppUpdateService _appUpdateService;
     private readonly IGlobalSearchScopeService _globalSearchScopeService;
+    private readonly ILocalSendService? _localSendService;
     private readonly Dictionary<string, ToggleSwitch> _sidebarToggles = new(StringComparer.Ordinal);
     private List<OpenWithApp> _openWithApps = [];
     private List<AppListItem> _installedApps = [];
@@ -56,7 +57,8 @@ public partial class SettingsDialog : DialogWindow
             App.Services.GetRequiredService<IOpenWithAppService>(),
             App.Services.GetRequiredService<IAppUpdateService>(),
             App.Services.GetRequiredService<IInteractionStyleService>(),
-            App.Services.GetRequiredService<IGlobalSearchScopeService>())
+            App.Services.GetRequiredService<IGlobalSearchScopeService>(),
+            App.Services.GetRequiredService<ILocalSendService>())
     {
     }
 
@@ -68,7 +70,8 @@ public partial class SettingsDialog : DialogWindow
         IOpenWithAppService openWithService,
         IAppUpdateService appUpdateService,
         IInteractionStyleService? interactionStyleService = null,
-        IGlobalSearchScopeService? globalSearchScopeService = null)
+        IGlobalSearchScopeService? globalSearchScopeService = null,
+        ILocalSendService? localSendService = null)
     {
         InitializeComponent();
         _defaultAppService = defaultAppService;
@@ -80,6 +83,7 @@ public partial class SettingsDialog : DialogWindow
         _appUpdateService = appUpdateService;
         _globalSearchScopeService = globalSearchScopeService
             ?? new Services.Impl.GlobalSearchScopeService(settingsService);
+        _localSendService = localSendService;
         Opened += OnOpened;
         Closed += (_, _) => _updateCancellation.Cancel();
     }
@@ -88,6 +92,14 @@ public partial class SettingsDialog : DialogWindow
     {
         LoadCopilotSettings();
         LoadSettings();
+        if (!Design.IsDesignMode
+            && Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: MainWindow }
+            && _localSendService?.Enabled == true)
+        {
+            try { await _localSendService.StartAsync(); }
+            catch { }
+            UpdateLocalSendStatus();
+        }
         await InitializePluginsAsync();
         await _openWithService.RemoveUnavailableAppsAsync();
         await LoadOpenWithAppsAsync();
@@ -101,6 +113,14 @@ public partial class SettingsDialog : DialogWindow
         LoadInteractionStyleSettings();
         LoadSearchLocations();
         FileDeliveryToggle.IsChecked = _settingsService.Get(Services.Impl.FileDeliveryService.EnabledKey, true);
+        if (_localSendService != null)
+        {
+            LocalSendEnabledToggle.IsChecked = _localSendService.Enabled;
+            LocalSendAliasBox.Text = _localSendService.Alias;
+            LocalSendDirectoryText.Text = _localSendService.ReceiveDirectory;
+            ToolTip.SetTip(LocalSendDirectoryText, _localSendService.ReceiveDirectory);
+            UpdateLocalSendStatus();
+        }
         FolderPhotoCoversToggle.IsChecked = _settingsService.Get(FileListViewModel.FolderPhotoCoverSettingKey, false);
 
         if (ViewModel == null) return;
@@ -138,6 +158,63 @@ public partial class SettingsDialog : DialogWindow
     {
         if (!_initializing)
             App.Services.GetRequiredService<Services.Impl.FileDeliveryService>().Enabled = FileDeliveryToggle.IsChecked == true;
+    }
+
+    private async void OnLocalSendEnabledChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_initializing || Design.IsDesignMode
+            || Application.Current?.ApplicationLifetime is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: MainWindow }
+            || _localSendService == null) return;
+        LocalSendEnabledToggle.IsEnabled = false;
+        try
+        {
+            await _localSendService.SetEnabledAsync(LocalSendEnabledToggle.IsChecked == true);
+            UpdateLocalSendStatus();
+        }
+        catch (Exception ex) { LocalSendStatus.Text = ex.Message; }
+        finally { LocalSendEnabledToggle.IsEnabled = true; }
+    }
+
+    private void UpdateLocalSendStatus()
+    {
+        if (_localSendService == null) return;
+        LocalSendStatus.Text = _localSendService.LastError ?? (_localSendService.Enabled
+            ? _localSendService.ListeningPort > 0
+                ? $"正在监听端口 {_localSendService.ListeningPort}。"
+                : "正在启动…"
+            : "已停止发现和接收。");
+    }
+
+    private void OnLocalSendAliasChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_initializing || _localSendService == null) return;
+        _localSendService.Alias = LocalSendAliasBox.Text ?? "";
+        LocalSendAliasBox.Text = _localSendService.Alias;
+    }
+
+    private void OnLocalSendAliasKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key != Avalonia.Input.Key.Enter) return;
+        OnLocalSendAliasChanged(sender, e);
+        e.Handled = true;
+    }
+
+    private async void OnChooseLocalSendDirectory(object? sender, RoutedEventArgs e)
+    {
+        if (_localSendService == null || StorageProvider == null) return;
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "选择 LocalSend 接收位置", AllowMultiple = false
+        });
+        if (folders.Count == 0) return;
+        try
+        {
+            _localSendService.ReceiveDirectory = folders[0].Path.LocalPath;
+            LocalSendDirectoryText.Text = _localSendService.ReceiveDirectory;
+            ToolTip.SetTip(LocalSendDirectoryText, _localSendService.ReceiveDirectory);
+            LocalSendStatus.Text = "";
+        }
+        catch (Exception ex) { LocalSendStatus.Text = ex.Message; }
     }
 
     private void OnFolderPhotoCoversChanged(object? sender, RoutedEventArgs e)

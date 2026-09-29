@@ -3,6 +3,7 @@ namespace MacExplorer.Models;
 public class ContextMenuAction
 {
     public string Label { get; init; } = string.Empty;
+    public string? ToolTip { get; init; }
     public string IconSvg { get; init; } = string.Empty;
     public string? IconColor { get; init; }
     public Avalonia.Media.IImage? IconImage { get; init; }
@@ -14,6 +15,8 @@ public class ContextMenuAction
     public bool IsIndeterminate { get; init; }
     public Func<Task>? Execute { get; init; }
     public IReadOnlyList<ContextMenuAction>? SubItems { get; init; }
+    public Func<CancellationToken, Action<IReadOnlyList<ContextMenuAction>>, Task<IReadOnlyList<ContextMenuAction>>>? LoadSubItemsAsync { get; init; }
+    public bool ReloadParentSubmenu { get; init; }
     public string? Tag { get; init; }
     public bool IsQuickAction { get; init; }
     public string? IconBase64 { get; init; }
@@ -29,6 +32,7 @@ public class ContextMenuAction
 /// </summary>
 public static class Icons
 {
+    public const string Send = MacExplorer.Assets.Icons.Send;
     // ── Navigation ──
     public const string Back = "M10.7327 19.7905C11.0326 20.0762 11.5074 20.0646 11.7931 19.7647C12.0788 19.4648 12.0672 18.99 11.7673 18.7043L5.51587 12.7497L20.25 12.7497C20.6642 12.7497 21 12.4139 21 11.9997C21 11.5855 20.6642 11.2497 20.25 11.2497L5.51577 11.2497L11.7673 5.29502C12.0672 5.00933 12.0787 4.5346 11.7931 4.23467C11.5074 3.93475 11.0326 3.9232 10.7327 4.20889L3.31379 11.2756C3.14486 11.4365 3.04491 11.6417 3.01393 11.8551C3.00479 11.9019 3 11.9503 3 11.9997C3 12.0493 3.00481 12.0977 3.01398 12.1446C3.04502 12.3579 3.14496 12.563 3.31379 12.7238L10.7327 19.7905Z";
     public const string Forward = "M13.2673 4.20889C12.9674 3.9232 12.4926 3.93475 12.2069 4.23467C11.9212 4.5346 11.9328 5.00933 12.2327 5.29502L18.4841 11.2496H3.75C3.33579 11.2496 3 11.5854 3 11.9996C3 12.4138 3.33579 12.7496 3.75 12.7496H18.4842L12.2327 18.7043C11.9328 18.99 11.9212 19.4648 12.2069 19.7647C12.4926 20.0646 12.9674 20.0762 13.2673 19.7905L20.6862 12.7238C20.8551 12.5629 20.9551 12.3576 20.9861 12.1443C20.9952 12.0975 21 12.0491 21 11.9996C21 11.9501 20.9952 11.9016 20.986 11.8547C20.955 11.6415 20.855 11.4364 20.6862 11.2756L13.2673 4.20889Z";

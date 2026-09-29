@@ -19,9 +19,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.48</string>
+    <string>1.0.49</string>
     <key>CFBundleVersion</key>
-    <string>1.0.48</string>
+    <string>1.0.49</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>NSHighResolutionCapable</key>
@@ -73,5 +73,7 @@
         <key>NSAllowsArbitraryLoads</key>
         <true/>
     </dict>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>发现附近的 LocalSend 设备并在你确认后收发文件。</string>
 </dict>
 </plist>

@@ -11,9 +11,15 @@ public class MacThumbnailService : IThumbnailService
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp",
-        ".heic", ".heif", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".orf",
-        ".rw2", ".pef", ".raw", ".avif", ".jxl", ".jp2", ".j2k", ".jpf",
+        ".heic", ".heif", ".avif", ".jxl", ".jp2", ".j2k", ".jpf",
         ".ppm", ".pgm", ".pbm", ".tga", ".dds", ".ico", ".icns"
+    };
+    private static readonly HashSet<string> RawExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".3fr", ".arw", ".bay", ".cr2", ".cr3", ".crw", ".dcr", ".dng",
+        ".erf", ".fff", ".iiq", ".k25", ".kdc", ".mef", ".mos", ".mrw",
+        ".nef", ".nrw", ".orf", ".pef", ".raf", ".raw", ".rw2", ".rwl",
+        ".sr2", ".srf", ".srw", ".x3f"
     };
     private static readonly HashSet<string> QuickLookDocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -47,6 +53,8 @@ public class MacThumbnailService : IThumbnailService
     private const double DefaultDiskTargetRatio = 0.8;
     private static readonly TimeSpan GenerationTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan NativeImageTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan RawDecodeTimeout = TimeSpan.FromSeconds(30);
+    private static readonly SemaphoreSlim RawDecodeGate = new(1, 1);
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
     private readonly ConcurrentQueue<string> _cacheOrder = new();
     private readonly ConcurrentDictionary<string, DateTime> _failedThumbnails = new();
@@ -96,11 +104,11 @@ public class MacThumbnailService : IThumbnailService
     }
 
     public bool IsImageFile(string extension) =>
-        !string.IsNullOrWhiteSpace(extension) && ImageExtensions.Contains(extension);
+        !string.IsNullOrWhiteSpace(extension) && (ImageExtensions.Contains(extension) || RawExtensions.Contains(extension));
 
     internal static bool SupportsThumbnailExtension(string extension) =>
         !string.IsNullOrWhiteSpace(extension)
-        && (ImageExtensions.Contains(extension) || QuickLookDocumentExtensions.Contains(extension));
+        && (ImageExtensions.Contains(extension) || RawExtensions.Contains(extension) || QuickLookDocumentExtensions.Contains(extension));
 
     public async Task<byte[]?> GetThumbnailAsync(
         string filePath,
@@ -117,13 +125,13 @@ public class MacThumbnailService : IThumbnailService
         if (!File.Exists(filePath) || !SupportsThumbnailExtension(extension))
             return null;
 
-        // Keep the existing cache identity so previously generated thumbnails stay usable.
-        // Images reserve an extra native-attempt budget; sips keeps its original five seconds.
-        var cacheKey = $"{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
+        // Version image entries: old caches could contain undecodable RAW source bytes.
+        var isImage = IsImageFile(extension);
+        var cacheKey = $"{(isImage ? "image-v2:" : "")}{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
         return await GetOrCreateThumbnailAsync(cacheKey,
             (outputPath, token) => GenerateThumbnailAsync(filePath, outputPath, maxPixelSize, token),
             rememberFailure: true, ct,
-            generationTimeout: IsImageFile(extension) ? GenerationTimeout + NativeImageTimeout : GenerationTimeout)
+            manageGenerationGate: !isImage)
             .ConfigureAwait(false);
     }
 
@@ -134,7 +142,8 @@ public class MacThumbnailService : IThumbnailService
         Func<string, CancellationToken, Task<byte[]?>> generate,
         bool rememberFailure,
         CancellationToken ct,
-        TimeSpan? generationTimeout = null)
+        TimeSpan? generationTimeout = null,
+        bool manageGenerationGate = true)
     {
         ct.ThrowIfCancellationRequested();
         if (rememberFailure && IsFailedThumbnail(cacheKey)) return null;
@@ -180,25 +189,40 @@ public class MacThumbnailService : IThumbnailService
             try
             {
                 byte[]? generated;
-                await _generationGate.WaitAsync(ct).ConfigureAwait(false);
-                try
+                if (manageGenerationGate)
                 {
-                    // Time in the queue does not consume the generator's timeout.
-                    using var generationCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    if (rememberFailure) generationCts.CancelAfter(generationTimeout ?? GenerationTimeout);
+                    await _generationGate.WaitAsync(ct).ConfigureAwait(false);
                     try
                     {
-                        generated = await Task.Run(() => generate(stagingPath, generationCts.Token),
-                            generationCts.Token).ConfigureAwait(false);
+                        // Time in the queue does not consume the generator's timeout.
+                        using var generationCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        if (rememberFailure) generationCts.CancelAfter(generationTimeout ?? GenerationTimeout);
+                        try
+                        {
+                            generated = await Task.Run(() => generate(stagingPath, generationCts.Token),
+                                generationCts.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (!ct.IsCancellationRequested && rememberFailure)
+                        {
+                            generated = null;
+                        }
                     }
-                    catch (OperationCanceledException) when (!ct.IsCancellationRequested && rememberFailure)
+                    finally
                     {
-                        generated = null;
+                        _generationGate.Release();
                     }
                 }
-                finally
+                else
                 {
-                    _generationGate.Release();
+                    try
+                    {
+                        generated = await Task.Run(() => generate(stagingPath, ct), ct).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        // A stage's own cancellation budget is not a failed image.
+                        return null;
+                    }
                 }
 
                 // Leaving the viewport is cancellation, not a failed thumbnail.
@@ -330,7 +354,8 @@ public class MacThumbnailService : IThumbnailService
     {
         foreach (var key in _memoryCache.Keys.Where(key => key.Contains(filePath, StringComparison.Ordinal)))
             RemoveFromMemory(key);
-        foreach (var key in _failedThumbnails.Keys.Where(key => key.StartsWith(filePath + ":", StringComparison.Ordinal)))
+        foreach (var key in _failedThumbnails.Keys.Where(key => key.StartsWith(filePath + ":", StringComparison.Ordinal)
+            || key.StartsWith("image-v2:" + filePath + ":", StringComparison.Ordinal)))
             _failedThumbnails.TryRemove(key, out _);
     }
 
@@ -351,11 +376,49 @@ public class MacThumbnailService : IThumbnailService
         if (!IsImageFile(Path.GetExtension(sourcePath)))
             return await GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, ct);
 
-        return await GenerateImageWithFallbackAsync(
-            token => GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, token,
-                allowQlManageFallback: false),
-            token => GenerateSipsThumbnailAsync(sourcePath, cachePath, maxPixelSize, token),
-            NativeImageTimeout, ct).ConfigureAwait(false);
+        byte[]? result;
+        await _generationGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            using var standardCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            standardCts.CancelAfter(GenerationTimeout + NativeImageTimeout);
+            try
+            {
+                result = await GenerateImageWithFallbackAsync(
+                    token => GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, token,
+                        allowQlManageFallback: false),
+                    token => GenerateSipsThumbnailAsync(sourcePath, cachePath, maxPixelSize, token),
+                    NativeImageTimeout, standardCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                result = null;
+            }
+        }
+        finally
+        {
+            _generationGate.Release();
+        }
+
+        if (result != null) return result;
+        await RawDecodeGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            // RAW queue time does not consume its budget or a normal image slot.
+            using var rawCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            rawCts.CancelAfter(RawDecodeTimeout);
+            result = await Task.Run(() => LibRawThumbnailDecoder.Decode(sourcePath, maxPixelSize, rawCts.Token),
+                rawCts.Token).ConfigureAwait(false);
+            rawCts.Token.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
+            if (result != null)
+                await WriteCacheFileAtomicallyAsync(cachePath, result, ct).ConfigureAwait(false);
+            return result;
+        }
+        finally
+        {
+            RawDecodeGate.Release();
+        }
     }
 
     internal static async Task<byte[]?> GenerateImageWithFallbackAsync(
@@ -414,6 +477,13 @@ public class MacThumbnailService : IThumbnailService
         if (info.Length > 10 * 1024 * 1024) return null;
 
         var sourceBytes = await File.ReadAllBytesAsync(sourcePath, ct);
+        using var sourceStream = new SkiaSharp.SKMemoryStream(sourceBytes);
+        using var codec = SkiaSharp.SKCodec.Create(sourceStream);
+        // Skia can read a DNG's TIFF container without rendering its sensor data
+        // as a correctly oriented, developed photo. Let LibRaw handle that case.
+        if (codec == null || codec.EncodedFormat == SkiaSharp.SKEncodedImageFormat.Dng) return null;
+        using var decoded = SkiaSharp.SKBitmap.Decode(sourceBytes);
+        if (decoded == null) return null;
         await WriteCacheFileAtomicallyAsync(cachePath, sourceBytes, ct);
         return sourceBytes;
     }

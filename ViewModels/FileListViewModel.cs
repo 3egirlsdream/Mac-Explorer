@@ -12,6 +12,8 @@ using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using Microsoft.Extensions.Logging;
+using Avalonia.Platform;
+using Avalonia.Media.Imaging;
 using AppIcons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.ViewModels;
@@ -43,6 +45,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private readonly IRemoteFileEditService? _remoteFileEditService;
     private readonly IOpenWithAppService? _openWithAppService;
     private readonly IFileTagService? _fileTagService;
+    private readonly ILocalSendService? _localSendService;
+    private static readonly Lazy<Bitmap> LocalSendIcon = new(() =>
+        new Bitmap(AssetLoader.Open(new Uri("avares://MacExplorer/Assets/localsend-logo.png"))));
     private FileListColumnLayoutService _columnLayoutService;
 
     public event Action? TransientInteractionStarted;
@@ -462,7 +467,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IFileTagService? fileTagService = null,
         MacExplorer.Services.Plugins.PluginManager? pluginManager = null,
         IBackgroundTaskManager? conversionTaskManager = null,
-        MacExplorer.Copilot.IAppCapabilityRegistry? appCapabilities = null)
+        MacExplorer.Copilot.IAppCapabilityRegistry? appCapabilities = null,
+        ILocalSendService? localSendService = null)
     {
         _navigation = navigation;
         _fileOps = fileOps;
@@ -501,6 +507,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (_pluginManager != null) _pluginManager.Changed += OnPluginsChanged;
         _conversionTaskManager = conversionTaskManager;
         _appCapabilities = appCapabilities;
+        _localSendService = localSendService;
         _columnLayoutService = new FileListColumnLayoutService(settingsService);
 
         // Initialize sidebar names with cheap defaults. macOS localized names are
@@ -2148,6 +2155,74 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             && contextEntries.All(IsUsableLocalEntry);
 
         actions.Add(BuildMoveToContextMenuAction(entry, canUseLocalFileTools));
+        if (canUseLocalFileTools && !IsTrashActive && !IsBrowseOnly && _localSendService?.Enabled == true
+            && contextEntries.All(item => Path.IsPathFullyQualified(item.FullPath)))
+        {
+            var paths = contextEntries.Select(item => item.FullPath).ToArray();
+            IReadOnlyList<ContextMenuAction> LocalSendItems(IReadOnlyList<LocalSendDevice> devices,
+                bool searching, bool stopped = false)
+            {
+                var items = devices.Select(device => new ContextMenuAction
+                {
+                    Label = device.Alias.Length > 32 ? device.Alias[..32] + "…" : device.Alias,
+                    ToolTip = device.Alias,
+                    Tag = $"localsend-device:{device.Fingerprint}",
+                    IconSvg = Icons.Desktop,
+                    Execute = () =>
+                    {
+                        _ = _localSendService.SendAsync(device, paths);
+                        return Task.CompletedTask;
+                    }
+                }).ToList();
+                if (devices.Count == 0 && !searching && !stopped)
+                    items.Add(new ContextMenuAction { Label = "未发现设备", Tag = "localsend-empty", IsEnabled = false });
+                if (searching)
+                    items.Add(new ContextMenuAction { Label = "正在搜索…", Tag = "localsend-searching", IsEnabled = false });
+                if (stopped)
+                    items.Add(new ContextMenuAction { Label = "搜索已停止", Tag = "localsend-stopped", IsEnabled = false });
+                items.Add(ContextMenuAction.Separator);
+                items.Add(new ContextMenuAction
+                {
+                    Label = "通过 IP 连接…", Tag = "localsend-manual",
+                    Execute = async () =>
+                    {
+                        if (_topLevelWindow is { IsVisible: true } owner)
+                            await new LocalSendAddressDialog(_localSendService).ShowDialog<bool>(owner);
+                    }
+                });
+                items.Add(new ContextMenuAction
+                {
+                    Label = "刷新", Tag = "localsend-refresh", IconSvg = Icons.Refresh,
+                    ReloadParentSubmenu = true
+                });
+                return items;
+            }
+            actions.Add(new ContextMenuAction
+            {
+                Label = "发送到",
+                IconSvg = Icons.Send,
+                SubItems =
+                [
+                    new ContextMenuAction
+                    {
+                        Label = "LocalSend",
+                        IconImage = LocalSendIcon.Value,
+                        LoadSubItemsAsync = async (cancellationToken, report) =>
+                        {
+                            report(LocalSendItems([], true));
+                            try
+                            {
+                                var devices = await _localSendService.DiscoverAsync(cancellationToken,
+                                    snapshot => report(LocalSendItems(snapshot, true)));
+                                return LocalSendItems(devices, false);
+                            }
+                            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                            { return LocalSendItems([], false, stopped: true); }
+                        }
+                    }
+                ]
+            });
+        }
 
         actions.Add(new ContextMenuAction
         {

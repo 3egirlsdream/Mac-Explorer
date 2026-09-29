@@ -157,6 +157,8 @@ public partial class FileListView : UserControl
     private ContextMenu? _openMenu;
     private readonly List<Bitmap> _menuOwnedBitmaps = [];
     private int _menuRequestVersion;
+    private readonly Dictionary<MenuItem, CancellationTokenSource> _menuLoads = new();
+    private readonly HashSet<MenuItem> _asyncSubmenus = [];
     private TextBox? _renameEditor;
     private bool _finishingRename;
     private string? _activeRenamePath;
@@ -868,6 +870,7 @@ public partial class FileListView : UserControl
         int requestVersion,
         FileSystemEntry? markdownEntry = null)
     {
+        if (menu is ContextMenu) { CancelMenuLoads(); _asyncSubmenus.Clear(); }
         menu.Items.Clear();
 
         // Quick actions bar — vertical icon+text buttons at top, evenly distributed
@@ -981,51 +984,169 @@ public partial class FileListView : UserControl
             cleaned.RemoveAt(cleaned.Count - 1);
 
         foreach (var action in cleaned)
+            menu.Items.Add(CreateMenuEntry(action, menu, requestVersion));
+    }
+
+    private Control CreateMenuEntry(ContextMenuAction action, ItemsControl menu, int requestVersion)
+    {
+        if (action.IsSeparator) return new Separator();
+        var item = new MenuItem { Header = action.Label, IsEnabled = action.IsEnabled, Tag = action };
+        if (!string.IsNullOrEmpty(action.ToolTip)) ToolTip.SetTip(item, action.ToolTip);
+        if (action.IsCheckable)
+        {
+            item.ToggleType = MenuItemToggleType.CheckBox;
+            item.IsChecked = action.IsChecked;
+            if (action.IsIndeterminate)
+                item.Header = action.Label + "（部分文件）";
+        }
+        if (!string.IsNullOrEmpty(action.ShortcutText))
+            item.InputGesture = ParseShortcut(action.ShortcutText);
+        if (action.IconImage != null)
+            item.Icon = new Image { Source = action.IconImage, Width = 18, Height = 18 };
+        else if (!string.IsNullOrEmpty(action.IconSvg))
+        {
+            try
+            {
+                var icon = new PathIcon { Data = Geometry.Parse(action.IconSvg), Width = 16, Height = 16 };
+                if (action.IconColor != null) icon.Foreground = Brush.Parse(action.IconColor);
+                item.Icon = icon;
+            }
+            catch { }
+        }
+        if (!string.IsNullOrWhiteSpace(action.IconBase64))
+            _ = LoadMenuIconAsync(item, action.IconBase64, 16, requestVersion);
+        else if (action.LoadIconBase64Async != null)
+            _ = LoadMenuIconAsync(item, action.LoadIconBase64Async, 16, requestVersion);
+        if (action.ReloadParentSubmenu && menu is MenuItem parent)
+        {
+            item.StaysOpenOnClick = true;
+            item.Click += (_, _) => ReloadSubmenu(parent, requestVersion);
+        }
+        else if (action.Execute != null)
+        {
+            item.Click += async (_, _) =>
+            {
+                if (item.Tag is ContextMenuAction current) await ExecuteMenuActionAsync(current);
+            };
+        }
+        if (action.SubItems is { Count: > 0 })
+        {
+            FillMenu(item, action.SubItems.ToList(), requestVersion);
+            ContextMenuPopupStyler.Attach(item);
+        }
+        if (action.LoadSubItemsAsync != null)
+        {
+            _asyncSubmenus.Add(item);
+            FillMenu(item, [new ContextMenuAction { Label = "正在搜索…", IsEnabled = false }], requestVersion);
+            ContextMenuPopupStyler.Attach(item);
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.Property != MenuItem.IsSubMenuOpenProperty) return;
+                if (item.IsSubMenuOpen) ReloadSubmenu(item, requestVersion, action.LoadSubItemsAsync);
+                else if (_menuLoads.Remove(item, out var cancellation)) { cancellation.Cancel(); cancellation.Dispose(); }
+            };
+        }
+        return item;
+    }
+
+    private void ReloadSubmenu(MenuItem item, int requestVersion,
+        Func<CancellationToken, Action<IReadOnlyList<ContextMenuAction>>, Task<IReadOnlyList<ContextMenuAction>>>? loader = null)
+    {
+        loader ??= item.Tag as Func<CancellationToken, Action<IReadOnlyList<ContextMenuAction>>, Task<IReadOnlyList<ContextMenuAction>>>;
+        if (loader == null) return;
+        item.Tag = loader;
+        if (_menuLoads.Remove(item, out var previous)) { previous.Cancel(); previous.Dispose(); }
+        var cancellation = new CancellationTokenSource();
+        _menuLoads[item] = cancellation;
+        FillMenu(item, [new ContextMenuAction { Label = "正在搜索…", IsEnabled = false }], requestVersion);
+        _ = LoadSubmenuAsync(item, loader, requestVersion, cancellation);
+    }
+
+    private async Task LoadSubmenuAsync(MenuItem item,
+        Func<CancellationToken, Action<IReadOnlyList<ContextMenuAction>>, Task<IReadOnlyList<ContextMenuAction>>> loader,
+        int requestVersion, CancellationTokenSource cancellation)
+    {
+        bool IsCurrent() => !cancellation.IsCancellationRequested && requestVersion == _menuRequestVersion
+            && _openMenu != null && item.IsSubMenuOpen && _menuLoads.TryGetValue(item, out var current)
+            && ReferenceEquals(current, cancellation);
+        try
+        {
+            var actions = await loader(cancellation.Token, snapshot => Dispatcher.UIThread.Post(() =>
+            {
+                if (IsCurrent()) UpdateSubmenu(item, snapshot, requestVersion);
+            }));
+            if (!IsCurrent()) return;
+            UpdateSubmenu(item, actions, requestVersion);
+        }
+        catch (OperationCanceledException)
+        {
+            if (IsCurrent()) UpdateSubmenu(item,
+                [new ContextMenuAction { Label = "搜索已停止", IsEnabled = false },
+                 new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ReloadParentSubmenu = true }], requestVersion);
+        }
+        catch (Exception ex)
+        {
+            if (!IsCurrent()) return;
+            UpdateSubmenu(item, [new ContextMenuAction { Label = "搜索失败：" + ex.Message, IsEnabled = false },
+                new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ReloadParentSubmenu = true }], requestVersion);
+        }
+        finally
+        {
+            if (_menuLoads.TryGetValue(item, out var current) && ReferenceEquals(current, cancellation))
+                _menuLoads.Remove(item);
+            cancellation.Dispose();
+        }
+    }
+
+    private void UpdateSubmenu(MenuItem parent, IReadOnlyList<ContextMenuAction> actions, int requestVersion)
+    {
+        var existing = parent.Items.OfType<MenuItem>()
+            .Where(item => item.Tag is ContextMenuAction { Tag: { Length: > 0 } })
+            .ToDictionary(item => ((ContextMenuAction)item.Tag!).Tag!, item => item, StringComparer.Ordinal);
+        var separators = new Queue<Separator>(parent.Items.OfType<Separator>());
+        var desired = new List<Control>(actions.Count);
+        foreach (var action in actions)
         {
             if (action.IsSeparator)
             {
-                menu.Items.Add(new Separator());
+                desired.Add(separators.Count > 0 ? separators.Dequeue() : new Separator());
                 continue;
             }
-
-            var item = new MenuItem { Header = action.Label, IsEnabled = action.IsEnabled };
-            if (action.IsCheckable)
+            if (action.Tag is { Length: > 0 } key && existing.TryGetValue(key, out var old)
+                && old.Tag is ContextMenuAction previous
+                && previous.IconSvg == action.IconSvg && ReferenceEquals(previous.IconImage, action.IconImage)
+                && previous.IconColor == action.IconColor && previous.ShortcutText == action.ShortcutText
+                && previous.IconBase64 == action.IconBase64
+                && ReferenceEquals(previous.LoadIconBase64Async, action.LoadIconBase64Async)
+                && previous.IsCheckable == action.IsCheckable
+                && previous.IsChecked == action.IsChecked && previous.IsIndeterminate == action.IsIndeterminate
+                && (previous.Execute is null) == (action.Execute is null)
+                && previous.ReloadParentSubmenu == action.ReloadParentSubmenu
+                && previous.SubItems == null && action.SubItems == null
+                && previous.LoadSubItemsAsync == null && action.LoadSubItemsAsync == null)
             {
-                item.ToggleType = MenuItemToggleType.CheckBox;
-                item.IsChecked = action.IsChecked;
-                if (action.IsIndeterminate)
-                    item.Header = action.Label + "（部分文件）";
+                old.Header = action.Label;
+                old.IsEnabled = action.IsEnabled;
+                ToolTip.SetTip(old, action.ToolTip);
+                old.Tag = action;
+                desired.Add(old);
             }
-            if (!string.IsNullOrEmpty(action.ShortcutText))
-                item.InputGesture = ParseShortcut(action.ShortcutText);
-            if (action.IconImage != null)
-                item.Icon = new Image { Source = action.IconImage, Width = 18, Height = 18 };
-            else if (!string.IsNullOrEmpty(action.IconSvg))
-            {
-                try
-                {
-                    var icon = new PathIcon { Data = Geometry.Parse(action.IconSvg), Width = 16, Height = 16 };
-                    if (action.IconColor != null) icon.Foreground = Brush.Parse(action.IconColor);
-                    item.Icon = icon;
-                }
-                catch { }
-            }
-            if (!string.IsNullOrWhiteSpace(action.IconBase64))
-                _ = LoadMenuIconAsync(item, action.IconBase64, 16, requestVersion);
-            else if (action.LoadIconBase64Async != null)
-                _ = LoadMenuIconAsync(item, action.LoadIconBase64Async, 16, requestVersion);
-            if (action.Execute != null)
-            {
-                var captured = action;
-                item.Click += async (_, _) => await ExecuteMenuActionAsync(captured);
-            }
-            if (action.SubItems is { Count: > 0 })
-            {
-                FillMenu(item, action.SubItems.ToList(), requestVersion);
-                ContextMenuPopupStyler.Attach(item);
-            }
-            menu.Items.Add(item);
+            else desired.Add(CreateMenuEntry(action, parent, requestVersion));
         }
+        for (var index = 0; index < desired.Count; index++)
+        {
+            if (index < parent.Items.Count && ReferenceEquals(parent.Items[index], desired[index])) continue;
+            var oldIndex = parent.Items.IndexOf(desired[index]);
+            if (oldIndex >= 0) parent.Items.RemoveAt(oldIndex);
+            parent.Items.Insert(index, desired[index]);
+        }
+        while (parent.Items.Count > desired.Count) parent.Items.RemoveAt(parent.Items.Count - 1);
+    }
+
+    private void CancelMenuLoads()
+    {
+        foreach (var cancellation in _menuLoads.Values) { cancellation.Cancel(); cancellation.Dispose(); }
+        _menuLoads.Clear();
     }
 
     private async System.Threading.Tasks.Task LoadMenuIconAsync(
@@ -1146,6 +1267,14 @@ public partial class FileListView : UserControl
             if (requestVersion != _menuRequestVersion || !ReferenceEquals(_openMenu, menu) || ViewModel == null)
                 return;
 
+            // Rebuilding the entire menu while a nested list is open would cancel its
+            // discovery and replace the item underneath the pointer or keyboard focus.
+            while (_asyncSubmenus.Any(item => item.IsSubMenuOpen))
+            {
+                await Task.Delay(150);
+                if (requestVersion != _menuRequestVersion || !ReferenceEquals(_openMenu, menu)) return;
+            }
+
             viewModel.ContextMenuActions = new ObservableCollection<ContextMenuAction>(completeActions);
             var completeRequestVersion = ++_menuRequestVersion;
             DisposeOwnedMenuBitmaps();
@@ -1195,6 +1324,8 @@ public partial class FileListView : UserControl
 
     private void CloseCurrentMenu()
     {
+        CancelMenuLoads();
+        _asyncSubmenus.Clear();
         var menu = _openMenu;
         _openMenu = null;
         if (menu != null)
@@ -1209,6 +1340,8 @@ public partial class FileListView : UserControl
     {
         if (sender is not ContextMenu menu || !ReferenceEquals(menu, _openMenu)) return;
         _menuRequestVersion++;
+        CancelMenuLoads();
+        _asyncSubmenus.Clear();
         _openMenu = null;
         menu.Closing -= OnContextMenuClosing;
         DisposeOwnedMenuBitmaps();
