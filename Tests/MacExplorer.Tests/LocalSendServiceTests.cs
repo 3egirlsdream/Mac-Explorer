@@ -338,6 +338,9 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, inbound.StatusCode);
         await registered.Task.WaitAsync(TimeSpan.FromSeconds(8));
         Assert.Equal(1, registrations);
+        for (var attempt = 0; attempt < 100 && _service.DiscoveryInFlightCount > 0; attempt++)
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        Assert.Equal(0, _service.DiscoveryInFlightCount);
 
         malformed = false;
         var devices = await _service.DiscoverAsync(TestContext.Current.CancellationToken);

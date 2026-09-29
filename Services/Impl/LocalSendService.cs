@@ -59,6 +59,10 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     {
         get { lock (_discoveryLock) return _discovery?.CoordinatorTask; }
     }
+    internal int DiscoveryInFlightCount
+    {
+        get { lock (_discoveryLock) return _discovery?.Candidates.Values.Count(item => item.InFlight) ?? 0; }
+    }
     public string? LastError => _lastError;
     internal (int Candidates, int UnknownProbes, int PeakTcp, int PeakHttp) DiscoveryStats
     {

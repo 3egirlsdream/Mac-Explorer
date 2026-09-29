@@ -56,9 +56,9 @@ public sealed partial class FileListViewModelCreateTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var chips = panel.FindControl<WrapPanel>("CustomTagsPanel")!;
-            for (var attempt = 0; attempt < 50 && chips.Children.Count == 0; attempt++)
+            for (var attempt = 0; attempt < 200 && !HasTagToRemove(); attempt++)
             {
-                await Task.Delay(20);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
                 Dispatcher.UIThread.RunJobs();
             }
             var remove = FindRemoveButton("待删除");
@@ -94,6 +94,9 @@ public sealed partial class FileListViewModelCreateTests
             Button FindRemoveButton(string tag) => chips.Children.OfType<Border>()
                 .Single(chip => chip.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == tag))
                 .GetVisualDescendants().OfType<Button>().Single();
+
+            bool HasTagToRemove() => chips.Children.OfType<Border>()
+                .Any(chip => chip.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "待删除"));
 
             string[] DisplayedCustomTags() => chips.Children.OfType<Border>()
                 .Select(chip => ((StackPanel)chip.Child!).Children.OfType<TextBlock>().First().Text!)
