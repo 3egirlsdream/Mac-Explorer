@@ -221,6 +221,8 @@ public sealed partial class FileListViewModelCreateTests
             var drop = new DragEventArgs(DragDrop.DropEvent, data, sidebar, point, KeyModifiers.None);
             sidebar.RaiseEvent(drop);
             await WaitForIssue11Async(() => File.Exists(target) && !File.Exists(source) && !vm.IsDirectoryLoading);
+            if (hoverFirst)
+                await WaitForIssue11Async(() => vm.Entries.Any(entry => entry.FullPath == target));
             Assert.Equal("原文 / sidebar file move", await File.ReadAllTextAsync(target));
             Assert.Equal(DragDropEffects.Move, drop.DragEffects);
             Assert.DoesNotContain(vm.Entries, entry => entry.FullPath == source);
