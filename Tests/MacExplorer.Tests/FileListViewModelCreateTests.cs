@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -138,21 +139,23 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
-    public void DragBeginningInBlankPartOfListRowStartsMarquee()
+    [AvaloniaTheory]
+    [InlineData(ViewMode.List, false)]
+    [InlineData(ViewMode.List, true)]
+    [InlineData(ViewMode.Tree, false)]
+    [InlineData(ViewMode.Tree, true)]
+    public void DragBeginningInBlankPartOfListRowStartsFileDrag(ViewMode mode, bool folder)
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
-        using var viewModel = CreateViewModel(fileService);
-        for (var index = 0; index < 10; index++)
+        using var viewModel = CreateViewModel(fileService,
+            sortFilter: new SortFilterViewModel { ViewMode = mode });
+        var entry = new FileSystemEntry
         {
-            viewModel.Entries.Add(new FileSystemEntry
-            {
-                FullPath = $"/tmp/FKFinderTests/list-gap-{index}.txt",
-                Name = $"list-gap-{index}.txt",
-                Extension = ".txt",
-                IconKey = "file-text"
-            });
-        }
+            FullPath = folder ? "/tmp/FKFinderTests/folder" : "/tmp/FKFinderTests/file.txt",
+            Name = folder ? "folder" : "file.txt",
+            IsDirectory = folder
+        };
+        viewModel.Entries.Add(entry);
 
         var view = new FileListView { DataContext = viewModel };
         var fastList = view.FindControl<FastFileList>("FastList")!;
@@ -163,16 +166,21 @@ public sealed partial class FileListViewModelCreateTests
         var rowOrigin = fastList.TranslatePoint(default, window)!.Value;
         var rowMidY = rowOrigin.Y + fastList.RowBounds(0).Center.Y;
         var start = new Point(rowOrigin.X + fastList.ListRowRight - 4, rowMidY);
-        var end = new Point(8, Math.Min(window.Bounds.Height - 8, rowMidY + 90));
+        var end = new Point(start.X - 30, rowMidY + 20);
 
         window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
+        var press = Assert.IsType<PointerPressedEventArgs>(DragField("_dragPointerEvent").GetValue(view));
+        Assert.Same(fastList, press.Pointer.Captured);
+        Assert.Same(entry, Assert.Single(viewModel.SelectedEntries));
+        var pending = new TaskCompletionSource<IReadOnlyList<IStorageItem>>();
+        DragField("_dragStorageItemsTask").SetValue(view, pending.Task);
         window.MouseMove(end, RawInputModifiers.LeftMouseButton);
         Dispatcher.UIThread.RunJobs();
 
-        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
-        Assert.True(viewModel.SelectedEntries.Count > 1,
-            $"Selected {viewModel.SelectedEntries.Count} rows from a blank-area marquee");
+        Assert.False(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
+        Assert.Same(press, DragField("_dragPointerEvent").GetValue(view));
         window.MouseUp(end, MouseButton.Left, RawInputModifiers.None);
+        pending.TrySetResult([]);
         window.Close();
     }
 
@@ -269,7 +277,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
-    public void ListMarqueeThroughRightHandWhitespaceSelectsRowsByVerticalBand()
+    public void RightHandWhitespaceDoesNotStartFileDrag()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
@@ -289,23 +297,24 @@ public sealed partial class FileListViewModelCreateTests
         Dispatcher.UIThread.RunJobs();
 
         var rowBounds = fastList.RowBounds(0).Translate((Vector)fastList.TranslatePoint(default, window)!.Value);
-        var x = window.Bounds.Width - 16;
+        var x = rowBounds.Right + 4;
         var firstY = rowBounds.Top + 1;
         var lastY = rowBounds.Bottom + 1;
 
+        Assert.Null(fastList.EntryAt(new Point(fastList.ListRowRight + 4, fastList.RowBounds(0).Center.Y)));
         window.MouseDown(new Point(x, firstY), MouseButton.Left, RawInputModifiers.LeftMouseButton);
-        window.MouseMove(new Point(x + 4, lastY), RawInputModifiers.LeftMouseButton);
+        Assert.NotNull(DragField("_marqueeStart").GetValue(view));
+        var end = new Point(rowBounds.Right - 20, lastY);
+        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
         Dispatcher.UIThread.RunJobs();
 
-        Assert.True(view.FindControl<Border>("SelectionMarquee")!.IsVisible);
-        Assert.Single(viewModel.SelectedEntries);
-        Assert.Same(viewModel.Entries[0], viewModel.SelectedEntries[0]);
-        window.MouseUp(new Point(x + 4, lastY), MouseButton.Left, RawInputModifiers.None);
+        Assert.Null(DragField("_dragPointerEvent").GetValue(view));
+        window.MouseUp(end, MouseButton.Left, RawInputModifiers.None);
         window.Close();
     }
 
     [AvaloniaFact]
-    public void RightClickingASelectedMarqueeEntryKeepsTheMultiSelection()
+    public void RightClickingSelectedRowWhitespaceKeepsTheMultiSelection()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var sortFilter = new SortFilterViewModel { ViewMode = ViewMode.List };
@@ -331,10 +340,8 @@ public sealed partial class FileListViewModelCreateTests
 
         var origin = fastList.TranslatePoint(default, window)!.Value;
         var blankX = origin.X + fastList.ListRowRight - 4;
-        var start = new Point(blankX, origin.Y + fastList.RowBounds(0).Top + 1);
-        var end = new Point(blankX, origin.Y + fastList.RowBounds(3).Bottom - 1);
-        window.MouseDown(start, MouseButton.Left, RawInputModifiers.LeftMouseButton);
-        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        foreach (var entry in viewModel.Entries)
+            viewModel.SelectEntry(entry, true);
         Dispatcher.UIThread.RunJobs();
 
         var selectedBeforeContextMenu = viewModel.SelectedEntries
@@ -342,7 +349,6 @@ public sealed partial class FileListViewModelCreateTests
             .ToArray();
         Assert.Equal(4, selectedBeforeContextMenu.Length);
 
-        window.MouseUp(end, MouseButton.Left);
         var targetPoint = new Point(blankX, origin.Y + fastList.RowBounds(1).Center.Y);
         window.MouseDown(targetPoint, MouseButton.Right, RawInputModifiers.RightMouseButton);
         Dispatcher.UIThread.RunJobs();
@@ -853,17 +859,17 @@ public sealed partial class FileListViewModelCreateTests
     [Fact]
     public void TwelvePaneLayoutsExposeTheExpectedOneToFourVisiblePanes()
     {
-        var layouts = Enum.GetValues<PaneLayout>();
-        Assert.Equal(12, layouts.Length);
-        Assert.Equal(1, MainWindowViewModel.GetPaneCount(PaneLayout.Single));
-        Assert.Equal(2, MainWindowViewModel.GetPaneCount(PaneLayout.TwoColumns));
-        Assert.Equal(2, MainWindowViewModel.GetPaneCount(PaneLayout.TwoRows));
-        Assert.All(layouts.Where(layout => layout.ToString().StartsWith("Three", StringComparison.Ordinal)
-                                           || layout is PaneLayout.MainLeftTwoRowsRight
-                                               or PaneLayout.MainRightTwoRowsLeft),
-            layout => Assert.Equal(3, MainWindowViewModel.GetPaneCount(layout)));
-        Assert.All(layouts.Where(layout => MainWindowViewModel.GetPaneCount(layout) == 4),
-            layout => Assert.Equal(4, MainWindowViewModel.GetPaneCount(layout)));
+        (PaneLayout Layout, int Count)[] expected =
+        [
+            (PaneLayout.Single, 1),
+            (PaneLayout.TwoColumns, 2), (PaneLayout.TwoRows, 2),
+            (PaneLayout.ThreeColumns, 3), (PaneLayout.ThreeRows, 3),
+            (PaneLayout.MainLeftTwoRowsRight, 3), (PaneLayout.MainRightTwoRowsLeft, 3),
+            (PaneLayout.FourGrid, 4), (PaneLayout.FourColumns, 4), (PaneLayout.FourRows, 4),
+            (PaneLayout.MainLeftThreeRowsRight, 4), (PaneLayout.MainRightThreeRowsLeft, 4)
+        ];
+        Assert.Equal(expected.Select(item => item.Layout), Enum.GetValues<PaneLayout>());
+        Assert.All(expected, item => Assert.Equal(item.Count, MainWindowViewModel.GetPaneCount(item.Layout)));
     }
 
     [Fact]

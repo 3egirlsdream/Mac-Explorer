@@ -4,7 +4,7 @@
         </Style>
         <Style Selector="controls|AppWindow.file-delivery /template/ Border#WindowFrame">
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="0.5"/>
             <Setter Property="BorderBrush" Value="{DynamicResource WindowBorderBrush}"/>
         </Style>
         <Style Selector="Button.delivery-tab">

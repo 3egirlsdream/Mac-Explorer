@@ -23,7 +23,7 @@ public sealed partial class FileListViewModelCreateTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public void FastListRowWhitespaceKeepsItsBackgroundUntilClickRelease(bool selected, bool dark)
+    public void FastListRowWhitespaceSelectsOnPressAndKeepsHover(bool selected, bool dark)
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/FastStyleTests"));
@@ -40,7 +40,7 @@ public sealed partial class FileListViewModelCreateTests
             window.Show();
             if (selected) vm.SelectEntry(vm.Entries[1]);
             Dispatcher.UIThread.RunJobs();
-            var point = new Point(fast.Bounds.Width - 30, 45);
+            var point = new Point(fast.ListRowRight - 30, 45);
             var whitespace = fast.TranslatePoint(point, window)!.Value;
             window.MouseMove(whitespace);
             Dispatcher.UIThread.RunJobs();
@@ -48,27 +48,12 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Equal(hover, BackgroundAt(point));
             window.MouseDown(whitespace, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(hover, BackgroundAt(point));
+            Assert.Same(vm.Entries[1], Assert.Single(vm.SelectedEntries));
+            Assert.Equal(fast.SelectedHover, BackgroundAt(point));
             window.MouseUp(whitespace, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
             Assert.Same(vm.Entries[1], Assert.Single(vm.SelectedEntries));
             Assert.Equal(fast.SelectedHover, BackgroundAt(point));
-
-            // Captured marquee moves are handled by the parent, but the hover
-            // must still follow the pointer and clear after leaving the rows.
-            var marqueeStart = fast.TranslatePoint(new Point(point.X, 75), window)!.Value;
-            window.MouseMove(marqueeStart);
-            window.MouseDown(marqueeStart, MouseButton.Left);
-            var nextPoint = new Point(point.X, 105);
-            var nextWhitespace = fast.TranslatePoint(nextPoint, window)!.Value;
-            window.MouseMove(nextWhitespace);
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(vm.Entries[3].IsSelected);
-            Assert.Equal(fast.SelectedHover, BackgroundAt(nextPoint));
-            window.MouseUp(nextWhitespace, MouseButton.Left);
-            window.MouseMove(fast.TranslatePoint(new Point(point.X, 450), window)!.Value);
-            Dispatcher.UIThread.RunJobs();
-            Assert.Equal(fast.Selected, BackgroundAt(nextPoint));
         }
         finally { window.Close(); }
 

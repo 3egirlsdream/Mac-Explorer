@@ -7,7 +7,7 @@ namespace MacExplorer.Tests;
 public sealed class CopilotAttachmentTests
 {
     [Fact]
-    public void DroppedFilesAndFoldersBecomeDistinctPathsWithoutMovingThem()
+    public void AttachmentPathsDeduplicateExistingFilesAndFoldersWithoutMovingThem()
     {
         var root = Path.Combine(Path.GetTempPath(), "fk-copilot-attachments-" + Guid.NewGuid().ToString("N"));
         var folder = Path.Combine(root, "资料");

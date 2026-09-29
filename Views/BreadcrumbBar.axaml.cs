@@ -19,12 +19,16 @@ public partial class BreadcrumbBar : UserControl
     private Button? _directoryButton;
     private IReadOnlyList<BreadcrumbSegment>? _directoryEntries;
     private FileListViewModel? _observedViewModel;
+    private BreadcrumbOverflowPanel? _overflowPanel;
+    private int _hiddenBreadcrumbCount;
 
     public BreadcrumbBar()
     {
         InitializeComponent();
         DirectoryDropdownList.AddHandler(KeyDownEvent, OnDirectoryContentKeyDown, RoutingStrategies.Tunnel);
         DirectoryDropdownSearch.AddHandler(KeyDownEvent, OnDirectoryContentKeyDown, RoutingStrategies.Tunnel);
+        HiddenBreadcrumbList.AddHandler(KeyDownEvent, OnHiddenBreadcrumbKeyDown, RoutingStrategies.Tunnel);
+        LayoutUpdated += OnLayoutUpdated;
         DataContextChanged += (_, _) =>
         {
             CloseTransientUi();
@@ -34,11 +38,12 @@ public partial class BreadcrumbBar : UserControl
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
 
-    public bool HasOpenPopup => DirectoryDropdownPopup.IsOpen || PathSuggestionsPopup.IsOpen;
+    public bool HasOpenPopup => DirectoryDropdownPopup.IsOpen || HiddenBreadcrumbPopup.IsOpen || PathSuggestionsPopup.IsOpen;
 
     public void FocusPathInput()
     {
         CloseDirectoryDropdown();
+        CloseHiddenBreadcrumbs();
         if (ViewModel?.IsHomePage == true)
         {
             ActivateInput(HomePathInput, selectAll: false);
@@ -54,8 +59,11 @@ public partial class BreadcrumbBar : UserControl
     public bool TryCloseTransientUi()
     {
         var hadDirectoryDropdown = DirectoryDropdownPopup.IsOpen;
+        var hadHiddenBreadcrumbs = HiddenBreadcrumbPopup.IsOpen;
         CloseDirectoryDropdown();
-        if (!hadDirectoryDropdown && !PathSuggestionsPopup.IsOpen && _activeInput == null && !PathInput.IsVisible)
+        CloseHiddenBreadcrumbs();
+        if (!hadDirectoryDropdown && !hadHiddenBreadcrumbs && !PathSuggestionsPopup.IsOpen
+            && _activeInput == null && !PathInput.IsVisible)
             return false;
 
         CloseSuggestions();
@@ -73,6 +81,7 @@ public partial class BreadcrumbBar : UserControl
         if (source is Visual visual && visual.GetSelfAndVisualAncestors().Any(ancestor =>
                 ReferenceEquals(ancestor, this)
                 || ReferenceEquals(ancestor, DirectoryDropdownPopup.Child)
+                || ReferenceEquals(ancestor, HiddenBreadcrumbPopup.Child)
                 || ReferenceEquals(ancestor, PathSuggestionsPopup.Child)))
             return;
 
@@ -257,6 +266,18 @@ public partial class BreadcrumbBar : UserControl
             _activeInput = null;
     }
 
+    private void OnLayoutUpdated(object? sender, EventArgs e)
+    {
+        _overflowPanel ??= BrowseModePanel.GetVisualDescendants().OfType<BreadcrumbOverflowPanel>().FirstOrDefault();
+        if (_overflowPanel == null || _hiddenBreadcrumbCount == _overflowPanel.HiddenCount)
+            return;
+
+        _hiddenBreadcrumbCount = _overflowPanel.HiddenCount;
+        OverflowButton.IsVisible = _hiddenBreadcrumbCount > 0 && BrowseModePanel.IsVisible;
+        if (_hiddenBreadcrumbCount == 0)
+            CloseHiddenBreadcrumbs();
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
@@ -283,7 +304,67 @@ public partial class BreadcrumbBar : UserControl
     {
         if (e.PropertyName is nameof(FileListViewModel.CurrentPath)
             or nameof(FileListViewModel.Breadcrumbs) or nameof(FileListViewModel.IsHomePage))
+        {
             CloseDirectoryDropdown();
+            CloseHiddenBreadcrumbs();
+        }
+    }
+
+    private void OnOverflowClicked(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (HiddenBreadcrumbPopup.IsOpen)
+        {
+            CloseHiddenBreadcrumbs();
+            return;
+        }
+
+        var breadcrumbs = ViewModel?.Breadcrumbs;
+        if (breadcrumbs == null || _hiddenBreadcrumbCount == 0)
+            return;
+
+        CloseDirectoryDropdown();
+        HiddenBreadcrumbList.ItemsSource = breadcrumbs.Take(_hiddenBreadcrumbCount).ToArray();
+        HiddenBreadcrumbList.SelectedIndex = -1;
+        HiddenBreadcrumbPopup.PlacementTarget = OverflowButton;
+        HiddenBreadcrumbPopup.OverlayInputPassThroughElement = BrowseModePanel;
+        HiddenBreadcrumbPopup.OverlayDismissEventPassThrough = true;
+        HiddenBreadcrumbPopup.IsOpen = true;
+        HiddenBreadcrumbList.Focus();
+    }
+
+    private async void OnHiddenBreadcrumbTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is not Visual source
+            || source.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault()?.DataContext
+                is not BreadcrumbSegment segment)
+            return;
+
+        e.Handled = true;
+        CloseHiddenBreadcrumbs();
+        await NavigateToDirectoryAsync(segment);
+    }
+
+    private async void OnHiddenBreadcrumbKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            CloseHiddenBreadcrumbs();
+            OverflowButton.Focus();
+        }
+        else if (e.Key == Key.Enter && HiddenBreadcrumbList.SelectedItem is BreadcrumbSegment segment)
+        {
+            e.Handled = true;
+            CloseHiddenBreadcrumbs();
+            await NavigateToDirectoryAsync(segment);
+        }
+    }
+
+    private void CloseHiddenBreadcrumbs()
+    {
+        HiddenBreadcrumbPopup.IsOpen = false;
+        HiddenBreadcrumbList.ItemsSource = null;
     }
 
     private async void OnDirectoryDropdownClicked(object? sender, RoutedEventArgs e)

@@ -8,9 +8,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
     <ApplicationId>com.macexplorer.app</ApplicationId>
-    <Version>1.0.47</Version>
+    <Version>1.0.48</Version>
     <Nullable>enable</Nullable>
-    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -69,23 +69,32 @@
 
   <!-- Create macOS .app bundle after build (macOS-only: Avalonia Desktop outputs a raw binary, not a bundle) -->
   <Target Name="BuildMacOSImageAnalysisHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="xcrun swiftc -O 'Platforms/MacOS/ImageAnalysisHelper.swift' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit -o '$(OutputPath)MacExplorer.ImageAnalysis'" />
+    <PropertyGroup>
+      <_SwiftTarget Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-target x86_64-apple-macosx15.0</_SwiftTarget>
+    </PropertyGroup>
+    <Exec Command="xcrun swiftc -O $(_SwiftTarget) 'Platforms/MacOS/ImageAnalysisHelper.swift' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit -o '$(OutputPath)MacExplorer.ImageAnalysis'" />
   </Target>
 
   <Target Name="BuildMacOSNativeDragHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="clang++ -fobjc-arc -dynamiclib 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+    <PropertyGroup>
+      <_ClangArch Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-arch x86_64</_ClangArch>
+    </PropertyGroup>
+    <Exec Command="clang++ -fobjc-arc -dynamiclib $(_ClangArch) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
   <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">
     <PropertyGroup>
-      <_ConversionPluginOutput>$(MSBuildProjectDirectory)/Plugins/FileConversion/bin/$(Configuration)/net10.0/osx-arm64/</_ConversionPluginOutput>
+      <_ConversionPluginOutput>$(MSBuildProjectDirectory)/Plugins/FileConversion/bin/$(Configuration)/net10.0/$(RuntimeIdentifier)/</_ConversionPluginOutput>
     </PropertyGroup>
     <MakeDir Directories="$(OutputPath)BundledPlugins" />
     <ZipDirectory SourceDirectory="$(_ConversionPluginOutput)" DestinationFile="$(OutputPath)BundledPlugins/FileConversion.mexplug" Overwrite="true" />
   </Target>
 
   <Target Name="BuildMacOSThumbnailHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="xcrun swiftc -O 'Platforms/MacOS/ThumbnailHelper.swift' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers -o '$(OutputPath)MacExplorer.Thumbnail'" />
+    <PropertyGroup>
+      <_SwiftTarget Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-target x86_64-apple-macosx15.0</_SwiftTarget>
+    </PropertyGroup>
+    <Exec Command="xcrun swiftc -O $(_SwiftTarget) 'Platforms/MacOS/ThumbnailHelper.swift' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers -o '$(OutputPath)MacExplorer.Thumbnail'" />
   </Target>
 
   <Target Name="CopyMacOSAppIconToOutput" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
@@ -139,6 +148,7 @@
       <!-- Copy macOS native libraries (Avalonia.Native, Skia, HarfBuzz, SQLite) -->
       <_NativeLibs Include="$(OutputPath)runtimes/osx/native/*.dylib" />
       <_NativeLibs Include="$(OutputPath)runtimes/osx-arm64/native/*.dylib" />
+      <_NativeLibs Include="$(OutputPath)runtimes/osx-x64/native/*.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.ImageAnalysis" />
       <_NativeHelpers Include="$(OutputPath)libMacExplorerNativeDrag.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.Thumbnail" />
@@ -166,7 +176,8 @@
   <Target Name="CreateMacOSReleaseDMG" AfterTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(Configuration)' == 'Release' and '$(SkipMacOSReleaseDMG)' != 'true'">
     <PropertyGroup>
       <_ReleaseAppBundle>$(OutputPath)Mac Explorer.app</_ReleaseAppBundle>
-      <_ReleaseDMG>$(OutputPath)MacExplorer-$(Version)-macos.dmg</_ReleaseDMG>
+      <_ReleaseArchSuffix Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-intel</_ReleaseArchSuffix>
+      <_ReleaseDMG>$(OutputPath)MacExplorer-$(Version)-macos$(_ReleaseArchSuffix).dmg</_ReleaseDMG>
       <_DMGStaging>$(OutputPath)dmg-staging</_DMGStaging>
     </PropertyGroup>
 

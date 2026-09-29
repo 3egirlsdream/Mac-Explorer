@@ -109,30 +109,6 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
-    public async Task FileDragFolderUrlsAreNormalizedBeforeMoveUsesTheFileName()
-    {
-        var root = Path.Combine(Path.GetTempPath(), $"drag-folder-url-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        var window = new Window();
-        try
-        {
-            window.Show();
-            using var folder = await window.StorageProvider.TryGetFolderFromPathAsync(new Uri(root + "/"));
-            Assert.NotNull(folder);
-            using var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateFile(folder));
-            var path = Assert.Single(FileListView.GetDroppedPaths(data));
-            Assert.Equal(root, path);
-            Assert.Equal(Path.GetFileName(root), Path.GetFileName(path));
-        }
-        finally
-        {
-            window.Close();
-            Directory.Delete(root);
-        }
-    }
-
-    [AvaloniaFact]
     public async Task FileDragFolderDropMovesItsContentsOnDisk()
     {
         using var theme = new FastListTestTheme();

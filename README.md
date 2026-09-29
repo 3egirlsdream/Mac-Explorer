@@ -28,7 +28,7 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 
 ## 最近更新
 
-当前源码功能介绍对应 **v1.0.47**；可下载版本和完整更新记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
+当前源码功能介绍对应 **v1.0.48**；可下载版本和完整更新记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
 
 - **应用内 Copilot**：通过已登记的应用能力协助查找和整理文件；修改文件及发送文件正文前显示计划并等待确认。模型地址、模型名和 API Key 由用户配置。
 - **文件速递**：从菜单栏打开独立面板，以页签浏览常用目录或收藏夹，预览文件并拖出复制。
@@ -64,9 +64,9 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 
 ## 安装
 
-推荐使用 **macOS 15 或更新版本、Apple Silicon Mac**。当前发布包为 `osx-arm64` 自包含版本，无需另外安装 .NET 运行时。
+打包流程为 **macOS 15 或更新版本**的 Apple Silicon 和 Intel Mac 分别生成自包含安装包，无需另外安装 .NET 运行时。
 
-1. 从 [最新发布](https://github.com/3egirlsdream/Mac-Explorer/releases/latest) 下载 `MacExplorer-<版本>-macos.dmg`。
+1. 从 [最新发布](https://github.com/3egirlsdream/Mac-Explorer/releases/latest) 下载 Apple Silicon 版 `MacExplorer-<版本>-macos.dmg`；发布页提供 Intel 版时，下载 `MacExplorer-<版本>-macos-intel.dmg`。
 2. 打开 DMG，将 **Mac Explorer** 拖入 **Applications** 文件夹。
 3. 从 Applications 启动应用。发布页也提供 ZIP 包。
 
@@ -92,7 +92,7 @@ Mac Explorer is a file manager built for macOS. Browse several folders side by s
 
 ## Recent Updates
 
-This source overview reflects **v1.0.47**. See [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
+This source overview reflects **v1.0.48**. See [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
 
 - **In-app Copilot**: find and organize files through registered app capabilities. File changes and disclosure of file contents require a plan and confirmation. You configure the model endpoint, model name and API key.
 - **File Delivery**: open a separate menu bar panel, browse frequent folders or favorites in tabs, preview files and drag out copies.
@@ -128,9 +128,9 @@ Upgrading migrates collection names and file associations to tags without reloca
 
 ## Installation
 
-An **Apple Silicon Mac running macOS 15 or later** is recommended. Current releases are self-contained `osx-arm64` builds and do not require a separate .NET runtime.
+The packaging workflow creates separate self-contained installers for Apple Silicon and Intel Macs running **macOS 15 or later**. Neither requires a separate .NET runtime.
 
-1. Download `MacExplorer-<version>-macos.dmg` from the [latest release](https://github.com/3egirlsdream/Mac-Explorer/releases/latest).
+1. Download `MacExplorer-<version>-macos.dmg` for Apple Silicon from the [latest release](https://github.com/3egirlsdream/Mac-Explorer/releases/latest). When the release includes an Intel build, download `MacExplorer-<version>-macos-intel.dmg` instead.
 2. Open the DMG and drag **Mac Explorer** into **Applications**.
 3. Launch the app from Applications. A ZIP package is also available on the release page.
 

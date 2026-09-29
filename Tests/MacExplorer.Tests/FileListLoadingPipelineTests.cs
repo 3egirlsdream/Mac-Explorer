@@ -238,6 +238,22 @@ public sealed class FileListLoadingPipelineTests
         }
     }
 
+    [Fact]
+    public void InsertBatchHasKnownDescendingTypeOrderAndStableNameTieBreaker()
+    {
+        var beta = MakeEntry(TestHome, "beta.txt");
+        var folder = MakeEntry(TestHome, "folder", isDirectory: true);
+        var alpha = MakeEntry(TestHome, "alpha.jpg", extension: ".jpg");
+        var gamma = MakeEntry(TestHome, "gamma.txt");
+        var sorter = ConfigureSort(SortField.Type, false, GroupField.Type);
+
+        var (entries, _) = RunStreamedPipeline(sorter, [[beta, folder], [alpha, gamma]]);
+
+        Assert.Equal(new[] { beta, gamma, alpha, folder }, entries);
+        Assert.Equal(new[] { "文档", "图像", "文件夹" }, sorter.Groups.Select(group => group.Name));
+        Assert.Equal(new[] { beta, gamma }, sorter.Groups[0].Entries);
+    }
+
     [Theory]
     [InlineData(SortField.Name, true, 1)]
     [InlineData(SortField.Name, false, 2)]

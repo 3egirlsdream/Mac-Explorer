@@ -1782,8 +1782,9 @@ public partial class FileListView : UserControl
         if (e.GetCurrentPoint(FileScroll).Properties.IsRightButtonPressed
             && EntryAtPointer(e) != null)
             return;
-        // Icon and name content starts an item gesture; surrounding gaps start a marquee.
-        if (FastListActive && IsWithinVisual(sourceVisual, FastList) && FastList.EntryAt(e.GetPosition(FastList), contentOnly: true) != null)
+        // List/tree rows start item gestures up to the last column; grid gaps still start a marquee.
+        if (FastListActive && IsWithinVisual(sourceVisual, FastList)
+            && FastList.EntryAt(e.GetPosition(FastList), contentOnly: FastList.IsGrid) != null)
             return;
 
         Focus();
@@ -1942,10 +1943,8 @@ public partial class FileListView : UserControl
             SelectionMarquee.IsVisible = false;
         }
 
-        // Finder's list view treats the row as the selectable unit: a drag may
-        // start in the blank part of the Name column and still select rows by
-        // their vertical centers. Icon view uses the center of a visible card,
-        // so grazing an adjacent card at an edge does not select it.
+        // List/tree marquee starts outside a row and selects rows by vertical
+        // centers. Icon view uses the center of a visible card.
         var fastOrigin = FastList.TranslatePoint(default, FileScroll) ?? default;
         var hits = FastList.EntriesInRectangle(rectangle.Translate(new Vector(-fastOrigin.X, -fastOrigin.Y))).ToHashSet();
         IEnumerable<FileSystemEntry> selection;

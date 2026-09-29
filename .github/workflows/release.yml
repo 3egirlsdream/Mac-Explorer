@@ -145,7 +145,7 @@ jobs:
     needs: detect-version
     if: needs.detect-version.outputs.mode == 'publish'
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -171,7 +171,12 @@ jobs:
 
       - name: Publish application
         shell: bash
-        run: dotnet publish "$PROJECT_FILE" -c Release --no-restore
+        run: |
+          set -euo pipefail
+          dotnet publish "$PROJECT_FILE" -c Release -r osx-arm64 --no-restore
+          dotnet restore "$PROJECT_FILE" -r osx-x64
+          dotnet restore Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj -r osx-x64
+          dotnet publish "$PROJECT_FILE" -c Release -r osx-x64 --no-restore
 
       - name: Package and verify release assets
         id: package
@@ -181,42 +186,71 @@ jobs:
         run: |
           set -euo pipefail
 
-          build_root="bin/Release/net10.0/osx-arm64"
-          app_path="${build_root}/Mac Explorer.app"
-          dmg_path="${build_root}/MacExplorer-${VERSION}-macos.dmg"
           dmg_name="MacExplorer-${VERSION}-macos.dmg"
           zip_name="MacExplorer-${VERSION}-macos.zip"
+          intel_dmg_name="MacExplorer-${VERSION}-macos-intel.dmg"
+          intel_zip_name="MacExplorer-${VERSION}-macos-intel.zip"
           dist_dir="${RUNNER_TEMP}/mac-explorer-release"
           verify_dir="${RUNNER_TEMP}/mac-explorer-zip-verify"
 
-          test -d "$app_path"
-          test -f "$dmg_path"
-
-          plist_path="${app_path}/Contents/Info.plist"
-          executable_path="${app_path}/Contents/MacOS/MacExplorer"
-          test -f "$plist_path"
-          test -x "$executable_path"
-
-          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist_path")
-          bundle_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist_path")
-          test "$bundle_id" = "com.macexplorer.app"
-          test "$bundle_version" = "$VERSION"
-          codesign --verify --deep --strict "$app_path"
-
           rm -rf "$dist_dir" "$verify_dir"
           mkdir -p "$dist_dir" "$verify_dir"
-          cp "$dmg_path" "${dist_dir}/${dmg_name}"
-          ditto -c -k --sequesterRsrc --keepParent "$app_path" "${dist_dir}/${zip_name}"
 
-          ditto -x -k "${dist_dir}/${zip_name}" "$verify_dir"
-          zipped_app="${verify_dir}/Mac Explorer.app"
-          test -d "$zipped_app"
-          test -x "${zipped_app}/Contents/MacOS/MacExplorer"
-          codesign --verify --deep --strict "$zipped_app"
+          for rid in osx-arm64 osx-x64; do
+            if [[ "$rid" == "osx-arm64" ]]; then
+              arch="arm64"
+              package_dmg_name="$dmg_name"
+              package_zip_name="$zip_name"
+            else
+              arch="x86_64"
+              package_dmg_name="$intel_dmg_name"
+              package_zip_name="$intel_zip_name"
+            fi
+
+            build_root="bin/Release/net10.0/${rid}"
+            app_path="${build_root}/Mac Explorer.app"
+            dmg_path="${build_root}/${package_dmg_name}"
+            test -d "$app_path"
+            test -f "$dmg_path"
+
+            plist_path="${app_path}/Contents/Info.plist"
+            executable_path="${app_path}/Contents/MacOS/MacExplorer"
+            test -f "$plist_path"
+            test -x "$executable_path"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist_path")" = "com.macexplorer.app"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist_path")" = "$VERSION"
+            codesign --verify --deep --strict "$app_path"
+
+            for binary in MacExplorer MacExplorer.ImageAnalysis MacExplorer.Thumbnail libMacExplorerNativeDrag.dylib; do
+              lipo "${app_path}/Contents/MacOS/${binary}" -verify_arch "$arch"
+            done
+            while IFS= read -r -d '' binary; do
+              lipo "$binary" -verify_arch "$arch"
+            done < <(find "${app_path}/Contents/MacOS" -maxdepth 1 -name '*.dylib' -print0)
+
+            cp "$dmg_path" "${dist_dir}/${package_dmg_name}"
+            ditto -c -k --sequesterRsrc --keepParent "$app_path" "${dist_dir}/${package_zip_name}"
+
+            package_verify_dir="${verify_dir}/${rid}"
+            mkdir -p "$package_verify_dir"
+            ditto -x -k "${dist_dir}/${package_zip_name}" "$package_verify_dir"
+            zipped_app="${package_verify_dir}/Mac Explorer.app"
+            test -x "${zipped_app}/Contents/MacOS/MacExplorer"
+            codesign --verify --deep --strict "$zipped_app"
+
+            plugin_dir="${package_verify_dir}/FileConversion"
+            mkdir -p "$plugin_dir"
+            unzip -q "${zipped_app}/Contents/MacOS/BundledPlugins/FileConversion.mexplug" -d "$plugin_dir"
+            for binary in MacExplorer.FileConversion libHarfBuzzSharp.dylib libSkiaSharp.dylib; do
+              lipo "${plugin_dir}/${binary}" -verify_arch "$arch"
+            done
+          done
 
           echo "dist_dir=$dist_dir" >> "$GITHUB_OUTPUT"
           echo "dmg_name=$dmg_name" >> "$GITHUB_OUTPUT"
           echo "zip_name=$zip_name" >> "$GITHUB_OUTPUT"
+          echo "intel_dmg_name=$intel_dmg_name" >> "$GITHUB_OUTPUT"
+          echo "intel_zip_name=$intel_zip_name" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         shell: bash
@@ -226,12 +260,16 @@ jobs:
           DIST_DIR: ${{ steps.package.outputs.dist_dir }}
           DMG_NAME: ${{ steps.package.outputs.dmg_name }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          INTEL_DMG_NAME: ${{ steps.package.outputs.intel_dmg_name }}
+          INTEL_ZIP_NAME: ${{ steps.package.outputs.intel_zip_name }}
         run: |
           set -euo pipefail
 
           gh release create "$TAG" \
             "${DIST_DIR}/${DMG_NAME}" \
             "${DIST_DIR}/${ZIP_NAME}" \
+            "${DIST_DIR}/${INTEL_DMG_NAME}" \
+            "${DIST_DIR}/${INTEL_ZIP_NAME}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Mac Explorer ${TAG}" \
@@ -241,6 +279,8 @@ jobs:
           release_json=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets)
           jq -e --arg name "$DMG_NAME" '.assets | any(.name == $name)' <<< "$release_json"
           jq -e --arg name "$ZIP_NAME" '.assets | any(.name == $name)' <<< "$release_json"
+          jq -e --arg name "$INTEL_DMG_NAME" '.assets | any(.name == $name)' <<< "$release_json"
+          jq -e --arg name "$INTEL_ZIP_NAME" '.assets | any(.name == $name)' <<< "$release_json"
 
   sync-backend:
     name: Sync release to update backend

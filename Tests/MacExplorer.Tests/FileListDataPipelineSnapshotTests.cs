@@ -9,6 +9,29 @@ namespace MacExplorer.Tests;
 
 public class FileListDataPipelineSnapshotTests
 {
+    [Fact]
+    public async Task FinalSnapshotHasKnownNameOrderAndTypeGroups()
+    {
+        var entries = new[]
+        {
+            new FileSystemEntry { FullPath = "/root/beta.txt", Name = "beta.txt", Extension = ".txt" },
+            new FileSystemEntry { FullPath = "/root/folder", Name = "folder", IsDirectory = true },
+            new FileSystemEntry { FullPath = "/root/alpha.jpg", Name = "alpha.jpg", Extension = ".jpg" },
+            new FileSystemEntry { FullPath = "/root/gamma.txt", Name = "gamma.txt", Extension = ".txt" }
+        };
+        FileListSnapshot? final = null;
+        await foreach (var snapshot in new FileListDataPipeline().LoadAsync(
+                           Batches(entries, 2), Query(SortField.Name, true, GroupField.Type)))
+            final = snapshot;
+
+        Assert.NotNull(final);
+        Assert.Equal(new[] { "/root/alpha.jpg", "/root/beta.txt", "/root/gamma.txt", "/root/folder" },
+            final!.Entries.Select(entry => entry.FullPath));
+        Assert.Equal(new[] { "图像", "文档", "文件夹" }, final.Groups.Select(group => group.Name));
+        Assert.Equal(new[] { "/root/beta.txt", "/root/gamma.txt" },
+            final.Groups[1].Entries.Select(entry => entry.FullPath));
+    }
+
     [Theory]
     [InlineData(SortField.Name, true)]
     [InlineData(SortField.Name, false)]

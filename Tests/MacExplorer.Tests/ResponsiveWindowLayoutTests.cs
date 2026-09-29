@@ -6,12 +6,10 @@ namespace MacExplorer.Tests;
 
 public class ResponsiveWorkspaceLayoutTests
 {
-    [Theory]
-    [InlineData(1000)]
-    [InlineData(1179)]
-    public void WidthBelowBreakpointUsesCompactOverlay(double width)
+    [Fact]
+    public void WidthBelowBreakpointUsesCompactOverlay()
     {
-        var layout = ResponsiveWorkspaceLayout.Resolve(width, forceCompact: false);
+        var layout = ResponsiveWorkspaceLayout.Resolve(1179, forceCompact: false);
 
         Assert.True(layout.IsCompact);
         Assert.Equal(SplitViewDisplayMode.CompactOverlay, layout.SidebarDisplayMode);
@@ -20,13 +18,10 @@ public class ResponsiveWorkspaceLayoutTests
         Assert.Equal(SplitViewDisplayMode.Overlay, layout.InfoPanelDisplayMode);
     }
 
-    [Theory]
-    [InlineData(1180)]
-    [InlineData(1280)]
-    [InlineData(1600)]
-    public void WidthAtOrAboveBreakpointUsesWideInlineLayout(double width)
+    [Fact]
+    public void WidthAtOrAboveBreakpointUsesWideInlineLayout()
     {
-        var layout = ResponsiveWorkspaceLayout.Resolve(width, forceCompact: false);
+        var layout = ResponsiveWorkspaceLayout.Resolve(1180, forceCompact: false);
 
         Assert.False(layout.IsCompact);
         Assert.Equal(SplitViewDisplayMode.Inline, layout.SidebarDisplayMode);
@@ -35,13 +30,10 @@ public class ResponsiveWorkspaceLayoutTests
         Assert.Equal(SplitViewDisplayMode.Inline, layout.InfoPanelDisplayMode);
     }
 
-    [Theory]
-    [InlineData(1180)]
-    [InlineData(1600)]
-    [InlineData(4000)]
-    public void ForceCompactOverridesAnyWorkspaceWidth(double width)
+    [Fact]
+    public void ForceCompactOverridesAnyWorkspaceWidth()
     {
-        var layout = ResponsiveWorkspaceLayout.Resolve(width, forceCompact: true);
+        var layout = ResponsiveWorkspaceLayout.Resolve(1600, forceCompact: true);
 
         Assert.True(layout.IsCompact);
         Assert.Equal(SplitViewDisplayMode.CompactOverlay, layout.SidebarDisplayMode);

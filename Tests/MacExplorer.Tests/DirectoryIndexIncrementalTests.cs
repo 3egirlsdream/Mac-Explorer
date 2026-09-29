@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -193,17 +192,18 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
             using var connection = _factory.GetConnection();
             using var transaction = connection.BeginTransaction();
             ready.SetResult();
-            release.Wait(TimeSpan.FromSeconds(3));
+            release.Wait(TimeSpan.FromSeconds(10));
             transaction.Commit();
         });
         await ready.Task.WaitAsync(Ct);
         Task record;
-        var started = Stopwatch.GetTimestamp();
         try
         {
             record = service.RecordVisitAsync("/home/projects");
-            Assert.True(Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(1));
+            Assert.False(blocker.IsCompleted);
+            Assert.False(release.IsSet);
             await Dispatcher.UIThread.InvokeAsync(() => Assert.True(Dispatcher.UIThread.CheckAccess()));
+            Assert.False(blocker.IsCompleted);
         }
         finally { release.Set(); }
         await blocker;

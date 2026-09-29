@@ -3,6 +3,7 @@
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
              xmlns:models="using:MacExplorer.Models"
+             xmlns:local="using:MacExplorer.Views"
              x:Class="MacExplorer.Views.BreadcrumbBar"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
@@ -43,6 +44,9 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}"/>
         </Style>
+        <Style Selector="Button.breadcrumb-segment-dropdown">
+            <Setter Property="IsVisible" Value="{Binding HasDropdown}"/>
+        </Style>
         <Style Selector="Button.breadcrumb-dropdown:pointerover, Button.breadcrumb-dropdown.open">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -58,6 +62,9 @@
             <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
         </Style>
         <Style Selector="ItemsControl.breadcrumb-segments > ContentPresenter:nth-last-child(1) PathIcon.breadcrumb-separator">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ItemsControl.breadcrumb-segments > ContentPresenter:nth-last-child(1) Button.breadcrumb-dropdown">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
         <Style Selector="ListBox.breadcrumb-directories ListBoxItem">
@@ -83,16 +90,14 @@
                      TextChanged="OnInputTextChanged"
                      LostFocus="OnInputLostFocus"/>
 
-            <!-- Browse Mode: BreadcrumbBar -->
-            <ScrollViewer Grid.Column="0"
-                          x:Name="BrowseModePanel"
-                          IsVisible="{Binding IsHomePage, Converter={StaticResource BoolNotConverter}}"
-                          HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollBarVisibility="Disabled">
-                <ItemsControl Classes="breadcrumb-segments" ItemsSource="{Binding Breadcrumbs}">
+            <!-- Keep a click target at the right edge even when the path is long. -->
+            <Grid Grid.Column="0" x:Name="BrowseModePanel" ColumnDefinitions="*,24"
+                  IsVisible="{Binding IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                <ItemsControl Grid.Column="0" Classes="breadcrumb-segments" ItemsSource="{Binding Breadcrumbs}"
+                              ClipToBounds="True">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="0"/>
+                            <local:BreadcrumbOverflowPanel ClipToBounds="True"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
@@ -105,10 +110,10 @@
                                         ToolTip.Tip="{Binding FullPath}">
                                     <TextBlock Classes="breadcrumb-segment-label" Text="{Binding DisplayName}"
                                                FontSize="{DynamicResource FontSizeLabel}"
+                                               TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center"/>
                                 </Button>
-                                <Button Classes="breadcrumb-button breadcrumb-dropdown"
-                                        IsVisible="{Binding HasDropdown}"
+                                <Button Classes="breadcrumb-button breadcrumb-dropdown breadcrumb-segment-dropdown"
                                         Click="OnDirectoryDropdownClicked"
                                         KeyDown="OnDropdownKeyDown"
                                         AutomationProperties.Name="{Binding DisplayName, StringFormat='显示 {0} 的子目录'}"
@@ -125,7 +130,42 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </ScrollViewer>
+                <Button Grid.Column="0" x:Name="OverflowButton"
+                        Classes="breadcrumb-button breadcrumb-dropdown"
+                        Width="28" IsVisible="False" HorizontalAlignment="Left"
+                        Click="OnOverflowClicked"
+                        ToolTip.Tip="显示隐藏的上级目录"
+                        AutomationProperties.Name="显示隐藏的上级目录">
+                    <PathIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="14" Height="14"/>
+                </Button>
+                <Border Grid.Column="1" Background="Transparent"
+                        ToolTip.Tip="点击编辑路径"/>
+            </Grid>
+
+            <Popup x:Name="HiddenBreadcrumbPopup"
+                   Placement="BottomEdgeAlignedLeft"
+                   IsLightDismissEnabled="True"
+                   ShouldUseOverlayLayer="True"
+                   WindowManagerAddShadowHint="False">
+                <Border Classes="toolbar-popup" Width="220" MaxHeight="328">
+                    <ListBox x:Name="HiddenBreadcrumbList"
+                             Classes="breadcrumb-directories toolbar-popup-items"
+                             Padding="0" Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             Tapped="OnHiddenBreadcrumbTapped"
+                             AutomationProperties.Name="隐藏的上级目录">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:BreadcrumbSegment">
+                                <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding FullPath}"
+                                           FontSize="{DynamicResource FontSizeBody}"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </Popup>
 
             <Popup x:Name="DirectoryDropdownPopup"
                    Placement="BottomEdgeAlignedLeft"

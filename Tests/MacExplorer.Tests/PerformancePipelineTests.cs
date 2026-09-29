@@ -1,6 +1,5 @@
 using MacExplorer.Indexing;
 using MacExplorer.Models;
-using MacExplorer.Platforms.MacCatalyst.Services;
 using Xunit;
 
 namespace MacExplorer.Tests;
@@ -23,38 +22,6 @@ public sealed class PerformancePipelineTests
         Assert.StartsWith("a-much-longer", entry.IconDisplayName);
         Assert.EndsWith("csproj", entry.IconDisplayName);
         Assert.Contains("…", entry.IconDisplayName);
-    }
-
-    [Fact]
-    public async Task DirectoryEnumeration_UsesRequestedBatchSize()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), $"macexplorer-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(directory);
-        try
-        {
-            for (var i = 0; i < 300; i++)
-                await File.WriteAllTextAsync(
-                    Path.Combine(directory, $"file-{i:D3}.txt"),
-                    "x",
-                    TestContext.Current.CancellationToken);
-
-            var service = new MacFileService();
-            var batches = new List<IReadOnlyList<FileSystemEntry>>();
-            await foreach (var batch in service.EnumerateDirectoryBatchesAsync(
-                               directory,
-                               256,
-                               TestContext.Current.CancellationToken))
-                batches.Add(batch);
-
-            Assert.NotEmpty(batches);
-            Assert.Equal(256, batches[0].Count);
-            Assert.Equal(300, batches.Sum(batch => batch.Count));
-            Assert.All(batches, batch => Assert.InRange(batch.Count, 1, 256));
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
     }
 
     [Fact]

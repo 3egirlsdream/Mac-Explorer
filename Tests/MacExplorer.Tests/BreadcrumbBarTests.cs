@@ -55,8 +55,10 @@ public sealed partial class FileListViewModelCreateTests
     {
         using var host = new BreadcrumbTestHost();
         var arrow = host.Arrow(host.Root);
+        Assert.True(arrow.IsVisible);
         host.Window.MouseMove(host.Center(arrow));
         Dispatcher.UIThread.RunJobs();
+        Assert.True(arrow.IsVisible);
 
         var presenter = arrow.GetVisualDescendants().OfType<ContentPresenter>().First();
         Assert.True(Application.Current!.TryGetResource("InteractionHoverBrush", host.Window.ActualThemeVariant, out var hover));
@@ -82,10 +84,12 @@ public sealed partial class FileListViewModelCreateTests
 
         host.Click(arrow);
         await host.WaitForDirectories(1);
+        Assert.True(arrow.IsVisible);
         Assert.Equal(default, surface.BoxShadow);
         host.Click(arrow);
 
         Assert.True(arrow.IsFocused);
+        Assert.True(arrow.IsVisible);
         Assert.False(host.Popup.IsOpen);
         Assert.False(input.IsVisible);
         Assert.Equal(default, surface.BoxShadow);
@@ -125,12 +129,114 @@ public sealed partial class FileListViewModelCreateTests
 
         host.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
         Assert.False(input.IsVisible);
-        Assert.True(host.Bar.FindControl<ScrollViewer>("BrowseModePanel")!.IsVisible);
+        Assert.True(host.Bar.FindControl<Grid>("BrowseModePanel")!.IsVisible);
 
         var label = host.Bar.GetVisualDescendants().OfType<Button>()
             .Last(button => button.Classes.Contains("breadcrumb-label"));
         host.Click(label);
         Assert.False(input.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void BreadcrumbOverflowKeepsLastSegmentAndOpensHiddenAncestors()
+    {
+        using var host = new BreadcrumbTestHost();
+        host.Bar.Width = 190;
+        var breadcrumbs = host.ViewModel.Breadcrumbs;
+        breadcrumbs.Clear();
+        foreach (var name in new[] { "Alpha", "Bravo", "Charlie", "Delta", "CurrentFile.txt" })
+            breadcrumbs.Add(new BreadcrumbSegment
+            {
+                Name = name, DisplayName = name, FullPath = host.Root + "/" + name,
+                HasDropdown = false
+            });
+        Dispatcher.UIThread.RunJobs();
+
+        var panel = host.Bar.GetVisualDescendants().OfType<BreadcrumbOverflowPanel>().Single();
+        var overflow = host.Bar.FindControl<Button>("OverflowButton")!;
+        Assert.True(panel.HiddenCount > 0);
+        Assert.True(overflow.IsVisible);
+        var last = host.Bar.GetVisualDescendants().OfType<Button>()
+            .Single(button => button.Classes.Contains("breadcrumb-label")
+                && button.DataContext is BreadcrumbSegment { Name: "CurrentFile.txt" });
+        Assert.True(last.IsEffectivelyVisible);
+        Assert.True(last.TranslatePoint(default, panel)!.Value.X >= BreadcrumbOverflowPanel.OverflowWidth);
+
+        host.Click(overflow);
+        var popup = host.Bar.FindControl<Popup>("HiddenBreadcrumbPopup")!;
+        var list = host.Bar.FindControl<ListBox>("HiddenBreadcrumbList")!;
+        Assert.True(popup.IsOpen);
+        Assert.Equal(breadcrumbs.Take(panel.HiddenCount).Select(segment => segment.FullPath),
+            list.Items.OfType<BreadcrumbSegment>().Select(segment => segment.FullPath));
+
+        host.Click(Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0)));
+        Assert.Equal(host.Root + "/Alpha", host.ViewModel.CurrentPath);
+        Assert.False(popup.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public void BreadcrumbOverflowStillLeavesRightEdgeForPathEditing()
+    {
+        using var host = new BreadcrumbTestHost();
+        host.Bar.Width = 130;
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(host.Bar.FindControl<Button>("OverflowButton")!.IsVisible);
+
+        var surface = Assert.IsType<Border>(host.Bar.Content);
+        var point = surface.TranslatePoint(new Point(surface.Bounds.Width - 10,
+            surface.Bounds.Height / 2), host.Window)!.Value;
+        host.Window.MouseDown(point, MouseButton.Left);
+        host.Window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(host.Bar.FindControl<TextBox>("PathInput")!.IsFocused);
+    }
+
+    [AvaloniaFact]
+    public void LastBreadcrumbHasNoDropdownHitTarget()
+    {
+        using var host = new BreadcrumbTestHost();
+        var last = host.Bar.GetVisualDescendants().OfType<Button>()
+            .Single(button => button.Classes.Contains("breadcrumb-dropdown")
+                && button.DataContext is BreadcrumbSegment segment && segment.FullPath == host.Root);
+        Assert.False(last.IsVisible);
+        Assert.False(last.IsEffectivelyVisible);
+
+        var label = host.Bar.GetVisualDescendants().OfType<Button>()
+            .Single(button => button.Classes.Contains("breadcrumb-label")
+                && button.DataContext is BreadcrumbSegment segment && segment.FullPath == host.Root);
+        var point = label.TranslatePoint(new Point(label.Bounds.Width + 8, label.Bounds.Height / 2), host.Window)!.Value;
+        host.Window.MouseDown(point, MouseButton.Left);
+        host.Window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(host.Bar.FindControl<TextBox>("PathInput")!.IsFocused);
+        Assert.False(host.Bar.FindControl<Popup>("DirectoryDropdownPopup")!.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public void BreadcrumbOverflowTrimsLongLastNameAndRestoresAncestorsOnResize()
+    {
+        using var host = new BreadcrumbTestHost();
+        host.Bar.Width = 145;
+        var lastName = "A very long current file name that should remain visible.txt";
+        host.ViewModel.Breadcrumbs.Add(new BreadcrumbSegment
+        {
+            Name = lastName, DisplayName = lastName, FullPath = host.Root + "/" + lastName
+        });
+        Dispatcher.UIThread.RunJobs();
+
+        var panel = host.Bar.GetVisualDescendants().OfType<BreadcrumbOverflowPanel>().Single();
+        var lastLabel = host.Bar.GetVisualDescendants().OfType<TextBlock>()
+            .Single(label => label.Classes.Contains("breadcrumb-segment-label") && label.Text == lastName);
+        Assert.True(panel.HiddenCount > 0);
+        Assert.True(lastLabel.Bounds.Width <= panel.Bounds.Width - BreadcrumbOverflowPanel.OverflowWidth,
+            $"label={lastLabel.Bounds.Width}, max={lastLabel.MaxWidth}, panel={panel.Bounds.Width}");
+
+        host.Window.Width = 1400;
+        host.Bar.Width = 1200;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0, panel.HiddenCount);
+        Assert.False(host.Bar.FindControl<Button>("OverflowButton")!.IsVisible);
+        Assert.True(double.IsPositiveInfinity(lastLabel.MaxWidth));
     }
 
     [AvaloniaTheory]
@@ -467,9 +573,22 @@ public sealed partial class FileListViewModelCreateTests
             IconKey = directory ? "folder" : "file-generic"
         });
 
-        public Button Arrow(string path) => Bar.GetVisualDescendants().OfType<Button>()
-            .Single(button => button.Classes.Contains("breadcrumb-dropdown")
-                && button.DataContext is BreadcrumbSegment segment && segment.FullPath == path);
+        public Button Arrow(string path)
+        {
+            // Exercise the dropdown on an ancestor; the final segment has no arrow or hit target.
+            if (path == Root && ViewModel.Breadcrumbs.LastOrDefault()?.FullPath == Root)
+            {
+                ViewModel.Breadcrumbs.Add(new BreadcrumbSegment
+                {
+                    Name = "Current", DisplayName = "Current", FullPath = Root + "/Current"
+                });
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            return Bar.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Classes.Contains("breadcrumb-dropdown")
+                    && button.DataContext is BreadcrumbSegment segment && segment.FullPath == path);
+        }
 
         public Point Center(Control control) => control.TranslatePoint(
             new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), Window)!.Value;

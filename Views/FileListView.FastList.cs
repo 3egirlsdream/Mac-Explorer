@@ -35,7 +35,7 @@ public partial class FileListView
                 e.Handled = true;
                 return;
             }
-            if (e.Handled || FastList.EntryAt(e.GetPosition(FastList), contentOnly: true) is not { } entry) return;
+            if (e.Handled || FastList.EntryAt(e.GetPosition(FastList), contentOnly: FastList.IsGrid) is not { } entry) return;
             _fastFocusedPath = entry.FullPath;
             if (e.ClickCount == 2 && e.GetCurrentPoint(FastList).Properties.IsLeftButtonPressed)
             {

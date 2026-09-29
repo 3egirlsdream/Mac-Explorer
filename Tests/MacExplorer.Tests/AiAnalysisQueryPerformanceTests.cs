@@ -127,6 +127,10 @@ public sealed class AiAnalysisQueryPerformanceTests : IDisposable
     public async Task MismatchedInputs_AreRejectedBeforeDatabaseWork()
     {
         using var service = new AiTagService(_factory);
+        using var connection = _factory.GetConnection();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "DROP TABLE ai_analysis_status";
+        cmd.ExecuteNonQuery();
         await Assert.ThrowsAsync<ArgumentException>(() => service.GetUnanalyzedFilesAsync(["/photo.jpg"], []));
     }
 

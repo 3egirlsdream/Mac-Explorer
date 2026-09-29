@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-    <EnableDynamicLoading>true</EnableDynamicLoading><RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <EnableDynamicLoading>true</EnableDynamicLoading><RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../SDK/MacExplorer.PluginSdk.csproj" />
@@ -15,7 +15,10 @@
     <InternalsVisibleTo Include="MacExplorer.Tests" />
   </ItemGroup>
   <Target Name="BuildConversionHelper" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="xcrun swiftc -O '../../Platforms/MacOS/FileConversionHelper.swift' -framework AppKit -framework WebKit -framework ImageIO -framework UniformTypeIdentifiers -o '$(TargetDir)MacExplorer.FileConversion'" />
+    <PropertyGroup>
+      <_SwiftTarget Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-target x86_64-apple-macosx15.0</_SwiftTarget>
+    </PropertyGroup>
+    <Exec Command="xcrun swiftc -O $(_SwiftTarget) '../../Platforms/MacOS/FileConversionHelper.swift' -framework AppKit -framework WebKit -framework ImageIO -framework UniformTypeIdentifiers -o '$(TargetDir)MacExplorer.FileConversion'" />
     <Exec Command="codesign --force --sign - '$(TargetDir)MacExplorer.FileConversion'" />
   </Target>
 </Project>

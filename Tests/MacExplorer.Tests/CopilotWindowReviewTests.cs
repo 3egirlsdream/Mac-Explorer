@@ -3,6 +3,7 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -19,6 +20,58 @@ namespace MacExplorer.Tests;
 
 public sealed partial class FileListViewModelCreateTests
 {
+    [AvaloniaFact]
+    public async Task CopilotDropShowsDistinctAttachmentsAndSendMovesTagsToTranscript()
+    {
+        var root = Directory.CreateTempSubdirectory("copilot-drop-").FullName;
+        try
+        {
+            var folder = Directory.CreateDirectory(Path.Combine(root, "资料")).FullName;
+            var file = Path.Combine(root, "清单.txt");
+            await File.WriteAllTextAsync(file, "original", TestContext.Current.CancellationToken);
+            var store = new CopilotStore(Path.Combine(root, "copilot.db"));
+            using var theme = new FastListTestTheme();
+            await using var fixture = await TabCacheFixture.CreateAsync(1,
+                services => services.AddSingleton(store));
+            var engine = new CopilotEngine(null!, new CopilotSettings(new StartupSettings()), null!, store, null!, () => null);
+            typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(fixture.Window, engine);
+            fixture.Window.FindControl<Border>("CopilotPanel")!.IsVisible = true;
+            var zone = fixture.Window.FindControl<Border>("CopilotAttachmentDropZone")!;
+            using var data = new DataTransfer();
+            using var storageFolder = await fixture.Window.StorageProvider.TryGetFolderFromPathAsync(new Uri(folder + "/"));
+            using var storageFile = await fixture.Window.StorageProvider.TryGetFileFromPathAsync(new Uri(file));
+            Assert.NotNull(storageFolder);
+            Assert.NotNull(storageFile);
+            data.Add(DataTransferItem.CreateFile(storageFolder));
+            data.Add(DataTransferItem.CreateFile(storageFile));
+            data.Add(DataTransferItem.CreateFile(storageFile));
+            var drop = new DragEventArgs(DragDrop.DropEvent, data, zone, new Point(8, 8), KeyModifiers.None);
+            zone.RaiseEvent(drop);
+
+            var chips = fixture.Window.FindControl<WrapPanel>("CopilotAttachmentList")!;
+            Assert.Equal(DragDropEffects.Copy, drop.DragEffects);
+            Assert.Equal(2, chips.Children.Count);
+            Assert.Equal(new[] { folder, file }, chips.Children.Select(ToolTip.GetTip));
+            Assert.Equal("original", await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken));
+            Assert.True(Directory.Exists(folder));
+
+            fixture.Window.FindControl<TextBox>("CopilotInput")!.Text = "整理附件";
+            fixture.Window.FindControl<Button>("CopilotSendButton")!
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var run = (Task)typeof(MainWindow).GetField("_copilotRunTask", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(fixture.Window)!;
+            await run.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Empty(chips.Children);
+            Assert.True(fixture.Window.FindControl<StackPanel>("CopilotAttachmentEmptyHint")!.IsVisible);
+            var transcript = fixture.Window.FindControl<StackPanel>("CopilotTranscript")!;
+            var tags = Assert.Single(transcript.Children.OfType<WrapPanel>());
+            Assert.Equal(new[] { folder, file }, tags.Children.Select(ToolTip.GetTip));
+            Assert.All(tags.Children.OfType<Grid>(), tag => Assert.Single(tag.Children));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [AvaloniaFact]
     public async Task CopilotPanelAndHistoryFitTheMinimumWindow()
     {

@@ -193,7 +193,12 @@ public sealed partial class FileListViewModelCreateTests
 
     public static IEnumerable<object[]> CachedPaneLayouts()
     {
-        foreach (var layout in Enum.GetValues<PaneLayout>().Where(layout => layout != PaneLayout.Single))
+        foreach (var layout in new[]
+                 {
+                     PaneLayout.TwoColumns,
+                     PaneLayout.MainLeftTwoRowsRight,
+                     PaneLayout.FourGrid
+                 })
         {
             yield return [layout, 0];
             yield return [layout, MainWindowViewModel.GetPaneCount(layout) - 1];

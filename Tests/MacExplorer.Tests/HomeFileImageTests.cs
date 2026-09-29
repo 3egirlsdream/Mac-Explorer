@@ -14,9 +14,15 @@ public sealed class HomeFileImageTests
     public async Task RemovingImageCancelsRequestAndIgnoresLateResult()
     {
         var requested = new TaskCompletionSource<CancellationToken>();
-        var finish = new TaskCompletionSource<ThumbnailResult?>();
+        var finish = new TaskCompletionSource<ThumbnailResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var providerReturned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var image = new HomeFileImage(new FileSystemEntry { Name = "photo.png", FullPath = "/tmp/photo.png" }, 48,
-            (_, _, token) => { requested.TrySetResult(token); return finish.Task; });
+            async (_, _, token) =>
+            {
+                requested.TrySetResult(token);
+                try { return await finish.Task; }
+                finally { providerReturned.TrySetResult(); }
+            });
         var window = new Window { Width = 400, Height = 300, Content = image };
         window.Show();
         try
@@ -25,7 +31,8 @@ public sealed class HomeFileImageTests
             window.Content = null;
             Assert.True(token.IsCancellationRequested);
             finish.SetResult(new ThumbnailResult([1, 2, 3], ""));
-            await Task.Delay(100);
+            await providerReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
             Assert.Null(image.Source);
         }
         finally { window.Close(); finish.TrySetResult(null); }
@@ -35,13 +42,21 @@ public sealed class HomeFileImageTests
     public async Task FolderAndHiddenImageDoNotRequestThumbnails()
     {
         var calls = 0;
+        var visibleRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var folder = new HomeFileImage(new FileSystemEntry { Name = "folder", FullPath = "/tmp/folder", IsDirectory = true }, 48,
-            (_, _, _) => { calls++; return Task.FromResult<ThumbnailResult?>(null); });
+            (_, _, _) => { Interlocked.Increment(ref calls); return Task.FromResult<ThumbnailResult?>(null); });
         var hidden = new HomeFileImage(new FileSystemEntry { Name = "photo.png", FullPath = "/tmp/photo.png" }, 48,
-            (_, _, _) => { calls++; return Task.FromResult<ThumbnailResult?>(null); }) { IsVisible = false };
-        var window = new Window { Width = 400, Height = 300, Content = new StackPanel { Children = { folder, hidden } } };
+            (_, _, _) => { Interlocked.Increment(ref calls); return Task.FromResult<ThumbnailResult?>(null); }) { IsVisible = false };
+        var visible = new HomeFileImage(new FileSystemEntry { Name = "visible.png", FullPath = "/tmp/visible.png" }, 48,
+            (_, _, _) => { visibleRequested.TrySetResult(); return Task.FromResult<ThumbnailResult?>(null); });
+        var window = new Window { Width = 400, Height = 300, Content = new StackPanel { Children = { folder, hidden, visible } } };
         window.Show();
-        try { await Task.Delay(200); Assert.Equal(0, calls); Assert.NotNull(folder.Source); }
+        try
+        {
+            await visibleRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(0, Volatile.Read(ref calls));
+            Assert.NotNull(folder.Source);
+        }
         finally { window.Close(); }
     }
 }

@@ -457,7 +457,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [AvaloniaFact]
-    public void FastListWhitespaceMarqueeKeyboardAndRenameKeepExistingGestures()
+    public void FastListSelectionKeyboardAndRenameKeepExistingGestures()
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/FastListTests"));
@@ -470,14 +470,12 @@ public sealed partial class FileListViewModelCreateTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var origin = list.TranslatePoint(default, window)!.Value;
-            var start = origin + new Vector(list.Bounds.Width - 25, 5);
-            var end = origin + new Vector(list.Bounds.Width - 50, 89);
-            window.MouseDown(start, MouseButton.Left);
-            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-            window.MouseUp(end, MouseButton.Left);
+            vm.SelectEntry(vm.Entries[0]);
+            vm.SelectEntry(vm.Entries[1], true);
+            vm.SelectEntry(vm.Entries[2], true);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(vm.Entries.Take(3), vm.SelectedEntries.OrderBy(entry => entry.Size));
-            var rightClick = origin + new Vector(list.Bounds.Width - 25, 45);
+            var rightClick = origin + new Vector(list.ListRowRight - 25, 45);
             window.MouseDown(rightClick, MouseButton.Right);
             Assert.Equal(3, vm.SelectedEntries.Count);
             window.MouseUp(rightClick, MouseButton.Right);
@@ -502,7 +500,7 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Empty(overlay.Children);
             Assert.Null(list.EditingPath);
             list.ScrollToOffset(0);
-            var whitespace = origin + new Vector(list.Bounds.Width - 25, 5 * 30 + 15);
+            var whitespace = origin + new Vector(list.ListRowRight - 25, 5 * 30 + 15);
             window.MouseDown(whitespace, MouseButton.Left);
             window.MouseUp(whitespace, MouseButton.Left);
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
