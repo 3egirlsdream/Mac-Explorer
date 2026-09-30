@@ -11,6 +11,11 @@
     <ProjectReference Include="../../../MacExplorer.csproj" />
   </ItemGroup>
   <Target Name="BundleBenchmark" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <MSBuild Projects="../../../MacExplorer.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">
+      <Output TaskParameter="TargetOutputs" ItemName="_HostAssembly" />
+    </MSBuild>
+    <PropertyGroup><_HostDirectory>@(_HostAssembly->'%(RootDir)%(Directory)')</_HostDirectory></PropertyGroup>
+    <Copy SourceFiles="$(_HostDirectory)libMacExplorerNativeDrag.dylib;$(_HostDirectory)MacExplorer.Thumbnail;$(_HostDirectory)MacExplorer.ImageAnalysis" DestinationFolder="$(TargetDir)" />
     <PropertyGroup>
       <_BenchApp>$(TargetDir)FastListBench.app</_BenchApp>
     </PropertyGroup>

@@ -1,5 +1,14 @@
 # FastFileList 原生基准
 
+真实目录导航基准使用完整 `App`、主窗口、目录枚举、SQLite 搜索索引和原生缩略图服务：
+
+```sh
+dotnet build Tools/Performance/FastListBench/FastListBench.csproj -c Release -p:SkipMacOSReleaseDMG=true
+bash Tools/Testing/run-isolated.sh Tools/Performance/FastListBench/bin/Release/net10.0/osx-arm64/FastListBench.app/Contents/MacOS/FastListBench /private/tmp/fkfinder-navigation-results --navigation-only
+```
+
+每次在隔离目录创建 1,000／10,000／100,000 个名称不同的真实文件，分别测列表、图标和未展开树形模式；搜索索引 Ready 和主动 Refresh 两组各重复三次，共 54 次。`busy` 表示请求过刷新，实际是否仍在扫描以 `phaseAtStart`／`phaseAtEnd` 为准。基准检查完整数量与名称排序，记录导航开始至完整列表第一次 `Render()`、UI 提交时间、16ms UI 心跳最长间隔及滚动绘制 p95。结果写入 `navigation-results.json`，错误写入 `navigation-error.txt`。这些计时不含鼠标输入投递延迟，也不代表显示器呈现 FPS。基准只允许通过隔离启动器运行。
+
 在项目根目录构建（运行中的基准窗口应先关闭）：
 
 ```sh

@@ -90,7 +90,6 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private IReadOnlyList<FastFileListGroup> _groups = [];
     private readonly Dictionary<string, (CachedText Title, CachedText Count)> _headerTexts = [];
     private readonly Dictionary<string, CachedText> _gridNames = [];
-    private Dictionary<string, double> _gridNameHeights = [];
     private bool _hasVirtualRows;
     private readonly Geometry _fileFallback = Geometry.Parse(Icons.File);
     private readonly Geometry _folderFallback = Geometry.Parse(Icons.Folder);
@@ -138,6 +137,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public IReadOnlyList<FileSystemEntry> Rows => _rows;
     public bool IsTree => _treeRows.Count == _rows.Count && _treeRows.Count > 0;
     internal int CachedTextCount => _texts.Count;
+    internal int CachedGridNameCount => _gridNames.Count;
     internal int ObservedRowCount => _observed.Count;
     internal int LastRenderedRowCount { get; private set; }
     internal int LastRenderedSkeletonRowCount { get; private set; }
@@ -220,31 +220,25 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private void BuildLayout()
     {
-        var previousHeights = _gridNameHeights;
-        _gridNameHeights = [];
-        double? countHeight = null;
-        _layout.Build(_rows.Count, _groups, IsGrid, Bounds.Width, _hasVirtualRows,
-            IsGrid ? EntryHeight : null, GroupMinHeight + 6);
-        ClearHeaderTexts();
-
-        double EntryHeight(int index)
+        // Reserve two filename lines without shaping every offscreen filename.
+        // Actual glyphs are still created only for the viewport, with stable cell geometry.
+        double nameHeight = 0, countHeight = 0;
+        if (IsGrid)
         {
-            var entry = _rows[index];
-            var name = entry.IconDisplayName;
-            if (!_gridNameHeights.TryGetValue(name, out var height))
-            {
-                if (!previousHeights.TryGetValue(name, out height)) height = Math.Ceiling(GridName(entry).Height);
-                _gridNameHeights[name] = height;
-            }
-            // Keep only compact metrics for this directory; formatted text stays bounded to the viewport cache.
-            if (entry.IsVirtual && countHeight == null)
+            var name = Format("Ag\nAg", DetailFontSize, Foreground, 92, 2);
+            nameHeight = Math.Ceiling(name.Height);
+            name.Release();
+            if (_hasVirtualRows)
             {
                 var count = Format("0 张照片", MetaFontSize, Secondary, 100);
                 countHeight = Math.Ceiling(count.Height);
                 count.Release();
             }
-            return 106 + height + (entry.IsVirtual ? 2 + countHeight!.Value : 0);
         }
+        _layout.Build(_rows.Count, _groups, IsGrid, Bounds.Width, _hasVirtualRows,
+            IsGrid ? index => 106 + nameHeight + (_rows[index].IsVirtual ? 2 + countHeight : 0) : null,
+            GroupMinHeight + 6);
+        ClearHeaderTexts();
     }
 
     public Size Extent => new(Viewport.Width, _layout.Height);
@@ -285,7 +279,6 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var typographyChanged = change.Property == FontFamilyProperty || change.Property == FontWeightProperty || change.Property == FontSizeProperty
             || change.Property == DetailFontSizeProperty || change.Property == MetaFontSizeProperty
             || change.Property == CaptionFontSizeProperty;
-        if (change.Property == FontFamilyProperty || change.Property == FontWeightProperty || change.Property == DetailFontSizeProperty) _gridNameHeights.Clear();
         if (typographyChanged || change.Property == ForegroundProperty || change.Property == SecondaryProperty
             || change.Property == MutedProperty || change.Property == IsGridProperty)
             ClearTexts();
@@ -331,7 +324,6 @@ public sealed class FastFileList : Control, ILogicalScrollable
         _visibilityAncestors = [];
         ObserveRows([]);
         _images.Clear();
-        _gridNameHeights.Clear();
         ClearTexts();
         base.OnDetachedFromVisualTree(e);
     }

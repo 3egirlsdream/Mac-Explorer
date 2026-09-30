@@ -1143,7 +1143,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
         {
             _navigation.SetWatchedDirectory(path);
-            _settingsService?.Set(LastDirectorySettingKey, path);
+            _settingsService?.SetDeferred(LastDirectorySettingKey, path);
         }
     }
 
@@ -1294,7 +1294,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
                     {
                         _navigation.SetWatchedDirectory(path);
-                        _settingsService?.Set(LastDirectorySettingKey, path);
+                        _settingsService?.SetDeferred(LastDirectorySettingKey, path);
                     }
                 }
                 catch (Exception ex)
@@ -1317,7 +1317,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         CancelDirectoryWork();
         _navigation.GoHome();
         OnPropertyChanged(nameof(CurrentLocationTitle));
-        _settingsService?.Set(LastDirectorySettingKey, "");
+        _settingsService?.SetDeferred(LastDirectorySettingKey, "");
         _search.Reset();
         _ai.Reset();
         Entries.Clear();

@@ -29,6 +29,15 @@ internal static class Program
         TreeOnly = args.Contains("--tree-only", StringComparer.Ordinal);
         FolderCoverOnly = args.Contains("--folder-cover-only", StringComparer.Ordinal);
         Directory.CreateDirectory(OutputDirectory);
+        if (args.Contains("--navigation-only", StringComparer.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MACEXPLORER_TEST_ROOT")))
+                throw new InvalidOperationException("Run navigation checks through Tools/Testing/run-isolated.sh.");
+            AppBuilder.Configure<MacExplorer.App>().UsePlatformDetect()
+                .AfterSetup(_ => Dispatcher.UIThread.Post(async () => await NavigationPerformance.RunAsync(OutputDirectory)))
+                .StartWithClassicDesktopLifetime([]);
+            return;
+        }
         AppBuilder.Configure<BenchApp>().UsePlatformDetect().StartWithClassicDesktopLifetime([]);
     }
 }

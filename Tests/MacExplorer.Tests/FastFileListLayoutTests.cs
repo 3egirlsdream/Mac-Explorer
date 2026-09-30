@@ -13,6 +13,31 @@ namespace MacExplorer.Tests;
 
 public sealed class FastFileListLayoutTests
 {
+    [AvaloniaFact]
+    public void LargeGridDoesNotShapeOffscreenNamesAndReservesTwoLines()
+    {
+        using var theme = new FastListTestTheme();
+        var list = new FastFileList { IsGrid = true, DetailFontSize = 18 };
+        var rows = Enumerable.Range(0, 100_000).Select(i => new FileSystemEntry
+        {
+            Name = i == 0 ? "短名" : $"文件-{i:D6}-long-name-性能验证.txt",
+            FullPath = $"/grid/{i}"
+        }).ToArray();
+        list.SetRows(rows);
+        Assert.Equal(0, list.CachedGridNameCount);
+        list.Measure(new Size(900, 280));
+        list.Arrange(new Rect(0, 0, 900, 280));
+        using var drawing = new DrawingGroup().Open();
+        list.Render(drawing);
+        Assert.InRange(list.CachedGridNameCount, 1, list.LastRenderedRowCount);
+        var shortCell = list.RowBounds(0);
+        var longCell = list.RowBounds(1);
+        Assert.Equal(shortCell.Height, longCell.Height);
+        Assert.True(list.NameBounds(1).Bottom + 10 <= longCell.Bottom);
+        list.ScrollToEntry(rows[^1]);
+        Assert.Same(rows[^1], list.EntryAt(list.RowBounds(rows.Length - 1).Center));
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

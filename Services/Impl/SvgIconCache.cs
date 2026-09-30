@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using System.Runtime.InteropServices;
 using Avalonia.Media.Imaging;
 using MacExplorer.Models;
 using SkiaSharp;
@@ -11,7 +12,7 @@ namespace MacExplorer.Services.Impl;
 /// In-memory SVG-to-Bitmap cache for file/folder/AI icons.
 /// Generates SVG strings via the existing FileIconRenderer (shared with the MAUI project),
 /// renders them to Avalonia Bitmaps using Skia, and caches the results.
-/// Zero disk I/O — everything happens in memory.
+/// SVG rendering is in memory; macOS folder artwork is loaded once per cached size.
 /// </summary>
 public static class SvgIconCache
 {
@@ -65,44 +66,29 @@ public static class SvgIconCache
         if (!OperatingSystem.IsMacOS())
             return null;
 
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "MacExplorer.Folder.png");
-        if (!File.Exists(iconPath))
-            return null;
-
         try
         {
-            using var source = SKBitmap.Decode(iconPath);
-            if (source == null || source.Width <= 0 || source.Height <= 0)
-                return null;
-
-            var info = new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul);
-            using var surface = SKSurface.Create(info);
-            var canvas = surface.Canvas;
-            canvas.Clear(SKColors.Transparent);
-            var scale = Math.Min((float)size / source.Width, (float)size / source.Height);
-            var width = source.Width * scale;
-            var height = source.Height * scale;
-            var destination = new SKRect(
-                (size - width) / 2,
-                (size - height) / 2,
-                (size + width) / 2,
-                (size + height) / 2);
-            using var paint = new SKPaint { IsAntialias = true };
-            using var sourceImage = SKImage.FromBitmap(source);
-            canvas.DrawImage(
-                sourceImage,
-                destination,
-                new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
-                paint);
-            using var image = surface.Snapshot();
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            return new Bitmap(data.AsStream());
+            var pointer = me_finder_folder_icon(size);
+            if (pointer == IntPtr.Zero) return null;
+            try
+            {
+                var png = Marshal.PtrToStringUTF8(pointer)!;
+                using var stream = new MemoryStream(Convert.FromBase64String(png));
+                return new Bitmap(stream);
+            }
+            finally { me_free_folder_icon(pointer); }
         }
         catch
         {
             return null;
         }
     }
+
+    [DllImport("libMacExplorerNativeDrag.dylib")]
+    private static extern IntPtr me_finder_folder_icon(int size);
+
+    [DllImport("libMacExplorerNativeDrag.dylib")]
+    private static extern void me_free_folder_icon(IntPtr value);
 
     private static Bitmap RenderAiIcon(string iconKey, int size)
     {

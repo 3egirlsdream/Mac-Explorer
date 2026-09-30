@@ -10,6 +10,9 @@ public class SettingsService : ISettingsService, IDisposable
     private readonly SqliteConnection _connection;
     private readonly Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _lock = new();
+    private readonly object _persistLock = new();
+    private readonly HashSet<string> _pending = new(StringComparer.OrdinalIgnoreCase);
+    private Task _pendingWrite = Task.CompletedTask;
     private readonly ILogger<SettingsService>? _logger;
 
     public SettingsService(DatabaseConnectionFactory connectionFactory, ILogger<SettingsService>? logger = null)
@@ -80,13 +83,56 @@ public class SettingsService : ISettingsService, IDisposable
     public void Set(string key, string value)
     {
         bool changed;
-        lock (_lock)
+        lock (_persistLock)
         {
-            changed = !_cache.TryGetValue(key, out var previous) || previous != value;
-            _cache[key] = value;
+            lock (_lock)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                changed = !_cache.TryGetValue(key, out var previous) || previous != value;
+                _cache[key] = value;
+                _pending.Remove(key);
+            }
             Persist(key, value);
         }
         if (changed) SettingChanged?.Invoke(key);
+    }
+
+    // Noncritical navigation state is available immediately; SQLite writer waits stay off the UI thread.
+    public void SetDeferred(string key, string value)
+    {
+        bool changed;
+        lock (_lock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            changed = !_cache.TryGetValue(key, out var previous) || previous != value;
+            _cache[key] = value;
+            _pending.Add(key);
+            if (_pendingWrite.IsCompleted) _pendingWrite = Task.Run(DrainPending);
+        }
+        if (changed) SettingChanged?.Invoke(key);
+    }
+
+    private void DrainPending()
+    {
+        while (true)
+        {
+            lock (_persistLock)
+            {
+                KeyValuePair<string, string>[] values;
+                lock (_lock)
+                {
+                    if (_pending.Count == 0)
+                    {
+                        // Mark idle while holding the cache lock so a new write always starts a worker.
+                        _pendingWrite = Task.CompletedTask;
+                        return;
+                    }
+                    values = _pending.Select(key => new KeyValuePair<string, string>(key, _cache[key])).ToArray();
+                    _pending.Clear();
+                }
+                foreach (var (key, value) in values) Persist(key, value);
+            }
+        }
     }
 
     public void Set<T>(string key, T value)
@@ -118,11 +164,18 @@ public class SettingsService : ISettingsService, IDisposable
 
     public void Dispose()
     {
-        if (!_disposed)
+        Task pending;
+        lock (_lock)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            pending = _pendingWrite;
+        }
+        pending.GetAwaiter().GetResult();
+        lock (_persistLock)
         {
             _connection.Close();
             _connection.Dispose();
-            _disposed = true;
         }
     }
 }

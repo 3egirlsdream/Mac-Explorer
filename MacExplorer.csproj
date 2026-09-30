@@ -92,7 +92,7 @@
     <PropertyGroup>
       <_ClangArch Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-arch x86_64</_ClangArch>
     </PropertyGroup>
-    <Exec Command="clang++ -fobjc-arc -dynamiclib $(_ClangArch) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+    <Exec Command="clang++ -fobjc-arc -dynamiclib $(_ClangArch) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
   <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">
@@ -112,12 +112,6 @@
 
   <Target Name="CopyMacOSAppIconToOutput" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <Copy SourceFiles="$(MSBuildProjectDirectory)/Assets/appicon.icns" DestinationFolder="$(OutputPath)" Condition="Exists('$(MSBuildProjectDirectory)/Assets/appicon.icns')" />
-  </Target>
-
-  <!-- Render the folder artwork supplied by the installed macOS version. This keeps
-       folder icons identical to Finder instead of shipping a hand-drawn imitation. -->
-  <Target Name="BuildMacOSFinderFolderIcon" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="/usr/bin/sips -s format png -z 512 512 '/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFolderIcon.icns' --out '$(OutputPath)MacExplorer.Folder.png'" Condition="Exists('/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFolderIcon.icns')" />
   </Target>
 
   <Target Name="CreateMacOSBundle" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
@@ -168,7 +162,6 @@
       <_NativeHelpers Include="$(OutputPath)libMacExplorerNativeDrag.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.Thumbnail" />
       <_PluginPackages Include="$(OutputPath)BundledPlugins/*.mexplug" />
-      <_RuntimeArtwork Include="$(OutputPath)MacExplorer.Folder.png" />
       <!-- CodeWF.Markdown resolves its translations relative to the app resources. -->
       <_I18nFiles Include="$(OutputPath)I18n/**/*.json" />
       <_SkillFiles Include="$(OutputPath)Copilot/Skills/**/SKILL.md" />
@@ -178,7 +171,6 @@
     <Copy SourceFiles="@(_SkillFiles)" DestinationFiles="@(_SkillFiles->'$(_MacOSDir)/Copilot/Skills/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(_NativeLibs)" DestinationFolder="$(_MacOSDir)" />
     <Copy SourceFiles="@(_NativeHelpers)" DestinationFolder="$(_MacOSDir)" />
-    <Copy SourceFiles="@(_RuntimeArtwork)" DestinationFolder="$(_MacOSDir)" Condition="Exists('%(Identity)')" />
 
     <Copy SourceFiles="@(_PluginPackages)" DestinationFolder="$(_MacOSDir)/BundledPlugins" />
 
