@@ -2,7 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.IO.Compression;
 using MacExplorer.Models;
+using MacExplorer.Indexing;
 using MacExplorer.Services;
+using MacExplorer.Services.Search;
 using MacExplorer.Services.Impl;
 using MacExplorer.Services.Plugins;
 using MacExplorer.PluginSdk;
@@ -21,6 +23,8 @@ public sealed record CapabilityResult(bool Success, string Message, object? Data
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CapabilityPage? Page { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? Coverage { get; init; }
 }
 
 public sealed record CapabilityPlan(
@@ -50,13 +54,14 @@ public sealed class AppCapabilityRegistry(
     ISettingsService appSettings, IThemeService themes, IInteractionStyleService interactionStyles,
     CopilotContentExtractor contentExtractor, HomeWorkspaceService homeWorkspace,
     HomeScriptRunner scriptRunner, FileDeliveryController deliveryController,
-    IBatchRenameService batchRename, BatchRenameOperationService batchRenameOperation) : IAppCapabilityRegistry
+    IBatchRenameService batchRename, BatchRenameOperationService batchRenameOperation,
+    SearchCatalog? indexedSearch = null, IMetadataService? metadata = null, IAiTagService? aiTags = null) : IAppCapabilityRegistry
 {
     private sealed record FileStamp(string Path, bool Exists, long Size, DateTime Modified,
         DateTime Created, bool IsDirectory, bool IsSymbolicLink);
     private sealed record Pending(CapabilityPlan Plan, FileListViewModel? Pane, string PanePath,
         FileStamp[] Stamps, string? ScriptSnapshot, string? PluginSnapshot, string? TagSnapshot,
-        PluginMarketItem? MarketItem, BatchRenamePreviewItem[]? BatchRenamePreview,
+        PluginMarketItem? MarketItem, BatchRenamePlan? BatchRenamePreview,
         CopilotContentExtractor.Page? ContentPage);
     private readonly Dictionary<string, Pending> _pending = new(StringComparer.Ordinal);
     private readonly object _gate = new();
@@ -64,8 +69,10 @@ public sealed class AppCapabilityRegistry(
     private static readonly IReadOnlyList<AppCapability> BuiltInCatalog =
     [
         new("file.list", "列出文件", "分页列出目录中的文件和文件夹；每页最多 200 项，使用 Page.NextOffset 继续，列表变化后从 0 重新读取", "{\"path\":\"绝对路径\",\"offset\":0}", "IFileService", CapabilityImpact.Read, "无需确认"),
-        new("file.info", "文件信息", "读取文件名称、类型、大小和修改时间", "{\"path\":\"绝对路径\"}", "IFileService", CapabilityImpact.Read, "无需确认"),
-        new("file.search", "搜索文件", "按名称搜索指定目录", "{\"path\":\"目录路径\",\"query\":\"名称关键词\"}", "ISearchService", CapabilityImpact.Read, "无需确认"),
+        new("file.info", "文件信息", "读取名称、类型、大小、创建与修改时间、Finder 标签，以及相机、镜头、曝光、尺寸、拍摄日期、GPS 等现有 EXIF 元数据和有效 AI 分类；不返回正文", "{\"path\":\"绝对路径\"}", "IFileService / IMetadataService / IAiTagService", CapabilityImpact.Read, "无需确认"),
+        new("file.search", "搜索文件", "使用现有文件搜索，按名称及设置允许的 AI 标签匹配。支持 ext:pdf、path:目录关键词；结果依赖搜索索引，正文或元数据查询优先使用 file.search-index", "{\"path\":\"目录路径\",\"query\":\"名称关键词 ext:pdf\"}", "ISearchService", CapabilityImpact.Read, "无需确认"),
+        new("file.search-fields", "数据库搜索字段", "查看数据库已有 AI 分析字段及文件属性过滤参数，包括 PDF/OCR 文字、图片语义、EXIF 相机、地点、日期、人物、标签和评分；未持久化的 EXIF 通过 file.info 查看", "{}", "SearchCatalog", CapabilityImpact.Read, "无需确认，不返回正文"),
+        new("file.search-index", "搜索已有内容与元数据", "优先在现有数据库检索 PDF 正文、图片 OCR、分类、相机、地点、拍摄日期、人脸分组、Finder 标签和评分及文件属性。source=all|name|content|analysis；query 按完整字面片段匹配；tags 多项取交集，type 来自 file.search-fields。日期 from 包含、to 不包含；taken 仅用真实拍摄日期。每页100项，使用 Coverage.NextOffset 继续。返回路径和命中来源，不发送正文、不启动新分析；过期分析不作为命中。无命中不代表未分析文件没有内容", "{\"path\":\"目录绝对路径\",\"query\":\"应用场景概述\",\"source\":\"content\",\"extensions\":[\"pdf\"],\"tags\":[{\"type\":\"camera\",\"value\":\"Canon\"}],\"fileTag\":\"收藏\",\"person\":\"人物名\",\"minRating\":3,\"minSize\":0,\"maxSize\":10485760,\"createdFrom\":\"2026-01-01T00:00:00+08:00\",\"createdTo\":\"2027-01-01T00:00:00+08:00\",\"modifiedFrom\":\"2026-01-01T00:00:00+08:00\",\"modifiedTo\":\"2027-01-01T00:00:00+08:00\",\"takenFrom\":\"2026-01-01\",\"takenTo\":\"2027-01-01\",\"offset\":0}", "SearchCatalog / SQLite existing resources", CapabilityImpact.Read, "无需确认，只返回候选路径和命中来源；参数按需求选填"),
         new("ui.navigate", "打开位置", "在当前窗格打开文件夹或应用位置", "{\"path\":\"位置路径\"}", "FileListViewModel.NavigateToAsync", CapabilityImpact.Read, "无需确认"),
         new("ui.home", "打开首页", "在当前窗格显示首页", "{}", "FileListViewModel.GoHome", CapabilityImpact.Read, "无需确认"),
         new("ui.back", "后退", "回到当前窗格的上一个位置", "{}", "FileListViewModel.NavigateBackAsync", CapabilityImpact.Read, "无需确认"),
@@ -86,7 +93,7 @@ public sealed class AppCapabilityRegistry(
         new("ui.preview", "预览文件", "在系统快速预览中打开文件", "{\"path\":\"文件路径\"}", "FileListViewModel.QuickLookPathAsync", CapabilityImpact.Read, "无需确认"),
         new("ui.info-panel", "信息面板", "显示或隐藏当前窗格的文件信息面板，省略 visible 时显示", "{\"visible\":true}", "FileListViewModel.ToggleInfoPanel", CapabilityImpact.Read, "无需确认"),
         new("ui.task-panel", "显示任务中心", "打开已有后台任务面板", "{}", "FileListViewModel.RaiseRequestShowTaskPanel", CapabilityImpact.Read, "无需确认"),
-        new("ui.batch-rename-dialog", "打开批量重命名", "对活动窗格中已选文件打开原有批量重命名规则与预览窗口", "{}", "FileListViewModel.RaiseRequestBatchRename", CapabilityImpact.Read, "由现有窗口收集规则并确认"),
+        new("ui.batch-rename-dialog", "打开批量重命名", "生成可编辑规则链并打开专业工作台。selectionId 使用上下文中的选中项目快照，省略时使用当前选中项；也可指定 paths。规则支持 FindReplace、AddPrefix、AddSuffix、Sequence、Date、CaseConversion、InsertText、RemoveText、Template、Cleanup、Extension。模板字段 name、parent、n:000、created:yyyyMMdd、modified:yyyyMMdd、taken:yyyyMMdd；名称默认保留扩展名。", "{\"selectionId\":\"上下文中的快照 ID，可省略\",\"rules\":[{\"type\":\"Template\",\"templateText\":\"项目_{n:000}\"}],\"options\":{\"sort\":\"Input|Name|Created|Modified|PhotoTaken|Manual\",\"descending\":false,\"restartPerDirectory\":false}}", "FileListViewModel.RaiseRequestBatchRename", CapabilityImpact.Read, "用户在工作台预览、编辑并执行"),
         new("ui.compress-dialog", "打开压缩配置", "对当前选中项打开原有压缩配置窗口", "{}", "FileListViewModel.ShowCompressDialog", CapabilityImpact.Read, "由现有窗口收集格式和目标并确认"),
         new("archive.list", "查看压缩包", "列出压缩包中的条目", "{\"path\":\"压缩包路径\"}", "IArchiveService", CapabilityImpact.Read, "无需确认"),
         new("archive.extract-here", "解压到当前文件夹", "使用原有解压流程，在压缩包所在文件夹解压", "{\"path\":\"压缩包路径\"}", "ArchiveViewModel.ExtractHereAsync", CapabilityImpact.Change, "展示压缩包及目标文件夹后确认"),
@@ -106,14 +113,14 @@ public sealed class AppCapabilityRegistry(
         new("tag.list", "列出标签", "查看侧栏标签", "{}", "IFileTagService", CapabilityImpact.Read, "无需确认"),
         new("tag.files", "列出收藏夹文件", "分页列出标签中的文件路径；使用 Page.NextOffset 继续，标签变化后从 0 重新读取", "{\"tag\":\"标签名称\",\"offset\":0}", "IFileTagService.FindFilePathsAsync", CapabilityImpact.Read, "无需确认"),
         new("file.tags", "文件标签", "查看文件已有标签", "{\"path\":\"文件路径\"}", "IFileTagService", CapabilityImpact.Read, "无需确认"),
-        new("file.content", "读取文件正文", "按文本偏移分段读取本地文本、PDF、图片 OCR 或 Office 文档；每页正文最多 50 KB，返回下一段位置；Office 有解压资源与 100 万字符上限，超限会报错；offset 从 0 开始，省略时为 0", "{\"path\":\"本地文件路径\",\"offset\":0}", "CopilotContentExtractor", CapabilityImpact.DiscloseContent, "逐次展示发送范围并确认"),
+        new("file.content", "读取文件正文", "必须 PreviewOperation → ExecuteApprovedPlan，不能 CallReadOnly。优先复用未过期的数据库 PDF/OCR 正文，缺失时本地提取文本、PDF、图片或 Office；每页最多50 KB，按 NextOffset 继续；Office 有解压资源与100万字符上限；offset 默认0", "{\"path\":\"本地文件路径\",\"offset\":0}", "CopilotContentExtractor", CapabilityImpact.DiscloseContent, "逐次展示发送范围并确认"),
         new("file.rating", "设置文件评分", "使用已有评分逻辑设置 0 到 5 星", "{\"path\":\"本地文件路径\",\"rating\":3}", "FileListViewModel.SetRatingAsync", CapabilityImpact.Change, "展示文件和评分后确认"),
         new("folder.pins", "列出收藏文件夹", "返回已固定的文件夹", "{}", "IPinnedFolderService", CapabilityImpact.Read, "无需确认"),
         new("folder.create", "新建文件夹", "在指定目录创建命名文件夹", "{\"path\":\"父目录\",\"name\":\"文件夹名称\"}", "IFileService.CreateFolderAsync", CapabilityImpact.Change, "展示目标路径后确认"),
         new("folder.create-unnamed", "新建未命名文件夹", "在活动窗格按现有自动命名规则创建文件夹并进入重命名", "{}", "FileOpsViewModel.CreateNewFolderAsync", CapabilityImpact.Change, "展示当前目录后确认"),
         new("file.create-text", "生成文本文件", "保存新的 .txt 或 .md 文件", "{\"path\":\"父目录\",\"name\":\"文件名\",\"content\":\"正文\"}", "IFileService.CreateFileWithContentAsync", CapabilityImpact.Change, "展示文件名、大小和正文预览后确认"),
         new("file.rename", "重命名", "重命名一个现有文件或文件夹", "{\"path\":\"绝对路径\",\"newName\":\"新名称\"}", "FileOpsViewModel.RenameEntryAsync", CapabilityImpact.Change, "展示旧名和新名后确认"),
-        new("file.batch-rename", "批量重命名", "用现有批量重命名规则处理同一目录中的文件", "{\"paths\":[\"文件路径\"],\"rule\":{\"type\":\"AddPrefix|AddSuffix|FindReplace|Sequence|Date|CaseConversion\",\"prefixText\":\"前缀\"}}", "IBatchRenameService / BatchRenameOperationService", CapabilityImpact.Change, "逐项展示新旧文件名及冲突后确认"),
+        new("file.batch-rename", "批量重命名", "用规则链处理显式指定的本地项目，可跨目录。支持 rules 数组、排序 options；兼容旧单条 rule。自然语言生成方案优先使用 ui.batch-rename-dialog。", "{\"paths\":[\"文件路径\"],\"rules\":[{\"type\":\"AddPrefix\",\"prefixText\":\"前缀\"}],\"options\":{\"sort\":\"Input\"}}", "IBatchRenameService / BatchRenameOperationService", CapabilityImpact.Change, "逐项展示新旧文件名及冲突后确认"),
         new("file.move", "移动文件", "将文件移到目标文件夹", "{\"path\":\"绝对路径\",\"destination\":\"目标文件夹路径\"}", "FileOpsViewModel.MoveEntryAsync", CapabilityImpact.Change, "展示来源、目标和冲突后确认"),
         new("file.copy", "复制文件", "复制文件或文件夹到目标文件夹，沿用粘贴的进度与标签处理", "{\"path\":\"绝对路径\",\"destination\":\"目标文件夹路径\"}", "FileOperationService.CopyAsync", CapabilityImpact.Change, "展示来源、目标和冲突后确认"),
         new("file.trash", "移到废纸篓", "将文件移到废纸篓；远程文件由现有服务处理", "{\"path\":\"绝对路径\"}", "FileOpsViewModel.DeleteSelectedAsync", CapabilityImpact.Destructive, "单独确认"),
@@ -229,9 +236,50 @@ public sealed class AppCapabilityRegistry(
             {
                 var path = Required(args, "path");
                 var entry = await files.GetEntryAsync(path);
-                return entry == null
-                    ? new(false, "文件不存在")
-                    : new(true, "已读取文件信息", new { entry.FullPath, entry.Name, entry.IsDirectory, entry.Size, entry.LastModified });
+                if (entry == null) return new(false, "文件不存在");
+                var details = metadata == null ? null : await metadata.GetMetadataAsync(path);
+                var image = details?.ImageInfo;
+                var analysis = aiTags != null && File.Exists(path)
+                    && await aiTags.IsFileAnalyzedAsync(path, File.GetLastWriteTime(path).Ticks)
+                    ? (await aiTags.GetTagsForFileAsync(path)).Where(t => t.TagType is not ("text" or "text_summary"))
+                        .Take(100).Select(t => new { t.TagType, t.TagValue, t.Confidence }).ToArray() : null;
+                return new(true, "已读取文件信息与现有元数据（不含正文）", new
+                {
+                    entry.FullPath, entry.Name, entry.IsDirectory, entry.Size, entry.Created, entry.LastModified,
+                    details?.LastAccessed, details?.Kind, details?.ContentType, details?.Tags,
+                    Image = image == null ? null : new
+                    {
+                        image.PixelWidth, image.PixelHeight, image.ColorSpace, image.CameraMake, image.CameraModel,
+                        image.LensModel, image.FocalLength, image.Aperture, image.ExposureTime, image.IsoSpeed,
+                        image.WhiteBalance, image.Flash, image.ExposureProgram, image.MeteringMode,
+                        image.PhotoTakenDate, image.Latitude, image.Longitude, image.Altitude
+                    }, Analysis = analysis
+                });
+            }
+            case "file.search-fields":
+                if (indexedSearch == null) return new(false, "数据库搜索服务不可用。");
+                return new(true, "已有数据库字段；所有筛选条件取交集，未持久化 EXIF 可通过 file.info 查看。", new
+                {
+                    AnalysisTagTypes = await indexedSearch.GetAnalysisFieldsAsync(),
+                    Filters = new[] { "query", "source", "extensions", "tags[{type,value}]", "fileTag", "person",
+                        "minRating", "minSize", "maxSize", "createdFrom", "createdTo", "modifiedFrom", "modifiedTo",
+                        "takenFrom", "takenTo", "offset" },
+                    Sources = new[] { "all", "name", "content", "analysis" },
+                    DateRange = "from 包含，to 不包含；文件日期使用 ISO 8601 含时区，拍摄日期使用 yyyy-MM-dd。"
+                });
+            case "file.search-index":
+            {
+                if (indexedSearch == null) return new(false, "数据库搜索服务不可用。");
+                var query = JsonSerializer.Deserialize<IndexedFileQuery>(argumentsJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+                var options = new SearchOptions(appSettings?.Get("HideSystemFiles", true) ?? true,
+                    appSettings?.Get("HideDotFiles", true) ?? true, appSettings?.Get("HideDotFolders", true) ?? true);
+                var result = await indexedSearch.SearchResourcesAsync(Required(args, "path"), query, options);
+                return new(true, $"现有数据库本页找到 {result.Items.Count} 项。只覆盖已索引属性与已分析内容；未分析、已过期或尚未索引的文件仍可能符合条件。", result.Items)
+                {
+                    Coverage = new { Scope = "existing-database", result.Offset, result.NextOffset, result.HasMore,
+                        result.AnalyzedFiles, result.IndexStatus, Content = "仅匹配未过期的已有分析，不返回正文；无命中不能证明文件不存在。" }
+                };
             }
             case "file.search":
             {
@@ -333,10 +381,20 @@ public sealed class AppCapabilityRegistry(
                 await pane.QuickLookPathAsync(previewPath);
                 return new(true, $"已预览：{previewPath}");
             case "ui.batch-rename-dialog":
-                if (pane == null || pane.IsBrowseOnly) throw new InvalidOperationException("当前窗格无法批量重命名。");
-                if (pane.SelectedEntries.Count < 2)
-                    return new(false, "请先在活动窗格选择至少两个文件或文件夹。");
-                pane.RaiseRequestBatchRename();
+                if (pane == null || pane.IsBrowseOnly || pane.IsArchiveView || pane.IsTrashActive)
+                    throw new InvalidOperationException("当前窗格无法批量重命名。");
+                var targets = args.TryGetProperty("selectionId", out var selectionId)
+                    ? pane.GetBatchRenameSelection(selectionId.GetString() ?? "").Entries : pane.CreateBatchRenameRequest().Entries;
+                if (args.TryGetProperty("paths", out _))
+                {
+                    var explicitEntries = await Task.WhenAll(RequiredPaths(args).Select(files.GetEntryAsync));
+                    if (explicitEntries.Any(entry => entry == null)) throw new FileNotFoundException("源项目已不存在。");
+                    targets = explicitEntries.Select(entry => entry!).ToArray();
+                }
+                if (targets.Count == 0) return new(false, "请先选择文件或文件夹。");
+                if (targets.Any(entry => !FileListViewModel.IsBatchRenameTarget(entry)))
+                    throw new InvalidOperationException("批量重命名仅支持本地文件和文件夹。");
+                pane.RaiseRequestBatchRename(pane.CreateBatchRenameRequest(ParseBatchRenameRules(args, optional: true), ParseBatchRenameOptions(args), targets));
                 return new(true, "已打开批量重命名窗口，请查看预览并确认。");
             case "ui.compress-dialog":
                 if (pane == null || pane.IsBrowseOnly) throw new InvalidOperationException("当前窗格无法压缩文件。");
@@ -447,9 +505,9 @@ public sealed class AppCapabilityRegistry(
         var isPluginCommand = id.StartsWith("plugin.command:", StringComparison.Ordinal);
         var isBatchRename = id == "file.batch-rename";
         var operationPaths = isPluginCommand || isBatchRename ? RequiredPaths(args) : [];
-        if (isBatchRename && (operationPaths.Length < 2
+        if (isBatchRename && (operationPaths.Length < 1
             || operationPaths.Distinct(StringComparer.Ordinal).Count() != operationPaths.Length))
-            throw new ArgumentException("批量重命名需要至少两个不同的文件。");
+            throw new ArgumentException("批量重命名需要不同的本地项目。");
         var path = PathlessCapabilities.Contains(id) ? string.Empty
             : isPluginCommand || isBatchRename ? operationPaths[0] : Required(args, "path");
         var source = string.IsNullOrEmpty(path) ? null : await files.GetEntryAsync(path);
@@ -460,12 +518,12 @@ public sealed class AppCapabilityRegistry(
             or "file.batch-rename" || isPluginCommand)
         {
             var sourcePaths = isPluginCommand || isBatchRename ? operationPaths : [path];
-            if (sourcePaths.Any(item => files.GetParentPath(item) != pane.CurrentPath))
+            if (!isBatchRename && sourcePaths.Any(item => files.GetParentPath(item) != pane.CurrentPath))
                 throw new InvalidOperationException("请先在活动窗格打开源文件所在文件夹，再预览操作。");
         }
         string summary;
         PluginMarketItem? marketItem = null;
-        BatchRenamePreviewItem[]? batchPreview = null;
+        BatchRenamePlan? batchPreview = null;
         CopilotContentExtractor.Page? contentPage = null;
         FileStamp? contentSourceStamp = null;
         var observed = isPluginCommand || isBatchRename ? operationPaths.ToList()
@@ -509,22 +567,18 @@ public sealed class AppCapabilityRegistry(
             }
             case "file.batch-rename":
             {
-                var rule = ParseBatchRenameRule(args);
                 var entries = await Task.WhenAll(operationPaths.Select(files.GetEntryAsync));
-                if (entries.Any(item => item == null || VirtualPath.IsRemotePath(item.FullPath)))
-                    throw new FileNotFoundException("批量重命名只支持当前目录中存在的本地文件。");
-                batchPreview = batchRename.GeneratePreview(entries.Select(item => item!).ToArray(), [rule]).ToArray();
-                if (batchPreview.Any(item => item.HasError || item.HasConflict)
-                    || !batchPreview.Any(item => item.IsChanged))
+                if (entries.Any(item => item == null || !FileListViewModel.IsBatchRenameTarget(item)))
+                    throw new FileNotFoundException("批量重命名只支持存在的本地项目。");
+                batchPreview = await batchRename.GeneratePreviewAsync(new BatchRenameRequest
+                { Entries = entries.Select(item => item!).ToArray(), Rules = ParseBatchRenameRules(args), Options = ParseBatchRenameOptions(args) });
+                if (!batchPreview.CanExecute)
                     throw new InvalidOperationException("重命名预览存在冲突、错误，或没有文件名变化。请调整规则。");
-                foreach (var item in batchPreview.Where(item => item.IsChanged))
-                    if (await files.ExistsAsync(item.NewPath))
-                        throw new IOException($"目标名称已存在：{item.NewPath}");
-                observed.AddRange(batchPreview.Where(item => item.IsChanged).Select(item => item.NewPath));
-                summary = $"批量重命名 {batchPreview.Count(item => item.IsChanged)} 项：\n"
-                    + string.Join("\n", batchPreview.Where(item => item.IsChanged).Take(30)
+                observed.AddRange(batchPreview.Items.Where(item => item.IsChanged).Select(item => item.NewPath));
+                summary = $"批量重命名 {batchPreview.Items.Count(item => item.IsChanged)} 项：\n"
+                    + string.Join("\n", batchPreview.Items.Where(item => item.IsChanged).Take(30)
                         .Select(item => $"{item.OriginalName} → {item.NewName}"))
-                    + (batchPreview.Count(item => item.IsChanged) > 30 ? "\n…其余项目可在执行回执中查看。" : "");
+                    + (batchPreview.Items.Count(item => item.IsChanged) > 30 ? "\n…其余项目可在执行回执中查看。" : "");
                 break;
             }
             case "file.move":
@@ -788,26 +842,21 @@ public sealed class AppCapabilityRegistry(
                 break;
             case "file.batch-rename":
             {
-                var batchPaths = RequiredPaths(args);
-                var entries = await Task.WhenAll(batchPaths.Select(files.GetEntryAsync));
-                if (entries.Any(item => item == null))
-                    throw new FileNotFoundException("批量重命名的文件已变化，请重新预览。");
-                var currentPreview = batchRename.GeneratePreview(
-                    entries.Select(item => item!).ToArray(), [ParseBatchRenameRule(args)]);
-                if (pending.BatchRenamePreview == null
-                    || JsonSerializer.Serialize(currentPreview.Select(item => new
+                if (pending.BatchRenamePreview == null) throw new InvalidOperationException("请重新预览。");
+                var currentPreview = await batchRename.GeneratePreviewAsync(pending.BatchRenamePreview.Request);
+                if (JsonSerializer.Serialize(currentPreview.Items.Select(item => new
                     {
                         item.OriginalPath, item.NewPath, item.HasError, item.HasConflict
-                    })) != JsonSerializer.Serialize(pending.BatchRenamePreview.Select(item => new
+                    })) != JsonSerializer.Serialize(pending.BatchRenamePreview.Items.Select(item => new
                     {
                         item.OriginalPath, item.NewPath, item.HasError, item.HasConflict
                     })))
                     throw new InvalidOperationException("批量重命名预览已变化，请重新确认。");
                 var result = await batchRenameOperation.ExecuteAsync(currentPreview);
                 await pane!.RefreshAsync();
-                return new(result.FailedCount == 0,
+                return new(result.FailedCount == 0 && !result.WasCancelled,
                     $"批量重命名：成功 {result.SuccessCount}，跳过 {result.SkippedCount}，失败 {result.FailedCount}",
-                    new { result.SuccessfulItems, result.Errors });
+                    new { result.SuccessfulItems, result.Errors, result.Warnings, result.WasCancelled });
             }
             case "file.move":
                 var folder = await files.GetEntryAsync(Required(args, "destination"))
@@ -1027,6 +1076,40 @@ public sealed class AppCapabilityRegistry(
         if (paths.Length == 0 || paths.Length > 100 || paths.Any(string.IsNullOrWhiteSpace))
             throw new ArgumentException("paths 需包含 1 到 100 个文件路径。");
         return paths;
+    }
+
+    private static IReadOnlyList<BatchRenameRule> ParseBatchRenameRules(JsonElement args, bool optional = false)
+    {
+        if (!args.TryGetProperty("rules", out var values))
+            return args.TryGetProperty("rule", out _) ? [ParseBatchRenameRule(args)]
+                : optional ? [] : throw new ArgumentException("缺少 rules 或 rule。");
+        if (args.TryGetProperty("rule", out _)) throw new ArgumentException("rule 与 rules 不能同时提供。");
+        if (values.ValueKind != JsonValueKind.Array || values.GetArrayLength() is < 1 or > 64)
+            throw new ArgumentException("rules 需包含 1 到 64 条规则。");
+        var rules = values.EnumerateArray().Select(value =>
+        {
+            if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String)
+                throw new ArgumentException("每条规则需要 type。");
+            var rule = value.Deserialize<BatchRenameRule>(BatchRenameJsonOptions()) ?? throw new ArgumentException("规则无效。");
+            BatchRenameRuleEngine.ValidateRule(rule);
+            return rule;
+        }).ToArray();
+        return rules;
+    }
+
+    private static JsonSerializerOptions BatchRenameJsonOptions()
+    {
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
+    }
+
+    private static BatchRenameOptions ParseBatchRenameOptions(JsonElement args)
+    {
+        var options = args.TryGetProperty("options", out var value)
+            ? value.Deserialize<BatchRenameOptions>(BatchRenameJsonOptions()) ?? new() : new BatchRenameOptions();
+        if (!Enum.IsDefined(options.Sort)) throw new ArgumentException("排序选项无效。");
+        return options;
     }
 
     private static BatchRenameRule ParseBatchRenameRule(JsonElement args)

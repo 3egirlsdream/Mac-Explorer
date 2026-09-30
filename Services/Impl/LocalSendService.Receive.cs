@@ -98,6 +98,8 @@ public sealed partial class LocalSendService
             var decision = ask == null ? new LocalSendReceiveDecision(false, ReceiveDirectory) :
                 await ask(new LocalSendIncomingRequest(request.Info.Alias,
                     files.Values.Select(item => new LocalSendIncomingFile(item.Info.Id, item.Info.FileName, item.Info.Size)).ToArray(), ReceiveDirectory), pending.Token);
+            // A dialog can complete with a decision after its cancellation was requested.
+            pending.Token.ThrowIfCancellationRequested();
             if (!decision.Accepted) return Results.StatusCode(403);
             var directory = Path.GetFullPath(decision.Directory);
             if (RuntimePaths.TestRoot is { } root && !IsWithin(directory, root)) return Results.StatusCode(403);
@@ -106,10 +108,12 @@ public sealed partial class LocalSendService
                 .Where(item => decision.AcceptedFileIds.Contains(item.Key, StringComparer.Ordinal))
                 .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
             if (acceptedFiles.Count == 0) return Results.NoContent();
-            var session = new IncomingSession(reservation.Id, sourceIp, request.Info.Alias, acceptedFiles, directory, reservation.Task);
+            IncomingSession session;
             lock (_receiveLock)
             {
                 if (!ReferenceEquals(_incoming, reservation) || !Enabled) return Results.StatusCode(409);
+                pending.Token.ThrowIfCancellationRequested();
+                session = new IncomingSession(reservation.Id, sourceIp, request.Info.Alias, acceptedFiles, directory, reservation.Task);
                 _incoming = session;
             }
             session.TaskCancellationRegistration = session.Task.Cts.Token.Register(() =>
@@ -216,7 +220,8 @@ public sealed partial class LocalSendService
             cancellationToken.ThrowIfCancellationRequested();
             MoveWithUniqueName(temp, parent, components[^1]);
             temp = null;
-            file.Completed = true;
+            // Serialize completion with the duplicate-upload check before Active is released.
+            lock (_receiveLock) file.Completed = true;
             _tasks.UpdateProgress(session.Task.Id, session.TotalBytes == 0 ? 0 :
                 100d * Interlocked.Read(ref session.ProgressBytes) / session.TotalBytes, file.Info.FileName);
             if (Interlocked.Increment(ref session.CompletedCount) == session.Files.Count)

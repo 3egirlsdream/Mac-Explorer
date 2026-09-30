@@ -151,8 +151,9 @@ void MacExplorerDeliveryPlace(void* viewHandle)
     CGFloat y = MAX(NSMinY(bounds), MIN(NSMinY(button) - size.height - 6, NSMaxY(bounds) - size.height));
     [window setFrame:NSMakeRect(x, y, size.width, size.height) display:YES];
     // Do not activate NSApp: doing so would also raise the main browser window.
+    // Leave an inactive panel non-key so AppKit can delay activation on the
+    // first mouse-down and suppress it when that gesture becomes a drag.
     [window orderFrontRegardless];
-    [window makeKeyWindow];
     [window invalidateShadow];
 }
 

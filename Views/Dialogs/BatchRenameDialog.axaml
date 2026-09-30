@@ -1,158 +1,149 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:MacExplorer.Controls"
-        xmlns:models="using:MacExplorer.Models"
-        x:Class="MacExplorer.Views.Dialogs.BatchRenameDialog"
-        Title="批量重命名" Width="800" Height="520"
-        CanResize="True"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource GlassEffectBg}">
-
-    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-        <!-- Header -->
-        <TextBlock Grid.Row="0" Text="批量重命名" FontSize="{DynamicResource FontSizeHeading}" FontWeight="{StaticResource FontWeightSemibold}"
-                   Margin="0,0,0,12"/>
-
-        <!-- Body: Left rules, Right preview -->
-        <Grid Grid.Row="1" ColumnDefinitions="280,*" ColumnSpacing="12">
-            <!-- Left: Rule settings -->
-            <Border Grid.Column="0" CornerRadius="8"
-                    Background="{DynamicResource ColorBgHover}"
-                    Padding="12">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="规则设置" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-
-                        <!-- Rule type selector -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="规则类型" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <ComboBox x:Name="RuleTypeCombo" SelectedIndex="0"
-                                      SelectionChanged="OnRuleTypeChanged">
-                                <ComboBoxItem Content="查找替换"/>
-                                <ComboBoxItem Content="添加前缀"/>
-                                <ComboBoxItem Content="添加后缀"/>
-                                <ComboBoxItem Content="添加序号"/>
-                                <ComboBoxItem Content="添加日期"/>
-                                <ComboBoxItem Content="大小写转换"/>
-                            </ComboBox>
-                        </StackPanel>
-
-                        <!-- Find/Replace section -->
-                        <StackPanel x:Name="FindReplaceSection" Spacing="6">
-                            <TextBox x:Name="FindTextBox" PlaceholderText="查找..."
-                                     TextChanged="OnRuleChanged"/>
-                            <TextBox x:Name="ReplaceTextBox" PlaceholderText="替换为..."
-                                     TextChanged="OnRuleChanged"/>
-                        </StackPanel>
-
-                        <!-- Prefix section -->
-                        <StackPanel x:Name="PrefixSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="前缀文本" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBox x:Name="PrefixTextBox" PlaceholderText="输入前缀..."
-                                     TextChanged="OnRuleChanged"/>
-                        </StackPanel>
-
-                        <!-- Suffix section -->
-                        <StackPanel x:Name="SuffixSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="后缀文本" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBox x:Name="SuffixTextBox" PlaceholderText="输入后缀..."
-                                     TextChanged="OnRuleChanged"/>
-                        </StackPanel>
-
-                        <!-- Sequence section -->
-                        <StackPanel x:Name="SequenceSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="起始序号" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <NumericUpDown x:Name="SeqStartBox" Value="1" Minimum="0"
-                                           ValueChanged="OnRuleChanged"/>
-                            <TextBlock Text="步长" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <NumericUpDown x:Name="SeqStepBox" Value="1" Minimum="1"
-                                           ValueChanged="OnRuleChanged"/>
-                            <TextBlock Text="位数" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <NumericUpDown x:Name="SeqPadBox" Value="2" Minimum="1" Maximum="10"
-                                           ValueChanged="OnRuleChanged"/>
-                        </StackPanel>
-
-                        <!-- Date section -->
-                        <StackPanel x:Name="DateSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="日期格式" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBox x:Name="DateFormatBox" Text="yyyy-MM-dd"
-                                     TextChanged="OnRuleChanged"/>
-                        </StackPanel>
-
-                        <!-- Case section -->
-                        <StackPanel x:Name="CaseSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="转换方式" FontSize="{DynamicResource FontSizeCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <ComboBox x:Name="CaseModeCombo" SelectedIndex="0"
-                                      SelectionChanged="OnRuleChanged">
-                                <ComboBoxItem Content="大写"/>
-                                <ComboBoxItem Content="小写"/>
-                                <ComboBoxItem Content="标题格式"/>
-                            </ComboBox>
-                        </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-
-            <!-- Right: Preview -->
-            <Border Grid.Column="1" CornerRadius="8"
-                    Background="{DynamicResource ColorBgHover}"
-                    Padding="8">
-                <Grid RowDefinitions="Auto,*">
-                    <Grid Grid.Row="0" ColumnDefinitions="*,*,Auto" Margin="4,0,4,4">
-                        <TextBlock Grid.Column="0" Text="原文件名" FontSize="{DynamicResource FontSizeCaption}"
-                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                        <TextBlock Grid.Column="1" Text="新文件名" FontSize="{DynamicResource FontSizeCaption}"
-                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                        <TextBlock Grid.Column="2" Text="状态" FontSize="{DynamicResource FontSizeCaption}"
-                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                    </Grid>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="PreviewList">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:BatchRenamePreviewItem">
-                                    <Grid ColumnDefinitions="*,*,60" Margin="4,2"
-                                          Background="Transparent">
-                                        <TextBlock Grid.Column="0"
-                                                   Text="{Binding OriginalName}"
-                                                   FontSize="{DynamicResource FontSizeLabel}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding NewName}"
-                                                   FontSize="{DynamicResource FontSizeLabel}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Grid.Column="2"
-                                                   FontSize="{DynamicResource FontSizeCaption}"
-                                                   Text="{Binding ErrorReason}"
-                                                   Foreground="{DynamicResource DangerBrush}"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="using:MacExplorer.Controls" xmlns:models="using:MacExplorer.Models"
+ xmlns:vm="using:MacExplorer.ViewModels" xmlns:icons="using:MacExplorer.Assets"
+ xmlns:converters="using:MacExplorer.Converters"
+ x:Class="MacExplorer.Views.Dialogs.BatchRenameDialog"
+ Title="批量重命名" Width="1160" Height="720" MinWidth="780" MinHeight="480"
+ CanResize="True" Background="{DynamicResource SurfaceBackgroundBrush}">
+ <controls:DialogWindow.Resources>
+  <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
+  <converters:FileEntryToIconConverter x:Key="RenameFileIcon"/>
+ </controls:DialogWindow.Resources>
+ <controls:DialogWindow.Styles>
+  <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+  <StyleInclude Source="avares://MacExplorer/Assets/BatchRenameStyles.axaml"/>
+ </controls:DialogWindow.Styles>
+ <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16" RowSpacing="10">
+  <Grid x:Name="OptionsPanel" ColumnDefinitions="Auto,210,Auto,*,Auto,160,Auto" ColumnSpacing="8">
+   <TextBlock Text="预设" VerticalAlignment="Center"/>
+   <ComboBox x:Name="PresetCombo" Grid.Column="1" PlaceholderText="自定义" SelectionChanged="OnPresetChanged"/>
+   <Button Grid.Column="2" Classes="ghost compact" Click="OnSavePreset" ToolTip.Tip="保存规则与排序设置">保存预设</Button>
+   <TextBlock Grid.Column="4" Text="排序" VerticalAlignment="Center"/>
+   <ComboBox x:Name="SortCombo" Grid.Column="5" SelectedIndex="0" SelectionChanged="OnOptionsChanged">
+    <ComboBoxItem Content="当前列表顺序"/><ComboBoxItem Content="名称自然排序"/>
+    <ComboBoxItem Content="创建时间"/><ComboBoxItem Content="修改时间"/>
+    <ComboBoxItem Content="拍摄时间"/><ComboBoxItem Content="手动顺序"/>
+   </ComboBox>
+   <ToggleButton x:Name="DescendingToggle" Grid.Column="6" Classes="icon-action" IsCheckedChanged="OnOptionsChanged"
+       ToolTip.Tip="升序／降序" AutomationProperties.Name="切换排序方向">
+    <PathIcon x:Name="SortDirectionIcon" Classes="rename-action-icon" Data="{x:Static icons:Icons.SortAsc}"/>
+   </ToggleButton>
+  </Grid>
+  <Grid x:Name="BodyGrid" Grid.Row="1" ColumnDefinitions="190,280,*" RowDefinitions="*" ColumnSpacing="12" RowSpacing="10">
+   <Border x:Name="RulesPanel" Classes="settings-group">
+    <Grid RowDefinitions="Auto,*,Auto">
+     <Grid Margin="12,10" ColumnDefinitions="*,Auto,Auto">
+      <TextBlock Text="规则序列" Classes="rename-heading" VerticalAlignment="Center"/>
+      <Button Grid.Column="1" Classes="icon-action" Click="OnDuplicateRule" ToolTip.Tip="复制当前规则" AutomationProperties.Name="复制规则">
+       <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Copy}"/>
+      </Button>
+      <Button Grid.Column="2" Classes="icon-action" Click="OnRemoveRule" ToolTip.Tip="删除当前规则" AutomationProperties.Name="删除规则">
+       <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Delete}"/>
+      </Button>
+     </Grid>
+     <ListBox x:Name="RuleList" Grid.Row="1" Classes="rename-list rename-rules" SelectionChanged="OnRuleSelected" KeyDown="OnRuleListKeyDown">
+      <ListBox.ItemTemplate>
+       <DataTemplate x:DataType="models:BatchRenameRule">
+        <Grid ColumnDefinitions="26,*" ColumnSpacing="4">
+         <CheckBox IsChecked="{Binding IsEnabled}" ToolTip.Tip="启用规则" AutomationProperties.Name="启用规则"/>
+         <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
         </Grid>
-
-        <!-- Footer -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-            <Button x:Name="StatusText" Classes="link"
-                    IsHitTestVisible="False" FontSize="{DynamicResource FontSizeCaption}"
-                    Foreground="{DynamicResource TextMutedBrush}"/>
-            <Button Classes="secondary" Click="OnCancel">取消</Button>
-            <Button x:Name="ApplyButton" Classes="primary" Click="OnApply"
-                    IsEnabled="True">应用</Button>
-        </StackPanel>
+       </DataTemplate>
+      </ListBox.ItemTemplate>
+     </ListBox>
+     <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="6">
+      <Button x:Name="AddRuleButton" Classes="ghost compact" Click="OnAddRule" AutomationProperties.Name="添加规则"><StackPanel Orientation="Horizontal" Spacing="6"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Plus}"/><TextBlock Text="添加规则"/></StackPanel></Button>
+      <Button Grid.Column="1" Classes="icon-action" Click="OnMoveRuleUp" ToolTip.Tip="上移（⌥↑）" AutomationProperties.Name="上移规则"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
+      <Button Grid.Column="2" Classes="icon-action" Click="OnMoveRuleDown" ToolTip.Tip="下移（⌥↓）" AutomationProperties.Name="下移规则"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
+     </Grid>
     </Grid>
+   </Border>
+   <Border x:Name="EditorPanel" Grid.Column="1" Classes="settings-group">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="RuleEditor" Margin="0,6"/></ScrollViewer>
+   </Border>
+   <Grid x:Name="PreviewPanel" Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+     <ComboBox x:Name="FilterCombo" SelectedIndex="0" SelectionChanged="OnFilterChanged" HorizontalAlignment="Left" MinWidth="130">
+      <ComboBoxItem Content="全部项目"/><ComboBoxItem Content="仅看变化"/><ComboBoxItem Content="仅看冲突"/><ComboBoxItem Content="仅看失败"/><ComboBoxItem Content="仅看问题"/>
+     </ComboBox>
+     <ComboBox x:Name="StepCombo" Grid.Column="1" SelectionChanged="OnStepChanged" MinWidth="130"
+       ToolTip.Tip="选择最终结果或某一步的结果" AutomationProperties.Name="预览步骤"/>
+    </Grid>
+    <Grid Grid.Row="1" ColumnDefinitions="28,24,*,*,100,28" ColumnSpacing="6" Margin="6,0">
+     <TextBlock Grid.Column="2" Text="原名称" Classes="rename-heading"/>
+     <TextBlock x:Name="PreviewNameHeading" Grid.Column="3" Text="新名称" Classes="rename-heading"/>
+     <TextBlock Grid.Column="4" Text="状态" Classes="rename-heading"/>
+    </Grid>
+    <ListBox x:Name="PreviewList" Grid.Row="2" Classes="rename-list" KeyDown="OnPreviewKeyDown">
+     <ListBox.ItemTemplate>
+      <DataTemplate x:DataType="vm:BatchRenamePreviewRow">
+       <Expander Classes="compact-details" IsExpanded="{Binding IsExpanded}">
+        <Expander.Header>
+        <Grid RowDefinitions="Auto,Auto" RowSpacing="2">
+        <Grid ColumnDefinitions="28,24,*,*,100" ColumnSpacing="6">
+         <CheckBox IsChecked="{Binding IsIncluded}" IsEnabled="{Binding IsEditable}" ToolTip.Tip="参与重命名" AutomationProperties.Name="参与重命名"/>
+         <Image Grid.Column="1" Source="{Binding Entry, Converter={StaticResource RenameFileIcon}, ConverterParameter=24}" Width="20" Height="20"/>
+         <controls:RenameDiffText Grid.Column="2" Before="{Binding DisplayedName}" After="{Binding OriginalName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OriginalName}" VerticalAlignment="Center"/>
+         <controls:RenameDiffText Grid.Column="3" Before="{Binding OriginalName}" After="{Binding DisplayedName}"
+           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DisplayedName}" VerticalAlignment="Center" IsVisible="{Binding !IsEditing}" DoubleTapped="OnEditName"/>
+         <TextBox Grid.Column="3" Text="{Binding EditedName}" IsVisible="{Binding IsEditing}" Classes="settings-inline-input"
+           KeyDown="OnEditNameKeyDown" LostFocus="OnEditNameLostFocus" AutomationProperties.Name="目标名称"/>
+         <TextBlock Grid.Column="4" Text="{Binding StatusText}" Classes="rename-status" Classes.issue="{Binding HasIssue}" VerticalAlignment="Center" ToolTip.Tip="{Binding StatusText}"/>
+        </Grid>
+        <TextBlock Grid.Row="1" Margin="64,0,0,0" Text="{Binding DirectoryPath}" Classes="rename-heading" IsVisible="{Binding ShowDirectory}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectoryPath}"/>
+        </Grid>
+        </Expander.Header>
+        <StackPanel Spacing="6">
+         <Grid ColumnDefinitions="48,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+          <TextBlock Text="原名称" Classes="rename-heading"/><TextBlock Grid.Column="1" Text="{Binding OriginalName}" TextWrapping="Wrap"/>
+          <TextBlock Grid.Row="1" Text="新名称" Classes="rename-heading"/>
+          <controls:RenameDiffText Grid.Row="1" Grid.Column="1" Before="{Binding OriginalName}" After="{Binding NewName}" TextWrapping="Wrap"/>
+          <TextBlock Grid.Row="2" Text="目录" Classes="rename-heading"/>
+          <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DirectoryPath}" Classes="rename-heading" TextWrapping="Wrap"/>
+         </Grid>
+         <ItemsControl ItemsSource="{Binding Steps}">
+          <ItemsControl.ItemTemplate>
+           <DataTemplate x:DataType="vm:BatchRenameStepRow">
+            <Border Classes="rename-step" Classes.current="{Binding IsSelected}">
+             <Grid ColumnDefinitions="24,*,Auto" RowDefinitions="Auto,Auto" RowSpacing="3" ColumnSpacing="4">
+              <TextBlock Text="{Binding Number}" Classes="rename-heading"/>
+              <TextBlock Grid.Column="1" Text="{Binding Label}" Classes="rename-step-label"/>
+              <TextBlock Grid.Column="2" Text="{Binding State}" Classes="rename-heading"/>
+              <controls:RenameDiffText Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Before="{Binding Before}" After="{Binding After}" TextWrapping="Wrap"/>
+             </Grid>
+            </Border>
+           </DataTemplate>
+          </ItemsControl.ItemTemplate>
+         </ItemsControl>
+         <Button Classes="icon-action" HorizontalAlignment="Right" Click="OnResetName" IsVisible="{Binding IsManual}"
+           IsEnabled="{Binding CanRestoreRuleResult}" ToolTip.Tip="恢复规则结果" AutomationProperties.Name="恢复规则结果">
+          <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ArrowUndo}"/>
+         </Button>
+        </StackPanel>
+       </Expander>
+      </DataTemplate>
+     </ListBox.ItemTemplate>
+    </ListBox>
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+     <StackPanel Spacing="4">
+      <StackPanel x:Name="ConflictActions" Orientation="Horizontal" IsVisible="False" Spacing="4">
+       <Button x:Name="ExcludeConflictsButton" Classes="ghost compact" Content="排除冲突项" Click="OnExcludeConflicts"/>
+       <Button x:Name="ResolveConflictsButton" Classes="ghost compact" Content="编号解决重名" Click="OnResolveConflicts"/>
+      </StackPanel>
+      <CheckBox x:Name="PhotoSortFallbackCheck" IsVisible="False" Content="拍摄日期缺失时按修改时间排序" IsCheckedChanged="OnOptionsChanged"/>
+     </StackPanel>
+     <Button Grid.Column="1" Classes="icon-action" Click="OnMovePreviewUp" ToolTip.Tip="上移项目（⌥↑）" AutomationProperties.Name="上移项目"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
+     <Button Grid.Column="2" Classes="icon-action" Click="OnMovePreviewDown" ToolTip.Tip="下移项目（⌥↓）" AutomationProperties.Name="下移项目"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
+    </Grid>
+   </Grid>
+  </Grid>
+  <ProgressBar x:Name="ExecutionProgress" Grid.Row="2" IsVisible="False" Height="3" Minimum="0" Maximum="100"/>
+  <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+   <Button x:Name="StatusButton" Classes="ghost compact" Click="OnStatusClick" HorizontalContentAlignment="Left" MaxWidth="520"/>
+   <Button x:Name="UndoButton" Grid.Column="1" HorizontalAlignment="Right" Classes="ghost compact" Content="撤销本次重命名" IsVisible="False" Click="OnUndo"/>
+   <Button x:Name="CancelButton" Grid.Column="2" Classes="secondary compact" Content="取消" Click="OnCancel"/>
+   <Button x:Name="ApplyButton" Grid.Column="3" Classes="primary compact" Content="重命名" IsEnabled="False" Click="OnApply"/>
+  </Grid>
+ </Grid>
 </controls:DialogWindow>

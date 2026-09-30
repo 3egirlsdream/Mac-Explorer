@@ -140,6 +140,7 @@ public partial class FinderToolbar : UserControl
     private void UpdateActionAvailability()
     {
         var hasSelection = ViewModel?.SelectedEntries.Count > 0;
+        BatchRenameButton.IsEnabled = ViewModel?.CanBatchRename == true;
         CutButton.IsEnabled = CutOverflowButton.IsEnabled = hasSelection;
         CopyButton.IsEnabled = CopyOverflowButton.IsEnabled = hasSelection;
         DeleteButton.IsEnabled = DeleteOverflowButton.IsEnabled = hasSelection;
@@ -325,7 +326,7 @@ public partial class FinderToolbar : UserControl
         MoreDropdown.IsOpen = false;
 
         var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel is not Window window || ViewModel == null) return;
+        if (topLevel is not Window window || ViewModel?.CanBatchRename != true) return;
 
         var dialog = new BatchRenameDialog();
         using var modalBlock = window is MainWindow mainWindow

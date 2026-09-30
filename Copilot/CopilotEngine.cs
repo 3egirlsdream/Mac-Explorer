@@ -305,8 +305,11 @@ public sealed class CopilotEngine : IDisposable
             {
                 Instructions = "你是 Mac Explorer 内置 Copilot。只通过已登记能力操作文件；已知能力 ID 时直接查看其说明，否则搜索能力目录。搜索无结果不能证明能力不存在，应拆分关键词核对。修改操作先预览，再请求执行。" +
                     "绝不把文件正文、密钥或凭据自行读取或发送。当前窗格和选中项仅作为定位线索。" +
-                    "file.content 每次只返回一页；需要后续正文时使用返回的 NextOffset 重新预览并请求批准。只有 HasMore=false 才能声称读完全文。" +
-                    "file.list 和 tag.files 每次返回一页，按 Page.NextOffset 继续；只有 Page.HasMore=false 才到本次列表末尾。目录或标签变化后应重新列出。搜索结果达到上限时不能声称已列出全部文件。" +
+                    "查找 PDF 正文、图片文字或语义、相机、地点、日期、标签及评分时，优先用 file.search-index 查询本地数据库；调用 file.search-fields 查看可用字段。无命中只表示现有索引未命中，未分析文件仍可能含有目标内容。" +
+                    "搜索条件按需填写，不照抄说明中的所有示例参数。完整短语未命中时可用 tags 中多个 type=text 的关键词过滤交集，核对可能的 OCR 分段差异。" +
+                    "file.content 必须先 PreviewOperation 再 ExecuteApprovedPlan，不能使用 CallReadOnly。每次只返回一页；需要后续正文时使用返回的 NextOffset 重新预览并请求批准。只有 HasMore=false 才能声称读完全文。" +
+                    "按用户指定范围搜索，使用 ext:pdf 或 extensions 参数筛选 PDF，不用名称关键词 pdf 代替类型。找到一份已确认的目标即可回答，除非用户要求全部结果。不要读取无关文件来测试工具。" +
+                    "file.list 和 tag.files 每次返回一页，按 Page.NextOffset 继续；file.search-index 按 Coverage.NextOffset 继续。只有相应 HasMore=false 才到本次列表末尾。目录或标签变化后应重新列出。搜索结果达到上限时不能声称已列出全部文件。" +
                     "使用候选文件集中的路径时，先读取对应产物，逐字复制 FullPath，不要根据文件名重写路径；单个路径失败时优先核对候选集。" +
                     "用中文简洁回答；每项失败要说清楚。",
                 Tools =
@@ -466,21 +469,37 @@ public sealed class CopilotEngine : IDisposable
         return JsonSerializer.Serialize(new { artifactId = id, groupCount = groups.Count, fileCount = assigned.Count });
     }
 
-    [Description("调用只读应用能力。写操作必须使用预览与批准计划工具。")]
+    [Description("调用 Impact=Read 的应用能力。file.content 等正文披露能力及修改操作必须先 PreviewOperation，再 ExecuteApprovedPlan。")]
     internal async Task<string> CallReadOnlyAsync(
         [Description("稳定能力 ID") ] string id,
         [Description("JSON 参数对象") ] string argumentsJson)
     {
-        var result = await Dispatcher.UIThread.InvokeAsync(() =>
-            capabilities.ExecuteReadAsync(id, argumentsJson, activePane()));
+        var capability = capabilities.Find(id);
+        if (capability != null && capability.Impact != CapabilityImpact.Read)
+            return JsonSerializer.Serialize(new CapabilityResult(false,
+                $"{id} 需要审批：先调用 PreviewOperation(id, argumentsJson)，再调用 ExecuteApprovedPlan(planId)。此错误不是内容提取失败。",
+                new { RequiredTool = "PreviewOperation", CapabilityId = id, ApprovalRequired = true }), CatalogJsonOptions);
+        CapabilityResult result;
+        try
+        {
+            result = await Dispatcher.UIThread.InvokeAsync(() =>
+                capabilities.ExecuteReadAsync(id, argumentsJson, activePane()));
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or InvalidOperationException
+                                      or UnauthorizedAccessException or JsonException or NotSupportedException or TimeoutException
+                                      or Microsoft.Data.Sqlite.SqliteException)
+        {
+            return JsonSerializer.Serialize(new CapabilityResult(false, ex.Message), CatalogJsonOptions);
+        }
         Activity?.Invoke($"调用只读能力：{capabilities.Find(id)?.Name ?? id}");
-        if (id is not ("file.list" or "file.search" or "tag.files")) return JsonSerializer.Serialize(result);
+        if (id is not ("file.list" or "file.search" or "file.search-index" or "tag.files"))
+            return JsonSerializer.Serialize(result, CatalogJsonOptions);
         var artifactId = Guid.NewGuid().ToString("N");
         store.SaveArtifact(artifactId, _sessionId, "candidate-file-set", JsonSerializer.Serialize(result));
         return JsonSerializer.Serialize(new { artifactId, result });
     }
 
-    [Description("预览文件修改的范围与冲突，生成需要用户确认的短时计划。")]
+    [Description("预览 file.content 的正文发送范围，或文件修改的范围与冲突，生成需要用户确认的短时计划。")]
     internal async Task<string> PreviewOperationAsync(
         [Description("稳定能力 ID") ] string id,
         [Description("JSON 参数对象") ] string argumentsJson)
@@ -491,7 +510,7 @@ public sealed class CopilotEngine : IDisposable
             plan = await Dispatcher.UIThread.InvokeAsync(() =>
                 capabilities.PreviewAsync(id, argumentsJson, activePane()));
         }
-        catch (Exception ex) when (ex is ArgumentException or IOException or InvalidOperationException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is ArgumentException or IOException or InvalidOperationException or UnauthorizedAccessException or JsonException or NotSupportedException or TimeoutException)
         {
             return JsonSerializer.Serialize(new CapabilityResult(false, ex.Message), CatalogJsonOptions);
         }

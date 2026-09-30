@@ -52,6 +52,7 @@ public class CommandOmniboxProvider(IAppCapabilityRegistry capabilities) : IOmni
                 || cmd.Keywords.Contains(value, StringComparison.OrdinalIgnoreCase);
 
             if (!matches) continue;
+            if (cmd.CapabilityId == "ui.batch-rename-dialog" && !viewModel.CanBatchRename) continue;
 
             results.Add(new OmniboxSuggestion(
                 OmniboxSuggestionKind.Command,

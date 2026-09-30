@@ -109,6 +109,31 @@ public class AiTagService : IAiTagService
 
     // ── Save & delete ──
 
+    public Task<IReadOnlyList<string>?> GetCachedTextAsync(string filePath, long modifiedTicks,
+        CancellationToken ct = default) => Task.Run(async () =>
+    {
+        using var connectionLock = await AcquireConnectionAsync().ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        using var status = _connection.CreateCommand();
+        status.CommandText = "SELECT 1 FROM ai_analysis_status WHERE file_path=@path AND file_modified_at=@modified AND analysis_version>=@version";
+        status.Parameters.AddWithValue("@path", filePath);
+        status.Parameters.AddWithValue("@modified", modifiedTicks);
+        status.Parameters.AddWithValue("@version", CurrentAnalysisVersion);
+        if (status.ExecuteScalar() == null) return null;
+        var texts = new List<string>();
+        using var command = _connection.CreateCommand();
+        // Insertion order preserves PDF page / OCR reading order, independent of confidence.
+        command.CommandText = "SELECT tag_value FROM ai_tags WHERE file_path=@path AND tag_type='text' ORDER BY id";
+        command.Parameters.AddWithValue("@path", filePath);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            ct.ThrowIfCancellationRequested();
+            texts.Add(reader.GetString(0));
+        }
+        return (IReadOnlyList<string>)texts;
+    }, ct);
+
     public async Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result, CancellationToken ct = default)
     {
         using var connectionLock = await AcquireConnectionAsync();
@@ -261,9 +286,13 @@ public class AiTagService : IAiTagService
             {
                 using var cmd = _connection.CreateCommand();
                 cmd.Transaction = transaction;
-                cmd.CommandText = $"UPDATE {table} SET file_path = @new WHERE file_path = @old";
+                cmd.CommandText = $"""
+                    UPDATE {table} SET file_path = @new || substr(file_path, length(@old) + 1)
+                    WHERE file_path = @old OR substr(file_path, 1, length(@prefix)) = @prefix
+                    """;
                 cmd.Parameters.AddWithValue("@new", newPath);
                 cmd.Parameters.AddWithValue("@old", oldPath);
+                cmd.Parameters.AddWithValue("@prefix", oldPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
                 await cmd.ExecuteNonQueryAsync();
             }
             transaction.Commit();

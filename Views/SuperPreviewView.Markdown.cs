@@ -23,7 +23,7 @@ public partial class SuperPreviewView
             PreviewPlaceholder.IsVisible = false;
             FolderSummary.IsVisible = false;
             PreviewMetaText.Text = $"Markdown · {entry.FormattedSize}";
-            QuickLookButton.IsVisible = _quickLookService != null;
+            QuickLookButton.IsVisible = !_isCompactPreview && _quickLookService != null;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex)

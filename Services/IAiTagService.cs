@@ -9,6 +9,8 @@ public interface IAiTagService : IDisposable
     Task<IReadOnlyList<(string Path, long ModifiedTicks)>> GetUnanalyzedFilesAsync(
         IReadOnlyList<string> filePaths, IReadOnlyList<long> modifiedTicks);
     Task<IReadOnlyList<string>> GetAnalyzedPathsInDirectoryAsync(string parentPath);
+    Task<IReadOnlyList<string>?> GetCachedTextAsync(string filePath, long modifiedTicks,
+        CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>?>(null);
 
     // Save & delete
     Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result, CancellationToken ct = default);

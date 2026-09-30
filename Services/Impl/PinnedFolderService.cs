@@ -105,12 +105,14 @@ public class PinnedFolderService : IPinnedFolderService, IDisposable
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
             UPDATE pinned_folders 
-            SET folder_path = @newPath, display_name = @newDisplayName
-            WHERE folder_path = @oldPath
+            SET folder_path = @newPath || substr(folder_path, length(@oldPath) + 1),
+                display_name = CASE WHEN folder_path = @oldPath THEN @newDisplayName ELSE display_name END
+            WHERE folder_path = @oldPath OR substr(folder_path, 1, length(@prefix)) = @prefix
             """;
             cmd.Parameters.AddWithValue("@oldPath", oldPath);
             cmd.Parameters.AddWithValue("@newPath", newPath);
             cmd.Parameters.AddWithValue("@newDisplayName", newDisplayName);
+            cmd.Parameters.AddWithValue("@prefix", oldPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
             await cmd.ExecuteNonQueryAsync();
         }
         finally

@@ -315,6 +315,7 @@ public partial class App : Application
         services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddSingleton<ILocalSendService, Services.Impl.LocalSendService>();
         services.AddSingleton<Copilot.CopilotSettings>();
         services.AddSingleton<Copilot.CopilotKeychain>();
@@ -345,12 +346,12 @@ public partial class App : Application
             sp.GetService<IPinnedFolderService>(),
             sp.GetService<IDirectoryChangeNotifier>(),
             sp.GetService<IFileTagService>(),
-            sp.GetService<ILogger<Services.Impl.BatchRenameService>>()));
+            sp.GetService<ILogger<Services.Impl.BatchRenameService>>(), sp.GetService<IMetadataService>()));
         services.AddSingleton<IFileOperationHistoryService>(sp => new Services.Impl.FileOperationHistoryService(
             sp.GetRequiredService<IFileService>(),
             sp.GetService<IDirectoryChangeNotifier>(),
             sp.GetService<IFileTagService>(),
-            sp.GetService<ILogger<Services.Impl.FileOperationHistoryService>>()));
+            sp.GetService<ILogger<Services.Impl.FileOperationHistoryService>>(), sp.GetRequiredService<IBatchRenameService>()));
         services.AddSingleton<BatchRenameOperationService>();
         services.AddSingleton<NavigationBridge>();
         services.AddSingleton<IAiTagService>(sp => new Services.Impl.AiTagService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILoggerFactory>()));

@@ -302,7 +302,7 @@
                                             <Button Grid.Column="2" Classes="tab-close-button"
                                                     IsVisible="{Binding CanClose}"
                                                     Click="CloseTab"
-                                                    ToolTip.Tip="关闭标签页 ⌘W"
+                                                    controls:ShortcutTip.Command="tab.close"
                                                     AutomationProperties.Name="关闭标签页">
                                                 <PathIcon Data="{x:Static icons:Icons.Close}" Width="9" Height="9"/>
                                             </Button>
@@ -315,7 +315,7 @@
                     <Button Grid.Column="1" x:Name="NewTabButton" Classes="title-nav-button"
                             Width="28" Height="28"
                             Click="AddTab"
-                            ToolTip.Tip="新建标签页 ⌘T"
+                            controls:ShortcutTip.Command="tab.new"
                             AutomationProperties.Name="新建标签页">
                         <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
                     </Button>
@@ -651,7 +651,7 @@
 	                            Classes="ghost compact" Content="＋" Width="28" Height="28"
 	                            IsVisible="False" ToolTip.Tip="添加搜索文件夹"
 	                            Click="OnAddGlobalSearchFolder"/>
-	                    <TextBlock Grid.Column="4" Text="⌘K  ·  Esc 关闭"
+	                    <TextBlock Grid.Column="4" Text="Esc 关闭"
 	                               VerticalAlignment="Center" FontSize="11"
 	                               Foreground="{DynamicResource TextMutedBrush}"/>
 	                </Grid>
@@ -670,104 +670,55 @@
 	                                 KeyDown="OnGlobalSearchKeyDown"/>
 	                    </Grid>
 	                </Border>
-	                <Grid Grid.Row="2" ColumnDefinitions="*,220" ColumnSpacing="12" Margin="0,12,0,6">
-	                    <Grid Grid.Column="0">
-	                        <TextBlock x:Name="GlobalSearchEmptyHint"
-	                                   Text="输入内容即可搜索已索引的本地文件、常用位置和最近位置"
-	                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-	                                   Foreground="{DynamicResource TextMutedBrush}"/>
-	                        <ListBox x:Name="GlobalSearchResults"
-	                                 Classes="global-search-results"
-	                                 IsVisible="False"
-	                                 SelectionChanged="OnGlobalSearchSelectionChanged">
-	                            <ListBox.ItemTemplate>
-	                                <DataTemplate>
-                                    <Grid ColumnDefinitions="34,*,Auto" DoubleTapped="OnGlobalSearchResultDoubleTapped">
-	                                        <Border Grid.Column="0" Width="30" Height="30" CornerRadius="7"
-	                                                Background="{DynamicResource ColorBgHover}">
-	                                            <PathIcon Data="{Binding IconData}" Width="16" Height="16"
-	                                                      Foreground="{Binding IconColor}"
-	                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-	                                        </Border>
-	                                        <StackPanel Grid.Column="1" Margin="8,0,8,0" Spacing="1"
-	                                                    VerticalAlignment="Center">
-	                                            <TextBlock Text="{Binding Title}" FontSize="14"
-	                                                       TextTrimming="CharacterEllipsis"/>
-	                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
-	                                                       Foreground="{DynamicResource TextSecondaryBrush}"
-	                                                       TextTrimming="CharacterEllipsis"/>
-	                                        </StackPanel>
-	                                        <TextBlock Grid.Column="2" Text="↩" FontSize="12"
-	                                                   VerticalAlignment="Center"
-	                                                   Foreground="{DynamicResource TextMutedBrush}"/>
-	                                    </Grid>
-	                                </DataTemplate>
-	                            </ListBox.ItemTemplate>
-	                        </ListBox>
-	                    </Grid>
-	                    <Border Grid.Column="1" x:Name="GlobalSearchPreviewPanel"
-	                            CornerRadius="10" Padding="10"
-	                            Background="{DynamicResource SurfaceElevatedBrush}"
-	                            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1">
-	                        <Grid RowDefinitions="Auto,*,Auto">
-	                            <Grid ColumnDefinitions="*,Auto">
-	                                <TextBlock Text="预览" FontSize="12" VerticalAlignment="Center"
-	                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-	                                <ComboBox Grid.Column="1" x:Name="GlobalSearchPreviewSizeCombo"
-	                                          Width="70" Height="25"
-	                                          SelectionChanged="OnGlobalSearchPreviewSizeChanged">
-	                                    <ComboBoxItem Tag="Small">小</ComboBoxItem>
-	                                    <ComboBoxItem Tag="Medium">中</ComboBoxItem>
-	                                    <ComboBoxItem Tag="Large">大</ComboBoxItem>
-	                                </ComboBox>
-	                            </Grid>
-                            <Grid Grid.Row="1" Margin="0,8">
-                                <TextBlock x:Name="GlobalSearchPreviewPlaceholder"
-                                           Text="选择文件以预览"
-	                                           TextAlignment="Center"
-	                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-	                                           Foreground="{DynamicResource TextMutedBrush}"/>
-                                <Image x:Name="GlobalSearchPreviewImage"
-                                       IsVisible="False"
-                                       Width="180" Height="180"
-                                       Stretch="Uniform"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <ListBox x:Name="GlobalSearchFolderContents"
-                                         IsVisible="False"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         Padding="0">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate x:DataType="models:FileSystemEntry">
-                                            <Grid ColumnDefinitions="38,*,Auto" ColumnSpacing="6"
-                                                  Margin="2,3" MinHeight="38"
-                                                  DoubleTapped="OnGlobalSearchFolderEntryDoubleTapped">
-                                                <Image Grid.Column="0" Width="32" Height="32"
-                                                       Stretch="Uniform"
-                                                       Loaded="OnGlobalSearchFolderImageLoaded"
-                                                       DataContextChanged="OnGlobalSearchFolderImageDataContextChanged"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                           FontSize="11" VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           ToolTip.Tip="{Binding Name}"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding KindText}"
-                                                           FontSize="9" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource TextMutedBrush}"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </Grid>
-	                            <StackPanel Grid.Row="2" Spacing="2">
-	                                <TextBlock x:Name="GlobalSearchPreviewTitle" FontSize="12"
-	                                           TextTrimming="CharacterEllipsis"/>
-	                                <TextBlock x:Name="GlobalSearchPreviewPath" FontSize="10"
-	                                           TextTrimming="CharacterEllipsis"
-	                                           Foreground="{DynamicResource TextMutedBrush}"/>
-	                            </StackPanel>
-	                        </Grid>
-	                    </Border>
-	                </Grid>
+                <Grid Grid.Row="2" ColumnDefinitions="*,220" ColumnSpacing="12" Margin="0,12,0,6">
+                    <Grid Grid.Column="0">
+                        <TextBlock x:Name="GlobalSearchEmptyHint"
+                                   Text="输入内容即可搜索已索引的本地文件、常用位置和最近位置"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                        <ListBox x:Name="GlobalSearchResults"
+                                 Classes="global-search-results"
+                                 IsVisible="False" SelectionChanged="OnGlobalSearchSelectionChanged">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:OmniboxSuggestion">
+                                    <Grid Classes="global-search-result" ColumnDefinitions="34,*,Auto"
+                                          Background="Transparent"
+                                          ToolTip.Tip="{Binding Title}"
+                                          DoubleTapped="OnGlobalSearchResultDoubleTapped">
+                                        <Border Grid.Column="0" Width="30" Height="30" CornerRadius="7"
+                                                Background="{DynamicResource ColorBgHover}">
+                                            <PathIcon Data="{Binding IconData}" Width="16" Height="16"
+                                                      Foreground="{Binding IconColor}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="8,0,8,0" Spacing="1"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}" FontSize="14"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Classes="icon-action" Width="28" Height="28"
+                                                VerticalAlignment="Center" IsVisible="{Binding CanLocate}"
+                                                AutomationProperties.Name="定位到所在位置" ToolTip.Tip="定位到所在位置"
+                                                Click="OnLocateGlobalSearchResult">
+                                            <PathIcon Data="{x:Static icons:Icons.Location}" Width="16" Height="16"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                    <Border Grid.Column="1" x:Name="GlobalSearchPreviewPanel"
+                            CornerRadius="{DynamicResource RadiusLg}" Padding="10"
+                            Background="{DynamicResource SurfaceElevatedBrush}"
+                            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1"
+                            ClipToBounds="True">
+                        <ContentControl x:Name="GlobalSearchPreviewHost" Height="240"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    </Border>
+                </Grid>
 	                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="2,7,2,0">
 	                    <TextBlock x:Name="GlobalSearchResultCount" Text="仅搜索 Mac Explorer 已获权限并建立索引的位置"
 	                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>

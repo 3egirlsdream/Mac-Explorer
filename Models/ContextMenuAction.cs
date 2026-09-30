@@ -7,7 +7,13 @@ public class ContextMenuAction
     public string IconSvg { get; init; } = string.Empty;
     public string? IconColor { get; init; }
     public Avalonia.Media.IImage? IconImage { get; init; }
-    public string ShortcutText { get; init; } = string.Empty;
+    public string? ShortcutId { get; init; }
+    private string _shortcutText = string.Empty;
+    public string ShortcutText
+    {
+        get => ShortcutId == null ? _shortcutText : Services.Impl.ShortcutService.Resolve().GetDisplay(ShortcutId);
+        init => _shortcutText = value;
+    }
     public bool IsEnabled { get; init; } = true;
     public bool IsSeparator { get; init; }
     public bool IsCheckable { get; init; }

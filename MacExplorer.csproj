@@ -8,7 +8,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
     <ApplicationId>com.macexplorer.app</ApplicationId>
-    <Version>1.0.49</Version>
+    <Version>1.0.50</Version>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -92,7 +92,7 @@
     <PropertyGroup>
       <_ClangArch Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-arch x86_64</_ClangArch>
     </PropertyGroup>
-    <Exec Command="clang++ -fobjc-arc -dynamiclib $(_ClangArch) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+    <Exec Command="clang++ -fobjc-arc -dynamiclib $(_ClangArch) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
   <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">

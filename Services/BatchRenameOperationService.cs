@@ -9,21 +9,25 @@ public sealed class BatchRenameOperationService(
     IBackgroundTaskManager tasks)
 {
     public async Task<BatchRenameResult> ExecuteAsync(
-        List<BatchRenamePreviewItem> preview, CancellationToken cancellationToken = default)
+        List<BatchRenamePreviewItem> preview, CancellationToken cancellationToken = default, Guid? historyBatchId = null,
+        IProgress<BatchRenameProgress>? uiProgress = null)
     {
         var task = tasks.AddTask($"批量重命名 {preview.Count} 项", BackgroundTaskKind.BatchRename);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(task.Cts.Token, cancellationToken);
-        var progress = new Progress<BatchRenameProgress>(update => tasks.UpdateProgress(
-            task.Id, update.Percent, update.CurrentPath,
-            $"批量重命名 {update.CompletedCount}/{update.TotalCount}"));
+        var progress = new Progress<BatchRenameProgress>(update =>
+        {
+            tasks.UpdateProgress(task.Id, update.Percent, update.CurrentPath,
+                $"批量重命名 {update.CompletedCount}/{update.TotalCount}");
+            uiProgress?.Report(update);
+        });
         try
         {
             var result = await rename.ExecuteAsync(preview, progress, linked.Token);
-            foreach (var item in result.SuccessfulItems)
-                await history.RecordRenameAsync(item.OriginalPath, item.NewPath);
+            result.HistoryBatchId = await history.RecordBatchRenameAsync(result.SuccessfulItems, historyBatchId);
             if (result.FailedCount > 0)
                 tasks.FailTask(task.Id, $"成功 {result.SuccessCount}，失败 {result.FailedCount}",
                     string.Join(Environment.NewLine, result.Errors));
+            else if (result.WasCancelled) tasks.CancelTask(task.Id);
             else tasks.CompleteTask(task.Id);
             return result;
         }
@@ -37,5 +41,12 @@ public sealed class BatchRenameOperationService(
             tasks.FailTask(task.Id, "批量重命名失败", ex.Message);
             throw;
         }
+    }
+
+    public Task<BatchRenameResult> ExecuteAsync(BatchRenamePlan plan, CancellationToken cancellationToken = default,
+        Guid? historyBatchId = null, IProgress<BatchRenameProgress>? uiProgress = null)
+    {
+        if (!plan.CanExecute) throw new InvalidOperationException("请完成预览并解决错误或冲突。");
+        return ExecuteAsync(plan.Items.ToList(), cancellationToken, historyBatchId, uiProgress);
     }
 }

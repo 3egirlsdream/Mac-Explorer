@@ -26,21 +26,11 @@ public partial class FileListView
     private bool TryHandleBrowseShortcut(KeyEventArgs e)
     {
         if (e.Handled || IsTextInputSource(e.Source) || ViewModel == null) return false;
-        var command = (e.KeyModifiers & (KeyModifiers.Meta | KeyModifiers.Control)) != 0;
-        if (command)
+        if (Shortcuts.IsRecording) return false;
+        if (TryHandleConfiguredFileShortcut(e)) return true;
+        if (e.KeyModifiers != KeyModifiers.None)
         {
             if (e.Key == Key.Q) return false;
-            switch (e.Key)
-            {
-                case Key.A: ViewModel.SelectAll(); break;
-                case Key.R: _ = ViewModel.RefreshAsync(); break;
-                case Key.Up: _ = ViewModel.NavigateUpAsync(); break;
-                case Key.OemOpenBrackets: _ = ViewModel.NavigateBackAsync(); break;
-                case Key.OemCloseBrackets: _ = ViewModel.NavigateForwardAsync(); break;
-                case Key.O when ViewModel.SelectedEntries.Count == 1:
-                    _ = ViewModel.OpenEntryAsync(ViewModel.SelectedEntries[0]); break;
-            }
-            // Unlisted commands cannot fall through to file operation shortcuts.
             e.Handled = true;
         }
         else if (e.Key is Key.Space or Key.Enter)

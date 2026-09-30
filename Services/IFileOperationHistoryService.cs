@@ -10,6 +10,13 @@ public interface IFileOperationHistoryService
     /// <summary>Record a rename operation for potential undo.</summary>
     Task RecordRenameAsync(string oldPath, string newPath);
 
+    async Task<Guid?> RecordBatchRenameAsync(IReadOnlyList<BatchRenamePreviewItem> items, Guid? batchId = null)
+    {
+        foreach (var item in items) await RecordRenameAsync(item.OriginalPath, item.NewPath);
+        return null;
+    }
+    Task<bool> UndoBatchAsync(Guid batchId) => Task.FromResult(false);
+
     /// <summary>Record a move-to-trash operation for potential undo.</summary>
     Task RecordTrashAsync(string originalPath, string trashedPath);
 
@@ -28,12 +35,15 @@ public enum FileOperationKind
 {
     Rename,
     MoveToTrash,
-    Move
+    Move,
+    BatchRename
 }
 
 /// <summary>Represents a recorded file operation that can be undone.</summary>
 public class FileOperationRecord
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public List<BatchRenamePreviewItem> RenameItems { get; set; } = [];
     public FileOperationKind Kind { get; set; }
     public string OriginalPath { get; set; } = "";
     public string CurrentPath { get; set; } = "";

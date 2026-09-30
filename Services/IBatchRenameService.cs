@@ -7,6 +7,11 @@ namespace MacExplorer.Services;
 /// </summary>
 public interface IBatchRenameService
 {
+    Task<BatchRenamePlan> GeneratePreviewAsync(BatchRenameRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<BatchRenameResult> ExecuteAsync(BatchRenamePlan plan,
+        IProgress<BatchRenameProgress>? progress = null, CancellationToken cancellationToken = default);
     /// <summary>Generate preview items for the given entries and rules.</summary>
     List<BatchRenamePreviewItem> GeneratePreview(
         IReadOnlyList<FileSystemEntry> entries,

@@ -23,13 +23,15 @@ internal sealed class ReasoningReplayHandler(
             return await base.SendAsync(request, cancellationToken);
 
         var requestSessionId = sessionId();
+        var replayEmptyReasoning = request.RequestUri?.Host.Equals("api.deepseek.com", StringComparison.OrdinalIgnoreCase) == true
+            || store.LoadReasoning(requestSessionId).Count > 0;
         await RestoreRequestAsync(request, requestSessionId, cancellationToken);
         var response = await base.SendAsync(request, cancellationToken);
         if (response.IsSuccessStatusCode && response.Content?.Headers.ContentType?.MediaType == "text/event-stream")
         {
             var original = response.Content;
             var stream = await original.ReadAsStreamAsync(cancellationToken);
-            var replacement = new StreamContent(new ReasoningCaptureStream(stream, original, store, requestSessionId));
+            var replacement = new StreamContent(new ReasoningCaptureStream(stream, original, store, requestSessionId, replayEmptyReasoning));
             CopyHeaders(original.Headers, replacement.Headers);
             response.Content = replacement;
             return response;
@@ -39,7 +41,7 @@ internal sealed class ReasoningReplayHandler(
             return response;
 
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        CaptureResponse(bytes, requestSessionId);
+        CaptureResponse(bytes, requestSessionId, replayEmptyReasoning);
         ReplaceContent(response, bytes);
         return response;
     }
@@ -97,6 +99,14 @@ internal sealed class ReasoningReplayHandler(
                 modified = true;
                 break;
             }
+            // Older sessions lost responses with empty reasoning. DeepSeek requires
+            // the field even on those assistant messages; no reasoning is invented.
+            if (!message.ContainsKey("reasoning_content")
+                && request.RequestUri?.Host.Equals("api.deepseek.com", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                message["reasoning_content"] = "";
+                modified = true;
+            }
         }
         if (!modified) return;
         var replacement = new ByteArrayContent(Encoding.UTF8.GetBytes(body.ToJsonString()));
@@ -105,7 +115,7 @@ internal sealed class ReasoningReplayHandler(
         request.Content = replacement;
     }
 
-    private void CaptureResponse(byte[] bytes, string requestSessionId)
+    private void CaptureResponse(byte[] bytes, string requestSessionId, bool replayEmptyReasoning)
     {
         try
         {
@@ -113,9 +123,9 @@ internal sealed class ReasoningReplayHandler(
             var root = document.RootElement;
             if (!root.TryGetProperty("choices", out var choices) || choices.ValueKind != JsonValueKind.Array
                 || choices.GetArrayLength() == 0
-                || !choices[0].TryGetProperty("message", out var message)
-                || !message.TryGetProperty("reasoning_content", out var reasoning)
-                || reasoning.ValueKind != JsonValueKind.String) return;
+                || !choices[0].TryGetProperty("message", out var message)) return;
+            var hasReasoning = message.TryGetProperty("reasoning_content", out var reasoning);
+            if (!hasReasoning && !replayEmptyReasoning) return;
             var responseId = root.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String
                 ? id.GetString()! : Guid.NewGuid().ToString("N");
             var content = message.TryGetProperty("content", out var value)
@@ -128,7 +138,7 @@ internal sealed class ReasoningReplayHandler(
                     && callId.ValueKind == JsonValueKind.String ? callId.GetString() ?? "" : "").ToArray()
                 : [];
             store.SaveReasoning(requestSessionId, responseId, content,
-                JsonSerializer.Serialize(callIds), reasoning.GetString()!);
+                JsonSerializer.Serialize(callIds), reasoning.ValueKind == JsonValueKind.String ? reasoning.GetString()! : "");
         }
         catch (JsonException) { /* Keep the provider response intact. */ }
     }
@@ -205,7 +215,7 @@ internal sealed class ReasoningReplayHandler(
     private sealed record ReplayEntry(string Content, string[] ToolCallIds, string ReasoningContent);
 
     private sealed class ReasoningCaptureStream(
-        Stream inner, HttpContent original, CopilotStore store, string sessionId) : Stream
+        Stream inner, HttpContent original, CopilotStore store, string sessionId, bool replayEmptyReasoning) : Stream
     {
         private readonly List<byte> _event = [];
         private readonly StringBuilder _content = new();
@@ -213,6 +223,7 @@ internal sealed class ReasoningReplayHandler(
         private readonly SortedDictionary<int, string> _callIds = new();
         private string? _responseId;
         private bool _saved;
+        private bool _hasReasoningField;
 
         public override bool CanRead => inner.CanRead;
         public override bool CanSeek => false;
@@ -282,9 +293,11 @@ internal sealed class ReasoningReplayHandler(
                     || choices.GetArrayLength() == 0 || choices[0].ValueKind != JsonValueKind.Object
                     || !choices[0].TryGetProperty("delta", out var delta)
                     || delta.ValueKind != JsonValueKind.Object) return;
-                if (delta.TryGetProperty("reasoning_content", out var reasoning)
-                    && reasoning.ValueKind == JsonValueKind.String)
-                    _reasoning.Append(reasoning.GetString());
+                if (delta.TryGetProperty("reasoning_content", out var reasoning))
+                {
+                    _hasReasoningField = true;
+                    if (reasoning.ValueKind == JsonValueKind.String) _reasoning.Append(reasoning.GetString());
+                }
                 if (delta.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
                     _content.Append(content.GetString());
                 if (delta.TryGetProperty("tool_calls", out var calls) && calls.ValueKind == JsonValueKind.Array)
@@ -293,13 +306,15 @@ internal sealed class ReasoningReplayHandler(
                             && call.TryGetProperty("index", out var index) && index.TryGetInt32(out var position)
                             && call.TryGetProperty("id", out var callId) && callId.ValueKind == JsonValueKind.String)
                             _callIds[position] = callId.GetString()!;
+                if (choices[0].TryGetProperty("finish_reason", out var finish)
+                    && finish.ValueKind == JsonValueKind.String) Save();
             }
             catch (JsonException) { /* Malformed provider events must not interrupt the reply. */ }
         }
 
         private void Save()
         {
-            if (_saved || _reasoning.Length == 0) return;
+            if (_saved || (!_hasReasoningField && !replayEmptyReasoning)) return;
             _saved = true;
             store.SaveReasoning(sessionId, _responseId ?? Guid.NewGuid().ToString("N"),
                 _content.ToString(), JsonSerializer.Serialize(_callIds.Values), _reasoning.ToString());

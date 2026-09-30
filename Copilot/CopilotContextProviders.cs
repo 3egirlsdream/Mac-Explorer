@@ -15,14 +15,18 @@ internal sealed class WorkspaceContextProvider(Func<FileListViewModel?> activePa
             var pane = activePane();
             if (pane == null) return "当前没有活动文件窗格。";
             var lines = new List<string>();
+            lines.Add($"当前本地时间：{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}，时区：{TimeZoneInfo.Local.Id}。相对日期按此计算。文件日期与拍摄日期不能混用。");
             if (pane.OwnerWindow is MainWindow { DataContext: MainWindowViewModel workspace })
                 lines.Add($"当前窗口有 {workspace.Tabs.Count} 个标签页，窗格布局为 {workspace.PaneLayout}。");
             lines.Add($"当前活动窗格路径：{pane.CurrentPath}。");
             // Read one extra item to disclose truncation without enumerating a large selection.
-            var selected = pane.SelectedEntries.Take(31).Select(entry => entry.FullPath).ToArray();
+            var selected = pane.SelectedEntries.Take(21).Select(entry => entry.FullPath).ToArray();
             lines.Add(selected.Length == 0 ? "当前无选中项。" :
-                (selected.Length > 30 ? "当前选中路径（仅前 30 项，非全部）：" : "当前选中路径：")
-                + string.Join("；", selected.Take(30)));
+                (selected.Length > 20 ? "当前选中路径（仅前 20 项，非全部）：" : "当前选中路径：")
+                + string.Join("；", selected.Take(20)));
+            if (pane.CanBatchRename)
+                lines.Add($"批量重命名选择快照 selectionId={pane.CaptureBatchRenameSelection()}，共 {pane.SelectedEntries.Count} 项。"
+                    + "通过 ui.batch-rename-dialog 传递 selectionId、rules 和 options 即可对整批项目本地预览，无需枚举全部路径。");
             lines.Add(pane.IsSearchMode
                 ? $"当前搜索：{pane.SearchQuery}。前 30 项结果：{string.Join("；", pane.Entries.Take(30).Select(entry => entry.FullPath))}。"
                 : "当前窗格未显示搜索结果。");

@@ -33,6 +33,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private readonly IDragDropBridge? _dragDropBridge;
     private readonly IDirectoryChangeNotifier? _directoryChangeNotifier;
     private readonly IClipboardService? _clipboardService;
+    internal bool HasPasteableContent => _clipboardService?.HasPasteableContent == true;
     private readonly IApplicationLauncherService? _launcherService;
     private readonly ISettingsService? _settingsService;
     private readonly IArchiveService? _archiveService;
@@ -393,7 +394,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public event Action? RequestRemoteConnection;
     public event Action? RequestShowTaskPanel;
 
-    public void RaiseRequestBatchRename() => RequestBatchRename?.Invoke();
+    public void RaiseRequestBatchRename() => RaiseRequestBatchRename(CreateBatchRenameRequest());
     public void RaiseRequestRemoteConnection() => RequestRemoteConnection?.Invoke();
     public void RaiseRequestShowTaskPanel() => RequestShowTaskPanel?.Invoke();
 
@@ -2137,16 +2138,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         actions.Add(ContextMenuAction.Separator);
 
         // File operations
-        actions.Add(new ContextMenuAction { Label = "拷贝", IconSvg = Icons.Copy, ShortcutText = "⌘C", IsQuickAction = true, Execute = () => { CopySelected(); return Task.CompletedTask; } });
-        actions.Add(new ContextMenuAction { Label = "剪切", IconSvg = Icons.Cut, ShortcutText = "⌘X", IsQuickAction = true, Execute = () => { CutSelected(); return Task.CompletedTask; } });
+        actions.Add(new ContextMenuAction { Label = "拷贝", IconSvg = Icons.Copy, ShortcutId = ShortcutIds.Copy, IsQuickAction = true, Execute = () => { CopySelected(); return Task.CompletedTask; } });
+        actions.Add(new ContextMenuAction { Label = "剪切", IconSvg = Icons.Cut, ShortcutId = ShortcutIds.Cut, IsQuickAction = true, Execute = () => { CutSelected(); return Task.CompletedTask; } });
 
-        actions.Add(new ContextMenuAction { Label = "重命名", IconSvg = Icons.Rename, ShortcutText = "↩", IsQuickAction = true, Execute = () => { _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
-
-        // Batch rename (available when multiple items are selected)
-        if (SelectedEntries.Count > 1)
-        {
-            actions.Add(new ContextMenuAction { Label = "批量重命名", IconSvg = Icons.Rename, Execute = () => { RaiseRequestBatchRename(); return Task.CompletedTask; } });
-        }
+        var batchSelection = SelectedEntries.Count > 1 && _selectedEntriesSet.Contains(entry);
+        actions.Add(new ContextMenuAction { Label = batchSelection ? $"重命名 {SelectedEntries.Count} 项…" : "重命名",
+            IconSvg = Icons.Rename, ShortcutText = "↩",
+            IsEnabled = !batchSelection || CanBatchRename,
+            Execute = () => { if (batchSelection) RaiseRequestBatchRename(); else _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
 
         var contextEntries = GetContextEntries(entry);
         var canUseLocalFileTools = !isRemote
@@ -2228,7 +2227,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             Label = "删除",
             IconSvg = Icons.Delete,
-            ShortcutText = "⌘⌫",
+            ShortcutId = ShortcutIds.Trash,
             IsQuickAction = true,
             Execute = () =>
         {
@@ -2256,7 +2255,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             Label = "复制路径",
             IconSvg = Icons.CopyPath,
-            ShortcutText = "⇧⌘C",
+            ShortcutId = ShortcutIds.CopyPath,
             Execute = () => _clipboardService?.CopyTextAsync(entry.FullPath) ?? Task.CompletedTask
         });
 
@@ -2304,7 +2303,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         // Info
         actions.Add(ContextMenuAction.Separator);
-        actions.Add(new ContextMenuAction { Label = "查看文件信息", IconSvg = Icons.Info, ShortcutText = "⌘I", Execute = () => ShowMetadataCommand.ExecuteAsync(entry) });
+        actions.Add(new ContextMenuAction { Label = "查看文件信息", IconSvg = Icons.Info, ShortcutId = ShortcutIds.Info, Execute = () => ShowMetadataCommand.ExecuteAsync(entry) });
 
         return actions;
     }
@@ -2478,11 +2477,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         actions.Add(ContextMenuAction.Separator);
 
-        actions.Add(new ContextMenuAction { Label = "粘贴", IconSvg = Icons.Paste, ShortcutText = "⌘V", IsQuickAction = true, IsEnabled = _clipboardService?.HasPasteableContent ?? false, Execute = () => PasteCommand.ExecuteAsync(null) });
+        actions.Add(new ContextMenuAction { Label = "粘贴", IconSvg = Icons.Paste, ShortcutId = ShortcutIds.Paste, IsQuickAction = true, IsEnabled = _clipboardService?.HasPasteableContent ?? false, Execute = () => PasteCommand.ExecuteAsync(null) });
 
         actions.Add(ContextMenuAction.Separator);
 
-        actions.Add(new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ShortcutText = "⌘R", Execute = () => RefreshCommand.ExecuteAsync(null) });
+        actions.Add(new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ShortcutId = ShortcutIds.Refresh, Execute = () => RefreshCommand.ExecuteAsync(null) });
 
         var builtInStates = await GetBuiltInOpenWithStatesAsync();
 
@@ -2507,7 +2506,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             Label = "复制路径",
             IconSvg = Icons.CopyPath,
-            ShortcutText = "⇧⌘C",
+            ShortcutId = ShortcutIds.CopyPath,
             Execute = () => _clipboardService?.CopyTextAsync(currentPath) ?? Task.CompletedTask
         });
 
@@ -2733,6 +2732,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsEnabled = action.IsEnabled,
                     IconBase64 = action.IconBase64,
@@ -2756,6 +2756,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsEnabled = action.IsEnabled,
                     Execute = () => ShowMetadataCommand.ExecuteAsync(entry)
@@ -2767,6 +2768,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
                     Execute = async () => { _fileOps.CopySelectedCommand.Execute(NormalizeTreeOperationEntries(SelectedEntries)); await Task.CompletedTask; }
@@ -2778,6 +2780,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
                     Execute = async () => { _fileOps.CutSelectedCommand.Execute(NormalizeTreeOperationEntries(SelectedEntries)); await Task.CompletedTask; }
@@ -2789,6 +2792,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
                     IsEnabled = _clipboardService?.HasPasteableContent ?? false,
@@ -2801,6 +2805,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
                     Execute = () =>
@@ -2821,6 +2826,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
                     Execute = () =>
@@ -2880,6 +2886,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     Execute = () => CreateNewFolderCommand.ExecuteAsync(null)
                 });
@@ -2899,6 +2906,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
                     IsEnabled = _clipboardService?.HasPasteableContent ?? false,
@@ -2911,6 +2919,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     Label = action.Label,
                     IconSvg = action.IconSvg,
+                    ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     Execute = () => RefreshCommand.ExecuteAsync(null)
                 });

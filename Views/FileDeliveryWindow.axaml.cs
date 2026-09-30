@@ -19,6 +19,15 @@ namespace MacExplorer.Views;
 
 public partial class FileDeliveryWindow : AppWindow
 {
+    internal override bool IsShortcutAvailable(ShortcutDefinition definition)
+    {
+        if (base.IsShortcutAvailable(definition)) return true;
+        var text = FileListView.IsTextInputSource(FocusManager?.GetFocusedElement());
+        if (definition.Id.StartsWith("editor."))
+            return text && definition.Id is "editor.copy" or "editor.cut" or "editor.paste" or "editor.all" or "editor.undo" or "editor.redo";
+        return !text && (definition.Id == "fixed.preview" && _files.SelectedEntries.Count > 0
+            || Files.CanExecuteShortcut(definition.Id));
+    }
     private readonly FileDeliveryService _delivery;
     private readonly IFileTagService _tags;
     private readonly FileListViewModel _files;
@@ -274,6 +283,7 @@ public partial class FileDeliveryWindow : AppWindow
 
     private void OnPanelKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Handled || Shortcuts.IsRecording) return;
         if (e.Key != Key.Escape) return;
         if (_addEntryMenu?.IsOpen == true) _addEntryMenu.Close();
         else if (_viewModeMenu?.IsOpen == true) _viewModeMenu.Close();

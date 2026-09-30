@@ -112,22 +112,22 @@
                                     IsVisible="False" Click="OnToggleSidebar">
                                 <PathIcon Data="{x:Static icons:Icons.List}"/>
                             </Button>
-                            <Button Classes="workspace-nav-button" ToolTip.Tip="后退 ⌘["
+                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.back"
                                     AutomationProperties.Name="后退" Click="NavigateBack"
                                     IsEnabled="{Binding FileList.CanGoBack}">
                                 <PathIcon Data="{x:Static icons:Icons.Back}"/>
                             </Button>
-                            <Button Classes="workspace-nav-button" ToolTip.Tip="前进 ⌘]"
+                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.forward"
                                     AutomationProperties.Name="前进" Click="NavigateForward"
                                     IsEnabled="{Binding FileList.CanGoForward}">
                                 <PathIcon Data="{x:Static icons:Icons.Forward}"/>
                             </Button>
-                            <Button Classes="workspace-nav-button" ToolTip.Tip="上级目录 ⌘↑"
+                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.up"
                                     AutomationProperties.Name="上级目录" Click="NavigateUp"
                                     IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
                                 <PathIcon Data="{x:Static icons:Icons.Up}"/>
                             </Button>
-                            <Button Classes="workspace-nav-button" ToolTip.Tip="刷新 ⌘R"
+                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.refresh"
                                     AutomationProperties.Name="刷新" Click="RefreshView">
                                 <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
                             </Button>

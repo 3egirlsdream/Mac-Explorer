@@ -73,6 +73,7 @@ internal static class LibRawThumbnailDecoder
                 var rgba = (byte*)destination;
                 for (var y = 0; y < height; y++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var row = rgba + y * bitmap.RowBytes;
                     for (var x = 0; x < width; x++)
                     {

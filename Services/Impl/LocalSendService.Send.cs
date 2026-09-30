@@ -11,6 +11,8 @@ namespace MacExplorer.Services.Impl;
 
 public sealed partial class LocalSendService
 {
+    private const int MaxTransferResponseBytes = 4 * 1024 * 1024;
+
     private sealed record SendFile(string Path, string RelativeName, long Size);
 
     public async Task SendAsync(LocalSendDevice device, IReadOnlyList<string> paths)
@@ -36,6 +38,8 @@ public sealed partial class LocalSendService
             var fileMap = files.Select((file, index) => (Id: index.ToString(System.Globalization.CultureInfo.InvariantCulture), File: file))
                 .ToDictionary(item => item.Id, item => new FileInfoDto(item.Id, item.File.RelativeName, item.File.Size, "application/octet-stream"));
             using var client = CreatePeerClient(device);
+            // This bounds protocol replies, not the files being uploaded.
+            client.MaxResponseContentBufferSize = MaxTransferResponseBytes;
             var prepare = new PrepareRequest(SelfInfo(), fileMap);
             var response = await PostPrepareAsync(client, PeerUri(device, "prepare-upload"), prepare, token);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -56,6 +60,11 @@ public sealed partial class LocalSendService
                 var accepted = await response.Content.ReadFromJsonAsync<PrepareResponse>(Json, token)
                     ?? throw new InvalidDataException("对方没有返回传输会话。");
                 sessionId = accepted.SessionId;
+                if (string.IsNullOrWhiteSpace(sessionId)) throw new InvalidDataException("对方返回了无效会话。");
+                // Validate the entire response before opening or uploading any source file.
+                if (accepted.Files == null || accepted.Files.Any(item =>
+                        !fileMap.ContainsKey(item.Key) || string.IsNullOrEmpty(item.Value)))
+                    throw new InvalidDataException("对方返回了无效的文件接收列表。");
                 if (await UploadAcceptedAsync(client, device, task, files, accepted, skipped, token, count => sentCount = count))
                     sessionId = null;
             }
@@ -81,6 +90,7 @@ public sealed partial class LocalSendService
                 try
                 {
                     using var client = CreatePeerClient(device);
+                    client.MaxResponseContentBufferSize = MaxTransferResponseBytes;
                     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
                     using var response = await client.PostAsync(PeerUri(device, "cancel?sessionId=" + Uri.EscapeDataString(sessionId)), null, timeout.Token);
                 }
@@ -105,7 +115,6 @@ public sealed partial class LocalSendService
         IReadOnlyList<SendFile> files, PrepareResponse accepted, IReadOnlyList<string> skipped, CancellationToken token,
         Action<int> onCompleted)
     {
-        if (string.IsNullOrWhiteSpace(accepted.SessionId)) throw new InvalidDataException("对方返回了无效会话。");
         var total = files.Select((file, index) => accepted.Files.ContainsKey(index.ToString()) ? file.Size : 0).Sum();
         long sentBytes = 0;
         var sentCount = 0;
@@ -192,6 +201,7 @@ public sealed partial class LocalSendService
                         var hadEntry = false;
                         foreach (var child in Directory.EnumerateFileSystemEntries(directory))
                         {
+                            token.ThrowIfCancellationRequested();
                             hadEntry = true;
                             var childName = relative + "/" + Path.GetFileName(child);
                             try

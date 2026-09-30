@@ -18,4 +18,8 @@ public sealed record OmniboxSuggestion(
     string IconData,
     string IconColor,
     FileSystemEntry? Entry = null,
-    Func<Task>? ExecuteAction = null);
+    Func<Task>? ExecuteAction = null)
+{
+    public bool CanLocate => Entry is { IsVirtual: false }
+        || Kind is OmniboxSuggestionKind.Path or OmniboxSuggestionKind.RecentDirectory;
+}

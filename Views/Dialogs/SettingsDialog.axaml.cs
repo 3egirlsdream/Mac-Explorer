@@ -84,6 +84,7 @@ public partial class SettingsDialog : DialogWindow
         _globalSearchScopeService = globalSearchScopeService
             ?? new Services.Impl.GlobalSearchScopeService(settingsService);
         _localSendService = localSendService;
+        ShortcutSettingsHost.Content = new ShortcutSettingsView(Services.Impl.ShortcutService.Resolve());
         Opened += OnOpened;
         Closed += (_, _) => _updateCancellation.Cancel();
     }

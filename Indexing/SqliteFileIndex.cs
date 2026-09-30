@@ -459,18 +459,29 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
         await _writeLock.WaitAsync();
         try
         {
+            using var transaction = _writeConnection.BeginTransaction();
             using var cmd = _writeConnection.CreateCommand();
+            cmd.Transaction = transaction;
             cmd.CommandText = """
                 UPDATE files
-                SET path = @newPath, name = @newName, extension = @ext, modified_at = @now
-                WHERE path = @oldPath
+                SET path = @newPath || substr(path, length(@oldPath) + 1),
+                    parent_path = CASE WHEN path = @oldPath THEN @parent
+                        ELSE @newPath || substr(parent_path, length(@oldPath) + 1) END,
+                    name = CASE WHEN path = @oldPath THEN @newName ELSE name END,
+                    extension = CASE WHEN path = @oldPath AND is_directory = 0 THEN @ext ELSE extension END
+                WHERE path = @oldPath OR substr(path, 1, length(@prefix)) = @prefix;
+                UPDATE directories
+                SET path = @newPath || substr(path, length(@oldPath) + 1)
+                WHERE path = @oldPath OR substr(path, 1, length(@prefix)) = @prefix;
                 """;
             cmd.Parameters.AddWithValue("@newPath", newPath);
             cmd.Parameters.AddWithValue("@newName", newName);
+            cmd.Parameters.AddWithValue("@parent", Path.GetDirectoryName(newPath) ?? "");
             cmd.Parameters.AddWithValue("@ext", string.IsNullOrEmpty(Path.GetExtension(newName)) ? DBNull.Value : Path.GetExtension(newName));
-            cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.Ticks);
             cmd.Parameters.AddWithValue("@oldPath", oldPath);
+            cmd.Parameters.AddWithValue("@prefix", oldPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
             await cmd.ExecuteNonQueryAsync();
+            transaction.Commit();
         }
         finally
         {

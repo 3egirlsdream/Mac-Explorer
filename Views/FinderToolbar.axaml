@@ -3,6 +3,7 @@
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
              xmlns:local="using:MacExplorer.Views"
+             xmlns:controls="using:MacExplorer.Controls"
              x:Class="MacExplorer.Views.FinderToolbar"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
@@ -70,20 +71,20 @@
             <Separator Grid.Column="1" Classes="toolbar-separator toolbar-regular-action"/>
 
             <!-- Clipboard -->
-            <Button Grid.Column="2" x:Name="CutButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="剪切 ⌘X" AutomationProperties.Name="剪切" Click="CutSelected">
+            <Button Grid.Column="2" x:Name="CutButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.cut" AutomationProperties.Name="剪切" Click="CutSelected">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
             </Button>
-            <Button Grid.Column="3" x:Name="CopyButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="复制 ⌘C" AutomationProperties.Name="复制" Click="CopySelected">
+            <Button Grid.Column="3" x:Name="CopyButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.copy" AutomationProperties.Name="复制" Click="CopySelected">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
             </Button>
-            <Button Grid.Column="4" x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="粘贴 ⌘V" AutomationProperties.Name="粘贴" Click="PasteItems">
+            <Button Grid.Column="4" x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="粘贴" Click="PasteItems">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
             </Button>
-            <Button Grid.Column="5" x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="删除 ⌘⌫" AutomationProperties.Name="删除" Click="DeleteSelected">
+            <Button Grid.Column="5" x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="移到废纸篓" Click="DeleteSelected">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
             </Button>
 
-            <Button Grid.Column="6" x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" ToolTip.Tip="首页 ⌘H" AutomationProperties.Name="首页" Click="GoHome">
+            <Button Grid.Column="6" x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="首页" Click="GoHome">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
             </Button>
 
@@ -142,7 +143,7 @@
             </Popup>
 
             <!-- Info panel toggle -->
-            <Button Grid.Column="13" Classes="ghost toolbar-btn w32" ToolTip.Tip="信息面板 ⌘I" AutomationProperties.Name="信息面板" Click="ToggleInfoPanel">
+            <Button Grid.Column="13" Classes="ghost toolbar-btn w32" ToolTip.Tip="信息面板" AutomationProperties.Name="信息面板" Click="ToggleInfoPanel">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Info}"/>
             </Button>
 
@@ -160,7 +161,7 @@
                 <Border Classes="toolbar-popup" MinWidth="180">
                     <StackPanel>
                         <Button x:Name="CutOverflowButton" AutomationProperties.Name="剪切" Classes="toolbar-popup-item compact-overflow-item"
-                                ToolTip.Tip="剪切 ⌘X"
+                                controls:ShortcutTip.Command="file.cut"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="CutSelected">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -169,7 +170,7 @@
                             </StackPanel>
                         </Button>
                         <Button x:Name="CopyOverflowButton" AutomationProperties.Name="复制" Classes="toolbar-popup-item compact-overflow-item"
-                                ToolTip.Tip="复制 ⌘C"
+                                controls:ShortcutTip.Command="file.copy"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="CopySelected">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -178,7 +179,7 @@
                             </StackPanel>
                         </Button>
                         <Button x:Name="PasteOverflowButton" AutomationProperties.Name="粘贴" Classes="toolbar-popup-item compact-overflow-item"
-                                ToolTip.Tip="粘贴 ⌘V"
+                                controls:ShortcutTip.Command="file.paste"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="PasteItems">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -186,8 +187,8 @@
                                 <TextBlock Text="粘贴" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="DeleteOverflowButton" AutomationProperties.Name="删除" Classes="toolbar-popup-item compact-overflow-item"
-                                ToolTip.Tip="删除 ⌘⌫"
+                        <Button x:Name="DeleteOverflowButton" AutomationProperties.Name="移到废纸篓" Classes="toolbar-popup-item compact-overflow-item"
+                                controls:ShortcutTip.Command="file.trash"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="DeleteSelected">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -195,8 +196,8 @@
                                 <TextBlock Text="删除" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="HomeOverflowButton" AutomationProperties.Name="返回首页" Classes="toolbar-popup-item compact-overflow-item"
-                                ToolTip.Tip="首页 ⌘H"
+                        <Button x:Name="HomeOverflowButton" AutomationProperties.Name="首页" Classes="toolbar-popup-item compact-overflow-item"
+                                controls:ShortcutTip.Command="navigation.home"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="GoHome">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -205,7 +206,8 @@
                             </StackPanel>
                         </Button>
                         <Separator Classes="compact-overflow-item"/>
-                        <Button Classes="toolbar-popup-item"
+                        <Button x:Name="BatchRenameButton" Classes="toolbar-popup-item"
+                                controls:ShortcutTip.Command="file.batch-rename"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 AutomationProperties.Name="批量重命名" Click="OnBatchRename">
                             <StackPanel Orientation="Horizontal" Spacing="8">

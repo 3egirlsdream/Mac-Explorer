@@ -35,11 +35,12 @@
         </Style>
     </UserControl.Styles>
 
-    <Border Background="{DynamicResource OverlayBrush}" Padding="18">
+    <Border x:Name="PreviewBackdrop" Background="{DynamicResource OverlayBrush}" Padding="18">
         <Border x:Name="Shell" Classes="super-preview-shell" CornerRadius="16" MaxWidth="1400" MaxHeight="900"
-                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True">
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="False">
+            <Border CornerRadius="{Binding CornerRadius, ElementName=Shell}" ClipToBounds="True">
             <Grid RowDefinitions="Auto,Auto,*,Auto">
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12,12,8">
+                <Grid Grid.Row="0" x:Name="PreviewHeader" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12,12,8">
                     <Button AutomationProperties.Name="返回上一层" Grid.Column="0" x:Name="BackButton" Classes="ghost compact" Width="30" Height="30"
                             Padding="6" Click="GoBack" ToolTip.Tip="返回上一层">
                         <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
@@ -54,18 +55,18 @@
                     </StackPanel>
                     <TextBlock Grid.Column="2" x:Name="ItemCountText" VerticalAlignment="Center"
                                FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
-                    <Button AutomationProperties.Name="关闭预览（Esc）" Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="6"
+                    <Button AutomationProperties.Name="关闭预览（Esc）" Grid.Column="3" x:Name="ClosePreviewButton" Classes="ghost compact" Width="30" Height="30" Padding="6"
                             Click="ClosePreview" ToolTip.Tip="关闭预览（Esc）">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
                     </Button>
                 </Grid>
 
-                <Border Grid.Row="1" Height="1" Background="{DynamicResource ColorDivider}"/>
+                <Border Grid.Row="1" x:Name="HeaderDivider" Height="1" Background="{DynamicResource ColorDivider}"/>
 
-                <Grid Grid.Row="2" ColumnDefinitions="310,6,*" Margin="12,10,12,10">
-                    <Border Grid.Column="0" Classes="card" CornerRadius="10" ClipToBounds="True">
+                <Grid Grid.Row="2" x:Name="PreviewContentGrid" ColumnDefinitions="310,6,*" Margin="12,10,12,10">
+                    <Border Grid.Column="0" x:Name="PreviewListCard" Classes="card" CornerRadius="10" ClipToBounds="True">
                         <Grid RowDefinitions="Auto,*">
-                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12,10,10,6">
+                            <Grid Grid.Row="0" x:Name="PreviewListHeader" ColumnDefinitions="*,Auto" Margin="12,10,10,6">
                                 <TextBlock Text="内容" FontSize="13" FontWeight="{StaticResource FontWeightSemibold}"/>
                                 <TextBlock Grid.Column="1" x:Name="ListHintText" Text="双击进入" FontSize="10"
                                            Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
@@ -96,8 +97,8 @@
                             </ListBox>
                         </Grid>
                     </Border>
-                    <Border Grid.Column="1" Background="{DynamicResource ColorDivider}" Width="1" HorizontalAlignment="Center"/>
-                    <Border Grid.Column="2" Classes="card" CornerRadius="10" Padding="18" ClipToBounds="True">
+                    <Border Grid.Column="1" x:Name="ContentDivider" Background="{DynamicResource ColorDivider}" Width="1" HorizontalAlignment="Center"/>
+                    <Border Grid.Column="2" x:Name="PreviewCard" Classes="card" CornerRadius="10" Padding="18" ClipToBounds="True">
                         <Grid RowDefinitions="*,Auto">
                             <Grid Grid.Row="0" x:Name="PreviewHost">
                                 <TextBlock x:Name="PreviewPlaceholder" Text="选择文件或文件夹以预览"
@@ -127,7 +128,7 @@
                                                Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                            <Grid Grid.Row="1" x:Name="PreviewMetadata" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
                                 <TextBlock x:Name="PreviewMetaText" Text="" FontSize="11"
                                            Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
                                 <Button Grid.Column="1" x:Name="QuickLookButton" Classes="ghost compact"
@@ -137,13 +138,14 @@
                     </Border>
                 </Grid>
 
-                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="16,0,16,12">
+                <Grid Grid.Row="3" x:Name="PreviewFooter" ColumnDefinitions="*,Auto" Margin="16,0,16,12">
                     <TextBlock x:Name="StatusText" Text="空格关闭 · Esc 退出 · 双击进入文件夹或压缩包"
                                FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                     <TextBlock Grid.Column="1" Text="预览" FontSize="11"
                                Foreground="{DynamicResource AccentBrush}"/>
                 </Grid>
             </Grid>
+            </Border>
         </Border>
     </Border>
 </UserControl>

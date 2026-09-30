@@ -1,3 +1,4 @@
+using MacExplorer.Services;
 using Avalonia.Media;
 using MacExplorer.Assets;
 using MacExplorer.Models;
@@ -59,7 +60,7 @@ public partial class FileListViewModel
                 Label = item.Label,
                 IconImage = item.Icon,
                 Tag = item.Extension,
-                ShortcutText = item.Extension == null ? "⇧⌘N" : "",
+                ShortcutId = item.Extension == null ? ShortcutIds.NewFolder : item.Extension == ".txt" ? ShortcutIds.NewFile : null,
                 Execute = item.Extension == null
                     ? CreateNewFolderAsync
                     : () => CreateNewFileAsync(item.Extension)

@@ -77,12 +77,8 @@ public partial class MainWindow : AppWindow
     // Global quick-search state. The backing providers query the app-wide file index
     // and never start a new recursive scan while the user is typing.
     private readonly ObservableCollection<OmniboxSuggestion> _globalSearchSuggestions = [];
-    private readonly ObservableCollection<FileSystemEntry> _globalSearchFolderEntries = [];
-    private static readonly FileEntryToIconConverter GlobalSearchFileIconConverter = new();
     private CancellationTokenSource? _globalSearchCts;
-    private CancellationTokenSource? _globalSearchPreviewCts;
-    private global::Avalonia.Media.Imaging.Bitmap? _globalSearchPreviewBitmap;
-    private readonly Dictionary<string, global::Avalonia.Media.Imaging.Bitmap> _globalSearchFolderThumbnailBitmaps = new(StringComparer.OrdinalIgnoreCase);
+    private SuperPreviewView? _globalSearchPreview;
 
     // Task overlay panel state machine
     private enum PanelMode { None, Auto, Manual }
@@ -138,7 +134,6 @@ public partial class MainWindow : AppWindow
             PaneLayoutPopup.IsOpen = false;
         };
         GlobalSearchResults.ItemsSource = _globalSearchSuggestions;
-        GlobalSearchFolderContents.ItemsSource = _globalSearchFolderEntries;
 
         // Ctrl+Shift+G: open Liquid Glass demo
         KeyDown += (_, e) =>
@@ -242,6 +237,8 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Handled || Shortcuts.IsRecording) return;
+        if (IsInsideTextInput(e.Source as Visual) && Services.Impl.ShortcutService.IsTextEditingGesture(e)) return;
         if (_homeFolderTransition != null)
         {
             if (e.Key == Key.Escape) { _homeFolderTransition.Close(); e.Handled = true; }
@@ -308,6 +305,7 @@ public partial class MainWindow : AppWindow
             return;
 
         if (e.Key == Key.Space
+            && e.KeyModifiers == KeyModifiers.None
             && !IsInsideTextInput(e.Source as Visual)
             && ActiveWorkspace?.FileListView.IsVisible == true
             && _vm?.FileList.SelectedEntries.Count == 1)
@@ -317,9 +315,7 @@ public partial class MainWindow : AppWindow
             return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta)
-            && !e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-            && e.Key == Key.F)
+        if (Shortcuts.Matches(ShortcutIds.PageSearch, e))
         {
             e.Handled = true;
             ActiveWorkspace?.TogglePageSearch();
@@ -333,9 +329,7 @@ public partial class MainWindow : AppWindow
         }
 
         // Conventional shortcuts for global quick search.
-        if ((e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.K)
-            || (e.KeyModifiers.HasFlag(KeyModifiers.Meta)
-                && e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key == Key.F))
+        if (Shortcuts.Matches(ShortcutIds.GlobalSearch, e))
         {
             e.Handled = true;
             OpenGlobalSearch();
@@ -344,14 +338,14 @@ public partial class MainWindow : AppWindow
 
         // Finder/browser tab shortcuts. Handle these before the file list so
         // ⌘W closes the current tab instead of the whole window when possible.
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.T)
+        if (Shortcuts.Matches(ShortcutIds.NewTab, e))
         {
             e.Handled = true;
             _ = AddTabAsync();
             return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.W && _vm?.SelectedTab != null)
+        if (Shortcuts.Matches(ShortcutIds.CloseTab, e) && _vm?.SelectedTab != null)
         {
             e.Handled = true;
             if (_vm.Tabs.Count == 1)
@@ -361,23 +355,22 @@ public partial class MainWindow : AppWindow
             return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.Tab && _vm != null)
+        if (_vm != null && (Shortcuts.Matches(ShortcutIds.NextTab, e) || Shortcuts.Matches(ShortcutIds.PreviousTab, e)))
         {
             e.Handled = true;
-            _vm.SelectRelativeTab(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
+            _vm.SelectRelativeTab(Shortcuts.Matches(ShortcutIds.PreviousTab, e) ? -1 : 1);
             return;
         }
 
         // ⌘Z: undo last file operation
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.Z
-            && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        if (!IsInsideTextInput(e.Source as Visual) && Shortcuts.Matches(ShortcutIds.Undo, e))
         {
             e.Handled = true;
             _ = UndoLastOperationAsync();
             return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.L)
+        if (Shortcuts.Matches(ShortcutIds.PathInput, e))
         {
             e.Handled = true;
             ActiveWorkspace?.FocusPathInput();
@@ -638,7 +631,7 @@ public partial class MainWindow : AppWindow
         if (_vm?.FileList == null) return;
         var dialog = new Views.Dialogs.BatchRenameDialog();
         using var modalBlock = BlockModalParentInteraction();
-        await dialog.ShowDialogAsync(this, _vm.FileList);
+        await dialog.ShowDialogAsync(this, _vm.FileList, _vm.FileList.TakeBatchRenameRequest());
     }
 
     private async Task OpenRemoteConnectionDialogAsync()
@@ -789,11 +782,7 @@ public partial class MainWindow : AppWindow
         _globalSearchCts?.Cancel();
         _globalSearchCts?.Dispose();
         _globalSearchCts = null;
-        _globalSearchPreviewCts?.Cancel();
-        _globalSearchPreviewCts?.Dispose();
-        _globalSearchPreviewCts = null;
-        _globalSearchPreviewBitmap?.Dispose();
-        _globalSearchPreviewBitmap = null;
+        CloseGlobalSearchPreview();
         DisposeMarkdownEditor();
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
@@ -1608,13 +1597,11 @@ public partial class MainWindow : AppWindow
             _changingGlobalSearchScope = false;
         }
         UpdateGlobalSearchCustomFolderButton();
-        GlobalSearchPreviewSizeCombo.SelectedIndex = GetGlobalSearchPreviewSizeIndex();
-        ApplyGlobalSearchPreviewSize();
         GlobalSearchBox.Text = string.Empty;
         _globalSearchSuggestions.Clear();
         GlobalSearchResults.IsVisible = false;
         GlobalSearchEmptyHint.IsVisible = true;
-        ResetGlobalSearchPreview("选择文件以预览");
+        CloseGlobalSearchPreview();
         GlobalSearchResultCount.Text = $"范围：{GetGlobalSearchScopeDisplay()}";
         Dispatcher.UIThread.Post(() => GlobalSearchBox.Focus());
     }
@@ -1624,14 +1611,7 @@ public partial class MainWindow : AppWindow
         _globalSearchCts?.Cancel();
         _globalSearchCts?.Dispose();
         _globalSearchCts = null;
-        _globalSearchPreviewCts?.Cancel();
-        _globalSearchPreviewCts?.Dispose();
-        _globalSearchPreviewCts = null;
-        _globalSearchPreviewBitmap?.Dispose();
-        _globalSearchPreviewBitmap = null;
-        GlobalSearchPreviewImage.Source = null;
-        ClearGlobalSearchFolderThumbnails();
-        _globalSearchFolderEntries.Clear();
+        CloseGlobalSearchPreview();
         GlobalSearchOverlay.IsVisible = false;
         _globalSearchSuggestions.Clear();
         GlobalSearchResults.SelectedIndex = -1;
@@ -1651,6 +1631,7 @@ public partial class MainWindow : AppWindow
         _globalSearchCts = new CancellationTokenSource();
         var cancellationToken = _globalSearchCts.Token;
         var query = GlobalSearchBox.Text?.Trim() ?? string.Empty;
+        CloseGlobalSearchPreview();
         _globalSearchSuggestions.Clear();
         GlobalSearchResults.SelectedIndex = -1;
 
@@ -1868,50 +1849,6 @@ public partial class MainWindow : AppWindow
         _ => 1
     };
 
-    private void OnGlobalSearchPreviewSizeChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (GlobalSearchPreviewSizeCombo.SelectedItem is not ComboBoxItem { Tag: string value })
-            return;
-
-        App.Services.GetRequiredService<ISettingsService>().Set("global_search_preview_size", value);
-        ApplyGlobalSearchPreviewSize();
-        if (GlobalSearchResults.SelectedItem is OmniboxSuggestion suggestion)
-            _ = LoadGlobalSearchPreviewAsync(suggestion);
-    }
-
-    private void OnGlobalSearchSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (GlobalSearchResults.SelectedItem is OmniboxSuggestion suggestion)
-            _ = LoadGlobalSearchPreviewAsync(suggestion);
-        else
-            ResetGlobalSearchPreview("选择文件以预览");
-    }
-
-    private int GetGlobalSearchPreviewSizeIndex()
-    {
-        var value = App.Services.GetRequiredService<ISettingsService>()
-            .Get("global_search_preview_size", "Medium");
-        return value.Equals("Small", StringComparison.OrdinalIgnoreCase) ? 0
-            : value.Equals("Large", StringComparison.OrdinalIgnoreCase) ? 2
-            : 1;
-    }
-
-    private void ApplyGlobalSearchPreviewSize()
-    {
-        var index = GlobalSearchPreviewSizeCombo.SelectedIndex;
-        var (panelWidth, imageSize, dialogWidth) = index switch
-        {
-            0 => (170d, 120d, 800d),
-            2 => (300d, 250d, 960d),
-            _ => (220d, 180d, 860d)
-        };
-
-        GlobalSearchPreviewPanel.Width = panelWidth;
-        GlobalSearchPreviewImage.Width = imageSize;
-        GlobalSearchPreviewImage.Height = imageSize;
-        GlobalSearchPanel.Width = dialogWidth;
-    }
-
     private string GetGlobalSearchScopeDisplay() => _globalSearchScopeService.Scope switch
     {
         GlobalSearchScope.CurrentFolder => "当前文件夹",
@@ -1922,296 +1859,65 @@ public partial class MainWindow : AppWindow
         _ => "这台 Mac"
     };
 
-    private async Task LoadGlobalSearchPreviewAsync(OmniboxSuggestion suggestion)
+    private void OnGlobalSearchSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        _globalSearchPreviewCts?.Cancel();
-        _globalSearchPreviewCts?.Dispose();
-        _globalSearchPreviewCts = new CancellationTokenSource();
-        var cancellationToken = _globalSearchPreviewCts.Token;
-
-        GlobalSearchPreviewTitle.Text = suggestion.Title;
-        GlobalSearchPreviewPath.Text = suggestion.Subtitle;
-        if (suggestion.Entry is not { IsVirtual: false } entry)
-        {
-            ResetGlobalSearchPreview(suggestion.Kind == OmniboxSuggestionKind.Path
-                ? "文件夹没有缩略图预览"
-                : "此项目没有可用预览", preserveLabels: true);
-            return;
-        }
-
-        ResetGlobalSearchPreview("正在生成预览…", preserveLabels: true);
-
-        // A directory result is useful even without a thumbnail: show its
-        // immediate children in the preview pane so users can inspect the
-        // matched folder without leaving global search.
-        if (entry.IsDirectory)
-        {
-            await LoadGlobalSearchFolderContentsAsync(entry, cancellationToken);
-            return;
-        }
-
-        try
-        {
-            var thumbnailService = App.Services.GetService<IThumbnailService>();
-            var pixelSize = (int)Math.Max(GlobalSearchPreviewImage.Width, GlobalSearchPreviewImage.Height) * 2;
-            var thumbnail = thumbnailService == null
-                ? null
-                : await thumbnailService.GetThumbnailResultAsync(entry.FullPath, pixelSize, cancellationToken);
-            if (cancellationToken.IsCancellationRequested)
-                return;
-
-            if (thumbnail is not { Bytes.Length: > 0 })
-            {
-                ResetGlobalSearchPreview("此文件暂无可用预览", preserveLabels: true);
-                return;
-            }
-
-            using var stream = new MemoryStream(thumbnail.Bytes);
-            var bitmap = new global::Avalonia.Media.Imaging.Bitmap(stream);
-            _globalSearchPreviewBitmap?.Dispose();
-            _globalSearchPreviewBitmap = bitmap;
-            GlobalSearchPreviewImage.Source = bitmap;
-            GlobalSearchPreviewImage.IsVisible = true;
-            GlobalSearchPreviewPlaceholder.IsVisible = false;
-        }
-        catch (OperationCanceledException)
-        {
-            // A newer selection superseded this preview.
-        }
-        catch
-        {
-            if (!cancellationToken.IsCancellationRequested)
-                ResetGlobalSearchPreview("无法生成预览", preserveLabels: true);
-        }
-    }
-
-    private void ResetGlobalSearchPreview(string placeholder, bool preserveLabels = false)
-    {
-        _globalSearchPreviewBitmap?.Dispose();
-        _globalSearchPreviewBitmap = null;
-        GlobalSearchPreviewImage.Source = null;
-        ClearGlobalSearchFolderThumbnails();
-        GlobalSearchPreviewImage.IsVisible = false;
-        _globalSearchFolderEntries.Clear();
-        GlobalSearchFolderContents.IsVisible = false;
-        GlobalSearchPreviewPlaceholder.Text = placeholder;
-        GlobalSearchPreviewPlaceholder.IsVisible = true;
-        if (!preserveLabels)
-        {
-            GlobalSearchPreviewTitle.Text = string.Empty;
-            GlobalSearchPreviewPath.Text = string.Empty;
-        }
-    }
-
-    private async Task LoadGlobalSearchFolderContentsAsync(FileSystemEntry folder, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var fileService = App.Services.GetService<IFileService>();
-            if (fileService == null)
-            {
-                ResetGlobalSearchPreview("文件夹内容暂时不可用", preserveLabels: true);
-                return;
-            }
-
-            var entries = await fileService.GetDirectoryContentsAsync(folder.FullPath, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var visibleEntries = entries
-                .Where(ShouldShowGlobalSearchFolderEntry)
-                .OrderByDescending(entry => entry.IsDirectory)
-                .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-                .Take(80)
-                .ToArray();
-
-            _globalSearchFolderEntries.Clear();
-            foreach (var entry in visibleEntries)
-                _globalSearchFolderEntries.Add(entry);
-
-            GlobalSearchPreviewTitle.Text = visibleEntries.Length == 0
-                ? $"{folder.Name} · 空文件夹"
-                : $"{folder.Name} · {visibleEntries.Length} 项";
-            GlobalSearchPreviewImage.IsVisible = false;
-            GlobalSearchFolderContents.IsVisible = visibleEntries.Length > 0;
-            GlobalSearchPreviewPlaceholder.Text = visibleEntries.Length == 0
-                ? "此文件夹为空"
-                : string.Empty;
-            GlobalSearchPreviewPlaceholder.IsVisible = visibleEntries.Length == 0;
-
-            if (visibleEntries.Length > 0)
-            {
-                // The list is initially hidden while its items are added, so its
-                // Image.Loaded events are not reliable enough to start thumbnail
-                // work.  Run a small pre-load after the preview becomes visible.
-                Dispatcher.UIThread.Post(
-                    () => _ = PrimeGlobalSearchFolderThumbnailsAsync(visibleEntries, cancellationToken),
-                    DispatcherPriority.Render);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch
-        {
-            if (!cancellationToken.IsCancellationRequested)
-                ResetGlobalSearchPreview("无法读取文件夹内容", preserveLabels: true);
-        }
-    }
-
-    private bool ShouldShowGlobalSearchFolderEntry(FileSystemEntry entry)
-    {
-        var settings = App.Services.GetService<ISettingsService>();
-        if (settings?.Get("HideSystemFiles", true) == true
-            && (entry.Name.Equals(".DS_Store", StringComparison.OrdinalIgnoreCase)
-                || entry.Name.Equals("Thumbs.db", StringComparison.OrdinalIgnoreCase)))
-            return false;
-        if (settings?.Get("HideDotFiles", true) == true
-            && !entry.IsDirectory && entry.Name.StartsWith('.'))
-            return false;
-        if (settings?.Get("HideDotFolders", true) == true
-            && entry.IsDirectory && entry.Name.StartsWith('.'))
-            return false;
-        return true;
-    }
-
-    private async void OnGlobalSearchFolderImageLoaded(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Image image)
-            await LoadGlobalSearchFolderImageAsync(image);
-    }
-
-    private void OnGlobalSearchFolderImageDataContextChanged(object? sender, EventArgs e)
-    {
-        if (sender is Image image && image.DataContext is FileSystemEntry entry)
-        {
-            SetGlobalSearchFolderImageFallback(image, entry);
-            _ = LoadGlobalSearchFolderImageAsync(image);
-        }
-    }
-
-    private async Task LoadGlobalSearchFolderImageAsync(Image image)
-    {
-        if (image.DataContext is not FileSystemEntry entry
-            || entry.IsVirtual)
+        if (!ReferenceEquals(e.Source, GlobalSearchResults))
             return;
 
-        SetGlobalSearchFolderImageFallback(image, entry);
-        if (entry.IsDirectory || !_globalSearchFolderEntries.Contains(entry))
+        CloseGlobalSearchPreview();
+        if (!GlobalSearchOverlay.IsVisible
+            || GlobalSearchResults.SelectedItem is not OmniboxSuggestion suggestion
+            || GetGlobalSearchPreviewEntry(suggestion) is not { } entry)
             return;
 
-        var cancellationToken = _globalSearchPreviewCts?.Token ?? CancellationToken.None;
-        try
-        {
-            var bitmap = await GetGlobalSearchFolderThumbnailAsync(entry, cancellationToken);
-            if (bitmap == null || cancellationToken.IsCancellationRequested
-                || image.DataContext is not FileSystemEntry current
-                || !string.Equals(current.FullPath, entry.FullPath, StringComparison.OrdinalIgnoreCase)
-                || !_globalSearchFolderEntries.Contains(entry))
-                return;
-
-            image.Source = bitmap;
-            ApplyGlobalSearchFolderThumbnail(entry, bitmap);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch
-        {
-            // Keep the converter-provided file icon as a fallback.
-        }
+        _globalSearchPreview ??= new SuperPreviewView(isCompactPreview: true);
+        GlobalSearchPreviewHost.Content = _globalSearchPreview;
+        _ = _globalSearchPreview.OpenAsync(entry);
     }
 
-    private async Task PrimeGlobalSearchFolderThumbnailsAsync(
-        IReadOnlyList<FileSystemEntry> entries,
-        CancellationToken cancellationToken)
+    private static FileSystemEntry? GetGlobalSearchPreviewEntry(OmniboxSuggestion suggestion)
     {
-        // Preview the first visible page now; further rows continue to be loaded
-        // through their Image.Loaded handler when the user scrolls.
-        foreach (var entry in entries.Where(entry => !entry.IsDirectory && !entry.IsVirtual).Take(24))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var bitmap = await GetGlobalSearchFolderThumbnailAsync(entry, cancellationToken);
-            if (bitmap != null && !cancellationToken.IsCancellationRequested)
-                ApplyGlobalSearchFolderThumbnail(entry, bitmap);
-        }
-    }
-
-    private async Task<global::Avalonia.Media.Imaging.Bitmap?> GetGlobalSearchFolderThumbnailAsync(
-        FileSystemEntry entry,
-        CancellationToken cancellationToken)
-    {
-        if (_globalSearchFolderThumbnailBitmaps.TryGetValue(entry.FullPath, out var cached))
-            return cached;
-
-        var thumbnailService = App.Services.GetService<IThumbnailService>();
-        if (thumbnailService == null)
+        if (suggestion.Entry is { IsVirtual: false } entry)
+            return entry;
+        if (suggestion.Kind is not (OmniboxSuggestionKind.Path or OmniboxSuggestionKind.RecentDirectory))
             return null;
 
-        var thumbnail = await thumbnailService.GetThumbnailResultAsync(entry.FullPath, 192, cancellationToken);
-        if (thumbnail is not { Bytes.Length: > 0 } || cancellationToken.IsCancellationRequested)
+        var path = OmniboxService.NormalizePath(suggestion.Value);
+        var isDirectory = Directory.Exists(path);
+        if (!isDirectory && !File.Exists(path))
             return null;
-
-        using var stream = new MemoryStream(thumbnail.Bytes, writable: false);
-        var bitmap = new global::Avalonia.Media.Imaging.Bitmap(stream);
-        if (_globalSearchFolderThumbnailBitmaps.TryGetValue(entry.FullPath, out var previous))
+        return new FileSystemEntry
         {
-            bitmap.Dispose();
-            return previous;
-        }
-
-        _globalSearchFolderThumbnailBitmaps[entry.FullPath] = bitmap;
-        return bitmap;
+            FullPath = path,
+            Name = suggestion.Title,
+            IsDirectory = isDirectory,
+            Extension = Path.GetExtension(path)
+        };
     }
 
-    private void ApplyGlobalSearchFolderThumbnail(
-        FileSystemEntry entry,
-        global::Avalonia.Media.Imaging.Bitmap bitmap)
+    private void CloseGlobalSearchPreview()
     {
-        foreach (var image in GlobalSearchFolderContents.GetVisualDescendants().OfType<Image>())
-        {
-            if (image.DataContext is FileSystemEntry current
-                && string.Equals(current.FullPath, entry.FullPath, StringComparison.OrdinalIgnoreCase))
-                image.Source = bitmap;
-        }
+        _globalSearchPreview?.Close();
     }
 
-    private static void SetGlobalSearchFolderImageFallback(Image image, FileSystemEntry entry)
+    private async void OnLocateGlobalSearchResult(object? sender, RoutedEventArgs e)
     {
-        try
-        {
-            image.Source = GlobalSearchFileIconConverter.Convert(
-                entry,
-                typeof(global::Avalonia.Media.IImage),
-                32,
-                System.Globalization.CultureInfo.InvariantCulture) as global::Avalonia.Media.IImage;
-        }
-        catch
-        {
-            image.Source = null;
-        }
-    }
-
-    private void ClearGlobalSearchFolderThumbnails()
-    {
-        foreach (var bitmap in _globalSearchFolderThumbnailBitmaps.Values)
-            bitmap.Dispose();
-        _globalSearchFolderThumbnailBitmaps.Clear();
-    }
-
-    private async void OnGlobalSearchFolderEntryDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if ((sender as Control)?.DataContext is not FileSystemEntry entry || _vm?.FileList == null)
-            return;
-
         e.Handled = true;
+        if ((sender as Control)?.DataContext is not OmniboxSuggestion { CanLocate: true } suggestion
+            || _vm?.FileList == null)
+            return;
+
         CloseGlobalSearch();
         try
         {
-            await _vm.FileList.OpenEntryAsync(entry);
+            if (suggestion.Entry is { IsVirtual: false } entry)
+                await _vm.FileList.RevealFileAsync(entry);
+            else
+                await OmniboxService.ExecuteInputAsync(_vm.FileList, suggestion.Value);
         }
         catch (Exception ex)
         {
-            _vm.FileList.StatusText = $"打开文件失败: {ex.Message}";
+            _vm.FileList.StatusText = $"定位文件失败: {ex.Message}";
         }
     }
 

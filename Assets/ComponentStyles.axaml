@@ -1,8 +1,105 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
+        xmlns:icons="using:MacExplorer.Assets"
         xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI">
     <Styles.Resources>
+
+        <ControlTheme x:Key="IconActionButtonTheme" TargetType="Button">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter" Background="Transparent"
+                        Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                        Padding="{TemplateBinding Padding}" HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+        <ControlTheme x:Key="IconActionToggleTheme" TargetType="ToggleButton" BasedOn="{StaticResource IconActionButtonTheme}"/>
+        <ControlTheme x:Key="CompactSpinnerButtonTheme" TargetType="RepeatButton" BasedOn="{StaticResource IconActionButtonTheme}">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+            <Style Selector="^:pointerover, ^:pressed">
+                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            </Style>
+        </ControlTheme>
+        <ControlTheme x:Key="CompactSpinnerTheme" TargetType="ButtonSpinner">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <DockPanel>
+                        <StackPanel Name="PART_SpinnerPanel" DockPanel.Dock="Right" Orientation="Horizontal"
+                            IsVisible="{TemplateBinding ShowButtonSpinner}">
+                            <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource CompactSpinnerButtonTheme}"
+                                IsTabStop="False" AutomationProperties.Name="增加">
+                                <PathIcon Width="12" Height="12" Data="{x:Static icons:Icons.ChevronUp}"/>
+                            </RepeatButton>
+                            <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource CompactSpinnerButtonTheme}"
+                                IsTabStop="False" AutomationProperties.Name="减少">
+                                <PathIcon Width="12" Height="12" Data="{x:Static icons:Icons.ChevronDown}"/>
+                            </RepeatButton>
+                        </StackPanel>
+                        <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+        <ControlTheme x:Key="CompactNumericTheme" TargetType="NumericUpDown">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <DataValidationErrors>
+                        <Border Name="NumericSurface" Background="{TemplateBinding Background}"
+                            BorderThickness="1" BorderBrush="Transparent" CornerRadius="{TemplateBinding CornerRadius}">
+                            <ButtonSpinner Name="PART_Spinner" Theme="{StaticResource CompactSpinnerTheme}"
+                                AllowSpin="{TemplateBinding AllowSpin}" ShowButtonSpinner="{TemplateBinding ShowButtonSpinner}"
+                                IsTabStop="False">
+                                <TextBox Name="PART_TextBox" Text="{TemplateBinding Text}" MinWidth="0" MinHeight="0"
+                                    Background="Transparent" Padding="8,2" VerticalContentAlignment="Center" TextAlignment="Center"
+                                    Foreground="{TemplateBinding Foreground}" IsReadOnly="{TemplateBinding IsReadOnly}"
+                                    PlaceholderText="{TemplateBinding PlaceholderText}" FocusAdorner="{x:Null}"/>
+                            </ButtonSpinner>
+                        </Border>
+                    </DataValidationErrors>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:focus-within /template/ Border#NumericSurface">
+                <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+            </Style>
+        </ControlTheme>
+        <!-- The header content stays independent from the disclosure hit target. -->
+        <ControlTheme x:Key="CompactDetailsExpanderTheme" TargetType="Expander">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid RowDefinitions="Auto,Auto">
+                        <Grid ColumnDefinitions="*,28" ColumnSpacing="6">
+                            <ContentPresenter Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
+                            <ToggleButton Name="ExpanderHeader" Grid.Column="1" Classes="icon-action"
+                                Theme="{StaticResource IconActionToggleTheme}" IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                                ToolTip.Tip="展开／收起详情" AutomationProperties.Name="展开／收起名称详情">
+                                <PathIcon Name="DisclosureIcon" Width="14" Height="14"/>
+                            </ToggleButton>
+                        </Grid>
+                        <Border Name="ExpanderContent" Grid.Row="1" IsVisible="{TemplateBinding IsExpanded}"
+                            Margin="{TemplateBinding Padding}" Padding="10,2,0,2" BorderThickness="1,0,0,0"
+                            BorderBrush="{DynamicResource ColorBorderSubtle}">
+                            <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalContentAlignment="Stretch"/>
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^ /template/ PathIcon#DisclosureIcon">
+                <Setter Property="Data" Value="{x:Static icons:Icons.ChevronRightGeometry}"/>
+            </Style>
+            <Style Selector="^:expanded /template/ PathIcon#DisclosureIcon">
+                <Setter Property="Data" Value="{x:Static icons:Icons.ChevronDownGeometry}"/>
+            </Style>
+        </ControlTheme>
 
         <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
             <Setter Property="Template">
@@ -384,6 +481,45 @@
         <Setter Property="Padding" Value="{StaticResource CompactControlPadding}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
     </Style>
+    <Style Selector="Button.icon-action, ToggleButton.icon-action">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinWidth" Value="28"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Padding" Value="5"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="Button.icon-action">
+        <Setter Property="Theme" Value="{StaticResource IconActionButtonTheme}"/>
+    </Style>
+    <Style Selector="ToggleButton.icon-action">
+        <Setter Property="Theme" Value="{StaticResource IconActionToggleTheme}"/>
+    </Style>
+    <Style Selector="Button.icon-action:pointerover, ToggleButton.icon-action:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.icon-action:checked">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Expander.compact-details">
+        <Setter Property="Theme" Value="{StaticResource CompactDetailsExpanderTheme}"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="64,6,34,8"/>
+    </Style>
+    <Style Selector="NumericUpDown.compact">
+        <Setter Property="Theme" Value="{StaticResource CompactNumericTheme}"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="NumericUpDown.compact /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
 
     <!-- Search/filter tags keep their label and count in separate, centered regions. -->
     <Style Selector="Button.tag-chip">
@@ -705,6 +841,51 @@
         <Setter Property="ShadowColor" Value="#24000000"/>
     </Style>
 
+    <Style Selector="Border.shortcut-hint">
+        <Setter Property="Padding" Value="16"/>
+        <Setter Property="Margin" Value="12"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="ClipToBounds" Value="False"/>
+    </Style>
+    <Style Selector="TextBlock.shortcut-group-title">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.shortcut-name, TextBlock.shortcut-keys">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.shortcut-binding">
+        <Setter Property="MinWidth" Value="96"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.shortcut-binding.recording">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+    </Style>
+    <Style Selector="Button.shortcut-binding.shortcut-main-key">
+        <Setter Property="MinWidth" Value="52"/>
+    </Style>
+    <Style Selector="Button.shortcut-modifier, Border.shortcut-fixed-key">
+        <Setter Property="MinWidth" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+    </Style>
+    <Style Selector="Button.shortcut-modifier">
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+    <Style Selector="Button.shortcut-modifier.active">
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.shortcut-error">
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+    </Style>
     <Style Selector="ToolTip">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>

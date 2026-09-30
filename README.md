@@ -28,8 +28,12 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 
 ## 最近更新
 
-当前源码功能介绍对应 **v1.0.49**；可下载版本和完整更新记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
+当前源码功能介绍对应 **v1.0.50**；本次详细更新见 [更新日志](CHANGELOG.md)，可下载版本和完整发布记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
 
+- **批量重命名工作台**：跨目录选择本地文件与文件夹，组合规则、模板、编号和日期，逐步预览名称差异；支持预设、手动调整、冲突处理和整批撤销。
+- **自定义快捷键**：在设置中录制组合、检查冲突并恢复默认；长按 Cmd 可查看快捷键提示，菜单与工具栏提示同步更新。
+- **Cmd+K 内容预览**：搜索结果右侧固定显示文件、文件夹或压缩包预览，保持输入焦点，并可直接定位到所在位置。
+- **Copilot 索引查询**：组合搜索已有 PDF/OCR 正文、相机、地点、日期、标签和评分；读取正文继续逐页确认，重命名方案可交给工作台编辑。
 - **LocalSend 收发**：从本地文件右键菜单发现设备并发送，或在接收确认后保存文件；可设置设备名称、接收位置和扫描网段，支持通过 IP 连接。
 - **RAW 缩略图回退**：系统预览无法解码部分相机 RAW 文件时，尝试使用随应用打包的 LibRaw 生成缩略图。
 - **应用内 Copilot**：通过已登记的应用能力协助查找和整理文件；修改文件及发送文件正文前显示计划并等待确认。模型地址、模型名和 API Key 由用户配置。
@@ -52,7 +56,8 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 | **SFTP 远程管理** | 保存服务器连接，浏览、上传、下载和管理远程文件；通过本地应用编辑远程文件后自动回传修改 |
 | **Copilot 文件助手** | 使用已登记的应用能力查找与整理文件；修改文件或向模型发送文件正文前显示确认计划，对话与执行记录保存在本地；需自行配置模型服务 |
 | **文件速递** | 从菜单栏打开独立浏览面板，使用目录与收藏夹页签预览文件并拖出复制 |
-| **批量重命名** | 查找替换、前后缀、序号、日期和大小写转换，执行前预览结果 |
+| **批量重命名** | 跨目录规则链、正则替换、名称模板、编号、日期和扩展名处理，逐步预览差异、处理冲突并整批撤销 |
+| **快捷键** | 自定义 Cmd 组合、冲突检查、恢复默认，以及长按 Cmd 显示提示 |
 | **Git 与文件操作** | 显示 Git 状态，支持复制、移动、拖放、废纸篓操作和可撤销的文件操作 |
 | **外观与更新** | 浅色/深色主题、毛玻璃效果、标准/紧凑/舒适排版密度、交互颜色设置，以及应用内更新检查与下载 |
 
@@ -94,8 +99,12 @@ Mac Explorer is a file manager built for macOS. Browse several folders side by s
 
 ## Recent Updates
 
-This source overview reflects **v1.0.49**. See [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
+This source overview reflects **v1.0.50**. See the [changelog](CHANGELOG.md) for details of this update and [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
 
+- **Batch rename workbench**: combine rules, templates, sequences and dates for selected local files and folders across directories. Preview each step, adjust names manually, manage conflicts, save presets and undo a batch.
+- **Custom shortcuts**: record combinations in Settings, check conflicts and restore defaults. Hold Cmd to show shortcut hints; menu labels and toolbar tips update together.
+- **Cmd+K content preview**: preview files, folders and archives in a fixed pane beside search results, keep input focus and reveal items in their location.
+- **Copilot index queries**: combine existing PDF/OCR text, camera, location, date, tag and rating filters. Sharing file contents still requires approval for each page; generated rename plans open in the editable workbench.
 - **LocalSend transfers**: discover devices from a local file's context menu and send files, or accept incoming files before saving. Configure the device name, receive folder, and scan subnet, or connect by IP.
 - **RAW thumbnail fallback**: when macOS cannot decode certain camera RAW files, the bundled LibRaw library can generate thumbnails.
 - **In-app Copilot**: find and organize files through registered app capabilities. File changes and disclosure of file contents require a plan and confirmation. You configure the model endpoint, model name and API key.
@@ -118,7 +127,8 @@ This source overview reflects **v1.0.49**. See [GitHub Releases](https://github.
 | **SFTP remote access** | Save connections, browse, upload, download and manage remote files; edit through a local application and automatically upload changes |
 | **Copilot file assistant** | Find and organize files through registered app capabilities; file changes and sending file contents to the model require confirmation, with conversations and execution history stored locally; bring your own model service |
 | **File Delivery** | Open a separate menu bar panel, browse folder and favorite tabs, preview files and drag out copies |
-| **Batch rename** | Preview find/replace, prefixes, suffixes, sequences, dates and case conversions before applying changes |
+| **Batch rename** | Cross-directory rule chains, regex replacements, templates, sequences, dates and extension handling, with step previews, conflict checks and batch undo |
+| **Shortcuts** | Custom Cmd combinations, conflict checks, restore defaults and hold-Cmd hints |
 | **Git and file operations** | Git status indicators, copy, move, drag and drop, Trash actions, and undo for supported file operations |
 | **Appearance and updates** | Light/dark themes, frosted glass, standard/compact/comfortable typography, configurable interaction colors, and in-app update checks and downloads |
 

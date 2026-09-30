@@ -4,12 +4,18 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using MacExplorer.Platforms.MacOS;
+using MacExplorer.Services;
+using MacExplorer.Services.Impl;
+using Avalonia.Interactivity;
 
 namespace MacExplorer.Controls;
 
 public class AppWindow : Window
 {
     private WindowState _stateBeforeFullScreen = WindowState.Normal;
+    internal IShortcutService Shortcuts { get; set; } = ShortcutService.Resolve();
+    private ShortcutHintController? _shortcutHints;
+    internal bool IsShortcutHintVisible => _shortcutHints?.IsVisible == true;
 
     public static readonly StyledProperty<Control?> TitleBarContentProperty =
         AvaloniaProperty.Register<AppWindow, Control?>(nameof(TitleBarContent));
@@ -54,17 +60,31 @@ public class AppWindow : Window
         {
             ApplyNativeWindowChrome();
             UpdateWindowPseudoClasses();
+            _shortcutHints ??= new ShortcutHintController(this, Shortcuts);
         };
-        Closed += (_, _) => MacWindowChrome.RemoveVibrancy(this);
+        Closed += (_, _) => { _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this); };
         Activated += (_, _) => UpdateWindowPseudoClasses();
         Deactivated += (_, _) => UpdateWindowPseudoClasses();
         KeyDown += OnWindowKeyDown;
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (!Shortcuts.Capture(e.Key, e.KeyModifiers)) return;
+            e.Handled = true;
+        }, RoutingStrategies.Tunnel);
         UpdateWindowPseudoClasses();
     }
 
     protected override Type StyleKeyOverride => typeof(AppWindow);
 
     internal Grid? WindowOverlayHost { get; private set; }
+
+    internal virtual bool IsShortcutAvailable(ShortcutDefinition definition) => definition.Id switch
+    {
+        ShortcutIds.FullScreen => CanMaximize && !IsModalInteractionBlocked,
+        "native.hide" or "native.hide-others" or "native.quit" => true,
+        "fixed.escape" or "fixed.selection" => true,
+        _ => false
+    };
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -108,9 +128,7 @@ public class AppWindow : Window
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.F
-            || !e.KeyModifiers.HasFlag(KeyModifiers.Control)
-            || !e.KeyModifiers.HasFlag(KeyModifiers.Meta)
+        if (e.Handled || !Shortcuts.Matches(ShortcutIds.FullScreen, e)
             || IsModalInteractionBlocked)
             return;
 

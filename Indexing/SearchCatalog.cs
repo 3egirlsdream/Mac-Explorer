@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace MacExplorer.Indexing;
 
 /// <summary>Independent SQLite connections, bounded concurrency and cancellation of running SQL.</summary>
-public sealed class SearchCatalog
+public sealed partial class SearchCatalog
 {
     private readonly DatabaseConnectionFactory _connections;
     private readonly Lazy<Task<bool>> _initialized;

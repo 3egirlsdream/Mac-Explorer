@@ -727,5 +727,16 @@
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
+        <TabItem AutomationProperties.Name="快捷键">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Keyboard}"/>
+                    <TextBlock Text="快捷键" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <ContentControl x:Name="ShortcutSettingsHost" Classes="settings-page" Margin="16"/>
+            </ScrollViewer>
+        </TabItem>
     </TabControl>
 </controls:DialogWindow>

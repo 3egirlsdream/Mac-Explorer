@@ -313,7 +313,8 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
         public int ReadCalls { get; private set; }
         public int PreviewCalls { get; private set; }
         public IReadOnlyList<AppCapability> Catalog => [Capability];
-        public AppCapability? Find(string id) => Capability;
+        public AppCapability? Find(string id) => id == "file.info"
+            ? Capability with { Id = id, Impact = CapabilityImpact.Read } : Capability;
         public Task<CapabilityResult> ExecuteReadAsync(string id, string argumentsJson, FileListViewModel? pane)
         {
             Dispatcher.UIThread.VerifyAccess();

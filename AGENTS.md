@@ -47,6 +47,11 @@
 - ComboBox 与输入框使用相同的无边框、无悬停／按下／聚焦变色样式；下拉面板与 `context-submenu-surface` 共用背景、圆角、内边距和阴影，保留阴影外边距。
 - 右键菜单、子菜单、ComboBox 下拉与工具栏弹出面板统一通过 `PopupGlass` / `popup-glass` 使用低折射、轻透明的液态玻璃，复用 `RadiusLg`；菜单 hover 与侧栏共用 `SidebarHoverBrush` / `SidebarHoverOutline`，内容层排除背景采样，原生菜单保留跨窗口边缘弹出。二级及更深菜单通过 `IsSubMenuOpen=True` 状态样式覆盖 Fluent 模板自身的实色背景、边框、圆角与内边距。菜单独立采样可见页面内容，不复用侧栏排除文件内容的背景快照；浅／深色表面底色不透明度统一约 95%，仅保留微弱透底效果，模糊半径为 8。阴影保留 12px 外边距，模糊半径为 3、偏移为 `0,2`；调整时须保证三倍模糊半径、偏移和抗锯齿余量均落在外边距内，阴影层不得被内容裁剪。
 
+- 批量重命名工作台复用 `Assets/BatchRenameStyles.axaml` 的 `rename-list` / `rename-rules` / `rename-step`，参数使用紧凑设置字段行；目标名称变化通过通用 `RenameDiffText` 高亮，预览列表保持虚拟化。
+- 紧凑步进输入统一使用全局 `NumericUpDown.compact`，整块圆角表面与居中文本，原生增减和键盘行为保留；无表面图标操作复用 `Button.icon-action` / `ToggleButton.icon-action`，详情展开复用 `Expander.compact-details`，箭头随展开状态切换。
+
+- Cmd+K 搜索在面板内固定右侧预览，默认尺寸，不显示尺寸选择、标题和路径，复用 `SuperPreviewView` 的纯内容预览及全局主题表面、`RadiusLg`，随结果选中项更新且不抢焦点；每项定位按钮复用 `Button.icon-action` 与 Fluent Location 图标，回车保持原打开操作。
+
 # 自动测试
 - 需要启动真实应用或使用默认服务路径的自动测试、原生 UI 验证，通过 `bash Tools/Testing/run-isolated.sh <可执行文件> [参数...]` 启动，每次创建独立临时目录并设置 `MACEXPLORER_TEST_ROOT`；已有显式临时目录与测试替身的单元测试保持原运行方式。构建使用 `-p:SkipMacOSReleaseDMG=true`。
 - 测试模式的数据库、配置、缓存、插件和默认用户目录均位于测试目录；启动索引及“这台 Mac”搜索仅覆盖测试目录。测试开关优先于 `MACEXPLORER_DB_PATH` / `MACEXPLORER_PLUGIN_PATH`，不会复用真实用户的历史与收藏。
@@ -63,3 +68,5 @@
 - 侧栏实际目录项拖放高亮复用 `SidebarHoverBrush` / `SidebarHoverOutline`；悬停 600ms 进入目录，松手按最终位置移动本地文件，固定区空白处保留添加快捷入口。
 
 - 文件速递面板样式集中在 `Assets/FileDeliveryStyles.axaml`，复用 `AppWindow`、`PopupGlass`、`RadiusLg` 和全局按钮；面板宽高比为 √2:1，使用主题边框及原生窗口阴影；导航按钮复用全局 `workspace-nav-button`，路径复用 `BreadcrumbBar`，页签统一高度、行高及透明边框占位，选中不改变文字位置；右侧加号通过两级菜单添加目录／收藏夹，下拉可见表面距按钮 2px；右键页签删除入口，不删除原目录或收藏。顶部入口使用紧凑标签，共享文件列表以 `IsBrowseOnly` 模式承载，仅浏览、预览和复制拖出，偏好独立保存。
+
+- 快捷键设置复用紧凑设置字段行，Cmd 使用 `shortcut-fixed-key`，附加修饰键使用可切换的 `shortcut-modifier`，Control 直接显示文字，修饰键宽度随内容自适应；主键通过 `shortcut-binding shortcut-main-key` 点击录制，错误使用 `shortcut-error`；提示浮层复用窗口 `WindowOverlayHost`、`PopupGlass` 和全局 `shortcut-hint` / `shortcut-group-title` / `shortcut-name` / `shortcut-keys` 样式，不抢键盘焦点；命令按钮通过全局 `ShortcutTip.Command` 自动同步快捷键提示。

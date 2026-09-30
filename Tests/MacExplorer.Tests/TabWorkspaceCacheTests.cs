@@ -267,12 +267,13 @@ public sealed partial class FileListViewModelCreateTests
         }
 
         public static async Task<TabCacheFixture> CreateAsync(int entries = 200,
-            Action<IServiceCollection>? configureServices = null)
+            Action<IServiceCollection>? configureServices = null,
+            IApplicationLauncherService? launcherService = null)
         {
             var files = new FakeFileService("/tmp/tab-cache-tests");
             for (var i = 0; i < entries; i++) files.Seed(new FileSystemEntry
                 { FullPath = $"{files.HomeDirectory}/{i:D4}.txt", Name = $"{i:D4}.txt" });
-            var first = CreateViewModel(files);
+            var first = CreateViewModel(files, launcherService: launcherService);
             first.SetViewMode(ViewMode.List);
             await first.RefreshAsync();
             return new TabCacheFixture(files, first, configureServices);

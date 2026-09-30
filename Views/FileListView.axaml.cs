@@ -273,6 +273,7 @@ public partial class FileListView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        Shortcuts.Changed += RefreshOpenMenuShortcuts;
         _columnLayoutService ??= ViewModel?.ColumnLayoutService;
         SubscribeColumnLayoutService();
         Dispatcher.UIThread.Post(ApplyListColumnWidths, DispatcherPriority.Loaded);
@@ -280,6 +281,7 @@ public partial class FileListView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        Shortcuts.Changed -= RefreshOpenMenuShortcuts;
         CancelSlowRename();
         ResetDragState();
         ColumnFilterPopup.IsOpen = false;
@@ -947,7 +949,8 @@ public partial class FileListView : UserControl
                     Child = btn
                 };
                 buttonSurface.Classes.Add("menu-quick-surface");
-                ToolTip.SetTip(btn, qa.Label);
+                ToolTip.SetTip(btn, string.IsNullOrEmpty(qa.ShortcutText) ? qa.Label : $"{qa.Label} {qa.ShortcutText}");
+                btn.Tag = qa;
                 if (qa.Execute != null)
                 {
                     var captured = qa;
@@ -999,7 +1002,9 @@ public partial class FileListView : UserControl
             if (action.IsIndeterminate)
                 item.Header = action.Label + "（部分文件）";
         }
-        if (!string.IsNullOrEmpty(action.ShortcutText))
+        if (action.ShortcutId != null)
+            item.InputGesture = Shortcuts.GetBindings(action.ShortcutId)[0].Gesture;
+        else if (!string.IsNullOrEmpty(action.ShortcutText))
             item.InputGesture = ParseShortcut(action.ShortcutText);
         if (action.IconImage != null)
             item.Icon = new Image { Source = action.IconImage, Width = 18, Height = 18 };
@@ -2237,112 +2242,19 @@ public partial class FileListView : UserControl
         if (ColumnFilterPopup.IsOpen) return false;
         if (ViewModel == null) return false;
         if (e.Handled || IsTextInputSource(e.Source)) return false;
-        var commandModifier = e.KeyModifiers.HasFlag(KeyModifiers.Meta)
-                              || e.KeyModifiers.HasFlag(KeyModifiers.Control);
-        if ((ViewModel.IsDirectoryLoading || FastListActive && FastList.IsLoading) && !(commandModifier && e.Key is
-            Key.H or Key.Up or Key.OemOpenBrackets or Key.OemCloseBrackets or Key.R))
+        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None)
+        {
+            var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Visual;
+            if (!ReferenceEquals(focused, FastList) && focused?.GetVisualAncestors().Contains(FastList) != true) return false;
+        }
+        if (TryHandleConfiguredFileShortcut(e)) return true;
+        if (Shortcuts.IsRecording) return false;
+        if (ViewModel.IsDirectoryLoading || FastListActive && FastList.IsLoading)
         {
             e.Handled = true;
             return true;
         }
-
-        if (commandModifier
-            && e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-            && !e.KeyModifiers.HasFlag(KeyModifiers.Alt)
-            && e.Key == Key.C)
-        {
-            DismissContextMenu();
-            _ = ViewModel.CopyPathAsync();
-            e.Handled = true;
-            return true;
-        }
-
-        if (commandModifier && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
-        {
-            switch (e.Key)
-            {
-                case Key.C:
-                    DismissContextMenu();
-                    if (!ViewModel.IsArchiveView && ViewModel.SelectedEntries.Count > 0)
-                        ViewModel.CopySelected();
-                    e.Handled = true;
-                    return true;
-                case Key.X:
-                    DismissContextMenu();
-                    if (!ViewModel.IsArchiveView && ViewModel.SelectedEntries.Count > 0)
-                        ViewModel.CutSelected();
-                    e.Handled = true;
-                    return true;
-                case Key.V:
-                    DismissContextMenu();
-                    if (!ViewModel.IsArchiveView)
-                        _ = ViewModel.PasteAsync();
-                    e.Handled = true;
-                    return true;
-                case Key.A:
-                    DismissContextMenu();
-                    ViewModel.SelectAll();
-                    e.Handled = true;
-                    return true;
-                case Key.O when ViewModel.SelectedEntries.Count == 1:
-                    DismissContextMenu();
-                    _ = ViewModel.OpenEntryAsync(ViewModel.SelectedEntries[0]);
-                    e.Handled = true;
-                    return true;
-                case Key.R:
-                    DismissContextMenu();
-                    _ = ViewModel.RefreshAsync();
-                    e.Handled = true;
-                    return true;
-                case Key.I when ViewModel.SelectedEntries.Count == 1:
-                    DismissContextMenu();
-                    _ = ViewModel.ShowMetadataAsync(ViewModel.SelectedEntries[0]);
-                    e.Handled = true;
-                    return true;
-                case Key.N:
-                    DismissContextMenu();
-                    if (!ViewModel.IsArchiveView)
-                    {
-                        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-                            _ = ViewModel.CreateNewFolderAsync();
-                        else
-                            _ = ViewModel.CreateNewFileAsync(".txt");
-                    }
-                    e.Handled = true;
-                    return true;
-                case Key.P when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
-                    DismissContextMenu();
-                    ViewModel.TogglePreviewPane();
-                    e.Handled = true;
-                    return true;
-                case Key.H:
-                    DismissContextMenu();
-                    ViewModel.GoHome();
-                    e.Handled = true;
-                    return true;
-                case Key.Up:
-                    DismissContextMenu();
-                    _ = ViewModel.NavigateUpAsync();
-                    e.Handled = true;
-                    return true;
-                case Key.OemOpenBrackets when ViewModel.CanGoBack:
-                    DismissContextMenu();
-                    _ = ViewModel.NavigateBackAsync();
-                    e.Handled = true;
-                    return true;
-                case Key.OemCloseBrackets when ViewModel.CanGoForward:
-                    DismissContextMenu();
-                    _ = ViewModel.NavigateForwardAsync();
-                    e.Handled = true;
-                    return true;
-                case Key.Back:
-                    DismissContextMenu();
-                    if (!ViewModel.IsArchiveView)
-                        ViewModel.ShowDeleteConfirmDialog();
-                    e.Handled = true;
-                    return true;
-            }
-        }
+        if (e.KeyModifiers != KeyModifiers.None) return false;
 
         if (e.Key == Key.Delete)
         {
@@ -2355,6 +2267,11 @@ public partial class FileListView : UserControl
 
         switch (e.Key)
         {
+            case Key.Enter when e.KeyModifiers == KeyModifiers.None && ViewModel.SelectedEntries.Count > 1 && ViewModel.CanBatchRename:
+                DismissContextMenu();
+                ViewModel.RaiseRequestBatchRename();
+                e.Handled = true;
+                break;
             case Key.Space:
                 _ = ViewModel.QuickLookSelectedAsync();
                 e.Handled = true;
@@ -2375,18 +2292,15 @@ public partial class FileListView : UserControl
                 _ = ViewModel.NavigateUpAsync();
                 e.Handled = true;
                 break;
-            case Key.Right when e.KeyModifiers.HasFlag(KeyModifiers.Meta) && ViewModel.CanGoForward:
-                _ = ViewModel.NavigateForwardAsync();
-                e.Handled = true;
-                break;
         }
 
         return e.Handled;
     }
 
-    private static bool IsTextInputSource(object? source)
+    internal static bool IsTextInputSource(object? source)
     {
-        if (source is TextBox) return true;
-        return source is Visual visual && visual.FindAncestorOfType<TextBox>() != null;
+        for (var visual = source as Visual; visual != null; visual = visual.GetVisualParent())
+            if (visual is TextBox or ComboBox or NumericUpDown or AvaloniaEdit.TextEditor) return true;
+        return false;
     }
 }

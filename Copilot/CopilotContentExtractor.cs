@@ -8,7 +8,7 @@ namespace MacExplorer.Copilot;
 
 /// <summary>Local extraction only. The caller decides when extracted text may enter model context.</summary>
 public sealed class CopilotContentExtractor(
-    IPdfTextExtractionService pdf, IImageAnalysisService images)
+    IPdfTextExtractionService pdf, IImageAnalysisService images, IAiTagService? aiTags = null)
 {
     public const int MaxPageUtf8Bytes = 50 * 1024;
     public const long MaxDocumentBytes = 25 * 1024 * 1024;
@@ -18,6 +18,7 @@ public sealed class CopilotContentExtractor(
     public sealed record Page(string Text, long Offset, long NextOffset, bool HasMore)
     {
         public string Kind => "file-content-page";
+        public string Source { get; init; } = "file";
     }
 
     public bool Supports(string path)
@@ -52,6 +53,18 @@ public sealed class CopilotContentExtractor(
             var buffer = new char[MaxPageUtf8Bytes + 1];
             var read = await reader.ReadBlockAsync(buffer, cancellationToken);
             return Slice(buffer.AsSpan(0, read), offset, read == buffer.Length);
+        }
+        if (extension is ".pdf" or ".png" or ".jpg" or ".jpeg" or ".heic" or ".tif" or ".tiff"
+            && aiTags != null)
+        {
+            var modified = File.GetLastWriteTime(path).Ticks;
+            var cached = await aiTags.GetCachedTextAsync(path, modified, cancellationToken).ConfigureAwait(false);
+            if (cached != null && File.GetLastWriteTime(path).Ticks == modified)
+            {
+                var text = string.Join("\n", cached);
+                if (offset > text.Length) throw new ArgumentOutOfRangeException(nameof(offset), "起始字符位置超出文件末尾。");
+                return Slice(text.AsSpan((int)offset), offset, false) with { Source = "analysis-database" };
+            }
         }
         if (new FileInfo(path).Length > MaxDocumentBytes)
             throw new IOException("非文本文件超过 25 MB，请先缩小范围。");

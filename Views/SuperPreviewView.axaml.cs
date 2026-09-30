@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Text;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
@@ -36,21 +38,53 @@ public partial class SuperPreviewView : UserControl
     private FileSystemEntry? _selectedEntry;
     private bool _ignoreSelection;
     private int _operationVersion;
+    private readonly bool _isCompactPreview;
 
     public event EventHandler? RequestClose;
 
     /// <summary>Set by MainWindow so encrypted archives can use the existing password dialog.</summary>
     public Func<Task<string?>>? PasswordPrompt { get; set; }
 
-    public SuperPreviewView()
+    public SuperPreviewView() : this(isCompactPreview: false) { }
+
+    internal SuperPreviewView(bool isCompactPreview)
     {
         InitializeComponent();
+        _isCompactPreview = isCompactPreview;
+        if (isCompactPreview)
+            ConfigureCompactLayout();
         ItemsList.ItemsSource = _entries;
         _fileService = App.Services.GetService<IFileService>();
         _archiveService = App.Services.GetService<IArchiveService>();
         _thumbnailService = App.Services.GetService<IThumbnailService>();
         _quickLookService = App.Services.GetService<IQuickLookService>();
         _settingsService = App.Services.GetService<ISettingsService>();
+    }
+
+    private void ConfigureCompactLayout()
+    {
+        Focusable = false;
+        PreviewBackdrop.Background = Brushes.Transparent;
+        PreviewBackdrop.Padding = new Thickness(0);
+        Shell.Background = Brushes.Transparent;
+        Shell.BorderThickness = new Thickness(0);
+        Shell.BoxShadow = new BoxShadows();
+        PreviewHeader.IsVisible = false;
+        PreviewMetadata.IsVisible = false;
+        BackButton.IsVisible = false;
+        ClosePreviewButton.IsVisible = false;
+        ItemCountText.IsVisible = false;
+        HeaderDivider.IsVisible = false;
+        PreviewFooter.IsVisible = false;
+        PreviewListHeader.IsVisible = false;
+        ContentDivider.IsVisible = false;
+        PreviewContentGrid.Margin = new Thickness(0);
+        PreviewListCard.Classes.Remove("card");
+        PreviewListCard.Background = Brushes.Transparent;
+        PreviewCard.Classes.Remove("card");
+        PreviewCard.Background = Brushes.Transparent;
+        PreviewCard.Padding = new Thickness(0);
+        QuickLookButton.IsVisible = false;
     }
 
     public async Task OpenAsync(FileSystemEntry entry)
@@ -60,7 +94,22 @@ public partial class SuperPreviewView : UserControl
         _entries.Clear();
         _selectedEntry = null;
         IsVisible = true;
-        Focus();
+        if (!_isCompactPreview)
+            Focus();
+        else
+        {
+            var showList = entry.IsDirectory || _archiveService?.IsArchiveFile(entry.FullPath) == true;
+            PreviewListCard.IsVisible = showList;
+            PreviewCard.IsVisible = !showList;
+            PreviewContentGrid.ColumnDefinitions = ColumnDefinitions.Parse(showList ? "*,0,0" : "0,0,*");
+            if (!showList)
+            {
+                // Reuse the file preview without reading its parent folder or moving focus.
+                _selectedEntry = entry;
+                await ShowEntryPreviewAsync(entry);
+                return;
+            }
+        }
 
         var location = await BuildInitialLocationAsync(entry);
         if (location == null)
@@ -87,6 +136,7 @@ public partial class SuperPreviewView : UserControl
 
         IsVisible = false;
         CloseResources();
+        PreviewText.Text = string.Empty;
         _history.Clear();
         _entries.Clear();
         _location = null;
@@ -183,10 +233,13 @@ public partial class SuperPreviewView : UserControl
             }
 
             ItemCountText.Text = _entries.Count == 0 ? "空" : $"{_entries.Count} 项";
-            if (_selectedEntry != null)
-                await ShowEntryPreviewAsync(_selectedEntry, token);
-            else
-                ShowLocationSummary();
+            if (!_isCompactPreview)
+            {
+                if (_selectedEntry != null)
+                    await ShowEntryPreviewAsync(_selectedEntry, token);
+                else
+                    ShowLocationSummary();
+            }
 
             // The normal file list owns an async image loader, but this preview
             // has its own list. Populate thumbnails for local folders as well as
@@ -198,7 +251,8 @@ public partial class SuperPreviewView : UserControl
             // Keep keyboard navigation in the preview list after a folder/archive
             // transition; the overlay itself remains the command surface for
             // Escape/Space and receives bubbled key events from the ListBox.
-            ItemsList.Focus();
+            if (!_isCompactPreview)
+                ItemsList.Focus();
         }
         catch (OperationCanceledException)
         {
@@ -384,7 +438,7 @@ public partial class SuperPreviewView : UserControl
         {
             var bytes = _thumbnailService == null
                 ? null
-                : await _thumbnailService.GetThumbnailAsync(previewPath, 1800, token);
+                : await _thumbnailService.GetThumbnailAsync(previewPath, _isCompactPreview ? 720 : 1800, token);
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
             if (bytes != null && bytes.Length > 0)
@@ -396,14 +450,14 @@ public partial class SuperPreviewView : UserControl
                 PreviewTextScroll.IsVisible = false;
                 FolderSummary.IsVisible = false;
                 PreviewMetaText.Text = $"{entry.KindText} · {entry.FormattedSize}";
-                QuickLookButton.IsVisible = _quickLookService != null;
+                QuickLookButton.IsVisible = !_isCompactPreview && _quickLookService != null;
                 return;
             }
 
             ShowPlaceholder(IsVideoFile(entry)
                 ? "此视频暂时无法生成缩略图，可用系统 Quick Look 查看"
                 : "系统无法为此文件生成预览");
-            QuickLookButton.IsVisible = _quickLookService != null;
+            QuickLookButton.IsVisible = !_isCompactPreview && _quickLookService != null;
         }
         catch (OperationCanceledException)
         {
@@ -413,7 +467,7 @@ public partial class SuperPreviewView : UserControl
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
             ShowPlaceholder("预览生成失败");
-            QuickLookButton.IsVisible = _quickLookService != null;
+            QuickLookButton.IsVisible = !_isCompactPreview && _quickLookService != null;
         }
     }
 
@@ -580,7 +634,7 @@ public partial class SuperPreviewView : UserControl
             PreviewPlaceholder.IsVisible = false;
             FolderSummary.IsVisible = false;
             PreviewMetaText.Text = $"{entry.KindText} · {entry.FormattedSize}";
-            QuickLookButton.IsVisible = _quickLookService != null;
+            QuickLookButton.IsVisible = !_isCompactPreview && _quickLookService != null;
         }
         catch (OperationCanceledException)
         {
@@ -627,7 +681,7 @@ public partial class SuperPreviewView : UserControl
 
     private void UpdateLocationChrome()
     {
-        if (_location == null) return;
+        if (_location == null || _isCompactPreview) return;
         TitleText.Text = _location.Title;
         BreadcrumbText.Text = string.Join("  ›  ", _history.Select(h => h.Title).Append(_location.Title));
         BackButton.IsEnabled = _history.Count > 0;
