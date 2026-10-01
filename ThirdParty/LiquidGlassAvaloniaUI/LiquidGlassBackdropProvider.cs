@@ -34,7 +34,7 @@ namespace LiquidGlassAvaloniaUI
             public long LastCaptureTicksUtc;
             public bool HasLastClipRect;
             public Rect LastClipRect;
-            public bool ForcePublishNextCapture;
+            public bool RequireFullPixelCheck;
             public bool HasSubscriberOnlyDirtyRect;
             public Rect SubscriberOnlyDirtyRect;
             public long SubscriberOnlyDirtyTicksUtc;
@@ -254,21 +254,19 @@ namespace LiquidGlassAvaloniaUI
                     && state.SnapshotPixelSize == pixelSize
                     && state.SnapshotOriginInPixels == originInPixels;
 
-                bool forcePublish = state.ForcePublishNextCapture;
-                state.ForcePublishNextCapture = false;
+                bool requireFullPixelCheck = state.RequireFullPixelCheck;
+                state.RequireFullPixelCheck = false;
 
-                (SKImage? snapshotImage, ulong hash) = CreateSkImageWithHash(state.ScratchBitmap, isSameConfig && !forcePublish, state.SnapshotHash);
+                (SKImage? snapshotImage, ulong hash) = CreateSkImageWithHash(state.ScratchBitmap, isSameConfig && !requireFullPixelCheck,
+                    state.SnapshotHash, isSameConfig ? currentSnapshot?.Image : null);
 
-                if (!forcePublish && isSameConfig && state.SnapshotHash == hash)
+                if (snapshotImage is null)
                 {
                     state.LastCaptureTicksUtc = nowTicks;
                     RecordCapturedLayouts(topLevel, state);
                     LiquidGlassDiagnostics.RecordCaptureSkippedByHash();
                     return;
                 }
-
-                if (snapshotImage is null)
-                    return;
 
                 LiquidGlassBackdropSnapshot snapshot = new(snapshotImage, originInPixels, pixelSize, scaling);
                 state.SnapshotHash = hash;
@@ -300,13 +298,15 @@ namespace LiquidGlassAvaloniaUI
         {
             foreach (WeakReference<Control> subscriber in state.Subscribers)
             {
-                if (subscriber.TryGetTarget(out Control? control)
-                    && TryCalculateControlVisualBounds(control, topLevel, out Rect bounds))
+                if (!subscriber.TryGetTarget(out Control? control)) continue;
+                if (TryCalculateControlVisualBounds(control, topLevel, out Rect bounds))
                 {
                     CapturedLayout layout = state.CapturedLayouts.GetOrCreateValue(control);
                     layout.Bounds = bounds;
                     layout.Theme = control.ActualThemeVariant;
                 }
+                else
+                    state.CapturedLayouts.Remove(control);
             }
         }
 
@@ -377,7 +377,7 @@ namespace LiquidGlassAvaloniaUI
                         return;
                     }
 
-                    bool forcePublishNextCapture = false;
+                    bool requireFullPixelCheck = false;
                     if (!needsClipGrowthCapture && hasDirtyRect && state.HasLastClipRect)
                     {
                         if (!dirtyRect.Intersects(state.LastClipRect))
@@ -392,11 +392,11 @@ namespace LiquidGlassAvaloniaUI
                             return;
                         }
 
-                        forcePublishNextCapture = true;
+                        requireFullPixelCheck = true;
                     }
 
-                    if (forcePublishNextCapture)
-                        state.ForcePublishNextCapture = true;
+                    if (requireFullPixelCheck)
+                        state.RequireFullPixelCheck = true;
 
                     QueueCapture(topLevel, state);
                 }, DispatcherPriority.Background);
@@ -524,7 +524,7 @@ namespace LiquidGlassAvaloniaUI
         {
             bounds = default;
 
-            if (!control.IsVisible || control.Bounds.Width <= 0 || control.Bounds.Height <= 0)
+            if (!control.IsEffectivelyVisible || control.Bounds.Width <= 0 || control.Bounds.Height <= 0)
                 return false;
 
             if (!ReferenceEquals(GetBackdropRoot(control), root))
@@ -608,7 +608,7 @@ namespace LiquidGlassAvaloniaUI
                 if (!state.Subscribers[i].TryGetTarget(out Control? control))
                     continue;
 
-                if (!control.IsVisible)
+                if (!control.IsEffectivelyVisible)
                     continue;
 
                 if (!ReferenceEquals(TopLevel.GetTopLevel(control), topLevel))
@@ -689,7 +689,7 @@ namespace LiquidGlassAvaloniaUI
             System.Threading.Volatile.Write(ref state.Snapshot, null);
             state.HasLastClipRect = false;
             state.LastClipRect = default;
-            state.ForcePublishNextCapture = false;
+            state.RequireFullPixelCheck = false;
             state.HasSubscriberOnlyDirtyRect = false;
             state.SubscriberOnlyDirtyRect = default;
             state.SubscriberOnlyDirtyTicksUtc = 0;
@@ -710,7 +710,7 @@ namespace LiquidGlassAvaloniaUI
             }
         }
 
-        private static (SKImage? image, ulong hash) CreateSkImageWithHash(Bitmap bitmap, bool isSameConfig, ulong previousHash)
+        private static (SKImage? image, ulong hash) CreateSkImageWithHash(Bitmap bitmap, bool isSameConfig, ulong previousHash, SKImage? previousImage)
         {
             PixelFormat format = bitmap.Format ?? throw new NotSupportedException("Bitmap pixel format is not readable.");
             AlphaFormat alpha = bitmap.AlphaFormat ?? throw new NotSupportedException("Bitmap alpha format is not readable.");
@@ -736,10 +736,10 @@ namespace LiquidGlassAvaloniaUI
                 return (CreateSkImageFromBitmap(bitmap, info), sampledHash);
             }
 
-            return CreateSkImageWithHashFromFullCopy(bitmap, info);
+            return CreateSkImageWithHashFromFullCopy(bitmap, info, previousImage, previousHash);
         }
 
-        private static (SKImage? image, ulong hash) CreateSkImageWithHashFromFullCopy(Bitmap bitmap, SKImageInfo info)
+        private static (SKImage? image, ulong hash) CreateSkImageWithHashFromFullCopy(Bitmap bitmap, SKImageInfo info, SKImage? previousImage, ulong previousHash)
         {
             int rowBytes = info.Width * info.BytesPerPixel;
             int length = rowBytes * info.Height;
@@ -756,6 +756,11 @@ namespace LiquidGlassAvaloniaUI
 
             try
             {
+                // CompositingRenderer reports the whole window as dirty, even for excluded
+                // file-list scrolling. Compare every pixel before replacing the snapshot:
+                // an 8x8 fingerprint alone can miss small text or background changes.
+                if (previousImage is not null && MatchesSnapshotPixels(bytes, length, rowBytes, previousImage))
+                    return (null, previousHash);
                 ulong hash = ComputeBackdropHash(bytes, rowBytes, info.Width, info.Height);
                 return (SKImage.FromPixelCopy(info, bytes, rowBytes), hash);
             }
@@ -763,6 +768,13 @@ namespace LiquidGlassAvaloniaUI
             {
                 ArrayPool<byte>.Shared.Return(bytes);
             }
+        }
+
+        private static bool MatchesSnapshotPixels(byte[] bytes, int length, int rowBytes, SKImage image)
+        {
+            using SKPixmap? pixels = image.PeekPixels();
+            return pixels is not null && pixels.RowBytes == rowBytes
+                && bytes.AsSpan(0, length).SequenceEqual(pixels.GetPixelSpan());
         }
 
         private static SKImage? CreateSkImageFromBitmap(Bitmap bitmap, SKImageInfo info)

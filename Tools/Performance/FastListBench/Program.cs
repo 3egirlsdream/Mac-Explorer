@@ -25,16 +25,25 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args is [StartupUpdateChecker.WorkerArgument])
+        {
+            MacExplorer.Program.Main(args);
+            return;
+        }
         OutputDirectory = Path.GetFullPath(args.FirstOrDefault() ?? Path.Combine(AppContext.BaseDirectory, "results"));
         TreeOnly = args.Contains("--tree-only", StringComparer.Ordinal);
         FolderCoverOnly = args.Contains("--folder-cover-only", StringComparer.Ordinal);
         Directory.CreateDirectory(OutputDirectory);
-        if (args.Contains("--navigation-only", StringComparer.Ordinal))
+        if (args.Contains("--navigation-only", StringComparer.Ordinal) || args.Contains("--scroll-only", StringComparer.Ordinal))
         {
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MACEXPLORER_TEST_ROOT")))
-                throw new InvalidOperationException("Run navigation checks through Tools/Testing/run-isolated.sh.");
+                throw new InvalidOperationException("Run native checks through Tools/Testing/run-isolated.sh.");
             AppBuilder.Configure<MacExplorer.App>().UsePlatformDetect()
-                .AfterSetup(_ => Dispatcher.UIThread.Post(async () => await NavigationPerformance.RunAsync(OutputDirectory)))
+                .AfterSetup(_ => Dispatcher.UIThread.Post(async () =>
+                {
+                    if (args.Contains("--scroll-only", StringComparer.Ordinal)) await ScrollPerformance.RunAsync(OutputDirectory);
+                    else await NavigationPerformance.RunAsync(OutputDirectory);
+                }))
                 .StartWithClassicDesktopLifetime([]);
             return;
         }
@@ -59,7 +68,7 @@ public sealed class BenchApp : Application
             {
                 Background = Brushes.White, Foreground = Brushes.Black, Secondary = Brushes.Gray,
                 Selected = Brushes.LightBlue, SelectedHover = Brushes.LightBlue,
-                FontFamily = new FontFamily("System Font, PingFang SC, sans-serif")
+                FontFamily = new FontFamily("PingFang SC, Apple Color Emoji, Segoe UI, Helvetica Neue, Arial")
             };
             var window = new Window
             {

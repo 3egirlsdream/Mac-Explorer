@@ -6,7 +6,8 @@
         The standard typography preset. Runtime presets are derived from these
         values, so this dictionary remains the only source of raw text metrics.
     -->
-    <FontFamily x:Key="FontFamilyUi">System Font, PingFang SC, Segoe UI, Helvetica Neue, Arial, sans-serif</FontFamily>
+    <!-- Use installed family names so platform font lookups reuse cached typefaces. -->
+    <FontFamily x:Key="FontFamilyUi">PingFang SC, Apple Color Emoji, Segoe UI, Helvetica Neue, Arial</FontFamily>
     <FontFamily x:Key="FontFamilySidebar">PingFang SC</FontFamily>
     <FontFamily x:Key="FontFamilyMono">Menlo, Monaco, monospace</FontFamily>
     <media:FontWeight x:Key="FontWeightLight">Light</media:FontWeight>

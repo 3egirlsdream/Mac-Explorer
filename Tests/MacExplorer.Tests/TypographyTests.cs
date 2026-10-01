@@ -75,7 +75,7 @@ public sealed class TypographyTests
 
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
         Assert.True(application.TryGetResource("FontFamilyUi", application.ActualThemeVariant, out var fontResource));
-        Assert.StartsWith("System Font", Assert.IsType<FontFamily>(fontResource).Name);
+        Assert.Equal("PingFang SC", Assert.IsType<FontFamily>(fontResource).Name);
 
         var fileList = new FileListView();
         var fileName = fileList.FindControl<MacExplorer.Controls.FastFileList>("FastList")!;
@@ -116,7 +116,7 @@ public sealed class TypographyTests
             .Single(button => button.Classes.Contains("sidebar-item-action"));
 
         Assert.Equal(13, fileName.FontSize);
-        Assert.StartsWith("System Font", fileName.FontFamily.Name);
+        Assert.Equal("PingFang SC", fileName.FontFamily.Name);
         Assert.Equal(Color.Parse("#252830"), Assert.IsType<SolidColorBrush>(fileName.Foreground).Color);
         Assert.Equal(12, fileName.DetailFontSize);
         Assert.Equal(11, sidebarTitle.FontSize);

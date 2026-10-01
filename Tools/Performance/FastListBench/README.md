@@ -9,6 +9,10 @@ bash Tools/Testing/run-isolated.sh Tools/Performance/FastListBench/bin/Release/n
 
 每次在隔离目录创建 1,000／10,000／100,000 个名称不同的真实文件，分别测列表、图标和未展开树形模式；搜索索引 Ready 和主动 Refresh 两组各重复三次，共 54 次。`busy` 表示请求过刷新，实际是否仍在扫描以 `phaseAtStart`／`phaseAtEnd` 为准。基准检查完整数量与名称排序，记录导航开始至完整列表第一次 `Render()`、UI 提交时间、16ms UI 心跳最长间隔及滚动绘制 p95。结果写入 `navigation-results.json`，错误写入 `navigation-error.txt`。这些计时不含鼠标输入投递延迟，也不代表显示器呈现 FPS。基准只允许通过隔离启动器运行。
 
+快速滚动追加 `--scroll-only`，在隔离目录创建 10,000 项（文件夹、PNG 和文本各约三分之一），名称包含中文、重音拉丁字符和 emoji。列表／图标／树形模式各测关闭、开启真实缩略图，每 8ms 请求推进 3.5／120／600px，每组 120 步、重复两遍，共 36 组。文字缓存保留正常的 1,024 项上限，因此第二遍也可能重新排版。首次 OCR 在本次隔离配置中关闭，搜索索引等待 Ready；这用于单独测滚动，未覆盖 OCR 并发负载。
+
+`scroll-results.json` 记录绘制 CPU 时间、8ms UI 心跳和 `RequestAnimationFrame` 回调间隔，以及超过 25／50ms 的回调数；回调间隔并非 GPU 呈现 FPS。可设置 `FASTLIST_BENCH_FONT_FAMILY` 覆盖本次字体资源，使用同一二进制做字体配置 A/B 对比；默认运行同时检查主字体直接解析。`FASTLIST_BENCH_KEEP_OPEN=1` 在测量完成后保留隔离主窗口用于原生交互验证。
+
 在项目根目录构建（运行中的基准窗口应先关闭）：
 
 ```sh

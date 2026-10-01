@@ -13,6 +13,51 @@ namespace MacExplorer.Tests;
 
 public sealed class PopupGlassTests
 {
+    [Fact]
+    public void UnchangedBackdropReusesSnapshotButPixelChangeOutsideSampleGridDoesNot()
+    {
+        var info = new SkiaSharp.SKImageInfo(64, 64, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul);
+        var bytes = new byte[info.BytesSize];
+        using var image = SkiaSharp.SKImage.FromPixelCopy(info, bytes);
+        var matches = typeof(LiquidGlassSurface).Assembly
+            .GetType("LiquidGlassAvaloniaUI.LiquidGlassBackdropProvider")!
+            .GetMethod("MatchesSnapshotPixels", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        bool Reuses() => (bool)matches.Invoke(null, new object[] { bytes, bytes.Length, info.RowBytes, image })!;
+        Assert.True(Reuses());
+        // (1,1) is outside the old fingerprint's 8x8 sample positions.
+        bytes[info.RowBytes + 4] = 1;
+        Assert.False(Reuses());
+        bytes[info.RowBytes + 4] = 0;
+        Assert.True(Reuses());
+    }
+
+    [AvaloniaFact]
+    public void GlassUnderHiddenPageDoesNotExpandBackdropCaptureAndReappearsNormally()
+    {
+        var glass = new LiquidGlassSurface();
+        var page = new Grid { Children = { glass } };
+        var window = new Window { Width = 600, Height = 400, Content = page };
+        var boundsMethod = typeof(LiquidGlassSurface).Assembly
+            .GetType("LiquidGlassAvaloniaUI.LiquidGlassBackdropProvider")!
+            .GetMethod("TryCalculateControlVisualBounds", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        bool Participates() => (bool)boundsMethod.Invoke(null, new object?[] { glass, window, null })!;
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(Participates());
+            page.IsVisible = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(glass.IsVisible);
+            Assert.True(glass.Bounds.Width > 0);
+            Assert.False(Participates());
+            page.IsVisible = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(Participates());
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void PopupCaptureIncludesPageContentWithoutCapturingMenusOrChangingSidebarCapture()
     {
