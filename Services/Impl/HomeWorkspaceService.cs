@@ -156,7 +156,8 @@ public sealed class HomeWorkspaceService : IDisposable
             while (reader.Read())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var path = reader.GetString(0);
+                var path = DirectoryAccess.Current.ResolvePath(reader.GetString(0));
+                if (!DirectoryAccess.Current.CanAccess(path)) continue;
                 var directory = reader.GetInt32(1) != 0;
                 if (directory ? Directory.Exists(path) : File.Exists(path))
                     entries.Add(new(path, directory, reader.GetInt32(2), new DateTime(reader.GetInt64(3), DateTimeKind.Utc)) { AddedUtc = new DateTime(reader.GetInt64(4), DateTimeKind.Utc) });

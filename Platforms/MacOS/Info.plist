@@ -23,7 +23,7 @@
     <key>CFBundleVersion</key>
     <string>1.0.50</string>
     <key>LSMinimumSystemVersion</key>
-    <string>12.0</string>
+    <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>CFBundleDocumentTypes</key>
@@ -75,5 +75,7 @@
     </dict>
     <key>NSLocalNetworkUsageDescription</key>
     <string>发现附近的 LocalSend 设备并在你确认后收发文件。</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>按你的操作指令与 Finder 配合处理文件及废纸篓。</string>
 </dict>
 </plist>

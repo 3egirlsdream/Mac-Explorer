@@ -33,7 +33,10 @@ public sealed partial class FileListViewModelCreateTests
             using var theme = new FastListTestTheme();
             await using var fixture = await TabCacheFixture.CreateAsync(1,
                 services => services.AddSingleton(store));
-            var engine = new CopilotEngine(null!, new CopilotSettings(new StartupSettings()), null!, store, null!, () => null);
+            var consentSettings = new CopilotSettings(new StartupSettings());
+            var consentKeychain = new CopilotKeychain();
+            consentSettings.AllowMetadataSharing(consentKeychain.Read());
+            var engine = new CopilotEngine(null!, consentSettings, consentKeychain, store, null!, () => null);
             typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(fixture.Window, engine);
             fixture.Window.FindControl<Border>("CopilotPanel")!.IsVisible = true;
@@ -179,7 +182,7 @@ public sealed partial class FileListViewModelCreateTests
                 services => services.AddSingleton(store));
             var registry = new AppCapabilityRegistry(fixture.Files, null!, null!, null!, null!, null!, null!,
                 null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
-            var engine = new CopilotEngine(registry, null!, null!, store, null!, () => fixture.Model.SelectedTab!.FileList);
+            var engine = new CopilotEngine(registry, new CopilotSettings(new StartupSettings()), new CopilotKeychain(), store, null!, () => fixture.Model.SelectedTab!.FileList);
             typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(fixture.Window, engine);
             fixture.Window.FindControl<Border>("CopilotPanel")!.IsVisible = true;

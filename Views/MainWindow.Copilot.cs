@@ -254,6 +254,8 @@ public partial class MainWindow
         message = string.IsNullOrEmpty(message) ? "请查看这些附件。" : message;
         try
         {
+            if (!await Dialogs.CopilotPrivacyConsent.EnsureAsync(this,
+                Copilot.ConsentSettings, Copilot.ConsentKeychain)) return;
             if (Copilot.PrepareForSend() is { } notice)
             {
                 CopilotTranscript.Children.Clear();

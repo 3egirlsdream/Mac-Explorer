@@ -32,9 +32,11 @@ public sealed partial class PluginManager : IAsyncDisposable
     public event Action? Changed;
 
     public PluginManager(ISettingsService settings) : this(settings,
-        (RuntimePaths.TestRoot == null ? Environment.GetEnvironmentVariable("MACEXPLORER_PLUGIN_PATH") : null)
-            ?? Path.Combine(RuntimePaths.LocalApplicationData, "MacExplorer", "Plugins"),
-        Path.Combine(AppContext.BaseDirectory, "BundledPlugins", "FileConversion.mexplug"),
+        (RuntimePaths.TestRoot == null && !DistributionChannel.IsAppStore ? Environment.GetEnvironmentVariable("MACEXPLORER_PLUGIN_PATH") : null)
+            ?? Path.Combine(RuntimePaths.DataDirectory, "Plugins"),
+        Path.Combine(RuntimePaths.BundleExecutableDirectory,
+            Directory.Exists(Path.Combine(RuntimePaths.BundleExecutableDirectory, "..", "Resources", "BundledPlugins"))
+                ? "../Resources/BundledPlugins" : "BundledPlugins", "FileConversion.mexplug"),
         Environment.ProcessPath!, typeof(PluginManager).Assembly.Location) { }
 
     internal PluginManager(ISettingsService settings, string root, string bundledPackage, string executable, string assembly)
@@ -44,12 +46,22 @@ public sealed partial class PluginManager : IAsyncDisposable
         catch (JsonException) { _state = new(); }
     }
 
+    private static string BuiltInDirectory => Path.Combine(RuntimePaths.BundleExecutableDirectory,
+        Directory.Exists(Path.Combine(RuntimePaths.BundleExecutableDirectory, "..", "Resources", "BuiltInConversion"))
+            ? "../Resources/BuiltInConversion" : "BuiltInConversion");
+
     public async Task InitializeAsync()
     {
         await _gate.WaitAsync();
         try
         {
             if (_initialized) return;
+            if (DistributionChannel.IsAppStore)
+            {
+                _state.Clear();
+                _state[BuiltInId] = new() { BuiltIn = true, Directory = BuiltInDirectory, Enabled = true };
+                _initialized = true; Reload(); return;
+            }
             Directory.CreateDirectory(RootDirectory);
             if (File.Exists(_bundledPackage) && (!_state.TryGetValue(BuiltInId, out var existing) || !existing.Removed) && NeedsBundledUpdate())
             {
@@ -88,6 +100,7 @@ public sealed partial class PluginManager : IAsyncDisposable
     public async Task InstallAsync(string package, CancellationToken token = default, bool fromMarket = false,
         PluginManifest? expectedManifest = null)
     {
+        DistributionChannel.RequireWebsite("安装外部插件");
         await _gate.WaitAsync(token);
         try { ThrowIfStopping(); await InstallCoreAsync(package, false, true, token, fromMarket, expectedManifest); Reload(); }
         finally { _gate.Release(); }
@@ -96,6 +109,7 @@ public sealed partial class PluginManager : IAsyncDisposable
 
     public async Task RestoreBuiltInAsync()
     {
+        if (DistributionChannel.IsAppStore) { await InitializeAsync(); return; }
         await _gate.WaitAsync();
         try { ThrowIfStopping(); await InstallCoreAsync(_bundledPackage, true, true, CancellationToken.None); Reload(); }
         finally { _gate.Release(); }
@@ -200,6 +214,8 @@ public sealed partial class PluginManager : IAsyncDisposable
         => StartCoreAsync(id, "", [], true, token);
     private async Task<PluginSession> StartCoreAsync(string id, string commandId, PluginFile[] files, bool account, CancellationToken token)
     {
+        if (DistributionChannel.IsAppStore && (id != BuiltInId || account))
+            throw new NotSupportedException("App Store 版本只支持随包内置转换。 ");
         PluginSession session;
         await _gate.WaitAsync(token);
         try
@@ -213,7 +229,9 @@ public sealed partial class PluginManager : IAsyncDisposable
             var work = Path.Combine(RootDirectory, ".work", Guid.NewGuid().ToString("N"));
             var log = Path.Combine(RootDirectory, ".logs", id + ".log");
             _state[id].LogPath = log; _state[id].LastError = null; Save();
-            try { session = new PluginSession(_executable, _assembly, plugin.Directory, work, log, () => ReleaseAsync(id)); }
+            try { session = DistributionChannel.IsAppStore
+                ? new PluginSession(BuiltInDirectory, work, log, () => ReleaseAsync(id))
+                : new PluginSession(_executable, _assembly, plugin.Directory, work, log, () => ReleaseAsync(id)); }
             catch { if (Directory.Exists(work)) Directory.Delete(work, true); throw; }
             _sessions.Add(id, session); _leasedDirectories.Add(id, plugin.Directory);
             Reload();
@@ -314,7 +332,7 @@ public sealed partial class PluginManager : IAsyncDisposable
     // root can delete the directory this instance still points at. Recover instead of going broken.
     private PluginManifest ReadManifestOrRecover(string id, PluginState state)
     {
-        try { return PluginPackage.ReadManifest(state.Directory); }
+        try { return PluginPackage.ReadManifest(state.Directory, requireAssembly: !DistributionChannel.IsAppStore); }
         catch (Exception ex)
         {
             if (state.Removed || Directory.Exists(state.Directory))

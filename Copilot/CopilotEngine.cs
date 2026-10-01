@@ -64,6 +64,8 @@ public sealed class CopilotEngine : IDisposable
     }
 
     public string SessionId => _sessionId;
+    internal CopilotSettings ConsentSettings => settings;
+    internal CopilotKeychain ConsentKeychain => keychain;
     public bool NeedsApproval => _approval != null;
     public CapabilityPlan? PendingApprovalPlan => TryGetApprovalPlan(_approval);
     public string? PendingRecipient
@@ -168,6 +170,8 @@ public sealed class CopilotEngine : IDisposable
     {
         if (_approval != null) throw new InvalidOperationException("请先处理待确认的操作。");
         if (_disposed) throw new ObjectDisposedException(nameof(CopilotEngine));
+        if (!settings.HasMetadataConsent(keychain.Read()))
+            throw new InvalidOperationException("请先允许向当前 AI 服务发送文件信息。 ");
         attachments ??= [];
         PrepareForSend();
         await EnsureAgentAsync(cancellationToken);
@@ -183,6 +187,8 @@ public sealed class CopilotEngine : IDisposable
     public async Task<CopilotReply> RespondToApprovalAsync(bool approved, Action<AgentResponseUpdate>? onUpdate = null,
         CancellationToken cancellationToken = default)
     {
+        if (approved && !settings.HasMetadataConsent(keychain.Read()))
+            throw new InvalidOperationException("接收配置已变化，请重新允许发送文件信息。 ");
         var request = _approval ?? throw new InvalidOperationException("没有待确认的操作。");
         if (approved) ValidatePendingApprovalRecipient();
         _handledApprovalCalls.Add(request.ToolCall.CallId);
@@ -200,6 +206,11 @@ public sealed class CopilotEngine : IDisposable
 
         var responses = _approvalResponses.ToArray();
         _approvalResponses.Clear();
+        if (!approved && !settings.HasMetadataConsent(keychain.Read()))
+        {
+            ClearSessionRuntime();
+            return new("已拒绝操作。", null, false);
+        }
         return await RunAndRecordAsync(_agent!.RunStreamingAsync(
             new ChatMessage(ChatRole.User, responses),
             _session, cancellationToken: cancellationToken), onUpdate, cancellationToken);
@@ -281,11 +292,11 @@ public sealed class CopilotEngine : IDisposable
         if (_agent != null && signature == _configSignature && _session != null) return;
 
         var httpClient = new HttpClient(new ReasoningReplayHandler(
-            modelTransportFactory?.Invoke() ?? new SocketsHttpHandler
+            new PrivacyConsentHandler(modelTransportFactory?.Invoke() ?? new SocketsHttpHandler
             {
                 ConnectTimeout = TimeSpan.FromSeconds(30),
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
-            }, store, () => _sessionId)) { Timeout = TimeSpan.FromMinutes(10) };
+            }, settings, keychain, settings.Endpoint, settings.Model, key), store, () => _sessionId)) { Timeout = TimeSpan.FromMinutes(10) };
         var chatClient = new OpenAI.Chat.ChatClient(settings.Model, new ApiKeyCredential(key),
             new OpenAIClientOptions
             {

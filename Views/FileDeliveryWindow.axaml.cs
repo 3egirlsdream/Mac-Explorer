@@ -271,7 +271,7 @@ public partial class FileDeliveryWindow : AppWindow
         {
             var start = Path.IsPathFullyQualified(_files.CurrentPath) && Directory.Exists(_files.CurrentPath)
                 ? await StorageProvider.TryGetFolderFromPathAsync(new Uri(_files.CurrentPath)) : null;
-            var folders = await StorageProvider.OpenFolderPickerAsync(new()
+            var folders = await StorageProvider.OpenAuthorizedFolderPickerAsync(new()
             {
                 Title = "添加文件速递入口", AllowMultiple = true, SuggestedStartLocation = start
             });

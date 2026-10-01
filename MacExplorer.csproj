@@ -7,7 +7,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
-    <ApplicationId>com.macexplorer.app</ApplicationId>
+    <ApplicationId Condition="'$(DistributionChannel)' == 'Website'">com.macexplorer.app</ApplicationId>
+    <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
     <Version>1.0.50</Version>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -19,6 +20,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Assets/PrivacyPolicy.txt" LogicalName="MacExplorer.PrivacyPolicy.txt" />
+    <AssemblyMetadata Include="PrivacyPolicyUrl" Value="$(PrivacyPolicyUrl)" />
     <AvaloniaResource Include="Assets\**" Exclude="Assets\*.cs;Assets\*.axaml" />
     <Compile Remove="Plugins/**/*.cs" />
     <Compile Remove="Tools/PluginTestFixture/**/*.cs" />
@@ -32,7 +35,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="Plugins/UI/MacExplorer.PluginUi.csproj" />
     <ProjectReference Include="Plugins/SDK/MacExplorer.PluginSdk.csproj" />
-    <ProjectReference Include="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" ReferenceOutputAssembly="true" />
     <ProjectReference Include="ThirdParty/LiquidGlassAvaloniaUI/LiquidGlassAvaloniaUI.csproj" />
     <None Update="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" TargetPath="LiquidGlassAvaloniaUI.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="ThirdParty/Vex/LICENSE" TargetPath="Markdown/Vex.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -66,7 +69,7 @@
 
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.1" />
 
-    <PackageReference Include="DotNetZip" Version="1.16.0" />
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
 
     <PackageReference Include="Microsoft.Agents.AI" Version="1.22.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
@@ -77,37 +80,37 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Svg.Skia" Version="5.0.0" />
-    <PackageReference Include="SSH.NET" Version="2025.0.0" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 
   <!-- Create macOS .app bundle after build (macOS-only: Avalonia Desktop outputs a raw binary, not a bundle) -->
+  <Target Name="ValidateStoreSubmission" BeforeTargets="PrepareForBuild" Condition="'$(StoreSubmission)' == 'true'">
+    <Error Condition="'$(DistributionChannel)' != 'AppStore'" Text="StoreSubmission requires the AppStore channel."/>
+    <Exec Command="python3 Tools/Distribution/verify-release-config.py --identifier '$(AppStoreBundleId)' --policy '$(PrivacyPolicyUrl)'"/>
+  </Target>
   <Target Name="BuildMacOSImageAnalysisHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <PropertyGroup>
-      <_SwiftTarget Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-target x86_64-apple-macosx15.0</_SwiftTarget>
-    </PropertyGroup>
-    <Exec Command="xcrun swiftc -O $(_SwiftTarget) 'Platforms/MacOS/ImageAnalysisHelper.swift' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit -o '$(OutputPath)MacExplorer.ImageAnalysis'" />
+    <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ImageAnalysisHelper.swift' '$(OutputPath)MacExplorer.ImageAnalysis' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit" />
   </Target>
 
   <Target Name="BuildMacOSNativeDragHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <PropertyGroup>
-      <_ClangArch Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-arch x86_64</_ClangArch>
-    </PropertyGroup>
-    <Exec Command="clang++ -fobjc-arc -dynamiclib $(_ClangArch) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' -framework AppKit -framework Foundation -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+    <Exec Command="clang++ -fobjc-arc -dynamiclib -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' 'Platforms/MacOS/SandboxAccess.mm' -framework AppKit -framework Foundation -framework Security -framework Quartz -framework CoreServices -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
   <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">
+    <MSBuild Projects="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">
+      <Output TaskParameter="TargetOutputs" ItemName="_ConversionAssembly" />
+    </MSBuild>
     <PropertyGroup>
-      <_ConversionPluginOutput>$(MSBuildProjectDirectory)/Plugins/FileConversion/bin/$(Configuration)/net10.0/$(RuntimeIdentifier)/</_ConversionPluginOutput>
+      <_ConversionPluginOutput>@(_ConversionAssembly->'%(RootDir)%(Directory)')</_ConversionPluginOutput>
     </PropertyGroup>
     <MakeDir Directories="$(OutputPath)BundledPlugins" />
+    <Copy SourceFiles="$(_ConversionPluginOutput)MacExplorer.FileConversion" DestinationFolder="$(OutputPath)" />
+    <Copy SourceFiles="Plugins/FileConversion/plugin.json" DestinationFiles="$(OutputPath)BuiltInConversion/plugin.json" />
     <ZipDirectory SourceDirectory="$(_ConversionPluginOutput)" DestinationFile="$(OutputPath)BundledPlugins/FileConversion.mexplug" Overwrite="true" />
   </Target>
 
   <Target Name="BuildMacOSThumbnailHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <PropertyGroup>
-      <_SwiftTarget Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-target x86_64-apple-macosx15.0</_SwiftTarget>
-    </PropertyGroup>
-    <Exec Command="xcrun swiftc -O $(_SwiftTarget) 'Platforms/MacOS/ThumbnailHelper.swift' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers -o '$(OutputPath)MacExplorer.Thumbnail'" />
+    <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ThumbnailHelper.swift' '$(OutputPath)MacExplorer.Thumbnail' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers" />
   </Target>
 
   <Target Name="CopyMacOSAppIconToOutput" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
@@ -115,11 +118,14 @@
   </Target>
 
   <Target Name="CreateMacOSBundle" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <Error Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreBundleId)' == ''" Text="Set AppStoreBundleId explicitly; website identity is preserved." />
     <PropertyGroup>
       <_AppBundleName>Mac Explorer.app</_AppBundleName>
       <_AppBundleDir>$(OutputPath)$(_AppBundleName)</_AppBundleDir>
       <_MacOSDir>$(_AppBundleDir)/Contents/MacOS</_MacOSDir>
       <_ResourcesDir>$(_AppBundleDir)/Contents/Resources</_ResourcesDir>
+      <_ManagedDir>$(_ResourcesDir)/Managed</_ManagedDir>
+      <_FrameworksDir>$(_AppBundleDir)/Contents/Frameworks</_FrameworksDir>
       <_IconSource>$(MSBuildProjectDirectory)/Assets/appicon.icns</_IconSource>
     </PropertyGroup>
 
@@ -128,29 +134,38 @@
     <!-- Create dirs -->
     <RemoveDir Directories="$(_AppBundleDir)" Condition="Exists('$(_AppBundleDir)')" />
     <MakeDir Directories="$(_MacOSDir)" />
-    <MakeDir Directories="$(_ResourcesDir)" />
+    <MakeDir Directories="$(_ResourcesDir);$(_ManagedDir);$(_FrameworksDir)" />
 
     <!-- Copy executable -->
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName)" DestinationFolder="$(_MacOSDir)" />
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)" AppHostDestinationPath="$(_MacOSDir)/$(AssemblyName)"
+                   AppBinaryName="../Resources/Managed/$(AssemblyName).dll" IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')" Condition="'$(DistributionChannel)' == 'Website'" />
+    <Exec Command="clang++ -fobjc-arc -std=c++17 -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) Platforms/MacOS/StoreLauncher.mm -framework AppKit -o '$(_MacOSDir)/$(AssemblyName)'" Condition="'$(DistributionChannel)' == 'AppStore'" />
 
     <!-- Copy Info.plist -->
     <Copy SourceFiles="Platforms/MacOS/Info.plist" DestinationFolder="$(_AppBundleDir)/Contents" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleShortVersionString $(Version)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleVersion $(Version)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
 
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleIdentifier $(ApplicationId)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :LSMinimumSystemVersion $(MacOSMinimumVersion)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
     <!-- Copy icon -->
     <Copy SourceFiles="$(_IconSource)" DestinationFolder="$(_ResourcesDir)" Condition="Exists('$(_IconSource)')" />
 
-    <Copy SourceFiles="Assets/ConversionNotices.txt" DestinationFolder="$(_ResourcesDir)" />
+    <Copy SourceFiles="Assets/ConversionNotices.txt;Assets/PrivacyPolicy.txt" DestinationFolder="$(_ResourcesDir)" />
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :PrivacyPolicyURL string $(PrivacyPolicyUrl)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :DistributionChannel string $(DistributionChannel)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+    <ItemGroup><_LegalNotices Include="ThirdParty/Notices/**/*" /></ItemGroup>
+    <Copy SourceFiles="@(_LegalNotices)" DestinationFiles="@(_LegalNotices->'$(_ResourcesDir)/Notices/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="LICENSE" DestinationFiles="$(_ResourcesDir)/Notices/Project.LICENSE.txt" />
     <Copy SourceFiles="Assets/localsend-logo.png;Assets/localsend-LICENSE.txt;Assets/localsend-ATTRIBUTION.txt" DestinationFolder="$(_ResourcesDir)/LocalSend" />
     <Copy SourceFiles="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" DestinationFiles="$(_ResourcesDir)/LiquidGlassAvaloniaUI.LICENSE.txt" />
     <Copy SourceFiles="ThirdParty/Vex/LICENSE;ThirdParty/Vex/NOTICE.md;ThirdParty/Vex/FluentIcons.LICENSE.txt" DestinationFolder="$(_ResourcesDir)/Markdown" />
-    <Copy SourceFiles="ThirdParty/LibRaw/COPYRIGHT;ThirdParty/LibRaw/LICENSE.LGPL;ThirdParty/LibRaw/LICENSE.CDDL" DestinationFolder="$(_ResourcesDir)/LibRaw" />
+    <Copy SourceFiles="ThirdParty/LibRaw/COPYRIGHT;ThirdParty/LibRaw/LICENSE.LGPL;ThirdParty/LibRaw/LICENSE.CDDL;ThirdParty/LibRaw/SOURCE.md" DestinationFolder="$(_ResourcesDir)/LibRaw" />
 
-    <!-- Copy .dll / .dylib / .json next to the executable so they resolve -->
+    <!-- Keep managed assemblies in resources and actual native code in Frameworks. -->
     <ItemGroup>
       <_BundleFiles Include="$(OutputPath)*.dll" />
-      <_BundleFiles Include="$(OutputPath)*.dylib" />
+      <_NativeLibs Include="$(OutputPath)*.dylib" />
       <_BundleFiles Include="$(OutputPath)*.deps.json" />
       <_BundleFiles Include="$(OutputPath)*.runtimeconfig.json" />
       <_BundleFiles Include="$(OutputPath)*.pdb" />
@@ -159,28 +174,32 @@
       <_NativeLibs Include="$(OutputPath)runtimes/osx-arm64/native/*.dylib" />
       <_NativeLibs Include="$(OutputPath)runtimes/osx-x64/native/*.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.ImageAnalysis" />
-      <_NativeHelpers Include="$(OutputPath)libMacExplorerNativeDrag.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.Thumbnail" />
+      <_NativeHelpers Include="$(OutputPath)MacExplorer.FileConversion" />
       <_PluginPackages Include="$(OutputPath)BundledPlugins/*.mexplug" />
       <!-- CodeWF.Markdown resolves its translations relative to the app resources. -->
       <_I18nFiles Include="$(OutputPath)I18n/**/*.json" />
       <_SkillFiles Include="$(OutputPath)Copilot/Skills/**/SKILL.md" />
     </ItemGroup>
-    <Copy SourceFiles="@(_BundleFiles)" DestinationFolder="$(_MacOSDir)" />
+    <Copy SourceFiles="@(_BundleFiles)" DestinationFolder="$(_ManagedDir)" />
     <Copy SourceFiles="@(_I18nFiles)" DestinationFiles="@(_I18nFiles->'$(_ResourcesDir)/I18n/%(RecursiveDir)%(Filename)%(Extension)')" />
-    <Copy SourceFiles="@(_SkillFiles)" DestinationFiles="@(_SkillFiles->'$(_MacOSDir)/Copilot/Skills/%(RecursiveDir)%(Filename)%(Extension)')" />
-    <Copy SourceFiles="@(_NativeLibs)" DestinationFolder="$(_MacOSDir)" />
+    <Copy SourceFiles="@(_SkillFiles)" DestinationFiles="@(_SkillFiles->'$(_ManagedDir)/Copilot/Skills/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(_NativeLibs)" DestinationFolder="$(_FrameworksDir)" />
+    <Exec Command="bash Tools/Distribution/link-native-libraries.sh '$(_FrameworksDir)' '$(_ManagedDir)'" />
     <Copy SourceFiles="@(_NativeHelpers)" DestinationFolder="$(_MacOSDir)" />
 
-    <Copy SourceFiles="@(_PluginPackages)" DestinationFolder="$(_MacOSDir)/BundledPlugins" />
+    <Copy SourceFiles="@(_PluginPackages)" DestinationFolder="$(_ResourcesDir)/BundledPlugins" Condition="'$(DistributionChannel)' == 'Website'" />
+    <Copy SourceFiles="$(OutputPath)BuiltInConversion/plugin.json" DestinationFolder="$(_ResourcesDir)/BuiltInConversion" />
 
-    <!-- Codesign (ad-hoc) so the bundle is not quarantined (deep signs all embedded binaries). -->
-    <Exec Command="codesign --force --deep --sign - '$(_AppBundleDir)'" />
+    <Exec Command="python3 Tools/Distribution/verify-notices.py '$(_AppBundleDir)'" />
+    <!-- Sign actual native code individually; managed files are sealed resources. -->
+    <Copy SourceFiles="$(AppStoreProvisioningProfile)" DestinationFiles="$(_AppBundleDir)/Contents/embedded.provisionprofile" Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreProvisioningProfile)' != ''" />
+    <Exec Command="bash Tools/Distribution/sign-app.sh '$(_AppBundleDir)' '$(DistributionChannel)' '$(MacOSSigningIdentity)' '$(MacOSTeamIdentifier)'" />
 
     <Message Text="[macOS] .app bundle ready at: $(_AppBundleDir)" Importance="high" />
   </Target>
 
-  <Target Name="CreateMacOSReleaseDMG" AfterTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(Configuration)' == 'Release' and '$(SkipMacOSReleaseDMG)' != 'true'">
+  <Target Name="CreateMacOSReleaseDMG" AfterTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(Configuration)' == 'Release' and '$(SkipMacOSReleaseDMG)' != 'true' and '$(DistributionChannel)' == 'Website'">
     <PropertyGroup>
       <_ReleaseAppBundle>$(OutputPath)Mac Explorer.app</_ReleaseAppBundle>
       <_ReleaseArchSuffix Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-intel</_ReleaseArchSuffix>

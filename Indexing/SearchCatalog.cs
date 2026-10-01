@@ -73,7 +73,7 @@ public sealed partial class SearchCatalog
             (path, name, directory) =>
             {
                 ct.ThrowIfCancellationRequested();
-                return options.IsVisible(path, name, directory != 0, root);
+                return Services.DirectoryAccess.Current.CanAccess(path) && options.IsVisible(path, name, directory != 0, root);
             });
         connection.CreateFunction<string, string>("search_fold", SearchQuery.Fold, isDeterministic: true);
         var results = new List<SearchEntry>();

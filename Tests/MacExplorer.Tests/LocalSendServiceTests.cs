@@ -27,12 +27,18 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
     private readonly BackgroundTaskManager _tasks = new();
     private LocalSendService _service = null!;
     private HttpClient _client = null!;
+    private readonly DirectoryAccess _testAccess;
+    public LocalSendServiceTests()
+    {
+        _testAccess = new DirectoryAccess(Path.Combine(_root, "access.json"), true, internalRoots: [_root]);
+    }
 
     public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable(RuntimePaths.TestRootVariable, _root);
         RuntimePaths.PrepareTestRoot();
         _service = new LocalSendService(_settings, _tasks);
+        _service.FileAccessOverride = _testAccess;
         _service.ScanInterfacesOverride = () => [];
         _service.DiscoveryAddressesOverride = () => [IPAddress.Loopback];
         using (var availableUdp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)))
@@ -50,6 +56,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
     {
         _client.Dispose();
         await _service.DisposeAsync();
+        _testAccess.Dispose();
         Environment.SetEnvironmentVariable(RuntimePaths.TestRootVariable, _oldRoot);
         Directory.Delete(_root, recursive: true);
     }
@@ -674,8 +681,10 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         finally { occupant.Stop(); }
     }
 
-    [Fact]
-    public async Task ManualIpConnectionAcceptsOfficialInfoWithoutPortAndProtocolOnlyAfterCertificateMatch()
+    [Theory]
+    [InlineData("127.0.0.1")]
+    [InlineData("::1")]
+    public async Task ManualIpConnectionAcceptsOfficialInfoWithoutPortAndProtocolOnlyAfterCertificateMatch(string peerAddress)
     {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest("CN=LocalSend test", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -686,7 +695,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         var holdInfo = false;
         var infoStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var builder = WebApplication.CreateSlimBuilder();
-        builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(certificate)));
+        builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Parse(peerAddress), 0, listen => listen.UseHttps(certificate)));
         await using var app = builder.Build();
         app.MapGet("/api/localsend/v2/info", async (HttpContext context) =>
         {
@@ -708,11 +717,11 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         var port = new Uri(address).Port;
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
-            _service.ConnectByAddressAsync("127.0.0.1", port, TestContext.Current.CancellationToken));
+            _service.ConnectByAddressAsync(peerAddress, port, TestContext.Current.CancellationToken));
         Assert.Equal(0, registerCount);
 
         returnedFingerprint = actualFingerprint;
-        var peer = await _service.ConnectByAddressAsync("127.0.0.1", port, TestContext.Current.CancellationToken);
+        var peer = await _service.ConnectByAddressAsync(peerAddress, port, TestContext.Current.CancellationToken);
         Assert.Equal("Official style peer", peer.Alias);
         Assert.Equal(port, peer.Port);
         Assert.Equal(actualFingerprint, peer.Fingerprint, ignoreCase: true);
@@ -721,7 +730,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Contains(await _service.DiscoverAsync(TestContext.Current.CancellationToken), device => device.Fingerprint == peer.Fingerprint);
 
         holdInfo = true;
-        var interrupted = _service.ConnectByAddressAsync("127.0.0.1", port, TestContext.Current.CancellationToken);
+        var interrupted = _service.ConnectByAddressAsync(peerAddress, port, TestContext.Current.CancellationToken);
         await infoStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
         await _service.SetEnabledAsync(false);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => interrupted);

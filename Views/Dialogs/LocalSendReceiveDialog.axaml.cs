@@ -43,7 +43,7 @@ public partial class LocalSendReceiveDialog : DialogWindow
 
     private async void OnChooseDirectory(object? sender, RoutedEventArgs e)
     {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var folders = await StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "选择接收位置", AllowMultiple = false
         });

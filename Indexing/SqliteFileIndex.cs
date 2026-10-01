@@ -20,9 +20,9 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
 
-        // Try to open existing DB; if schema init fails, delete and recreate
-        _writeConnection = OpenAndInitialize(databasePath, allowRecreate: true);
-        _readConnection = OpenAndInitialize(databasePath, allowRecreate: false);
+        _writeConnection = OpenAndInitialize(databasePath);
+        try { _readConnection = OpenAndInitialize(databasePath); }
+        catch { _writeConnection.Dispose(); throw; }
     }
 
     public SqliteFileIndex(string databasePath, DatabaseConnectionFactory connectionFactory)
@@ -32,12 +32,12 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
 
-        // Try to open existing DB; if schema init fails, delete and recreate
-        _writeConnection = OpenAndInitialize(databasePath, connectionFactory, allowRecreate: true);
-        _readConnection = OpenAndInitialize(databasePath, connectionFactory, allowRecreate: false);
+        _writeConnection = OpenAndInitialize(databasePath, connectionFactory);
+        try { _readConnection = OpenAndInitialize(databasePath, connectionFactory); }
+        catch { _writeConnection.Dispose(); throw; }
     }
 
-    private static SqliteConnection OpenAndInitialize(string dbPath, DatabaseConnectionFactory connectionFactory, bool allowRecreate)
+    private static SqliteConnection OpenAndInitialize(string dbPath, DatabaseConnectionFactory connectionFactory)
     {
         var conn = connectionFactory.GetConnection();
         try
@@ -51,26 +51,13 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             conn.Close();
             conn.Dispose();
 
-            if (!allowRecreate)
-                throw;
-
-            // Delete corrupted/incompatible DB and recreate from scratch
-            try
-            {
-                foreach (var suffix in new[] { "", "-shm", "-wal", "-journal" })
-                {
-                    var f = dbPath + suffix;
-                    if (File.Exists(f)) File.Delete(f);
-                }
-                System.Diagnostics.Debug.WriteLine("Deleted old DB, recreating...");
-            }
-            catch { /* best effort cleanup */ }
-
-            return OpenAndInitialize(dbPath, connectionFactory, allowRecreate: false);
+            // This database also owns settings, favorites and history. Preserve it
+            // on every initialization failure; an error is not consent to reset it.
+            throw;
         }
     }
 
-    private static SqliteConnection OpenAndInitialize(string dbPath, bool allowRecreate)
+    private static SqliteConnection OpenAndInitialize(string dbPath)
     {
         var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadWriteCreate");
         try
@@ -92,22 +79,7 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             conn.Close();
             conn.Dispose();
 
-            if (!allowRecreate)
-                throw;
-
-            // Delete corrupted/incompatible DB and recreate from scratch
-            try
-            {
-                foreach (var suffix in new[] { "", "-shm", "-wal", "-journal" })
-                {
-                    var f = dbPath + suffix;
-                    if (File.Exists(f)) File.Delete(f);
-                }
-                System.Diagnostics.Debug.WriteLine("Deleted old DB, recreating...");
-            }
-            catch { /* best effort cleanup */ }
-
-            return OpenAndInitialize(dbPath, allowRecreate: false);
+            throw;
         }
     }
 

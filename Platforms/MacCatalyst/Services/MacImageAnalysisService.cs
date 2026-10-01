@@ -2,10 +2,11 @@ using System.Diagnostics;
 using System.Text.Json;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
-public class MacImageAnalysisService : IImageAnalysisService
+public class MacImageAnalysisService(PhotoLocationConsent? locationConsent = null) : IImageAnalysisService
 {
     private static readonly Dictionary<string, (string TagType, string DisplayName)> ClassifierMap =
         BuildClassifierMap();
@@ -16,7 +17,7 @@ public class MacImageAnalysisService : IImageAnalysisService
     {
         if (!File.Exists(filePath)) return new ImageAnalysisResult();
 
-        var helperPath = Path.Combine(AppContext.BaseDirectory, "MacExplorer.ImageAnalysis");
+        var helperPath = Path.Combine(RuntimePaths.BundleExecutableDirectory, "MacExplorer.ImageAnalysis");
         if (!File.Exists(helperPath))
             return new ImageAnalysisResult();
 
@@ -29,7 +30,9 @@ public class MacImageAnalysisService : IImageAnalysisService
             CreateNoWindow = true
         };
         startInfo.ArgumentList.Add(filePath);
+        locationConsent?.ConfigureHelper(startInfo);
 
+        DirectoryAccess.Current.ConfigureHelper(startInfo, filePath);
         using var process = Process.Start(startInfo);
         if (process == null) return new ImageAnalysisResult();
 

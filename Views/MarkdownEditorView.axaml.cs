@@ -1,3 +1,4 @@
+using MacExplorer.Services;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -183,7 +184,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
             {
                 var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
                 if (storage?.CanSave != true) throw new IOException("当前环境不支持选择保存位置。");
-                var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+                var file = await storage.SaveAuthorizedFilePickerAsync(new FilePickerSaveOptions
                 {
                     Title = "Markdown 另存为",
                     SuggestedFileName = Path.GetFileName(document.FilePath),

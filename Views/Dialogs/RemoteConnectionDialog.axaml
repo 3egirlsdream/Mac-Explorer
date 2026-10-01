@@ -4,100 +4,125 @@
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.RemoteConnectionDialog"
         Title="连接远程服务器"
-        Width="480" Height="520"
-        CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource GlassEffectBg}">
-
+        Width="480" Height="550" MinWidth="400" MinHeight="450"
+        CanResize="True" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
+    </Window.Resources>
     <Window.Styles>
-        <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        </Style>
-        <Style Selector="TextBox">
-            <Setter Property="Margin" Value="0,0,0,8"/>
-        </Style>
-        <Style Selector="TextBlock.label">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
-        </Style>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
-
-    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-        <!-- Saved servers list -->
-        <Border Grid.Row="0" IsVisible="{Binding HasSavedServers}" Margin="0,0,0,12">
-            <StackPanel>
-                <TextBlock Text="已保存的服务器" FontSize="{DynamicResource FontSizeCaption}" FontWeight="{StaticResource FontWeightSemibold}"
-                           Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6"/>
-                <ListBox x:Name="SavedServersList" MaxHeight="120"
-                         ItemsSource="{Binding SavedServers}"
-                         SelectionChanged="OnSavedServerSelected">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16" RowSpacing="8">
+        <Border Grid.Row="0" x:Name="SavedServersPanel" IsVisible="False">
+            <StackPanel Spacing="4">
+                <TextBlock Classes="settings-section-title" Text="已保存的服务器"/>
+                <ListBox x:Name="SavedServersList" MaxHeight="100" SelectionChanged="OnSavedServerSelected">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="4,2">
-                                <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                          Width="16" Height="16" Foreground="{DynamicResource AccentBrush}"/>
-                                <StackPanel>
-                                    <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource FontSizeBody}"/>
-                                    <TextBlock Text="{Binding ConnectionString}" FontSize="{DynamicResource FontSizeMeta}" Opacity="0.6"/>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="4,2">
+                                <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="16" Height="16"
+                                          Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding DisplayName}" Classes="settings-label"/>
+                                    <TextBlock Text="{Binding ConnectionString}" Classes="settings-description"/>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
             </StackPanel>
         </Border>
-
-        <!-- Connection form -->
-        <ScrollViewer Grid.Row="1">
-            <StackPanel Spacing="4">
-                <TextBlock Classes="label" Text="服务器名称"/>
-                <TextBox x:Name="NameBox" PlaceholderText="可选，显示在侧边栏"/>
-
-                <TextBlock Classes="label" Text="主机地址"/>
-                <TextBox x:Name="HostBox" PlaceholderText="IP 地址或域名" AutomationProperties.Name="主机地址"/>
-                <TextBlock x:Name="HostError" IsVisible="False" Text="请输入主机地址" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource DangerBrush}" Margin="0,0,0,8"/>
-
-                <TextBlock Classes="label" Text="端口"/>
-                <TextBox x:Name="PortBox" PlaceholderText="22"/>
-
-                <TextBlock Classes="label" Text="用户名"/>
-                <TextBox x:Name="UsernameBox" PlaceholderText="root"/>
-
-                <TextBlock Classes="label" Text="认证方式"/>
-                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
-                    <RadioButton x:Name="PasswordRadio" Content="密码" IsChecked="True"
-                                 GroupName="Auth" Click="OnAuthMethodChanged"/>
-                    <RadioButton x:Name="KeyRadio" Content="密钥文件"
-                                 GroupName="Auth" Click="OnAuthMethodChanged"/>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="8">
+                <Border Classes="settings-group">
+                    <StackPanel>
+                        <Border Classes="settings-row settings-divider">
+                            <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                <TextBlock Classes="settings-label" Text="名称" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="NameBox" Classes="settings-inline-input" Watermark="可选" AutomationProperties.Name="服务器名称"/>
+                            </Grid>
+                        </Border>
+                        <Border Classes="settings-row settings-divider">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                    <TextBlock Classes="settings-label" Text="主机地址" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" x:Name="HostBox" Classes="settings-inline-input" Watermark="IP 地址或域名" AutomationProperties.Name="主机地址"/>
+                                </Grid>
+                                <TextBlock x:Name="HostError" IsVisible="False" Text="请输入主机地址" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource DangerBrush}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="settings-row settings-divider">
+                            <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                <TextBlock Classes="settings-label" Text="端口" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="PortBox" Classes="settings-inline-input" Watermark="22" AutomationProperties.Name="端口"/>
+                            </Grid>
+                        </Border>
+                        <Border Classes="settings-row">
+                            <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                <TextBlock Classes="settings-label" Text="用户名" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="UsernameBox" Classes="settings-inline-input" Watermark="root" AutomationProperties.Name="用户名"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+                <Border Classes="settings-group">
+                    <StackPanel>
+                        <Border Classes="settings-row settings-divider">
+                            <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                <TextBlock Classes="settings-label" Text="认证方式" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                                    <RadioButton x:Name="PasswordRadio" Content="密码" IsChecked="True" GroupName="Auth" Click="OnAuthMethodChanged"/>
+                                    <RadioButton x:Name="KeyRadio" Content="密钥文件" GroupName="Auth" Click="OnAuthMethodChanged"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <Border x:Name="PasswordPanel" Classes="settings-row settings-divider">
+                            <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                <TextBlock Classes="settings-label" Text="密码" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="PasswordBox" Classes="settings-inline-input" PasswordChar="•" AutomationProperties.Name="密码"/>
+                            </Grid>
+                        </Border>
+                        <Border x:Name="KeyPanel" Classes="settings-row settings-divider" IsVisible="False">
+                            <Grid ColumnDefinitions="90,*,Auto" ColumnSpacing="8">
+                                <TextBlock Classes="settings-label" Text="私钥文件" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="KeyPathBox" Classes="settings-inline-input" AutomationProperties.Name="私钥文件路径"/>
+                                <Button Grid.Column="2" Content="浏览" Classes="secondary compact" Click="OnBrowseKeyFile"/>
+                            </Grid>
+                        </Border>
+                        <Border x:Name="KeyPassphrasePanel" Classes="settings-row settings-divider" IsVisible="False">
+                            <StackPanel Spacing="4">
+                                <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                    <TextBlock Classes="settings-label" Text="私钥口令" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" x:Name="KeyPassphraseBox" PasswordChar="•" Classes="settings-inline-input" PlaceholderText="未加密私钥可留空" AutomationProperties.Name="私钥解密口令"/>
+                                </Grid>
+                                <CheckBox x:Name="RememberKeyPassphrase" Content="将私钥口令保存到钥匙串" ToolTip.Tip="默认仅本次使用；勾选后在保存或成功连接时保存，可取消勾选并保存以删除。"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="settings-row">
+                            <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                <TextBlock Classes="settings-label" Text="默认路径" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="DefaultPathBox" Classes="settings-inline-input" Text="/" AutomationProperties.Name="默认路径"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="ghost compact" Content="重试凭据加载" Click="OnRetryCredentials"
+                            ToolTip.Tip="解锁钥匙串或允许访问后重试；旧配置与迁移未完成的密码会保留。"/>
+                    <Button Classes="ghost compact" Content="撤销主机信任" Click="OnForgetHostKey"
+                            ToolTip.Tip="仅处理当前填写的主机与端口，需要明确确认。"/>
                 </StackPanel>
-
-                <StackPanel x:Name="PasswordPanel">
-                    <TextBlock Classes="label" Text="密码"/>
-                    <TextBox x:Name="PasswordBox" PlaceholderText="密码" PasswordChar="•"/>
-                </StackPanel>
-
-                <StackPanel x:Name="KeyPanel" IsVisible="False">
-                    <TextBlock Classes="label" Text="私钥文件路径"/>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBox x:Name="KeyPathBox" PlaceholderText="~/.ssh/id_rsa"/>
-                        <Button Grid.Column="1" Content="浏览" Click="OnBrowseKeyFile"
-                                Padding="12,6" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
-                    </Grid>
-                </StackPanel>
-
-                <TextBlock Classes="label" Text="默认路径"/>
-                <TextBox x:Name="DefaultPathBox" PlaceholderText="/" Text="/"/>
             </StackPanel>
         </ScrollViewer>
-
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,16,0,0">
-            <Button x:Name="DeleteButton" Content="删除" Classes="ghost" Foreground="{DynamicResource DangerBrush}"
-                    Click="OnDeleteServer" IsVisible="False" Padding="16,6"/>
-            <Button Grid.Column="2" Content="取消" Classes="secondary" Click="OnCancel" Padding="16,6"/>
-            <Button Grid.Column="3" x:Name="SaveButton" Content="保存" Classes="secondary" Click="OnSave" Padding="16,6"/>
-            <Button Grid.Column="4" x:Name="ConnectButton" Content="连接" Classes="primary" Click="OnConnect" Padding="24,6"/>
+        <ScrollViewer Grid.Row="2" MaxHeight="100" HorizontalScrollBarVisibility="Disabled">
+            <TextBlock x:Name="ConnectionStatus" Classes="settings-description" TextWrapping="Wrap" AutomationProperties.Name="连接和凭据状态"/>
+        </ScrollViewer>
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,4,0,0">
+            <Button x:Name="DeleteButton" Content="删除" Classes="ghost compact" Foreground="{DynamicResource DangerBrush}" Click="OnDeleteServer" IsVisible="False"/>
+            <Button Grid.Column="2" Content="取消" Classes="secondary compact" Click="OnCancel"/>
+            <Button Grid.Column="3" x:Name="SaveButton" Content="保存" Classes="secondary compact" Click="OnSave"/>
+            <Button Grid.Column="4" x:Name="ConnectButton" Content="连接" Classes="primary compact" Click="OnConnect"/>
         </Grid>
     </Grid>
 </controls:DialogWindow>

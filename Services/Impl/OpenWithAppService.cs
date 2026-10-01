@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Xml.Linq;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using Microsoft.Data.Sqlite;
@@ -350,6 +349,10 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
 
     private static ApplicationAvailability GetApplicationAvailability(string bundleId)
     {
+        if (DistributionChannel.IsAppStore)
+            return Platforms.MacOS.MacSandboxNative.ApplicationPath(bundleId) == null
+                ? ApplicationAvailability.NotInstalled : ApplicationAvailability.Installed;
+
         try
         {
             var script = $"""
@@ -403,63 +406,7 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
     }
 
     private static string? ExtractIconBase64(string appPath)
-    {
-        try
-        {
-            // Use AppKit directly so menu icons match the actual app installed on this Mac.
-            var escapedPath = appPath.Replace("\\", "\\\\").Replace("'", "\\'");
-            var script = 
-                "ObjC.import('AppKit');\n" +
-                "ObjC.import('Foundation');\n" +
-                "var ws = $.NSWorkspace.sharedWorkspace;\n" +
-                "var icon = ws.iconForFile('" + escapedPath + "');\n" +
-                "var rep = $.NSBitmapImageRep.alloc.initWithBitmapDataPlanesPixelsWidePixelsHighBitsPerSampleSamplesPerPixelHasAlphaIsPlanarColorSpaceNameBytesPerRowBitsPerPixel(null, 64, 64, 8, 4, true, false, $.NSDeviceRGBColorSpace, 0, 0);\n" +
-                "var ctx = $.NSGraphicsContext.graphicsContextWithBitmapImageRep(rep);\n" +
-                "$.NSGraphicsContext.saveGraphicsState;\n" +
-                "$.NSGraphicsContext.setCurrentContext(ctx);\n" +
-                "icon.drawInRectFromRectOperationFraction($.NSMakeRect(0, 0, 64, 64), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);\n" +
-                "$.NSGraphicsContext.restoreGraphicsState;\n" +
-                "var png = rep.representationUsingTypeProperties(4, $.NSDictionary.dictionary);\n" +
-                "var base64 = ObjC.unwrap(png.base64EncodedStringWithOptions(0));\n" +
-                "base64;\n";
-
-            var scriptPath = Path.Combine(Path.GetTempPath(), $"fkfinder_icon_{Guid.NewGuid():N}.js");
-            File.WriteAllText(scriptPath, script);
-
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "/usr/bin/osascript",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-                psi.ArgumentList.Add("-l");
-                psi.ArgumentList.Add("JavaScript");
-                psi.ArgumentList.Add(scriptPath);
-
-                var process = Process.Start(psi);
-                if (process == null) return null;
-                var output = process.StandardOutput.ReadToEnd().Trim();
-                if (!process.WaitForExit(5000))
-                {
-                    try { process.Kill(entireProcessTree: true); } catch { }
-                    return null;
-                }
-                if (process.ExitCode != 0)
-                    return null;
-
-                return string.IsNullOrEmpty(output) ? null : output;
-            }
-            finally
-            {
-                try { File.Delete(scriptPath); } catch { }
-            }
-        }
-        catch { return null; }
-    }
+        => Platforms.MacOS.MacSandboxNative.ApplicationIcon(appPath, 64);
 
     private string? ReadBuiltInIconBase64(string bundleId)
         => BuiltInOpenWithActions.IsRevealInFinder(bundleId)
@@ -468,6 +415,11 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
 
     private string? ReadAppIconBase64(string bundleId)
     {
+        if (DistributionChannel.IsAppStore)
+        {
+            var application = Platforms.MacOS.MacSandboxNative.ApplicationPath(bundleId);
+            return application == null ? null : ExtractIconBase64(application);
+        }
         try
         {
             using var process = Process.Start(new ProcessStartInfo
@@ -536,75 +488,8 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
 
     private static string? ReadPlistValue(string plistPath, string key)
     {
-        try
-        {
-            var xmlValue = TryReadXmlPlistValue(plistPath, key);
-            if (!string.IsNullOrWhiteSpace(xmlValue))
-                return xmlValue;
-
-            var psi = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "/usr/libexec/PlistBuddy",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            psi.ArgumentList.Add("-c");
-            psi.ArgumentList.Add($"Print :{key}");
-            psi.ArgumentList.Add(plistPath);
-
-            using var process = System.Diagnostics.Process.Start(psi);
-            if (process == null) return null;
-            if (!process.WaitForExit(1500))
-            {
-                try { process.Kill(entireProcessTree: true); } catch { }
-                return null;
-            }
-
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            return process.ExitCode == 0 && !string.IsNullOrEmpty(output) ? output : null;
-        }
-        catch { return null; }
-    }
-
-    private static string? TryReadXmlPlistValue(string plistPath, string key)
-    {
-        try
-        {
-            using var stream = File.OpenRead(plistPath);
-            Span<byte> header = stackalloc byte[8];
-            var read = stream.Read(header);
-            stream.Position = 0;
-            if (read >= 6 && header[..6].SequenceEqual("bplist"u8))
-                return null;
-
-            var doc = XDocument.Load(stream);
-            var dict = doc.Root?.Element("dict");
-            if (dict == null) return null;
-
-            var elements = dict.Elements().ToList();
-            for (var i = 0; i < elements.Count - 1; i++)
-            {
-                if (elements[i].Name.LocalName != "key" || elements[i].Value != key)
-                    continue;
-
-                var value = elements[i + 1];
-                return value.Name.LocalName switch
-                {
-                    "string" => value.Value,
-                    "true" => "true",
-                    "false" => "false",
-                    "integer" => value.Value,
-                    _ => null
-                };
-            }
-        }
-        catch
-        {
-        }
-
-        return null;
+        var value = Platforms.MacOS.MacSandboxNative.ReadPlistValue(plistPath, key);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
 }

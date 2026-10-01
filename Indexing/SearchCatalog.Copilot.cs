@@ -27,6 +27,7 @@ public sealed partial class SearchCatalog
         var observed = new Dictionary<string, FileSystemInfo?>(StringComparer.Ordinal);
         FileSystemInfo? Observe(string path)
         {
+            if (!Services.DirectoryAccess.Current.CanAccess(path)) return null;
             if (observed.TryGetValue(path, out var existing)) return existing;
             ct.ThrowIfCancellationRequested();
             FileSystemInfo? info = null;
@@ -51,7 +52,7 @@ public sealed partial class SearchCatalog
         connection.CreateFunction<string, bool>("resource_directory", path => Observe(path) is DirectoryInfo);
         connection.CreateFunction<string, string>("resource_fold", SearchQuery.Fold, isDeterministic: true);
         connection.CreateFunction<string, string, long, bool>("resource_visible", (path, name, directory) =>
-            options.IsVisible(path, name, directory != 0, root));
+            Services.DirectoryAccess.Current.CanAccess(path) && options.IsVisible(path, name, directory != 0, root));
 
         using var command = connection.CreateCommand();
         command.CommandTimeout = 5;

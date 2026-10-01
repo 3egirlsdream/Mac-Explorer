@@ -27,6 +27,7 @@ public class ArchiveService : IArchiveService
 
     public bool IsEncrypted(string archivePath)
     {
+        DirectoryAccess.Current.EnsureAccess(archivePath);
         try
         {
             using var preparedArchive = PrepareArchive(archivePath);
@@ -55,6 +56,7 @@ public class ArchiveService : IArchiveService
     public Task<IReadOnlyList<FileSystemEntry>> GetArchiveContentsAsync(
         string archivePath, string internalPath = "", string? password = null)
     {
+        DirectoryAccess.Current.EnsureAccess(archivePath);
         return Task.Run(() =>
         {
             using var preparedArchive = PrepareArchive(archivePath);
@@ -153,6 +155,8 @@ public class ArchiveService : IArchiveService
         CancellationToken ct = default,
         string? password = null)
     {
+        DirectoryAccess.Current.EnsureAccess(archivePath);
+        DirectoryAccess.Current.EnsureAccess(destinationPath);
         await Task.Run(() =>
         {
             using var preparedArchive = PrepareArchive(archivePath);
@@ -245,6 +249,7 @@ public class ArchiveService : IArchiveService
 
     public async Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey, string? password = null)
     {
+        DirectoryAccess.Current.EnsureAccess(archivePath);
         return await Task.Run(() =>
         {
             var tempBase = Path.Combine(Path.GetTempPath(), "MacExplorer-archive-temp");
@@ -282,6 +287,8 @@ public class ArchiveService : IArchiveService
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken ct = default)
     {
+        DirectoryAccess.Current.EnsureAccess(options.OutputDirectory);
+        foreach (var source in options.SourcePaths) DirectoryAccess.Current.EnsureAccess(source);
         return await Task.Run(() =>
         {
             var ext = options.Format switch
@@ -327,7 +334,7 @@ public class ArchiveService : IArchiveService
 
             var tempPath = outputPath + ".fkfinder-tmp";
 
-            // Use DotNetZip for password-protected ZIP (SharpCompress WriterOptions lacks Password)
+            // SharpZipLib writes WinZip AES; SharpCompress retains existing archive reading.
             if (options.Format == ArchiveFormat.Zip && !string.IsNullOrEmpty(options.Password))
             {
                 WriteEncryptedZip(outputPath, tempPath, filesToCompress, options.Password, progress, ct);
@@ -382,18 +389,34 @@ public class ArchiveService : IArchiveService
     {
         try
         {
-            using (var zip = new Ionic.Zip.ZipFile(tempPath)
+            using (var stream = File.Create(tempPath))
+            using (var zip = new ICSharpCode.SharpZipLib.Zip.ZipOutputStream(stream) { Password = password })
             {
-                Password = password,
-                Encryption = Ionic.Zip.EncryptionAlgorithm.WinZipAes256
-            })
-            {
+                var buffer = new byte[64 * 1024];
                 var total = files.Count;
                 for (int i = 0; i < total; i++)
                 {
                     ct.ThrowIfCancellationRequested();
                     var (fullPath, relativePath) = files[i];
-                    zip.AddFile(fullPath, Path.GetDirectoryName(relativePath) ?? "");
+                    using var input = File.OpenRead(fullPath);
+                    zip.PutNextEntry(new ICSharpCode.SharpZipLib.Zip.ZipEntry(relativePath.Replace('\\', '/'))
+                    {
+                        AESKeySize = 256,
+                        IsUnicodeText = true,
+                        DateTime = File.GetLastWriteTime(fullPath)
+                    });
+                    int read;
+                    long copied = 0;
+                    while ((read = input.Read(buffer)) > 0)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        zip.Write(buffer, 0, read);
+                        copied += read;
+                        progress?.Report(new ArchiveProgress { IsActive = true,
+                            Percentage = (i + (input.Length == 0 ? 1 : (double)copied / input.Length)) / total * 100,
+                            CurrentFile = relativePath, OperationLabel = "正在压缩..." });
+                    }
+                    zip.CloseEntry();
 
                     progress?.Report(new ArchiveProgress
                     {
@@ -404,9 +427,11 @@ public class ArchiveService : IArchiveService
                     });
                 }
 
-                zip.Save();
+                ct.ThrowIfCancellationRequested();
+                zip.Finish();
             }
 
+            ct.ThrowIfCancellationRequested();
             File.Move(tempPath, outputPath, overwrite: true);
         }
         catch

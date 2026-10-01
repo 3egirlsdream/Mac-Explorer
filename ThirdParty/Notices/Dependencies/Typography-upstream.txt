@@ -1,0 +1,115 @@
+Source: https://github.com/LayoutFarm/Typography/blob/d331968f3ee714332a8ea4fa95a21c15812a8d93/LICENSE.md
+
+
+ 
+The project is based on multiple open-sourced projects (listed below) all using permissive licenses.
+
+A license for a whole project is [**MIT**](https://opensource.org/licenses/MIT).
+
+but if you use some part of the code
+please check each source file's header for the licensing info.
+
+ 
+---
+
+**Geometry**
+
+BSD, 2002-2005, Maxim Shemanarev, http://www.antigrain.com , Anti-Grain Geometry - Version 2.4,
+
+BSD, 2007-2014, Lars Brubaker, agg-sharp, https://github.com/MatterHackers/agg-sharp
+
+ZLIB, 2015, burningmine, CurveUtils.
+
+Boost, 2010-2014, Angus Johnson, Clipper.
+
+BSD, 2009-2010, Poly2Tri Contributors, https://github.com/PaintLab/poly2tri-cs
+
+SGI, 2000, Eric Veach, Tesselate.
+
+MIT, 2016, Viktor Chlumsky, https://github.com/Chlumsky/msdfgen
+
+**Font**
+
+MIT, 2016-2017, WinterDev, https://github.com/LayoutFarm/Typography
+
+Apache2, 2014-2016, Samuel Carlsson, https://github.com/vidstige/NRasterizer
+
+MIT, 2015, Michael Popoloski MIT, https://github.com/MikePopoloski/SharpFont
+
+The FreeType Project LICENSE (3-clauses BSD style),2003-2016, David Turner, Robert Wilhelm, and Werner Lemberg and others, https://www.freetype.org/
+
+Apache2, 2018, Apache/PDFBox Authors,  https://github.com/apache/pdfbox
+
+**Platforms**
+
+MIT, 2015-2015, Xamarin, Inc., https://github.com/mono/SkiaSharp
+
+MIT, 2006-2009,  Stefanos Apostolopoulos and other Open Tool Kit Contributors, https://github.com/opentk/opentk
+
+MIT, 2013, Antonie Blom, https://github.com/andykorth/Pencil.Gaming 
+
+
+**Unpack, Zlib,Brotli**
+
+MIT, 2018, SharpZipLib, https://github.com/icsharpcode/SharpZipLib 
+
+MIT, 2009, 2010, 2013-2016 by the Brotli Authors., https://github.com/google/brotli
+
+MIT, 2017, brezza92 (C# port from original code, by hand), https://github.com/brezza92/brotli
+
+MIT, 2019, master131, https://github.com/master131/BrotliSharpLib
+
+
+Source: https://github.com/LayoutFarm/Typography/blob/d331968f3ee714332a8ea4fa95a21c15812a8d93/Typography.TextBreak/LICENSE
+
+MIT License
+
+Copyright (c) 2016-present WinterDev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+
+ICU Data License : http://www.unicode.org/copyright.html#License
+
+from http://site.icu-project.org/home
+
+
+Source: https://github.com/LayoutFarm/Typography/blob/d331968f3ee714332a8ea4fa95a21c15812a8d93/Unpack_SH/BrotliSharpLib/Brotli-LICENSE
+
+Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

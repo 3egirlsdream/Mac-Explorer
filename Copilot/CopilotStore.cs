@@ -19,7 +19,7 @@ public sealed class CopilotStore
 
     public CopilotStore(string? databasePath)
     {
-        databasePath ??= Path.Combine(RuntimePaths.LocalApplicationData, "MacExplorer", "copilot.db");
+        databasePath ??= Path.Combine(RuntimePaths.DataDirectory, "copilot.db");
         _databasePath = Path.GetFullPath(databasePath);
         var directory = Path.GetDirectoryName(databasePath)!;
         Directory.CreateDirectory(directory);

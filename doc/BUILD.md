@@ -7,14 +7,14 @@
 
 - .NET 10 SDK
 - Xcode（含 Command Line Tools）
-- macOS 15.0+
+- macOS 14.0+
 
 ## Debug 开发构建
 
 ```bash
 dotnet restore
 dotnet build -c Debug
-open "bin/Debug/net10.0/Mac Explorer.app"
+open "bin/Debug/net10.0/osx-arm64/Mac Explorer.app"
 ```
 
 ## Release 自包含打包
@@ -110,19 +110,9 @@ SVG 源文件：`Assets/appicon.svg`（1024×1024 透明画布，居中的 824×
 
 ## App Store 上架
 
-```bash
-# 1. 构建
-dotnet publish -c Release
+商店渠道使用独立沙盒构建和正式签名的 PKG。构建参数、证书、profile 与 `prepare-store-pkg.sh` 用法见 [双渠道构建与发布](../docs/distribution/mac-app-store.md)。
 
-# 2. 上传到 App Store Connect
-xcrun altool --upload-app \
-  -f bin/Release/net10.0/osx-arm64/MacExplorer-{Version}-macos.dmg \
-  -t macos \
-  -u "your-apple-id@example.com" \
-  -p "app-specific-password"
-```
-
-前置条件：Apple Developer Portal 创建 App ID + 分发证书 + Provisioning Profile + App Store Connect 创建记录。
+官网 DMG 不用于商店提交。打包脚本只创建并检查本地安装包，不上传或发布。
 
 </details>
 
@@ -133,14 +123,14 @@ xcrun altool --upload-app \
 
 - .NET 10 SDK
 - Xcode (with Command Line Tools)
-- macOS 15.0+
+- macOS 14.0+
 
 ## Debug Build
 
 ```bash
 dotnet restore
 dotnet build -c Debug
-open "bin/Debug/net10.0/Mac Explorer.app"
+open "bin/Debug/net10.0/osx-arm64/Mac Explorer.app"
 ```
 
 ## Release Self-Contained Build
@@ -236,18 +226,8 @@ Notes:
 
 ## App Store Distribution
 
-```bash
-# 1. Build
-dotnet publish -c Release
+The Store channel uses a separate sandbox build and a distribution-signed PKG. See [dual-channel build and distribution](../docs/distribution/mac-app-store.md) for build properties, certificates, provisioning profiles and `prepare-store-pkg.sh`.
 
-# 2. Upload to App Store Connect
-xcrun altool --upload-app \
-  -f bin/Release/net10.0/osx-arm64/MacExplorer-{Version}-macos.dmg \
-  -t macos \
-  -u "your-apple-id@example.com" \
-  -p "app-specific-password"
-```
-
-Prerequisites: Apple Developer Portal — App ID, Distribution Certificate, Provisioning Profile, and an App Store Connect record.
+The website DMG is not a Store submission package. The packaging script only creates and checks the local PKG; it does not upload or publish.
 
 </details>

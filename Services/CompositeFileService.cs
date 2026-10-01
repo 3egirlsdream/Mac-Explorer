@@ -52,6 +52,8 @@ public class CompositeFileService : IFileService
 
     public async Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false)
     {
+        if (!VirtualPath.IsRemotePath(sourcePath)) DirectoryAccess.Current.EnsureAccess(sourcePath);
+        if (!VirtualPath.IsRemotePath(destinationDirectory)) DirectoryAccess.Current.EnsureAccess(destinationDirectory);
         var srcIsRemote = VirtualPath.IsRemotePath(sourcePath);
         var dstIsRemote = VirtualPath.IsRemotePath(destinationDirectory);
 
@@ -68,6 +70,8 @@ public class CompositeFileService : IFileService
 
     public async Task CopyAsync(string sourcePath, string destinationDirectory)
     {
+        if (!VirtualPath.IsRemotePath(sourcePath)) DirectoryAccess.Current.EnsureAccess(sourcePath);
+        if (!VirtualPath.IsRemotePath(destinationDirectory)) DirectoryAccess.Current.EnsureAccess(destinationDirectory);
         var srcIsRemote = VirtualPath.IsRemotePath(sourcePath);
         var dstIsRemote = VirtualPath.IsRemotePath(destinationDirectory);
 
@@ -153,6 +157,8 @@ public class CompositeFileService : IFileService
     public async Task<string> CopyWithProgressAsync(string sourcePath, string destinationDirectory,
         IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
     {
+        if (!VirtualPath.IsRemotePath(sourcePath)) DirectoryAccess.Current.EnsureAccess(sourcePath);
+        if (!VirtualPath.IsRemotePath(destinationDirectory)) DirectoryAccess.Current.EnsureAccess(destinationDirectory);
         if (!VirtualPath.IsRemotePath(sourcePath) && !VirtualPath.IsRemotePath(destinationDirectory))
             return await _localService.CopyWithProgressAsync(sourcePath, destinationDirectory, progress, ct);
 
@@ -213,6 +219,8 @@ public class CompositeFileService : IFileService
 
     public bool IsCrossVolume(string sourcePath, string destinationPath)
     {
+        if (!VirtualPath.IsRemotePath(sourcePath)) DirectoryAccess.Current.EnsureAccess(sourcePath);
+        if (!VirtualPath.IsRemotePath(destinationPath)) DirectoryAccess.Current.EnsureAccess(destinationPath);
         var srcIsRemote = VirtualPath.IsRemotePath(sourcePath);
         var dstIsRemote = VirtualPath.IsRemotePath(destinationPath);
         if (srcIsRemote != dstIsRemote) return true;

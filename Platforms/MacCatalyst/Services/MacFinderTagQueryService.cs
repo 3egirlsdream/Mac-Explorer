@@ -18,6 +18,11 @@ public sealed class MacFinderTagQueryService : IFinderTagQueryService
         FileTag tag,
         CancellationToken cancellationToken = default)
     {
+        if (DistributionChannel.IsAppStore)
+        {
+            // The app's indexed/persisted tags cover authorized locations; do not launch a global Spotlight query.
+            return [];
+        }
         if (!OperatingSystem.IsMacOS() || !File.Exists("/usr/bin/mdfind"))
             return [];
 

@@ -1,3 +1,4 @@
+using MacExplorer.Services;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -21,7 +22,7 @@ public partial class SettingsDialog
         _plugins.Changed += OnPluginRegistryChanged;
         Closed += OnPluginSettingsClosed;
         await RunPluginActionAsync(() => _plugins.InitializeAsync());
-        _ = LoadMarketAsync();
+        if (DistributionChannel.SupportsExternalPlugins) _ = LoadMarketAsync();
     }
 
     private void OnPluginSettingsClosed(object? sender, EventArgs e)
@@ -146,7 +147,7 @@ public partial class SettingsDialog
         if (_plugins == null) return;
         await RunPluginActionAsync(async () =>
         {
-            var files = await StorageProvider.OpenFilePickerAsync(new()
+            var files = await StorageProvider.OpenAuthorizedFilePickerAsync(new()
             {
                 Title = "安装可信插件", AllowMultiple = false,
                 FileTypeFilter = [new FilePickerFileType("Mac Explorer 插件") { Patterns = ["*.mexplug"] }]

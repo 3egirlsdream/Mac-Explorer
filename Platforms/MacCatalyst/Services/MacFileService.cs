@@ -18,8 +18,7 @@ public class MacFileService : IFileService
     {
         _iconCache = iconCache;
         _iconCacheDir = Path.Combine(
-            RuntimePaths.LocalApplicationData,
-            "MacExplorer", "icon-cache");
+            RuntimePaths.CacheDirectory, "icon-cache");
         if (!Directory.Exists(_iconCacheDir))
             Directory.CreateDirectory(_iconCacheDir);
     }
@@ -31,6 +30,8 @@ public class MacFileService : IFileService
 
     public async Task<IReadOnlyList<FileSystemEntry>> GetDirectoryContentsAsync(string path, CancellationToken cancellationToken = default)
     {
+        if (path == TrashDirectory) DistributionChannel.RequireWebsite("浏览全局废纸篓");
+        else DirectoryAccess.Current.EnsureAccess(path);
         return await Task.Run(() =>
         {
             var entries = new List<FileSystemEntry>();
@@ -60,7 +61,7 @@ public class MacFileService : IFileService
                 if (path == "/Applications" || path.StartsWith("/Applications/"))
                 {
                     var systemPath = "/System" + path;
-                    if (Directory.Exists(systemPath))
+                    if (DirectoryAccess.Current.CanAccess(systemPath) && Directory.Exists(systemPath))
                     {
                         try
                         {
@@ -97,6 +98,8 @@ public class MacFileService : IFileService
         int batchSize = 256,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (path == TrashDirectory) DistributionChannel.RequireWebsite("浏览全局废纸篓");
+        else DirectoryAccess.Current.EnsureAccess(path);
         batchSize = Math.Clamp(batchSize, 32, 1024);
         if (path == TrashDirectory)
         {
@@ -174,7 +177,7 @@ public class MacFileService : IFileService
         if (path == "/Applications" || path.StartsWith("/Applications/", StringComparison.Ordinal))
         {
             var systemPath = "/System" + path;
-            if (Directory.Exists(systemPath))
+            if (DirectoryAccess.Current.CanAccess(systemPath) && Directory.Exists(systemPath))
             {
                 foreach (var info in new DirectoryInfo(systemPath).EnumerateFileSystemInfos())
                 {
@@ -287,6 +290,7 @@ end tell");
 
     public Task<FileSystemEntry?> GetEntryAsync(string path)
     {
+        DirectoryAccess.Current.EnsureAccess(path);
         return Task.Run(() =>
         {
             try
@@ -313,11 +317,13 @@ end tell");
 
     public Task<bool> ExistsAsync(string path)
     {
+        DirectoryAccess.Current.EnsureAccess(path);
         return Task.FromResult(Directory.Exists(path) || File.Exists(path));
     }
 
     public async Task<string> CreateFolderAsync(string parentPath, string name)
     {
+        DirectoryAccess.Current.EnsureAccess(parentPath);
         return await Task.Run(() =>
         {
             var fullPath = Path.Combine(parentPath, name);
@@ -330,17 +336,15 @@ end tell");
         => CreateFileWithContentAsync(parentPath, name, []);
 
     public Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
-        => Task.Run(() => NewFileWriter.WriteAsync(Path.Combine(parentPath, name),
-            (stream, token) => stream.WriteAsync(content.AsMemory(), token).AsTask()));
+        => Task.Run(() => { DirectoryAccess.Current.EnsureAccess(parentPath); return NewFileWriter.WriteAsync(Path.Combine(parentPath, name),
+            (stream, token) => stream.WriteAsync(content.AsMemory(), token).AsTask()); });
 
     public async Task DeleteAsync(string path, bool moveToTrash = true)
     {
+        DirectoryAccess.Current.EnsureAccess(path);
         if (moveToTrash)
         {
-            if (await MoveToTrashWithWorkspaceAsync(path))
-                return;
-
-            await MoveToTrashWithFinderAsync(path);
+            await Task.Run(() => MacExplorer.Platforms.MacOS.MacSandboxNative.Trash(path));
             return;
         }
 
@@ -353,39 +357,9 @@ end tell");
         });
     }
 
-    private static async Task<bool> MoveToTrashWithWorkspaceAsync(string path)
-    {
-        if (!OperatingSystem.IsMacOS())
-            return false;
-
-        var script = $$"""
-ObjC.import('Foundation');
-
-const path = {{JsonSerializer.Serialize(path)}};
-const url = $.NSURL.fileURLWithPath(path);
-const ok = $.NSFileManager.defaultManager.trashItemAtURLResultingItemURLError(url, null, null);
-if (!ok) {
-  throw new Error('NSFileManager trashItemAtURL failed');
-}
-""";
-
-        return await RunJavaScriptForAutomationAsync(script)
-            && !File.Exists(path)
-            && !Directory.Exists(path);
-    }
-
-    private static Task MoveToTrashWithFinderAsync(string path)
-    {
-        return RunFinderScriptAsync(
-            "on run argv\n" +
-            "set itemToDelete to POSIX file (item 1 of argv) as alias\n" +
-            "tell application \"Finder\" to delete itemToDelete\n" +
-            "end run",
-            path);
-    }
-
     public async Task DeletePermanentlyAsync(string path)
     {
+        DirectoryAccess.Current.EnsureAccess(path);
         await Task.Run(() =>
         {
             if (Directory.Exists(path))
@@ -397,6 +371,7 @@ if (!ok) {
 
     public async Task EmptyTrashAsync()
     {
+        DistributionChannel.RequireWebsite("清空全局废纸篓");
         await RunFinderScriptAsync("tell application \"Finder\" to empty trash");
     }
 
@@ -426,43 +401,14 @@ if (!ok) {
             throw new IOException(string.IsNullOrWhiteSpace(error) ? "Finder 操作失败" : error.Trim());
     }
 
-    private static async Task<bool> RunJavaScriptForAutomationAsync(string script)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "/usr/bin/osascript",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-            }
-        };
-        process.StartInfo.ArgumentList.Add("-l");
-        process.StartInfo.ArgumentList.Add("JavaScript");
-        process.StartInfo.ArgumentList.Add("-e");
-        process.StartInfo.ArgumentList.Add(script);
-
-        process.Start();
-        var errorTask = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        var error = await errorTask;
-        if (process.ExitCode != 0)
-        {
-            Debug.WriteLine($"NSWorkspace recycle failed: {error.Trim()}");
-            return false;
-        }
-
-        return true;
-    }
-
     public async Task RenameAsync(string path, string newName)
     {
+        DirectoryAccess.Current.EnsureAccess(path);
         await Task.Run(() =>
         {
             var parentPath = Path.GetDirectoryName(path) ?? "/";
             var newPath = Path.Combine(parentPath, newName);
+            DirectoryAccess.Current.EnsureAccess(newPath);
 
             if (Directory.Exists(path))
                 Directory.Move(path, newPath);
@@ -475,6 +421,8 @@ if (!ok) {
 
     public async Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false)
     {
+        DirectoryAccess.Current.EnsureAccess(sourcePath);
+        DirectoryAccess.Current.EnsureAccess(destinationDirectory);
         await Task.Run(() =>
         {
             var name = Path.GetFileName(sourcePath);
@@ -546,6 +494,8 @@ if (!ok) {
 
     public async Task CopyAsync(string sourcePath, string destinationDirectory)
     {
+        DirectoryAccess.Current.EnsureAccess(sourcePath);
+        DirectoryAccess.Current.EnsureAccess(destinationDirectory);
         await CopyWithProgressAsync(sourcePath, destinationDirectory);
     }
 
@@ -681,13 +631,13 @@ if (!ok) {
 
         if (toExtract.Count == 0) return;
 
-        // Process in batches via a single JXA script per batch
+        // Publish icon updates in batches without launching an automation interpreter.
         const int batchSize = 20;
         for (int i = 0; i < toExtract.Count; i += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var batch = toExtract.Skip(i).Take(batchSize).ToList();
-            await Task.Run(() => ExtractIconsBatchJXA(batch, cancellationToken), cancellationToken);
+            await Task.Run(() => ExtractIconsBatch(batch, cancellationToken), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
             foreach (var (entry, _, pngPath) in batch)
@@ -699,77 +649,21 @@ if (!ok) {
         }
     }
 
-    private void ExtractIconsBatchJXA(
+    private void ExtractIconsBatch(
         List<(FileSystemEntry entry, string appPath, string pngPath)> batch,
         CancellationToken cancellationToken)
     {
-        string? scriptPath = null;
-        try
+        foreach (var (_, appPath, pngPath) in batch)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            // Build a single JXA script that processes all apps in this batch
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine("ObjC.import('AppKit');");
-            sb.AppendLine("ObjC.import('Foundation');");
-            sb.AppendLine("var ws = $.NSWorkspace.sharedWorkspace;");
-            sb.AppendLine("function extractIcon(appPath, outPath) {");
-            sb.AppendLine("  try {");
-            sb.AppendLine("    var icon = ws.iconForFile(appPath);");
-            sb.AppendLine("    var rep = $.NSBitmapImageRep.alloc.initWithBitmapDataPlanesPixelsWidePixelsHighBitsPerSampleSamplesPerPixelHasAlphaIsPlanarColorSpaceNameBytesPerRowBitsPerPixel(null, 128, 128, 8, 4, true, false, $.NSDeviceRGBColorSpace, 0, 0);");
-            sb.AppendLine("    var ctx = $.NSGraphicsContext.graphicsContextWithBitmapImageRep(rep);");
-            sb.AppendLine("    $.NSGraphicsContext.saveGraphicsState;");
-            sb.AppendLine("    $.NSGraphicsContext.setCurrentContext(ctx);");
-            sb.AppendLine("    icon.drawInRectFromRectOperationFraction($.NSMakeRect(0, 0, 128, 128), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1.0);");
-            sb.AppendLine("    $.NSGraphicsContext.restoreGraphicsState;");
-            sb.AppendLine("    var png = rep.representationUsingTypeProperties(4, $.NSDictionary.dictionary);");
-            sb.AppendLine("    png.writeToFileAtomically(outPath, true);");
-            sb.AppendLine("  } catch(e) {}");
-            sb.AppendLine("}");
-
-            foreach (var (_, appPath, pngPath) in batch)
+            try
             {
-                var escapedApp = appPath.Replace("\\", "\\\\").Replace("'", "\\'");
-                var escapedPng = pngPath.Replace("\\", "\\\\").Replace("'", "\\'");
-                sb.AppendLine($"extractIcon('{escapedApp}', '{escapedPng}');");
+                DirectoryAccess.Current.EnsureAccess(appPath);
+                var icon = MacExplorer.Platforms.MacOS.MacSandboxNative.ApplicationIcon(appPath, 128);
+                if (icon != null) File.WriteAllBytes(pngPath, Convert.FromBase64String(icon));
             }
-            sb.AppendLine("'done'");
-
-            scriptPath = Path.Combine(Path.GetTempPath(), $"fkfinder_icons_{Guid.NewGuid():N}.js");
-            File.WriteAllText(scriptPath, sb.ToString());
-
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "/usr/bin/osascript",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                }
-            };
-            process.StartInfo.ArgumentList.Add("-l");
-            process.StartInfo.ArgumentList.Add("JavaScript");
-            process.StartInfo.ArgumentList.Add(scriptPath);
-            process.Start();
-            var deadline = DateTime.UtcNow.AddSeconds(30);
-            while (!process.WaitForExit(200))
-            {
-                if (cancellationToken.IsCancellationRequested || DateTime.UtcNow >= deadline)
-                {
-                    TryKillProcess(process);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    break;
-                }
-            }
-
-        }
-        catch (OperationCanceledException) { throw; }
-        catch { }
-        finally
-        {
-            if (!string.IsNullOrWhiteSpace(scriptPath))
-                TryDeleteFile(scriptPath);
+            catch (OperationCanceledException) { throw; }
+            catch (Exception error) { Debug.WriteLine($"App icon unavailable: {error.Message}"); }
         }
     }
 

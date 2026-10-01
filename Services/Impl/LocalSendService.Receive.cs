@@ -59,7 +59,7 @@ public sealed partial class LocalSendService
         if (request?.Info == null || request.Files == null || request.Files.Count is < 1 or > 10000
             || request.Info.Version is null || !request.Info.Version.StartsWith("2.", StringComparison.Ordinal))
             return Results.BadRequest();
-        var sourceIp = context.Connection.RemoteIpAddress?.MapToIPv4().ToString();
+        var sourceIp = (context.Connection.RemoteIpAddress is { } remoteIp ? (remoteIp.IsIPv4MappedToIPv6 ? remoteIp.MapToIPv4() : remoteIp).ToString() : null);
         if (sourceIp == null) return Results.BadRequest();
         var files = new Dictionary<string, IncomingFile>(StringComparer.Ordinal);
         long totalBytes = 0;
@@ -103,6 +103,7 @@ public sealed partial class LocalSendService
             if (!decision.Accepted) return Results.StatusCode(403);
             var directory = Path.GetFullPath(decision.Directory);
             if (RuntimePaths.TestRoot is { } root && !IsWithin(directory, root)) return Results.StatusCode(403);
+            AccessGrants.EnsureAccess(directory);
             EnsureSafeDirectory(directory, create: true);
             var acceptedFiles = decision.AcceptedFileIds == null ? files : files
                 .Where(item => decision.AcceptedFileIds.Contains(item.Key, StringComparer.Ordinal))
@@ -160,7 +161,7 @@ public sealed partial class LocalSendService
         var fileId = query["fileId"].ToString();
         var token = query["token"].ToString();
         if (sessionId.Length == 0 || fileId.Length == 0 || token.Length == 0) return Results.BadRequest();
-        var ip = context.Connection.RemoteIpAddress?.MapToIPv4().ToString();
+        var ip = (context.Connection.RemoteIpAddress is { } remoteIp ? (remoteIp.IsIPv4MappedToIPv6 ? remoteIp.MapToIPv4() : remoteIp).ToString() : null);
         IncomingSession session;
         IncomingFile file;
         lock (_receiveLock)
@@ -265,7 +266,7 @@ public sealed partial class LocalSendService
             session = _incoming;
             if (session == null || (id != session.Id && !(id.Length == 0 && session.IsPending)))
                 return Results.StatusCode(409);
-            if (context.Connection.RemoteIpAddress?.MapToIPv4().ToString() != session.SourceIp) return Results.StatusCode(403);
+            if ((context.Connection.RemoteIpAddress is { } remoteIp ? (remoteIp.IsIPv4MappedToIPv6 ? remoteIp.MapToIPv4() : remoteIp).ToString() : null) != session.SourceIp) return Results.StatusCode(403);
             _incoming = null;
         }
         if (session.IsPending)

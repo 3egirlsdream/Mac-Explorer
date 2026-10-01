@@ -13,12 +13,14 @@ sealed class Program
     {
         if (args is [MacExplorer.PluginSdk.PluginProtocol.WorkerArgument, var pluginDirectory])
         {
+            DistributionChannel.RequireWebsite("插件工作进程");
             Environment.ExitCode = Services.Plugins.PluginWorker.Run(Path.GetFullPath(pluginDirectory));
             return;
         }
 
         if (args is [Services.Impl.StartupUpdateChecker.WorkerArgument])
         {
+            DistributionChannel.RequireWebsite("自更新工作进程");
             using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
             Environment.ExitCode = Services.Impl.StartupUpdateChecker.RunWorkerAsync(
                 new Services.Impl.AppUpdateService(http), Console.Out, Console.Error).GetAwaiter().GetResult();
@@ -66,15 +68,17 @@ sealed class Program
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
         var ex = e.ExceptionObject as Exception;
-        var logPath = Path.Combine(AppContext.BaseDirectory, "macexplorer_crash.log");
-        try { File.AppendAllText(logPath,
+        var logPath = Path.Combine(RuntimePaths.LogDirectory, "macexplorer_crash.log");
+        try { Directory.CreateDirectory(RuntimePaths.LogDirectory);
+            File.AppendAllText(logPath,
             $"[{DateTime.Now:HH:mm:ss.fff}] UnhandledException: {ex}\n\n"); } catch { }
     }
 
     private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        var logPath = Path.Combine(AppContext.BaseDirectory, "macexplorer_crash.log");
-        try { File.AppendAllText(logPath,
+        var logPath = Path.Combine(RuntimePaths.LogDirectory, "macexplorer_crash.log");
+        try { Directory.CreateDirectory(RuntimePaths.LogDirectory);
+            File.AppendAllText(logPath,
             $"[{DateTime.Now:HH:mm:ss.fff}] UnobservedTaskException: {e.Exception}\n\n"); } catch { }
     }
 

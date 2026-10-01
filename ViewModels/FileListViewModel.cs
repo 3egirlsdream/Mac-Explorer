@@ -1066,6 +1066,19 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (string.IsNullOrWhiteSpace(path)) return;
         if (IsBrowseOnly && !TagPathHelper.IsTagPath(path) && !Path.IsPathFullyQualified(path)) return;
 
+        if (DistributionChannel.IsAppStore && Path.IsPathFullyQualified(path))
+        {
+            path = DirectoryAccess.Current.ResolvePath(path);
+            if (!DirectoryAccess.Current.CanAccess(path))
+            {
+                if (_topLevelWindow?.StorageProvider is not { } storage)
+                { StatusText = "此位置需要通过系统选择器授权。"; return; }
+                var selected = await storage.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
+                    { Title = "选择文件夹以授权访问", AllowMultiple = false });
+                if (selected.Count == 0) return;
+                path = selected[0].Path.LocalPath;
+            }
+        }
         CaptureCurrentNavigationViewState();
         if (_navigation.IsSearchMode)
             _search.Reset();
@@ -2267,7 +2280,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             {
                 if (builtInStates.RevealInFinder)
                     actions.Add(BuildRevealInFinderAction(entry.FullPath));
-                if (builtInStates.OpenInTerminal)
+                if (DistributionChannel.SupportsSystemIntegration && builtInStates.OpenInTerminal)
                     actions.Add(BuildOpenInTerminalAction(GetTerminalDirectoryPath(entry)));
             }
             if (_contextMenuService != null && includeDynamicActions)
@@ -2329,7 +2342,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var actions = new List<ContextMenuAction>();
         if (!states.RevealInFinder)
             actions.Add(BuildRevealInFinderAction(entry.FullPath));
-        if (!states.OpenInTerminal)
+        if (DistributionChannel.SupportsSystemIntegration && !states.OpenInTerminal)
             actions.Add(BuildOpenInTerminalAction(GetTerminalDirectoryPath(entry)));
         return actions;
     }
@@ -2386,7 +2399,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             });
         }
 
-        if (!builtInStates.OpenInTerminal)
+        if (DistributionChannel.SupportsSystemIntegration && !builtInStates.OpenInTerminal)
             actions.Add(BuildOpenInTerminalAction(currentPath));
 
         return actions;
@@ -2485,7 +2498,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         var builtInStates = await GetBuiltInOpenWithStatesAsync();
 
-        if (_launcherService != null && builtInStates.OpenInTerminal)
+        if (DistributionChannel.SupportsSystemIntegration && _launcherService != null && builtInStates.OpenInTerminal)
         {
             actions.Add(ContextMenuAction.Separator);
             actions.Add(BuildOpenInTerminalAction(currentPath));
@@ -2628,7 +2641,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
 
         IsContextMenuVisible = false;
-        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var folders = await storage.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "移动到",
             AllowMultiple = false
@@ -4077,7 +4090,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         ShowSidebarMusic = _settingsService.Get("sidebar_show_music", true);
         ShowSidebarMacintoshHd = _settingsService.Get("sidebar_show_macintosh_hd", true);
         ShowSidebarApplications = _settingsService.Get("sidebar_show_applications", true);
-        ShowSidebarTrash = _settingsService.Get("sidebar_show_trash", true);
+        ShowSidebarTrash = DistributionChannel.SupportsSystemIntegration && _settingsService.Get("sidebar_show_trash", true);
         ShowSidebarAiPeople = _settingsService.Get("sidebar_show_ai_people", true);
         ShowSidebarAiCategories = _settingsService.Get("sidebar_show_ai_categories", true);
         ShowSidebarAiLocations = _settingsService.Get("sidebar_show_ai_locations", true);

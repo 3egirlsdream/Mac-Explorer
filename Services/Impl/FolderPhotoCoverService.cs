@@ -13,7 +13,7 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
 
     public async Task<ThumbnailResult?> CreateAsync(string folderPath, int pixels, CancellationToken cancellationToken)
     {
-        if (!Path.IsPathFullyQualified(folderPath)) return null;
+        if (!Path.IsPathFullyQualified(folderPath) || !DirectoryAccess.Current.CanAccess(folderPath)) return null;
         await CoverGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -152,13 +152,6 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
 
     private static SKImage LoadFolderArtwork()
     {
-        var nativePath = Path.Combine(AppContext.BaseDirectory, "MacExplorer.Folder.png");
-        if (OperatingSystem.IsMacOS() && File.Exists(nativePath))
-        {
-            var native = SKImage.FromEncodedData(nativePath);
-            if (native != null) return native;
-        }
-
         using var svg = new SKSvg();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(FileIconRenderer.RenderFolder(256)));
         svg.Load(stream);

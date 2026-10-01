@@ -60,13 +60,13 @@ public sealed class RuntimePathsTests : IDisposable
     }
 
     [Fact]
-    public void OrdinaryLaunchKeepsExistingDefaultsAndDatabaseOverride()
+    public void OrdinaryLaunchUsesApplicationSupportAndKeepsDatabaseOverride()
     {
         Environment.SetEnvironmentVariable(RuntimePaths.TestRootVariable, null);
         Environment.SetEnvironmentVariable("MACEXPLORER_DB_PATH", null);
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         Assert.Equal(home, RuntimePaths.HomeDirectory);
-        Assert.Equal(Path.Combine(home, "Documents", "MacExplorer", "index.db"), new IndexConfiguration().DatabasePath);
+        Assert.Equal(Path.Combine(RuntimePaths.DataDirectory, "index.db"), new IndexConfiguration().DatabasePath);
         Assert.Equal(new[] { "/Applications", "/System/Applications", home }, RuntimePaths.StartupIndexRoots);
         Assert.Equal("/", RuntimePaths.ResolveSearchRoot("/"));
         Environment.SetEnvironmentVariable("MACEXPLORER_DB_PATH", "/tmp/explicit-index.db");

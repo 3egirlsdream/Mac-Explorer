@@ -29,6 +29,11 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
     private readonly string _root = Path.Combine("/private/tmp", "fk-localsend-review-" + Guid.NewGuid().ToString("N"));
     private readonly BackgroundTaskManager _tasks = new();
     private LocalSendService _service = null!;
+    private readonly DirectoryAccess _testAccess;
+    public LocalSendReviewTests()
+    {
+        _testAccess = new DirectoryAccess(Path.Combine(_root, "access.json"), true, internalRoots: [_root]);
+    }
     private readonly HttpClient _client = new(new HttpClientHandler
     {
         // Only this test fixture's loopback listener is contacted by this client.
@@ -42,6 +47,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         RuntimePaths.PrepareTestRoot();
         _service = new LocalSendService(new MemorySettings(), _tasks)
         {
+            FileAccessOverride = _testAccess,
             ScanInterfacesOverride = () => [],
             DiscoveryAddressesOverride = () => [IPAddress.Loopback]
         };
@@ -57,6 +63,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         try { if (_service != null) await _service.DisposeAsync(); }
         finally
         {
+            _testAccess.Dispose();
             Environment.SetEnvironmentVariable(RuntimePaths.TestRootVariable, _oldRoot);
             if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
         }

@@ -5,15 +5,21 @@ using MacExplorer.Indexing;
 using MacExplorer.Models;
 using MacExplorer.Platforms.MacCatalyst.Services;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
 using Renci.SshNet;
 using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed class FileListLoadingPipelineTests
+public sealed class FileListLoadingPipelineTests : IDisposable
 {
     private const string TestHome = "/tmp/FKFinderPipelineTests";
+    // All paths and file services in this suite are test doubles, not OS grants.
+    private readonly DirectoryAccess _testAccess = new("/unused-pipeline-grants.json", false);
+    private readonly IDisposable _accessOverride;
+    public FileListLoadingPipelineTests() => _accessOverride = DirectoryAccess.UseForTests(_testAccess);
+    public void Dispose() { _accessOverride.Dispose(); _testAccess.Dispose(); }
 
     [AvaloniaFact]
     public async Task RefreshAsync_LargeDirectory_PublishesCompleteSortedCollectionOnce()
@@ -634,6 +640,12 @@ public sealed class FileListLoadingPipelineTests
 
     private sealed class ConnectedRemoteService(string serverId) : IRemoteConnectionService
     {
+        public Func<SftpHostKey, CancellationToken, Task<bool>>? ConfirmHostKeyAsync { get; set; }
+        public Func<RemoteServerInfo, CancellationToken, Task<(string Passphrase, bool Remember)?>>? RequestPrivateKeyPassphraseAsync { get; set; }
+        public SftpHostKey? GetTrustedHostKey(string host, int port) => null;
+        public void ForgetHostKey(string host, int port) { }
+        public string? CredentialLoadError => null;
+        public void RetryCredentialMigration() { }
         private readonly RemoteServerInfo _server = new()
         {
             Id = serverId,

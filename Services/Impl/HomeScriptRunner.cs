@@ -8,6 +8,7 @@ public sealed class HomeScriptRunner
 {
     internal static string BuildTerminalScript(string path, HomeScriptCommand command)
     {
+        DistributionChannel.RequireWebsite("运行终端脚本");
         path = HomeWorkspaceService.NormalizePath(path);
         command = command.Validate();
         if (!File.Exists(path)) throw new FileNotFoundException("脚本不存在或已被移动。", path);

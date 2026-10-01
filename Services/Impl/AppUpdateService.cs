@@ -27,6 +27,7 @@ public class AppUpdateService : IAppUpdateService
 
     public async Task<VersionInfo?> GetVersionDetailsAsync(CancellationToken ct = default)
     {
+        DistributionChannel.RequireWebsite("自更新");
         var response = await _http.GetFromJsonAsync<VersionCheckResponse>(
             VersionApiUrl + "&CurrentVersion=" + Uri.EscapeDataString(CurrentVersion), ct).ConfigureAwait(false);
 
@@ -50,6 +51,7 @@ public class AppUpdateService : IAppUpdateService
         IProgress<(double Progress, string Status)>? progress = null,
         CancellationToken ct = default)
     {
+        DistributionChannel.RequireWebsite("安装官网更新");
         var currentAppPath = GetCurrentAppBundlePath();
         var currentInfoPlist = Path.Combine(currentAppPath, "Contents", "Info.plist");
         var currentBundleIdentifier = ReadBundleValue(currentInfoPlist, "CFBundleIdentifier");
@@ -342,23 +344,7 @@ echo ""[$(date)] Update completed""
 
     private static string ReadBundleValue(string infoPlistPath, string key)
     {
-        using var plistBuddy = Process.Start(new ProcessStartInfo
-        {
-            FileName = "/usr/libexec/PlistBuddy",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            ArgumentList = { "-c", $"Print :{key}", infoPlistPath },
-        });
-
-        if (plistBuddy == null)
-            return "";
-
-        var output = plistBuddy.StandardOutput.ReadToEnd();
-        plistBuddy.WaitForExit();
-
-        return plistBuddy.ExitCode == 0 ? output.Trim() : "";
+        return Platforms.MacOS.MacSandboxNative.ReadPlistValue(infoPlistPath, key);
     }
 
     private static string GetCurrentAppBundlePath()

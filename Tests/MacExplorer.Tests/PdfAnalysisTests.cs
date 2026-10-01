@@ -165,11 +165,10 @@ public sealed class PdfAnalysisTests : IDisposable
     [Fact]
     public async Task NativeHelperExtractsTextScansAndMixedPages_AndRejectsInvalidDocuments()
     {
-        var repo = RepositoryRoot();
+        var repo = PluginTestEnvironment.Repository;
         var fixtures = Path.Combine(_root, "fixtures");
         await RunAsync("/usr/bin/xcrun", ["swift", Path.Combine(repo, "Tools/Testing/PdfFixtures.swift"), fixtures]);
-        var config = AppContext.BaseDirectory.Contains("/Release/") ? "Release" : "Debug";
-        var helper = Path.Combine(repo, "bin", config, "net10.0/osx-arm64/MacExplorer.ImageAnalysis");
+        var helper = Path.Combine(PluginTestEnvironment.ApplicationOutput, "MacExplorer.ImageAnalysis");
         var extractor = new MacPdfTextExtractionService(helper, TimeSpan.FromSeconds(60));
         using var service = new PdfAnalysisService(extractor, _tags);
         foreach (var name in new[] { "text.pdf", "scan.pdf", "mixed.pdf", "blank.pdf" })
@@ -240,12 +239,6 @@ public sealed class PdfAnalysisTests : IDisposable
     private sealed class ProgressSink(Action<PdfAnalysisProgress> report) : IProgress<PdfAnalysisProgress>
     {
         public void Report(PdfAnalysisProgress progress) => report(progress);
-    }
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "MacExplorer.csproj"))) directory = directory.Parent;
-        return directory?.FullName ?? throw new DirectoryNotFoundException();
     }
     private static async Task<string> RunAsync(string executable, string[] arguments)
     {

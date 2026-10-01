@@ -29,14 +29,16 @@ public class DatabaseConnectionFactory
             Directory.CreateDirectory(directory);
 
         var conn = new SqliteConnection($"Data Source={_databasePath};Mode=ReadWriteCreate");
-        conn.Open();
-
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "PRAGMA busy_timeout=5000;";
-        cmd.ExecuteNonQuery();
-
-        EnsureWalInitialized(conn);
-        return conn;
+        try
+        {
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA busy_timeout=5000;";
+            cmd.ExecuteNonQuery();
+            EnsureWalInitialized(conn);
+            return conn;
+        }
+        catch { conn.Dispose(); throw; }
     }
 
     private void EnsureWalInitialized(SqliteConnection connection)

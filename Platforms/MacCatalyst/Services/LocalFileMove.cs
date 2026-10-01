@@ -10,6 +10,8 @@ internal static class LocalFileMove
     public static void Move(IReadOnlyList<string> sourcePaths, string destinationDirectory,
         IProgress<FileOperationProgress>? progress, CancellationToken ct)
     {
+        MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(destinationDirectory);
+        foreach (var path in sourcePaths) MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(path);
         ct.ThrowIfCancellationRequested();
         var sources = sourcePaths.Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
             .Distinct(StringComparer.Ordinal).ToArray();

@@ -11,6 +11,8 @@ internal static class LocalFileCopy
     public static string Copy(string sourcePath, string destinationDirectory,
         IProgress<FileOperationProgress>? progress, CancellationToken ct)
     {
+        MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(sourcePath);
+        MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(destinationDirectory);
         sourcePath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourcePath));
         destinationDirectory = Path.GetFullPath(destinationDirectory);
         var source = ReadEntry(sourcePath);
@@ -24,6 +26,7 @@ internal static class LocalFileCopy
         }
 
         var destinationPath = GetDestinationPath(destinationDirectory, Path.GetFileName(sourcePath), source.IsDirectory);
+        MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(destinationPath);
         var entries = new List<CopyEntry>();
         var errors = new List<Exception>();
         var clock = Stopwatch.StartNew();

@@ -1,0 +1,85 @@
+name: arm64 distribution QA
+
+on:
+  pull_request:
+    paths: ['**/*.cs', '**/*.axaml', '**/*.csproj', 'Directory.Build.props', 'global.json', 'Platforms/**', 'Assets/**', 'ThirdParty/**', 'Tools/Distribution/**', 'Tools/Testing/**', '.github/workflows/distribution-qa.yml']
+  push:
+    branches: [main]
+    paths: ['**/*.cs', '**/*.axaml', '**/*.csproj', 'Directory.Build.props', 'global.json', 'Platforms/**', 'Assets/**', 'ThirdParty/**', 'Tools/Distribution/**', 'Tools/Testing/**', '.github/workflows/distribution-qa.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distribution-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    name: ${{ matrix.channel }} / arm64 QA
+    runs-on: macos-15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [Website, AppStore]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Create isolated SFTP fixture runtime
+        run: |
+          python3 -m venv "$RUNNER_TEMP/sftp-fixture"
+          "$RUNNER_TEMP/sftp-fixture/bin/pip" install 'paramiko==5.0.0'
+      - name: Build isolated channel output without distribution credentials
+        env:
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          test "$(uname -m)" = arm64
+          dotnet build Tests/MacExplorer.Tests/MacExplorer.Tests.csproj -c Release -r osx-arm64 \
+            --artifacts-path "$RUNNER_TEMP/build-$CHANNEL" -p:DistributionChannel="$CHANNEL" \
+            -p:AppStoreBundleId=com.macexplorer.app.store.qa -p:MacOSSigningIdentity=- \
+            -p:SkipMacOSReleaseDMG=true
+      - name: Run real loopback and recovery regressions with valid xUnit runner selectors
+        env:
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          set -euo pipefail
+          runner=$(find "$RUNNER_TEMP/build-$CHANNEL/bin/MacExplorer.Tests" -type f -name MacExplorer.Tests | head -n 1)
+          test -x "$runner"
+          bash Tools/Testing/run-isolated.sh env \
+            MACEXPLORER_TEST_REPOSITORY="$GITHUB_WORKSPACE" \
+            MACEXPLORER_SFTP_TEST_PYTHON="$RUNNER_TEMP/sftp-fixture/bin/python" \
+            "$runner" -class MacExplorer.Tests.ReliabilityRecoveryTests \
+            -class MacExplorer.Tests.SftpLoopbackTests -class MacExplorer.Tests.DistributionCommonTests \
+            -class MacExplorer.Tests.PrivacySecurityFollowupTests -class MacExplorer.Tests.SecurityDialogTests \
+            -class MacExplorer.Tests.LocalSendServiceTests -class MacExplorer.Tests.LocalSendReviewTests \
+            -class MacExplorer.Tests.FileListLoadingPipelineTests \
+            -method- MacExplorer.Tests.LocalSendServiceTests.SendsToOfficialLocalSendClient \
+            > "$RUNNER_TEMP/tests-$CHANNEL.log" 2>&1
+          cat "$RUNNER_TEMP/tests-$CHANNEL.log"
+          python3 Tools/Distribution/verify-test-summary.py "$RUNNER_TEMP/tests-$CHANNEL.log"
+      - name: Audit package structure, channel restrictions and all dependency notices
+        env:
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          app=$(find "$RUNNER_TEMP/build-$CHANNEL/bin/MacExplorer" -type d -name 'Mac Explorer.app' | head -n 1)
+          test -n "$app"
+          python3 Tools/Distribution/verify-bundle.py "$app" "$CHANNEL" > "$RUNNER_TEMP/bundle-$CHANNEL.json"
+          python3 Tools/Distribution/verify-notices.py "$app" > "$RUNNER_TEMP/notices-$CHANNEL.json"
+          python3 -m unittest discover -s Tools/Distribution -p 'test_*.py'
+      - name: Preserve QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-${{ matrix.channel }}-arm64
+          path: |
+            ${{ runner.temp }}/tests-*.log
+            ${{ runner.temp }}/bundle-*.json
+            ${{ runner.temp }}/notices-*.json
+            /private/tmp/fkfinder-test.*/**/*.log

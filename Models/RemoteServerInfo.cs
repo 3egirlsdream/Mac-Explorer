@@ -14,6 +14,9 @@ public class RemoteServerInfo : INotifyPropertyChanged
     public string Username { get; set; } = "";
     public RemoteAuthMethod AuthMethod { get; set; } = RemoteAuthMethod.Password;
     public string Password { get; set; } = "";
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string PrivateKeyPassphrase { get; set; } = "";
+    public bool RememberPrivateKeyPassphrase { get; set; }
     public string PrivateKeyPath { get; set; } = "";
     public string DefaultPath { get; set; } = "/";
 

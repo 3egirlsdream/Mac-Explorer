@@ -6,7 +6,10 @@ namespace MacExplorer.FileConversion.Plugin;
 
 public sealed class ConversionPlugin : IFileActionPlugin
 {
-    private readonly FileConversionService _service = new();
+    private readonly FileConversionService _service;
+    public ConversionPlugin() : this(null) { }
+    public ConversionPlugin(Action<System.Diagnostics.ProcessStartInfo>? configureHelper)
+        => _service = new FileConversionService(configureHelper);
 
     private static FileConversionFormat Format(PluginInvocation invocation) => invocation.CommandId switch
     {

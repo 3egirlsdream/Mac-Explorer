@@ -9,7 +9,7 @@ namespace MacExplorer.Services.Plugins;
 internal static class PluginPackage
 {
     private static readonly Regex Identifier = new("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$", RegexOptions.CultureInvariant);
-    public static PluginManifest ReadManifest(string directory)
+    public static PluginManifest ReadManifest(string directory, bool requireAssembly = true)
     {
         using var stream = File.OpenRead(Path.Combine(directory, "plugin.json"));
         if (stream.Length > 1024 * 1024) throw new InvalidDataException("插件清单过大。");
@@ -23,8 +23,8 @@ internal static class PluginPackage
             (manifest.ApiVersion == 1 && (manifest.Paid || manifest.HasUserInterface)))
             throw new InvalidDataException("授权或窗口能力需要 API v2，试用天数必须在 0–3650 之间。");
         var entry = ContainedPath(directory, manifest.Entry);
-        if (!File.Exists(entry) || !entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("插件入口程序集不存在。");
-        _ = AssemblyName.GetAssemblyName(entry); // Read metadata without loading plugin code into the UI process.
+        if (requireAssembly && (!File.Exists(entry) || !entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("插件入口程序集不存在。");
+        if (requireAssembly) _ = AssemblyName.GetAssemblyName(entry); // Read metadata without loading plugin code into the UI process.
         if (manifest.Commands is not { Length: > 0 and <= 100 } || manifest.Commands.Any(c => c == null) ||
             manifest.Commands.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != manifest.Commands.Length)
             throw new InvalidDataException("插件命令为空或存在重复标识。");

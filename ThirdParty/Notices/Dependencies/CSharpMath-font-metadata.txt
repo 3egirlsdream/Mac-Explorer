@@ -1,0 +1,21 @@
+latinmodern-math.otf
+SHA256: 6075562b771f8b82f0c179e363389684f2dd09de30038269e2628e504bd7be0f
+Source: https://github.com/Sylinko/CSharpMath.Avalonia/blob/ba73eb9b89662e2f9c039f8371f29bec05d13c48/CSharpMath.Rendering/Reference%20Fonts/latinmodern-math.otf
+Embedded font copyright and license metadata:
+Copyright 2012--2014 for Latin Modern Math OTF by B. Jackowski, P. Strzelczyk and P. Pianowski (on behalf of TeX users groups). This work is released under the GUST Font License -- see http://tug.org/fonts/licenses/GUST-FONT-LICENSE.txt for details.
+Please refer to the Copyright section for the font trademark attribution notices.
+
+cyrillic-modern-nmr10.otf
+SHA256: 5b8e360154685a1117e7f93542b89d5263db58f41a40d6df8f131c5fe5032c0c
+Source: https://github.com/Sylinko/CSharpMath.Avalonia/blob/ba73eb9b89662e2f9c039f8371f29bec05d13c48/CSharpMath.Rendering/Reference%20Fonts/cyrillic-modern-nmr10.otf
+Embedded font copyright and license metadata:
+Copyright (c) 1997, 2009 American Mathematical Society (<http://www.ams.org>), with Reserved Font Name CMR10.
+
+Copyright (c) 2012-2014 Andrey V. Panov
+
+AMS-Capital-Blackboard-Bold.otf
+SHA256: 9578b5b9c86e6ab03846080b9d6fa4f7bc6b3044ac15604b8e7bfd4330295dda
+Source: https://github.com/Sylinko/CSharpMath.Avalonia/blob/ba73eb9b89662e2f9c039f8371f29bec05d13c48/CSharpMath.Rendering/Reference%20Fonts/AMS-Capital-Blackboard-Bold.otf
+Embedded font copyright and license metadata:
+Taken from AMSMathematicalSymbol-Medium5, Copyright (c) 1997, 2009 American Mathematical Society (<http://www.ams.org>), with Reserved Font Name MSBM9.
+Extracted by Happypig375, (c) 2018

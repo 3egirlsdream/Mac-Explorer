@@ -93,7 +93,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
         {
             paths.UnionWith(ReadPaths("SELECT file_path FROM file_tags WHERE tag = @tag COLLATE NOCASE", ("@tag", tag.Name)));
             paths.ExceptWith(ReadPaths("SELECT file_path FROM pending_tag_changes WHERE tag = @tag COLLATE NOCASE AND applied = 0", ("@tag", tag.Name)));
-            return paths.ToArray();
+            return paths.Select(DirectoryAccess.Current.ResolvePath).Where(DirectoryAccess.Current.CanAccess).ToArray();
         }
         finally { _connectionLock.Release(); }
     }
@@ -287,7 +287,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
     {
         var pending = ReadPending(path);
         if (pending.Count == 0) return true;
-        if (_store == null || !IsSupportedPath(path)) return false;
+        if (_store == null || !IsSupportedPath(path) || !DirectoryAccess.Current.CanAccess(path)) return false;
         try
         {
             var desired = OverlayPending(path, await _store.ReadAsync(path, cancellationToken));
@@ -312,7 +312,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
 
     private async Task<IReadOnlyList<NativeFileTag>> ReadEffectiveLockedAsync(string path, CancellationToken cancellationToken)
     {
-        if (_store != null && IsSupportedPath(path))
+        if (_store != null && IsSupportedPath(path) && DirectoryAccess.Current.CanAccess(path))
         {
             try { return OverlayPending(path, await _store.ReadAsync(path, cancellationToken)); }
             catch (OperationCanceledException) { throw; }

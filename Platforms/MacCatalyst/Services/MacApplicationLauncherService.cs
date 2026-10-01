@@ -13,25 +13,38 @@ public class MacApplicationLauncherService : IApplicationLauncherService
 
     public async Task OpenFileAsync(string filePath)
     {
-        await RunAsync("/usr/bin/open", filePath);
+        DirectoryAccess.Current.EnsureAccess(filePath);
+        if (DistributionChannel.IsAppStore) Platforms.MacOS.MacSandboxNative.OpenFile(filePath);
+        else await RunAsync("/usr/bin/open", filePath);
         _ = _homeWorkspace?.RecordUseAsync(filePath);
     }
 
     public async Task OpenFileWithAppAsync(string filePath, string bundleIdentifier)
     {
-        await RunAsync("/usr/bin/open", "-b", bundleIdentifier, filePath);
+        DirectoryAccess.Current.EnsureAccess(filePath);
+        if (DistributionChannel.IsAppStore) Platforms.MacOS.MacSandboxNative.OpenFile(filePath, bundleIdentifier);
+        else await RunAsync("/usr/bin/open", "-b", bundleIdentifier, filePath);
         _ = _homeWorkspace?.RecordUseAsync(filePath);
     }
 
     public Task OpenInTerminalAsync(string directoryPath)
-        => RunAsync("/usr/bin/open", "-a", "Terminal", directoryPath);
+    {
+        DistributionChannel.RequireWebsite("打开终端");
+        return RunAsync("/usr/bin/open", "-a", "Terminal", directoryPath);
+    }
 
     public Task RevealInFinderAsync(string filePath)
-        => RunAsync("/usr/bin/open", "-R", filePath);
+    {
+        DirectoryAccess.Current.EnsureAccess(filePath);
+        if (!DistributionChannel.IsAppStore) return RunAsync("/usr/bin/open", "-R", filePath);
+        Platforms.MacOS.MacSandboxNative.RevealFile(filePath);
+        return Task.CompletedTask;
+    }
 
     public async Task OpenInEditorAsync(string path, string cliName, string bundleId)
     {
-        if (!string.IsNullOrWhiteSpace(cliName))
+        DirectoryAccess.Current.EnsureAccess(path);
+        if (DistributionChannel.SupportsSystemIntegration && !string.IsNullOrWhiteSpace(cliName))
         {
             var cliPath = new[] { "/opt/homebrew/bin", "/usr/local/bin" }
                 .Select(directory => Path.Combine(directory, cliName))

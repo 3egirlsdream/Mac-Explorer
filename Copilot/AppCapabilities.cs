@@ -158,12 +158,16 @@ public sealed class AppCapabilityRegistry(
             "file.create-text", "folder.create", "folder.create-unnamed", "archive.extract-here", "archive.extract-folder",
             "archive.compress", "tag.apply"];
 
-    public IReadOnlyList<AppCapability> Catalog => plugins == null ? BuiltInCatalog :
-        [..BuiltInCatalog, ..plugins.Plugins.Where(p => !p.Removed).SelectMany(p => p.Manifest.Commands.Select(command =>
+    public IReadOnlyList<AppCapability> Catalog => plugins == null ? ChannelCatalog :
+        [..ChannelCatalog, ..plugins.Plugins.Where(p => !p.Removed).SelectMany(p => p.Manifest.Commands.Select(command =>
             new AppCapability(PluginCommandId(p.Manifest.Id, command.Id), command.Title,
                 $"通过已安装插件 {p.Manifest.Name} 处理本地文件", "{\"paths\":[\"本地文件绝对路径\"]}",
                 "FileListViewModel.ExecutePluginCommandAsync", CapabilityImpact.Change,
                 "展示插件、命令、输入文件以及生成位置后确认")))];
+
+    private static IReadOnlyList<AppCapability> ChannelCatalog => DistributionChannel.IsAppStore
+        ? BuiltInCatalog.Where(capability => capability.Id != "script.run" && !capability.Id.StartsWith("plugin.", StringComparison.Ordinal)
+            && !capability.Id.Contains("terminal", StringComparison.Ordinal)).ToArray() : BuiltInCatalog;
 
     public static string PluginCommandId(string pluginId, string commandId)
         => $"plugin.command:{Uri.EscapeDataString(pluginId)}:{Uri.EscapeDataString(commandId)}";

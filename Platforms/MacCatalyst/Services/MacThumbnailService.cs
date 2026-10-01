@@ -72,9 +72,7 @@ public class MacThumbnailService : IThumbnailService
 
     public MacThumbnailService() : this(
         Path.Combine(
-            RuntimePaths.LocalApplicationData,
-            "MacExplorer",
-            "thumbnail-cache"),
+            RuntimePaths.CacheDirectory, "thumbnail-cache"),
         DefaultMaxDiskBytes,
         DefaultDiskTargetRatio)
     {
@@ -121,6 +119,7 @@ public class MacThumbnailService : IThumbnailService
         int maxPixelSize,
         CancellationToken ct = default)
     {
+        if (!DirectoryAccess.Current.CanAccess(filePath)) return null;
         var extension = Path.GetExtension(filePath);
         if (!File.Exists(filePath) || !SupportsThumbnailExtension(extension))
             return null;
@@ -500,7 +499,7 @@ public class MacThumbnailService : IThumbnailService
         try
         {
             var nativeResult = await GenerateWithNativeQuickLookAsync(sourcePath, cachePath, maxPixelSize, outputDirectory, ct);
-            if (nativeResult != null || !allowQlManageFallback) return nativeResult;
+            if (nativeResult != null || !allowQlManageFallback || DistributionChannel.IsAppStore) return nativeResult;
 
             var startInfo = new ProcessStartInfo
             {
@@ -568,7 +567,7 @@ public class MacThumbnailService : IThumbnailService
         string outputDirectory,
         CancellationToken ct)
     {
-        var helperPath = Path.Combine(AppContext.BaseDirectory, "MacExplorer.Thumbnail");
+        var helperPath = Path.Combine(RuntimePaths.BundleExecutableDirectory, "MacExplorer.Thumbnail");
         if (!File.Exists(helperPath)) return null;
 
         var generatedPath = Path.Combine(outputDirectory, "thumbnail.png");
@@ -586,6 +585,7 @@ public class MacThumbnailService : IThumbnailService
             startInfo.ArgumentList.Add(sourcePath);
             startInfo.ArgumentList.Add(generatedPath);
             startInfo.ArgumentList.Add(Math.Max(32, maxPixelSize).ToString());
+            DirectoryAccess.Current.ConfigureHelper(startInfo, sourcePath);
             process = Process.Start(startInfo);
             if (process == null) return null;
             TrySetBelowNormalPriority(process);

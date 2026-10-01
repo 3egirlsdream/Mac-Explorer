@@ -143,7 +143,7 @@ public sealed class HomeItemActions : IDisposable
         if (!entry.IsDirectory && Path.IsPathFullyQualified(entry.FullPath))
         {
             var commands = _workspace.GetCommands(entry.FullPath);
-            if (HomeScriptCommand.IsScript(entry.FullPath) || commands.Count > 0)
+            if (DistributionChannel.SupportsSystemIntegration && (HomeScriptCommand.IsScript(entry.FullPath) || commands.Count > 0))
             {
                 menu.Items.Add(new Separator());
                 if (commands.Count > 0)
@@ -205,10 +205,10 @@ public sealed class HomeItemActions : IDisposable
         if (TopLevel.GetTopLevel(_owner) is not { } top) return;
         IReadOnlyList<IStorageItem> items;
         if (folders)
-            items = await top.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            items = await top.StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
                 { Title = $"收藏文件夹到“{tag.Name}”", AllowMultiple = true });
         else
-            items = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            items = await top.StorageProvider.OpenAuthorizedFilePickerAsync(new FilePickerOpenOptions
                 { Title = $"收藏文件到“{tag.Name}”", AllowMultiple = true });
         try { await AddPathsAsync(tag, items.Where(i => i.Path.IsFile).Select(i => i.Path.LocalPath).ToArray()); }
         finally { foreach (var item in items) item.Dispose(); }

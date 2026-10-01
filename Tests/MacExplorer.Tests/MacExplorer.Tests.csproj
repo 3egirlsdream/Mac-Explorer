@@ -22,5 +22,16 @@
   <ItemGroup>
     <Content Include="TestData/generated-orientation-6.dng" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/generated-monochrome.dng" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="TestData/legacy-dotnetzip-aes256.zip" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="TestData/gps-ocr-fixture.jpg" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="TestData/sftp-loopback.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="CopyHostNativeTestDependencies" AfterTargets="Build">
+    <MSBuild Projects="../../MacExplorer.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">
+      <Output TaskParameter="TargetOutputs" ItemName="_HostAssembly" />
+    </MSBuild>
+    <PropertyGroup><_HostDirectory>@(_HostAssembly->'%(RootDir)%(Directory)')</_HostDirectory></PropertyGroup>
+    <Copy SourceFiles="$(_HostDirectory)libMacExplorerNativeDrag.dylib;$(_HostDirectory)MacExplorer.Thumbnail;$(_HostDirectory)MacExplorer.ImageAnalysis;$(_HostDirectory)MacExplorer.FileConversion" DestinationFolder="$(TargetDir)" />
+    <Copy SourceFiles="../../Plugins/FileConversion/plugin.json" DestinationFolder="$(TargetDir)BuiltInConversion" />
+  </Target>
 </Project>

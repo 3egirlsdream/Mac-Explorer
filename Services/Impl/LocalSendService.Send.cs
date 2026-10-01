@@ -127,6 +127,7 @@ public sealed partial class LocalSendService
             token.ThrowIfCancellationRequested();
             try
             {
+                AccessGrants.EnsureAccess(file.Path);
                 using var stream = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
                 if (stream.Length != file.Size) throw new IOException("源文件在传输前发生变化。");
                 _tasks.UpdateProgress(task.Id, total == 0 ? 0 : 100d * sentBytes / total, file.RelativeName);
@@ -167,11 +168,12 @@ public sealed partial class LocalSendService
         return failures.Count == 0;
     }
 
-    private static (List<SendFile> Files, List<string> Skipped) CollectFiles(IReadOnlyList<string> paths, CancellationToken token)
+    private (List<SendFile> Files, List<string> Skipped) CollectFiles(IReadOnlyList<string> paths, CancellationToken token)
     {
         var files = new List<SendFile>();
         var skipped = new List<string>();
-        var roots = paths.Distinct(StringComparer.Ordinal).ToArray();
+        var roots = paths.Select(AccessGrants.ResolvePath).Distinct(StringComparer.Ordinal).ToArray();
+        foreach (var root in roots) AccessGrants.EnsureAccess(root);
         foreach (var root in roots.Where(path => !roots.Any(other => other != path && Directory.Exists(other)
             && path.StartsWith(Path.TrimEndingDirectorySeparator(other) + Path.DirectorySeparatorChar, StringComparison.Ordinal))))
         {
@@ -198,6 +200,7 @@ public sealed partial class LocalSendService
                     var (directory, relative) = stack.Pop();
                     try
                     {
+                        AccessGrants.EnsureAccess(directory);
                         var hadEntry = false;
                         foreach (var child in Directory.EnumerateFileSystemEntries(directory))
                         {

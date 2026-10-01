@@ -52,6 +52,8 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     private int _tcpInFlight, _httpInFlight, _peakTcp, _peakHttp, _unknownProbes;
     private int _port;
     private string? _lastError;
+    internal DirectoryAccess? FileAccessOverride { get; set; }
+    private DirectoryAccess AccessGrants => FileAccessOverride ?? DirectoryAccess.Current;
     public int ListeningPort => _port;
     internal string? Fingerprint => _fingerprint;
     internal int DiscoveryUdpPort => (_udp?.Client.LocalEndPoint as IPEndPoint)?.Port ?? 0;
@@ -88,7 +90,8 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         _logger = logger;
     }
 
-    public bool Enabled => _settings.Get(ILocalSendService.EnabledKey, true);
+    private bool _disableRequested;
+    public bool Enabled => !_disableRequested && _settings.Get(ILocalSendService.EnabledKey, true);
     public string Alias
     {
         get => _settings.Get(ILocalSendService.AliasKey, "Mac Explorer · " + Environment.MachineName);
@@ -115,13 +118,16 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
                 var downloads = Path.Combine(root, "Downloads");
                 return string.IsNullOrEmpty(configured) || !IsWithin(configured, root) ? downloads : configured;
             }
-            return string.IsNullOrWhiteSpace(configured) ? Path.Combine(RuntimePaths.HomeDirectory, "Downloads") : configured;
+            return string.IsNullOrWhiteSpace(configured) ? (DistributionChannel.IsAppStore
+                ? Path.Combine(RuntimePaths.DataDirectory, "Received") : Path.Combine(RuntimePaths.HomeDirectory, "Downloads"))
+                : AccessGrants.ResolvePath(configured);
         }
         set
         {
             var path = Path.GetFullPath(value);
             if (RuntimePaths.TestRoot is { } root && !IsWithin(path, root))
                 throw new ArgumentException("测试模式下接收目录必须位于隔离目录内。", nameof(value));
+            AccessGrants.EnsureAccess(path);
             _settings.Set(ILocalSendService.ReceiveDirectoryKey, path);
         }
     }
@@ -167,7 +173,8 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         catch (Exception ex)
         {
             await StopCoreAsync();
-            _lastError = ex.Message;
+            _lastError = ex is System.Net.Sockets.SocketException or UnauthorizedAccessException
+                ? "无法使用本地网络，请在系统设置中允许 Mac Explorer 访问本地网络后重试。" : ex.Message;
             throw;
         }
         finally { _lifecycle.Release(); }
@@ -190,8 +197,33 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     public async Task SetEnabledAsync(bool enabled)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(LocalSendService));
-        _settings.Set(ILocalSendService.EnabledKey, enabled);
-        if (enabled) { await StartAsync(); return; }
+        if (enabled)
+        {
+            try { _settings.Set(ILocalSendService.EnabledKey, true); }
+            catch (Exception ex)
+            {
+                _disableRequested = true;
+                _lastError = "启用未能保存，LocalSend 保持关闭。请修复存储后重试：" + ex.Message;
+                await StopRunningAsync();
+                throw new InvalidOperationException(_lastError, ex);
+            }
+            _disableRequested = false;
+            await StartAsync();
+            return;
+        }
+        // Block all new operations before attempting storage or waiting for the listener.
+        _disableRequested = true;
+        Exception? persistenceError = null;
+        try { _settings.Set(ILocalSendService.EnabledKey, false); }
+        catch (Exception ex) { persistenceError = ex; }
+        await StopRunningAsync();
+        _lastError = persistenceError == null ? null
+            : "LocalSend 已停止，但关闭设置未能保存；重启后可能恢复网络活动。请修复存储并点击“重试保存关闭”：" + persistenceError.Message;
+        if (persistenceError != null) throw new InvalidOperationException(_lastError, persistenceError);
+    }
+
+    private async Task StopRunningAsync()
+    {
         await _lifecycle.WaitAsync();
         try { await StopCoreAsync(); }
         finally { _lifecycle.Release(); }
@@ -276,9 +308,9 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         var builder = WebApplication.CreateSlimBuilder();
         // Request URLs contain short-lived upload tokens; suppress ASP.NET's URL-bearing access log.
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
-        // Discovery uses IPv4 multicast. Bind IPv4 explicitly so an IPv4 peer
-        // cannot own the same port while Kestrel silently binds IPv6 only.
-        builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Any, port, listen => listen.UseHttps(_certificate!)));
+        // Kestrel dual-stack accepts IPv4 peers and IPv6 direct connections.
+        // The existing IPv4 multicast discovery protocol remains unchanged.
+        builder.WebHost.UseKestrel(options => options.ListenAnyIP(port, listen => listen.UseHttps(_certificate!)));
         var app = builder.Build();
         const string prefix = "/api/localsend/v2";
         IResult Info(HttpContext context)
@@ -300,9 +332,17 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
 
     private X509Certificate2 LoadCertificate()
     {
-        var directory = Path.Combine(RuntimePaths.LocalApplicationData, "LocalSend");
+        var directory = Path.Combine(RuntimePaths.DataDirectory, "LocalSend");
         Directory.CreateDirectory(directory);
         var file = Path.Combine(directory, "identity.pfx");
+        var old = Path.Combine(RuntimePaths.LocalApplicationData, "LocalSend", "identity.pfx");
+        if (!File.Exists(file) && File.Exists(old))
+        {
+            // Validate before copying; retain the old identity and never replace a newer one.
+            using var previous = X509CertificateLoader.LoadPkcs12FromFile(old, "");
+            File.Copy(old, file, overwrite: false);
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
         if (File.Exists(file)) return X509CertificateLoader.LoadPkcs12FromFile(file, "");
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest("CN=Mac Explorer LocalSend", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);

@@ -1,0 +1,203 @@
+Source: https://github.com/Sylinko/CSharpMath.Avalonia/blob/ba73eb9b89662e2f9c039f8371f29bec05d13c48/License
+
+MIT License
+
+Copyright (c) 2017 William Jockusch, Hadrian Tang
+Copyright (c) 2025 Shigen Reikou
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Source: https://github.com/LayoutFarm/Typography/blob/d331968f3ee714332a8ea4fa95a21c15812a8d93/LICENSE.md
+
+
+ 
+The project is based on multiple open-sourced projects (listed below) all using permissive licenses.
+
+A license for a whole project is [**MIT**](https://opensource.org/licenses/MIT).
+
+but if you use some part of the code
+please check each source file's header for the licensing info.
+
+ 
+---
+
+**Geometry**
+
+BSD, 2002-2005, Maxim Shemanarev, http://www.antigrain.com , Anti-Grain Geometry - Version 2.4,
+
+BSD, 2007-2014, Lars Brubaker, agg-sharp, https://github.com/MatterHackers/agg-sharp
+
+ZLIB, 2015, burningmine, CurveUtils.
+
+Boost, 2010-2014, Angus Johnson, Clipper.
+
+BSD, 2009-2010, Poly2Tri Contributors, https://github.com/PaintLab/poly2tri-cs
+
+SGI, 2000, Eric Veach, Tesselate.
+
+MIT, 2016, Viktor Chlumsky, https://github.com/Chlumsky/msdfgen
+
+**Font**
+
+MIT, 2016-2017, WinterDev, https://github.com/LayoutFarm/Typography
+
+Apache2, 2014-2016, Samuel Carlsson, https://github.com/vidstige/NRasterizer
+
+MIT, 2015, Michael Popoloski MIT, https://github.com/MikePopoloski/SharpFont
+
+The FreeType Project LICENSE (3-clauses BSD style),2003-2016, David Turner, Robert Wilhelm, and Werner Lemberg and others, https://www.freetype.org/
+
+Apache2, 2018, Apache/PDFBox Authors,  https://github.com/apache/pdfbox
+
+**Platforms**
+
+MIT, 2015-2015, Xamarin, Inc., https://github.com/mono/SkiaSharp
+
+MIT, 2006-2009,  Stefanos Apostolopoulos and other Open Tool Kit Contributors, https://github.com/opentk/opentk
+
+MIT, 2013, Antonie Blom, https://github.com/andykorth/Pencil.Gaming 
+
+
+**Unpack, Zlib,Brotli**
+
+MIT, 2018, SharpZipLib, https://github.com/icsharpcode/SharpZipLib 
+
+MIT, 2009, 2010, 2013-2016 by the Brotli Authors., https://github.com/google/brotli
+
+MIT, 2017, brezza92 (C# port from original code, by hand), https://github.com/brezza92/brotli
+
+MIT, 2019, master131, https://github.com/master131/BrotliSharpLib
+
+
+Source: https://github.com/LayoutFarm/Typography/blob/d331968f3ee714332a8ea4fa95a21c15812a8d93/Typography.TextBreak/LICENSE
+
+MIT License
+
+Copyright (c) 2016-present WinterDev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+
+ICU Data License : http://www.unicode.org/copyright.html#License
+
+from http://site.icu-project.org/home
+
+
+Source: https://github.com/LayoutFarm/Typography/blob/d331968f3ee714332a8ea4fa95a21c15812a8d93/Unpack_SH/BrotliSharpLib/Brotli-LICENSE
+
+Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Source: https://github.com/Happypig375/AMSFonts-Ttf-Otf/blob/master/LICENSE.md
+
+# ﻿SIL Open Font Li­cense (ofl)
+Ver­sion 1.1 – 26 Fe­bru­ary 2007
+
+## PREAMBLE
+The goals of the Open Font Li­cense (OFL) are to stim­u­late world­wide de­vel­op­ment of col­lab­o­ra­tive font projects, to sup­port the font cre­ation ef­forts of aca­demic and lin­guis­tic com­mu­ni­ties, and to pro­vide a free and open frame­work in which fonts may be shared and im­proved in part­ner­ship with oth­ers.
+
+The OFL al­lows the li­censed fonts to be used, stud­ied, mod­i­fied and re­dis­tributed freely as long as they are not sold by them­selves. The fonts, in­clud­ing any deriva­tive works, can be bun­dled, em­bed­ded, re­dis­tributed and/or sold with any soft­ware pro­vided that any re­served names are not used by deriva­tive works. The fonts and deriva­tives, how­ever, can­not be re­leased un­der any other type of li­cense. The re­quire­ment for fonts to re­main un­der this li­cense does not ap­ply to any doc­u­ment cre­ated us­ing the fonts or their deriva­tives.
+
+## DEFINITIONS
+“Font Soft­ware” refers to the set of files re­leased by the Copy­right Holder(s) un­der this li­cense and clearly marked as such. This may in­clude source files, build scripts and doc­u­men­ta­tion.
+
+“Re­served Font Name” refers to any names spec­i­fied as such af­ter the copy­right state­ment(s).
+
+“Orig­i­nal Ver­sion” refers to the col­lec­tion of Font Soft­ware com­po­nents as dis­tributed by the Copy­right Holder(s).
+
+“Mod­i­fied Ver­sion” refers to any deriva­tive made by adding to, delet­ing, or sub­sti­tut­ing -- in part or in whole -- any of the com­po­nents of the Orig­i­nal Ver­sion, by chang­ing for­mats or by port­ing the Font Soft­ware to a new en­vi­ron­ment.
+
+“Author” refers to any de­signer, en­gi­neer, pro­gram­mer, tech­ni­cal writer or other per­son who con­tributed to the Font Soft­ware.
+
+## PERMISSION & CONDITIONS
+Per­mis­sion is hereby granted, free of charge, to any per­son ob­tain­ing a copy of the Font Soft­ware, to use, study, copy, merge, em­bed, mod­ify, re­dis­tribute, and sell mod­i­fied and un­mod­i­fied copies of the Font Soft­ware, sub­ject to the fol­low­ing con­di­tions:
+
+1) Nei­ther the Font Soft­ware nor any of its in­di­vid­ual com­po­nents, in Orig­i­nal or Mod­i­fied Ver­sions, may be sold by it­self.
+
+2) Orig­i­nal or Mod­i­fied Ver­sions of the Font Soft­ware may be bun­dled, re­dis­tributed and/or sold with any soft­ware, pro­vided that each copy con­tains the above copy­right no­tice and this li­cense. Th­ese can be in­cluded ei­ther as stand-alone text files, hu­man-read­able head­ers or in the ap­pro­pri­ate ma­chine-read­able meta­data fields within text or bi­nary files as long as those fields can be eas­ily viewed by the user.
+
+3) No Mod­i­fied Ver­sion of the Font Soft­ware may use the Re­served Font Name(s) un­less ex­plicit writ­ten per­mis­sion is granted by the cor­re­spond­ing Copy­right Holder. This re­stric­tion only ap­plies to the pri­mary font name as pre­sented to the users.
+
+4) The name(s) of the Copy­right Holder(s) or the Author(s) of the Font Soft­ware shall not be used to pro­mote, en­dorse or ad­ver­tise any Mod­i­fied Ver­sion, ex­cept to ac­knowl­edge the con­tri­bu­tion(s) of the Copy­right Holder(s) and the Author(s) or with their ex­plicit writ­ten per­mis­sion.
+
+5) The Font Soft­ware, mod­i­fied or un­mod­i­fied, in part or in whole, must be dis­tributed en­tirely un­der this li­cense, and must not be dis­tributed un­der any other li­cense. The re­quire­ment for fonts to re­main un­der this li­cense does not ap­ply to any doc­u­ment cre­ated us­ing the Font Soft­ware.
+
+## TERMINATION
+This li­cense be­comes null and void if any of the above con­di­tions are not met.
+
+## DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM OTHER DEALINGS IN THE FONT SOFTWARE.
+
+
+Source: https://github.com/Happypig375/AMSFonts-Ttf-Otf/blob/master/README.md
+
+The fonts in the [AMSFonts package](https://ctan.org/pkg/amsfonts),
+converted to TTF and OTF files using [TransType 4](https://www.fontlab.com/font-converter/transtype/).
+-----------------------
+
+The original PostScript font files use an ancient format that is not well supported today.
+As a result, I converted all of them into TrueType and OpenType files using TransType 4.
+
+The content in TTF files are identical to that in OTF files; I added OTF in addition to TTF because the OTF files are smaller in size.
+
+Feel free to use them all!
+
+**PS: the fonts in [amsfonts-otf.zip](https://github.com/Happypig375/AMSFonts-Ttf-Otf/blob/master/amsfonts-otf.zip) is converted from AMSFonts(Type1) to OTF using the open source software [FontForge](https://fontforge.org/) by Firestar-Reimu.**
+
+I do not provide the TTF files because [this](https://fontforge.org/docs/techref/bezier.html?highlight=spline):
+
+_PostScript fonts(OTF and Type1) use qubic splines but TrueType fonts(TTF) use quadratic splines._
+
+**More information is provided in https://github.com/Firestar-Reimu/AMSFonts-OTF**

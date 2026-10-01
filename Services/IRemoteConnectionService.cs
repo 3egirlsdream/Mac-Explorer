@@ -5,6 +5,12 @@ namespace MacExplorer.Services;
 
 public interface IRemoteConnectionService
 {
+    Func<Impl.SftpHostKey, CancellationToken, Task<bool>>? ConfirmHostKeyAsync { get; set; }
+    Func<RemoteServerInfo, CancellationToken, Task<(string Passphrase, bool Remember)?>>? RequestPrivateKeyPassphraseAsync { get; set; }
+    Impl.SftpHostKey? GetTrustedHostKey(string host, int port);
+    void ForgetHostKey(string host, int port);
+    string? CredentialLoadError { get; }
+    void RetryCredentialMigration();
     Task<SftpClient> GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default);
     Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default);
     void Disconnect(string serverId);

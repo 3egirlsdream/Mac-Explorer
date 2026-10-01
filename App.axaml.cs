@@ -43,9 +43,10 @@ public partial class App : Application
 
     private static void OnDispatcherUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        var logPath = Path.Combine(AppContext.BaseDirectory, "macexplorer_crash.log");
+        var logPath = Path.Combine(RuntimePaths.LogDirectory, "macexplorer_crash.log");
         try
         {
+            Directory.CreateDirectory(RuntimePaths.LogDirectory);
             File.AppendAllText(logPath,
                 $"[{DateTime.Now:HH:mm:ss.fff}] UI Thread Exception: {e.Exception}\n\n");
         }
@@ -106,6 +107,7 @@ public partial class App : Application
             {
                 _startupUpdateCancellation.Cancel();
                 Services.GetRequiredService<FileDeliveryController>().Dispose();
+                DirectoryAccess.Current.Dispose();
             };
 
             if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
@@ -197,6 +199,7 @@ public partial class App : Application
 
     private async Task CheckStartupUpdateAsync()
     {
+        if (DistributionChannel.IsAppStore) return;
         var ct = _startupUpdateCancellation.Token;
         try
         {
@@ -278,7 +281,10 @@ public partial class App : Application
 
     private static IServiceProvider ConfigureServices()
     {
+        DirectoryAccess.PrepareSandboxTestProfile();
         RuntimePaths.PrepareTestRoot();
+        ApplicationDataMigration.Prepare();
+        _ = DirectoryAccess.Current;
         var services = new ServiceCollection();
         var indexConfig = new IndexConfiguration();
         services.AddSingleton(indexConfig);
@@ -287,7 +293,10 @@ public partial class App : Application
         services.AddSingleton<IFileIndex>(sp => sp.GetRequiredService<SqliteFileIndex>());
         services.AddSingleton<IFileIndexWriter>(sp => sp.GetRequiredService<SqliteFileIndex>());
         services.AddSingleton<Platforms.MacCatalyst.Services.MacFileService>(sp => new Platforms.MacCatalyst.Services.MacFileService(sp.GetRequiredService<SqliteFileIndex>()));
-        services.AddSingleton<IRemoteConnectionService, Services.Impl.RemoteConnectionService>();
+        services.AddSingleton<IRemoteConnectionService>(sp => new Services.Impl.RemoteConnectionService(
+            sp.GetService<ILogger<Services.Impl.RemoteConnectionService>>())
+            { ConfirmHostKeyAsync = Views.Dialogs.SftpHostKeyConsent.ConfirmAsync,
+                RequestPrivateKeyPassphraseAsync = Views.Dialogs.SftpPrivateKeyConsent.RequestAsync });
         services.AddSingleton<SftpFileService>();
         services.AddSingleton<IRemoteFileService>(sp => sp.GetRequiredService<SftpFileService>());
         services.AddSingleton<IRemoteFileEditService, Services.Impl.RemoteFileEditService>();
@@ -355,6 +364,7 @@ public partial class App : Application
         services.AddSingleton<BatchRenameOperationService>();
         services.AddSingleton<NavigationBridge>();
         services.AddSingleton<IAiTagService>(sp => new Services.Impl.AiTagService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILoggerFactory>()));
+        services.AddSingleton<Services.Impl.PhotoLocationConsent>();
         services.AddSingleton<IImageAnalysisService, Platforms.MacCatalyst.Services.MacImageAnalysisService>();
         services.AddSingleton<IPdfTextExtractionService, Platforms.MacCatalyst.Services.MacPdfTextExtractionService>();
         services.AddSingleton<PdfAnalysisService>();

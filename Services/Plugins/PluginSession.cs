@@ -7,7 +7,8 @@ namespace MacExplorer.Services.Plugins;
 
 public sealed class PluginSession : IAsyncDisposable
 {
-    private readonly Process _process;
+    private readonly Process _process = null!;
+    private readonly MacExplorer.FileConversion.Plugin.ConversionPlugin? _builtIn;
     private readonly SemaphoreSlim _writes = new(1);
     private readonly ConcurrentDictionary<int, TaskCompletionSource<JsonElement>> _pending = new();
     private readonly ConcurrentDictionary<int, long> _children = new();
@@ -25,7 +26,7 @@ public sealed class PluginSession : IAsyncDisposable
     public PluginManifest Manifest { get; }
     public string WorkDirectory { get; }
     public string LogPath { get; }
-    public int ProcessId => _process.Id;
+    public int ProcessId => _builtIn != null ? Environment.ProcessId : _process.Id;
     public event Action<PluginProgress>? Progress;
 
     internal PluginSession(string executable, string assemblyPath, string pluginDirectory, string workDirectory,
@@ -48,6 +49,15 @@ public sealed class PluginSession : IAsyncDisposable
         _process = Process.Start(info) ?? throw new IOException("无法启动插件进程。");
         _reader = ReadAsync();
         _logReader = ReadLogAsync();
+    }
+
+    internal PluginSession(string pluginDirectory, string workDirectory, string logPath, Func<Task> onDisposed)
+    {
+        Manifest = PluginPackage.ReadManifest(pluginDirectory, requireAssembly: false);
+        WorkDirectory = workDirectory; LogPath = logPath; _onDisposed = onDisposed;
+        Directory.CreateDirectory(workDirectory);
+        _builtIn = new MacExplorer.FileConversion.Plugin.ConversionPlugin(start => DirectoryAccess.Current.ConfigureHelper(start));
+        _reader = _logReader = Task.CompletedTask;
     }
 
     public void Cancel()
@@ -171,6 +181,25 @@ public sealed class PluginSession : IAsyncDisposable
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancel.Token);
         deadline.CancelAfter(timeout);
+        if (_builtIn != null)
+        {
+            deadline.Token.ThrowIfCancellationRequested();
+            object value;
+            if (method == "initialize") value = new { apiVersion = PluginProtocol.ApiVersion, processId = Environment.ProcessId };
+            else if (method == "check-access") value = new PluginAccessResult(PluginAccessStatus.Allowed);
+            else
+            {
+                var invocation = parameters as PluginInvocation ?? throw new InvalidDataException("缺少转换参数。");
+                foreach (var file in invocation.Files) DirectoryAccess.Current.EnsureAccess(file.Path);
+                value = method switch
+                {
+                    "prepare" => await _builtIn.PrepareAsync(invocation, deadline.Token),
+                    "execute" => await _builtIn.ExecuteAsync(invocation, new BuiltInProgress(p => Progress?.Invoke(p)), deadline.Token),
+                    _ => throw new NotSupportedException("内置转换不支持此操作。")
+                };
+            }
+            return JsonSerializer.SerializeToElement(value, PluginProtocol.Json).Deserialize<T>(PluginProtocol.Json)!;
+        }
         var id = Interlocked.Increment(ref _nextId);
         var completion = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[id] = completion;
@@ -241,6 +270,9 @@ public sealed class PluginSession : IAsyncDisposable
         }
     }
 
+    private sealed class BuiltInProgress(Action<PluginProgress> callback) : IProgress<PluginProgress>
+    { public void Report(PluginProgress value) => callback(value); }
+
     private async Task DisposeCoreAsync()
     {
         // Publish the shared disposal task before cancellation invokes any callbacks.
@@ -248,14 +280,14 @@ public sealed class PluginSession : IAsyncDisposable
         _cancel.Cancel();
         try
         {
-            await StopAsync();
+            if (_builtIn == null) await StopAsync();
             // RPC finally blocks release _writes and linked tokens. Join them before
             // disposing those objects, including when callers dispose concurrently.
             await Task.WhenAll(_reader, _logReader, _callsDrained.Task);
         }
         finally
         {
-            _process.Dispose();
+            if (_builtIn == null) _process.Dispose();
             _cancel.Dispose();
             _writes.Dispose();
             try { if (Directory.Exists(WorkDirectory)) Directory.Delete(WorkDirectory, true); }

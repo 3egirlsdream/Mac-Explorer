@@ -168,21 +168,7 @@ public class MacContextMenuService : IContextMenuService
 
     private static string? QueryDefaultApplicationPath(string filePath)
     {
-        var pathLiteral = JsonSerializer.Serialize(filePath);
-        var script = $$"""
-            ObjC.import('AppKit');
-            ObjC.import('Foundation');
-            var url = $.NSURL.fileURLWithPath({{pathLiteral}});
-            var appUrl = $.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL(url);
-            appUrl ? ObjC.unwrap(appUrl.path) : '';
-            """;
-
-        var (exitCode, output) = RunProcess(3000, "/usr/bin/osascript", "-l", "JavaScript", "-e", script);
-        if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            return null;
-
-        var appPath = output.Trim();
-        return Directory.Exists(appPath) ? appPath : null;
+        return Platforms.MacOS.MacSandboxNative.DefaultApplication(filePath);
     }
 
     private void StartApplicationsLoad(string cacheKey, string filePath)
@@ -208,35 +194,9 @@ public class MacContextMenuService : IContextMenuService
     {
         try
         {
-            var pathLiteral = JsonSerializer.Serialize(filePath);
-            var script = $$"""
-                ObjC.import('AppKit');
-                ObjC.import('Foundation');
-                var url = $.NSURL.fileURLWithPath({{pathLiteral}});
-                var urls = $.NSWorkspace.sharedWorkspace.URLsForApplicationsToOpenURL(url);
-                var result = [];
-                for (var i = 0; i < urls.count; i++) {
-                    var appUrl = urls.objectAtIndex(i);
-                    var bundle = $.NSBundle.bundleWithURL(appUrl);
-                    var bundleId = bundle ? ObjC.unwrap(bundle.bundleIdentifier) : '';
-                    if (!bundleId) continue;
-                    result.push({
-                        name: ObjC.unwrap(appUrl.URLByDeletingPathExtension.lastPathComponent),
-                        bundleId: bundleId,
-                        appPath: ObjC.unwrap(appUrl.path)
-                    });
-                }
-                JSON.stringify(result);
-                """;
-
-            var (exitCode, output) = RunProcess(3000, "/usr/bin/osascript", "-l", "JavaScript", "-e", script);
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-                return [];
-
-            var results = JsonSerializer.Deserialize<List<LaunchServicesApp>>(output, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            }) ?? [];
+            var results = JsonSerializer.Deserialize<List<LaunchServicesApp>>(
+                Platforms.MacOS.MacSandboxNative.RegisteredApplications(filePath),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
             return results
                 .Where(app => !string.IsNullOrWhiteSpace(app.BundleId))
                 .DistinctBy(app => app.BundleId, StringComparer.OrdinalIgnoreCase)
@@ -297,10 +257,7 @@ public class MacContextMenuService : IContextMenuService
     {
         try
         {
-            var (exitCode, output) = RunProcess(1500, "/usr/bin/mdfind", $"kMDItemCFBundleIdentifier == '{bundleIdentifier}'");
-            if (exitCode != 0) return false;
-            return output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Any(path => path.EndsWith(".app", StringComparison.OrdinalIgnoreCase));
+            return Platforms.MacOS.MacSandboxNative.ApplicationPath(bundleIdentifier) != null;
         }
         catch
         {
@@ -308,50 +265,9 @@ public class MacContextMenuService : IContextMenuService
         }
     }
 
-    private static (int ExitCode, string Output) RunProcess(int timeoutMs, string fileName, params string[] arguments)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo(fileName)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
 
-            foreach (var argument in arguments)
-                psi.ArgumentList.Add(argument);
 
-            using var process = Process.Start(psi);
-            if (process == null) return (-1, string.Empty);
 
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
-            if (!process.WaitForExit(timeoutMs))
-            {
-                TryKillProcess(process);
-                return (-1, string.Empty);
-            }
-
-            _ = errorTask.GetAwaiter().GetResult();
-            return (process.ExitCode, outputTask.GetAwaiter().GetResult());
-        }
-        catch
-        {
-            return (-1, string.Empty);
-        }
-    }
-
-    private static void TryKillProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-                process.Kill(entireProcessTree: true);
-        }
-        catch { }
-    }
 
     private static IReadOnlyList<RegisteredApp> GetKnownAppsForExtension(string extension)
     {

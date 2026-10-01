@@ -159,6 +159,10 @@ public class SettingsService : ISettingsService, IDisposable
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Failed to persist setting {Key} in {Method}", key, nameof(Persist));
+            // Privacy changes must report failed persistence instead of claiming a durable revocation.
+            // The cache is already updated, so this process still blocks further sharing.
+            if (key is "copilot.metadata-consent" or "privacy.photo-location-network" or "localsend_enabled")
+                throw;
         }
     }
 

@@ -18,8 +18,7 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
         _connectionService = connectionService;
         _logger = logger;
         _tempDir = Path.Combine(
-            RuntimePaths.LocalApplicationData,
-            "MacExplorer", "remote-edit");
+            RuntimePaths.DataDirectory, "remote-edit");
         if (!Directory.Exists(_tempDir))
             Directory.CreateDirectory(_tempDir);
     }

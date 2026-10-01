@@ -16,8 +16,19 @@ public sealed class FileConversionService
 {
     private readonly string _helperPath;
     private readonly TimeSpan _timeout;
+    private readonly Action<ProcessStartInfo>? _configureHelper;
 
-    public FileConversionService() : this(Path.Combine(Path.GetDirectoryName(typeof(FileConversionService).Assembly.Location)!, "MacExplorer.FileConversion"), TimeSpan.FromMinutes(2)) { }
+    private static string HelperDirectory
+    {
+        get
+        {
+            var directory = Path.GetDirectoryName(typeof(FileConversionService).Assembly.Location)!;
+            return File.Exists(Path.Combine(directory, "MacExplorer.FileConversion")) ? directory
+                : Path.GetFullPath(Path.Combine(directory, "..", "..", "MacOS"));
+        }
+    }
+    public FileConversionService() : this(Path.Combine(HelperDirectory, "MacExplorer.FileConversion"), TimeSpan.FromMinutes(2)) { }
+    public FileConversionService(Action<ProcessStartInfo>? configureHelper) : this() { _configureHelper = configureHelper; }
     internal FileConversionService(string helperPath, TimeSpan timeout) { _helperPath = helperPath; _timeout = timeout; }
 
     public IReadOnlyList<FileConversionFormat> GetAvailableFormats(string path)
@@ -182,6 +193,7 @@ public sealed class FileConversionService
         timeout.CancelAfter(_timeout);
         var info = new ProcessStartInfo(_helperPath) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        _configureHelper?.Invoke(info);
         using var process = Process.Start(info) ?? throw new IOException("无法启动转换组件。");
         using var trackedProcess = MacExplorer.PluginSdk.PluginChildProcesses.Track(process);
         var stdout = process.StandardOutput.ReadToEndAsync();

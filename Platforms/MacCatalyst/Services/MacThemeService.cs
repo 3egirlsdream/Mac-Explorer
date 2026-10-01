@@ -47,6 +47,7 @@ public class MacThemeService : IThemeService
 
     private static bool DetectDarkMode()
     {
+        if (RuntimePaths.TestRoot != null) return false;
         try
         {
             var psi = new System.Diagnostics.ProcessStartInfo

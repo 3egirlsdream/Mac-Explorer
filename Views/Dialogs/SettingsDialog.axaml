@@ -34,7 +34,7 @@
                         <TextBlock Classes="settings-section-title" Text="系统"/>
                         <Border Classes="settings-group">
                             <StackPanel>
-                                <Border Classes="settings-row settings-divider">
+                                <Border x:Name="DefaultManagerRow" Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="设为默认文件管理器"/>
@@ -50,7 +50,7 @@
                                         <StackPanel>
                                             <TextBlock Classes="settings-label" Text="AI 智能分析"/>
                                             <TextBlock Classes="settings-description"
-                                                       Text="浏览文件夹时自动分析图片内容与 PDF 文字。"/>
+                                                       Text="在本机分析图片内容与 PDF 文字。照片地点联网解析需单独许可。"/>
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" x:Name="AiAnalysisToggle" AutomationProperties.Name="AI 智能分析" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnAiAnalysisChanged"/>
@@ -61,6 +61,40 @@
                         <Border x:Name="GeneralStatusBorder" IsVisible="False" CornerRadius="8" Padding="12,8">
                             <TextBlock x:Name="GeneralStatusText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap"/>
                         </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="settings-section-title" Text="隐私"/>
+                        <Border Classes="settings-group">
+                            <Border Classes="settings-row">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel>
+                                        <TextBlock Classes="settings-label" Text="照片地点联网解析"/>
+                                        <TextBlock Classes="settings-description" Text="将 GPS 经纬度发送给 Apple，转换为地点名称。默认关闭，可随时撤回。" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" x:Name="PhotoLocationToggle" Classes="settings-toggle compact"
+                                                  AutomationProperties.Name="允许向 Apple 发送照片 GPS" VerticalAlignment="Center"
+                                                  IsCheckedChanged="OnPhotoLocationChanged"/>
+                                </Grid>
+                            </Border>
+                        </Border>
+                        <TextBlock x:Name="PhotoLocationStatus" Classes="settings-description" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="DirectoryAccessGroup" Spacing="6" IsVisible="False">
+                        <TextBlock Classes="settings-section-title" Text="文件访问"/>
+                        <Border Classes="settings-group">
+                            <StackPanel>
+                                <StackPanel x:Name="DirectoryAccessRows"/>
+                                <Border Classes="settings-row">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="选择文件夹…" Classes="secondary compact" Click="OnGrantDirectory"/>
+                                        <Button Content="重试授权恢复" Classes="ghost compact" Click="OnRetryDirectoryAccess"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock x:Name="DirectoryAccessStatus" Classes="settings-description" TextWrapping="Wrap"/>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
@@ -149,13 +183,14 @@
                             </Border>
                         </StackPanel>
                     </Border>
+                    <Button x:Name="LocalSendRetryButton" Content="重试保存关闭" Classes="ghost compact" IsVisible="False" Click="OnRetryLocalSendDisable" HorizontalAlignment="Right"/>
                     <TextBlock x:Name="LocalSendStatus" Classes="settings-description" TextWrapping="Wrap"
                                HorizontalAlignment="Stretch" TextAlignment="Right"/>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="插件">
+        <TabItem x:Name="PluginSettingsTab" AutomationProperties.Name="插件">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Apps}"/>
@@ -644,6 +679,18 @@
                     <TextBlock x:Name="CopilotSettingsStatus"
                                IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"
                                Classes="settings-description" TextWrapping="Wrap"/>
+                    <Border Classes="settings-group">
+                        <Border Classes="settings-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel>
+                                    <TextBlock Classes="settings-label" Text="文件信息共享许可"/>
+                                    <TextBlock x:Name="CopilotConsentStatus" Classes="settings-description" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="撤回同意" Click="OnRevokeCopilotConsent"
+                                        ToolTip.Tip="阻止后续发送；已发出的数据无法收回，文件正文仍需独立审批。"/>
+                            </Grid>
+                        </Border>
+                    </Border>
                     <TextBlock Classes="settings-section-title" Text="技能"/>
                     <Border Classes="settings-group" Padding="12">
                         <StackPanel Spacing="8">
@@ -723,6 +770,17 @@
                         </StackPanel>
                     </Border>
 
+                    <Border Classes="settings-group">
+                        <Border Classes="settings-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel>
+                                    <TextBlock Classes="settings-label" Text="隐私政策"/>
+                                    <TextBlock x:Name="PrivacyPolicyStatus" Classes="settings-description" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="查看政策" Click="OnPrivacyPolicy"/>
+                            </Grid>
+                        </Border>
+                    </Border>
                     <TextBlock Text="Copyright 2024-2026 MacExplorer" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}"/>
                 </StackPanel>
             </ScrollViewer>

@@ -473,6 +473,7 @@ public partial class SuperPreviewView : UserControl
 
     private async Task<string?> ResolvePreviewPathAsync(FileSystemEntry entry, CancellationToken token)
     {
+        if (Path.IsPathFullyQualified(entry.FullPath)) DirectoryAccess.Current.EnsureAccess(entry.FullPath);
         token.ThrowIfCancellationRequested();
         if (!ArchivePathHelper.IsArchivePath(entry.FullPath))
             return File.Exists(entry.FullPath) ? entry.FullPath : null;

@@ -92,6 +92,15 @@ public partial class SettingsDialog : DialogWindow
     private async void OnOpened(object? sender, EventArgs e)
     {
         LoadCopilotSettings();
+        LoadPrivacySettings();
+        if (DistributionChannel.IsAppStore)
+        {
+            DefaultManagerRow.IsVisible = false;
+            UpdateButton.IsVisible = false;
+            PluginSettingsTab.IsVisible = false;
+            DirectoryAccessGroup.IsVisible = true;
+            RenderDirectoryAccess();
+        }
         LoadSettings();
         if (!Design.IsDesignMode
             && Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: MainWindow }
@@ -105,6 +114,54 @@ public partial class SettingsDialog : DialogWindow
         await _openWithService.RemoveUnavailableAppsAsync();
         await LoadOpenWithAppsAsync();
         _initializing = false;
+    }
+
+    private void RenderDirectoryAccess()
+    {
+        var access = DirectoryAccess.Current;
+        DirectoryAccessRows.Children.Clear();
+        foreach (var path in access.AuthorizedRoots.Concat(access.UnavailableRoots).Distinct())
+        {
+            var label = new TextBlock { Text = path, TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            label.Classes.Add("settings-label");
+            ToolTip.SetTip(label, path);
+            var remove = new Button { Content = "移除", Classes = { "ghost", "compact" } };
+            AutomationProperties.SetName(remove, "移除授权 " + path);
+            remove.Click += (_, _) =>
+            {
+                try { access.Revoke(path); RenderDirectoryAccess(); }
+                catch (Exception ex) { DirectoryAccessStatus.Text = ex.Message; }
+            };
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 8 };
+            row.Children.Add(label);
+            if (access.UnavailableRoots.Contains(path))
+            {
+                var offline = new TextBlock { Text = "离线或失效", Classes = { "settings-description" },
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+                Grid.SetColumn(offline, 1); row.Children.Add(offline);
+            }
+            Grid.SetColumn(remove, 2); row.Children.Add(remove);
+            DirectoryAccessRows.Children.Add(new Border { Classes = { "settings-row", "settings-divider" }, Child = row });
+        }
+        DirectoryAccessStatus.Text = access.RestoreError ?? (access.AuthorizedRoots.Count == 0
+            ? "选择需要浏览的文件夹；离线磁盘连接后可重试。" : "授权包含所选文件夹及子目录。移除授权不会删除文件。");
+    }
+
+    private async void OnGrantDirectory(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions { Title = "选择允许访问的文件夹", AllowMultiple = true });
+            RenderDirectoryAccess();
+        }
+        catch (Exception ex) { DirectoryAccessStatus.Text = ex.Message; }
+    }
+
+    private void OnRetryDirectoryAccess(object? sender, RoutedEventArgs e)
+    {
+        try { DirectoryAccess.Current.RetryUnavailable(); RenderDirectoryAccess(); }
+        catch (Exception ex) { DirectoryAccessStatus.Text = ex.Message; }
     }
 
     private void LoadSettings()
@@ -126,7 +183,7 @@ public partial class SettingsDialog : DialogWindow
 
         if (ViewModel == null) return;
 
-        DefaultManagerToggle.IsChecked = _defaultAppService.IsDefaultFolderHandler();
+        DefaultManagerToggle.IsChecked = DistributionChannel.SupportsSystemIntegration && _defaultAppService.IsDefaultFolderHandler();
         AiAnalysisToggle.IsChecked = ViewModel.IsAiAnalysisEnabled;
         HideSystemFilesToggle.IsChecked = ViewModel.HideSystemFiles;
         HideDotFilesToggle.IsChecked = ViewModel.HideDotFiles;
@@ -170,10 +227,32 @@ public partial class SettingsDialog : DialogWindow
         try
         {
             await _localSendService.SetEnabledAsync(LocalSendEnabledToggle.IsChecked == true);
+            LocalSendRetryButton.IsVisible = false;
+            UpdateLocalSendStatus();
+        }
+        catch (Exception ex)
+        {
+            _initializing = true;
+            LocalSendEnabledToggle.IsChecked = _localSendService.Enabled;
+            _initializing = false;
+            LocalSendStatus.Text = ex.Message;
+            LocalSendRetryButton.IsVisible = !_localSendService.Enabled;
+        }
+        finally { LocalSendEnabledToggle.IsEnabled = true; }
+    }
+
+    private async void OnRetryLocalSendDisable(object? sender, RoutedEventArgs e)
+    {
+        if (_localSendService == null) return;
+        LocalSendRetryButton.IsEnabled = false;
+        try
+        {
+            await _localSendService.SetEnabledAsync(false);
+            LocalSendRetryButton.IsVisible = false;
             UpdateLocalSendStatus();
         }
         catch (Exception ex) { LocalSendStatus.Text = ex.Message; }
-        finally { LocalSendEnabledToggle.IsEnabled = true; }
+        finally { LocalSendRetryButton.IsEnabled = true; }
     }
 
     private void UpdateLocalSendStatus()
@@ -203,7 +282,7 @@ public partial class SettingsDialog : DialogWindow
     private async void OnChooseLocalSendDirectory(object? sender, RoutedEventArgs e)
     {
         if (_localSendService == null || StorageProvider == null) return;
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var folders = await StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "选择 LocalSend 接收位置", AllowMultiple = false
         });
@@ -285,7 +364,7 @@ public partial class SettingsDialog : DialogWindow
         if (storage == null)
             return;
 
-        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var folders = await storage.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "添加搜索位置",
             AllowMultiple = true
@@ -355,7 +434,7 @@ public partial class SettingsDialog : DialogWindow
         GeneralStatusText.Text = result.Message;
 
         _initializing = true;
-        DefaultManagerToggle.IsChecked = _defaultAppService.IsDefaultFolderHandler();
+        DefaultManagerToggle.IsChecked = DistributionChannel.SupportsSystemIntegration && _defaultAppService.IsDefaultFolderHandler();
         _initializing = false;
     }
 

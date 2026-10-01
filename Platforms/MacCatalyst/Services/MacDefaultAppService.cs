@@ -101,6 +101,7 @@ public class MacDefaultAppService : IDefaultAppService
 
     private (bool Success, string Message) TrySetHandler(string bundleId, string operationName)
     {
+        if (DistributionChannel.IsAppStore) return (false, "App Store 版本不修改系统默认文件管理器。 ");
         try
         {
             var previousFolderHandler = ReadFolderHandler();

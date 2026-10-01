@@ -1810,7 +1810,7 @@ public partial class MainWindow : AppWindow
         if (storage == null)
             return [];
 
-        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var folders = await storage.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = title,
             AllowMultiple = true

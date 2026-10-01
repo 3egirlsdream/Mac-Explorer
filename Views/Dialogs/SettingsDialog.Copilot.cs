@@ -46,6 +46,7 @@ public partial class SettingsDialog
             CopilotConnection.Model = model;
             CopilotKeyBox.Text = _savedCopilotKey;
             CopilotSettingsStatus.Text = string.Empty;
+            RefreshCopilotConsent();
         }
         catch (Exception ex) { CopilotSettingsStatus.Text = ex.Message; }
     }

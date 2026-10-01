@@ -18,10 +18,7 @@ public sealed class FileConversionTests : IDisposable
     private string Write(string name, string text) { var path = Path.Combine(_root, name); File.WriteAllText(path, text); return path; }
     private static FileConversionService Service()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "MacExplorer.csproj"))) root = root.Parent;
-        var config = AppContext.BaseDirectory.Contains("/Release/") ? "Release" : "Debug";
-        var helper = Path.Combine(root!.FullName, "Plugins", "FileConversion", "bin", config, "net10.0", "osx-arm64", "MacExplorer.FileConversion");
+        var helper = Path.Combine(PluginTestEnvironment.ApplicationOutput, "MacExplorer.FileConversion");
         Assert.True(File.Exists(helper), "Build the application before native conversion tests.");
         return new FileConversionService(helper, TimeSpan.FromSeconds(30));
     }

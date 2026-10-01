@@ -16,6 +16,7 @@ public class MacMetadataService : IMetadataService
 
     public async Task<FileMetadata> GetMetadataAsync(string path)
     {
+        MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(path);
         return await Task.Factory.StartNew(() =>
         {
             Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
@@ -381,6 +382,17 @@ public class MacMetadataService : IMetadataService
 
     private static string RunCommand(string command, params string[] arguments)
     {
+        if (DistributionChannel.IsAppStore)
+        {
+            var path = arguments[^1];
+            return command switch
+            {
+                "mdls" => Platforms.MacOS.MacSandboxNative.Metadata(path),
+                "stat" => Platforms.MacOS.MacSandboxNative.OwnerGroup(path),
+                "xattr" => Platforms.MacOS.MacSandboxNative.ExtendedAttributeNames(path),
+                _ => throw new NotSupportedException("商店版不执行元数据脚本。")
+            };
+        }
         try
         {
             var psi = new ProcessStartInfo(command)

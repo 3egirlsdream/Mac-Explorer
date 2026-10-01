@@ -6,12 +6,16 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 public class MacQuickLookService : IQuickLookService, IDisposable
 {
     private Process? _previewProcess;
-    public bool IsOpen => _previewProcess != null;
+    public bool IsOpen => DistributionChannel.IsAppStore ? Platforms.MacOS.MacSandboxNative.QuickLookVisible : _previewProcess != null;
 
     public Task PreviewFileAsync(string filePath)
     {
+        MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(filePath);
         if (!File.Exists(filePath) && !Directory.Exists(filePath))
             return Task.CompletedTask;
+
+        if (DistributionChannel.IsAppStore)
+            return Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => Platforms.MacOS.MacSandboxNative.QuickLook(filePath)).GetTask();
 
         try
         {
@@ -51,6 +55,7 @@ public class MacQuickLookService : IQuickLookService, IDisposable
 
     public void Dispose()
     {
+        if (DistributionChannel.IsAppStore) { Avalonia.Threading.Dispatcher.UIThread.Post(Platforms.MacOS.MacSandboxNative.CloseQuickLook); return; }
         var process = _previewProcess;
         _previewProcess = null;
         if (process == null) return;

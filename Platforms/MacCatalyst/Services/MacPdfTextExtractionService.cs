@@ -12,7 +12,7 @@ public sealed class MacPdfTextExtractionService : IPdfTextExtractionService
     private readonly TimeSpan _idleTimeout;
 
     public MacPdfTextExtractionService()
-        : this(Path.Combine(AppContext.BaseDirectory, "MacExplorer.ImageAnalysis"), TimeSpan.FromSeconds(60)) { }
+        : this(Path.Combine(RuntimePaths.BundleExecutableDirectory, "MacExplorer.ImageAnalysis"), TimeSpan.FromSeconds(60)) { }
 
     internal MacPdfTextExtractionService(string helperPath, TimeSpan idleTimeout)
         => (_helperPath, _idleTimeout) = (helperPath, idleTimeout);
@@ -28,6 +28,7 @@ public sealed class MacPdfTextExtractionService : IPdfTextExtractionService
         };
         start.ArgumentList.Add("--pdf");
         start.ArgumentList.Add(filePath);
+        DirectoryAccess.Current.ConfigureHelper(start, filePath);
         using var process = Process.Start(start) ?? throw new IOException("无法启动 PDF 分析程序。");
         using var timeout = new CancellationTokenSource(_idleTimeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);

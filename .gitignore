@@ -17,3 +17,44 @@ artifacts
 __pycache__/
 *.pyc
 docs/marketing/
+
+# Local IDE and tool state
+*.user
+*.sln.docstates
+.vs/
+.mimocode-project-id
+xcuserdata/
+*.xcuserstate
+
+# Build, test and diagnostic output
+.avalonia-build-tasks/
+DerivedData/
+TestResults/
+test-results/
+playwright-report/
+*.trx
+*.binlog
+*.log
+*.dSYM/
+*.app/
+*.dmg
+*.pkg
+
+# Local publishing output
+/outputs/
+
+# LibRaw is consumed as prebuilt libraries; source downloads stay local
+/ThirdParty/LibRaw/LibRaw-*.tar.gz
+
+# Local application data
+.macexplorer/
+copilot.db
+copilot.db-shm
+copilot.db-wal
+
+# Local environment values; keep reusable templates
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template

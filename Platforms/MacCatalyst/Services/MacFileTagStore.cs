@@ -29,6 +29,7 @@ public sealed class MacFileTagStore(IDirectoryChangeNotifier? notifier = null) :
 
     internal static IReadOnlyList<NativeFileTag> Read(string filePath)
     {
+        DirectoryAccess.Current.EnsureAccess(filePath);
         var length = getxattr(filePath, Attribute, null, 0, 0, 0);
         if (length < 0)
         {
@@ -54,6 +55,7 @@ public sealed class MacFileTagStore(IDirectoryChangeNotifier? notifier = null) :
         Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            DirectoryAccess.Current.EnsureAccess(filePath);
             var directory = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(directory)) notifier?.SuppressRefresh([directory], TimeSpan.FromSeconds(3));
             var xml = new XDocument(new XElement("plist", new XAttribute("version", "1.0"),

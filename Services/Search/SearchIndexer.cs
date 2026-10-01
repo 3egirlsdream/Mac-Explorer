@@ -14,6 +14,7 @@ public sealed class SearchIndexer : IAsyncDisposable
     private readonly IPinyinInitials _pinyin;
     private readonly ISearchChangeSource _changes;
     private readonly TimeProvider _timeProvider;
+    private readonly DirectoryAccess _access;
     private readonly object _gate = new();
     private readonly Dictionary<string, RootState> _roots = new(StringComparer.Ordinal);
     private readonly Channel<RootState> _work = Channel.CreateUnbounded<RootState>(new() { SingleReader = true });
@@ -41,6 +42,8 @@ public sealed class SearchIndexer : IAsyncDisposable
         _pinyin = pinyin;
         _changes = changes;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _access = DirectoryAccess.Current;
+        _access.GrantsChanged += OnGrantsChanged;
         _worker = Task.Run(WorkAsync);
     }
 
@@ -67,6 +70,7 @@ public sealed class SearchIndexer : IAsyncDisposable
 
     public void EnsureRoot(string directory)
     {
+        _access.EnsureAccess(directory);
         var root = SearchPath.Normalize(directory);
         lock (_gate)
         {
@@ -141,7 +145,7 @@ public sealed class SearchIndexer : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (_disposed || IsDatabaseFile(change.Path)) return;
+            if (_disposed || !_access.CanAccess(state.Root) || !_access.CanAccess(change.Path) || IsDatabaseFile(change.Path)) return;
             state.ObservedId = change.RestartWatcher ? change.EventId : Math.Max(state.ObservedId, change.EventId);
             state.RestartWatcher |= change.RestartWatcher;
             if (change.MustRescan)
@@ -154,6 +158,32 @@ public sealed class SearchIndexer : IAsyncDisposable
             if (parent != null && CanDescend(state.Root, parent)) AddDirty(state, parent, false);
             if (change.IsDirectory && CanDescend(state.Root, change.Path)) AddDirty(state, change.Path, true);
         }
+    }
+
+    private void OnGrantsChanged()
+    {
+        var watchers = new List<IDisposable>();
+        lock (_gate)
+        {
+            if (_disposed) return;
+            foreach (var state in _roots.Values.Where(state => _access.CanAccess(state.Root)
+                         && state.Status.Phase == SearchIndexPhase.Unavailable))
+                AddDirty(state, state.Root, recursive: true);
+            foreach (var state in _roots.Values.Where(state => !_access.CanAccess(state.Root)))
+            {
+                if (state.Watcher != null) watchers.Add(state.Watcher);
+                state.Watcher = null;
+                state.Pending.Clear();
+                state.LastAttempt = DateTimeOffset.MinValue;
+                state.Status = state.Status with { Phase = SearchIndexPhase.Unavailable, Error = "目录授权已撤销。" };
+                Pulse(state);
+            }
+        }
+        // Native callbacks take _gate; drain them after releasing it.
+        foreach (var watcher in watchers) watcher.Dispose();
+        // A recovered or moved grant may not have had a root state at startup.
+        foreach (var root in _access.AuthorizedRoots)
+            if (Directory.Exists(root)) EnsureRoot(root);
     }
 
     private async Task WorkAsync()
@@ -182,6 +212,7 @@ public sealed class SearchIndexer : IAsyncDisposable
                 var unavailable = false;
                 try
                 {
+                    _access.EnsureAccess(state.Root);
                     if (!state.Started)
                     {
                         state.Checkpoint = await _catalog.GetCheckpointAsync(state.Root, ct).ConfigureAwait(false);
@@ -195,7 +226,16 @@ public sealed class SearchIndexer : IAsyncDisposable
                     }
                     if (state.Watcher == null)
                     {
-                        try { state.Watcher = _changes.Watch(state.Root, state.Checkpoint, change => OnChange(state, change), fullScan); }
+                        try
+                        {
+                            var watcher = _changes.Watch(state.Root, state.Checkpoint, change => OnChange(state, change), fullScan);
+                            var retained = false;
+                            lock (_gate)
+                            {
+                                if (_access.CanAccess(state.Root)) { state.Watcher = watcher; retained = true; }
+                            }
+                            if (!retained) { watcher.Dispose(); _access.EnsureAccess(state.Root); }
+                        }
                         catch (Exception ex) { errors++; error = "变更监听不可用: " + ex.Message; }
                     }
                     if (fullScan)
@@ -217,9 +257,11 @@ public sealed class SearchIndexer : IAsyncDisposable
                     await _catalog.SaveCheckpointAsync(state.Root, state.Checkpoint, phase, ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (UnauthorizedAccessException ex) { errors++; error = ex.Message; unavailable = true; }
                 catch (Exception ex) { errors++; error = ex.Message; }
                 lock (_gate)
                 {
+                    unavailable |= !_access.CanAccess(state.Root);
                     var phase = unavailable ? SearchIndexPhase.Unavailable : errors > 0 ? SearchIndexPhase.Partial : SearchIndexPhase.Ready;
                     state.Status = state.Status with { Phase = phase, FailedDirectories = errors, Error = error };
                     if (state.Pending.Count > 0)
@@ -252,6 +294,7 @@ public sealed class SearchIndexer : IAsyncDisposable
             var complete = true;
             try
             {
+                _access.EnsureAccess(current);
                 var info = new DirectoryInfo(current);
                 // Reading Attributes throws for an absent/unreadable root instead of silently
                 // interpreting Directory.Exists(false) as an empty directory and deleting records.
@@ -264,6 +307,8 @@ public sealed class SearchIndexer : IAsyncDisposable
                 }))
                 {
                     ct.ThrowIfCancellationRequested();
+                    _access.EnsureAccess(current);
+                    if (!_access.CanAccess(entry.FullName)) continue;
                     if (IsDatabaseFile(entry.FullName) || entry.Name.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)) continue;
                     try
                     {
@@ -284,15 +329,18 @@ public sealed class SearchIndexer : IAsyncDisposable
                         error = ex.Message;
                     }
                     if (batch.Count < 256) continue;
+                    _access.EnsureAccess(current);
                     await _catalog.UpsertBatchAsync(batch, scan, ct).ConfigureAwait(false);
                     PublishProgress(state, batch.Count);
                     batch.Clear();
                 }
                 if (batch.Count > 0)
                 {
+                    _access.EnsureAccess(current);
                     await _catalog.UpsertBatchAsync(batch, scan, ct).ConfigureAwait(false);
                     PublishProgress(state, batch.Count);
                 }
+                _access.EnsureAccess(current);
                 if (complete) await _catalog.CompleteDirectoryAsync(current, scan, ct).ConfigureAwait(false);
                 else failures++;
             }
@@ -355,6 +403,7 @@ public sealed class SearchIndexer : IAsyncDisposable
         {
             if (_disposeTask != null) return new ValueTask(_disposeTask);
             _disposed = true;
+            _access.GrantsChanged -= OnGrantsChanged;
             foreach (var state in _roots.Values) Pulse(state);
             return new ValueTask(_disposeTask = DisposeCoreAsync());
         }

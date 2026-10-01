@@ -153,6 +153,7 @@ internal sealed class MarkdownDocument
 
     private static string ResolveWritePath(string path)
     {
+        DirectoryAccess.Current.EnsureAccess(path);
         var info = new FileInfo(path);
         // Atomic replacement must replace the destination, not destroy the symbolic link.
         return info.LinkTarget == null ? info.FullName

@@ -1,8 +1,10 @@
+import CoreServices
 import Foundation
 import Vision
 import CoreLocation
 import PDFKit
 import AppKit
+import ImageIO
 
 struct FaceResult: Codable {
     let BoundingBoxX: Float
@@ -56,41 +58,41 @@ func keywords(from text: String) -> [String] {
 }
 
 func metadata(for path: String) -> [String: String] {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/mdls")
-    process.arguments = [
-        "-name", "kMDItemLatitude",
-        "-name", "kMDItemLongitude",
-        "-name", "kMDItemContentCreationDate",
-        "-name", "kMDItemAcquisitionMake",
-        "-name", "kMDItemAcquisitionModel",
-        path
-    ]
-    let pipe = Pipe()
-    process.standardOutput = pipe
-    process.standardError = FileHandle.nullDevice
-    do {
-        try process.run()
-        process.waitUntilExit()
-    } catch {
-        return [:]
-    }
-
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    guard let output = String(data: data, encoding: .utf8) else { return [:] }
     var values: [String: String] = [:]
-    for line in output.split(separator: "\n") {
-        let parts = line.split(separator: "=", maxSplits: 1)
-        guard parts.count == 2 else { continue }
-        let key = parts[0].trimmingCharacters(in: .whitespaces)
-        let value = parts[1].trimmingCharacters(in: .whitespaces)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-        if value != "(null)" { values[key] = value }
+    if let item = MDItemCreate(kCFAllocatorDefault, path as CFString) {
+        for key in ["kMDItemLatitude", "kMDItemLongitude", "kMDItemContentCreationDate", "kMDItemAcquisitionMake", "kMDItemAcquisitionModel"] {
+            if let value = MDItemCopyAttribute(item, key as CFString) { values[key] = String(describing: value) }
+        }
+    }
+    // Read locally even when Spotlight has not indexed the image (e.g. a newly copied photo).
+    if let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+       let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
+        if let gps = properties[kCGImagePropertyGPSDictionary as String] as? [String: Any] {
+            if let latitude = gps[kCGImagePropertyGPSLatitude as String] as? NSNumber {
+                values["kMDItemLatitude"] = String(latitude.doubleValue * ((gps[kCGImagePropertyGPSLatitudeRef as String] as? String) == "S" ? -1 : 1))
+            }
+            if let longitude = gps[kCGImagePropertyGPSLongitude as String] as? NSNumber {
+                values["kMDItemLongitude"] = String(longitude.doubleValue * ((gps[kCGImagePropertyGPSLongitudeRef as String] as? String) == "W" ? -1 : 1))
+            }
+        }
+        if let tiff = properties[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
+            values["kMDItemAcquisitionMake"] = values["kMDItemAcquisitionMake"] ?? tiff[kCGImagePropertyTIFFMake as String] as? String
+            values["kMDItemAcquisitionModel"] = values["kMDItemAcquisitionModel"] ?? tiff[kCGImagePropertyTIFFModel as String] as? String
+        }
     }
     return values
 }
 
+func locationNetworkAllowed() -> Bool {
+    let args = CommandLine.arguments
+    guard args.count == 5, args[2] == "--location-consent", !args[4].isEmpty,
+          let current = try? String(contentsOfFile: args[3], encoding: .utf8) else { return false }
+    return current == args[4]
+}
+
 func reverseGeocode(latitude: Double, longitude: Double) -> String? {
+    // No arguments, missing/revoked lease, or an old helper invocation all fail closed.
+    guard locationNetworkAllowed() else { return nil }
     let semaphore = DispatchSemaphore(value: 0)
     var result: String?
     CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: latitude, longitude: longitude)) { placemarks, _ in

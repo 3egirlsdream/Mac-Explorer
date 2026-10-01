@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="https://3egirlsdream.github.io/Mac-Explorer/">官网 · Website</a> ·
+  <a href="https://3egirlsdream.github.io/Mac-Explorer/privacy/">隐私政策 · Privacy</a> ·
   <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest">下载 · Download</a> ·
   <a href="https://github.com/3egirlsdream/Mac-Explorer/releases">更新记录 · Releases</a> ·
   <a href="https://github.com/3egirlsdream/Mac-Explorer/issues">反馈 · Issues</a>

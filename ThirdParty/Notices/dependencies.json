@@ -1,0 +1,1882 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "package": "AnimatedImage.Avalonia/2.1.4",
+      "license": "Apache-2.0",
+      "authors": "Thomas Levesque, whistyun",
+      "copyright": "",
+      "sources": [
+        "https://raw.githubusercontent.com/whistyun/AnimatedImage/f8a9b75e525d7fbd5749497d2a44fd4d7255077d/LICENSE.txt"
+      ],
+      "notice": "Dependencies/AnimatedImage.Avalonia-2.1.4.txt",
+      "sha256": "7a271061e1a85fa8145fd81dabb06a6df6ad205811e4936117e7b3c601b0640e",
+      "artifacts": [
+        "AnimatedImage.Avalonia.dll"
+      ]
+    },
+    {
+      "package": "AnimatedImage/2.1.4",
+      "license": "Apache-2.0",
+      "authors": "Thomas Levesque, whistyun",
+      "copyright": "",
+      "sources": [
+        "https://raw.githubusercontent.com/whistyun/AnimatedImage/f8a9b75e525d7fbd5749497d2a44fd4d7255077d/LICENSE.txt"
+      ],
+      "notice": "Dependencies/AnimatedImage-2.1.4.txt",
+      "sha256": "877892ba7f01f2efd8ebd0fb93e9f6fadc0fe0bb70ffb0d58fa6de47034fdfe5",
+      "artifacts": [
+        "AnimatedImage.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.Angle.Windows.Natives/2.1.27548.20260419",
+      "license": "LICENSE",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "nuget:Avalonia.Angle.Windows.Natives/2.1.27548.20260419/LICENSE"
+      ],
+      "notice": "Dependencies/Avalonia.Angle.Windows.Natives-2.1.27548.20260419.txt",
+      "sha256": "ee415b09553a5b3ade71277df64e4c55938e849b79d1eef3bcac05645a0caef8",
+      "artifacts": []
+    },
+    {
+      "package": "Avalonia.AvaloniaEdit/12.0.0",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2017-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://raw.githubusercontent.com/AvaloniaUI/AvaloniaEdit/86fdebec4cff7affb0e14c7885df71d28edce777/LICENSE"
+      ],
+      "notice": "Dependencies/Avalonia.AvaloniaEdit-12.0.0.txt",
+      "sha256": "270f4bd9f2046571e2de24f328fbf8b9194ff25dc83120bd9a55e31b6a9ddab3",
+      "artifacts": [
+        "AvaloniaEdit.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.BuildServices/11.3.2",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2023-2025 © The AvaloniaUI Project",
+      "sources": [
+        "https://raw.githubusercontent.com/AvaloniaUI/Avalonia.BuildServices/777f975b0a0cecf0311273711d56697212c558c0/LICENSE"
+      ],
+      "notice": "Dependencies/Avalonia.BuildServices-11.3.2.txt",
+      "sha256": "29e5a8f9a922f257ec685dd58bf16ab906662b95ba9de7870a129ca4b32c059e",
+      "artifacts": []
+    },
+    {
+      "package": "Avalonia.Desktop/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.Desktop.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.FreeDesktop.AtSpi/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.FreeDesktop.AtSpi.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.FreeDesktop/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.FreeDesktop.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.HarfBuzz/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.HarfBuzz.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.Native/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.Native.dll",
+        "libAvaloniaNative.dylib"
+      ]
+    },
+    {
+      "package": "Avalonia.Remote.Protocol/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.Remote.Protocol.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.Skia/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.Skia.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.Themes.Fluent/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.Themes.Fluent.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.Win32/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.Win32.Automation.dll",
+        "Avalonia.Win32.dll"
+      ]
+    },
+    {
+      "package": "Avalonia.X11/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.X11.dll"
+      ]
+    },
+    {
+      "package": "Avalonia/12.0.4",
+      "license": "MIT",
+      "authors": "Avalonia Team",
+      "copyright": "Copyright 2013-2026 © The AvaloniaUI Project",
+      "sources": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/a8dd6417fd8918570edefdbecd92d16ac7620069/licence.md"
+      ],
+      "notice": "Dependencies/Avalonia-12.0.4.txt",
+      "sha256": "be88b7873b3c52cead3db186eeb394b5fd1f9917b7f3f8d848656bb71125824e",
+      "artifacts": [
+        "Avalonia.Base.dll",
+        "Avalonia.Controls.dll",
+        "Avalonia.DesignerSupport.dll",
+        "Avalonia.Dialogs.dll",
+        "Avalonia.Markup.Xaml.dll",
+        "Avalonia.Markup.dll",
+        "Avalonia.Metal.dll",
+        "Avalonia.MicroCom.dll",
+        "Avalonia.OpenGL.dll",
+        "Avalonia.Vulkan.dll",
+        "Avalonia.dll"
+      ]
+    },
+    {
+      "package": "BouncyCastle.Cryptography/2.7.0",
+      "license": "MIT",
+      "authors": "Legion of the Bouncy Castle Inc.",
+      "copyright": "Copyright © Legion of the Bouncy Castle Inc. 2000-2026",
+      "sources": [
+        "nuget:BouncyCastle.Cryptography/2.7.0/LICENSE.md"
+      ],
+      "notice": "Dependencies/BouncyCastle.Cryptography-2.7.0.txt",
+      "sha256": "fbcca9e6a4dfd6a0cd3fe17b9cad1073d440f4e51dc2cd31c3a7ad64c1de885b",
+      "artifacts": [
+        "BouncyCastle.Cryptography.dll"
+      ]
+    },
+    {
+      "package": "CodeWF.Markdown.Themes/12.0.4.3",
+      "license": "MIT",
+      "authors": "沙漠尽头的狼",
+      "copyright": "https://codewf.com",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet9/CodeWF.Markdown/e29c2a881262dce04b7f5f397de9d6fc1a8cf970/LICENSE"
+      ],
+      "notice": "Dependencies/CodeWF.Markdown.Themes-12.0.4.3.txt",
+      "sha256": "0ca3a15ebc799ecc31fdefcde22e5f11411fc25deb8499f223b65fd4cd1b4bd5",
+      "artifacts": [
+        "CodeWF.Markdown.Themes.dll"
+      ]
+    },
+    {
+      "package": "CodeWF.Markdown/12.0.4.3",
+      "license": "MIT",
+      "authors": "沙漠尽头的狼",
+      "copyright": "https://codewf.com",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet9/CodeWF.Markdown/e29c2a881262dce04b7f5f397de9d6fc1a8cf970/LICENSE"
+      ],
+      "notice": "Dependencies/CodeWF.Markdown-12.0.4.3.txt",
+      "sha256": "17f1a95e4933adaaf0958d6086a6b2ae9f1e073e22903a2d15b9fb169cb1178f",
+      "artifacts": [
+        "CodeWF.Markdown.dll"
+      ]
+    },
+    {
+      "package": "CommunityToolkit.Mvvm/8.4.2",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "(c) .NET Foundation and Contributors. All rights reserved.",
+      "sources": [
+        "nuget:CommunityToolkit.Mvvm/8.4.2/License.md",
+        "nuget:CommunityToolkit.Mvvm/8.4.2/ThirdPartyNotices.txt"
+      ],
+      "notice": "Dependencies/CommunityToolkit.Mvvm-8.4.2.txt",
+      "sha256": "8f042a3b67bbafc661670b14ee23dc12fd3ff846225e33557d18858da46b3a66",
+      "artifacts": [
+        "CommunityToolkit.Mvvm.dll"
+      ]
+    },
+    {
+      "package": "DocumentFormat.OpenXml.Framework/3.1.1",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/Open-XML-SDK/f9e6ad7524e22b6b1f932deabc9055201b7870c0/LICENSE"
+      ],
+      "notice": "Dependencies/DocumentFormat.OpenXml.Framework-3.1.1.txt",
+      "sha256": "4c6034bd9710405edef3ffb5678fce248213b5e3eac2522334d117f3a7b2dc73",
+      "artifacts": [
+        "DocumentFormat.OpenXml.Framework.dll"
+      ]
+    },
+    {
+      "package": "DocumentFormat.OpenXml/3.1.1",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/Open-XML-SDK/f9e6ad7524e22b6b1f932deabc9055201b7870c0/LICENSE"
+      ],
+      "notice": "Dependencies/DocumentFormat.OpenXml-3.1.1.txt",
+      "sha256": "24b40c2edbcaa79ed5dd1fa937d0cfa55334825d3ea7a070ef7b5e338910b966",
+      "artifacts": [
+        "DocumentFormat.OpenXml.dll"
+      ]
+    },
+    {
+      "package": "ExCSS/4.3.1",
+      "license": "MIT",
+      "authors": "Tyler Brinks",
+      "copyright": "",
+      "sources": [
+        "https://raw.githubusercontent.com/TylerBrinks/ExCSS/c97e84d6126bb2e42658cf5af627d52e697c8779/license.txt"
+      ],
+      "notice": "Dependencies/ExCSS-4.3.1.txt",
+      "sha256": "86a6a185efcbc616e460f13279efb957940f47baa7733c37a34decca17cbad3f",
+      "artifacts": [
+        "ExCSS.dll"
+      ]
+    },
+    {
+      "package": "Google.Protobuf/3.30.2",
+      "license": "BSD-3-Clause",
+      "authors": "Google Inc.",
+      "copyright": "Copyright 2015, Google Inc.",
+      "sources": [
+        "https://raw.githubusercontent.com/protocolbuffers/protobuf/43e1626812c1b543e56a7bec59dc09eb18248bd2/LICENSE"
+      ],
+      "notice": "Dependencies/Google.Protobuf-3.30.2.txt",
+      "sha256": "81341a9b106da622c4539933de29f9f5fe3370a10b9bf05be556d49a16305dff",
+      "artifacts": [
+        "Google.Protobuf.dll"
+      ]
+    },
+    {
+      "package": "HarfBuzzSharp.NativeAssets.Linux/8.3.1.3",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:HarfBuzzSharp.NativeAssets.Linux/8.3.1.3/THIRD-PARTY-NOTICES.txt",
+        "nuget:HarfBuzzSharp.NativeAssets.Linux/8.3.1.3/LICENSE.txt"
+      ],
+      "notice": "Dependencies/HarfBuzzSharp.NativeAssets.Linux-8.3.1.3.txt",
+      "sha256": "df14416f721acb1b3eabfda467db84c758503482384a7338d845fca9e07d684c",
+      "artifacts": []
+    },
+    {
+      "package": "HarfBuzzSharp.NativeAssets.macOS/8.3.1.3",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:HarfBuzzSharp.NativeAssets.macOS/8.3.1.3/THIRD-PARTY-NOTICES.txt",
+        "nuget:HarfBuzzSharp.NativeAssets.macOS/8.3.1.3/LICENSE.txt"
+      ],
+      "notice": "Dependencies/HarfBuzzSharp.NativeAssets.macOS-8.3.1.3.txt",
+      "sha256": "3a185288c56ce98cb1844b81dd78432b98430b8950f3c2a70653d3bb7764c7fb",
+      "artifacts": [
+        "libHarfBuzzSharp.dylib"
+      ]
+    },
+    {
+      "package": "HarfBuzzSharp.NativeAssets.WebAssembly/8.3.1.3",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:HarfBuzzSharp.NativeAssets.WebAssembly/8.3.1.3/THIRD-PARTY-NOTICES.txt",
+        "nuget:HarfBuzzSharp.NativeAssets.WebAssembly/8.3.1.3/LICENSE.txt"
+      ],
+      "notice": "Dependencies/HarfBuzzSharp.NativeAssets.WebAssembly-8.3.1.3.txt",
+      "sha256": "6ebcf3a8cbaad9998c8119ac82fcc9cad61b4a4bc03dad84d093b280e9ef5b56",
+      "artifacts": []
+    },
+    {
+      "package": "HarfBuzzSharp.NativeAssets.Win32/8.3.1.3",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:HarfBuzzSharp.NativeAssets.Win32/8.3.1.3/THIRD-PARTY-NOTICES.txt",
+        "nuget:HarfBuzzSharp.NativeAssets.Win32/8.3.1.3/LICENSE.txt"
+      ],
+      "notice": "Dependencies/HarfBuzzSharp.NativeAssets.Win32-8.3.1.3.txt",
+      "sha256": "9cd8a56bd89911c5db84b691db1064f60b2e56e1667976279e41e60eb1bdbea4",
+      "artifacts": []
+    },
+    {
+      "package": "HarfBuzzSharp/8.3.1.3",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:HarfBuzzSharp/8.3.1.3/LICENSE.txt"
+      ],
+      "notice": "Dependencies/HarfBuzzSharp-8.3.1.3.txt",
+      "sha256": "3e748b3a26d0c5b867d8c78d1bfac76e0643041dc30f38c1d804072085520dcf",
+      "artifacts": [
+        "HarfBuzzSharp.dll"
+      ]
+    },
+    {
+      "package": "Lang.Avalonia.Json/12.0.3.3",
+      "license": "MIT",
+      "authors": "沙漠尽头的狼",
+      "copyright": "Copyright (c) 2025 https://codewf.com",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet9/Lang.Avalonia/623ceb09c96aa4b92c44e715125a32c321895e80/LICENSE"
+      ],
+      "notice": "Dependencies/Lang.Avalonia.Json-12.0.3.3.txt",
+      "sha256": "f1ad3b4d443e42534f7e89c71f7acfb9c2cca5c7d786013a02ab3d7681c41e48",
+      "artifacts": [
+        "Lang.Avalonia.Json.dll"
+      ]
+    },
+    {
+      "package": "Lang.Avalonia/12.0.3.3",
+      "license": "MIT",
+      "authors": "沙漠尽头的狼",
+      "copyright": "Copyright (c) 2025 https://codewf.com",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet9/Lang.Avalonia/623ceb09c96aa4b92c44e715125a32c321895e80/LICENSE"
+      ],
+      "notice": "Dependencies/Lang.Avalonia-12.0.3.3.txt",
+      "sha256": "d5f020748d90cf1e8ba9daec7171310539f761553cf1132faad1872d598bd390",
+      "artifacts": [
+        "Lang.Avalonia.dll"
+      ]
+    },
+    {
+      "package": "Markdig/1.3.2",
+      "license": "BSD-2-Clause",
+      "authors": "Alexandre Mutel",
+      "copyright": "Alexandre Mutel",
+      "sources": [
+        "https://raw.githubusercontent.com/xoofx/markdig/fc705234fa211d179ee1d5e7656b51ab99f70ca9/license.txt"
+      ],
+      "notice": "Dependencies/Markdig-1.3.2.txt",
+      "sha256": "ef2554e4a57c171396c178b8b01dd207c63fd509bc6542c240e20e8d474298a0",
+      "artifacts": [
+        "Markdig.dll"
+      ]
+    },
+    {
+      "package": "MicroCom.Runtime/0.11.4",
+      "license": "MIT",
+      "authors": "MicroCom.Runtime",
+      "copyright": "Copyright 2021 © Nikita Tsukanov",
+      "sources": [
+        "https://raw.githubusercontent.com/kekekeks/MicroCom/28850f85fb586488828ab7267ed4a87e8c970b51/LICENSE"
+      ],
+      "notice": "Dependencies/MicroCom.Runtime-0.11.4.txt",
+      "sha256": "054510e4ea966f09c72aac79c6e7f3ba8cd797eb5384178457db9392980b5fa5",
+      "artifacts": [
+        "MicroCom.Runtime.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Agents.AI.Abstractions/1.22.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/microsoft/agent-framework/main/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Agents.AI.Abstractions-1.22.0.txt",
+      "sha256": "77b736b7ab03818e9a54016cceed6feb02f4814f0c24654d5839f50522494017",
+      "artifacts": [
+        "Microsoft.Agents.AI.Abstractions.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Agents.AI/1.22.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/microsoft/agent-framework/main/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Agents.AI-1.22.0.txt",
+      "sha256": "abd516e349fa4799896721e052e8fb763b2ea430dd391d0ea2dc0dbd5d10a807",
+      "artifacts": [
+        "Microsoft.Agents.AI.dll"
+      ]
+    },
+    {
+      "package": "microsoft.aspnetcore.app.runtime.osx-arm64/10.0.5",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:microsoft.aspnetcore.app.runtime.osx-arm64/10.0.5/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.aspnetcore.app.runtime.osx-arm64/10.0.5/LICENSE.txt"
+      ],
+      "notice": "Dependencies/microsoft.aspnetcore.app.runtime.osx-arm64-10.0.5.txt",
+      "sha256": "96f08e1ca239e25015ba6701c93b4ca42bc7c70320aa4cd438f1158cb0bd77f8",
+      "artifacts": [
+        "Microsoft.AspNetCore.Antiforgery.dll",
+        "Microsoft.AspNetCore.Authentication.Abstractions.dll",
+        "Microsoft.AspNetCore.Authentication.BearerToken.dll",
+        "Microsoft.AspNetCore.Authentication.Cookies.dll",
+        "Microsoft.AspNetCore.Authentication.Core.dll",
+        "Microsoft.AspNetCore.Authentication.OAuth.dll",
+        "Microsoft.AspNetCore.Authentication.dll",
+        "Microsoft.AspNetCore.Authorization.Policy.dll",
+        "Microsoft.AspNetCore.Authorization.dll",
+        "Microsoft.AspNetCore.Components.Authorization.dll",
+        "Microsoft.AspNetCore.Components.Endpoints.dll",
+        "Microsoft.AspNetCore.Components.Forms.dll",
+        "Microsoft.AspNetCore.Components.Server.dll",
+        "Microsoft.AspNetCore.Components.Web.dll",
+        "Microsoft.AspNetCore.Components.dll",
+        "Microsoft.AspNetCore.Connections.Abstractions.dll",
+        "Microsoft.AspNetCore.CookiePolicy.dll",
+        "Microsoft.AspNetCore.Cors.dll",
+        "Microsoft.AspNetCore.Cryptography.Internal.dll",
+        "Microsoft.AspNetCore.Cryptography.KeyDerivation.dll",
+        "Microsoft.AspNetCore.DataProtection.Abstractions.dll",
+        "Microsoft.AspNetCore.DataProtection.Extensions.dll",
+        "Microsoft.AspNetCore.DataProtection.dll",
+        "Microsoft.AspNetCore.Diagnostics.Abstractions.dll",
+        "Microsoft.AspNetCore.Diagnostics.HealthChecks.dll",
+        "Microsoft.AspNetCore.Diagnostics.dll",
+        "Microsoft.AspNetCore.HostFiltering.dll",
+        "Microsoft.AspNetCore.Hosting.Abstractions.dll",
+        "Microsoft.AspNetCore.Hosting.Server.Abstractions.dll",
+        "Microsoft.AspNetCore.Hosting.dll",
+        "Microsoft.AspNetCore.Html.Abstractions.dll",
+        "Microsoft.AspNetCore.Http.Abstractions.dll",
+        "Microsoft.AspNetCore.Http.Connections.Common.dll",
+        "Microsoft.AspNetCore.Http.Connections.dll",
+        "Microsoft.AspNetCore.Http.Extensions.dll",
+        "Microsoft.AspNetCore.Http.Features.dll",
+        "Microsoft.AspNetCore.Http.Results.dll",
+        "Microsoft.AspNetCore.Http.dll",
+        "Microsoft.AspNetCore.HttpLogging.dll",
+        "Microsoft.AspNetCore.HttpOverrides.dll",
+        "Microsoft.AspNetCore.HttpsPolicy.dll",
+        "Microsoft.AspNetCore.Identity.dll",
+        "Microsoft.AspNetCore.Localization.Routing.dll",
+        "Microsoft.AspNetCore.Localization.dll",
+        "Microsoft.AspNetCore.Metadata.dll",
+        "Microsoft.AspNetCore.Mvc.Abstractions.dll",
+        "Microsoft.AspNetCore.Mvc.ApiExplorer.dll",
+        "Microsoft.AspNetCore.Mvc.Core.dll",
+        "Microsoft.AspNetCore.Mvc.Cors.dll",
+        "Microsoft.AspNetCore.Mvc.DataAnnotations.dll",
+        "Microsoft.AspNetCore.Mvc.Formatters.Json.dll",
+        "Microsoft.AspNetCore.Mvc.Formatters.Xml.dll",
+        "Microsoft.AspNetCore.Mvc.Localization.dll",
+        "Microsoft.AspNetCore.Mvc.Razor.dll",
+        "Microsoft.AspNetCore.Mvc.RazorPages.dll",
+        "Microsoft.AspNetCore.Mvc.TagHelpers.dll",
+        "Microsoft.AspNetCore.Mvc.ViewFeatures.dll",
+        "Microsoft.AspNetCore.Mvc.dll",
+        "Microsoft.AspNetCore.OutputCaching.dll",
+        "Microsoft.AspNetCore.RateLimiting.dll",
+        "Microsoft.AspNetCore.Razor.Runtime.dll",
+        "Microsoft.AspNetCore.Razor.dll",
+        "Microsoft.AspNetCore.RequestDecompression.dll",
+        "Microsoft.AspNetCore.ResponseCaching.Abstractions.dll",
+        "Microsoft.AspNetCore.ResponseCaching.dll",
+        "Microsoft.AspNetCore.ResponseCompression.dll",
+        "Microsoft.AspNetCore.Rewrite.dll",
+        "Microsoft.AspNetCore.Routing.Abstractions.dll",
+        "Microsoft.AspNetCore.Routing.dll",
+        "Microsoft.AspNetCore.Server.HttpSys.dll",
+        "Microsoft.AspNetCore.Server.IIS.dll",
+        "Microsoft.AspNetCore.Server.IISIntegration.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Core.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Transport.NamedPipes.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Transport.Quic.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.dll",
+        "Microsoft.AspNetCore.Session.dll",
+        "Microsoft.AspNetCore.SignalR.Common.dll",
+        "Microsoft.AspNetCore.SignalR.Core.dll",
+        "Microsoft.AspNetCore.SignalR.Protocols.Json.dll",
+        "Microsoft.AspNetCore.SignalR.dll",
+        "Microsoft.AspNetCore.StaticAssets.dll",
+        "Microsoft.AspNetCore.StaticFiles.dll",
+        "Microsoft.AspNetCore.WebSockets.dll",
+        "Microsoft.AspNetCore.WebUtilities.dll",
+        "Microsoft.AspNetCore.dll",
+        "Microsoft.Extensions.Caching.Abstractions.dll",
+        "Microsoft.Extensions.Caching.Memory.dll",
+        "Microsoft.Extensions.Configuration.Abstractions.dll",
+        "Microsoft.Extensions.Configuration.Binder.dll",
+        "Microsoft.Extensions.Configuration.CommandLine.dll",
+        "Microsoft.Extensions.Configuration.EnvironmentVariables.dll",
+        "Microsoft.Extensions.Configuration.FileExtensions.dll",
+        "Microsoft.Extensions.Configuration.Ini.dll",
+        "Microsoft.Extensions.Configuration.Json.dll",
+        "Microsoft.Extensions.Configuration.KeyPerFile.dll",
+        "Microsoft.Extensions.Configuration.UserSecrets.dll",
+        "Microsoft.Extensions.Configuration.Xml.dll",
+        "Microsoft.Extensions.Configuration.dll",
+        "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+        "Microsoft.Extensions.DependencyInjection.dll",
+        "Microsoft.Extensions.Diagnostics.Abstractions.dll",
+        "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions.dll",
+        "Microsoft.Extensions.Diagnostics.HealthChecks.dll",
+        "Microsoft.Extensions.Diagnostics.dll",
+        "Microsoft.Extensions.Features.dll",
+        "Microsoft.Extensions.FileProviders.Abstractions.dll",
+        "Microsoft.Extensions.FileProviders.Composite.dll",
+        "Microsoft.Extensions.FileProviders.Embedded.dll",
+        "Microsoft.Extensions.FileProviders.Physical.dll",
+        "Microsoft.Extensions.FileSystemGlobbing.dll",
+        "Microsoft.Extensions.Hosting.Abstractions.dll",
+        "Microsoft.Extensions.Hosting.dll",
+        "Microsoft.Extensions.Http.dll",
+        "Microsoft.Extensions.Identity.Core.dll",
+        "Microsoft.Extensions.Identity.Stores.dll",
+        "Microsoft.Extensions.Localization.Abstractions.dll",
+        "Microsoft.Extensions.Localization.dll",
+        "Microsoft.Extensions.Logging.Abstractions.dll",
+        "Microsoft.Extensions.Logging.Configuration.dll",
+        "Microsoft.Extensions.Logging.Console.dll",
+        "Microsoft.Extensions.Logging.Debug.dll",
+        "Microsoft.Extensions.Logging.EventLog.dll",
+        "Microsoft.Extensions.Logging.EventSource.dll",
+        "Microsoft.Extensions.Logging.TraceSource.dll",
+        "Microsoft.Extensions.Logging.dll",
+        "Microsoft.Extensions.ObjectPool.dll",
+        "Microsoft.Extensions.Options.ConfigurationExtensions.dll",
+        "Microsoft.Extensions.Options.DataAnnotations.dll",
+        "Microsoft.Extensions.Options.dll",
+        "Microsoft.Extensions.Primitives.dll",
+        "Microsoft.Extensions.Validation.dll",
+        "Microsoft.Extensions.WebEncoders.dll",
+        "Microsoft.JSInterop.dll",
+        "Microsoft.Net.Http.Headers.dll",
+        "System.Diagnostics.EventLog.dll",
+        "System.Formats.Cbor.dll",
+        "System.Security.Cryptography.Pkcs.dll",
+        "System.Security.Cryptography.Xml.dll",
+        "System.Threading.RateLimiting.dll"
+      ]
+    },
+    {
+      "package": "microsoft.aspnetcore.app.runtime.osx-x64/10.0.5",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:microsoft.aspnetcore.app.runtime.osx-x64/10.0.5/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.aspnetcore.app.runtime.osx-x64/10.0.5/LICENSE.txt"
+      ],
+      "notice": "Dependencies/microsoft.aspnetcore.app.runtime.osx-arm64-10.0.5.txt",
+      "sha256": "96f08e1ca239e25015ba6701c93b4ca42bc7c70320aa4cd438f1158cb0bd77f8",
+      "artifacts": [
+        "Microsoft.AspNetCore.Antiforgery.dll",
+        "Microsoft.AspNetCore.Authentication.Abstractions.dll",
+        "Microsoft.AspNetCore.Authentication.BearerToken.dll",
+        "Microsoft.AspNetCore.Authentication.Cookies.dll",
+        "Microsoft.AspNetCore.Authentication.Core.dll",
+        "Microsoft.AspNetCore.Authentication.OAuth.dll",
+        "Microsoft.AspNetCore.Authentication.dll",
+        "Microsoft.AspNetCore.Authorization.Policy.dll",
+        "Microsoft.AspNetCore.Authorization.dll",
+        "Microsoft.AspNetCore.Components.Authorization.dll",
+        "Microsoft.AspNetCore.Components.Endpoints.dll",
+        "Microsoft.AspNetCore.Components.Forms.dll",
+        "Microsoft.AspNetCore.Components.Server.dll",
+        "Microsoft.AspNetCore.Components.Web.dll",
+        "Microsoft.AspNetCore.Components.dll",
+        "Microsoft.AspNetCore.Connections.Abstractions.dll",
+        "Microsoft.AspNetCore.CookiePolicy.dll",
+        "Microsoft.AspNetCore.Cors.dll",
+        "Microsoft.AspNetCore.Cryptography.Internal.dll",
+        "Microsoft.AspNetCore.Cryptography.KeyDerivation.dll",
+        "Microsoft.AspNetCore.DataProtection.Abstractions.dll",
+        "Microsoft.AspNetCore.DataProtection.Extensions.dll",
+        "Microsoft.AspNetCore.DataProtection.dll",
+        "Microsoft.AspNetCore.Diagnostics.Abstractions.dll",
+        "Microsoft.AspNetCore.Diagnostics.HealthChecks.dll",
+        "Microsoft.AspNetCore.Diagnostics.dll",
+        "Microsoft.AspNetCore.HostFiltering.dll",
+        "Microsoft.AspNetCore.Hosting.Abstractions.dll",
+        "Microsoft.AspNetCore.Hosting.Server.Abstractions.dll",
+        "Microsoft.AspNetCore.Hosting.dll",
+        "Microsoft.AspNetCore.Html.Abstractions.dll",
+        "Microsoft.AspNetCore.Http.Abstractions.dll",
+        "Microsoft.AspNetCore.Http.Connections.Common.dll",
+        "Microsoft.AspNetCore.Http.Connections.dll",
+        "Microsoft.AspNetCore.Http.Extensions.dll",
+        "Microsoft.AspNetCore.Http.Features.dll",
+        "Microsoft.AspNetCore.Http.Results.dll",
+        "Microsoft.AspNetCore.Http.dll",
+        "Microsoft.AspNetCore.HttpLogging.dll",
+        "Microsoft.AspNetCore.HttpOverrides.dll",
+        "Microsoft.AspNetCore.HttpsPolicy.dll",
+        "Microsoft.AspNetCore.Identity.dll",
+        "Microsoft.AspNetCore.Localization.Routing.dll",
+        "Microsoft.AspNetCore.Localization.dll",
+        "Microsoft.AspNetCore.Metadata.dll",
+        "Microsoft.AspNetCore.Mvc.Abstractions.dll",
+        "Microsoft.AspNetCore.Mvc.ApiExplorer.dll",
+        "Microsoft.AspNetCore.Mvc.Core.dll",
+        "Microsoft.AspNetCore.Mvc.Cors.dll",
+        "Microsoft.AspNetCore.Mvc.DataAnnotations.dll",
+        "Microsoft.AspNetCore.Mvc.Formatters.Json.dll",
+        "Microsoft.AspNetCore.Mvc.Formatters.Xml.dll",
+        "Microsoft.AspNetCore.Mvc.Localization.dll",
+        "Microsoft.AspNetCore.Mvc.Razor.dll",
+        "Microsoft.AspNetCore.Mvc.RazorPages.dll",
+        "Microsoft.AspNetCore.Mvc.TagHelpers.dll",
+        "Microsoft.AspNetCore.Mvc.ViewFeatures.dll",
+        "Microsoft.AspNetCore.Mvc.dll",
+        "Microsoft.AspNetCore.OutputCaching.dll",
+        "Microsoft.AspNetCore.RateLimiting.dll",
+        "Microsoft.AspNetCore.Razor.Runtime.dll",
+        "Microsoft.AspNetCore.Razor.dll",
+        "Microsoft.AspNetCore.RequestDecompression.dll",
+        "Microsoft.AspNetCore.ResponseCaching.Abstractions.dll",
+        "Microsoft.AspNetCore.ResponseCaching.dll",
+        "Microsoft.AspNetCore.ResponseCompression.dll",
+        "Microsoft.AspNetCore.Rewrite.dll",
+        "Microsoft.AspNetCore.Routing.Abstractions.dll",
+        "Microsoft.AspNetCore.Routing.dll",
+        "Microsoft.AspNetCore.Server.HttpSys.dll",
+        "Microsoft.AspNetCore.Server.IIS.dll",
+        "Microsoft.AspNetCore.Server.IISIntegration.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Core.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Transport.NamedPipes.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Transport.Quic.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.dll",
+        "Microsoft.AspNetCore.Server.Kestrel.dll",
+        "Microsoft.AspNetCore.Session.dll",
+        "Microsoft.AspNetCore.SignalR.Common.dll",
+        "Microsoft.AspNetCore.SignalR.Core.dll",
+        "Microsoft.AspNetCore.SignalR.Protocols.Json.dll",
+        "Microsoft.AspNetCore.SignalR.dll",
+        "Microsoft.AspNetCore.StaticAssets.dll",
+        "Microsoft.AspNetCore.StaticFiles.dll",
+        "Microsoft.AspNetCore.WebSockets.dll",
+        "Microsoft.AspNetCore.WebUtilities.dll",
+        "Microsoft.AspNetCore.dll",
+        "Microsoft.Extensions.Caching.Abstractions.dll",
+        "Microsoft.Extensions.Caching.Memory.dll",
+        "Microsoft.Extensions.Configuration.Abstractions.dll",
+        "Microsoft.Extensions.Configuration.Binder.dll",
+        "Microsoft.Extensions.Configuration.CommandLine.dll",
+        "Microsoft.Extensions.Configuration.EnvironmentVariables.dll",
+        "Microsoft.Extensions.Configuration.FileExtensions.dll",
+        "Microsoft.Extensions.Configuration.Ini.dll",
+        "Microsoft.Extensions.Configuration.Json.dll",
+        "Microsoft.Extensions.Configuration.KeyPerFile.dll",
+        "Microsoft.Extensions.Configuration.UserSecrets.dll",
+        "Microsoft.Extensions.Configuration.Xml.dll",
+        "Microsoft.Extensions.Configuration.dll",
+        "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+        "Microsoft.Extensions.DependencyInjection.dll",
+        "Microsoft.Extensions.Diagnostics.Abstractions.dll",
+        "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions.dll",
+        "Microsoft.Extensions.Diagnostics.HealthChecks.dll",
+        "Microsoft.Extensions.Diagnostics.dll",
+        "Microsoft.Extensions.Features.dll",
+        "Microsoft.Extensions.FileProviders.Abstractions.dll",
+        "Microsoft.Extensions.FileProviders.Composite.dll",
+        "Microsoft.Extensions.FileProviders.Embedded.dll",
+        "Microsoft.Extensions.FileProviders.Physical.dll",
+        "Microsoft.Extensions.FileSystemGlobbing.dll",
+        "Microsoft.Extensions.Hosting.Abstractions.dll",
+        "Microsoft.Extensions.Hosting.dll",
+        "Microsoft.Extensions.Http.dll",
+        "Microsoft.Extensions.Identity.Core.dll",
+        "Microsoft.Extensions.Identity.Stores.dll",
+        "Microsoft.Extensions.Localization.Abstractions.dll",
+        "Microsoft.Extensions.Localization.dll",
+        "Microsoft.Extensions.Logging.Abstractions.dll",
+        "Microsoft.Extensions.Logging.Configuration.dll",
+        "Microsoft.Extensions.Logging.Console.dll",
+        "Microsoft.Extensions.Logging.Debug.dll",
+        "Microsoft.Extensions.Logging.EventLog.dll",
+        "Microsoft.Extensions.Logging.EventSource.dll",
+        "Microsoft.Extensions.Logging.TraceSource.dll",
+        "Microsoft.Extensions.Logging.dll",
+        "Microsoft.Extensions.ObjectPool.dll",
+        "Microsoft.Extensions.Options.ConfigurationExtensions.dll",
+        "Microsoft.Extensions.Options.DataAnnotations.dll",
+        "Microsoft.Extensions.Options.dll",
+        "Microsoft.Extensions.Primitives.dll",
+        "Microsoft.Extensions.Validation.dll",
+        "Microsoft.Extensions.WebEncoders.dll",
+        "Microsoft.JSInterop.dll",
+        "Microsoft.Net.Http.Headers.dll",
+        "System.Diagnostics.EventLog.dll",
+        "System.Formats.Cbor.dll",
+        "System.Security.Cryptography.Pkcs.dll",
+        "System.Security.Cryptography.Xml.dll",
+        "System.Threading.RateLimiting.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Data.Sqlite.Core/10.0.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/dotnet/b0f34d51fccc69fd334253924abd8d6853fad7aa/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Microsoft.Data.Sqlite.Core-10.0.0.txt",
+      "sha256": "c0149518407e8899a43d3bb70f5d6bbcb5f7e2fce8e94d1d9d67edcede1b355f",
+      "artifacts": [
+        "Microsoft.Data.Sqlite.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Data.Sqlite/10.0.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/dotnet/b0f34d51fccc69fd334253924abd8d6853fad7aa/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Microsoft.Data.Sqlite-10.0.0.txt",
+      "sha256": "93fd6636a4c70f60056389c3e9235a0a561e3618a938af9266c47520dfc5be4d",
+      "artifacts": []
+    },
+    {
+      "package": "Microsoft.Extensions.AI.Abstractions/10.10.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/extensions/02107c65bab30aad9e35b5133ed643eaa77bccd8/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.AI.Abstractions-10.10.0.txt",
+      "sha256": "9b8926dc1c88f1483081777ee84fc6b02ef3672d711b8db9c1ad36611a135d2c",
+      "artifacts": [
+        "Microsoft.Extensions.AI.Abstractions.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Extensions.AI.Evaluation/10.10.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/extensions/02107c65bab30aad9e35b5133ed643eaa77bccd8/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.AI.Evaluation-10.10.0.txt",
+      "sha256": "c8fe56868f3592527c733da4eea67afc87baf05a1fb3216895077f8bd3d99521",
+      "artifacts": [
+        "Microsoft.Extensions.AI.Evaluation.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Extensions.AI.OpenAI/10.10.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/extensions/02107c65bab30aad9e35b5133ed643eaa77bccd8/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.AI.OpenAI-10.10.0.txt",
+      "sha256": "fd367bc7a27544c8328307525af587d8ec9d11f9639ea4e023470ea0a13aee73",
+      "artifacts": [
+        "Microsoft.Extensions.AI.OpenAI.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Extensions.AI/10.10.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/extensions/02107c65bab30aad9e35b5133ed643eaa77bccd8/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.AI-10.10.0.txt",
+      "sha256": "1cbb3fdb3ff59b0fcabebfb5fc6f2fea7051717ace0e1550e6510d7fb7c2aa34",
+      "artifacts": [
+        "Microsoft.Extensions.AI.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Extensions.Compliance.Abstractions/10.10.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/extensions/02107c65bab30aad9e35b5133ed643eaa77bccd8/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.Compliance.Abstractions-10.10.0.txt",
+      "sha256": "322a617fda0ebf70ea3fcb6b244abc814ff61a3df68a6324a4af7b0307e3888e",
+      "artifacts": [
+        "Microsoft.Extensions.Compliance.Abstractions.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.Extensions.DependencyInjection/10.0.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:Microsoft.Extensions.DependencyInjection/10.0.0/THIRD-PARTY-NOTICES.TXT"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.DependencyInjection-10.0.0.txt",
+      "sha256": "a26c8664996cc604005a32cb6593277509e7ce42a38309e3650f5f27546e70ca",
+      "artifacts": []
+    },
+    {
+      "package": "Microsoft.Extensions.Logging.Debug/10.0.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:Microsoft.Extensions.Logging.Debug/10.0.0/THIRD-PARTY-NOTICES.TXT"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.Logging.Debug-10.0.0.txt",
+      "sha256": "a2a9557a00ac5e07fce9b5f91913661234a49d8d571207d6597d35a92d99388b",
+      "artifacts": []
+    },
+    {
+      "package": "Microsoft.Extensions.Logging/10.0.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:Microsoft.Extensions.Logging/10.0.0/THIRD-PARTY-NOTICES.TXT"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.Logging-10.0.0.txt",
+      "sha256": "ec03664d4ac41cca974f34b1f5123491eebec994bd152bd2c882cb3a00a76a62",
+      "artifacts": []
+    },
+    {
+      "package": "Microsoft.Extensions.VectorData.Abstractions/10.10.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/dotnet/extensions/02107c65bab30aad9e35b5133ed643eaa77bccd8/LICENSE"
+      ],
+      "notice": "Dependencies/Microsoft.Extensions.VectorData.Abstractions-10.10.0.txt",
+      "sha256": "0ecb0da85edd33e223eec065e044d4dbcf94ec0fa0f42a5eba77fad2ae1dc216",
+      "artifacts": [
+        "Microsoft.Extensions.VectorData.Abstractions.dll"
+      ]
+    },
+    {
+      "package": "Microsoft.ML.Tokenizers/2.0.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:Microsoft.ML.Tokenizers/2.0.0/LICENSE",
+        "nuget:Microsoft.ML.Tokenizers/2.0.0/THIRD-PARTY-NOTICES.TXT"
+      ],
+      "notice": "Dependencies/Microsoft.ML.Tokenizers-2.0.0.txt",
+      "sha256": "5873bf699b8ae7975cee02c83618ab52d57f8e9d2122e7dc4d803053ff058e95",
+      "artifacts": [
+        "Microsoft.ML.Tokenizers.dll"
+      ]
+    },
+    {
+      "package": "microsoft.netcore.app.runtime.osx-arm64/10.0.5",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.5/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.5/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/microsoft.netcore.app.runtime.osx-arm64-10.0.5.txt",
+      "sha256": "b1192077108fcfeddd704fea27f0acbaf8b1a6c2ad8eb5e1eace51c10577e36e",
+      "artifacts": [
+        "Microsoft.CSharp.dll",
+        "Microsoft.VisualBasic.Core.dll",
+        "Microsoft.VisualBasic.dll",
+        "Microsoft.Win32.Primitives.dll",
+        "Microsoft.Win32.Registry.dll",
+        "System.AppContext.dll",
+        "System.Buffers.dll",
+        "System.Collections.Concurrent.dll",
+        "System.Collections.Immutable.dll",
+        "System.Collections.NonGeneric.dll",
+        "System.Collections.Specialized.dll",
+        "System.Collections.dll",
+        "System.ComponentModel.Annotations.dll",
+        "System.ComponentModel.DataAnnotations.dll",
+        "System.ComponentModel.EventBasedAsync.dll",
+        "System.ComponentModel.Primitives.dll",
+        "System.ComponentModel.TypeConverter.dll",
+        "System.ComponentModel.dll",
+        "System.Configuration.dll",
+        "System.Console.dll",
+        "System.Core.dll",
+        "System.Data.Common.dll",
+        "System.Data.DataSetExtensions.dll",
+        "System.Data.dll",
+        "System.Diagnostics.Contracts.dll",
+        "System.Diagnostics.Debug.dll",
+        "System.Diagnostics.DiagnosticSource.dll",
+        "System.Diagnostics.FileVersionInfo.dll",
+        "System.Diagnostics.Process.dll",
+        "System.Diagnostics.StackTrace.dll",
+        "System.Diagnostics.TextWriterTraceListener.dll",
+        "System.Diagnostics.Tools.dll",
+        "System.Diagnostics.TraceSource.dll",
+        "System.Diagnostics.Tracing.dll",
+        "System.Drawing.Primitives.dll",
+        "System.Drawing.dll",
+        "System.Dynamic.Runtime.dll",
+        "System.Formats.Asn1.dll",
+        "System.Formats.Tar.dll",
+        "System.Globalization.Calendars.dll",
+        "System.Globalization.Extensions.dll",
+        "System.Globalization.dll",
+        "System.IO.Compression.Brotli.dll",
+        "System.IO.Compression.FileSystem.dll",
+        "System.IO.Compression.ZipFile.dll",
+        "System.IO.Compression.dll",
+        "System.IO.FileSystem.AccessControl.dll",
+        "System.IO.FileSystem.DriveInfo.dll",
+        "System.IO.FileSystem.Primitives.dll",
+        "System.IO.FileSystem.Watcher.dll",
+        "System.IO.FileSystem.dll",
+        "System.IO.IsolatedStorage.dll",
+        "System.IO.MemoryMappedFiles.dll",
+        "System.IO.Pipelines.dll",
+        "System.IO.Pipes.AccessControl.dll",
+        "System.IO.Pipes.dll",
+        "System.IO.UnmanagedMemoryStream.dll",
+        "System.IO.dll",
+        "System.Linq.AsyncEnumerable.dll",
+        "System.Linq.Expressions.dll",
+        "System.Linq.Parallel.dll",
+        "System.Linq.Queryable.dll",
+        "System.Linq.dll",
+        "System.Memory.dll",
+        "System.Net.Http.Json.dll",
+        "System.Net.Http.dll",
+        "System.Net.HttpListener.dll",
+        "System.Net.Mail.dll",
+        "System.Net.NameResolution.dll",
+        "System.Net.NetworkInformation.dll",
+        "System.Net.Ping.dll",
+        "System.Net.Primitives.dll",
+        "System.Net.Quic.dll",
+        "System.Net.Requests.dll",
+        "System.Net.Security.dll",
+        "System.Net.ServerSentEvents.dll",
+        "System.Net.ServicePoint.dll",
+        "System.Net.Sockets.dll",
+        "System.Net.WebClient.dll",
+        "System.Net.WebHeaderCollection.dll",
+        "System.Net.WebProxy.dll",
+        "System.Net.WebSockets.Client.dll",
+        "System.Net.WebSockets.dll",
+        "System.Net.dll",
+        "System.Numerics.Vectors.dll",
+        "System.Numerics.dll",
+        "System.ObjectModel.dll",
+        "System.Private.CoreLib.dll",
+        "System.Private.DataContractSerialization.dll",
+        "System.Private.Uri.dll",
+        "System.Private.Xml.Linq.dll",
+        "System.Private.Xml.dll",
+        "System.Reflection.DispatchProxy.dll",
+        "System.Reflection.Emit.ILGeneration.dll",
+        "System.Reflection.Emit.Lightweight.dll",
+        "System.Reflection.Emit.dll",
+        "System.Reflection.Extensions.dll",
+        "System.Reflection.Metadata.dll",
+        "System.Reflection.Primitives.dll",
+        "System.Reflection.TypeExtensions.dll",
+        "System.Reflection.dll",
+        "System.Resources.Reader.dll",
+        "System.Resources.ResourceManager.dll",
+        "System.Resources.Writer.dll",
+        "System.Runtime.CompilerServices.Unsafe.dll",
+        "System.Runtime.CompilerServices.VisualC.dll",
+        "System.Runtime.Extensions.dll",
+        "System.Runtime.Handles.dll",
+        "System.Runtime.InteropServices.JavaScript.dll",
+        "System.Runtime.InteropServices.RuntimeInformation.dll",
+        "System.Runtime.InteropServices.dll",
+        "System.Runtime.Intrinsics.dll",
+        "System.Runtime.Loader.dll",
+        "System.Runtime.Numerics.dll",
+        "System.Runtime.Serialization.Formatters.dll",
+        "System.Runtime.Serialization.Json.dll",
+        "System.Runtime.Serialization.Primitives.dll",
+        "System.Runtime.Serialization.Xml.dll",
+        "System.Runtime.Serialization.dll",
+        "System.Runtime.dll",
+        "System.Security.AccessControl.dll",
+        "System.Security.Claims.dll",
+        "System.Security.Cryptography.Algorithms.dll",
+        "System.Security.Cryptography.Cng.dll",
+        "System.Security.Cryptography.Csp.dll",
+        "System.Security.Cryptography.Encoding.dll",
+        "System.Security.Cryptography.OpenSsl.dll",
+        "System.Security.Cryptography.Primitives.dll",
+        "System.Security.Cryptography.X509Certificates.dll",
+        "System.Security.Cryptography.dll",
+        "System.Security.Principal.Windows.dll",
+        "System.Security.Principal.dll",
+        "System.Security.SecureString.dll",
+        "System.Security.dll",
+        "System.ServiceModel.Web.dll",
+        "System.ServiceProcess.dll",
+        "System.Text.Encoding.CodePages.dll",
+        "System.Text.Encoding.Extensions.dll",
+        "System.Text.Encoding.dll",
+        "System.Text.Encodings.Web.dll",
+        "System.Text.Json.dll",
+        "System.Text.RegularExpressions.dll",
+        "System.Threading.AccessControl.dll",
+        "System.Threading.Channels.dll",
+        "System.Threading.Overlapped.dll",
+        "System.Threading.Tasks.Dataflow.dll",
+        "System.Threading.Tasks.Extensions.dll",
+        "System.Threading.Tasks.Parallel.dll",
+        "System.Threading.Tasks.dll",
+        "System.Threading.Thread.dll",
+        "System.Threading.ThreadPool.dll",
+        "System.Threading.Timer.dll",
+        "System.Threading.dll",
+        "System.Transactions.Local.dll",
+        "System.Transactions.dll",
+        "System.ValueTuple.dll",
+        "System.Web.HttpUtility.dll",
+        "System.Web.dll",
+        "System.Windows.dll",
+        "System.Xml.Linq.dll",
+        "System.Xml.ReaderWriter.dll",
+        "System.Xml.Serialization.dll",
+        "System.Xml.XDocument.dll",
+        "System.Xml.XPath.XDocument.dll",
+        "System.Xml.XPath.dll",
+        "System.Xml.XmlDocument.dll",
+        "System.Xml.XmlSerializer.dll",
+        "System.Xml.dll",
+        "System.dll",
+        "WindowsBase.dll",
+        "libSystem.Globalization.Native.dylib",
+        "libSystem.IO.Compression.Native.dylib",
+        "libSystem.Native.dylib",
+        "libSystem.Net.Security.Native.dylib",
+        "libSystem.Security.Cryptography.Native.Apple.dylib",
+        "libclrgc.dylib",
+        "libclrgcexp.dylib",
+        "libclrjit.dylib",
+        "libcoreclr.dylib",
+        "libhostfxr.dylib",
+        "libhostpolicy.dylib",
+        "libmscordaccore.dylib",
+        "libmscordbi.dylib",
+        "mscorlib.dll",
+        "netstandard.dll"
+      ]
+    },
+    {
+      "package": "microsoft.netcore.app.runtime.osx-x64/10.0.5",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:microsoft.netcore.app.runtime.osx-x64/10.0.5/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.netcore.app.runtime.osx-x64/10.0.5/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/microsoft.netcore.app.runtime.osx-arm64-10.0.5.txt",
+      "sha256": "b1192077108fcfeddd704fea27f0acbaf8b1a6c2ad8eb5e1eace51c10577e36e",
+      "artifacts": [
+        "Microsoft.CSharp.dll",
+        "Microsoft.VisualBasic.Core.dll",
+        "Microsoft.VisualBasic.dll",
+        "Microsoft.Win32.Primitives.dll",
+        "Microsoft.Win32.Registry.dll",
+        "System.AppContext.dll",
+        "System.Buffers.dll",
+        "System.Collections.Concurrent.dll",
+        "System.Collections.Immutable.dll",
+        "System.Collections.NonGeneric.dll",
+        "System.Collections.Specialized.dll",
+        "System.Collections.dll",
+        "System.ComponentModel.Annotations.dll",
+        "System.ComponentModel.DataAnnotations.dll",
+        "System.ComponentModel.EventBasedAsync.dll",
+        "System.ComponentModel.Primitives.dll",
+        "System.ComponentModel.TypeConverter.dll",
+        "System.ComponentModel.dll",
+        "System.Configuration.dll",
+        "System.Console.dll",
+        "System.Core.dll",
+        "System.Data.Common.dll",
+        "System.Data.DataSetExtensions.dll",
+        "System.Data.dll",
+        "System.Diagnostics.Contracts.dll",
+        "System.Diagnostics.Debug.dll",
+        "System.Diagnostics.DiagnosticSource.dll",
+        "System.Diagnostics.FileVersionInfo.dll",
+        "System.Diagnostics.Process.dll",
+        "System.Diagnostics.StackTrace.dll",
+        "System.Diagnostics.TextWriterTraceListener.dll",
+        "System.Diagnostics.Tools.dll",
+        "System.Diagnostics.TraceSource.dll",
+        "System.Diagnostics.Tracing.dll",
+        "System.Drawing.Primitives.dll",
+        "System.Drawing.dll",
+        "System.Dynamic.Runtime.dll",
+        "System.Formats.Asn1.dll",
+        "System.Formats.Tar.dll",
+        "System.Globalization.Calendars.dll",
+        "System.Globalization.Extensions.dll",
+        "System.Globalization.dll",
+        "System.IO.Compression.Brotli.dll",
+        "System.IO.Compression.FileSystem.dll",
+        "System.IO.Compression.ZipFile.dll",
+        "System.IO.Compression.dll",
+        "System.IO.FileSystem.AccessControl.dll",
+        "System.IO.FileSystem.DriveInfo.dll",
+        "System.IO.FileSystem.Primitives.dll",
+        "System.IO.FileSystem.Watcher.dll",
+        "System.IO.FileSystem.dll",
+        "System.IO.IsolatedStorage.dll",
+        "System.IO.MemoryMappedFiles.dll",
+        "System.IO.Pipelines.dll",
+        "System.IO.Pipes.AccessControl.dll",
+        "System.IO.Pipes.dll",
+        "System.IO.UnmanagedMemoryStream.dll",
+        "System.IO.dll",
+        "System.Linq.AsyncEnumerable.dll",
+        "System.Linq.Expressions.dll",
+        "System.Linq.Parallel.dll",
+        "System.Linq.Queryable.dll",
+        "System.Linq.dll",
+        "System.Memory.dll",
+        "System.Net.Http.Json.dll",
+        "System.Net.Http.dll",
+        "System.Net.HttpListener.dll",
+        "System.Net.Mail.dll",
+        "System.Net.NameResolution.dll",
+        "System.Net.NetworkInformation.dll",
+        "System.Net.Ping.dll",
+        "System.Net.Primitives.dll",
+        "System.Net.Quic.dll",
+        "System.Net.Requests.dll",
+        "System.Net.Security.dll",
+        "System.Net.ServerSentEvents.dll",
+        "System.Net.ServicePoint.dll",
+        "System.Net.Sockets.dll",
+        "System.Net.WebClient.dll",
+        "System.Net.WebHeaderCollection.dll",
+        "System.Net.WebProxy.dll",
+        "System.Net.WebSockets.Client.dll",
+        "System.Net.WebSockets.dll",
+        "System.Net.dll",
+        "System.Numerics.Vectors.dll",
+        "System.Numerics.dll",
+        "System.ObjectModel.dll",
+        "System.Private.CoreLib.dll",
+        "System.Private.DataContractSerialization.dll",
+        "System.Private.Uri.dll",
+        "System.Private.Xml.Linq.dll",
+        "System.Private.Xml.dll",
+        "System.Reflection.DispatchProxy.dll",
+        "System.Reflection.Emit.ILGeneration.dll",
+        "System.Reflection.Emit.Lightweight.dll",
+        "System.Reflection.Emit.dll",
+        "System.Reflection.Extensions.dll",
+        "System.Reflection.Metadata.dll",
+        "System.Reflection.Primitives.dll",
+        "System.Reflection.TypeExtensions.dll",
+        "System.Reflection.dll",
+        "System.Resources.Reader.dll",
+        "System.Resources.ResourceManager.dll",
+        "System.Resources.Writer.dll",
+        "System.Runtime.CompilerServices.Unsafe.dll",
+        "System.Runtime.CompilerServices.VisualC.dll",
+        "System.Runtime.Extensions.dll",
+        "System.Runtime.Handles.dll",
+        "System.Runtime.InteropServices.JavaScript.dll",
+        "System.Runtime.InteropServices.RuntimeInformation.dll",
+        "System.Runtime.InteropServices.dll",
+        "System.Runtime.Intrinsics.dll",
+        "System.Runtime.Loader.dll",
+        "System.Runtime.Numerics.dll",
+        "System.Runtime.Serialization.Formatters.dll",
+        "System.Runtime.Serialization.Json.dll",
+        "System.Runtime.Serialization.Primitives.dll",
+        "System.Runtime.Serialization.Xml.dll",
+        "System.Runtime.Serialization.dll",
+        "System.Runtime.dll",
+        "System.Security.AccessControl.dll",
+        "System.Security.Claims.dll",
+        "System.Security.Cryptography.Algorithms.dll",
+        "System.Security.Cryptography.Cng.dll",
+        "System.Security.Cryptography.Csp.dll",
+        "System.Security.Cryptography.Encoding.dll",
+        "System.Security.Cryptography.OpenSsl.dll",
+        "System.Security.Cryptography.Primitives.dll",
+        "System.Security.Cryptography.X509Certificates.dll",
+        "System.Security.Cryptography.dll",
+        "System.Security.Principal.Windows.dll",
+        "System.Security.Principal.dll",
+        "System.Security.SecureString.dll",
+        "System.Security.dll",
+        "System.ServiceModel.Web.dll",
+        "System.ServiceProcess.dll",
+        "System.Text.Encoding.CodePages.dll",
+        "System.Text.Encoding.Extensions.dll",
+        "System.Text.Encoding.dll",
+        "System.Text.Encodings.Web.dll",
+        "System.Text.Json.dll",
+        "System.Text.RegularExpressions.dll",
+        "System.Threading.AccessControl.dll",
+        "System.Threading.Channels.dll",
+        "System.Threading.Overlapped.dll",
+        "System.Threading.Tasks.Dataflow.dll",
+        "System.Threading.Tasks.Extensions.dll",
+        "System.Threading.Tasks.Parallel.dll",
+        "System.Threading.Tasks.dll",
+        "System.Threading.Thread.dll",
+        "System.Threading.ThreadPool.dll",
+        "System.Threading.Timer.dll",
+        "System.Threading.dll",
+        "System.Transactions.Local.dll",
+        "System.Transactions.dll",
+        "System.ValueTuple.dll",
+        "System.Web.HttpUtility.dll",
+        "System.Web.dll",
+        "System.Windows.dll",
+        "System.Xml.Linq.dll",
+        "System.Xml.ReaderWriter.dll",
+        "System.Xml.Serialization.dll",
+        "System.Xml.XDocument.dll",
+        "System.Xml.XPath.XDocument.dll",
+        "System.Xml.XPath.dll",
+        "System.Xml.XmlDocument.dll",
+        "System.Xml.XmlSerializer.dll",
+        "System.Xml.dll",
+        "System.dll",
+        "WindowsBase.dll",
+        "libSystem.Globalization.Native.dylib",
+        "libSystem.IO.Compression.Native.dylib",
+        "libSystem.Native.dylib",
+        "libSystem.Net.Security.Native.dylib",
+        "libSystem.Security.Cryptography.Native.Apple.dylib",
+        "libclrgc.dylib",
+        "libclrgcexp.dylib",
+        "libclrjit.dylib",
+        "libcoreclr.dylib",
+        "libhostfxr.dylib",
+        "libhostpolicy.dylib",
+        "libmscordaccore.dylib",
+        "libmscordbi.dylib",
+        "mscorlib.dll",
+        "netstandard.dll"
+      ]
+    },
+    {
+      "package": "Onigwrap/1.0.11",
+      "license": "MIT",
+      "authors": "Aikawa Yataro",
+      "copyright": "Copyright (c) 2024 Aikawa Yataro",
+      "sources": [
+        "nuget:Onigwrap/1.0.11/THIRD-PARTY-NOTICES.TXT"
+      ],
+      "notice": "Dependencies/Onigwrap-1.0.11.txt",
+      "sha256": "a5f85f572f2b9bb8ca4eccf394788a798946477878fc45d986b63323820885cb",
+      "artifacts": [
+        "Onigwrap.dll",
+        "libonigwrap.dylib"
+      ]
+    },
+    {
+      "package": "OpenAI/2.13.0",
+      "license": "MIT",
+      "authors": "OpenAI",
+      "copyright": "Copyright (c) 2026 OpenAI (https://openai.com)",
+      "sources": [
+        "https://raw.githubusercontent.com/openai/openai-dotnet/0aafb4c006c69db476607940b10c26fc07de8607/LICENSE"
+      ],
+      "notice": "Dependencies/OpenAI-2.13.0.txt",
+      "sha256": "e1c055343ef5738ff5ecaa25fc11d09826cd4905c784fc09ffb793b4c0f373c8",
+      "artifacts": [
+        "OpenAI.dll"
+      ]
+    },
+    {
+      "package": "SharpCompress/0.49.1",
+      "license": "MIT",
+      "authors": "Adam Hathcock",
+      "copyright": "Copyright (c) 2025  Adam Hathcock",
+      "sources": [
+        "https://raw.githubusercontent.com/adamhathcock/sharpcompress/1d9fd83a73db0144df3d2844133cf1b1f3699c7c/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SharpCompress-0.49.1.txt",
+      "sha256": "4e88dd2405042b53e49716bbcc578fc173538243c7b5ffb767a5f42a44c42854",
+      "artifacts": [
+        "SharpCompress.dll"
+      ]
+    },
+    {
+      "package": "SharpZipLib/1.4.2",
+      "license": "MIT",
+      "authors": "ICSharpCode",
+      "copyright": "Copyright © 2000-2022 SharpZipLib Contributors",
+      "sources": [
+        "https://raw.githubusercontent.com/icsharpcode/SharpZipLib/33f64eb0f28cdd2b084cb822fcc224c7c5aba553/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SharpZipLib-1.4.2.txt",
+      "sha256": "30dceb6ec87d7e6cca59798c7c55ab316a69c9445f376bdd27907ea6eb3335a2",
+      "artifacts": [
+        "ICSharpCode.SharpZipLib.dll"
+      ]
+    },
+    {
+      "package": "ShimSkiaSharp/5.0.0",
+      "license": "MIT",
+      "authors": "Wiesław Šoltés",
+      "copyright": "Copyright © Wiesław Šoltés 2026",
+      "sources": [
+        "https://raw.githubusercontent.com/wieslawsoltes/Svg.Skia/3a7b6c71b0144530ad422bf7f490022e73401228/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/ShimSkiaSharp-5.0.0.txt",
+      "sha256": "1e4b5a44e44f74c8a7634392d40ba831d6a70d3f7ea49e205bcd467583844db0",
+      "artifacts": [
+        "ShimSkiaSharp.dll"
+      ]
+    },
+    {
+      "package": "SkiaSharp.NativeAssets.Linux/3.119.4",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:SkiaSharp.NativeAssets.Linux/3.119.4/THIRD-PARTY-NOTICES.txt",
+        "nuget:SkiaSharp.NativeAssets.Linux/3.119.4/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SkiaSharp.NativeAssets.Linux-3.119.4.txt",
+      "sha256": "14372552e7623f7ed6c4cf3da02ae1da73d7818659d071f9dd77695074123bc6",
+      "artifacts": []
+    },
+    {
+      "package": "SkiaSharp.NativeAssets.macOS/3.119.4",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:SkiaSharp.NativeAssets.macOS/3.119.4/THIRD-PARTY-NOTICES.txt",
+        "nuget:SkiaSharp.NativeAssets.macOS/3.119.4/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SkiaSharp.NativeAssets.macOS-3.119.4.txt",
+      "sha256": "ec54cb7a9de44e45c7e4795ebc484f31bed5393b4f48076ef6d5a5a17400db99",
+      "artifacts": [
+        "libSkiaSharp.dylib"
+      ]
+    },
+    {
+      "package": "SkiaSharp.NativeAssets.WebAssembly/3.119.4",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:SkiaSharp.NativeAssets.WebAssembly/3.119.4/THIRD-PARTY-NOTICES.txt",
+        "nuget:SkiaSharp.NativeAssets.WebAssembly/3.119.4/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SkiaSharp.NativeAssets.WebAssembly-3.119.4.txt",
+      "sha256": "41236278248fef64acc0f40f98607c7f334c0c22cc30ce4cb37aa3f0ef4e493a",
+      "artifacts": []
+    },
+    {
+      "package": "SkiaSharp.NativeAssets.Win32/3.119.2",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:SkiaSharp.NativeAssets.Win32/3.119.2/THIRD-PARTY-NOTICES.txt",
+        "nuget:SkiaSharp.NativeAssets.Win32/3.119.2/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SkiaSharp.NativeAssets.Win32-3.119.2.txt",
+      "sha256": "46fb8583237d524c541b089a9f7588d237d96b2fa2fe83f193d63fc923a25d38",
+      "artifacts": []
+    },
+    {
+      "package": "SkiaSharp.NativeAssets.Win32/3.119.4",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:SkiaSharp.NativeAssets.Win32/3.119.4/THIRD-PARTY-NOTICES.txt",
+        "nuget:SkiaSharp.NativeAssets.Win32/3.119.4/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SkiaSharp.NativeAssets.Win32-3.119.4.txt",
+      "sha256": "76de19fb49cf938a0fa11e370cf6e0d57e095a7171d7c4aa80ccdd917f95aed7",
+      "artifacts": []
+    },
+    {
+      "package": "SkiaSharp/3.119.2",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:SkiaSharp/3.119.2/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SkiaSharp-3.119.2.txt",
+      "sha256": "cfe40aa06c179be8ba77f3ecb8b008afd61498f26f3df75638cff75a0fda22f2",
+      "artifacts": [
+        "SkiaSharp.dll"
+      ]
+    },
+    {
+      "package": "SkiaSharp/3.119.4",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:SkiaSharp/3.119.4/LICENSE.txt"
+      ],
+      "notice": "Dependencies/SkiaSharp-3.119.4.txt",
+      "sha256": "1e4402316f3355c83595d78ef3af25897bcd52950b83c9184408064ea4de5871",
+      "artifacts": [
+        "SkiaSharp.dll"
+      ]
+    },
+    {
+      "package": "SourceGear.sqlite3/3.50.4.2",
+      "license": "Public-domain (SQLite)",
+      "authors": "Eric Sink",
+      "copyright": "Copyright 2014-2025 SourceGear, LLC",
+      "sources": [
+        "https://www.sqlite.org/copyright.html"
+      ],
+      "notice": "Dependencies/SourceGear.sqlite3-3.50.4.2.txt",
+      "sha256": "557e7fcf9c90b65442d7d5207de00e8dc8300810aaaff331b30b3e05e1e5107b",
+      "artifacts": [
+        "libe_sqlite3.dylib"
+      ]
+    },
+    {
+      "package": "SQLitePCLRaw.bundle_e_sqlite3/3.0.2",
+      "license": "Apache-2.0",
+      "authors": "Eric Sink",
+      "copyright": "Copyright 2014-2025 SourceGear, LLC",
+      "sources": [
+        "https://raw.githubusercontent.com/ericsink/SQLitePCL.raw/ca83fcd795385c6ac99b0f9680d000f27f35c1b4/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/SQLitePCLRaw.bundle_e_sqlite3-3.0.2.txt",
+      "sha256": "d22859955a49426206d312a23aecdadb436656c5be0f7a9a063615cb6417dda5",
+      "artifacts": []
+    },
+    {
+      "package": "SQLitePCLRaw.config.e_sqlite3/3.0.2",
+      "license": "Apache-2.0",
+      "authors": "Eric Sink",
+      "copyright": "Copyright 2014-2025 SourceGear, LLC",
+      "sources": [
+        "https://raw.githubusercontent.com/ericsink/SQLitePCL.raw/ca83fcd795385c6ac99b0f9680d000f27f35c1b4/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/SQLitePCLRaw.config.e_sqlite3-3.0.2.txt",
+      "sha256": "042e9efb74dd72009648c634bc7f1f47cd112770eaac9e2a5bc5a909f2fff97f",
+      "artifacts": [
+        "SQLitePCLRaw.batteries_v2.dll"
+      ]
+    },
+    {
+      "package": "SQLitePCLRaw.core/3.0.2",
+      "license": "Apache-2.0",
+      "authors": "Eric Sink",
+      "copyright": "Copyright 2014-2025 SourceGear, LLC",
+      "sources": [
+        "https://raw.githubusercontent.com/ericsink/SQLitePCL.raw/ca83fcd795385c6ac99b0f9680d000f27f35c1b4/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/SQLitePCLRaw.core-3.0.2.txt",
+      "sha256": "47513bc43a75164d3799b4a67a3e916114700b3326af33c26152ae039a32d68e",
+      "artifacts": [
+        "SQLitePCLRaw.core.dll"
+      ]
+    },
+    {
+      "package": "SQLitePCLRaw.provider.e_sqlite3/3.0.2",
+      "license": "Apache-2.0",
+      "authors": "Eric Sink",
+      "copyright": "Copyright 2014-2025 SourceGear, LLC",
+      "sources": [
+        "https://raw.githubusercontent.com/ericsink/SQLitePCL.raw/ca83fcd795385c6ac99b0f9680d000f27f35c1b4/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/SQLitePCLRaw.provider.e_sqlite3-3.0.2.txt",
+      "sha256": "3e4dabbf4dc837ac0b6814e66d62882f92158fd5be0eed00fbca84722086cb44",
+      "artifacts": [
+        "SQLitePCLRaw.provider.e_sqlite3.dll"
+      ]
+    },
+    {
+      "package": "SSH.NET/2026.0.0",
+      "license": "MIT",
+      "authors": "Renci",
+      "copyright": "Copyright © Renci 2010-2026",
+      "sources": [
+        "https://raw.githubusercontent.com/sshnet/SSH.NET/7b2fd3dbf2c86a80a7b06cea020aa5f821c9902e/LICENSE"
+      ],
+      "notice": "Dependencies/SSH.NET-2026.0.0.txt",
+      "sha256": "70b1f6d907068417a14ed07728eb819439846bafd0d0fc64ae5cd959ed107085",
+      "artifacts": [
+        "Renci.SshNet.dll"
+      ]
+    },
+    {
+      "package": "Svg.Animation/5.0.0",
+      "license": "MIT",
+      "authors": "Wiesław Šoltés",
+      "copyright": "Copyright © Wiesław Šoltés 2026",
+      "sources": [
+        "https://raw.githubusercontent.com/wieslawsoltes/Svg.Skia/3a7b6c71b0144530ad422bf7f490022e73401228/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Svg.Animation-5.0.0.txt",
+      "sha256": "5d1223df9f6a21d541a217fb79fbcf330a21a0a9a812c073ae352fb7e99f0895",
+      "artifacts": [
+        "Svg.Animation.dll"
+      ]
+    },
+    {
+      "package": "Svg.Controls.Skia.Avalonia/12.0.0.11",
+      "license": "MIT",
+      "authors": "Wiesław Šoltés",
+      "copyright": "Copyright © Wiesław Šoltés 2026",
+      "sources": [
+        "https://raw.githubusercontent.com/wieslawsoltes/Svg.Skia/3a7b6c71b0144530ad422bf7f490022e73401228/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Svg.Controls.Skia.Avalonia-12.0.0.11.txt",
+      "sha256": "11cdac2bdc91f9eb829a6ab8b09e03bc7b307d1d8a721778b4bc6bbc3a8f3d3a",
+      "artifacts": [
+        "Svg.Controls.Skia.Avalonia.dll"
+      ]
+    },
+    {
+      "package": "Svg.Custom/5.0.0",
+      "license": "MS-PL",
+      "authors": "Wiesław Šoltés",
+      "copyright": "Copyright © Wiesław Šoltés 2026",
+      "sources": [
+        "https://github.com/wieslawsoltes/Svg.Skia/blob/3a7b6c71b0144530ad422bf7f490022e73401228/src/Svg.Custom/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Svg.Custom-5.0.0.txt",
+      "sha256": "618b13c5193fe24b926b116e9f7837b8ee8b7aedae9fb28d92808a8adecf9701",
+      "artifacts": [
+        "Svg.Custom.dll"
+      ]
+    },
+    {
+      "package": "Svg.Model/5.0.0",
+      "license": "MIT",
+      "authors": "Wiesław Šoltés",
+      "copyright": "Copyright © Wiesław Šoltés 2026",
+      "sources": [
+        "https://raw.githubusercontent.com/wieslawsoltes/Svg.Skia/3a7b6c71b0144530ad422bf7f490022e73401228/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Svg.Model-5.0.0.txt",
+      "sha256": "b2c3fd8b8c8e6123694f21fef5376060fd576fb6198ca11466332d7abceba9e9",
+      "artifacts": [
+        "Svg.Model.dll"
+      ]
+    },
+    {
+      "package": "Svg.SceneGraph/5.0.0",
+      "license": "MIT",
+      "authors": "Wiesław Šoltés",
+      "copyright": "Copyright © Wiesław Šoltés 2026",
+      "sources": [
+        "https://raw.githubusercontent.com/wieslawsoltes/Svg.Skia/3a7b6c71b0144530ad422bf7f490022e73401228/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Svg.SceneGraph-5.0.0.txt",
+      "sha256": "ae39e2420830ef057e736da392353af6adbbd378a15582d811e98f07d7685f84",
+      "artifacts": [
+        "Svg.SceneGraph.dll"
+      ]
+    },
+    {
+      "package": "Svg.Skia/5.0.0",
+      "license": "MIT",
+      "authors": "Wiesław Šoltés",
+      "copyright": "Copyright © Wiesław Šoltés 2026",
+      "sources": [
+        "https://raw.githubusercontent.com/wieslawsoltes/Svg.Skia/3a7b6c71b0144530ad422bf7f490022e73401228/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/Svg.Skia-5.0.0.txt",
+      "sha256": "f4fb1edf7522e6d6c530eb4051b99c233d518c4632c727c4d90ce536f26561e4",
+      "artifacts": [
+        "Svg.Skia.dll"
+      ]
+    },
+    {
+      "package": "Sylinko.CSharpMath.Avalonia/12.0.0",
+      "license": "MIT",
+      "authors": "Artemis Li, Dear.Va and CSharpMath Contributors (verybadcat, Happypig375, charlesroddie, FoggyFinder)",
+      "copyright": "© CSharpMath Contributors 2020; © Sylinko 2025",
+      "sources": [
+        "https://github.com/Sylinko/CSharpMath.Avalonia/blob/ba73eb9b89662e2f9c039f8371f29bec05d13c48/License"
+      ],
+      "notice": "Dependencies/Sylinko.CSharpMath.Avalonia-12.0.0.txt",
+      "sha256": "9e9559c5a77163396e80b8033bff12f9f9db2c94b698607035bee94fd63a30ce",
+      "artifacts": [
+        "CSharpMath.Avalonia.dll",
+        "CSharpMath.Rendering.dll",
+        "CSharpMath.dll"
+      ]
+    },
+    {
+      "package": "System.ClientModel/1.14.0",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "https://raw.githubusercontent.com/Azure/azure-sdk-for-net/3a58372182875061915cffce64f9b9d978a4ed6f/LICENSE.txt"
+      ],
+      "notice": "Dependencies/System.ClientModel-1.14.0.txt",
+      "sha256": "5454fbdf3a755eb18d5d21baafb1d61deac8361f1a3b74d7e031ebffbb894421",
+      "artifacts": [
+        "System.ClientModel.dll"
+      ]
+    },
+    {
+      "package": "System.IO.Packaging/8.0.1",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:System.IO.Packaging/8.0.1/THIRD-PARTY-NOTICES.TXT",
+        "nuget:System.IO.Packaging/8.0.1/LICENSE.TXT"
+      ],
+      "notice": "Dependencies/System.IO.Packaging-8.0.1.txt",
+      "sha256": "4de8326d8944e0f8f5e413f072ae4bdb030136d58bffacace94c1a551cd1ed31",
+      "artifacts": [
+        "System.IO.Packaging.dll"
+      ]
+    },
+    {
+      "package": "System.Memory.Data/10.0.3",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:System.Memory.Data/10.0.3/THIRD-PARTY-NOTICES.TXT"
+      ],
+      "notice": "Dependencies/System.Memory.Data-10.0.3.txt",
+      "sha256": "2fe51247b85cd952574773a4e2ccc6a132294ff6d404f536d416106d98bf0f63",
+      "artifacts": [
+        "System.Memory.Data.dll"
+      ]
+    },
+    {
+      "package": "System.Numerics.Tensors/10.0.12",
+      "license": "MIT",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "sources": [
+        "nuget:System.Numerics.Tensors/10.0.12/THIRD-PARTY-NOTICES.TXT"
+      ],
+      "notice": "Dependencies/System.Numerics.Tensors-10.0.12.txt",
+      "sha256": "5602038ec5d770f1fbc6fa7409c7fa225a85e7b19715b19c6d9f62f5d81042a5",
+      "artifacts": [
+        "System.Numerics.Tensors.dll"
+      ]
+    },
+    {
+      "package": "TextMateSharp.Grammars/2.0.4",
+      "license": "MIT",
+      "authors": "Daniel Peñalba",
+      "copyright": "",
+      "sources": [
+        "https://raw.githubusercontent.com/danipen/TextMateSharp/622d1b240a5be474939857c0b2780249022f14a3/LICENSE.md"
+      ],
+      "notice": "Dependencies/TextMateSharp.Grammars-2.0.4.txt",
+      "sha256": "2ac19cf5e0385719556e300e8bb73947c8619b12de68f9737973490a34f680fd",
+      "artifacts": [
+        "TextMateSharp.Grammars.dll"
+      ]
+    },
+    {
+      "package": "TextMateSharp/2.0.4",
+      "license": "MIT",
+      "authors": "Daniel Peñalba",
+      "copyright": "",
+      "sources": [
+        "https://raw.githubusercontent.com/danipen/TextMateSharp/622d1b240a5be474939857c0b2780249022f14a3/LICENSE.md"
+      ],
+      "notice": "Dependencies/TextMateSharp-2.0.4.txt",
+      "sha256": "2e9d5b24499bb4ba3362233f5a70bfb32df9608ddcc41a802ed99df4e838a1fc",
+      "artifacts": [
+        "TextMateSharp.dll"
+      ]
+    },
+    {
+      "package": "Tmds.DBus.Protocol/0.92.0",
+      "license": "MIT",
+      "authors": "Tom Deseyn",
+      "copyright": "Tom Deseyn",
+      "sources": [
+        "https://raw.githubusercontent.com/tmds/Tmds.DBus/282acebca8d4e4e3ba211646ac650911ee94edfd/COPYING"
+      ],
+      "notice": "Dependencies/Tmds.DBus.Protocol-0.92.0.txt",
+      "sha256": "671db0db5d9d0d1b41d7840c4ffc49b3f2d4463f18fe47ff51d32622fd50ec04",
+      "artifacts": [
+        "Tmds.DBus.Protocol.dll"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "name": "Project application code and artwork",
+      "notices": {
+        "Notices/Project.LICENSE.txt": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      }
+    },
+    {
+      "name": "Fluent UI System Icons",
+      "notices": {
+        "Markdown/FluentIcons.LICENSE.txt": "69bc45dc42b9acb96a69823adbc6ae538374e3c0bde169b855b32c48eaaef52f"
+      }
+    },
+    {
+      "name": "LiquidGlassAvaloniaUI",
+      "notices": {
+        "LiquidGlassAvaloniaUI.LICENSE.txt": "0654773c8b36c5bdc3e8d9b32914342da17e390285a91b05ebd53cd168c8c951"
+      }
+    },
+    {
+      "name": "Vex adapted Markdown editor",
+      "notices": {
+        "Markdown/LICENSE": "3bc112bb63a09bc75a9fb92c4241a7f2bcf7292b519383916213abd5984b80c8",
+        "Markdown/NOTICE.md": "a9d8aa28dff0f738dbd5e372ed6dd7c6039949efea8d88422edec0bf10b9a8d2"
+      }
+    },
+    {
+      "name": "LocalSend logo",
+      "notices": {
+        "LocalSend/localsend-LICENSE.txt": "38514afa30358fc21ef37551f3119b27d820427ece3c6f0ae014c7e47338c087",
+        "LocalSend/localsend-ATTRIBUTION.txt": "47ef1c9894b267d8c1f282c087503603fcbb038a313672b3b3f6a3ed76fc4467"
+      }
+    },
+    {
+      "name": "Highlight.js and conversion resources",
+      "notices": {
+        "ConversionNotices.txt": "aabbfcc4136bb9ecc9132c6bc5a5916a3cd392157ee6dbbbe1054e4979e9d21b"
+      }
+    },
+    {
+      "name": "LibRaw 0.22.1 and source download notice",
+      "notices": {
+        "LibRaw/COPYRIGHT": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+        "LibRaw/LICENSE.LGPL": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+        "LibRaw/LICENSE.CDDL": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+        "LibRaw/SOURCE.md": "3c3546e5da664770d696027751bd3432d572012e34c1146e1b450f1ce4af72e8"
+      }
+    },
+    {
+      "name": "Embedded CSharpMath fonts (GUST and SIL OFL), Typography and Swift grammar",
+      "notices": {
+        "Notices/Dependencies/CSharpMath-font-metadata.txt": "2a26e58c0fc6c03cd3de321ac43045ac8038ee9b8a1591442818727423794030",
+        "Notices/Dependencies/GUST-FONT-LICENSE.txt": "49ea6cb9257bbee0a3979c48a774cd221550ac1c20c95549efe45fc99cc18050",
+        "Notices/Dependencies/SIL-OFL-1.1.txt": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd",
+        "Notices/Dependencies/LPPL-1.3c.txt": "f0f307427080e67974f58f6b7f732039a966b3a7ae480dedee3275907104ac1f"
+      }
+    },
+    {
+      "name": "TextMate embedded grammar components",
+      "notices": {
+        "Notices/Dependencies/TextMate-component-notices.txt": "44b6db887e4a11e11388f38451b7fcbe663874dc7e13d53aed85a0eb719b0f81"
+      }
+    }
+  ]
+}

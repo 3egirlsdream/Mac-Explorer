@@ -31,6 +31,7 @@ public sealed class CopilotContentExtractor(
     public async Task<Page> ExtractPageAsync(string path, long offset = 0,
         CancellationToken cancellationToken = default)
     {
+        MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(path);
         if (!Path.IsPathFullyQualified(path) || !File.Exists(path))
             throw new FileNotFoundException("只能提取本地文件内容。", path);
         if (!Supports(path)) throw new NotSupportedException("文件类型暂不支持内容提取。");

@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <DistributionChannel Condition="'$(DistributionChannel)' == ''">Website</DistributionChannel>
+    <PrivacyPolicyUrl Condition="'$(PrivacyPolicyUrl)' == ''">https://3egirlsdream.github.io/Mac-Explorer/privacy/</PrivacyPolicyUrl>
+    <MacOSMinimumVersion>14.0</MacOSMinimumVersion>
+    <DefineConstants Condition="'$(DistributionChannel)' == 'AppStore'">$(DefineConstants);MAC_APP_STORE</DefineConstants>
+    <_NativeArchitecture Condition="'$(RuntimeIdentifier)' != 'osx-x64'">arm64</_NativeArchitecture>
+    <_NativeArchitecture Condition="'$(RuntimeIdentifier)' == 'osx-x64'">x86_64</_NativeArchitecture>
+  </PropertyGroup>
+  <Target Name="ValidateDistributionChannel" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(DistributionChannel)' != 'Website' and '$(DistributionChannel)' != 'AppStore'" Text="DistributionChannel must be Website or AppStore." />
+  </Target>
+</Project>

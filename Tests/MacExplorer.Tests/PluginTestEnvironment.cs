@@ -12,14 +12,15 @@ internal sealed class PluginTestEnvironment : IDisposable
     {
         get
         {
+            if (Environment.GetEnvironmentVariable("MACEXPLORER_TEST_REPOSITORY") is { } repository) return repository;
             var root = new DirectoryInfo(AppContext.BaseDirectory);
             while (root != null && !File.Exists(Path.Combine(root.FullName, "MacExplorer.csproj"))) root = root.Parent;
             return root?.FullName ?? throw new DirectoryNotFoundException("Repository not found.");
         }
     }
     public static string Configuration => AppContext.BaseDirectory.Contains("/Release/") ? "Release" : "Debug";
-    public static string ApplicationOutput => Path.Combine(Repository, "bin", Configuration, "net10.0", "osx-arm64", "Mac Explorer.app", "Contents", "MacOS");
-    public static string BundledPackage => Path.Combine(ApplicationOutput, "BundledPlugins", "FileConversion.mexplug");
+    public static string ApplicationOutput => Environment.GetEnvironmentVariable("MACEXPLORER_TEST_APP_OUTPUT") ?? Path.Combine(Repository, "bin", Configuration, "net10.0", "osx-arm64", "Mac Explorer.app", "Contents", "MacOS");
+    public static string BundledPackage => Path.Combine(ApplicationOutput, "..", "Resources", "BundledPlugins", "FileConversion.mexplug");
     public string Root { get; } = Path.Combine(Path.GetTempPath(), "fkfinder-plugin-test-" + Guid.NewGuid().ToString("N"));
     public MemorySettings Settings { get; } = new();
     public PluginManager Manager { get; }
@@ -30,7 +31,7 @@ internal sealed class PluginTestEnvironment : IDisposable
         if (initialize) Task.Run(() => Manager.InitializeAsync()).GetAwaiter().GetResult();
     }
     public PluginManager NewManager() => new(Settings, Path.Combine(Root, "Plugins"), BundledPackage,
-        Path.Combine(ApplicationOutput, "MacExplorer"), Path.Combine(ApplicationOutput, "MacExplorer.dll"));
+        Path.Combine(ApplicationOutput, "MacExplorer"), Path.Combine(ApplicationOutput, "..", "Resources", "Managed", "MacExplorer.dll"));
     public string Write(string name, string contents)
     {
         var path = Path.Combine(Root, name); File.WriteAllText(path, contents); return path;
@@ -39,7 +40,7 @@ internal sealed class PluginTestEnvironment : IDisposable
     {
         var directory = Path.Combine(Root, "fixture-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
-        var output = Path.Combine(Repository, "Tools", "PluginTestFixture", "bin", Configuration, "net10.0");
+        var output = Environment.GetEnvironmentVariable("MACEXPLORER_TEST_FIXTURE_OUTPUT") ?? Path.Combine(Repository, "Tools", "PluginTestFixture", "bin", Configuration, "net10.0");
         foreach (var path in Directory.GetFiles(output)) File.Copy(path, Path.Combine(directory, Path.GetFileName(path)));
         var commands = new[] { "run", "hang", "helper", "crash-helper", "crash", "invalid-wire", "cancel", "batch" }.Select(id => new PluginCommand
         { Id = id, Title = id, Match = new() { Extensions = [".txt"], MaxSelection = id == "batch" ? 10 : 1 } }).ToArray();
@@ -62,7 +63,8 @@ internal sealed class PluginTestEnvironment : IDisposable
         public event Action<string>? SettingChanged { add { } remove { } }
         private readonly Dictionary<string, string> _values = new();
         public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T fallback) => Get(key) is { } value ? JsonSerializer.Deserialize<T>(value)! : fallback;
+        public T Get<T>(string key, T fallback) => Get(key) is { } value
+            ? typeof(T) == typeof(string) ? (T)(object)value : JsonSerializer.Deserialize<T>(value)! : fallback;
         public void Set(string key, string value) => _values[key] = value;
         public void Set<T>(string key, T value) => Set(key, JsonSerializer.Serialize(value));
         public Dictionary<string, string> GetAll() => new(_values);

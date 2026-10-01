@@ -264,8 +264,8 @@ public sealed partial class LocalSendService
     public async Task<LocalSendDevice> ConnectByAddressAsync(string address, int port, CancellationToken cancellationToken)
     {
         if (!Enabled) throw new InvalidOperationException("LocalSend 已关闭。");
-        if (!IPAddress.TryParse(address.Trim(), out var ip) || ip.AddressFamily != AddressFamily.InterNetwork)
-            throw new ArgumentException("请输入有效的 IPv4 地址。", nameof(address));
+        if (!IPAddress.TryParse(address.Trim().Trim('[', ']'), out var ip))
+            throw new ArgumentException("请输入有效的 IPv4 或 IPv6 地址。", nameof(address));
         if (port is < 1 or > 65535) throw new ArgumentOutOfRangeException(nameof(port), "端口须为 1–65535。");
         await DiscoveryTokensAsync(cancellationToken);
         DiscoveryState state;
@@ -305,7 +305,7 @@ public sealed partial class LocalSendService
             return true;
         };
         using var bootstrap = new HttpClient(handler);
-        var uri = new Uri($"https://{address}:{port}/api/localsend/v2/info");
+        var uri = new UriBuilder("https", address, port, "/api/localsend/v2/info").Uri;
         using var response = await bootstrap.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         await response.Content.LoadIntoBufferAsync(DiscoveryResponseLimit, cancellationToken);
@@ -388,7 +388,7 @@ public sealed partial class LocalSendService
                 || info.Version is null || !info.Version.StartsWith("2.", StringComparison.Ordinal)
                 || !ValidAnnouncementFingerprint(info.Fingerprint)
                 || string.IsNullOrWhiteSpace(info.Alias) || info.Alias.Length > 256) return Results.BadRequest();
-            var address = context.Connection.RemoteIpAddress?.MapToIPv4().ToString();
+            var address = (context.Connection.RemoteIpAddress is { } remoteIp ? (remoteIp.IsIPv4MappedToIPv6 ? remoteIp.MapToIPv4() : remoteIp).ToString() : null);
             if (address != null && !info.Fingerprint.Equals(SelfInfo().Fingerprint, StringComparison.OrdinalIgnoreCase))
             {
                 var state = _discovery;

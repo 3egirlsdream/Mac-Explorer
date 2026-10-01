@@ -20,8 +20,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
         _connectionService = connectionService;
         _logger = logger;
         _tempDir = Path.Combine(
-            RuntimePaths.LocalApplicationData,
-            "MacExplorer", "remote-temp");
+            RuntimePaths.DataDirectory, "remote-temp");
         if (!Directory.Exists(_tempDir))
             Directory.CreateDirectory(_tempDir);
     }

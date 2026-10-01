@@ -15,10 +15,7 @@
     <InternalsVisibleTo Include="MacExplorer.Tests" />
   </ItemGroup>
   <Target Name="BuildConversionHelper" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <PropertyGroup>
-      <_SwiftTarget Condition="'$(RuntimeIdentifier)' == 'osx-x64'">-target x86_64-apple-macosx15.0</_SwiftTarget>
-    </PropertyGroup>
-    <Exec Command="xcrun swiftc -O $(_SwiftTarget) '../../Platforms/MacOS/FileConversionHelper.swift' -framework AppKit -framework WebKit -framework ImageIO -framework UniformTypeIdentifiers -o '$(TargetDir)MacExplorer.FileConversion'" />
+    <Exec Command="bash ../../Tools/Distribution/build-helper.sh '../../Platforms/MacOS/FileConversionHelper.swift' '$(TargetDir)MacExplorer.FileConversion' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework AppKit -framework WebKit -framework ImageIO -framework UniformTypeIdentifiers" />
     <Exec Command="codesign --force --sign - '$(TargetDir)MacExplorer.FileConversion'" />
   </Target>
 </Project>

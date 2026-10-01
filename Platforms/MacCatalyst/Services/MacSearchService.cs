@@ -52,6 +52,14 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
                     foreach (var entry in snapshot.Entries) { cancellationToken.ThrowIfCancellationRequested(); yield return entry; }
             yield break;
         }
+        if (DistributionChannel.IsAppStore && directory == "/")
+        {
+            var remaining = maxResults;
+            foreach (var authorized in DirectoryAccess.Current.AuthorizedRoots)
+                await foreach (var entry in SearchOnceAsync(authorized, pattern, remaining, cancellationToken))
+                { yield return entry; if (--remaining <= 0) yield break; }
+            yield break;
+        }
         var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
         _indexer.EnsureRoot(root);
         var entries = await _catalog.SearchAsync(root, query, options, maxResults,
@@ -78,6 +86,18 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
         if (!Path.IsPathFullyQualified(directory))
         {
             await foreach (var snapshot in SearchLiveAsync(directory, query, options, limit, cancellationToken)) yield return snapshot;
+            yield break;
+        }
+        if (DistributionChannel.IsAppStore && directory == "/")
+        {
+            var combined = new Dictionary<string, FileSystemEntry>(StringComparer.Ordinal);
+            foreach (var authorized in DirectoryAccess.Current.AuthorizedRoots)
+                await foreach (var snapshot in SearchSnapshotsAsync(authorized, input, limit, cancellationToken))
+                {
+                    foreach (var entry in snapshot.Entries) combined[entry.FullPath] = entry;
+                    yield return snapshot with { Entries = combined.Values.Take(limit).ToArray() };
+                }
+            yield return new(combined.Values.Take(limit).ToArray(), new("/", SearchIndexPhase.Ready), false);
             yield break;
         }
         var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));

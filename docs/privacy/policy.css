@@ -1,0 +1,10 @@
+.policy { max-width: 880px; padding-top: 136px; padding-bottom: 64px; }
+.policy-heading { margin-bottom: 32px; }
+.policy h1 { font-size: clamp(32px, 5vw, 48px); letter-spacing: -.04em; margin: 8px 0 16px; }
+.policy h2 { font-size: 22px; line-height: 1.45; margin: 0 0 12px; }
+.policy p { color: var(--secondary); margin: 12px 0 0; line-height: 1.9; overflow-wrap: anywhere; }
+.policy .policy-date { color: var(--muted); font-size: 14px; }
+.policy a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.policy-toc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; border-block: 1px solid var(--line); padding: 20px 0; margin-bottom: 36px; }
+.policy section { margin-top: 32px; scroll-margin-top: 100px; }
+@media (max-width: 600px) { .policy { padding-top: 112px; } .policy-toc { grid-template-columns: 1fr; } .policy h2 { font-size: 20px; } .brand span { display: none; } }

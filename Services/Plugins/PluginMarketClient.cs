@@ -14,6 +14,7 @@ public sealed class PluginMarketClient(HttpClient http, string? baseUrl = null)
     public string BaseUrl { get; } = baseUrl ?? Environment.GetEnvironmentVariable("MACEXPLORER_MARKET_URL") ?? "https://thankful.top/api/PluginMarket/";
     public async Task<PluginMarketPage> ListAsync(string keyword, int page, CancellationToken token)
     {
+        DistributionChannel.RequireWebsite("外部插件市场");
         var url = BaseUrl.TrimEnd('/') + "/List?platform=osx&architecture=" + RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()
             + "&apiVersion=" + PluginProtocol.ApiVersion + "&keyword=" + Uri.EscapeDataString(keyword) + "&page=" + page;
         RequireHttps(url);
@@ -30,6 +31,7 @@ public sealed class PluginMarketClient(HttpClient http, string? baseUrl = null)
 
     public async Task InstallAsync(PluginMarketItem item, PluginManager manager, IProgress<double?> progress, CancellationToken token)
     {
+        DistributionChannel.RequireWebsite("安装外部插件");
         RequireHttps(item.DownloadUrl);
         if (item.Manifest == null || item.Size <= 0 || item.Size > 512L * 1024 * 1024 || item.Sha256 is not { Length: 64 }) throw new InvalidDataException("插件下载信息无效。");
         var staging = Path.Combine(manager.RootDirectory, ".download-" + Guid.NewGuid().ToString("N"));
