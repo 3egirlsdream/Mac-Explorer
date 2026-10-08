@@ -43,7 +43,7 @@ jobs:
           test "$(uname -m)" = arm64
           dotnet build Tests/MacExplorer.Tests/MacExplorer.Tests.csproj -c Release -r osx-arm64 \
             --artifacts-path "$RUNNER_TEMP/build-$CHANNEL" -p:DistributionChannel="$CHANNEL" \
-            -p:AppStoreBundleId=com.macexplorer.app.store.qa -p:MacOSSigningIdentity=- \
+            -p:AppStoreBundleId=com.thankful.top.macexplorer.store.qa -p:MacOSSigningIdentity=- \
             -p:SkipMacOSReleaseDMG=true
       - name: Run real loopback and recovery regressions with valid xUnit runner selectors
         env:
@@ -57,6 +57,7 @@ jobs:
             MACEXPLORER_SFTP_TEST_PYTHON="$RUNNER_TEMP/sftp-fixture/bin/python" \
             "$runner" -class MacExplorer.Tests.ReliabilityRecoveryTests \
             -class MacExplorer.Tests.SftpLoopbackTests -class MacExplorer.Tests.DistributionCommonTests \
+            -class MacExplorer.Tests.GitStatusServiceTests \
             -class MacExplorer.Tests.PrivacySecurityFollowupTests -class MacExplorer.Tests.SecurityDialogTests \
             -class MacExplorer.Tests.LocalSendServiceTests -class MacExplorer.Tests.LocalSendReviewTests \
             -class MacExplorer.Tests.FileListLoadingPipelineTests \

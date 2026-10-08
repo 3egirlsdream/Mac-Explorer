@@ -24,7 +24,7 @@ internal static class CopilotPrivacyConsent
         allow.Click += (_, _) => dialog.Close(true);
         var recipient = new TextBlock { Text = $"接收服务：{endpoint}\n模型：{model}", TextWrapping = TextWrapping.Wrap };
         recipient.Classes.Add("settings-label");
-        var notice = new TextBlock { Text = "发送对话会把当前路径、选中文件名称、附件路径及工具返回的搜索结果等信息发送给此服务，用于回答和执行请求。服务方按其政策处理这些数据。文件正文仍需单独确认。更换接收配置后需重新许可，可在设置中撤回。",
+        var notice = new TextBlock { Text = "发送对话会把你输入的文字、当前路径、选中文件名称、附件路径及工具返回的搜索结果等信息发送给此服务，用于回答和执行请求。服务方按其政策处理这些数据。文件正文仍需单独确认。更换接收配置后需重新许可，可在设置中撤回。",
             TextWrapping = TextWrapping.Wrap };
         notice.Classes.Add("settings-description");
         var policy = new Button { Content = "隐私政策", Classes = { "ghost", "compact" }, HorizontalAlignment = HorizontalAlignment.Left };

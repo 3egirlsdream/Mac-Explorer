@@ -217,14 +217,14 @@ jobs:
             executable_path="${app_path}/Contents/MacOS/MacExplorer"
             test -f "$plist_path"
             test -x "$executable_path"
-            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist_path")" = "com.macexplorer.app"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist_path")" = "com.thankful.top.macexplorer"
             test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist_path")" = "$VERSION"
-            codesign --verify --deep --strict "$app_path"
+            python3 Tools/Distribution/verify-bundle.py "$app_path" Website
 
-            for binary in MacExplorer MacExplorer.ImageAnalysis MacExplorer.Thumbnail libMacExplorerNativeDrag.dylib; do
+            for binary in MacExplorer MacExplorer.ImageAnalysis MacExplorer.Thumbnail MacExplorer.FileConversion; do
               lipo "${app_path}/Contents/MacOS/${binary}" -verify_arch "$arch"
             done
-            raw_library="${app_path}/Contents/MacOS/libraw.dylib"
+            raw_library="${app_path}/Contents/Frameworks/libraw.dylib"
             test -f "$raw_library"
             lipo "$raw_library" -verify_arch "$arch"
             if otool -L "$raw_library" | tail -n +2 | awk '{print $1}' | grep -Ev '^(@rpath/libraw.dylib|/usr/lib/libz.1.dylib|/usr/lib/libSystem.B.dylib|/usr/lib/libc\+\+.1.dylib)$'; then
@@ -233,7 +233,7 @@ jobs:
             fi
             while IFS= read -r -d '' binary; do
               lipo "$binary" -verify_arch "$arch"
-            done < <(find "${app_path}/Contents/MacOS" -maxdepth 1 -name '*.dylib' -print0)
+            done < <(find "${app_path}/Contents/Frameworks" -maxdepth 1 -name '*.dylib' -print0)
 
             cp "$dmg_path" "${dist_dir}/${package_dmg_name}"
             ditto -c -k --sequesterRsrc --keepParent "$app_path" "${dist_dir}/${package_zip_name}"
@@ -243,14 +243,14 @@ jobs:
             ditto -x -k "${dist_dir}/${package_zip_name}" "$package_verify_dir"
             zipped_app="${package_verify_dir}/Mac Explorer.app"
             test -x "${zipped_app}/Contents/MacOS/MacExplorer"
-            test -f "${zipped_app}/Contents/MacOS/libraw.dylib"
+            test -f "${zipped_app}/Contents/Frameworks/libraw.dylib"
             test -f "${zipped_app}/Contents/Resources/LibRaw/LICENSE.LGPL"
-            lipo "${zipped_app}/Contents/MacOS/libraw.dylib" -verify_arch "$arch"
+            lipo "${zipped_app}/Contents/Frameworks/libraw.dylib" -verify_arch "$arch"
             codesign --verify --deep --strict "$zipped_app"
 
             plugin_dir="${package_verify_dir}/FileConversion"
             mkdir -p "$plugin_dir"
-            unzip -q "${zipped_app}/Contents/MacOS/BundledPlugins/FileConversion.mexplug" -d "$plugin_dir"
+            unzip -q "${zipped_app}/Contents/Resources/BundledPlugins/FileConversion.mexplug" -d "$plugin_dir"
             for binary in MacExplorer.FileConversion libHarfBuzzSharp.dylib libSkiaSharp.dylib; do
               lipo "${plugin_dir}/${binary}" -verify_arch "$arch"
             done

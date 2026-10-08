@@ -42,7 +42,7 @@ if allowed.get('get-task-allow') or profile.get('ProvisionsAllDevices') or profi
     raise SystemExit('A Mac App Store distribution profile is required.')
 with tempfile.TemporaryDirectory(prefix='fkfinder-store-cert-') as certificate_dir:
     prefix = str(pathlib.Path(certificate_dir) / 'signer-')
-    subprocess.run(['codesign','-d','--extract-certificates',prefix,str(app)],check=True,stderr=subprocess.DEVNULL)
+    subprocess.run(['codesign','-d','--extract-certificates=' + prefix,str(app)],check=True,stderr=subprocess.DEVNULL)
     certificate = pathlib.Path(prefix + '0').read_bytes()
     if certificate not in profile.get('DeveloperCertificates', []):
         raise SystemExit('The app signing certificate is not allowed by this provisioning profile.')

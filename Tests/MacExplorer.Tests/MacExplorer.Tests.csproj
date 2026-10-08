@@ -32,6 +32,7 @@
     </MSBuild>
     <PropertyGroup><_HostDirectory>@(_HostAssembly->'%(RootDir)%(Directory)')</_HostDirectory></PropertyGroup>
     <Copy SourceFiles="$(_HostDirectory)libMacExplorerNativeDrag.dylib;$(_HostDirectory)MacExplorer.Thumbnail;$(_HostDirectory)MacExplorer.ImageAnalysis;$(_HostDirectory)MacExplorer.FileConversion" DestinationFolder="$(TargetDir)" />
+    <Copy SourceFiles="$(_HostDirectory)MacExplorer.Git" DestinationFolder="$(TargetDir)" Condition="'$(DistributionChannel)' == 'AppStore'" />
     <Copy SourceFiles="../../Plugins/FileConversion/plugin.json" DestinationFolder="$(TargetDir)BuiltInConversion" />
   </Target>
 </Project>

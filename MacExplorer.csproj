@@ -7,9 +7,11 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MacExplorer</RootNamespace>
-    <ApplicationId Condition="'$(DistributionChannel)' == 'Website'">com.macexplorer.app</ApplicationId>
+    <ApplicationId Condition="'$(DistributionChannel)' == 'Website'">com.thankful.top.macexplorer</ApplicationId>
+    <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>1.0.50</Version>
+    <Version>1.0.51</Version>
+    <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -113,6 +115,10 @@
     <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ThumbnailHelper.swift' '$(OutputPath)MacExplorer.Thumbnail' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers" />
   </Target>
 
+  <Target Name="BuildMacOSGitHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore'">
+    <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/GitHelper.swift' '$(OutputPath)MacExplorer.Git' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)'" />
+  </Target>
+
   <Target Name="CopyMacOSAppIconToOutput" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <Copy SourceFiles="$(MSBuildProjectDirectory)/Assets/appicon.icns" DestinationFolder="$(OutputPath)" Condition="Exists('$(MSBuildProjectDirectory)/Assets/appicon.icns')" />
   </Target>
@@ -144,7 +150,7 @@
     <!-- Copy Info.plist -->
     <Copy SourceFiles="Platforms/MacOS/Info.plist" DestinationFolder="$(_AppBundleDir)/Contents" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleShortVersionString $(Version)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
-    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleVersion $(Version)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleVersion $(MacOSBuildNumber)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
 
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleIdentifier $(ApplicationId)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :LSMinimumSystemVersion $(MacOSMinimumVersion)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
@@ -175,6 +181,7 @@
       <_NativeLibs Include="$(OutputPath)runtimes/osx-x64/native/*.dylib" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.ImageAnalysis" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.Thumbnail" />
+      <_NativeHelpers Include="$(OutputPath)MacExplorer.Git" Condition="'$(DistributionChannel)' == 'AppStore'" />
       <_NativeHelpers Include="$(OutputPath)MacExplorer.FileConversion" />
       <_PluginPackages Include="$(OutputPath)BundledPlugins/*.mexplug" />
       <!-- CodeWF.Markdown resolves its translations relative to the app resources. -->
@@ -194,6 +201,7 @@
     <Exec Command="python3 Tools/Distribution/verify-notices.py '$(_AppBundleDir)'" />
     <!-- Sign actual native code individually; managed files are sealed resources. -->
     <Copy SourceFiles="$(AppStoreProvisioningProfile)" DestinationFiles="$(_AppBundleDir)/Contents/embedded.provisionprofile" Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreProvisioningProfile)' != ''" />
+    <Exec Command="xattr -r -d com.apple.quarantine '$(_AppBundleDir)'" Condition="'$(DistributionChannel)' == 'AppStore'" />
     <Exec Command="bash Tools/Distribution/sign-app.sh '$(_AppBundleDir)' '$(DistributionChannel)' '$(MacOSSigningIdentity)' '$(MacOSTeamIdentifier)'" />
 
     <Message Text="[macOS] .app bundle ready at: $(_AppBundleDir)" Importance="high" />

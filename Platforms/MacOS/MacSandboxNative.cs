@@ -11,6 +11,7 @@ internal static class MacSandboxNative
     internal static void OpenFile(string path, string? bundle = null)
     { if (!me_open_file(path, bundle)) throw new IOException("无法打开文件或找不到所选应用。"); }
     internal static void RevealFile(string path) => me_reveal_file(path);
+    internal static bool EjectVolume(string path) => me_eject_volume(path);
     internal static void QuickLook(string path) => me_quicklook_show(path);
     internal static bool QuickLookVisible => me_quicklook_visible();
     internal static void CloseQuickLook() => me_quicklook_close();
@@ -48,6 +49,7 @@ internal static class MacSandboxNative
     [DllImport(Library)] private static extern IntPtr me_plist_value([MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.LPUTF8Str)] string key);
     [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_open_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.LPUTF8Str)] string? bundle);
     [DllImport(Library)] private static extern void me_reveal_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_eject_volume([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern void me_quicklook_show([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_quicklook_visible();
     [DllImport(Library)] private static extern void me_quicklook_close();

@@ -50,8 +50,8 @@
 		A10000000000000000000008 = { isa = XCConfigurationList; buildConfigurations = (A1000000000000000000000B, A1000000000000000000000C); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A10000000000000000000009 = { isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
 		A1000000000000000000000A = { isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
-		A1000000000000000000000B = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; EXECUTABLE_NAME = MacExplorer; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Platforms/MacOS/Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.macexplorer.app; PRODUCT_NAME = "Mac Explorer"; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; }; name = Debug; };
-		A1000000000000000000000C = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; EXECUTABLE_NAME = MacExplorer; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Platforms/MacOS/Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.macexplorer.app; PRODUCT_NAME = "Mac Explorer"; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; }; name = Release; };
+		A1000000000000000000000B = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; EXECUTABLE_NAME = MacExplorer; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Platforms/MacOS/Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.thankful.top.macexplorer; PRODUCT_NAME = "Mac Explorer"; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; }; name = Debug; };
+		A1000000000000000000000C = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; EXECUTABLE_NAME = MacExplorer; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Platforms/MacOS/Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; PRODUCT_BUNDLE_IDENTIFIER = com.thankful.top.macexplorer; PRODUCT_NAME = "Mac Explorer"; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; }; name = Release; };
 	};
 	rootObject = A10000000000000000000001;
 }

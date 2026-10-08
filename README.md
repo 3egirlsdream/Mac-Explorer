@@ -29,7 +29,7 @@ Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏
 
 ## 最近更新
 
-当前源码功能介绍对应 **v1.0.50**；本次详细更新见 [更新日志](CHANGELOG.md)，可下载版本和完整发布记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
+当前源码功能介绍对应 **v1.0.51**；本次详细更新见 [更新日志](CHANGELOG.md)，可下载版本和完整发布记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
 
 - **批量重命名工作台**：跨目录选择本地文件与文件夹，组合规则、模板、编号和日期，逐步预览名称差异；支持预设、手动调整、冲突处理和整批撤销。
 - **自定义快捷键**：在设置中录制组合、检查冲突并恢复默认；长按 Cmd 可查看快捷键提示，菜单与工具栏提示同步更新。
@@ -100,7 +100,7 @@ Mac Explorer is a file manager built for macOS. Browse several folders side by s
 
 ## Recent Updates
 
-This source overview reflects **v1.0.50**. See the [changelog](CHANGELOG.md) for details of this update and [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
+This source overview reflects **v1.0.51**. See the [changelog](CHANGELOG.md) for details of this update and [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
 
 - **Batch rename workbench**: combine rules, templates, sequences and dates for selected local files and folders across directories. Preview each step, adjust names manually, manage conflicts, save presets and undo a batch.
 - **Custom shortcuts**: record combinations in Settings, check conflicts and restore defaults. Hold Cmd to show shortcut hints; menu labels and toolbar tips update together.

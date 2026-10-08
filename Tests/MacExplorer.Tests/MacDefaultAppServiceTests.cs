@@ -6,7 +6,7 @@ namespace MacExplorer.Tests;
 
 public class MacDefaultAppServiceTests
 {
-    private const string AppId = "com.macexplorer.app";
+    private const string AppId = "com.thankful.top.macexplorer";
     private const string FinderId = "com.apple.finder";
 
     [Fact]

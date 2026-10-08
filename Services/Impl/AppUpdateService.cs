@@ -7,7 +7,7 @@ namespace MacExplorer.Services.Impl;
 public class AppUpdateService : IAppUpdateService
 {
     private readonly HttpClient _http;
-    private const string DefaultBundleIdentifier = "com.macexplorer.app";
+    private const string DefaultBundleIdentifier = "com.thankful.top.macexplorer";
     private const string VersionApiUrl =
         "http://thankful.top:4396/api/CloudSync/GetVersion?Client=MacExplorer";
 

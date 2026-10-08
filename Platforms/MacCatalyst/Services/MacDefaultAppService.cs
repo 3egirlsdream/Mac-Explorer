@@ -8,7 +8,7 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 
 public class MacDefaultAppService : IDefaultAppService
 {
-    private const string AppBundleId = "com.macexplorer.app";
+    private const string AppBundleId = "com.thankful.top.macexplorer";
     private const string FinderBundleId = "com.apple.finder";
     private const string FolderUti = "public.folder";
     private const string LaunchServicesDomain = "com.apple.LaunchServices/com.apple.launchservices.secure";

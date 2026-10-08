@@ -202,6 +202,12 @@ char *me_trash(const char *path) {
         return MEString(error.localizedDescription ?: @"无法移入废纸篓。");
     }
 }
+bool me_eject_volume(const char *path) {
+    @autoreleasepool {
+        NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
+        return [NSWorkspace.sharedWorkspace unmountAndEjectDeviceAtURL:url error:nil];
+    }
+}
 void me_string_free(void *string) { free(string); }
 char *me_secret_read(const char *service, const char *account, int *status) {
     @autoreleasepool {

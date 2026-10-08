@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using MacExplorer.Copilot;
 using MacExplorer.Models;
 using MacExplorer.PluginSdk;
@@ -137,6 +138,59 @@ public sealed class DistributionCommonTests : IDisposable
         access.RememberSelection(root);
         Assert.True(access.CanAccess(Path.Combine(root, "new-file.txt")));
         Assert.False(access.CanAccess(Path.Combine(root, "escape", "secret.txt")));
+    }
+
+    [Fact]
+    public void RepeatedAccessChecksResolveOnlyTargetsAndStillRejectRetargetedLinks()
+    {
+        var selected = Directory.CreateDirectory(Path.Combine(_root, "selected-cache")).FullName;
+        var outside = Directory.CreateDirectory(Path.Combine(_root, "outside-cache")).FullName;
+        var native = new FakeBookmarks();
+        using var access = new DirectoryAccess(Path.Combine(_root, "cached.json"), true, native, []);
+        access.RememberSelection(selected);
+        native.Resolved = 0;
+        for (var i = 0; i < 100; i++) Assert.True(access.CanAccess(Path.Combine(selected, $"new-{i}.txt")));
+        Assert.Equal(100, native.Resolved);
+        var link = Path.Combine(selected, "link");
+        Directory.CreateSymbolicLink(link, selected);
+        Assert.True(access.CanAccess(Path.Combine(link, "new.txt")));
+        Directory.Delete(link);
+        Directory.CreateSymbolicLink(link, outside);
+        Assert.False(access.CanAccess(Path.Combine(link, "new.txt")));
+        access.Revoke(selected);
+        Assert.False(access.CanAccess(Path.Combine(selected, "new.txt")));
+    }
+
+    [Fact]
+    public void HelpersReuseOnlyRequestedGrantsAndCannotReuseRevokedAccess()
+    {
+        var selected = Directory.CreateDirectory(Path.Combine(_root, "helper-selected")).FullName;
+        var unrelated = Directory.CreateDirectory(Path.Combine(_root, "helper-unrelated")).FullName;
+        var native = new FakeBookmarks();
+        using var access = new DirectoryAccess(Path.Combine(_root, "helpers.json"), true, native, []);
+        access.RememberSelection(selected); access.RememberSelection(unrelated);
+        for (var i = 0; i < 10; i++)
+        {
+            var start = new ProcessStartInfo();
+            access.ConfigureHelper(start, Path.Combine(selected, $"image-{i}.png"));
+            Assert.Equal(new[] { selected }, JsonSerializer.Deserialize<string[]>(start.Environment["MACEXPLORER_FILE_BOOKMARKS"]!));
+        }
+        Assert.Equal(1, native.ImplicitCreated);
+        access.Revoke(selected);
+        Assert.Throws<UnauthorizedAccessException>(() => access.ConfigureHelper(new(), Path.Combine(selected, "image.png")));
+        access.RememberSelection(selected);
+        access.ConfigureHelper(new(), Path.Combine(selected, "image.png"));
+        Assert.Equal(2, native.ImplicitCreated);
+    }
+
+    [Fact]
+    public async Task StoreGitStatusRejectsInvalidPaths()
+    {
+        if (!DistributionChannel.IsAppStore) return;
+        using var git = new GitStatusService();
+        Assert.Null(await git.GetRepoStatusAsync("invalid\0path"));
+        Assert.Empty(GitStatusService.GetIgnoredPaths("invalid\0path"));
+        Assert.Empty(GitStatusService.GetUntrackedPaths("invalid\0path"));
     }
 
     [Fact]
@@ -359,8 +413,8 @@ public sealed class DistributionCommonTests : IDisposable
     private sealed class FakeBookmarks : IBookmarkAccess
     {
         public readonly Dictionary<string, string> Bookmarks = []; public string? Refreshed;
-        public int Opened, Closed;
-        public string Create(string path, bool explicitScope) { Bookmarks[path] = path; return path; }
+        public int Opened, Closed, Resolved, ImplicitCreated;
+        public string Create(string path, bool explicitScope) { if (!explicitScope) ImplicitCreated++; Bookmarks[path] = path; return path; }
         public (IntPtr, string?, string?, bool) Open(string bookmark)
         {
             if (!Bookmarks.TryGetValue(bookmark, out var path)) return (IntPtr.Zero, null, null, false);
@@ -370,6 +424,7 @@ public sealed class DistributionCommonTests : IDisposable
         public void Close(IntPtr scope) => Closed++;
         public string RealPath(string path)
         {
+            Resolved++;
             var suffix = new Stack<string>(); var parent = path;
             while (!Directory.Exists(parent) && !File.Exists(parent)) { suffix.Push(Path.GetFileName(parent)); parent = Path.GetDirectoryName(parent)!; }
             var target = new DirectoryInfo(parent).ResolveLinkTarget(true)?.FullName ?? parent;

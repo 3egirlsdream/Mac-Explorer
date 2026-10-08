@@ -11,17 +11,21 @@
     <key>CFBundleIconFile</key>
     <string>appicon.icns</string>
     <key>CFBundleIdentifier</key>
-    <string>com.macexplorer.app</string>
+    <string>com.thankful.top.macexplorer</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
     <string>Mac Explorer</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Mac Explorer</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.50</string>
+    <string>1.0.51</string>
     <key>CFBundleVersion</key>
-    <string>1.0.50</string>
+    <string>1.0.51</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
@@ -33,6 +37,8 @@
             <string>Folder</string>
             <key>CFBundleTypeRole</key>
             <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.folder</string>

@@ -7,6 +7,15 @@ namespace MacExplorer.Services.Impl;
 
 public class GitStatusService : IGitStatusService, IDisposable
 {
+    internal static readonly string[] StoreGitCandidates =
+    [
+        "/Library/Developer/CommandLineTools/usr/bin/git",
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/git",
+        "/opt/homebrew/bin/git",
+        "/usr/local/bin/git"
+    ];
+    private static readonly Lazy<string?> StoreGit = new(() => FindAvailableGit(
+        StoreGitCandidates.Where(File.Exists), path => RunGitProcess(path, null, "version")));
     private readonly ConcurrentDictionary<string, GitRepoStatus> _cache = new(StringComparer.Ordinal);
     private readonly ILogger<GitStatusService>? _logger;
     private FileSystemWatcher? _watcher;
@@ -33,7 +42,7 @@ public class GitStatusService : IGitStatusService, IDisposable
                 return cached;
 
             var statuses = new Dictionary<string, GitFileStatus>(StringComparer.Ordinal);
-            RunGitStatus(repoRoot, statuses);
+            if (!RunGitStatus(repoRoot, statuses)) return null;
 
             var result = new GitRepoStatus
             {
@@ -59,6 +68,8 @@ public class GitStatusService : IGitStatusService, IDisposable
         while (dir != null)
         {
             var gitPath = Path.Combine(dir, ".git");
+            if (DistributionChannel.IsAppStore &&
+                (!DirectoryAccess.Current.CanAccess(dir) || !DirectoryAccess.Current.CanAccess(gitPath))) return null;
             if (Directory.Exists(gitPath) || File.Exists(gitPath))
                 return dir;
             var parent = Path.GetDirectoryName(dir);
@@ -68,10 +79,10 @@ public class GitStatusService : IGitStatusService, IDisposable
         return null;
     }
 
-    private static void RunGitStatus(string repoRoot, Dictionary<string, GitFileStatus> statuses)
+    private static bool RunGitStatus(string repoRoot, Dictionary<string, GitFileStatus> statuses)
     {
-        var output = RunGitCommand(repoRoot, "status", "--porcelain", "-z");
-        if (string.IsNullOrEmpty(output)) return;
+        var output = RunGitCommand(repoRoot, "status");
+        if (output == null) return false;
 
         var entries = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
         for (int i = 0; i < entries.Length; i++)
@@ -98,6 +109,7 @@ public class GitStatusService : IGitStatusService, IDisposable
             if (status != GitFileStatus.Unmodified)
                 statuses[path] = status;
         }
+        return true;
     }
 
     /// <summary>Get all ignored paths under repoRoot using git ls-files. Returns set of ignored relative paths (no trailing slashes).</summary>
@@ -105,7 +117,7 @@ public class GitStatusService : IGitStatusService, IDisposable
     {
         var ignored = new HashSet<string>(StringComparer.Ordinal);
 
-        var output = RunGitCommand(repoRoot, "ls-files", "-o", "-i", "--exclude-standard", "-z", "--directory");
+        var output = RunGitCommand(repoRoot, "ignored");
         if (string.IsNullOrEmpty(output)) return ignored;
 
         foreach (var raw in output.Split('\0', StringSplitOptions.RemoveEmptyEntries))
@@ -126,7 +138,7 @@ public class GitStatusService : IGitStatusService, IDisposable
     {
         var untracked = new HashSet<string>(StringComparer.Ordinal);
 
-        var output = RunGitCommand(repoRoot, "ls-files", "-o", "--exclude-standard", "-z", "--directory");
+        var output = RunGitCommand(repoRoot, "untracked");
         if (string.IsNullOrEmpty(output)) return untracked;
 
         foreach (var raw in output.Split('\0', StringSplitOptions.RemoveEmptyEntries))
@@ -140,38 +152,76 @@ public class GitStatusService : IGitStatusService, IDisposable
         return untracked;
     }
 
-    private static string RunGitCommand(string repoRoot, params string[] arguments)
+    internal static string? FindAvailableGit(IEnumerable<string> candidates, Func<string, string?> getVersion)
+        => candidates.FirstOrDefault(path => getVersion(path)?.StartsWith("git version ", StringComparison.Ordinal) == true);
+
+    private static string? RunGitCommand(string repoRoot, string operation)
     {
-        var psi = new ProcessStartInfo
+        try
         {
-            FileName = "/usr/bin/git",
-            WorkingDirectory = repoRoot,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (var argument in arguments)
-            psi.ArgumentList.Add(argument);
-
-        using var proc = Process.Start(psi);
-        if (proc == null) return string.Empty;
-
-        var outputTask = proc.StandardOutput.ReadToEndAsync();
-        var errorTask = proc.StandardError.ReadToEndAsync();
-
-        if (!proc.WaitForExit(5000))
-        {
-            try { proc.Kill(entireProcessTree: true); }
-            catch { }
-            return string.Empty;
+            if (DistributionChannel.IsAppStore &&
+                (!DirectoryAccess.Current.CanAccess(repoRoot) || !DirectoryAccess.Current.CanAccess(Path.Combine(repoRoot, ".git")))) return null;
+            var executable = DistributionChannel.IsAppStore ? StoreGit.Value : "/usr/bin/git";
+            // Filters and partial clones may start external programs or fetch
+            // missing objects. They cannot supply a passive Store decoration.
+            if (DistributionChannel.IsAppStore && executable != null && operation == "status"
+                && RunGitProcess(executable, repoRoot, "filters") != string.Empty) return null;
+            return executable == null ? null : RunGitProcess(executable, repoRoot, operation);
         }
+        catch { return null; }
+    }
 
-        try { Task.WaitAll([outputTask, errorTask], 1000); }
-        catch { return string.Empty; }
+    private static string? RunGitProcess(string executable, string? repoRoot, string operation)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = DistributionChannel.IsAppStore
+                    ? Path.Combine(RuntimePaths.BundleExecutableDirectory, "MacExplorer.Git") : executable,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            // The Store helper enters the repository after resolving its bookmarks.
+            if (repoRoot != null && !DistributionChannel.IsAppStore) psi.WorkingDirectory = repoRoot;
+            if (DistributionChannel.IsAppStore)
+            {
+                psi.ArgumentList.Add(executable);
+                psi.ArgumentList.Add(repoRoot ?? "-");
+                psi.ArgumentList.Add(operation);
+                if (repoRoot != null) DirectoryAccess.Current.ConfigureHelper(psi, repoRoot, Path.Combine(repoRoot, ".git"));
+            }
+            else
+            {
+                string[] arguments = operation switch
+                {
+                    "status" => ["status", "--porcelain", "-z"],
+                    "ignored" => ["ls-files", "-o", "-i", "--exclude-standard", "-z", "--directory"],
+                    "untracked" => ["ls-files", "-o", "--exclude-standard", "-z", "--directory"],
+                    _ => ["--version"]
+                };
+                foreach (var argument in arguments) psi.ArgumentList.Add(argument);
+            }
 
-        return proc.ExitCode == 0 ? outputTask.Result : string.Empty;
+            using var proc = Process.Start(psi);
+            if (proc == null) return null;
+
+            var outputTask = proc.StandardOutput.ReadToEndAsync();
+            var errorTask = proc.StandardError.ReadToEndAsync();
+
+            if (!proc.WaitForExit(repoRoot == null ? 1000 : 5000))
+            {
+                try { proc.Kill(entireProcessTree: true); }
+                catch { }
+                return null;
+            }
+
+            if (!Task.WaitAll([outputTask, errorTask], 1000)) return null;
+            return proc.ExitCode == 0 || operation == "filters" && proc.ExitCode == 1 ? outputTask.Result : null;
+        }
+        catch { return null; }
     }
 
     private static string UnquotePath(string quoted)

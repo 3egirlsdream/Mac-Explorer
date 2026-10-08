@@ -15,6 +15,18 @@ declared = tuple(map(int, info['LSMinimumSystemVersion'].split('.')))
 errors = []
 if info.get('DistributionChannel') != channel: errors.append('Bundle channel metadata does not match requested channel')
 if not info.get('PrivacyPolicyURL', '').startswith('https://'): errors.append('Missing HTTPS privacy policy URL')
+if channel == 'AppStore':
+    for document_type in info.get('CFBundleDocumentTypes', []):
+        if document_type.get('LSHandlerRank') not in {'Owner', 'Default', 'Alternate', 'None'}:
+            errors.append('Missing or invalid LSHandlerRank: ' + document_type.get('CFBundleTypeName', '(unnamed)'))
+    if not (app / 'Contents/MacOS/MacExplorer.Git').is_file(): errors.append('Missing optional Git query helper')
+    if info.get('LSApplicationCategoryType') not in {'public.app-category.utilities', 'public.app-category.productivity', 'public.app-category.developer-tools'}:
+        errors.append('Missing or unsupported Mac Explorer App Store category')
+    if not info.get('NSHumanReadableCopyright', '').strip(): errors.append('Missing copyright')
+    if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', info.get('CFBundleVersion', '')): errors.append('Invalid App Store build number')
+    attributes = subprocess.check_output(['xattr', '-r', '-s', str(app)], text=True)
+    for line in attributes.splitlines():
+        if line.endswith('com.apple.quarantine'): errors.append('Quarantine attribute found: ' + line)
 native = []
 for path in (app / 'Contents').rglob('*'):
     if not path.is_file() or path.is_symlink():
@@ -42,7 +54,7 @@ if channel == 'AppStore':
     for key in ['app-sandbox', 'files.user-selected.read-write', 'files.bookmarks.app-scope', 'network.client', 'network.server', 'cs.allow-jit']:
         if not entitlements.get('com.apple.security.' + key): errors.append('Missing entitlement: ' + key)
     if any('temporary-exception' in key for key in entitlements): errors.append('Temporary sandbox exception found')
-    if info['CFBundleIdentifier'] == 'com.macexplorer.app': errors.append('App Store reused website bundle identity')
+    if info['CFBundleIdentifier'] == 'com.thankful.top.macexplorer': errors.append('App Store reused website bundle identity')
     for helper in (app / 'Contents/MacOS').glob('MacExplorer.*'):
         helper_xml = subprocess.check_output(['codesign', '-d', '--entitlements', ':-', str(helper)], stderr=subprocess.DEVNULL)
         helper_entitlements = plistlib.loads(helper_xml)

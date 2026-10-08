@@ -304,6 +304,11 @@ public class MacThumbnailService : IThumbnailService
     private async Task<byte[]?> GenerateFaceCropAsync(string filePath, string outputPath,
         float bx, float by, float bw, float bh, int maxPixelSize, CancellationToken ct)
     {
+        if (DistributionChannel.IsAppStore)
+            return await GenerateWithNativeQuickLookAsync(filePath, outputPath, maxPixelSize,
+                _diskCacheDirectory, ct, ["face", bx.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    by.ToString(System.Globalization.CultureInfo.InvariantCulture), bw.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    bh.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
         var dimensions = await GetDimensionsAsync(filePath, ct).ConfigureAwait(false);
         if (dimensions == null) return null;
 
@@ -450,26 +455,35 @@ public class MacThumbnailService : IThumbnailService
         int maxPixelSize,
         CancellationToken ct)
     {
-        var generatedPath = CreateTemporaryPath("thumbnail");
-        try
+        if (DistributionChannel.IsAppStore)
         {
-            var arguments = new[]
-            {
-                "-Z", Math.Max(32, maxPixelSize).ToString(),
-                "--setProperty", "format", "png",
-                sourcePath, "--out", generatedPath
-            };
-            if (await RunSipsAsync(arguments, ct) && File.Exists(generatedPath))
-            {
-                PromoteTemporaryFile(generatedPath, cachePath);
-                var generated = await File.ReadAllBytesAsync(cachePath, ct);
-                TouchCacheFile(cachePath);
-                return generated;
-            }
+            var nativeResult = await GenerateWithNativeQuickLookAsync(sourcePath, cachePath, maxPixelSize,
+                _diskCacheDirectory, ct, ["image"]);
+            if (nativeResult != null) return nativeResult;
         }
-        finally
+        else
         {
-            TryDelete(generatedPath);
+            var generatedPath = CreateTemporaryPath("thumbnail");
+            try
+            {
+                var arguments = new[]
+                {
+                    "-Z", Math.Max(32, maxPixelSize).ToString(),
+                    "--setProperty", "format", "png",
+                    sourcePath, "--out", generatedPath
+                };
+                if (await RunSipsAsync(arguments, ct) && File.Exists(generatedPath))
+                {
+                    PromoteTemporaryFile(generatedPath, cachePath);
+                    var generated = await File.ReadAllBytesAsync(cachePath, ct);
+                    TouchCacheFile(cachePath);
+                    return generated;
+                }
+            }
+            finally
+            {
+                TryDelete(generatedPath);
+            }
         }
 
         var info = new FileInfo(sourcePath);
@@ -565,12 +579,13 @@ public class MacThumbnailService : IThumbnailService
         string cachePath,
         int maxPixelSize,
         string outputDirectory,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyList<string>? imageArguments = null)
     {
         var helperPath = Path.Combine(RuntimePaths.BundleExecutableDirectory, "MacExplorer.Thumbnail");
         if (!File.Exists(helperPath)) return null;
 
-        var generatedPath = Path.Combine(outputDirectory, "thumbnail.png");
+        var generatedPath = Path.Combine(outputDirectory, ".thumbnail-" + Guid.NewGuid().ToString("N") + ".png");
         Process? process = null;
         try
         {
@@ -584,8 +599,10 @@ public class MacThumbnailService : IThumbnailService
             };
             startInfo.ArgumentList.Add(sourcePath);
             startInfo.ArgumentList.Add(generatedPath);
-            startInfo.ArgumentList.Add(Math.Max(32, maxPixelSize).ToString());
-            DirectoryAccess.Current.ConfigureHelper(startInfo, sourcePath);
+            startInfo.ArgumentList.Add(Math.Max(imageArguments?.FirstOrDefault() == "face" ? 1 : 32, maxPixelSize).ToString());
+            if (imageArguments != null)
+                foreach (var argument in imageArguments) startInfo.ArgumentList.Add(argument);
+            DirectoryAccess.Current.ConfigureHelper(startInfo, sourcePath, generatedPath);
             process = Process.Start(startInfo);
             if (process == null) return null;
             TrySetBelowNormalPriority(process);

@@ -42,7 +42,10 @@ public sealed class DirectoryAccess : IDisposable
     private readonly object _gate = new();
     private readonly Dictionary<string, Grant> _grants = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _movedPaths = new(StringComparer.Ordinal);
-    private sealed record Grant(string Bookmark, IntPtr Scope);
+    private sealed record Grant(string Bookmark, IntPtr Scope, string CanonicalRoot)
+    {
+        public string? HelperBookmark { get; set; }
+    }
     public IReadOnlyList<string> UnavailableRoots { get; private set; } = [];
     public IReadOnlyList<string> AuthorizedRoots { get { lock (_gate) return _grants.Keys.ToArray(); } }
     public event Action? GrantsChanged;
@@ -53,6 +56,7 @@ public sealed class DirectoryAccess : IDisposable
         _backend = backend ?? new NativeBookmarkAccess();
         _internalRoots = internalRoots ?? [RuntimePaths.DataDirectory, RuntimePaths.CacheDirectory, RuntimePaths.TemporaryDirectory, AppContext.BaseDirectory];
         if (!restricted) return;
+        _internalRoots = _internalRoots.Select(_backend.RealPath).ToArray();
         var loaded = Load();
         if (loaded != null) { _saved = loaded; if (RestoreError == null) Restore(); }
     }
@@ -139,7 +143,7 @@ public sealed class DirectoryAccess : IDisposable
                 if (opened.Scope == IntPtr.Zero || opened.Path == null)
                 { if (opened.Scope != IntPtr.Zero) _backend.Close(opened.Scope); unavailable.Add(oldPath); continue; }
                 if (restored.Remove(opened.Path, out var duplicate)) _backend.Close(duplicate.Scope);
-                restored[opened.Path] = new(opened.Refreshed ?? bookmark, opened.Scope);
+                restored[opened.Path] = CreateGrant(opened.Refreshed ?? bookmark, opened.Scope, opened.Path);
                 saved.Bookmarks.Remove(oldPath);
                 saved.Bookmarks[opened.Path] = opened.Refreshed ?? bookmark;
                 if (opened.Path != oldPath)
@@ -195,10 +199,11 @@ public sealed class DirectoryAccess : IDisposable
             saved.Bookmarks.Remove(path);
             saved.Bookmarks[opened.Path] = opened.Refreshed ?? bookmark;
             if (path != opened.Path) saved.Aliases[path] = opened.Path;
-            try { Save(saved); }
+            Grant grant;
+            try { grant = new(opened.Refreshed ?? bookmark, opened.Scope, _backend.RealPath(opened.Path)); Save(saved); }
             catch { _backend.Close(opened.Scope); throw; }
             if (_grants.Remove(opened.Path, out var old)) _backend.Close(old.Scope);
-            _grants[opened.Path] = new(opened.Refreshed ?? bookmark, opened.Scope);
+            _grants[opened.Path] = grant;
             _saved = saved;
             if (path != opened.Path) _movedPaths[path] = opened.Path;
             UnavailableRoots = UnavailableRoots.Where(p => p != path && p != opened.Path).ToArray();
@@ -252,8 +257,13 @@ public sealed class DirectoryAccess : IDisposable
         if (!_restricted) return true;
         if (!Path.IsPathFullyQualified(path)) return false;
         path = _backend.RealPath(path);
-        if (_internalRoots.Any(root => IsWithin(path, _backend.RealPath(root)))) return true;
-        lock (_gate) return _grants.Keys.Any(root => IsWithin(path, _backend.RealPath(root)));
+        return CanAccessCanonical(path);
+    }
+
+    private bool CanAccessCanonical(string path)
+    {
+        if (_internalRoots.Any(root => IsWithin(path, root))) return true;
+        lock (_gate) return _grants.Values.Any(grant => IsWithin(path, grant.CanonicalRoot));
     }
 
     public void EnsureAccess(string path)
@@ -264,9 +274,25 @@ public sealed class DirectoryAccess : IDisposable
     public void ConfigureHelper(ProcessStartInfo start, params string[] paths)
     {
         if (!_restricted) return;
-        foreach (var path in paths) EnsureAccess(path);
-        lock (_gate) start.Environment["MACEXPLORER_FILE_BOOKMARKS"] = JsonSerializer.Serialize(
-            _grants.Keys.Select(root => _backend.Create(root, explicitScope: false)).ToArray());
+        if (paths.Any(path => !Path.IsPathFullyQualified(path)))
+            throw new UnauthorizedAccessException("辅助程序只能访问已授权的完整路径。");
+        var canonicalPaths = paths.Select(_backend.RealPath).ToArray();
+        lock (_gate)
+        {
+            if (canonicalPaths.Any(path => !CanAccessCanonical(path)))
+                throw new UnauthorizedAccessException("辅助程序的文件位置尚未授权或授权已失效。");
+            var bookmarks = new List<string>();
+            foreach (var (root, grant) in _grants)
+                if (paths.Length == 0 || canonicalPaths.Any(path => IsWithin(path, grant.CanonicalRoot)))
+                    bookmarks.Add(grant.HelperBookmark ??= _backend.Create(root, explicitScope: false));
+            start.Environment["MACEXPLORER_FILE_BOOKMARKS"] = JsonSerializer.Serialize(bookmarks);
+        }
+    }
+
+    private Grant CreateGrant(string bookmark, IntPtr scope, string path)
+    {
+        try { return new(bookmark, scope, _backend.RealPath(path)); }
+        catch { _backend.Close(scope); throw; }
     }
 
     internal static bool IsWithin(string path, string root) => path == root

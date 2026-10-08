@@ -42,6 +42,8 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
     {
         try
         {
+            if (DistributionChannel.IsAppStore)
+                return await Task.Run(() => Platforms.MacOS.MacSandboxNative.EjectVolume(volumePath));
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "diskutil",
