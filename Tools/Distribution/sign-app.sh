@@ -5,7 +5,7 @@ if [ -z "$identity" ]; then identity=-; fi
 root=$(cd "$(dirname "$0")/../.." && pwd)
 # Sign every Mach-O from the inside out; managed DLL/JSON files remain bundle resources.
 while IFS= read -r -d '' file_path; do
-    if file -b "$file_path" | rg -q 'Mach-O'; then
+    if [[ "$(file -b "$file_path")" == *Mach-O* ]]; then
         args=(--force --sign "$identity")
         if [ "$channel" = AppStore ] && [[ "$(basename "$file_path")" == MacExplorer.* ]]; then
             args+=(--entitlements "$root/Platforms/MacOS/Helper.entitlements")

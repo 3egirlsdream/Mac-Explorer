@@ -18,7 +18,7 @@ case "status", "ignored", "untracked", "filters":
     guard args[2].hasPrefix("/"), chdir(args[2]) == 0 else { exit(2) }
     if args[3] == "filters" {
         command += ["config", "--null", "--get-regexp",
-            "^(filter\\..*\\.(clean|process)|extensions\\.partialclone|remote\\..*\\.partialclonefilter)$", ".+"]
+            "^(filter\\..*\\.(clean|process)|extensions\\.partialclone|remote\\..*\\.partialclonefilter)$"]
     }
     else if args[3] == "status" { command += ["status", "--porcelain", "-z", "--ignore-submodules=dirty"] }
     else {

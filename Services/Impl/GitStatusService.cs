@@ -155,6 +155,20 @@ public class GitStatusService : IGitStatusService, IDisposable
     internal static string? FindAvailableGit(IEnumerable<string> candidates, Func<string, string?> getVersion)
         => candidates.FirstOrDefault(path => getVersion(path)?.StartsWith("git version ", StringComparison.Ordinal) == true);
 
+    internal static bool HasExternalGitConfiguration(string? output)
+    {
+        if (output == null) return true;
+        // Git emits all scopes in precedence order, including overridden values.
+        var effective = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var entry in output.Split('\0', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = entry.IndexOf('\n');
+            if (separator <= 0) return true;
+            effective[entry[..separator]] = entry[(separator + 1)..];
+        }
+        return effective.Values.Any(value => value.Length != 0);
+    }
+
     private static string? RunGitCommand(string repoRoot, string operation)
     {
         try
@@ -165,7 +179,7 @@ public class GitStatusService : IGitStatusService, IDisposable
             // Filters and partial clones may start external programs or fetch
             // missing objects. They cannot supply a passive Store decoration.
             if (DistributionChannel.IsAppStore && executable != null && operation == "status"
-                && RunGitProcess(executable, repoRoot, "filters") != string.Empty) return null;
+                && HasExternalGitConfiguration(RunGitProcess(executable, repoRoot, "filters"))) return null;
             return executable == null ? null : RunGitProcess(executable, repoRoot, operation);
         }
         catch { return null; }

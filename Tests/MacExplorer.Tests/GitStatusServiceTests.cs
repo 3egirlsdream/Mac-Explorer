@@ -29,7 +29,7 @@ public sealed class GitStatusServiceTests : IDisposable
     public async Task AvailableGitReportsChangesAndFailedReadsAreNotCachedAsClean()
     {
         var git = GitStatusService.StoreGitCandidates.First(File.Exists);
-        await RunAsync(git, "init", "-q");
+        await InitializeRepositoryAsync(git);
         await File.WriteAllTextAsync(Path.Combine(_root, ".gitignore"), "ignored.txt\n");
         await File.WriteAllTextAsync(Path.Combine(_root, "tracked.txt"), "original\n");
         await RunAsync(git, "add", ".gitignore", "tracked.txt");
@@ -79,7 +79,7 @@ public sealed class GitStatusServiceTests : IDisposable
     public async Task StoreRejectsUnauthorizedRepositoryBeforeReturningCachedStatus()
     {
         if (!DistributionChannel.IsAppStore) return;
-        await RunAsync(GitStatusService.StoreGitCandidates.First(File.Exists), "init", "-q");
+        await InitializeRepositoryAsync(GitStatusService.StoreGitCandidates.First(File.Exists));
         using var service = new GitStatusService();
         using (var allowed = new DirectoryAccess(Path.Combine(_root, "allowed.json"), false))
         using (DirectoryAccess.UseForTests(allowed))
@@ -89,6 +89,25 @@ public sealed class GitStatusServiceTests : IDisposable
         Assert.Null(await service.GetRepoStatusAsync(_root));
         Assert.Empty(GitStatusService.GetIgnoredPaths(_root));
         Assert.Empty(GitStatusService.GetUntrackedPaths(_root));
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("", false)]
+    [InlineData("filter.lfs.clean\ngit-lfs clean -- %f\0", true)]
+    [InlineData("filter.lfs.clean\ngit-lfs clean -- %f\0filter.lfs.clean\n\0", false)]
+    [InlineData("filter.lfs.clean\n\0filter.lfs.clean\nexternal-command\0", true)]
+    [InlineData("remote.origin.partialclonefilter\nblob:none\0", true)]
+    [InlineData("malformed\0", true)]
+    public void ExternalConfigurationUsesEffectiveValuesAndRejectsUnavailableReads(string? output, bool blocked)
+        => Assert.Equal(blocked, GitStatusService.HasExternalGitConfiguration(output));
+
+    private async Task InitializeRepositoryAsync(string git)
+    {
+        await RunAsync(git, "init", "-q");
+        // CI machines may enable LFS globally; this fixture has no external filters.
+        await RunAsync(git, "config", "filter.lfs.clean", "");
+        await RunAsync(git, "config", "filter.lfs.process", "");
     }
 
     private async Task RunAsync(string executable, params string[] arguments)

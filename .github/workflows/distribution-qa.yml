@@ -52,6 +52,7 @@ jobs:
           set -euo pipefail
           runner=$(find "$RUNNER_TEMP/build-$CHANNEL/bin/MacExplorer.Tests" -type f -name MacExplorer.Tests | head -n 1)
           test -x "$runner"
+          test_status=0
           bash Tools/Testing/run-isolated.sh env \
             MACEXPLORER_TEST_REPOSITORY="$GITHUB_WORKSPACE" \
             MACEXPLORER_SFTP_TEST_PYTHON="$RUNNER_TEMP/sftp-fixture/bin/python" \
@@ -62,8 +63,9 @@ jobs:
             -class MacExplorer.Tests.LocalSendServiceTests -class MacExplorer.Tests.LocalSendReviewTests \
             -class MacExplorer.Tests.FileListLoadingPipelineTests \
             -method- MacExplorer.Tests.LocalSendServiceTests.SendsToOfficialLocalSendClient \
-            > "$RUNNER_TEMP/tests-$CHANNEL.log" 2>&1
+            > "$RUNNER_TEMP/tests-$CHANNEL.log" 2>&1 || test_status=$?
           cat "$RUNNER_TEMP/tests-$CHANNEL.log"
+          test "$test_status" -eq 0
           python3 Tools/Distribution/verify-test-summary.py "$RUNNER_TEMP/tests-$CHANNEL.log"
       - name: Audit package structure, channel restrictions and all dependency notices
         env:
