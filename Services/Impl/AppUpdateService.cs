@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Runtime.InteropServices;
 using MacExplorer.Models;
 
 namespace MacExplorer.Services.Impl;
@@ -61,11 +62,8 @@ public class AppUpdateService : IAppUpdateService
         if (string.IsNullOrWhiteSpace(currentExecutableName))
             currentExecutableName = "MacExplorer";
 
-        if (!Uri.TryCreate(versionInfo.Path, UriKind.Absolute, out var downloadUri)
-            || (downloadUri.Scheme != Uri.UriSchemeHttps && downloadUri.Scheme != Uri.UriSchemeHttp))
-        {
-            throw new InvalidOperationException("更新下载地址无效");
-        }
+        var downloadUri = ResolveDownloadUri(versionInfo.Path, versionInfo.Version,
+            RuntimeInformation.ProcessArchitecture);
 
         var tempDir = Path.Combine(
             Path.GetTempPath(), $"MacExplorer_Update_{Environment.ProcessId}");
@@ -283,6 +281,43 @@ echo ""[$(date)] Update completed""
             ["-x", "-k", archivePath, destinationPath],
             ct);
 
+    internal static Uri ResolveDownloadUri(string path, string version, Architecture architecture)
+    {
+        if (!Uri.TryCreate(path, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+            throw new InvalidOperationException("更新下载地址无效");
+
+        var fileName = Path.GetFileName(uri.AbsolutePath);
+        foreach (var extension in new[] { ".zip", ".dmg" })
+        {
+            var armName = $"MacExplorer-{version}-macos{extension}";
+            var intelName = $"MacExplorer-{version}-macos-intel{extension}";
+            if (fileName != armName && fileName != intelName)
+                continue;
+
+            // Preserve the running edition under Rosetta as well as on Intel Macs.
+            var selected = GetMacOSArchitecture(architecture) == "x86_64" ? intelName : armName;
+            if (fileName == selected)
+                return uri;
+            return new UriBuilder(uri)
+            {
+                Path = uri.AbsolutePath[..(uri.AbsolutePath.LastIndexOf('/') + 1)] + selected
+            }.Uri;
+        }
+        return uri;
+    }
+
+    private static string GetMacOSArchitecture(Architecture architecture) => architecture switch
+    {
+        Architecture.X64 => "x86_64",
+        Architecture.Arm64 => "arm64",
+        _ => throw new InvalidOperationException($"自动更新不支持当前架构: {architecture}")
+    };
+
+    internal static Task EnsureUpdateArchitectureAsync(string executablePath, Architecture architecture,
+        CancellationToken ct = default) => RunProcessAsync("/usr/bin/lipo",
+            [executablePath, "-verify_arch", GetMacOSArchitecture(architecture)], ct);
+
     private static async Task EnsureLaunchableAppBundleAsync(
         string appBundle,
         string expectedBundleIdentifier,
@@ -318,6 +353,8 @@ echo ""[$(date)] Update completed""
             throw new InvalidOperationException(
                 $"更新包中的主程序不存在: Contents/MacOS/{executableName}");
 
+        await EnsureUpdateArchitectureAsync(executablePath, RuntimeInformation.ProcessArchitecture, ct)
+            .ConfigureAwait(false);
         await RunProcessAsync("/bin/chmod", ["+x", executablePath], ct).ConfigureAwait(false);
         await RunProcessAsync(
             "/usr/bin/codesign",
