@@ -243,6 +243,7 @@
             <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
         </Style>
         <Style Selector="controls|ChromiumTabStripSurface">
+            <Setter Property="ShadowColor" Value="{DynamicResource ActiveTabShadowColor}"/>
             <Setter Property="Fill" Value="{DynamicResource SurfaceBrush}"/>
         </Style>
     </controls:AppWindow.Styles>

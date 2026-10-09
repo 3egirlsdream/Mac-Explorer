@@ -78,3 +78,5 @@
 - 排序菜单选中标记复用全局 `PathIcon.toolbar-popup-check` 与 `toolbar-popup-item.selected`，使用 Fluent Checkmark；未选中保留图标列占位，文字对齐。排序优先支持文件（默认）、文件夹和不区分，并保存偏好。
 
 - 通用按钮使用 `FontFamilyButton` 的西文字体优先、中文苹方回退顺序，内容默认水平与垂直居中；菜单及行操作仍由对应样式显式指定对齐，不按语言添加固定像素偏移。
+
+- 主窗口激活页签由 `ChromiumTabStripSurface` 沿曲线轮廓绘制零偏移轻阴影，浅／深色强度统一使用 `ActiveTabShadowColor`，不为整条标题栏绘制阴影。

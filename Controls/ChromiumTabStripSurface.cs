@@ -12,11 +12,15 @@ public sealed class ChromiumTabStripSurface : Control
     internal const double ContentBandHeight = 2;
     internal const double BottomRadius = 16;
     private const int SampleScale = 4;
+    private const double ShadowRadius = 2;
 
     public static readonly StyledProperty<ListBox?> TabStripProperty =
         AvaloniaProperty.Register<ChromiumTabStripSurface, ListBox?>(nameof(TabStrip));
     public static readonly StyledProperty<IBrush?> FillProperty =
         AvaloniaProperty.Register<ChromiumTabStripSurface, IBrush?>(nameof(Fill));
+
+    public static readonly StyledProperty<Color> ShadowColorProperty =
+        AvaloniaProperty.Register<ChromiumTabStripSurface, Color>(nameof(ShadowColor));
 
     private Rect _tabBounds;
     private Rect _viewport;
@@ -24,6 +28,7 @@ public sealed class ChromiumTabStripSurface : Control
     private Size _bitmapSize;
     private double _bitmapScale;
     private IBrush? _bitmapFill;
+    private Color _bitmapShadowColor;
     private TopLevel? _topLevel;
 
     public ListBox? TabStrip
@@ -38,7 +43,13 @@ public sealed class ChromiumTabStripSurface : Control
         set => SetValue(FillProperty, value);
     }
 
-    static ChromiumTabStripSurface() => AffectsRender<ChromiumTabStripSurface>(FillProperty);
+    public Color ShadowColor
+    {
+        get => GetValue(ShadowColorProperty);
+        set => SetValue(ShadowColorProperty, value);
+    }
+
+    static ChromiumTabStripSurface() => AffectsRender<ChromiumTabStripSurface>(FillProperty, ShadowColorProperty);
 
     public ChromiumTabStripSurface()
     {
@@ -124,7 +135,7 @@ public sealed class ChromiumTabStripSurface : Control
 
         var scale = _topLevel?.RenderScaling ?? 1;
         var fill = Fill.ToImmutable();
-        if (_bitmap is null || _bitmapSize != size || _bitmapScale != scale || !Equals(_bitmapFill, fill))
+        if (_bitmap is null || _bitmapSize != size || _bitmapScale != scale || !Equals(_bitmapFill, fill) || _bitmapShadowColor != ShadowColor)
         {
             ClearBitmap();
             var pixels = PixelSize.FromSize(size, scale);
@@ -152,10 +163,16 @@ public sealed class ChromiumTabStripSurface : Control
                         path.EndFigure(true);
                     }
                     using (drawing.PushGeometryClip(clip))
+                    {
+                        DrawTabShadow(drawing, join);
                         drawing.DrawGeometry(fill, null, outline);
+                    }
                 }
                 else
+                {
+                    DrawTabShadow(drawing, join);
                     drawing.DrawGeometry(fill, null, outline);
+                }
             }
             // Two exact 2:1 bilinear reductions average all 4x4 coverage
             // samples. A single cubic resize can skip samples and ring.
@@ -165,8 +182,23 @@ public sealed class ChromiumTabStripSurface : Control
             _bitmapSize = size;
             _bitmapScale = scale;
             _bitmapFill = fill;
+            _bitmapShadowColor = ShadowColor;
         }
         context.DrawImage(_bitmap, new Rect(_bitmap.PixelSize.ToSize(1)), new Rect(size));
+    }
+
+    private void DrawTabShadow(DrawingContext drawing, double join)
+    {
+        if (_tabBounds.Width <= 0 || _tabBounds.Top >= join || ShadowColor.A == 0)
+            return;
+
+        // Blur only the tab silhouette, with no directional offset. The full-width
+        // content band is painted afterward so it does not cast a title-bar shadow.
+        var size = new Size(_tabBounds.Width, join + ContentBandHeight - _tabBounds.Top);
+        var outline = CreateOutline(size, new Rect(size), join - _tabBounds.Top);
+        using var transform = drawing.PushTransform(Matrix.CreateTranslation(_tabBounds.Left, _tabBounds.Top));
+        using var effect = drawing.PushEffect(new BlurEffect { Radius = ShadowRadius }, new Rect(size));
+        drawing.DrawGeometry(new SolidColorBrush(ShadowColor), null, outline);
     }
 
     private static RenderTargetBitmap ReduceBitmap(Bitmap source, PixelSize pixels, double scale)
