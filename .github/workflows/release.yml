@@ -13,6 +13,11 @@ name: Release Mac Explorer
         required: true
         default: false
         type: boolean
+      rebuild_current_version:
+        description: Rebuild and replace assets for the existing current release without moving its tag
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -48,6 +53,7 @@ jobs:
         shell: bash
         env:
           SYNC_BACKEND_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.sync_backend_only == true }}
+          REBUILD_CURRENT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_current_version == true }}
         run: |
           set -euo pipefail
 
@@ -96,7 +102,15 @@ jobs:
           current_tag = f"v{version_text}"
           sync_only = os.environ.get("SYNC_BACKEND_ONLY", "false").lower() == "true"
 
-          if sync_only:
+          rebuild = os.environ.get("REBUILD_CURRENT_VERSION", "false").lower() == "true"
+
+          if sync_only and rebuild:
+              sys.exit("Backend-only sync and current-release rebuild are mutually exclusive")
+          if rebuild:
+              if current_tag not in release_tags or current_tag != latest_tag:
+                  sys.exit("Current-release rebuild requires the existing highest release tag")
+              mode = "republish"
+          elif sync_only:
               if not latest_tag:
                   sys.exit("Backend-only sync requires an existing release tag")
               if current_tag not in release_tags:
@@ -143,7 +157,7 @@ jobs:
   publish-release:
     name: Build and publish release
     needs: detect-version
-    if: needs.detect-version.outputs.mode == 'publish'
+    if: needs.detect-version.outputs.mode == 'publish' || needs.detect-version.outputs.mode == 'republish'
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -262,11 +276,14 @@ jobs:
           echo "intel_dmg_name=$intel_dmg_name" >> "$GITHUB_OUTPUT"
           echo "intel_zip_name=$intel_zip_name" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.detect-version.outputs.tag }}
+          MODE: ${{ needs.detect-version.outputs.mode }}
+          VERSION: ${{ needs.detect-version.outputs.version }}
+          PREVIOUS_TAG: ${{ needs.detect-version.outputs.previous_tag }}
           DIST_DIR: ${{ steps.package.outputs.dist_dir }}
           DMG_NAME: ${{ steps.package.outputs.dmg_name }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
@@ -275,16 +292,34 @@ jobs:
         run: |
           set -euo pipefail
 
-          gh release create "$TAG" \
-            "${DIST_DIR}/${DMG_NAME}" \
-            "${DIST_DIR}/${ZIP_NAME}" \
-            "${DIST_DIR}/${INTEL_DMG_NAME}" \
-            "${DIST_DIR}/${INTEL_ZIP_NAME}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "Mac Explorer ${TAG}" \
-            --generate-notes \
-            --latest
+          assets=(
+            "${DIST_DIR}/${DMG_NAME}"
+            "${DIST_DIR}/${ZIP_NAME}"
+            "${DIST_DIR}/${INTEL_DMG_NAME}"
+            "${DIST_DIR}/${INTEL_ZIP_NAME}"
+          )
+          if [[ "$MODE" == "republish" ]]; then
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
+              | jq -e '.isDraft == false and .isPrerelease == false' > /dev/null
+            notes_file="${RUNNER_TEMP}/rebuilt-release-notes.txt"
+            python3 Tools/Release/generate_memo.py --version "$VERSION" --tag "$GITHUB_SHA" \
+              --previous-tag "$PREVIOUS_TAG" --output "$notes_file"
+            python3 - "$notes_file" <<'PYNOTES'
+          import os
+          import sys
+          from pathlib import Path
+          notes = Path(sys.argv[1])
+          sha, repo = os.environ["GITHUB_SHA"], os.environ["GITHUB_REPOSITORY"]
+          with notes.open("a", encoding="utf-8") as output:
+              output.write(f"\n\nRebuilt from [{sha}](https://github.com/{repo}/commit/{sha}); the original release tag is unchanged.\n")
+          PYNOTES
+            gh release upload "$TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file" --latest
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Mac Explorer ${TAG}" --generate-notes --latest
+          fi
 
           release_json=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets)
           jq -e --arg name "$DMG_NAME" '.assets | any(.name == $name)' <<< "$release_json"
@@ -300,7 +335,7 @@ jobs:
     if: >-
       always() &&
       (needs.detect-version.outputs.mode == 'sync' ||
-       (needs.detect-version.outputs.mode == 'publish' && needs.publish-release.result == 'success'))
+       ((needs.detect-version.outputs.mode == 'publish' || needs.detect-version.outputs.mode == 'republish') && needs.publish-release.result == 'success'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -343,12 +378,15 @@ jobs:
           VERSION: ${{ needs.detect-version.outputs.version }}
           TAG: ${{ needs.detect-version.outputs.tag }}
           PREVIOUS_TAG: ${{ needs.detect-version.outputs.previous_tag }}
+          MODE: ${{ needs.detect-version.outputs.mode }}
         run: |
           set -euo pipefail
 
           memo_file="${RUNNER_TEMP}/backend-memo.txt"
+          memo_revision="$TAG"
+          if [[ "$MODE" == "republish" ]]; then memo_revision="$GITHUB_SHA"; fi
           python3 Tools/Release/generate_memo.py \
-            --version "$VERSION" --tag "$TAG" --previous-tag "$PREVIOUS_TAG" \
+            --version "$VERSION" --tag "$memo_revision" --previous-tag "$PREVIOUS_TAG" \
             --output "$memo_file"
 
           echo "memo_file=$memo_file" >> "$GITHUB_OUTPUT"
