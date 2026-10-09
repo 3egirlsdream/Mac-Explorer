@@ -48,6 +48,7 @@ public class AppUpdateTests
     [AvaloniaFact]
     public void AlreadyLatestShowsCurrentReleaseMemoWithoutOfferingInstallation()
     {
+        using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
         var service = new FailingUpdateService();
         service.Details = new VersionInfo
         {
@@ -55,7 +56,7 @@ public class AppUpdateTests
             History = [new VersionInfo { Version = service.CurrentVersion, Memo = "完整当前版本日志\n\n  - 详细内容" }]
         };
         var dialog = new SettingsDialog(new DefaultAppServiceStub(), new SettingsServiceStub(), new ThemeServiceStub(),
-            new TypographyServiceStub(), new OpenWithAppServiceStub(), service);
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), service, localizationService: language);
         var button = dialog.FindControl<Button>("UpdateButton")!;
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Assert.Equal("检查更新", button.Content);
@@ -68,9 +69,10 @@ public class AppUpdateTests
     [AvaloniaFact]
     public void StartupUpdateDisplaysAllReleaseSectionsAndUntruncatedBodies()
     {
+        using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
         var service = new FailingUpdateService();
         var dialog = new SettingsDialog(new DefaultAppServiceStub(), new SettingsServiceStub(), new ThemeServiceStub(),
-            new TypographyServiceStub(), new OpenWithAppServiceStub(), service);
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), service, localizationService: language);
         var memo = "详细正文\n\n" + new string('长', 5000);
         dialog.ShowAvailableUpdate(new VersionInfo
         {
@@ -90,10 +92,11 @@ public class AppUpdateTests
     [AvaloniaFact]
     public void StartupUpdateOpensAboutPageWithoutDownloading()
     {
+        using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
         var updateService = new FailingUpdateService();
         var dialog = new SettingsDialog(
             new DefaultAppServiceStub(), new SettingsServiceStub(), new ThemeServiceStub(),
-            new TypographyServiceStub(), new OpenWithAppServiceStub(), updateService);
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), updateService, localizationService: language);
         dialog.ShowAvailableUpdate(new VersionInfo { Version = "2.0.0", Memo = "更新内容" });
 
         Assert.Same(dialog.FindControl<TabItem>("AboutTab"), dialog.FindControl<TabControl>("SettingsTabs")!.SelectedItem);
@@ -148,6 +151,7 @@ public class AppUpdateTests
     [AvaloniaFact]
     public void FailedValidationCannotBeOverwrittenByQueuedProgress()
     {
+        using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
         var updateService = new FailingUpdateService();
         var dialog = new SettingsDialog(
             new DefaultAppServiceStub(),
@@ -155,7 +159,7 @@ public class AppUpdateTests
             new ThemeServiceStub(),
             new TypographyServiceStub(),
             new OpenWithAppServiceStub(),
-            updateService);
+            updateService, localizationService: language);
         var updateButton = dialog.FindControl<Button>("UpdateButton")!;
         var updateStatus = dialog.FindControl<TextBlock>("UpdateStatus")!;
 

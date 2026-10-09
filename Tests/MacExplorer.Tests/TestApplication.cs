@@ -14,6 +14,9 @@ public sealed class TestApplication : Application
     {
         // Mirror App startup so Markdown rendering resolves its translations.
         MarkdownLocalization.Register();
+        Lang.Avalonia.I18nManager.Instance.Culture =
+            MacExplorer.Services.Impl.LocalizationService.Current?.Culture
+            ?? System.Globalization.CultureInfo.GetCultureInfo("zh-CN");
         Resources["BoolNotConverter"] = new BoolNotConverter();
         Resources.MergedDictionaries.Add((ResourceDictionary)AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/TypographyTokens.axaml")));
