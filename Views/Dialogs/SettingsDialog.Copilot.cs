@@ -33,9 +33,9 @@ public partial class SettingsDialog
             if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
                 || uri.Scheme != Uri.UriSchemeHttps
                     && !(uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback))
-                throw new ArgumentException("API 地址须使用 HTTPS；本机回环地址可使用 HTTP。");
+                throw new ArgumentException(MacExplorer.Services.Impl.LocalizationText.Get("API 地址须使用 HTTPS；本机回环地址可使用 HTTP。"));
             var model = CopilotModelBox.Text?.Trim();
-            if (string.IsNullOrEmpty(model)) throw new ArgumentException("请输入模型名称。");
+            if (string.IsNullOrEmpty(model)) throw new ArgumentException(MacExplorer.Services.Impl.LocalizationText.Get("请输入模型名称。"));
             var key = CopilotKeyBox.Text?.Trim();
             if (!string.IsNullOrWhiteSpace(key) && key != _savedCopilotKey)
             {
@@ -82,7 +82,7 @@ public partial class SettingsDialog
             var name = CopilotSkillNameBox.Text?.Trim() ?? string.Empty;
             CopilotSkills.Save(name, CopilotSkillContentBox.Text ?? string.Empty);
             RefreshCopilotSkills(name);
-            CopilotSettingsStatus.Text = "技能已保存。下一次对话将加载新内容。";
+            CopilotSettingsStatus.Text = MacExplorer.Services.Impl.LocalizationText.Get("技能已保存。下一次对话将加载新内容。");
         }
         catch (Exception ex) { CopilotSettingsStatus.Text = ex.Message; }
     }
@@ -95,7 +95,7 @@ public partial class SettingsDialog
             var skill = CopilotSkills.List().First(item => item.Name == name);
             CopilotSkills.SetEnabled(name, !skill.Enabled);
             RefreshCopilotSkills(name);
-            CopilotSettingsStatus.Text = skill.Enabled ? "技能已禁用。" : "技能已启用。";
+            CopilotSettingsStatus.Text = skill.Enabled ? MacExplorer.Services.Impl.LocalizationText.Get("技能已禁用。") : MacExplorer.Services.Impl.LocalizationText.Get("技能已启用。");
         }
         catch (Exception ex) { CopilotSettingsStatus.Text = ex.Message; }
     }
@@ -107,7 +107,7 @@ public partial class SettingsDialog
             if (CopilotSkillPicker.SelectedItem is not string name) return;
             CopilotSkills.Reset(name);
             RefreshCopilotSkills(name);
-            CopilotSettingsStatus.Text = "已恢复内置技能。";
+            CopilotSettingsStatus.Text = MacExplorer.Services.Impl.LocalizationText.Get("已恢复内置技能。");
         }
         catch (Exception ex) { CopilotSettingsStatus.Text = ex.Message; }
     }

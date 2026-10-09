@@ -18,13 +18,13 @@ internal static class FileListStatusFormatter
         IReadOnlyCollection<FileSystemEntry> selectedEntries)
     {
         if (selectedEntries.Count == 0)
-            return $"{entries.Count} 项";
+            return LocalizationText.Get("{0} 项", entries.Count);
 
         if (selectedEntries.Any(entry => entry.IsDirectory))
-            return $"已选 {selectedEntries.Count} 项";
+            return LocalizationText.Get("已选 {0} 项", selectedEntries.Count);
 
         var selectedBytes = selectedEntries.Sum(entry => Math.Max(0, entry.Size));
-        return $"已选 {selectedEntries.Count} 项 · {FormatBytes(selectedBytes)}";
+        return LocalizationText.Get("已选 {0} 项", selectedEntries.Count) + " · " + FormatBytes(selectedBytes);
     }
 
     public static LocationStatus? GetLocalLocationStatus(
@@ -48,12 +48,12 @@ internal static class FileListStatusFormatter
 
         var available = FormatBytes(Math.Max(0, drive.AvailableFreeSpace));
         var total = FormatBytes(Math.Max(0, drive.TotalSize));
-        return new LocationStatus($"可用 {available}", $"{available} 可用，共 {total}");
+        return new LocationStatus(LocalizationText.Get("可用 {0}", available), LocalizationText.Get("{0} 可用，共 {1}", available, total));
     }
 
     public static LocationStatus GetRemoteLocationStatus(string serverName, bool connected)
     {
-        var text = $"{serverName} · {(connected ? "已连接" : "连接已断开")}";
+        var text = $"{serverName} · {(LocalizationText.Get(connected ? "已连接" : "连接已断开"))}";
         return new LocationStatus(text, text);
     }
 
@@ -71,7 +71,7 @@ internal static class FileListStatusFormatter
             unit++;
         }
 
-        return $"{size:0.##} {units[unit]}";
+        return size.ToString("0.##", LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.GetCultureInfo("zh-CN")) + " " + units[unit];
     }
 
     private static string NormalizePath(string path)

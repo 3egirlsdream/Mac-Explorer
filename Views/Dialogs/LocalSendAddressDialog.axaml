@@ -1,8 +1,9 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.LocalSendAddressDialog"
-        Title="通过 IP 连接"
+        Title="{loc:Loc ui.494}"
         Width="380" MinHeight="190" MaxHeight="300" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource TitleBarBackgroundBrush}">
@@ -14,16 +15,16 @@
             <StackPanel>
                 <Border Classes="settings-compact-row settings-divider">
                     <Grid ColumnDefinitions="64,*" ColumnSpacing="12">
-                        <TextBlock Classes="settings-label" Text="IP 地址" VerticalAlignment="Center"/>
+                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.495}" VerticalAlignment="Center"/>
                         <TextBox x:Name="AddressBox" Grid.Column="1" Classes="settings-inline-input"
-                                 Height="30" PlaceholderText="192.168.1.10" AutomationProperties.Name="设备 IP 地址"/>
+                                 Height="30" PlaceholderText="192.168.1.10" AutomationProperties.Name="{loc:Loc ui.496}"/>
                     </Grid>
                 </Border>
                 <Border Classes="settings-compact-row">
                     <Grid ColumnDefinitions="64,*" ColumnSpacing="12">
-                        <TextBlock Classes="settings-label" Text="端口" VerticalAlignment="Center"/>
+                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.497}" VerticalAlignment="Center"/>
                         <TextBox x:Name="PortBox" Grid.Column="1" Classes="settings-inline-input"
-                                 Height="30" Text="53317" AutomationProperties.Name="设备端口"/>
+                                 Height="30" Text="53317" AutomationProperties.Name="{loc:Loc ui.498}"/>
                     </Grid>
                 </Border>
             </StackPanel>
@@ -32,8 +33,8 @@
             <TextBlock x:Name="StatusText" Classes="settings-description" TextWrapping="Wrap"/>
         </ScrollViewer>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button x:Name="CancelButton" Classes="secondary compact" Content="取消" IsCancel="True" Click="OnCancel"/>
-            <Button x:Name="ConnectButton" Classes="primary compact" Content="连接" IsDefault="True" Click="OnConnect"/>
+            <Button x:Name="CancelButton" Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
+            <Button x:Name="ConnectButton" Classes="primary compact" Content="{loc:Loc ui.499}" IsDefault="True" Click="OnConnect"/>
         </StackPanel>
     </Grid>
 </controls:DialogWindow>

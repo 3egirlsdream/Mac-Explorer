@@ -109,7 +109,8 @@ public partial class NavigationViewModel : ObservableObject
     }
 
     private string Localize(string fullPath, string fallback)
-        => _localizedNames.GetValueOrDefault(fullPath, fallback);
+        => MacExplorer.Services.Impl.InterfaceLocationNames.Get(fullPath, _fileService.HomeDirectory)
+            ?? _localizedNames.GetValueOrDefault(fullPath, fallback);
 
     internal void RecordDirectoryRename(string oldPath, string newPath)
     {
@@ -385,13 +386,17 @@ public partial class NavigationViewModel : ObservableObject
     {
         var segments = new List<BreadcrumbSegment>();
 
-        if (TagPathHelper.TryParse(CurrentPath, out var currentTag))
+        if (IsHomePage)
         {
-            segments.Add(new BreadcrumbSegment { Name = "标签", DisplayName = "标签", FullPath = "", HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = "首页", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("首页"), FullPath = VirtualPath.Home, HasDropdown = false });
+        }
+        else if (TagPathHelper.TryParse(CurrentPath, out var currentTag))
+        {
+            segments.Add(new BreadcrumbSegment { Name = "标签", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("标签"), FullPath = "", HasDropdown = false });
             segments.Add(new BreadcrumbSegment
             {
                 Name = currentTag.Name,
-                DisplayName = currentTag.Name,
+                DisplayName = currentTag.DisplayName,
                 FullPath = CurrentPath,
                 HasDropdown = false
             });
@@ -498,7 +503,7 @@ public partial class NavigationViewModel : ObservableObject
     {
         var segments = new List<BreadcrumbSegment>
         {
-            new() { Name = "首页", DisplayName = "首页", FullPath = VirtualPath.Home, HasDropdown = false },
+            new() { Name = "首页", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("首页"), FullPath = VirtualPath.Home, HasDropdown = false },
             new() { Name = modeName, DisplayName = modeName, FullPath = modePath, HasDropdown = false }
         };
         if (contextLabel != null)
@@ -518,7 +523,7 @@ public partial class NavigationViewModel : ObservableObject
         var serverId = CurrentRemoteServerId ?? "";
         var segments = new List<BreadcrumbSegment>
         {
-            new() { Name = "远程服务器", DisplayName = "远程服务器", FullPath = "", HasDropdown = false }
+            new() { Name = "远程服务器", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("远程服务器"), FullPath = "", HasDropdown = false }
         };
 
         if (string.IsNullOrEmpty(remotePath) || remotePath == "/")

@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:models="using:MacExplorer.Models"
@@ -163,7 +164,7 @@
         <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
                     <!-- ═══ 收藏 Favorites ═══ -->
-                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="常用位置" Margin="0,0,0,2"/>
+                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="{loc:Loc ui.318}" Margin="0,0,0,2"/>
 
                     <!-- Username -->
                     <Border Classes="sidebar-item"
@@ -186,7 +187,7 @@
                             IsVisible="{Binding ShowSidebarDesktop}"
                             x:Name="DesktopItem"
                             ToolTip.Tip="{Binding DesktopName}"
-                            AutomationProperties.Name="桌面"
+                            AutomationProperties.Name="{loc:Loc ui.219}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Desktop}"
@@ -202,7 +203,7 @@
                             IsVisible="{Binding ShowSidebarDocuments}"
                             x:Name="DocumentsItem"
                             ToolTip.Tip="{Binding DocumentsName}"
-                            AutomationProperties.Name="文稿"
+                            AutomationProperties.Name="{loc:Loc ui.199}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.FileText}"
@@ -218,7 +219,7 @@
                             IsVisible="{Binding ShowSidebarDownloads}"
                             x:Name="DownloadsItem"
                             ToolTip.Tip="{Binding DownloadsName}"
-                            AutomationProperties.Name="下载"
+                            AutomationProperties.Name="{loc:Loc ui.137}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Download}"
@@ -234,7 +235,7 @@
                             IsVisible="{Binding ShowSidebarPictures}"
                             x:Name="PicturesItem"
                             ToolTip.Tip="{Binding PicturesName}"
-                            AutomationProperties.Name="图片"
+                            AutomationProperties.Name="{loc:Loc ui.160}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Image}"
@@ -250,7 +251,7 @@
                             IsVisible="{Binding ShowSidebarMusic}"
                             x:Name="MusicItem"
                             ToolTip.Tip="{Binding MusicName}"
-                            AutomationProperties.Name="音乐"
+                            AutomationProperties.Name="{loc:Loc ui.271}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Music}"
@@ -283,7 +284,7 @@
                                         <Button Grid.Column="1"
                                             Classes="ghost sidebar-item-action pinned-unpin"
                                             Tag="{Binding FolderPath}"
-                                            ToolTip.Tip="取消固定" AutomationProperties.Name="取消固定"
+                                            ToolTip.Tip="{loc:Loc ui.315}" AutomationProperties.Name="{loc:Loc ui.315}"
                                             PointerPressed="OnUnpinPointerPressed"
                                             Click="UnpinFolder">
                                             <PathIcon Data="{x:Static icons:Icons.Pin}"
@@ -297,7 +298,7 @@
                     </ItemsControl>
 
                     <!-- ═══ 位置 Locations ═══ -->
-                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="位置"/>
+                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="{loc:Loc ui.145}"/>
 
                     <!-- Macintosh HD -->
                     <Border Classes="sidebar-item"
@@ -336,7 +337,7 @@
                                         <Button Grid.Column="1"
                                                 Classes="ghost sidebar-item-action"
                                                 Tag="{Binding .}"
-                                                ToolTip.Tip="推出" AutomationProperties.Name="推出"
+                                                ToolTip.Tip="{loc:Loc ui.319}" AutomationProperties.Name="{loc:Loc ui.319}"
                                                 PointerPressed="OnUnpinPointerPressed"
                                                 Click="EjectVolume">
                                             <PathIcon Data="{x:Static icons:Icons.Eject}"
@@ -354,7 +355,7 @@
                             IsVisible="{Binding ShowSidebarApplications}"
                             x:Name="ApplicationsItem"
                             ToolTip.Tip="{Binding ApplicationsName}"
-                            AutomationProperties.Name="应用程序"
+                            AutomationProperties.Name="{loc:Loc ui.172}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Apps}"
@@ -370,7 +371,7 @@
                             IsVisible="{Binding ShowSidebarTrash}"
                             x:Name="TrashItem"
                             ToolTip.Tip="{Binding TrashName}"
-                            AutomationProperties.Name="废纸篓"
+                            AutomationProperties.Name="{loc:Loc ui.173}"
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Trash}"
@@ -385,7 +386,7 @@
                     <Grid ColumnDefinitions="Auto,*" Classes="sidebar-category-header rail-secondary"
                           x:Name="RemoteServersHeader"
                           IsVisible="False">
-                        <TextBlock Grid.Column="0" Text="远程服务器"
+                        <TextBlock Grid.Column="0" Text="{loc:Loc ui.324}"
                                    Classes="sidebar-section-title"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Padding="18,4,0,4"/>
@@ -423,7 +424,7 @@
                                         <Button Grid.Column="2"
                                                 Classes="ghost sidebar-item-action"
                                                 Tag="{Binding}"
-                                                ToolTip.Tip="断开连接" AutomationProperties.Name="断开连接" IsEnabled="{Binding IsConnected}"
+                                                ToolTip.Tip="{loc:Loc ui.320}" AutomationProperties.Name="{loc:Loc ui.320}" IsEnabled="{Binding IsConnected}"
                                                 PointerPressed="OnUnpinPointerPressed"
                                                 Click="OnDisconnectRemoteServer">
                                             <PathIcon Data="{x:Static icons:Icons.Delete}"
@@ -438,9 +439,9 @@
 
                     <!-- ═══ 标签 Tags ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
-                          x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="展开或收起标签"
+                          x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="{loc:Loc ui.317}"
                           PointerPressed="OnToggleTagsCollapsed">
-                        <TextBlock Grid.Column="0" x:Name="TagsSectionTitle" Text="标签"
+                        <TextBlock Grid.Column="0" x:Name="TagsSectionTitle" Text="{loc:Loc ui.322}"
                                    Classes="sidebar-section-title"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Padding="18,4,0,4"
@@ -452,7 +453,7 @@
                                 Padding="4" Margin="0,2,6,2"
                                 PointerPressed="OnUnpinPointerPressed"
                                 Click="StartNewTag"
-                                ToolTip.Tip="新建标签" AutomationProperties.Name="新建标签">
+                                ToolTip.Tip="{loc:Loc ui.321}" AutomationProperties.Name="{loc:Loc ui.321}">
                             <PathIcon Data="{x:Static icons:Icons.Plus}"
                                       Width="10" Height="10"
                                       Foreground="{DynamicResource TextMutedBrush}"/>
@@ -484,7 +485,7 @@
                                               VerticalAlignment="Center">
                                             <PathIcon Data="{x:Static icons:Icons.Tag}"
                                                       Classes="sidebar-icon" Foreground="{Binding ColorHex}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}"
                                                        Classes="tag-name-label" TextTrimming="CharacterEllipsis"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
@@ -499,25 +500,25 @@
                                                      FontSize="{DynamicResource FontSizeBody}"
                                                      KeyDown="OnTagEditorKeyDown"
                                                      LostFocus="OnTagEditorLostFocus"/>
-                                            <Button AutomationProperties.Name="重命名" Grid.Column="2" Tag="{Binding}"
+                                            <Button AutomationProperties.Name="{loc:Loc ui.325}" Grid.Column="2" Tag="{Binding}"
                                                     Classes="ghost sidebar-item-action tag-normal-action"
-                                                    ToolTip.Tip="重命名"
+                                                    ToolTip.Tip="{loc:Loc ui.325}"
                                                     PointerPressed="OnUnpinPointerPressed"
                                                     Click="RenameTag" IsVisible="{Binding IsCustom}">
                                                 <PathIcon Data="{x:Static icons:Icons.Rename}" Width="12" Height="12"/>
                                             </Button>
-                                            <Button AutomationProperties.Name="删除" Grid.Column="3" Tag="{Binding}"
+                                            <Button AutomationProperties.Name="{loc:Loc ui.006}" Grid.Column="3" Tag="{Binding}"
                                                     Classes="ghost sidebar-item-action tag-normal-action"
-                                                    ToolTip.Tip="删除"
+                                                    ToolTip.Tip="{loc:Loc ui.006}"
                                                     PointerPressed="OnUnpinPointerPressed"
                                                     Click="DeleteTag" IsVisible="{Binding IsCustom}">
                                                 <PathIcon Data="{x:Static icons:Icons.Delete}" Width="12" Height="12"/>
                                             </Button>
-                                            <Button AutomationProperties.Name="确认" Grid.Column="2" Grid.ColumnSpan="2"
+                                            <Button AutomationProperties.Name="{loc:Loc ui.323}" Grid.Column="2" Grid.ColumnSpan="2"
                                                     Classes="ghost sidebar-inline-confirm tag-confirm-action"
                                                     IsVisible="False"
                                                     Tag="{Binding}"
-                                                    ToolTip.Tip="确认"
+                                                    ToolTip.Tip="{loc:Loc ui.323}"
                                                     PointerPressed="OnUnpinPointerPressed"
                                                     Click="CommitTagEdit">
                                                 <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
@@ -548,9 +549,9 @@
                                          FontSize="{DynamicResource FontSizeBody}"
                                          KeyDown="OnTagEditorKeyDown"
                                          LostFocus="OnTagEditorLostFocus"/>
-                                <Button AutomationProperties.Name="确认" Grid.Column="2" Grid.ColumnSpan="2"
+                                <Button AutomationProperties.Name="{loc:Loc ui.323}" Grid.Column="2" Grid.ColumnSpan="2"
                                         Classes="ghost sidebar-inline-confirm tag-confirm-action"
-                                        ToolTip.Tip="确认"
+                                        ToolTip.Tip="{loc:Loc ui.323}"
                                         PointerPressed="OnUnpinPointerPressed"
                                         Click="CommitTagEdit">
                                     <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
@@ -561,10 +562,10 @@
 
                     <!-- ═══ AI 智能 AI ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
-                          x:Name="AiSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="展开或收起AI 智能"
+                          x:Name="AiSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="{loc:Loc ui.316}"
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
-                        <TextBlock Grid.Column="0" Text="AI 智能"
+                        <TextBlock Grid.Column="0" Text="{loc:Loc ui.131}"
                                    Classes="sidebar-section-title"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Padding="18,4,0,4"/>
@@ -587,7 +588,7 @@
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.People}"
                                           Classes="sidebar-icon"/>
-                                <TextBlock Text="人物" Margin="8,0,0,0"
+                                <TextBlock Text="{loc:Loc ui.143}" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
@@ -600,7 +601,7 @@
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Grid}"
                                           Classes="sidebar-icon"/>
-                                <TextBlock Text="分类" Margin="8,0,0,0"
+                                <TextBlock Text="{loc:Loc ui.152}" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
@@ -613,7 +614,7 @@
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Location}"
                                           Classes="sidebar-icon"/>
-                                <TextBlock Text="地点" Margin="8,0,0,0"
+                                <TextBlock Text="{loc:Loc ui.163}" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
@@ -626,7 +627,7 @@
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Calendar}"
                                           Classes="sidebar-icon"/>
-                                <TextBlock Text="日期" Margin="8,0,0,0"
+                                <TextBlock Text="{loc:Loc ui.200}" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
@@ -639,7 +640,7 @@
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Search}"
                                           Classes="sidebar-icon"/>
-                                <TextBlock Text="文字搜索" Margin="8,0,0,0"
+                                <TextBlock Text="{loc:Loc ui.196}" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>

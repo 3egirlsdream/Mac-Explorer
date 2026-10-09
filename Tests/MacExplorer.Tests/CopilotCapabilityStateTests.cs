@@ -4,6 +4,7 @@ using System.Text;
 using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using MacExplorer.Copilot;
 using MacExplorer.Models;
@@ -19,6 +20,62 @@ namespace MacExplorer.Tests;
 
 public sealed partial class FileListViewModelCreateTests
 {
+    [AvaloniaFact]
+    public void SortMenuTracksSelectionsAndPriorityDoesNotChangeSortDirection()
+    {
+        var theme = new Avalonia.Themes.Fluent.FluentTheme();
+        Avalonia.Application.Current!.Styles.Insert(0, theme);
+        var previousServices = App.Services;
+        var registry = new AppCapabilityRegistry(null!, null!, null!, null!, null!, null!, null!,
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+        using var services = new ServiceCollection()
+            .AddSingleton<IAppCapabilityRegistry>(registry).BuildServiceProvider();
+        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        using var pane = CreateViewModel(new FakeFileService("/tmp/FKFinderSortMenu"),
+            sortFilter: new SortFilterViewModel { SortField = SortField.Size, SortAscending = false });
+        var toolbar = new FinderToolbar { DataContext = pane };
+        toolbar.Styles.Add((Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/Styles.axaml")));
+        var window = new Window { Width = 600, Height = 650, Content = toolbar };
+        try
+        {
+            window.Show();
+            var popup = toolbar.FindControl<Avalonia.Controls.Primitives.Popup>("SortDropdown")!;
+            var buttons = popup.Child!.GetLogicalDescendants().OfType<Button>().ToArray();
+            Assert.Equal(SortPriority.Files, pane.SortPriority);
+            foreach (var priority in Enum.GetValues<SortPriority>())
+            {
+                toolbar.ToggleMenu(ToolbarMenuKind.Sort);
+                Dispatcher.UIThread.RunJobs();
+                var button = Assert.Single(buttons, b => b.Classes.Contains("sort-priority")
+                    && b.Tag as string == priority.ToString());
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(priority, pane.SortPriority);
+                Assert.Equal(SortField.Size, pane.SortField);
+                Assert.False(pane.SortAscending);
+                foreach (var (section, selected) in new[] { ("sort-field", "Size"),
+                    ("sort-group", "None"), ("sort-priority", priority.ToString()) })
+                {
+                    var items = buttons.Where(b => b.Classes.Contains(section)).ToArray();
+                    Assert.Equal(selected, Assert.Single(items, b => b.Classes.Contains("selected")).Tag);
+                    foreach (var item in items)
+                    {
+                        var icon = Assert.Single(item.GetLogicalDescendants().OfType<PathIcon>());
+                        Assert.Equal(item.Classes.Contains("selected") ? 1d : 0d, icon.Opacity);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            toolbar.CloseDropdowns();
+            window.Close();
+            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            Avalonia.Application.Current!.Styles.Remove(theme);
+        }
+    }
+
     [AvaloniaFact]
     public void ToolbarViewSwitchUsesRegisteredCapability()
     {

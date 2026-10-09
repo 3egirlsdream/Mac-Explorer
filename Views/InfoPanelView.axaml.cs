@@ -12,6 +12,9 @@ using System.Threading;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
+using MacExplorer.Services.Impl;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -55,6 +58,8 @@ public partial class InfoPanelView : UserControl
     private readonly HashSet<string> _selectedSystemTags = new(StringComparer.OrdinalIgnoreCase);
     private const int PreviewSelectionDebounceMs = 120;
     private bool _isPreviewExpanded;
+    private ILocalizationService? _language;
+    private ImageMetadata? _displayedImageMetadata;
     private byte[]? _ocrPreviewBytes;
     private CancellationTokenSource? _ocrCts;
     private CancellationTokenSource? _panelUpdateDebounceCts;
@@ -268,8 +273,8 @@ public partial class InfoPanelView : UserControl
         ToolTip.SetTip(InfoPath, InfoPath.Text);
         InfoSize.Text = entry.FormattedSize;
         InfoType.Text = entry.KindText;
-        InfoModified.Text = entry.LastModified.ToString("yy/MM/dd HH:mm");
-        InfoCreated.Text = entry.Created.ToString("yy/MM/dd HH:mm");
+        InfoModified.Text = entry.LastModified.ToString("g", LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.CurrentCulture);
+        InfoCreated.Text = entry.Created.ToString("g", LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.CurrentCulture);
         InfoAccessed.Text = "—";
         ResetHash();
         UpdateExifSection(null);
@@ -321,7 +326,7 @@ public partial class InfoPanelView : UserControl
         if (metadata?.FullPath != entry.FullPath)
             return;
 
-        InfoAccessed.Text = metadata.LastAccessed.ToString("yy/MM/dd HH:mm");
+        InfoAccessed.Text = metadata.LastAccessed.ToString("g", LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.CurrentCulture);
         UpdateExifSection(metadata.ImageInfo);
         UpdateTagsFromMetadata(entry.FullPath, metadata.Tags);
     }
@@ -502,6 +507,38 @@ public partial class InfoPanelView : UserControl
         }
     }
 
+    private static void SetLocalized(AvaloniaObject target, AvaloniaProperty property, string text, params object?[] arguments)
+    {
+        var language = LocalizationService.Current;
+        if (language == null) { target.SetValue(property, LocalizationText.Get(text, arguments)); return; }
+        target.Bind(property, new Binding(nameof(ILocalizationService.Culture))
+        {
+            Source = language, Mode = BindingMode.OneWay,
+            Converter = new FuncValueConverter<object?, string>(_ => LocalizationText.Get(text, arguments))
+        });
+    }
+
+    private void RefreshLocalizedDetails()
+    {
+        SetPreviewExpanded(_isPreviewExpanded, notify: false);
+        if (ViewModel?.SelectedEntries is { Count: 1 } selected)
+        {
+            var entry = selected[0];
+            SelectedFileSummary.Text = $"{entry.KindText} · {entry.FormattedSize}";
+            InfoSize.Text = entry.FormattedSize;
+            InfoType.Text = entry.KindText;
+            var culture = LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.CurrentCulture;
+            InfoModified.Text = entry.LastModified.ToString("g", culture);
+            InfoCreated.Text = entry.Created.ToString("g", culture);
+            if (ViewModel.CurrentMetadata is { } metadata && metadata.FullPath == entry.FullPath)
+                InfoAccessed.Text = metadata.LastAccessed.ToString("g", culture);
+        }
+        UpdateExifSection(_displayedImageMetadata);
+        foreach (var button in SystemTagsPanel.Children.OfType<Button>())
+            if (button.Tag is string name && FileTagCatalog.TryGetFinderColor(name, out var tag))
+                SetLocalized(button, global::Avalonia.Automation.AutomationProperties.NameProperty, "切换{0}标签", tag.DisplayName);
+    }
+
     private void ApplyPreviewResult(PreviewLoadResult result)
     {
         if (!string.IsNullOrEmpty(result.Placeholder))
@@ -591,7 +628,7 @@ public partial class InfoPanelView : UserControl
         _ocrPreviewBytes = null;
         CopyImageTextBtn.IsVisible = false;
         CopyImageTextBtn.IsEnabled = true;
-        CopyImageTextBtn.Content = "复制图片文字";
+        SetLocalized(CopyImageTextBtn, Button.ContentProperty, "复制图片文字");
         var imageToDispose = PreviewImage.Source as IDisposable;
         PreviewImage.Source = null;
         if (imageToDispose != null)
@@ -603,7 +640,7 @@ public partial class InfoPanelView : UserControl
         PreviewFileIcon.IsVisible = false;
         PreviewKindBadge.IsVisible = false;
         PreviewFeedback.IsVisible = false;
-        PreviewPlaceholder.Text = placeholder;
+        SetLocalized(PreviewPlaceholder, TextBlock.TextProperty, placeholder);
         PreviewPlaceholder.IsVisible = true;
     }
 
@@ -619,15 +656,17 @@ public partial class InfoPanelView : UserControl
                 System.Globalization.CultureInfo.InvariantCulture) as IImage;
         PreviewFileIcon.IsVisible = true;
         PreviewPlaceholder.IsVisible = false;
-        ToolTip.SetTip(PreviewFileIcon, reason);
+        SetLocalized(PreviewFileIcon, ToolTip.TipProperty, reason);
         PreviewFeedback.IsVisible = !entry.IsDirectory;
-        PreviewFeedbackText.Text = reason;
+        SetLocalized(PreviewFeedbackText, TextBlock.TextProperty, reason);
         RetryPreviewButton.IsVisible = canRetry && IsLivePreviewEnabled;
     }
 
     private void ShowPreviewBadge(string text)
     {
-        PreviewKindText.Text = text;
+        if (text.EndsWith(" 预览", StringComparison.Ordinal))
+            SetLocalized(PreviewKindText, TextBlock.TextProperty, "{0} 预览", text[..^3]);
+        else SetLocalized(PreviewKindText, TextBlock.TextProperty, text);
         PreviewKindBadge.IsVisible = true;
     }
 
@@ -843,6 +882,7 @@ public partial class InfoPanelView : UserControl
 
     private void UpdateExifSection(ImageMetadata? image)
     {
+        _displayedImageMetadata = image;
         ExifFieldsPanel.Children.Clear();
         if (image == null)
         {
@@ -871,8 +911,8 @@ public partial class InfoPanelView : UserControl
 
         if (image.Latitude != 0 || image.Longitude != 0)
         {
-            fields.Add(("纬度", image.Latitude.ToString("F6")));
-            fields.Add(("经度", image.Longitude.ToString("F6")));
+            fields.Add(("纬度", image.Latitude.ToString("F6", LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.CurrentCulture)));
+            fields.Add(("经度", image.Longitude.ToString("F6", LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.CurrentCulture)));
             if (!string.IsNullOrEmpty(image.Altitude))
                 fields.Add(("海拔", image.Altitude));
         }
@@ -896,7 +936,7 @@ public partial class InfoPanelView : UserControl
                     ColumnDefinitions = new ColumnDefinitions("72,*"),
                     Children =
                     {
-                        new TextBlock { Classes = { "info-field-label" }, Text = label },
+                        new TextBlock { Classes = { "info-field-label" }, Text = LocalizationText.Get(label) },
                         valueText
                     }
                 }
@@ -923,7 +963,7 @@ public partial class InfoPanelView : UserControl
                 Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Hand)
             };
             tagBtn.Classes.Add("system-tag-dot");
-            ToolTip.SetTip(tagBtn, name);
+            SetLocalized(tagBtn, ToolTip.TipProperty, name);
 
             // Checkmark overlay (hidden by default)
             var checkmark = AppTypography.BindFontSize(new TextBlock
@@ -936,7 +976,7 @@ public partial class InfoPanelView : UserControl
                 IsVisible = false,
                 Tag = "check"
             }, AppTypography.IconGlyph);
-            global::Avalonia.Automation.AutomationProperties.SetName(tagBtn, $"切换{name}标签");
+            SetLocalized(tagBtn, global::Avalonia.Automation.AutomationProperties.NameProperty, "切换{0}标签", FileTagCatalog.FinderColors.First(tag => tag.Name == name).DisplayName);
             tagBtn.Content = new Border
             {
                 Width = 14, Height = 14, Background = tagBrush, CornerRadius = new CornerRadius(7),
@@ -965,7 +1005,7 @@ public partial class InfoPanelView : UserControl
             if (child is Button btn && btn.Tag is string name && btn.Content is Border { Child: TextBlock check })
             {
                 check.IsVisible = _selectedSystemTags.Contains(name);
-                global::Avalonia.Automation.AutomationProperties.SetItemStatus(btn, check.IsVisible ? "已选中" : "未选中");
+                SetLocalized(btn, global::Avalonia.Automation.AutomationProperties.ItemStatusProperty, check.IsVisible ? "已选中" : "未选中");
             }
         }
     }
@@ -973,11 +1013,16 @@ public partial class InfoPanelView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _language = LocalizationService.Current;
+        if (_language != null) _language.LanguageChanged += RefreshLocalizedDetails;
+        RefreshLocalizedDetails();
         if (_fileTagService != null) _fileTagService.TagsChanged += OnFileTagsChanged;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_language != null) _language.LanguageChanged -= RefreshLocalizedDetails;
+        _language = null;
         if (_fileTagService != null) _fileTagService.TagsChanged -= OnFileTagsChanged;
         _tagReadGeneration++;
         base.OnDetachedFromVisualTree(e);
@@ -1026,12 +1071,12 @@ public partial class InfoPanelView : UserControl
                 string.Equals(t.Name, FileTagCatalog.NormalizeName(name), StringComparison.OrdinalIgnoreCase))
                 ?? new FileTag(name, FileTagCatalog.CustomTagColor, FileTagKind.Custom);
             var result = await _fileTagService.SetTagAsync([path], tag, applied);
-            if (result.PendingFiles > 0 && ViewModel != null) ViewModel.StatusText = "标签已保存，等待同步 Finder";
+            if (result.PendingFiles > 0 && ViewModel != null) ViewModel.StatusText = LocalizationText.Get("标签已保存，等待同步 Finder");
             await RefreshTagsAsync(path);
         }
         catch (Exception ex)
         {
-            if (ViewModel != null) ViewModel.StatusText = $"标签操作失败：{ex.Message}";
+            if (ViewModel != null) ViewModel.StatusText = LocalizationText.Get("标签操作失败：{0}", ex.Message);
         }
     }
 
@@ -1068,8 +1113,8 @@ public partial class InfoPanelView : UserControl
             VerticalContentAlignment = VerticalAlignment.Center,
         };
         removeBtn.Classes.Add("ghost");
-        ToolTip.SetTip(removeBtn, $"移除标签“{tag}”");
-        global::Avalonia.Automation.AutomationProperties.SetName(removeBtn, $"移除标签“{tag}”");
+        SetLocalized(removeBtn, ToolTip.TipProperty, "移除标签“{0}”", tag);
+        SetLocalized(removeBtn, global::Avalonia.Automation.AutomationProperties.NameProperty, "移除标签“{0}”", tag);
 
         var chip = new Border
         {
@@ -1218,7 +1263,7 @@ public partial class InfoPanelView : UserControl
         var generation = _previewRequestGeneration;
         var tempPath = Path.Combine(Path.GetTempPath(), $"macexplorer-ocr-{Guid.NewGuid():N}.png");
         CopyImageTextBtn.IsEnabled = false;
-        CopyImageTextBtn.Content = "正在识别…";
+        SetLocalized(CopyImageTextBtn, Button.ContentProperty, "正在识别…");
 
         try
         {
@@ -1232,18 +1277,18 @@ public partial class InfoPanelView : UserControl
                     .Where(item => !string.IsNullOrWhiteSpace(item)));
             if (string.IsNullOrWhiteSpace(text))
             {
-                CopyImageTextBtn.Content = "未识别到文字";
+                SetLocalized(CopyImageTextBtn, Button.ContentProperty, "未识别到文字");
                 return;
             }
 
             if (_clipboardService == null)
             {
-                CopyImageTextBtn.Content = "无法访问剪贴板";
+                SetLocalized(CopyImageTextBtn, Button.ContentProperty, "无法访问剪贴板");
                 return;
             }
 
             await _clipboardService.CopyTextAsync(text);
-            CopyImageTextBtn.Content = $"已复制 {result.RecognizedTexts.Count} 行";
+            SetLocalized(CopyImageTextBtn, Button.ContentProperty, "已复制 {0} 行", result.RecognizedTexts.Count);
         }
         catch (OperationCanceledException)
         {
@@ -1252,7 +1297,7 @@ public partial class InfoPanelView : UserControl
         catch
         {
             if (generation == _previewRequestGeneration)
-                CopyImageTextBtn.Content = "识别失败";
+                SetLocalized(CopyImageTextBtn, Button.ContentProperty, "识别失败");
         }
         finally
         {
@@ -1265,7 +1310,7 @@ public partial class InfoPanelView : UserControl
                 if (generation == _previewRequestGeneration)
                 {
                     CopyImageTextBtn.IsEnabled = true;
-                    CopyImageTextBtn.Content = "复制图片文字";
+                    SetLocalized(CopyImageTextBtn, Button.ContentProperty, "复制图片文字");
                 }
             }
         }
@@ -1283,9 +1328,9 @@ public partial class InfoPanelView : UserControl
     {
         _isPreviewExpanded = expanded;
         DetailsPanel.IsVisible = !expanded && ViewModel?.SelectedEntries.Count == 1;
-        PanelTitle.Text = _isPreviewExpanded ? "文件预览" : "信息";
-        ExpandPreviewBtn.SetValue(ToolTip.TipProperty, _isPreviewExpanded ? "收起预览" : "展开预览");
-        global::Avalonia.Automation.AutomationProperties.SetName(ExpandPreviewBtn, _isPreviewExpanded ? "收起预览" : "展开预览");
+        SetLocalized(PanelTitle, TextBlock.TextProperty, _isPreviewExpanded ? "文件预览" : "信息");
+        SetLocalized(ExpandPreviewBtn, ToolTip.TipProperty, _isPreviewExpanded ? "收起预览" : "展开预览");
+        SetLocalized(ExpandPreviewBtn, global::Avalonia.Automation.AutomationProperties.NameProperty, _isPreviewExpanded ? "收起预览" : "展开预览");
         ExpandPreviewIcon.Data = Geometry.Parse(_isPreviewExpanded
             ? MacExplorer.Assets.Icons.CollapsePreview
             : MacExplorer.Assets.Icons.ExpandPreview);

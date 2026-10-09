@@ -44,11 +44,11 @@ public static class AiPathHelper
 
     public static string GetModeName(AiViewMode mode) => mode switch
     {
-        AiViewMode.People => "\u4eba\u7269",
-        AiViewMode.Categories => "\u5206\u7c7b",
-        AiViewMode.Locations => "\u5730\u70b9",
-        AiViewMode.Dates => "\u65e5\u671f",
-        AiViewMode.TextSearch => "\u6587\u5b57\u641c\u7d22",
+        AiViewMode.People => MacExplorer.Services.Impl.LocalizationText.Get("\u4eba\u7269"),
+        AiViewMode.Categories => MacExplorer.Services.Impl.LocalizationText.Get("\u5206\u7c7b"),
+        AiViewMode.Locations => MacExplorer.Services.Impl.LocalizationText.Get("\u5730\u70b9"),
+        AiViewMode.Dates => MacExplorer.Services.Impl.LocalizationText.Get("\u65e5\u671f"),
+        AiViewMode.TextSearch => MacExplorer.Services.Impl.LocalizationText.Get("\u6587\u5b57\u641c\u7d22"),
         _ => ""
     };
 

@@ -42,7 +42,7 @@ internal sealed class MarkdownConversionDocument
                 string path;
                 if (Uri.TryCreate(original, UriKind.Absolute, out var uri))
                 {
-                    if (!uri.IsFile || !string.IsNullOrEmpty(uri.Host)) throw new IOException("仅支持本地图片");
+                    if (!uri.IsFile || !string.IsNullOrEmpty(uri.Host)) throw new IOException(ConversionLocalization.Get("仅支持本地图片"));
                     path = uri.LocalPath;
                 }
                 else path = Path.GetFullPath(Uri.UnescapeDataString(original), Path.GetDirectoryName(source)!);
@@ -65,8 +65,8 @@ internal sealed class MarkdownConversionDocument
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.Xml.XmlException)
             {
-                warnings.Add($"图片未加载：{original}");
-                link.ReplaceBy(new LiteralInline($"[图片未加载：{original}]"));
+                warnings.Add(ConversionLocalization.Get("图片未加载：{0}", original));
+                link.ReplaceBy(new LiteralInline(ConversionLocalization.Get("[图片未加载：{0}]", original)));
             }
         }
     }

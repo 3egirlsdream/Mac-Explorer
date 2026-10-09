@@ -23,9 +23,9 @@
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Mac Explorer</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.52</string>
+    <string>1.0.53</string>
     <key>CFBundleVersion</key>
-    <string>1.0.52</string>
+    <string>1.0.53</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>

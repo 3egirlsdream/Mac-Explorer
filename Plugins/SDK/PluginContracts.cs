@@ -57,7 +57,11 @@ public sealed record PluginMatch
 
 public sealed record PluginFile(string Path, string Source = "local", bool IsDirectory = false);
 public sealed record PluginInvocation(string InvocationId, string CommandId, PluginFile[] Files,
-    string WorkDirectory, Dictionary<string, JsonElement>? Parameters = null);
+    string WorkDirectory, Dictionary<string, JsonElement>? Parameters = null)
+{
+    // Additive wire field: preserve the API v1 constructor and Deconstruct signatures.
+    public string Culture { get; init; } = "zh-CN";
+}
 public sealed record PluginConfiguration(string Kind, string Title, int Width, int Height, string Format);
 public sealed record PluginPreparation(PluginConfiguration? Configuration = null);
 public sealed record PluginOutput(string Path, string SuggestedName)

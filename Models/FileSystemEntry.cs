@@ -13,7 +13,7 @@ public class FileSystemEntry : INotifyPropertyChanged
     private bool _isSelected;
     private GitFileStatus _gitStatus;
     private bool _hasGitChanges;
-    private string? _modifiedText;
+
     public string FullPath { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public bool IsDirectory { get; init; }
@@ -96,24 +96,31 @@ public class FileSystemEntry : INotifyPropertyChanged
     // notifications. These properties perform no I/O and do not own UI resources.
     public FileIconSource DetailsIconSource => new(IsApplication ? "app-bundle" : IconKey, Extension, IsFolder, IconUrl);
     public FileIconSource GridIconSource => new(IsApplication ? "app-bundle" : IconKey, Extension, IsFolder, string.IsNullOrWhiteSpace(ThumbnailUrl) ? IconUrl : ThumbnailUrl);
-    public string ModifiedText => _modifiedText ??= LastModified.ToString("yyyy-MM-dd HH:mm");
+    public string ModifiedText => LastModified.ToString("g", Services.Impl.LocalizationService.Current?.Culture
+        ?? System.Globalization.CultureInfo.GetCultureInfo("zh-CN"));
+
+    public void RefreshLocalizedText()
+    {
+        foreach (var property in new[] { nameof(ModifiedText), nameof(FormattedSize), nameof(KindText), nameof(VirtualCountText) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+    }
 
     public string DisplayName => IsApplication || IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
     public string IconDisplayName => AbbreviateForIconView(DisplayName);
-    public string FormattedSize => IsVirtual ? $"{VirtualItemCount} 项" : FormatSize(Size, IsDirectory);
+    public string FormattedSize => IsVirtual ? Services.Impl.LocalizationText.Get("{0} 项", VirtualItemCount) : FormatSize(Size, IsDirectory);
     public string KindText => IsVirtual ? VirtualFolderType switch
     {
-        "face" => "人物",
-        "scene" => "场景",
-        "object" => "物品",
-        "animal" => "动物",
-        "location" => "地点",
-        "date" => "日期",
-        _ => "AI 分类"
-    } : IsApplication || IconKey == "app-bundle" ? "应用程序"
-      : IsDirectory ? "文件夹"
+        "face" => Services.Impl.LocalizationText.Get("人物"),
+        "scene" => Services.Impl.LocalizationText.Get("场景"),
+        "object" => Services.Impl.LocalizationText.Get("物品"),
+        "animal" => Services.Impl.LocalizationText.Get("动物"),
+        "location" => Services.Impl.LocalizationText.Get("地点"),
+        "date" => Services.Impl.LocalizationText.Get("日期"),
+        _ => Services.Impl.LocalizationText.Get("AI 分类")
+    } : IsApplication || IconKey == "app-bundle" ? Services.Impl.LocalizationText.Get("应用程序")
+      : IsDirectory ? Services.Impl.LocalizationText.Get("文件夹")
       : Extension.TrimStart('.').ToUpperInvariant();
-    public string VirtualCountText => IsVirtual ? $"{VirtualItemCount} 张照片" : string.Empty;
+    public string VirtualCountText => IsVirtual ? Services.Impl.LocalizationText.Get("{0} 张照片", VirtualItemCount) : string.Empty;
     public bool HasGitBadge => GitStatus is not GitFileStatus.None and not GitFileStatus.Ignored
                                || IsDirectory && HasGitChanges;
     public string GitBadgeText => GitStatus switch
@@ -167,7 +174,7 @@ public class FileSystemEntry : INotifyPropertyChanged
             order++;
             size /= 1024;
         }
-        return $"{size:0.##} {units[order]}";
+        return size.ToString("0.##", Services.Impl.LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.GetCultureInfo("zh-CN")) + " " + units[order];
     }
 
     private static string AbbreviateForIconView(string name)

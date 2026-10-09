@@ -7,19 +7,37 @@ namespace MacExplorer.Views.Dialogs;
 
 public partial class ImageConversionDialog : DialogWindow
 {
+    private FileConversionFormat _format;
     private double _ratio = 1;
     private bool _updating = true;
-    public ImageConversionDialog() { InitializeComponent(); }
+    public ImageConversionDialog()
+    {
+        InitializeComponent();
+        var language = Services.Impl.LocalizationService.Current;
+        if (language != null)
+        {
+            language.LanguageChanged += RefreshLanguage;
+            Closed += (_, _) => language.LanguageChanged -= RefreshLanguage;
+        }
+    }
 
     public ImageConversionDialog(ConversionImageSize size, FileConversionFormat format) : this()
     {
         _ratio = (double)size.Width / size.Height;
-        Heading.Text = "转为 " + format.ToString().ToUpperInvariant();
-        Description.Text = format == FileConversionFormat.Jpg ? "透明区域使用白色背景，图片质量为 90%。" : "保留原图的透明背景。";
+        _format = format;
+        RefreshLanguage();
         var scale = Math.Min(1d, Math.Min(8192d / Math.Max(size.Width, size.Height), Math.Sqrt(32_000_000d / ((double)size.Width * size.Height))));
         WidthInput.Value = Math.Max(1, (int)Math.Floor(size.Width * scale));
         HeightInput.Value = Math.Max(1, (int)Math.Floor(size.Height * scale));
         _updating = false;
+    }
+
+    private void RefreshLanguage()
+    {
+        Heading.Text = Services.Impl.LocalizationService.Current?.Get("conversion.to_format", _format.ToString().ToUpperInvariant())
+            ?? "转为 " + _format.ToString().ToUpperInvariant();
+        Description.Text = Services.Impl.LocalizationText.Get(_format == FileConversionFormat.Jpg
+            ? "透明区域使用白色背景，图片质量为 90%。" : "保留原图的透明背景。");
     }
 
     private void WidthChanged(object? sender, NumericUpDownValueChangedEventArgs e)
@@ -43,11 +61,11 @@ public partial class ImageConversionDialog : DialogWindow
     {
         try
         {
-            if (WidthInput.Value == null || HeightInput.Value == null) throw new InvalidOperationException("请输入宽度和高度。");
+            if (WidthInput.Value == null || HeightInput.Value == null) throw new InvalidOperationException(Services.Impl.LocalizationText.Get("请输入宽度和高度。"));
             var size = new ConversionImageSize((int)WidthInput.Value, (int)HeightInput.Value);
             size.Validate();
             var expected = size.Width / _ratio;
-            if (Math.Abs(size.Height - expected) > 1) throw new InvalidOperationException("此尺寸超出限制，请减小尺寸以保持原图比例。");
+            if (Math.Abs(size.Height - expected) > 1) throw new InvalidOperationException(Services.Impl.LocalizationText.Get("此尺寸超出限制，请减小尺寸以保持原图比例。"));
             Close(size);
         }
         catch (InvalidOperationException ex) { ErrorText.Text = ex.Message; ErrorText.IsVisible = true; }

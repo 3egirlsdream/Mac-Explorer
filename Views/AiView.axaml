@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
              xmlns:local="using:MacExplorer.Views"
@@ -18,10 +18,10 @@
                          Classes="search-input"
                          MinHeight="30" Padding="0,3" VerticalContentAlignment="Center"
                          FontSize="{DynamicResource FontSizeLabel}"
-                         AutomationProperties.Name="搜索图片与 PDF 中的文字"
-                         PlaceholderText="搜索图片与 PDF 中的文字..."
+                         AutomationProperties.Name="{loc:Loc ui.423}"
+                         PlaceholderText="{loc:Loc ui.424}"
                          KeyDown="OnAiSearchKeyDown"/>
-                <Button Grid.Column="2" x:Name="ClearSearchButton" AutomationProperties.Name="清除文字搜索" ToolTip.Tip="清除文字搜索"
+                <Button Grid.Column="2" x:Name="ClearSearchButton" AutomationProperties.Name="{loc:Loc ui.425}" ToolTip.Tip="{loc:Loc ui.425}"
                         Classes="ghost close-btn"
                         Width="28" Height="28" MinHeight="28" IsVisible="False"
                         Background="Transparent" BorderThickness="0"
@@ -38,11 +38,11 @@
             <ScrollViewer x:Name="TokenView" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="16,12,16,16" Spacing="10">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" MinHeight="22"
-                          ToolTip.Tip="选择图片与 PDF 中提取的文字进行搜索；标签右侧为包含该文字的文件数。">
-                        <TextBlock Text="热门文字" FontSize="{DynamicResource FontSizeLabel}"
+                          ToolTip.Tip="{loc:Loc ui.426}">
+                        <TextBlock Text="{loc:Loc ui.427}" FontSize="{DynamicResource FontSizeLabel}"
                                    FontWeight="{StaticResource FontWeightSemibold}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Grid.Column="1" Text="数字为文件数" VerticalAlignment="Center"
+                        <TextBlock Grid.Column="1" Text="{loc:Loc ui.428}" VerticalAlignment="Center"
                                    FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Grid>
                     <WrapPanel x:Name="TextTokensPanel"/>
@@ -50,10 +50,10 @@
                                 HorizontalAlignment="Center" Spacing="8">
                         <PathIcon Data="{x:Static icons:Icons.FileText}" Width="48" Height="48"
                                   Opacity="0.3" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="EmptyTitle" Text="还没有可搜索的识别内容"
+                        <TextBlock x:Name="EmptyTitle" Text="{loc:Loc ui.429}"
                                    HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock x:Name="EmptyHint" Text="开启 AI 智能分析后，浏览包含图片与 PDF 的文件夹以建立文字索引"
+                        <TextBlock x:Name="EmptyHint" Text="{loc:Loc ui.430}"
                                    FontSize="{DynamicResource FontSizeLabel}" HorizontalAlignment="Center"
                                    TextWrapping="Wrap" TextAlignment="Center"
                                    Foreground="{DynamicResource TextMutedBrush}"/>

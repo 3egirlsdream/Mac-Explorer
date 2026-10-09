@@ -28,6 +28,9 @@ public partial class SortFilterViewModel : ObservableObject
     private bool _sortAscending = true;
 
     [ObservableProperty]
+    private SortPriority _sortPriority = SortPriority.Files;
+
+    [ObservableProperty]
     private GroupField _groupField = GroupField.None;
 
     [ObservableProperty]
@@ -56,6 +59,7 @@ public partial class SortFilterViewModel : ObservableObject
             _viewMode = _settingsService.Get<ViewMode>("ViewMode", ViewMode.List);
             _sortField = _settingsService.Get<SortField>("SortField", SortField.Name);
             _sortAscending = _settingsService.Get<bool>("SortAscending", true);
+            _sortPriority = _settingsService.Get<SortPriority>("SortPriority", SortPriority.Files);
             _groupField = _settingsService.Get<GroupField>("GroupField", GroupField.None);
             _hideSystemFiles = _settingsService.Get<bool>("HideSystemFiles", true);
             _hideDotFiles = _settingsService.Get<bool>("HideDotFiles", true);
@@ -77,6 +81,7 @@ public partial class SortFilterViewModel : ObservableObject
     partial void OnViewModeChanged(ViewMode value) => _settingsService?.Set("ViewMode", value);
     partial void OnSortFieldChanged(SortField value) { _settingsService?.Set("SortField", value); }
     partial void OnSortAscendingChanged(bool value) { _settingsService?.Set("SortAscending", value); }
+    partial void OnSortPriorityChanged(SortPriority value) => _settingsService?.Set("SortPriority", value);
     partial void OnGroupFieldChanged(GroupField value) { _settingsService?.Set("GroupField", value); }
     partial void OnHideSystemFilesChanged(bool value) => _settingsService?.Set("HideSystemFiles", value);
     partial void OnHideDotFilesChanged(bool value) => _settingsService?.Set("HideDotFiles", value);
@@ -121,7 +126,7 @@ public partial class SortFilterViewModel : ObservableObject
         _rawEntries = entries;
     }
 
-    internal IComparer<FileSystemEntry> BuildEntriesComparer() => new EntriesComparer(SortField, SortAscending);
+    internal IComparer<FileSystemEntry> BuildEntriesComparer() => new EntriesComparer(SortField, SortAscending, SortPriority);
 
     // Inserts a streamed batch into the already sorted collection so batched directory
     // loads avoid a full re-sort and collection replacement per batch. Upper-bound
@@ -246,9 +251,16 @@ public partial class SortFilterViewModel : ObservableObject
 
     private int GetGroupRank(string name) => GroupField switch
     {
-        GroupField.Type => name == "文件夹" ? 1 : 0,
+        GroupField.Type => SortPriority switch
+        {
+            SortPriority.Folders => name == "文件夹" ? 0 : 1,
+            SortPriority.Files => name == "文件夹" ? 1 : 0,
+            _ => 0
+        },
         GroupField.Modified => Array.IndexOf(DateGroupOrder, name),
-        GroupField.Size => Array.IndexOf(SizeGroupOrder, name),
+        GroupField.Size => name == "文件夹"
+            ? SortPriority == SortPriority.Folders ? -1 : SizeGroupOrder.Length
+            : Array.IndexOf(SizeGroupOrder, name),
         _ => 0
     };
 
@@ -262,36 +274,22 @@ public partial class SortFilterViewModel : ObservableObject
         _ => string.Empty
     };
 
-    private IEnumerable<FileSystemEntry> SortEntries(IReadOnlyList<FileSystemEntry> entries) => SortField switch
-    {
-        SortField.Name => SortAscending
-            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.Name, StringComparer.OrdinalIgnoreCase),
-        SortField.Modified => SortAscending
-            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.LastModified)
-            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.LastModified),
-        SortField.Size => SortAscending
-            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Size)
-            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.Size),
-        SortField.Type => SortAscending
-            ? entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-            : entries.OrderBy(e => e.IsFolder).ThenByDescending(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase),
-        _ => entries.OrderBy(e => e.IsFolder).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-    };
+    private IEnumerable<FileSystemEntry> SortEntries(IReadOnlyList<FileSystemEntry> entries)
+        => entries.OrderBy(entry => entry, BuildEntriesComparer());
 
     private static readonly string[] DateGroupOrder = ["未来", "今天", "昨天", "最近7天", "最近30天", "最近3个月", "今年更早", "更早"];
-    private static readonly string[] SizeGroupOrder = ["大于 1 GB", "100 MB-1 GB", "1-100 MB", "小于 1 MB", "小于 1 KB", "空文件", "应用程序", "文件夹"];
+    private static readonly string[] SizeGroupOrder = ["文件夹", "大于 1 GB", "100 MB-1 GB", "1-100 MB", "小于 1 MB", "小于 1 KB", "空文件", "应用程序"];
 
     private List<FileGroup> BuildGroups(List<FileSystemEntry> sorted) => GroupField switch
     {
         GroupField.Type => sorted.GroupBy(GetGroupKey)
-            .OrderBy(g => g.Key == "文件夹" ? 1 : 0)
+            .OrderBy(g => GetGroupRank(g.Key))
             .Select(g => new FileGroup { Name = g.Key, Entries = g.ToList() }).ToList(),
         GroupField.Modified => sorted.GroupBy(GetGroupKey)
             .OrderBy(g => Array.IndexOf(DateGroupOrder, g.Key))
             .Select(g => new FileGroup { Name = g.Key, Entries = g.ToList() }).ToList(),
         GroupField.Size => sorted.GroupBy(GetGroupKey)
-            .OrderBy(g => Array.IndexOf(SizeGroupOrder, g.Key))
+            .OrderBy(g => GetGroupRank(g.Key))
             .Select(g => new FileGroup { Name = g.Key, Entries = g.ToList() }).ToList(),
         _ => []
     };
@@ -345,9 +343,9 @@ public partial class SortFilterViewModel : ObservableObject
         _ => virtualFolderType
     };
 
-    // Mirrors the stable OrderBy chain in SortEntries so incremental inserts produce
+    // Shared by full sorting and incremental inserts so both produce
     // the same total order as a full re-sort of the same stream.
-    private sealed class EntriesComparer(SortField sortField, bool ascending) : IComparer<FileSystemEntry>
+    private sealed class EntriesComparer(SortField sortField, bool ascending, SortPriority priority) : IComparer<FileSystemEntry>
     {
         public int Compare(FileSystemEntry? left, FileSystemEntry? right)
         {
@@ -355,8 +353,13 @@ public partial class SortFilterViewModel : ObservableObject
             if (left == null) return -1;
             if (right == null) return 1;
 
-            // Files always sort before directories, matching OrderBy(e => e.IsFolder).
-            var directoryOrder = left.IsFolder.CompareTo(right.IsFolder);
+            // Priority is independent of ascending/descending direction.
+            var directoryOrder = priority switch
+            {
+                SortPriority.Files => left.IsFolder.CompareTo(right.IsFolder),
+                SortPriority.Folders => right.IsFolder.CompareTo(left.IsFolder),
+                _ => 0
+            };
             if (directoryOrder != 0) return directoryOrder;
 
             return sortField switch

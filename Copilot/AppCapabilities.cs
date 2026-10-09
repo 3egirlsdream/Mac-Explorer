@@ -86,7 +86,7 @@ public sealed class AppCapabilityRegistry(
         new("ui.refresh", "刷新", "刷新当前窗格", "{}", "FileListViewModel.RefreshAsync", CapabilityImpact.Read, "无需确认"),
         new("ui.search", "当前窗格搜索", "在当前窗格显示文件搜索结果", "{\"query\":\"搜索关键词\"}", "FileListViewModel.SearchAsync", CapabilityImpact.Read, "无需确认"),
         new("ui.view-mode", "切换视图", "设置当前窗格的列表、图标或树形视图", "{\"mode\":\"List|Grid|Tree\"}", "FileListViewModel.SetViewMode", CapabilityImpact.Read, "无需确认"),
-        new("ui.sort", "排序", "设置当前窗格排序字段和方向", "{\"field\":\"Name|Modified|Size|Type\",\"ascending\":true}", "FileListViewModel.SetSort", CapabilityImpact.Read, "无需确认"),
+        new("ui.sort", "排序", "设置当前窗格排序字段、方向和文件优先顺序", "{\"field\":\"Name|Modified|Size|Type\",\"ascending\":true,\"priority\":\"Files|Folders|None\"}", "FileListViewModel.SetSort", CapabilityImpact.Read, "无需确认"),
         new("ui.preview-pane", "预览侧栏", "显示或隐藏当前窗格的预览面板", "{\"visible\":true}", "FileListViewModel.TogglePreviewPane", CapabilityImpact.Read, "无需确认"),
         new("ui.metadata-panel", "元数据面板", "显示或隐藏当前窗格的元数据面板", "{\"visible\":true}", "FileListViewModel.ToggleMetadataPanel", CapabilityImpact.Read, "无需确认"),
         new("ui.group", "文件分组", "设置当前窗格的分组方式", "{\"field\":\"None|Type|Modified|Size\"}", "FileListViewModel.GroupField", CapabilityImpact.Read, "无需确认"),
@@ -355,7 +355,15 @@ public sealed class AppCapabilityRegistry(
                 if (pane == null) throw new InvalidOperationException("请先激活文件窗格。");
                 if (!Enum.TryParse<SortField>(Required(args, "field"), false, out var field)
                     || !Enum.IsDefined(field)) throw new ArgumentException("未知排序字段。");
+                SortPriority? priority = null;
+                if (args.TryGetProperty("priority", out var priorityValue))
+                {
+                    if (!Enum.TryParse<SortPriority>(priorityValue.GetString(), false, out var parsedPriority)
+                        || !Enum.IsDefined(parsedPriority)) throw new ArgumentException("未知排序优先顺序。");
+                    priority = parsedPriority;
+                }
                 pane.SetSort(field, args.TryGetProperty("ascending", out var direction) ? Boolean(args, "ascending") : null);
+                if (priority.HasValue) pane.SortPriority = priority.Value;
                 return new(true, $"已按 {field} 排序。");
             case "ui.preview-pane":
                 if (pane == null) throw new InvalidOperationException("请先激活文件窗格。");

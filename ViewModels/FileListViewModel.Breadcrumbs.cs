@@ -43,6 +43,7 @@ public partial class FileListViewModel
                     if (!string.IsNullOrWhiteSpace(localized))
                         displayName = localized;
                 }
+                displayName = MacExplorer.Services.Impl.InterfaceLocationNames.Get(entry.FullPath, _fileService.HomeDirectory) ?? displayName;
                 directories.Add(new BreadcrumbSegment
                 {
                     Name = entry.Name,

@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <ControlTheme x:Key="SettingsNavigationItem" TargetType="TabItem">
             <Setter Property="Background" Value="Transparent"/>
@@ -53,7 +54,7 @@
                             <Grid DockPanel.Dock="Top" ColumnDefinitions="28,*" ColumnSpacing="8" Margin="8,0,0,16">
                                 <Image Source="/Assets/appicon.ico" Width="28" Height="28"/>
                                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="设置" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{loc:Loc ui.072}" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
                                     <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeCaption}"
                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </StackPanel>

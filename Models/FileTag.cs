@@ -15,6 +15,8 @@ public sealed record FileTag(
     bool IsPinned = false,
     int SortOrder = 0)
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string DisplayName => IsFinderColor ? MacExplorer.Services.Impl.LocalizationText.Get(FileTagCatalog.FinderColors.FirstOrDefault(tag => tag.ColorId == ColorId)?.Name ?? Name) : Name;
     public bool IsFinderColor => Kind == FileTagKind.FinderColor;
     public bool IsCustom => Kind == FileTagKind.Custom;
     public string VirtualPath => Services.TagPathHelper.Build(this);

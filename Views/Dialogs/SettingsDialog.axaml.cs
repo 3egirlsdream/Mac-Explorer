@@ -26,6 +26,8 @@ public partial class SettingsDialog : DialogWindow
 
     private readonly IDefaultAppService _defaultAppService;
     private readonly ISettingsService _settingsService;
+    private readonly ILocalizationService _localizationService;
+    private readonly bool _ownsLocalizationService;
     private readonly IThemeService _themeService;
     private readonly ITypographyService _typographyService;
     private readonly IInteractionStyleService _interactionStyleService;
@@ -58,7 +60,8 @@ public partial class SettingsDialog : DialogWindow
             App.Services.GetRequiredService<IAppUpdateService>(),
             App.Services.GetRequiredService<IInteractionStyleService>(),
             App.Services.GetRequiredService<IGlobalSearchScopeService>(),
-            App.Services.GetRequiredService<ILocalSendService>())
+            App.Services.GetRequiredService<ILocalSendService>(),
+            App.Services.GetRequiredService<ILocalizationService>())
     {
     }
 
@@ -71,8 +74,11 @@ public partial class SettingsDialog : DialogWindow
         IAppUpdateService appUpdateService,
         IInteractionStyleService? interactionStyleService = null,
         IGlobalSearchScopeService? globalSearchScopeService = null,
-        ILocalSendService? localSendService = null)
+        ILocalSendService? localSendService = null,
+        ILocalizationService? localizationService = null)
     {
+        _ownsLocalizationService = localizationService == null;
+        _localizationService = localizationService ?? new Services.Impl.LocalizationService(settingsService);
         InitializeComponent();
         _defaultAppService = defaultAppService;
         _settingsService = settingsService;
@@ -85,8 +91,14 @@ public partial class SettingsDialog : DialogWindow
             ?? new Services.Impl.GlobalSearchScopeService(settingsService);
         _localSendService = localSendService;
         ShortcutSettingsHost.Content = new ShortcutSettingsView(Services.Impl.ShortcutService.Resolve());
+        _localizationService.LanguageChanged += RefreshLanguage;
         Opened += OnOpened;
-        Closed += (_, _) => _updateCancellation.Cancel();
+        Closed += (_, _) =>
+        {
+            _localizationService.LanguageChanged -= RefreshLanguage;
+            if (_ownsLocalizationService && _localizationService is IDisposable owned) owned.Dispose();
+            _updateCancellation.Cancel();
+        };
     }
 
     private async void OnOpened(object? sender, EventArgs e)
@@ -127,8 +139,8 @@ public partial class SettingsDialog : DialogWindow
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             label.Classes.Add("settings-label");
             ToolTip.SetTip(label, path);
-            var remove = new Button { Content = "移除", Classes = { "ghost", "compact" } };
-            AutomationProperties.SetName(remove, "移除授权 " + path);
+            var remove = new Button { Content = Services.Impl.LocalizationText.Get("移除"), Classes = { "ghost", "compact" } };
+            AutomationProperties.SetName(remove, Services.Impl.LocalizationText.Get("移除授权 {0}", path));
             remove.Click += (_, _) =>
             {
                 try { access.Revoke(path); RenderDirectoryAccess(); }
@@ -138,7 +150,7 @@ public partial class SettingsDialog : DialogWindow
             row.Children.Add(label);
             if (access.UnavailableRoots.Contains(path))
             {
-                var offline = new TextBlock { Text = "离线或失效", Classes = { "settings-description" },
+                var offline = new TextBlock { Text = Services.Impl.LocalizationText.Get("离线或失效"), Classes = { "settings-description" },
                     VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
                 Grid.SetColumn(offline, 1); row.Children.Add(offline);
             }
@@ -146,7 +158,7 @@ public partial class SettingsDialog : DialogWindow
             DirectoryAccessRows.Children.Add(new Border { Classes = { "settings-row", "settings-divider" }, Child = row });
         }
         DirectoryAccessStatus.Text = access.RestoreError ?? (access.AuthorizedRoots.Count == 0
-            ? "选择需要浏览的文件夹；离线磁盘连接后可重试。" : "授权包含所选文件夹及子目录。移除授权不会删除文件。");
+            ? Services.Impl.LocalizationText.Get("选择需要浏览的文件夹；离线磁盘连接后可重试。") : Services.Impl.LocalizationText.Get("授权包含所选文件夹及子目录。移除授权不会删除文件。"));
     }
 
     private async void OnManageSubscription(object? sender, RoutedEventArgs e)
@@ -159,7 +171,7 @@ public partial class SettingsDialog : DialogWindow
     {
         try
         {
-            await StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions { Title = "选择允许访问的文件夹", AllowMultiple = true });
+            await StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions { Title = Services.Impl.LocalizationText.Get("选择允许访问的文件夹"), AllowMultiple = true });
             RenderDirectoryAccess();
         }
         catch (Exception ex) { DirectoryAccessStatus.Text = ex.Message; }
@@ -187,6 +199,13 @@ public partial class SettingsDialog : DialogWindow
             UpdateLocalSendStatus();
         }
         FolderPhotoCoversToggle.IsChecked = _settingsService.Get(FileListViewModel.FolderPhotoCoverSettingKey, false);
+
+        LanguageCombo.SelectedIndex = _localizationService.Language switch
+        {
+            AppLanguage.ChineseSimplified => 1,
+            AppLanguage.English => 2,
+            _ => 0
+        };
 
         if (ViewModel == null) return;
 
@@ -216,7 +235,33 @@ public partial class SettingsDialog : DialogWindow
             _ => 1
         };
 
-        AboutVersion.Text = $"版本 {_appUpdateService.CurrentVersion}";
+        AboutVersion.Text = _localizationService.Get("settings.version", _appUpdateService.CurrentVersion);
+    }
+
+    private void RefreshLanguage()
+    {
+        // Update only language-dependent controls so unfinished settings edits survive.
+        var initializing = _initializing;
+        _initializing = true;
+        LanguageCombo.SelectedIndex = _localizationService.Language switch
+        {
+            AppLanguage.ChineseSimplified => 1, AppLanguage.English => 2, _ => 0
+        };
+        _initializing = initializing;
+        AboutVersion.Text = _localizationService.Get("settings.version", _appUpdateService.CurrentVersion);
+        RefreshCopilotConsent();
+        if (DistributionChannel.IsAppStore) RenderDirectoryAccess();
+    }
+
+    private void OnLanguageChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing || LanguageCombo.SelectedItem is not ComboBoxItem { Tag: string tag }) return;
+        _localizationService.SetLanguage(tag switch
+        {
+            "zh-CN" => AppLanguage.ChineseSimplified,
+            "en" => AppLanguage.English,
+            _ => AppLanguage.System
+        });
     }
 
     private void OnFileDeliveryChanged(object? sender, RoutedEventArgs e)
@@ -267,7 +312,7 @@ public partial class SettingsDialog : DialogWindow
         if (_localSendService == null) return;
         LocalSendStatus.Text = _localSendService.LastError ?? (_localSendService.Enabled
             ? _localSendService.ListeningPort > 0
-                ? $"正在监听端口 {_localSendService.ListeningPort}。"
+                ? MacExplorer.Services.Impl.LocalizationText.Get("正在监听端口 {0}。", _localSendService.ListeningPort)
                 : "正在启动…"
             : "已停止发现和接收。");
     }
@@ -373,7 +418,7 @@ public partial class SettingsDialog : DialogWindow
 
         var folders = await storage.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "添加搜索位置",
+            Title = MacExplorer.Services.Impl.LocalizationText.Get("添加搜索位置"),
             AllowMultiple = true
         });
         var selected = folders
@@ -546,7 +591,7 @@ public partial class SettingsDialog : DialogWindow
             return;
         }
 
-        InteractionStyleStatusText.Text = "颜色格式无效，请使用 #RRGGBB 或 #AARRGGBB。";
+        InteractionStyleStatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("颜色格式无效，请使用 #RRGGBB 或 #AARRGGBB。");
         InteractionStyleStatusText.IsVisible = true;
     }
 
@@ -566,7 +611,7 @@ public partial class SettingsDialog : DialogWindow
             UpdateInteractionColorRow(InteractionStyleToken.Selected, InteractionSelectedColorPreview, InteractionSelectedColorValue, InteractionSelectedColorButton);
             UpdateInteractionColorRow(InteractionStyleToken.SelectedHover, InteractionSelectedHoverColorPreview, InteractionSelectedHoverColorValue, InteractionSelectedHoverColorButton);
             UpdateInteractionColorRow(InteractionStyleToken.TextHighlight, InteractionTextHighlightColorPreview, InteractionTextHighlightColorValue, InteractionTextHighlightColorButton);
-            InteractionSelectedTokenText.Text = $"正在设置：{GetInteractionTokenName(_selectedInteractionToken)}（{GetInteractionThemeName(_editingInteractionTheme)}）";
+            InteractionSelectedTokenText.Text = MacExplorer.Services.Impl.LocalizationText.Get("正在设置：{0}（{1}）", GetInteractionTokenName(_selectedInteractionToken), GetInteractionThemeName(_editingInteractionTheme));
             InteractionCustomColorBox.Text = _interactionStyleService.GetColor(_selectedInteractionToken, _editingInteractionTheme);
         }
         finally
@@ -585,16 +630,16 @@ public partial class SettingsDialog : DialogWindow
 
     private static string GetInteractionTokenName(InteractionStyleToken token) => token switch
     {
-        InteractionStyleToken.Hover => "悬停",
-        InteractionStyleToken.Selected => "选中或已勾选",
-        InteractionStyleToken.SelectedHover => "选中时悬停",
-        InteractionStyleToken.TextHighlight => "文本高亮",
+        InteractionStyleToken.Hover => MacExplorer.Services.Impl.LocalizationText.Get("悬停"),
+        InteractionStyleToken.Selected => MacExplorer.Services.Impl.LocalizationText.Get("选中或已勾选"),
+        InteractionStyleToken.SelectedHover => MacExplorer.Services.Impl.LocalizationText.Get("选中时悬停"),
+        InteractionStyleToken.TextHighlight => MacExplorer.Services.Impl.LocalizationText.Get("文本高亮"),
         _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
     };
 
     private static string GetInteractionThemeName(InteractionThemeVariant theme) => theme == InteractionThemeVariant.Dark
-        ? "深色主题"
-        : "浅色主题";
+        ? MacExplorer.Services.Impl.LocalizationText.Get("深色主题")
+        : MacExplorer.Services.Impl.LocalizationText.Get("浅色主题");
 
     private static bool TryGetInteractionToken(string value, out InteractionStyleToken token)
     {
@@ -652,7 +697,7 @@ public partial class SettingsDialog : DialogWindow
             };
             row.Classes.Add("ghost");
             row.Classes.Add("toolbar-popup-item");
-            AutomationProperties.SetName(row, $"添加 {app.Name}");
+            AutomationProperties.SetName(row, MacExplorer.Services.Impl.LocalizationText.Get("添加 {0}", app.Name));
             row.Click += AddApplication;
             InstalledAppsPanel.Children.Add(row);
             _ = LoadInstalledAppIconAsync(app, row, renderVersion);
@@ -661,7 +706,7 @@ public partial class SettingsDialog : DialogWindow
         if (apps.Count == 0)
             InstalledAppsPanel.Children.Add(AppTypography.BindFontSize(new TextBlock
             {
-                Text = _installedApps.Count == 0 ? "未找到已安装的应用" : "没有匹配的应用",
+                Text = _installedApps.Count == 0 ? "未找到已安装的应用" : MacExplorer.Services.Impl.LocalizationText.Get("没有匹配的应用"),
                 HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                 Margin = new Thickness(0, 12),
                 Foreground = new SolidColorBrush(Color.Parse("#8E8E93"))
@@ -727,7 +772,7 @@ public partial class SettingsDialog : DialogWindow
                 OffContent = string.Empty,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
-            AutomationProperties.SetName(toggle, $"在右键菜单首层显示 {app.Label}");
+            AutomationProperties.SetName(toggle, MacExplorer.Services.Impl.LocalizationText.Get("在右键菜单首层显示 {0}", app.Label));
             toggle.IsCheckedChanged += OnTopLevelChanged;
 
             var delete = new Button
@@ -737,7 +782,7 @@ public partial class SettingsDialog : DialogWindow
                 Content = new PathIcon { Data = Geometry.Parse(Assets.Icons.Delete), Width = 14, Height = 14 }
             };
             ToolTip.SetTip(delete, "删除");
-            AutomationProperties.SetName(delete, $"移除 {app.Label}");
+            AutomationProperties.SetName(delete, MacExplorer.Services.Impl.LocalizationText.Get("移除 {0}", app.Label));
             delete.Click += RemoveApplication;
 
             var actions = new StackPanel
@@ -758,7 +803,7 @@ public partial class SettingsDialog : DialogWindow
             identity.Children.Add(CreateAppIdentity(app.Label, app.IconBase64, 28));
             identity.Children.Add(new TextBlock
             {
-                Text = app.IsTopLevel ? "显示在右键菜单首层" : "收进「打开方式」子菜单",
+                Text = app.IsTopLevel ? MacExplorer.Services.Impl.LocalizationText.Get("显示在右键菜单首层") : MacExplorer.Services.Impl.LocalizationText.Get("收进「打开方式」子菜单"),
                 Classes = { "settings-description" },
                 Margin = new Thickness(36, 0, 0, 0)
             });
@@ -858,7 +903,7 @@ public partial class SettingsDialog : DialogWindow
             }
             catch (Exception ex)
             {
-                SetUpdateState(UpdateState.Error, $"更新失败: {ex.Message}");
+                SetUpdateState(UpdateState.Error, MacExplorer.Services.Impl.LocalizationText.Get("更新失败: {0}", ex.Message));
             }
             finally
             {
@@ -894,7 +939,7 @@ public partial class SettingsDialog : DialogWindow
         }
         catch (Exception ex)
         {
-            SetUpdateState(UpdateState.Error, $"检查失败: {ex.Message}");
+            SetUpdateState(UpdateState.Error, MacExplorer.Services.Impl.LocalizationText.Get("检查失败: {0}", ex.Message));
         }
     }
 
@@ -909,7 +954,7 @@ public partial class SettingsDialog : DialogWindow
     private void DisplayAvailableUpdate(VersionInfo version)
     {
         _availableVersion = version;
-        SetUpdateState(UpdateState.UpdateAvailable, $"发现新版本 {version.Version}");
+        SetUpdateState(UpdateState.UpdateAvailable, MacExplorer.Services.Impl.LocalizationText.Get("发现新版本 {0}", version.Version));
         DisplayChangelog(version);
     }
 
@@ -917,15 +962,15 @@ public partial class SettingsDialog : DialogWindow
     {
         if (version.History is { } history)
         {
-            ChangelogTitle.Text = $"更新日志 · 当前版本 {_appUpdateService.CurrentVersion} · 最新版本 {version.Version}";
+            ChangelogTitle.Text = MacExplorer.Services.Impl.LocalizationText.Get("更新日志 · 当前版本 {0} · 最新版本 {1}", _appUpdateService.CurrentVersion, version.Version);
             ChangelogText.Text = string.Join("\n\n────────────\n\n", history.Select(release =>
             {
                 var date = DateTime.TryParse(release.DateTime, out var parsed) ? parsed.ToString("yyyy-MM-dd") : release.DateTime;
-                var label = release.Version == _appUpdateService.CurrentVersion ? "（当前版本）" : "";
-                var title = $"版本 {release.Version}{label}" + (string.IsNullOrWhiteSpace(date) ? "" : $" · {date}");
-                return title + "\n\n" + (string.IsNullOrWhiteSpace(release.Memo) ? "此版本暂无更新日志。" : release.Memo);
+                var label = release.Version == _appUpdateService.CurrentVersion ? MacExplorer.Services.Impl.LocalizationText.Get("（当前版本）") : "";
+                var title = MacExplorer.Services.Impl.LocalizationText.Get("版本 {0}{1}", release.Version, label) + (string.IsNullOrWhiteSpace(date) ? "" : $" · {date}");
+                return title + "\n\n" + (string.IsNullOrWhiteSpace(release.Memo) ? MacExplorer.Services.Impl.LocalizationText.Get("此版本暂无更新日志。") : release.Memo);
             }));
-            if (history.Count == 0) ChangelogText.Text = "服务器暂无当前版本的更新日志。";
+            if (history.Count == 0) ChangelogText.Text = MacExplorer.Services.Impl.LocalizationText.Get("服务器暂无当前版本的更新日志。");
             ChangelogBorder.IsVisible = true;
             return;
         }
@@ -933,8 +978,8 @@ public partial class SettingsDialog : DialogWindow
             ? parsedDate.ToString("yyyy-MM-dd")
             : version.DateTime;
         ChangelogTitle.Text = string.IsNullOrWhiteSpace(releaseDate)
-            ? $"版本 {version.Version} 更新内容"
-            : $"版本 {version.Version} · {releaseDate}";
+            ? MacExplorer.Services.Impl.LocalizationText.Get("版本 {0} 更新内容", version.Version)
+            : MacExplorer.Services.Impl.LocalizationText.Get("版本 {0} · {1}", version.Version, releaseDate);
         ChangelogText.Text = version.Memo;
         ChangelogBorder.IsVisible = !string.IsNullOrWhiteSpace(version.Memo);
     }
@@ -973,13 +1018,13 @@ public partial class SettingsDialog : DialogWindow
             case UpdateState.Checking:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = false;
-                UpdateButton.Content = "检查中...";
+                UpdateButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("检查中...");
                 UpdateProgress.IsVisible = false;
                 break;
             case UpdateState.UpdateAvailable:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = true;
-                UpdateButton.Content = "立即更新";
+                UpdateButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("立即更新");
                 UpdateProgress.IsVisible = false;
                 break;
             case UpdateState.Downloading:
@@ -997,7 +1042,7 @@ public partial class SettingsDialog : DialogWindow
             case UpdateState.Error:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = true;
-                UpdateButton.Content = _availableVersion == null ? "重新检查" : "重试更新";
+                UpdateButton.Content = _availableVersion == null ? "重新检查" : MacExplorer.Services.Impl.LocalizationText.Get("重试更新");
                 UpdateProgress.IsVisible = false;
                 break;
             case UpdateState.Idle:
@@ -1005,7 +1050,7 @@ public partial class SettingsDialog : DialogWindow
             default:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = true;
-                UpdateButton.Content = "检查更新";
+                UpdateButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("检查更新");
                 UpdateProgress.IsVisible = false;
                 break;
         }

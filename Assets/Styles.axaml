@@ -420,6 +420,17 @@
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
+    <Style Selector="PathIcon.toolbar-popup-check">
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="Height" Value="14"/>
+        <Setter Property="Margin" Value="0,0,8,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Opacity" Value="0"/>
+    </Style>
+    <Style Selector="Button.toolbar-popup-item.selected PathIcon.toolbar-popup-check">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+
     <Style Selector="Button.toolbar-popup-item:pointerover">
         <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>

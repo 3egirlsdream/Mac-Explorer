@@ -8,6 +8,9 @@
     -->
     <!-- Use installed family names so platform font lookups reuse cached typefaces. -->
     <FontFamily x:Key="FontFamilyUi">PingFang SC, Apple Color Emoji, Segoe UI, Helvetica Neue, Arial</FontFamily>
+    <!-- Latin-first button typography keeps English labels on Latin font metrics;
+         Chinese falls back to the same PingFang family used by the rest of the UI. -->
+    <FontFamily x:Key="FontFamilyButton">Helvetica Neue, PingFang SC, Segoe UI, Arial</FontFamily>
     <FontFamily x:Key="FontFamilySidebar">PingFang SC</FontFamily>
     <FontFamily x:Key="FontFamilyMono">Menlo, Monaco, monospace</FontFamily>
     <media:FontWeight x:Key="FontWeightLight">Light</media:FontWeight>

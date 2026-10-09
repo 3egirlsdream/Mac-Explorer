@@ -43,10 +43,10 @@ public partial class InfoPanelView
 
     private void ShowHashAction(string text, string tip)
     {
-        InfoHash.Text = text;
-        ToolTip.SetTip(InfoHash, tip);
+        SetLocalized(InfoHash, TextBlock.TextProperty, text);
+        SetLocalized(InfoHash, ToolTip.TipProperty, tip);
         CopyHashBtn.IsVisible = false;
-        ComputeHashBtn.Content = "计算";
+        SetLocalized(ComputeHashBtn, Button.ContentProperty, "计算");
         ComputeHashBtn.IsVisible = true;
     }
 
@@ -67,8 +67,8 @@ public partial class InfoPanelView
         CancelHashLoad();
         var request = new CancellationTokenSource();
         _hashCts = request;
-        InfoHash.Text = "计算中…";
-        ComputeHashBtn.Content = "取消";
+        SetLocalized(InfoHash, TextBlock.TextProperty, "计算中…");
+        SetLocalized(ComputeHashBtn, Button.ContentProperty, "取消");
         ComputeHashBtn.IsVisible = true;
         _ = LoadHashAsync(path, automatic, request);
     }
@@ -124,12 +124,12 @@ public partial class InfoPanelView
         {
             await clipboard.CopyTextAsync(_hashValue);
             if (ReferenceEquals(ViewModel, vm) && vm.SelectedEntries.Count == 1 && vm.SelectedEntries[0].FullPath == path)
-                vm.StatusText = "SHA-256 已复制";
+                vm.StatusText = LocalizationText.Get("SHA-256 已复制");
         }
         catch (Exception ex)
         {
             if (ReferenceEquals(ViewModel, vm) && vm.SelectedEntries.Count == 1 && vm.SelectedEntries[0].FullPath == path)
-                vm.StatusText = "复制哈希失败：" + ex.Message;
+                vm.StatusText = LocalizationText.Get("复制哈希失败：") + ex.Message;
         }
     }
 }

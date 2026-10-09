@@ -74,3 +74,7 @@
 - 文件速递面板样式集中在 `Assets/FileDeliveryStyles.axaml`，复用 `AppWindow`、`PopupGlass`、`RadiusLg` 和全局按钮；面板宽高比为 √2:1，使用主题边框及原生窗口阴影；导航按钮复用全局 `workspace-nav-button`，路径复用 `BreadcrumbBar`，页签统一高度、行高及透明边框占位，选中不改变文字位置；右侧加号通过两级菜单添加目录／收藏夹，下拉可见表面距按钮 2px；右键页签删除入口，不删除原目录或收藏。顶部入口使用紧凑标签，共享文件列表以 `IsBrowseOnly` 模式承载，仅浏览、预览和复制拖出，偏好独立保存。
 
 - 快捷键设置复用紧凑设置字段行，Cmd 使用 `shortcut-fixed-key`，附加修饰键使用可切换的 `shortcut-modifier`，Control 直接显示文字，修饰键宽度随内容自适应；主键通过 `shortcut-binding shortcut-main-key` 点击录制，错误使用 `shortcut-error`；提示浮层复用窗口 `WindowOverlayHost`、`PopupGlass` 和全局 `shortcut-hint` / `shortcut-group-title` / `shortcut-name` / `shortcut-keys` 样式，不抢键盘焦点；命令按钮通过全局 `ShortcutTip.Command` 自动同步快捷键提示。
+
+- 排序菜单选中标记复用全局 `PathIcon.toolbar-popup-check` 与 `toolbar-popup-item.selected`，使用 Fluent Checkmark；未选中保留图标列占位，文字对齐。排序优先支持文件（默认）、文件夹和不区分，并保存偏好。
+
+- 通用按钮使用 `FontFamilyButton` 的西文字体优先、中文苹方回退顺序，内容默认水平与垂直居中；菜单及行操作仍由对应样式显式指定对齐，不按语言添加固定像素偏移。

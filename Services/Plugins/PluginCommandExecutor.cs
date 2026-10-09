@@ -35,10 +35,12 @@ public sealed class PluginCommandExecutor(
         try
         {
             await using var session = await manager.StartAsync(pluginId, command.Id, files, run.Token);
-            var request = new PluginInvocation(Guid.NewGuid().ToString("N"), command.Id, files, session.WorkDirectory);
+            var language = (App.Services?.GetService(typeof(ILocalizationService)) as ILocalizationService)?.Culture.Name
+                ?? MacExplorer.Services.Impl.LocalizationService.Current?.Culture.Name ?? "zh-CN";
+            var request = new PluginInvocation(Guid.NewGuid().ToString("N"), command.Id, files, session.WorkDirectory) { Culture = language };
             if (host.Owner == null || !await PluginAuthorization.EnsureAsync(
                     manager, session.Manifest, session, request, host.Owner, run.Token))
-                return new(false, "插件授权未完成。", [], []);
+                return new(false, MacExplorer.Services.Impl.LocalizationText.Get("插件授权未完成。"), [], []);
 
             var preparation = await session.CallAsync<PluginPreparation>("prepare", request,
                 TimeSpan.FromSeconds(30), run.Token);
@@ -47,12 +49,12 @@ public sealed class PluginCommandExecutor(
                 if (configuration.Kind != "image-size" || configuration.Width <= 0 || configuration.Height <= 0
                     || !Enum.TryParse<FileConversionFormat>(configuration.Format, out var format)
                     || format is not (FileConversionFormat.Png or FileConversionFormat.Jpg))
-                    throw new InvalidOperationException("此插件请求的配置窗口与当前应用不兼容。");
+                    throw new InvalidOperationException(MacExplorer.Services.Impl.LocalizationText.Get("此插件请求的配置窗口与当前应用不兼容。"));
                 var dialog = new ImageConversionDialog(new(configuration.Width, configuration.Height), format);
                 using var modalBlock = host.Owner is Views.MainWindow window ? window.BlockModalParentInteraction() : null;
                 using var cancelDialog = run.Token.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(null)));
                 var size = await dialog.ShowDialog<ConversionImageSize?>(host.Owner);
-                if (size == null) return new(false, "用户取消了插件配置。", [], []);
+                if (size == null) return new(false, MacExplorer.Services.Impl.LocalizationText.Get("用户取消了插件配置。"), [], []);
                 request = request with { Parameters = new()
                 {
                     ["width"] = JsonSerializer.SerializeToElement(size.Width),
@@ -60,9 +62,11 @@ public sealed class PluginCommandExecutor(
                 } };
             }
 
+            var commandTitle = pluginId == "com.macexplorer.file-conversion"
+                ? MacExplorer.Services.Impl.LocalizationText.Get(command.Title) : command.Title;
             var title = files.Length == 1
-                ? command.Title + "：" + Path.GetFileName(files[0].Path)
-                : command.Title + "：" + files.Length + " 个文件";
+                ? commandTitle + ": " + Path.GetFileName(files[0].Path)
+                : MacExplorer.Services.Impl.LocalizationText.Get("{0}：{1} 个文件", commandTitle, files.Length);
             var pump = new PluginProgressPump(
                 callback => Dispatcher.UIThread.Post(callback, DispatcherPriority.Background), progress =>
             {
@@ -81,8 +85,8 @@ public sealed class PluginCommandExecutor(
             PluginResult result;
             try
             {
-                host.SetStatus(files.Length == 1 ? "正在处理 " + Path.GetFileName(files[0].Path) + "…"
-                    : "正在处理 " + files.Length + " 个文件…");
+                host.SetStatus(files.Length == 1 ? MacExplorer.Services.Impl.LocalizationText.Get("正在处理 {0}…", Path.GetFileName(files[0].Path))
+                    : MacExplorer.Services.Impl.LocalizationText.Get("正在处理 {0} 个文件…", files.Length));
                 result = await session.CallAsync<PluginResult>("execute", request,
                     ExecuteTimeout(files.Length), run.Token);
                 pump.Complete();
@@ -110,8 +114,8 @@ public sealed class PluginCommandExecutor(
                     host.SelectOutputs(outputs);
             }
             var message = (files.Length == 1
-                    ? "已生成 " + string.Join("、", outputs.Select(Path.GetFileName))
-                    : "已生成 " + outputs.Length + " 个文件") +
+                    ? MacExplorer.Services.Impl.LocalizationText.Get("已生成 {0}", string.Join(", ", outputs.Select(Path.GetFileName)))
+                    : MacExplorer.Services.Impl.LocalizationText.Get("已生成 {0} 个文件", outputs.Length)) +
                 (result.Warnings.Length == 0 ? "" : "。" + string.Join("；", result.Warnings));
             if (!host.IsDisposed()) host.SetStatus(message);
             return new(true, message, outputs, result.Warnings);
@@ -119,8 +123,8 @@ public sealed class PluginCommandExecutor(
         catch (OperationCanceledException)
         {
             if (task != null) tasks!.CancelTask(task.Id);
-            var message = committedOutputs.Count == 0 ? "已取消处理"
-                : $"已取消处理，保留已生成的 {committedOutputs.Count} 个文件。";
+            var message = committedOutputs.Count == 0 ? MacExplorer.Services.Impl.LocalizationText.Get("已取消处理")
+                : MacExplorer.Services.Impl.LocalizationText.Get("已取消处理，保留已生成的 {0} 个文件。", committedOutputs.Count);
             if (!host.IsDisposed()) host.SetStatus(message);
             return new(false, message, committedOutputs, []);
         }
@@ -129,8 +133,8 @@ public sealed class PluginCommandExecutor(
             if (task is { State: BackgroundTaskState.Running }) tasks!.FailTask(task.Id, ex.Message);
             try { await manager.RecordErrorAsync(pluginId, ex.Message); }
             catch (Exception metadataError) { System.Diagnostics.Debug.WriteLine(metadataError); }
-            var message = committedOutputs.Count == 0 ? "插件处理失败：" + ex.Message
-                : $"已生成 {committedOutputs.Count} 个文件，其余处理失败：{ex.Message}";
+            var message = committedOutputs.Count == 0 ? MacExplorer.Services.Impl.LocalizationText.Get("插件处理失败：{0}", ex.Message)
+                : MacExplorer.Services.Impl.LocalizationText.Get("已生成 {0} 个文件，其余处理失败：{1}", committedOutputs.Count, ex.Message);
             if (!host.IsDisposed()) host.SetStatus(message);
             return new(false, message, committedOutputs, []);
         }

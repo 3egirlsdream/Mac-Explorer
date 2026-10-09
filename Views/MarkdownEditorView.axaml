@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              xmlns:local="using:MacExplorer.Views"
@@ -20,76 +21,76 @@
             <Grid x:Name="EditorLayout" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
                 <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="20,14,14,10" ColumnSpacing="8">
                     <StackPanel Spacing="2" VerticalAlignment="Center">
-                        <TextBlock x:Name="TitleText" Text="Markdown 编辑器" FontSize="{DynamicResource FontSizeTitle}"
+                        <TextBlock x:Name="TitleText" Text="{loc:Loc ui.272}" FontSize="{DynamicResource FontSizeTitle}"
                                    FontWeight="{StaticResource FontWeightSemibold}" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="PathText" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <Button x:Name="SaveAsButton" Grid.Column="1" Classes="ghost compact"
-                            IsEnabled="False" Click="OnSaveAs" ToolTip.Tip="另存为（⌘⇧S / Ctrl+Shift+S）" AutomationProperties.Name="另存为">
+                            IsEnabled="False" Click="OnSaveAs" ToolTip.Tip="{loc:Loc ui.288}" AutomationProperties.Name="{loc:Loc ui.286}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{x:Static icons:Icons.SaveCopy}" Width="13" Height="13"/>
-                            <TextBlock Text="另存为…"/>
+                            <TextBlock Text="{loc:Loc ui.287}"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="SaveButton" Grid.Column="2" Classes="primary compact"
-                            IsEnabled="False" Click="OnSave" ToolTip.Tip="保存（⌘S / Ctrl+S）" AutomationProperties.Name="保存">
+                            IsEnabled="False" Click="OnSave" ToolTip.Tip="{loc:Loc ui.280}" AutomationProperties.Name="{loc:Loc ui.095}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{x:Static icons:Icons.Save}" Width="13" Height="13"/>
-                            <TextBlock Text="保存"/>
+                            <TextBlock Text="{loc:Loc ui.095}"/>
                         </StackPanel>
                     </Button>
                     <Button Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="7"
-                            Click="OnClose" ToolTip.Tip="关闭编辑器" AutomationProperties.Name="关闭 Markdown 编辑器">
+                            Click="OnClose" ToolTip.Tip="{loc:Loc ui.283}" AutomationProperties.Name="{loc:Loc ui.282}">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
                     </Button>
                 </Grid>
                 <Border Grid.Row="1" BorderBrush="{DynamicResource ColorDivider}" BorderThickness="0,1" Padding="16,7,12,4">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <WrapPanel x:Name="FormatTools" IsEnabled="False" ItemSpacing="2" LineSpacing="2">
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="撤销（⌘Z）" AutomationProperties.Name="撤销" Click="OnUndo">
+                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.293}" AutomationProperties.Name="{loc:Loc ui.108}" Click="OnUndo">
                                 <PathIcon Data="{x:Static icons:Icons.ArrowUndo}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="重做（⌘⇧Z）" AutomationProperties.Name="重做" Click="OnRedo">
+                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.312}" AutomationProperties.Name="{loc:Loc ui.109}" Click="OnRedo">
                                 <PathIcon Data="{x:Static icons:Icons.ArrowRedo}"/>
                             </Button>
                             <Separator Classes="toolbar-separator"/>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="标题级别" AutomationProperties.Name="标题级别" Click="OnHeadingMenu">
+                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.307}" AutomationProperties.Name="{loc:Loc ui.307}" Click="OnHeadingMenu">
                                 <PathIcon Data="{x:Static icons:Icons.TextHeader1}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Bold" ToolTip.Tip="粗体（⌘B）" AutomationProperties.Name="粗体" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Bold" ToolTip.Tip="{loc:Loc ui.310}" AutomationProperties.Name="{loc:Loc ui.309}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextBold}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Italic" ToolTip.Tip="斜体（⌘I）" AutomationProperties.Name="斜体" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Italic" ToolTip.Tip="{loc:Loc ui.296}" AutomationProperties.Name="{loc:Loc ui.295}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextItalic}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Quote" ToolTip.Tip="引用" AutomationProperties.Name="引用" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Quote" ToolTip.Tip="{loc:Loc ui.289}" AutomationProperties.Name="{loc:Loc ui.289}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextQuote}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Bullet" ToolTip.Tip="无序列表" AutomationProperties.Name="无序列表" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Bullet" ToolTip.Tip="{loc:Loc ui.297}" AutomationProperties.Name="{loc:Loc ui.297}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextBulletList}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Numbered" ToolTip.Tip="有序列表" AutomationProperties.Name="有序列表" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Numbered" ToolTip.Tip="{loc:Loc ui.302}" AutomationProperties.Name="{loc:Loc ui.302}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextNumberListLtr}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Task" ToolTip.Tip="任务列表" AutomationProperties.Name="任务列表" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Task" ToolTip.Tip="{loc:Loc ui.277}" AutomationProperties.Name="{loc:Loc ui.277}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TaskListSquareLtr}"/>
                             </Button>
                             <Separator Classes="toolbar-separator"/>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Link" ToolTip.Tip="链接（⌘K）" AutomationProperties.Name="插入链接" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Link" ToolTip.Tip="{loc:Loc ui.313}" AutomationProperties.Name="{loc:Loc ui.292}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Link}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Image" ToolTip.Tip="图片" AutomationProperties.Name="插入图片" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Image" ToolTip.Tip="{loc:Loc ui.160}" AutomationProperties.Name="{loc:Loc ui.290}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Image}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="CodeBlock" ToolTip.Tip="代码块" AutomationProperties.Name="代码块" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="CodeBlock" ToolTip.Tip="{loc:Loc ui.276}" AutomationProperties.Name="{loc:Loc ui.276}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Code}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Table" ToolTip.Tip="表格" AutomationProperties.Name="插入表格" Click="OnFormat">
+                            <Button Classes="ghost toolbar-btn w32" Tag="Table" ToolTip.Tip="{loc:Loc ui.311}" AutomationProperties.Name="{loc:Loc ui.291}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Table}"/>
                             </Button>
                             <Separator Classes="toolbar-separator"/>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="查找 / 替换（⌘F）" AutomationProperties.Name="查找和替换" Click="OnFind">
+                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.305}" AutomationProperties.Name="{loc:Loc ui.306}" Click="OnFind">
                                 <PathIcon Data="{x:Static icons:Icons.Search}"/>
                             </Button>
                         </WrapPanel>
@@ -97,15 +98,15 @@
                             <Border Background="{DynamicResource ViewModeToggleBg}" CornerRadius="11" IsHitTestVisible="False"/>
                             <StackPanel Orientation="Horizontal" Margin="2">
                                 <ToggleButton x:Name="SourceMode" Classes="view-mode-toggle" Tag="Source"
-                                              ToolTip.Tip="源码模式" AutomationProperties.Name="源码模式" Click="OnMode">
+                                              ToolTip.Tip="{loc:Loc ui.308}" AutomationProperties.Name="{loc:Loc ui.308}" Click="OnMode">
                                     <PathIcon Data="{x:Static icons:Icons.CodeEditor}" Width="13" Height="13"/>
                                 </ToggleButton>
                                 <ToggleButton x:Name="SplitMode" Classes="view-mode-toggle" Tag="Split"
-                                              ToolTip.Tip="分屏模式" AutomationProperties.Name="分屏模式" Click="OnMode">
+                                              ToolTip.Tip="{loc:Loc ui.284}" AutomationProperties.Name="{loc:Loc ui.284}" Click="OnMode">
                                     <PathIcon Data="{x:Static icons:Icons.SplitVertical}" Width="13" Height="13"/>
                                 </ToggleButton>
                                 <ToggleButton x:Name="PreviewMode" Classes="view-mode-toggle" Tag="Preview"
-                                              ToolTip.Tip="预览模式" AutomationProperties.Name="预览模式" Click="OnMode">
+                                              ToolTip.Tip="{loc:Loc ui.314}" AutomationProperties.Name="{loc:Loc ui.314}" Click="OnMode">
                                     <PathIcon Data="{x:Static icons:Icons.Preview}" Width="13" Height="13"/>
                                 </ToggleButton>
                             </StackPanel>
@@ -116,22 +117,22 @@
                         Background="{DynamicResource SurfaceElevatedBrush}"
                         CornerRadius="{DynamicResource InteractionCornerRadius}">
                     <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="8">
-                        <TextBox x:Name="FindText" Width="180" Watermark="查找" KeyDown="OnSearchKeyDown"/>
-                        <TextBox x:Name="ReplaceText" Grid.Column="1" Width="180" Watermark="替换为"/>
-                        <CheckBox x:Name="MatchCase" Grid.Column="2" Content="区分大小写" VerticalAlignment="Center"/>
+                        <TextBox x:Name="FindText" Width="180" Watermark="{loc:Loc ui.304}" KeyDown="OnSearchKeyDown"/>
+                        <TextBox x:Name="ReplaceText" Grid.Column="1" Width="180" Watermark="{loc:Loc ui.299}"/>
+                        <CheckBox x:Name="MatchCase" Grid.Column="2" Content="{loc:Loc ui.285}" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2">
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="上一个匹配" AutomationProperties.Name="上一个匹配" Click="OnFindPrevious">
+                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.273}" AutomationProperties.Name="{loc:Loc ui.273}" Click="OnFindPrevious">
                                 <PathIcon Data="{x:Static icons:Icons.ChevronUp}"/>
                             </Button>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="下一个匹配" AutomationProperties.Name="下一个匹配" Click="OnFindNext">
+                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.274}" AutomationProperties.Name="{loc:Loc ui.274}" Click="OnFindNext">
                                 <PathIcon Data="{x:Static icons:Icons.ChevronDown}"/>
                             </Button>
-                            <Button Classes="ghost compact" Click="OnReplace" ToolTip.Tip="替换当前匹配" AutomationProperties.Name="替换">替换</Button>
-                            <Button Classes="ghost compact" Click="OnReplaceAll" ToolTip.Tip="替换全部匹配" AutomationProperties.Name="全部替换">全部替换</Button>
+                            <Button Classes="ghost compact" Click="OnReplace" ToolTip.Tip="{loc:Loc ui.301}" AutomationProperties.Name="{loc:Loc ui.298}" Content="{loc:Loc ui.298}"></Button>
+                            <Button Classes="ghost compact" Click="OnReplaceAll" ToolTip.Tip="{loc:Loc ui.300}" AutomationProperties.Name="{loc:Loc ui.281}" Content="{loc:Loc ui.281}"></Button>
                         </StackPanel>
                         <TextBlock x:Name="SearchMessage" Grid.Column="4" VerticalAlignment="Center" Margin="6,0"
                                    FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
-                        <Button Grid.Column="5" Classes="ghost toolbar-btn w32" ToolTip.Tip="收起查找栏" AutomationProperties.Name="收起查找栏" Click="OnHideSearch">
+                        <Button Grid.Column="5" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.294}" AutomationProperties.Name="{loc:Loc ui.294}" Click="OnHideSearch">
                             <PathIcon Data="{x:Static icons:Icons.Close}"/>
                         </Button>
                     </Grid>
@@ -155,7 +156,7 @@
                 </Grid>
                 <Border Grid.Row="5" BorderBrush="{DynamicResource ColorDivider}" BorderThickness="0,1,0,0" Padding="18,7">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <TextBlock x:Name="StatusText" Text="正在读取…" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock x:Name="StatusText" Text="{loc:Loc ui.118}" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
                         <TextBlock x:Name="CaretText" Grid.Column="1" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
                     </Grid>
                 </Border>
@@ -164,14 +165,14 @@
                 <Border Classes="toolbar-popup" MaxWidth="460" Margin="24" Padding="20"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel Spacing="14">
-                        <TextBlock Text="保存对 Markdown 文件的修改？" FontSize="{DynamicResource FontSizeHeading}"
+                        <TextBlock Text="{loc:Loc ui.278}" FontSize="{DynamicResource FontSizeHeading}"
                                    FontWeight="{StaticResource FontWeightMedium}"/>
-                        <TextBlock Text="未保存的修改将在关闭后丢失。" TextWrapping="Wrap"
+                        <TextBlock Text="{loc:Loc ui.303}" TextWrapping="Wrap"
                                    FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                            <Button x:Name="CancelCloseButton" Content="取消" Classes="secondary" Click="OnCancelClose"/>
-                            <Button Content="不保存" Classes="danger" Click="OnDiscardClose"/>
-                            <Button Content="保存并关闭" Classes="primary" Click="OnSaveAndClose"/>
+                            <Button x:Name="CancelCloseButton" Content="{loc:Loc ui.094}" Classes="secondary" Click="OnCancelClose"/>
+                            <Button Content="{loc:Loc ui.275}" Classes="danger" Click="OnDiscardClose"/>
+                            <Button Content="{loc:Loc ui.279}" Classes="primary" Click="OnSaveAndClose"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

@@ -39,7 +39,9 @@ public class RemoteServerInfo : INotifyPropertyChanged
     }
 
     public string StatusColor => IsConnected ? "#22C55E" : "#9CA3AF";
-    public string StatusText => IsConnected ? "已连接" : "未连接";
+    public string StatusText => MacExplorer.Services.Impl.LocalizationText.Get(IsConnected ? "已连接" : "未连接");
+
+    public void RefreshLocalizedText() => OnPropertyChanged(nameof(StatusText));
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

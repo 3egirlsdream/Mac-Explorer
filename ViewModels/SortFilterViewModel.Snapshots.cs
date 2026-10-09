@@ -7,7 +7,7 @@ namespace MacExplorer.ViewModels;
 public partial class SortFilterViewModel
 {
     public FileListQuery CaptureQuery() => new(SortField, SortAscending, GroupField,
-        HideSystemFiles, HideDotFiles, HideDotFolders) { ColumnFilters = ColumnFilters };
+        HideSystemFiles, HideDotFiles, HideDotFolders) { ColumnFilters = ColumnFilters, SortPriority = SortPriority };
 
     // Reuse the exact filtering/comparison/group ordering rules. This detached object
     // has no settings service or UI subscriptions; never call this on the live VM.
@@ -15,6 +15,7 @@ public partial class SortFilterViewModel
     {
         _sortField = query.SortField,
         _sortAscending = query.SortAscending,
+        _sortPriority = query.SortPriority,
         _groupField = query.GroupField,
         _hideSystemFiles = query.HideSystemFiles,
         _hideDotFiles = query.HideDotFiles,

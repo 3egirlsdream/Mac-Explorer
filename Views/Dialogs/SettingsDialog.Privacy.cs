@@ -21,7 +21,7 @@ public partial class SettingsDialog
         try
         {
             var allowed = CopilotConnection.HasMetadataConsent(CopilotCredentialStore.Read());
-            CopilotConsentStatus.Text = allowed ? "已允许向当前 AI 接收方分享文件信息。" : "尚未许可；下一次发送需要确认接收方。";
+            CopilotConsentStatus.Text = allowed ? MacExplorer.Services.Impl.LocalizationText.Get("已允许向当前 AI 接收方分享文件信息。") : MacExplorer.Services.Impl.LocalizationText.Get("尚未许可；下一次发送需要确认接收方。");
         }
         catch (Exception ex) { CopilotConsentStatus.Text = ex.Message; }
     }

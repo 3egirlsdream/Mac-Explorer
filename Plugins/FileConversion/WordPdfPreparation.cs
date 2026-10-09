@@ -17,8 +17,8 @@ internal static class WordPdfPreparation
         var attachments = new List<Attachment>();
         using (var package = WordprocessingDocument.Open(input, true))
         {
-            var part = package.MainDocumentPart ?? throw new InvalidDataException("Word 文档缺少正文。");
-            var body = part.Document.Body ?? throw new InvalidDataException("Word 文档缺少正文。");
+            var part = package.MainDocumentPart ?? throw new InvalidDataException(ConversionLocalization.Get("Word 文档缺少正文。"));
+            var body = part.Document.Body ?? throw new InvalidDataException(ConversionLocalization.Get("Word 文档缺少正文。"));
             var styles = part.StyleDefinitionsPart?.Styles;
             var defaults = styles?.GetFirstChild<W.DocDefaults>()?.RunPropertiesDefault?.RunPropertiesBaseStyle;
             var counts = new Dictionary<(int Id, int Level), int>();
@@ -65,12 +65,12 @@ internal static class WordPdfPreparation
                 {
                     var relationship = drawing.Descendants<A.Blip>().FirstOrDefault()?.Embed?.Value;
                     if (relationship == null || part.GetPartById(relationship) is not ImagePart imagePart)
-                        throw new InvalidDataException("不支持的图片引用");
+                        throw new InvalidDataException(ConversionLocalization.Get("不支持的图片引用"));
                     var file = Path.Combine(work, marker + ".png");
                     using var stream = imagePart.GetStream();
-                    using var codec = SKCodec.Create(stream) ?? throw new InvalidDataException("不支持的图片格式");
+                    using var codec = SKCodec.Create(stream) ?? throw new InvalidDataException(ConversionLocalization.Get("不支持的图片格式"));
                     new ConversionImageSize(codec.Info.Width, codec.Info.Height).Validate();
-                    using var bitmap = SKBitmap.Decode(codec) ?? throw new InvalidDataException("无法读取图片");
+                    using var bitmap = SKBitmap.Decode(codec) ?? throw new InvalidDataException(ConversionLocalization.Get("无法读取图片"));
                     using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
                     using (var output = File.Create(file)) data.SaveTo(output);
                     var extent = drawing.Descendants<DW.Extent>().FirstOrDefault();
@@ -83,8 +83,8 @@ internal static class WordPdfPreparation
                 }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or InvalidOperationException)
                 {
-                    drawing.InsertAfterSelf(new W.Text("[无法转换的图片]"));
-                    warnings.Add("部分 Word 图片格式无法读取，已在对应位置保留说明。");
+                    drawing.InsertAfterSelf(new W.Text(ConversionLocalization.Get("[无法转换的图片]")));
+                    warnings.Add(ConversionLocalization.Get("部分 Word 图片格式无法读取，已在对应位置保留说明。"));
                 }
                 drawing.Remove();
             }

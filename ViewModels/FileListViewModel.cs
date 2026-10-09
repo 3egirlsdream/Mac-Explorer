@@ -226,7 +226,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var breadcrumbTitle = Breadcrumbs.LastOrDefault()?.DisplayName;
             return !string.IsNullOrWhiteSpace(breadcrumbTitle)
                 ? breadcrumbTitle
-                : IsHomePage ? "首页" : "Mac Explorer";
+                : IsHomePage ? MacExplorer.Services.Impl.LocalizationText.Get("首页") : "Mac Explorer";
         }
     }
     public string HomeDirectory => _fileService.HomeDirectory;
@@ -354,6 +354,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public ViewMode ViewMode => _sortFilter.ViewMode;
     public SortField SortField => _sortFilter.SortField;
     public bool SortAscending => _sortFilter.SortAscending;
+    public SortPriority SortPriority
+    {
+        get => _sortFilter.SortPriority;
+        set => _sortFilter.SortPriority = value;
+    }
     public GroupField GroupField
     {
         get => _sortFilter.GroupField;
@@ -434,6 +439,26 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _navigation.UpdateCurrentSearchResults(_sortFilter.RawEntries.ToArray());
     }
 
+    private readonly ILocalizationService? _localizationService;
+
+    private void OnInterfaceLanguageChanged()
+    {
+        if (_disposed) return;
+        CloseContextMenu();
+        ApplyInterfaceSidebarNames();
+        var tags = SidebarTags.ToArray();
+        SidebarTags.Clear();
+        foreach (var tag in tags) SidebarTags.Add(tag);
+        if (IsAiView)
+            _navigation.UpdateBreadcrumbsForAi(AiPathHelper.GetModeName(_ai.AiViewMode), AiPathHelper.GetTopLevelPath(_ai.AiViewMode), _ai.CurrentAiContextLabel);
+        else _navigation.UpdateBreadcrumbs();
+        OnPropertyChanged(nameof(CurrentLocationTitle));
+        OnPropertyChanged(nameof(CurrentTag));
+        OnPropertyChanged(nameof(StatusSummaryText));
+        foreach (var entry in Entries) entry.RefreshLocalizedText();
+        RefreshLocationStatus();
+    }
+
     public FileListViewModel(
         NavigationViewModel navigation,
         FileOpsViewModel fileOps,
@@ -469,8 +494,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         MacExplorer.Services.Plugins.PluginManager? pluginManager = null,
         IBackgroundTaskManager? conversionTaskManager = null,
         MacExplorer.Copilot.IAppCapabilityRegistry? appCapabilities = null,
-        ILocalSendService? localSendService = null)
+        ILocalSendService? localSendService = null,
+        ILocalizationService? localizationService = null)
     {
+        _localizationService = localizationService ?? LocalizationService.Current;
+        if (_localizationService != null) _localizationService.LanguageChanged += OnInterfaceLanguageChanged;
         _navigation = navigation;
         _fileOps = fileOps;
         _search = search;
@@ -745,6 +773,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         VolumeName = "Macintosh HD";
         TrashName = "废纸篓";
 
+        ApplyInterfaceSidebarNames();
         if (_displayNameService != null)
             _ = LoadLocalizedSidebarDisplayNamesAsync(home, _displayNameService);
     }
@@ -841,7 +870,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     ValueOrFallback(trashDisplayName, "废纸篓"));
             });
 
-            await Dispatcher.UIThread.InvokeAsync(() => ApplySidebarDisplayNames(names));
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_disposed) return;
+                ApplySidebarDisplayNames(names);
+                ApplyInterfaceSidebarNames();
+            });
         }
         catch (Exception ex)
         {
@@ -884,6 +918,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _sidebarLocations = BuildSidebarLocations();
             OnPropertyChanged(nameof(SidebarLocations));
         }
+    }
+
+    private void ApplyInterfaceSidebarNames()
+    {
+        ApplySidebarDisplayNames(new SidebarDisplayNames(UserName,
+            MacExplorer.Services.Impl.LocalizationText.Get("桌面"), MacExplorer.Services.Impl.LocalizationText.Get("文稿"), MacExplorer.Services.Impl.LocalizationText.Get("下载"),
+            MacExplorer.Services.Impl.LocalizationText.Get("图片"), MacExplorer.Services.Impl.LocalizationText.Get("音乐"), MacExplorer.Services.Impl.LocalizationText.Get("应用程序"), VolumeName,
+            MacExplorer.Services.Impl.LocalizationText.Get("废纸篓")));
     }
 
     private sealed record SidebarDisplayNames(
@@ -1007,6 +1049,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (e.PropertyName is nameof(SortFilterViewModel.ViewMode)
             or nameof(SortFilterViewModel.SortField)
             or nameof(SortFilterViewModel.SortAscending)
+            or nameof(SortFilterViewModel.SortPriority)
             or nameof(SortFilterViewModel.GroupField)
             or nameof(SortFilterViewModel.Groups)
             or nameof(SortFilterViewModel.HideSystemFiles)
@@ -1021,6 +1064,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         // Re-apply sort/group/filter when sort, group, or hide settings change
         if (e.PropertyName is nameof(SortFilterViewModel.SortField)
             or nameof(SortFilterViewModel.SortAscending)
+            or nameof(SortFilterViewModel.SortPriority)
             or nameof(SortFilterViewModel.GroupField)
             or nameof(SortFilterViewModel.HideSystemFiles)
             or nameof(SortFilterViewModel.HideDotFiles)
@@ -2024,11 +2068,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             var actions = new List<ContextMenuAction>
             {
-                new() { Label = "打开", IconSvg = Icons.Open, Execute = () => OpenEntryCommand.ExecuteAsync(entry) }
+                new() { Label = MacExplorer.Services.Impl.LocalizationText.Get("打开"), IconSvg = Icons.Open, Execute = () => OpenEntryCommand.ExecuteAsync(entry) }
             };
             if (entry.VirtualFolderType == "face")
             {
-                actions.Add(new ContextMenuAction { Label = "重命名", IconSvg = Icons.Rename, Execute = () => { _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
+                actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("重命名"), IconSvg = Icons.Rename, Execute = () => { _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
             }
             ContextMenuActions = new ObservableCollection<ContextMenuAction>(actions);
         }
@@ -2036,7 +2080,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
             {
-                new ContextMenuAction { Label = "打开", IconSvg = Icons.Open, Execute = () => OpenEntryCommand.ExecuteAsync(entry) }
+                new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("打开"), IconSvg = Icons.Open, Execute = () => OpenEntryCommand.ExecuteAsync(entry) }
             });
         }
         else
@@ -2065,15 +2109,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
             {
-                new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, Execute = () => RefreshCommand.ExecuteAsync(null) }
+                new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), IconSvg = Icons.Refresh, Execute = () => RefreshCommand.ExecuteAsync(null) }
             });
         }
         else if (IsTagView)
         {
             ContextMenuActions = new ObservableCollection<ContextMenuAction>
             {
-                new() { Label = "粘贴以添加标签", IconSvg = Icons.Paste, IsEnabled = _clipboardService?.HasClipboardFiles == true || _clipboardService?.GetPasteKind() == ClipboardPasteKind.ExternalFiles, Execute = PasteAsync },
-                new() { Label = "刷新", IconSvg = Icons.Refresh, Execute = RefreshAsync }
+                new() { Label = MacExplorer.Services.Impl.LocalizationText.Get("粘贴以添加标签"), IconSvg = Icons.Paste, IsEnabled = _clipboardService?.HasClipboardFiles == true || _clipboardService?.GetPasteKind() == ClipboardPasteKind.ExternalFiles, Execute = PasteAsync },
+                new() { Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), IconSvg = Icons.Refresh, Execute = RefreshAsync }
             };
         }
         else if (IsAiView)
@@ -2106,7 +2150,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             || _archiveService?.IsArchiveFile(entry.FullPath) == true;
         actions.Add(new ContextMenuAction
         {
-            Label = "打开",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("打开"),
             IconSvg = Icons.Open,
             LoadIconBase64Async = !isRemote && !opensInsideMacExplorer && _contextMenuService != null
                 ? () => _contextMenuService.GetDefaultApplicationIconBase64Async(entry.FullPath)
@@ -2125,7 +2169,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             {
                 actions.Add(new ContextMenuAction
                 {
-                    Label = "打开方式",
+                    Label = MacExplorer.Services.Impl.LocalizationText.Get("打开方式"),
                     IconSvg = AppIcons.Apps,
                     SubItems = openWith
                 });
@@ -2135,28 +2179,28 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             actions.Add(new ContextMenuAction
             {
-                Label = "打开方式",
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("打开方式"),
                 IconSvg = AppIcons.Apps,
                 SubItems =
                 [
-                    new ContextMenuAction { Label = "正在加载…", IsEnabled = false }
+                    new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("正在加载…"), IsEnabled = false }
                 ]
             });
         }
 
         if (entry.IsDirectory && (entry.IsApplication || entry.IconKey == "app-bundle") && !isRemote)
         {
-            actions.Add(new ContextMenuAction { Label = "显示包内容", IconSvg = Icons.Folder, Execute = () => NavigateToAsync(entry.FullPath) });
+            actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("显示包内容"), IconSvg = Icons.Folder, Execute = () => NavigateToAsync(entry.FullPath) });
         }
 
         actions.Add(ContextMenuAction.Separator);
 
         // File operations
-        actions.Add(new ContextMenuAction { Label = "拷贝", IconSvg = Icons.Copy, ShortcutId = ShortcutIds.Copy, IsQuickAction = true, Execute = () => { CopySelected(); return Task.CompletedTask; } });
-        actions.Add(new ContextMenuAction { Label = "剪切", IconSvg = Icons.Cut, ShortcutId = ShortcutIds.Cut, IsQuickAction = true, Execute = () => { CutSelected(); return Task.CompletedTask; } });
+        actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("拷贝"), IconSvg = Icons.Copy, ShortcutId = ShortcutIds.Copy, IsQuickAction = true, Execute = () => { CopySelected(); return Task.CompletedTask; } });
+        actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("剪切"), IconSvg = Icons.Cut, ShortcutId = ShortcutIds.Cut, IsQuickAction = true, Execute = () => { CutSelected(); return Task.CompletedTask; } });
 
         var batchSelection = SelectedEntries.Count > 1 && _selectedEntriesSet.Contains(entry);
-        actions.Add(new ContextMenuAction { Label = batchSelection ? $"重命名 {SelectedEntries.Count} 项…" : "重命名",
+        actions.Add(new ContextMenuAction { Label = batchSelection ? MacExplorer.Services.Impl.LocalizationText.Get("重命名 {0} 项…", SelectedEntries.Count) : "重命名",
             IconSvg = Icons.Rename, ShortcutText = "↩",
             IsEnabled = !batchSelection || CanBatchRename,
             Execute = () => { if (batchSelection) RaiseRequestBatchRename(); else _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
@@ -2188,15 +2232,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     }
                 }).ToList();
                 if (devices.Count == 0 && !searching && !stopped)
-                    items.Add(new ContextMenuAction { Label = "未发现设备", Tag = "localsend-empty", IsEnabled = false });
+                    items.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("未发现设备"), Tag = "localsend-empty", IsEnabled = false });
                 if (searching)
-                    items.Add(new ContextMenuAction { Label = "正在搜索…", Tag = "localsend-searching", IsEnabled = false });
+                    items.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("正在搜索…"), Tag = "localsend-searching", IsEnabled = false });
                 if (stopped)
-                    items.Add(new ContextMenuAction { Label = "搜索已停止", Tag = "localsend-stopped", IsEnabled = false });
+                    items.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("搜索已停止"), Tag = "localsend-stopped", IsEnabled = false });
                 items.Add(ContextMenuAction.Separator);
                 items.Add(new ContextMenuAction
                 {
-                    Label = "通过 IP 连接…", Tag = "localsend-manual",
+                    Label = MacExplorer.Services.Impl.LocalizationText.Get("通过 IP 连接…"), Tag = "localsend-manual",
                     Execute = async () =>
                     {
                         if (_topLevelWindow is { IsVisible: true } owner)
@@ -2205,14 +2249,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 });
                 items.Add(new ContextMenuAction
                 {
-                    Label = "刷新", Tag = "localsend-refresh", IconSvg = Icons.Refresh,
+                    Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), Tag = "localsend-refresh", IconSvg = Icons.Refresh,
                     ReloadParentSubmenu = true
                 });
                 return items;
             }
             actions.Add(new ContextMenuAction
             {
-                Label = "发送到",
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("发送到"),
                 IconSvg = Icons.Send,
                 SubItems =
                 [
@@ -2239,7 +2283,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         actions.Add(new ContextMenuAction
         {
-            Label = "删除",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("删除"),
             IconSvg = Icons.Delete,
             ShortcutId = ShortcutIds.Trash,
             IsQuickAction = true,
@@ -2261,13 +2305,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (_archiveService?.IsArchiveFile(entry.FullPath) == true)
                 actions.Add(BuildExtractContextMenuAction(entry));
             else
-                actions.Add(new ContextMenuAction { Label = "压缩", IconSvg = AppIcons.Compress, Execute = () => { ShowCompressDialog(); return Task.CompletedTask; } });
+                actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("压缩"), IconSvg = AppIcons.Compress, Execute = () => { ShowCompressDialog(); return Task.CompletedTask; } });
         }
 
         actions.Add(ContextMenuAction.Separator);
         actions.Add(new ContextMenuAction
         {
-            Label = "复制路径",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("复制路径"),
             IconSvg = Icons.CopyPath,
             ShortcutId = ShortcutIds.CopyPath,
             Execute = () => _clipboardService?.CopyTextAsync(entry.FullPath) ?? Task.CompletedTask
@@ -2304,7 +2348,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var isPinned = await _fileOps.IsFolderPinnedAsync(entry.FullPath);
             actions.Add(new ContextMenuAction
             {
-                Label = isPinned ? "取消固定" : "固定到常用位置",
+                Label = MacExplorer.Services.Impl.LocalizationText.Get(isPinned ? "取消固定" : "固定到常用位置"),
                 IconSvg = Icons.Pin,
                 Execute = isPinned
                     ? () => UnpinFolderAsync(entry.FullPath)
@@ -2317,7 +2361,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         // Info
         actions.Add(ContextMenuAction.Separator);
-        actions.Add(new ContextMenuAction { Label = "查看文件信息", IconSvg = Icons.Info, ShortcutId = ShortcutIds.Info, Execute = () => ShowMetadataCommand.ExecuteAsync(entry) });
+        actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("查看文件信息"), IconSvg = Icons.Info, ShortcutId = ShortcutIds.Info, Execute = () => ShowMetadataCommand.ExecuteAsync(entry) });
 
         return actions;
     }
@@ -2487,15 +2531,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var currentPath = _navigation.CurrentPath;
 
         await LoadNewItemActionsAsync();
-        actions.Add(new ContextMenuAction { Label = "新建", IconSvg = AppIcons.Plus, SubItems = NewItemActions });
+        actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("新建"), IconSvg = AppIcons.Plus, SubItems = NewItemActions });
 
         actions.Add(ContextMenuAction.Separator);
 
-        actions.Add(new ContextMenuAction { Label = "粘贴", IconSvg = Icons.Paste, ShortcutId = ShortcutIds.Paste, IsQuickAction = true, IsEnabled = _clipboardService?.HasPasteableContent ?? false, Execute = () => PasteCommand.ExecuteAsync(null) });
+        actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("粘贴"), IconSvg = Icons.Paste, ShortcutId = ShortcutIds.Paste, IsQuickAction = true, IsEnabled = _clipboardService?.HasPasteableContent ?? false, Execute = () => PasteCommand.ExecuteAsync(null) });
 
         actions.Add(ContextMenuAction.Separator);
 
-        actions.Add(new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ShortcutId = ShortcutIds.Refresh, Execute = () => RefreshCommand.ExecuteAsync(null) });
+        actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), IconSvg = Icons.Refresh, ShortcutId = ShortcutIds.Refresh, Execute = () => RefreshCommand.ExecuteAsync(null) });
 
         var builtInStates = await GetBuiltInOpenWithStatesAsync();
 
@@ -2512,13 +2556,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (openWithSubmenu.Count > 0)
         {
             actions.Add(ContextMenuAction.Separator);
-            actions.Add(new ContextMenuAction { Label = "打开方式", IconSvg = AppIcons.Apps, SubItems = openWithSubmenu });
+            actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("打开方式"), IconSvg = AppIcons.Apps, SubItems = openWithSubmenu });
         }
 
         actions.Add(ContextMenuAction.Separator);
         actions.Add(new ContextMenuAction
         {
-            Label = "复制路径",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("复制路径"),
             IconSvg = Icons.CopyPath,
             ShortcutId = ShortcutIds.CopyPath,
             Execute = () => _clipboardService?.CopyTextAsync(currentPath) ?? Task.CompletedTask
@@ -2533,7 +2577,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         [
             new ContextMenuAction
             {
-                Label = "永久删除",
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("永久删除"),
                 IconSvg = Icons.Delete,
                 Execute = () => PermanentlyDeleteContextEntriesAsync(entry)
             }
@@ -2555,7 +2599,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var destinations = BuildMoveDestinationActions(entry, isEnabled);
         return new ContextMenuAction
         {
-            Label = "移动到",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("移动到"),
             IconSvg = Icons.Folder,
             IsEnabled = isEnabled,
             SubItems = destinations
@@ -2565,7 +2609,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private IReadOnlyList<ContextMenuAction> BuildMoveDestinationActions(FileSystemEntry entry, bool isEnabled)
     {
         if (!isEnabled)
-            return [new ContextMenuAction { Label = "此项目无法移动", IsEnabled = false }];
+            return [new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("此项目无法移动"), IsEnabled = false }];
 
         var selectedEntries = GetContextEntries(entry);
         var destinations = new List<(string Path, string DisplayName)>();
@@ -2595,7 +2639,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         actions.Add(new ContextMenuAction
         {
-            Label = "选取…",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("选取…"),
             IconSvg = Icons.Folder,
             Execute = () => PickMoveDestinationAsync(entry)
         });
@@ -2719,7 +2763,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         [
             new ContextMenuAction
             {
-                Label = "清倒废纸篓",
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("清倒废纸篓"),
                 IconSvg = Icons.Delete,
                 Execute = async () =>
                 {
@@ -2868,7 +2912,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 var isPinned = await _fileOps.IsFolderPinnedAsync(entry.FullPath);
                 result.Add(new ContextMenuAction
                 {
-                    Label = isPinned ? "取消固定" : "固定到常用位置",
+                    Label = MacExplorer.Services.Impl.LocalizationText.Get(isPinned ? "取消固定" : "固定到常用位置"),
                     IconSvg = Icons.Pin,
                     Execute = isPinned
                         ? () => UnpinFolderAsync(entry.FullPath)
@@ -3710,13 +3754,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var archiveName = ArchiveExtractionPathHelper.GetArchiveFolderName(entry.FullPath);
         return new ContextMenuAction
         {
-            Label = "解压",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("解压"),
             IconSvg = AppIcons.Compress,
             SubItems =
             [
                 new ContextMenuAction
                 {
-                    Label = "解压到当前文件夹",
+                    Label = MacExplorer.Services.Impl.LocalizationText.Get("解压到当前文件夹"),
                     IconSvg = AppIcons.Folder,
                     Execute = () =>
                     {
@@ -3726,7 +3770,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 },
                 new ContextMenuAction
                 {
-                    Label = $"解压到 {archiveName}",
+                    Label = MacExplorer.Services.Impl.LocalizationText.Get("解压到 {0}", archiveName),
                     IconSvg = AppIcons.NewFolder,
                     Execute = () =>
                     {
@@ -4597,6 +4641,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        if (_localizationService != null) _localizationService.LanguageChanged -= OnInterfaceLanguageChanged;
         if (_settingsService != null) _settingsService.SettingChanged -= OnSettingsChanged;
         if (_pluginManager != null) _pluginManager.Changed -= OnPluginsChanged;
         _pluginLifetime.Cancel();
@@ -4772,6 +4817,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 // Enums - kept here for backward compatibility
 public enum ViewMode { Grid, List, Tree }
 public enum SortField { Name, Modified, Size, Type }
+public enum SortPriority { Files, Folders, None }
 public enum GroupField { None, Type, Modified, Size }
 
 public class FileGroup

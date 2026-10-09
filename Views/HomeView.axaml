@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
@@ -22,7 +23,7 @@
                                   Foreground="{DynamicResource TextMutedBrush}"/>
                         <TextBox Grid.Column="1" x:Name="HomeSearchBox"
                                  Classes="home-search-input omnibox-input"
-                                 PlaceholderText="输入路径、网址或文件名" AutomationProperties.Name="打开位置或搜索文件"
+                                 PlaceholderText="{loc:Loc ui.563}" AutomationProperties.Name="{loc:Loc ui.564}"
                                  GotFocus="OnHomeSearchGotFocus"
                                  TextChanged="OnHomeSearchTextChanged"
                                  LostFocus="OnHomeSearchLostFocus"
@@ -69,13 +70,13 @@
                 </Popup>
             </Grid>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateHomeDirectory" ToolTip.Tip="主目录" AutomationProperties.Name="打开主目录">
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateHomeDirectory" ToolTip.Tip="{loc:Loc ui.565}" AutomationProperties.Name="{loc:Loc ui.566}">
                     <PathIcon Data="{x:Static icons:Icons.Home}" Width="18" Height="18"/>
                 </Button></glass:LiquidGlassSurface>
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateDesktop" ToolTip.Tip="桌面" AutomationProperties.Name="打开桌面">
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateDesktop" ToolTip.Tip="{loc:Loc ui.219}" AutomationProperties.Name="{loc:Loc ui.567}">
                     <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="18" Height="18"/>
                 </Button></glass:LiquidGlassSurface>
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateMacintoshHd" ToolTip.Tip="Macintosh HD" AutomationProperties.Name="打开Macintosh HD">
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateMacintoshHd" ToolTip.Tip="Macintosh HD" AutomationProperties.Name="{loc:Loc ui.568}">
                     <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="18" Height="18"/>
                 </Button></glass:LiquidGlassSurface>
             </StackPanel>

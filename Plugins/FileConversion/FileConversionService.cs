@@ -51,15 +51,15 @@ public sealed class FileConversionService
         var output = await RunHelperAsync(["image-info", path], cancellationToken);
         var parts = output.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length != 2 || !int.TryParse(parts[0], out var width) || !int.TryParse(parts[1], out var height))
-            throw new InvalidDataException("无法确定图像尺寸。");
+            throw new InvalidDataException(ConversionLocalization.Get("无法确定图像尺寸。"));
         return new(width, height);
     }
 
     public async Task<FileConversionResult> ConvertAsync(FileConversionRequest request, string outputDirectory, CancellationToken cancellationToken = default)
     {
         if (!GetAvailableFormats(request.SourcePath).Contains(request.Format))
-            throw new InvalidOperationException("此文件不支持所选转换格式。");
-        if (!File.Exists(request.SourcePath)) throw new FileNotFoundException("源文件不存在。", request.SourcePath);
+            throw new InvalidOperationException(ConversionLocalization.Get("此文件不支持所选转换格式。"));
+        if (!File.Exists(request.SourcePath)) throw new FileNotFoundException(ConversionLocalization.Get("源文件不存在。"), request.SourcePath);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_timeout);
         var token = timeout.Token;
@@ -81,7 +81,7 @@ public sealed class FileConversionService
                 {
                     var helperOutput = await RunHelperAsync(["image", request.SourcePath, temporaryOutput, size.Width.ToString(CultureInfo.InvariantCulture), size.Height.ToString(CultureInfo.InvariantCulture)], token);
                     if (sourceExtension == ".webp" && helperOutput.Trim() == "webp-first-frame")
-                        warnings.Add("WebP 动画仅导出第一帧，本次转换不保留动画。");
+                        warnings.Add(ConversionLocalization.Get("WebP 动画仅导出第一帧，本次转换不保留动画。"));
                 }
             }
             else if (sourceExtension is ".doc" or ".docx")
@@ -94,10 +94,10 @@ public sealed class FileConversionService
                     File.Copy(request.SourcePath, input);
                     try { attachments = await Task.Run(() => WordPdfPreparation.Prepare(input, work, warnings, token), token); }
                     catch (Exception ex) when (ex is InvalidDataException or FileFormatException or DocumentFormat.OpenXml.Packaging.OpenXmlPackageException)
-                    { throw new IOException("Word 文件损坏、已加密或格式无效。", ex); }
+                    { throw new IOException(ConversionLocalization.Get("Word 文件损坏、已加密或格式无效。"), ex); }
                 }
                 await RunHelperAsync(attachments == null ? ["word-pdf", input, temporaryOutput] : ["word-pdf", input, temporaryOutput, attachments], token);
-                warnings.Add("已按基础文档转换；复杂分页、浮动对象和页眉页脚可能与 Word 不同。");
+                warnings.Add(ConversionLocalization.Get("已按基础文档转换；复杂分页、浮动对象和页眉页脚可能与 Word 不同。"));
             }
             else
             {
@@ -117,7 +117,7 @@ public sealed class FileConversionService
             }
             token.ThrowIfCancellationRequested();
             if (!File.Exists(temporaryOutput) || new FileInfo(temporaryOutput).Length == 0)
-                throw new IOException("转换未生成有效文件。");
+                throw new IOException(ConversionLocalization.Get("转换未生成有效文件。"));
             Directory.CreateDirectory(outputDirectory);
             var output = Path.Combine(outputDirectory, "result." + extension);
             File.Move(temporaryOutput, output, false);
@@ -125,7 +125,7 @@ public sealed class FileConversionService
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException("转换超时，请尝试更小或更简单的文件。");
+            throw new TimeoutException(ConversionLocalization.Get("转换超时，请尝试更小或更简单的文件。"));
         }
         finally { Directory.Delete(work, true); }
     }
@@ -135,7 +135,7 @@ public sealed class FileConversionService
         // AppKit rejects package-absolute OOXML relationship targets, including
         // styles and images. Normalize only the temporary copy, never the source.
         using var zip = ZipFile.Open(path, ZipArchiveMode.Update);
-        if (zip.GetEntry("_rels/.rels") == null) throw new InvalidDataException("Word 文档缺少根关系文件。");
+        if (zip.GetEntry("_rels/.rels") == null) throw new InvalidDataException(ConversionLocalization.Get("Word 文档缺少根关系文件。"));
         foreach (var entry in zip.Entries.Where(entry => entry.FullName.EndsWith(".rels", StringComparison.Ordinal)).ToArray())
         {
             XDocument relationships;
@@ -173,10 +173,10 @@ public sealed class FileConversionService
         try
         {
             var text = encoding.GetString(bytes, skip, bytes.Length - skip);
-            if (text.Contains('\0')) throw new InvalidDataException("文件包含二进制内容，无法作为文本转换。");
+            if (text.Contains('\0')) throw new InvalidDataException(ConversionLocalization.Get("文件包含二进制内容，无法作为文本转换。"));
             return text;
         }
-        catch (DecoderFallbackException ex) { throw new InvalidDataException("无法解码文本，请先保存为 UTF-8 或带 BOM 的 Unicode 文本。", ex); }
+        catch (DecoderFallbackException ex) { throw new InvalidDataException(ConversionLocalization.Get("无法解码文本，请先保存为 UTF-8 或带 BOM 的 Unicode 文本。"), ex); }
     }
 
     internal static string WrapLiteralText(string text)
@@ -188,13 +188,14 @@ public sealed class FileConversionService
 
     internal async Task<string> RunHelperAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
-        if (!File.Exists(_helperPath)) throw new FileNotFoundException("缺少内置转换组件，请重新安装应用。", _helperPath);
+        if (!File.Exists(_helperPath)) throw new FileNotFoundException(ConversionLocalization.Get("缺少内置转换组件，请重新安装应用。"), _helperPath);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_timeout);
         var info = new ProcessStartInfo(_helperPath) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
         _configureHelper?.Invoke(info);
-        using var process = Process.Start(info) ?? throw new IOException("无法启动转换组件。");
+        info.Environment["MACEXPLORER_CONVERSION_LANGUAGE"] = CultureInfo.CurrentUICulture.Name;
+        using var process = Process.Start(info) ?? throw new IOException(ConversionLocalization.Get("无法启动转换组件。"));
         using var trackedProcess = MacExplorer.PluginSdk.PluginChildProcesses.Track(process);
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
@@ -204,11 +205,11 @@ public sealed class FileConversionService
             if (!process.HasExited) process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync(CancellationToken.None);
             await Task.WhenAll(stdout, stderr);
-            if (!cancellationToken.IsCancellationRequested) throw new TimeoutException("转换组件运行超时。");
+            if (!cancellationToken.IsCancellationRequested) throw new TimeoutException(ConversionLocalization.Get("转换组件运行超时。"));
             throw;
         }
         var error = await stderr;
-        if (process.ExitCode != 0) throw new IOException(string.IsNullOrWhiteSpace(error) ? "转换组件执行失败。" : error.Trim());
+        if (process.ExitCode != 0) throw new IOException(string.IsNullOrWhiteSpace(error) ? ConversionLocalization.Get("转换组件执行失败。") : error.Trim());
         return await stdout;
     }
 
@@ -217,19 +218,19 @@ public sealed class FileConversionService
         using var reader = XmlReader.Create(path, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
         var doc = XDocument.Load(reader);
         var root = doc.Root;
-        if (root?.Name.LocalName != "svg") throw new InvalidDataException("无效的 SVG 文件。");
+        if (root?.Name.LocalName != "svg") throw new InvalidDataException(ConversionLocalization.Get("无效的 SVG 文件。"));
         foreach (var element in root.DescendantsAndSelf())
         {
-            if (element.Name.LocalName is "script" or "foreignObject") throw new InvalidDataException("SVG 包含不支持的脚本或嵌入网页。");
+            if (element.Name.LocalName is "script" or "foreignObject") throw new InvalidDataException(ConversionLocalization.Get("SVG 包含不支持的脚本或嵌入网页。"));
             foreach (var attribute in element.Attributes())
                 if (attribute.Name.LocalName == "href" && !attribute.Value.StartsWith('#') && !attribute.Value.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("SVG 引用了外部资源，请先将资源嵌入文件。");
+                    throw new InvalidDataException(ConversionLocalization.Get("SVG 引用了外部资源，请先将资源嵌入文件。"));
         }
         var xml = doc.ToString();
         if (xml.Contains("@import", StringComparison.OrdinalIgnoreCase)
             || Regex.Matches(xml, @"url\(([^)]*)\)", RegexOptions.IgnoreCase)
                 .Any(match => !match.Groups[1].Value.Trim().Trim('\'', '"').StartsWith('#')))
-            throw new InvalidDataException("SVG 包含外部样式资源。");
+            throw new InvalidDataException(ConversionLocalization.Get("SVG 包含外部样式资源。"));
         var viewBox = ((string?)root.Attribute("viewBox") ?? "").Split([' ', ',', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
         double vw = 512, vh = 512;
         if (viewBox.Length == 4 && double.TryParse(viewBox[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedWidth)
@@ -240,7 +241,7 @@ public sealed class FileConversionService
         width ??= height.HasValue ? height * vw / vh : vw;
         height ??= width * vh / vw;
         if (!double.IsFinite(width.Value) || !double.IsFinite(height.Value) || width > int.MaxValue || height > int.MaxValue)
-            throw new InvalidDataException("SVG 尺寸无效。");
+            throw new InvalidDataException(ConversionLocalization.Get("SVG 尺寸无效。"));
         root.SetAttributeValue("width", width.Value.ToString(CultureInfo.InvariantCulture));
         root.SetAttributeValue("height", height.Value.ToString(CultureInfo.InvariantCulture));
         return (doc.ToString(), new(Math.Max(1, (int)Math.Ceiling(width.Value)), Math.Max(1, (int)Math.Ceiling(height.Value))));
@@ -262,10 +263,10 @@ public sealed class FileConversionService
         using var svg = new SKSvg();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(ReadSvg(input).Xml));
         svg.Load(stream);
-        var picture = svg.Picture ?? throw new InvalidDataException("无法渲染 SVG。");
+        var picture = svg.Picture ?? throw new InvalidDataException(ConversionLocalization.Get("无法渲染 SVG。"));
         var bounds = picture.CullRect;
-        if (bounds.Width <= 0 || bounds.Height <= 0) throw new InvalidDataException("SVG 画布为空。");
-        using var surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height)) ?? throw new IOException("无法创建图像。");
+        if (bounds.Width <= 0 || bounds.Height <= 0) throw new InvalidDataException(ConversionLocalization.Get("SVG 画布为空。"));
+        using var surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height)) ?? throw new IOException(ConversionLocalization.Get("无法创建图像。"));
         surface.Canvas.Clear(jpeg ? SKColors.White : SKColors.Transparent);
         surface.Canvas.Scale(size.Width / bounds.Width, size.Height / bounds.Height);
         surface.Canvas.Translate(-bounds.Left, -bounds.Top);

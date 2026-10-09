@@ -15,6 +15,7 @@ public sealed record FileListQuery(
     bool HideDotFiles,
     bool HideDotFolders)
 {
+    public SortPriority SortPriority { get; init; } = SortPriority.Files;
     public FileListFilterState ColumnFilters { get; init; } = FileListFilterState.Empty;
     public DateTime FilterDate { get; init; } = DateTime.Today;
 }

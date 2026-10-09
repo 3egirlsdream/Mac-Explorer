@@ -1,8 +1,9 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
-                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                       xmlns:controls="using:MacExplorer.Controls"
                       x:Class="MacExplorer.Views.Dialogs.ImageConversionDialog"
-                      Title="转换图片" Width="420" SizeToContent="Height" CanResize="False"
+                      Title="{loc:Loc ui.414}" Width="420" SizeToContent="Height" CanResize="False"
                       WindowStartupLocation="CenterOwner" Background="{DynamicResource GlassEffectBg}">
     <controls:DialogWindow.Styles>
         <Style Selector="NumericUpDown">
@@ -27,24 +28,24 @@
                    FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
         <TextBlock x:Name="Description" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
         <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-            <TextBlock Text="宽度（像素）" Foreground="{DynamicResource TextSecondaryBrush}"/>
-            <TextBlock Grid.Column="2" Text="高度（像素）" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBlock Text="{loc:Loc ui.415}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBlock Grid.Column="2" Text="{loc:Loc ui.416}" Foreground="{DynamicResource TextSecondaryBrush}"/>
             <Grid Grid.Row="1" Classes="image-size-field">
                 <NumericUpDown x:Name="WidthInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
-                               FormatString="0" ValueChanged="WidthChanged" AutomationProperties.Name="宽度（像素）"/>
+                               FormatString="0" ValueChanged="WidthChanged" AutomationProperties.Name="{loc:Loc ui.415}"/>
             </Grid>
             <TextBlock Grid.Row="1" Grid.Column="1" Text="×" VerticalAlignment="Center"/>
             <Grid Grid.Row="1" Grid.Column="2" Classes="image-size-field">
                 <NumericUpDown x:Name="HeightInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
-                               FormatString="0" ValueChanged="HeightChanged" AutomationProperties.Name="高度（像素）"/>
+                               FormatString="0" ValueChanged="HeightChanged" AutomationProperties.Name="{loc:Loc ui.416}"/>
             </Grid>
         </Grid>
-        <TextBlock Text="已锁定宽高比例，文件将保存到原文件旁。" FontSize="{DynamicResource FontSizeLabel}"
+        <TextBlock Text="{loc:Loc ui.417}" FontSize="{DynamicResource FontSizeLabel}"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
         <TextBlock x:Name="ErrorText" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="False"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="取消" Classes="secondary" IsCancel="True" Click="CancelClick"/>
-            <Button Content="转换" Classes="primary" IsDefault="True" Click="ConvertClick"/>
+            <Button Content="{loc:Loc ui.094}" Classes="secondary" IsCancel="True" Click="CancelClick"/>
+            <Button Content="{loc:Loc ui.418}" Classes="primary" IsDefault="True" Click="ConvertClick"/>
         </StackPanel>
     </StackPanel>
 </controls:DialogWindow>

@@ -76,7 +76,7 @@ public partial class FileListViewModel
             var all = count > 0 && count == paths.Length;
             return new ContextMenuAction
             {
-                Label = tag.Name,
+                Label = tag.DisplayName,
                 IconSvg = Icons.Tag,
                 IconColor = tag.ColorHex,
                 IsCheckable = true,
@@ -88,7 +88,7 @@ public partial class FileListViewModel
         actions.Add(ContextMenuAction.Separator);
         actions.Add(new ContextMenuAction
         {
-            Label = "新建标签…", IconSvg = Icons.Plus,
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("新建标签…"), IconSvg = Icons.Plus,
             Execute = () =>
             {
                 _newTagPaths = paths;
@@ -96,6 +96,6 @@ public partial class FileListViewModel
                 return Task.CompletedTask;
             }
         });
-        return new ContextMenuAction { Label = "标签", IconSvg = Icons.Tag, SubItems = actions };
+        return new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("标签"), IconSvg = Icons.Tag, SubItems = actions };
     }
 }

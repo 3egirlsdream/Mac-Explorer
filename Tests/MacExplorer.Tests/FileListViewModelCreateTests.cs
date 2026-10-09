@@ -787,7 +787,7 @@ public sealed partial class FileListViewModelCreateTests
         navigation.UpdateBreadcrumbs();
         using var viewModel = CreateViewModel(fileService, navigation: navigation);
 
-        Assert.Equal("Documents", viewModel.CurrentLocationTitle);
+        Assert.Equal(MacExplorer.Services.Impl.LocalizationText.Get("文稿"), viewModel.CurrentLocationTitle);
 
         navigation.CurrentPath = "/";
         navigation.UpdateBreadcrumbs();

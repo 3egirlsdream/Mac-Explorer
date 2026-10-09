@@ -1,5 +1,6 @@
 <controls:AppWindow xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MacExplorer.ViewModels"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:models="using:MacExplorer.Models"
@@ -303,7 +304,7 @@
                                                     IsVisible="{Binding CanClose}"
                                                     Click="CloseTab"
                                                     controls:ShortcutTip.Command="tab.close"
-                                                    AutomationProperties.Name="关闭标签页">
+                                                    AutomationProperties.Name="{loc:Loc ui.043}">
                                                 <PathIcon Data="{x:Static icons:Icons.Close}" Width="9" Height="9"/>
                                             </Button>
                                         </Grid>
@@ -316,15 +317,15 @@
                             Width="28" Height="28"
                             Click="AddTab"
                             controls:ShortcutTip.Command="tab.new"
-                            AutomationProperties.Name="新建标签页">
+                            AutomationProperties.Name="{loc:Loc ui.066}">
                         <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
                     </Button>
             </Grid>
                     <Button Grid.Column="1" x:Name="PaneLayoutButton" Classes="title-nav-button"
                             Margin="2,4,0,0"
                             Click="TogglePaneLayoutPopup"
-                            ToolTip.Tip="窗格布局"
-                            AutomationProperties.Name="窗格布局">
+                            ToolTip.Tip="{loc:Loc ui.071}"
+                            AutomationProperties.Name="{loc:Loc ui.071}">
                         <PathIcon Data="{x:Static icons:Icons.SplitVertical}"/>
                     </Button>
                     <Popup x:Name="PaneLayoutPopup" Placement="BottomEdgeAlignedRight"
@@ -334,80 +335,80 @@
                         <Border Classes="toolbar-popup" Padding="10" CornerRadius="12">
                             <Grid RowDefinitions="Auto,*" Width="320"
                                   KeyboardNavigation.TabNavigation="Cycle">
-                                <TextBlock Grid.Row="0" Text="窗格布局" Margin="5,2,0,8"
+                                <TextBlock Grid.Row="0" Text="{loc:Loc ui.071}" Margin="5,2,0,8"
                                            FontSize="12" FontWeight="{StaticResource FontWeightSemibold}"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <UniformGrid Grid.Row="1" Columns="4" Rows="3">
-                                    <Button Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="单窗格" AutomationProperties.Name="单窗格">
+                                    <Button Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.044}" AutomationProperties.Name="{loc:Loc ui.044}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="Single"/>
-                                            <TextBlock Text="单窗格" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.044}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="左右双窗格" AutomationProperties.Name="左右双窗格">
+                                    <Button Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.059}" AutomationProperties.Name="{loc:Loc ui.059}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="TwoColumns"/>
-                                            <TextBlock Text="左右双窗格" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.059}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="上下双窗格" AutomationProperties.Name="上下双窗格">
+                                    <Button Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.037}" AutomationProperties.Name="{loc:Loc ui.037}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="TwoRows"/>
-                                            <TextBlock Text="上下双窗格" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.037}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="三列" AutomationProperties.Name="三列">
+                                    <Button Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.035}" AutomationProperties.Name="{loc:Loc ui.035}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="ThreeColumns"/>
-                                            <TextBlock Text="三列" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.035}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="三行" AutomationProperties.Name="三行">
+                                    <Button Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.036}" AutomationProperties.Name="{loc:Loc ui.036}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="ThreeRows"/>
-                                            <TextBlock Text="三行" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.036}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右二" AutomationProperties.Name="左一右二">
+                                    <Button Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.056}" AutomationProperties.Name="{loc:Loc ui.056}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight"/>
-                                            <TextBlock Text="左一右二" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.056}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左二右一" AutomationProperties.Name="左二右一">
+                                    <Button Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.058}" AutomationProperties.Name="{loc:Loc ui.058}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft"/>
-                                            <TextBlock Text="左二右一" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.058}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="四宫格" AutomationProperties.Name="四宫格">
+                                    <Button Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.050}" AutomationProperties.Name="{loc:Loc ui.050}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourGrid"/>
-                                            <TextBlock Text="四宫格" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.050}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="四列" AutomationProperties.Name="四列">
+                                    <Button Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.049}" AutomationProperties.Name="{loc:Loc ui.049}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourColumns"/>
-                                            <TextBlock Text="四列" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.049}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="四行" AutomationProperties.Name="四行">
+                                    <Button Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.051}" AutomationProperties.Name="{loc:Loc ui.051}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourRows"/>
-                                            <TextBlock Text="四行" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.051}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="左一右三" AutomationProperties.Name="左一右三">
+                                    <Button Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.055}" AutomationProperties.Name="{loc:Loc ui.055}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight"/>
-                                            <TextBlock Text="左一右三" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.055}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="左三右一" AutomationProperties.Name="左三右一">
+                                    <Button Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.057}" AutomationProperties.Name="{loc:Loc ui.057}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft"/>
-                                            <TextBlock Text="左三右一" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.057}" FontSize="11" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </UniformGrid>
@@ -416,8 +417,8 @@
                     </Popup>
                     <Button Grid.Column="2" x:Name="TaskButton" IsVisible="False"
                             Classes="title-nav-button" Margin="2,4,0,0"
-                            Click="ToggleTaskPanel" ToolTip.Tip="后台任务"
-                            AutomationProperties.Name="后台任务">
+                            Click="ToggleTaskPanel" ToolTip.Tip="{loc:Loc ui.048}"
+                            AutomationProperties.Name="{loc:Loc ui.048}">
                         <Grid>
                             <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
                             <TextBlock x:Name="TaskButtonText" IsVisible="False"/>
@@ -425,12 +426,12 @@
                     </Button>
                     <Button Grid.Column="3" x:Name="CopilotStatusButton" Classes="title-nav-button"
                             Margin="2,4,0,0" Click="ToggleCopilot"
-                            ToolTip.Tip="Copilot" AutomationProperties.Name="打开 Copilot">
+                            ToolTip.Tip="Copilot" AutomationProperties.Name="{loc:Loc ui.060}">
                         <PathIcon Data="{x:Static icons:Icons.Copilot}"/>
                     </Button>
                     <Button Grid.Column="4" x:Name="WindowSettingsButton" Classes="title-nav-button"
                             Margin="2,4,0,0" Click="OpenSettingsFromTitleBar"
-                            ToolTip.Tip="设置" AutomationProperties.Name="设置">
+                            ToolTip.Tip="{loc:Loc ui.072}" AutomationProperties.Name="{loc:Loc ui.072}">
                         <PathIcon Data="{x:Static icons:Icons.Settings}"/>
                     </Button>
         </Grid>
@@ -463,7 +464,7 @@
                   BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="0,0,1,0"
                   CornerRadius="{DynamicResource RadiusLg}" Padding="12,14,10,12">
             <Grid RowDefinitions="Auto,*">
-              <TextBlock Text="历史会话" FontSize="12" FontWeight="SemiBold"
+              <TextBlock Text="{loc:Loc ui.045}" FontSize="12" FontWeight="SemiBold"
                          Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,0,12"/>
               <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                             HorizontalScrollBarVisibility="Disabled">
@@ -479,15 +480,15 @@
                     <TextBlock Text="Copilot" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </StackPanel>
                 <Button x:Name="CopilotHistoryToggle" Grid.Column="1" Classes="ghost compact copilot-history-toggle"
-                        Click="ToggleCopilotHistory" ToolTip.Tip="历史会话"
-                        AutomationProperties.Name="展开历史会话">
+                        Click="ToggleCopilotHistory" ToolTip.Tip="{loc:Loc ui.045}"
+                        AutomationProperties.Name="{loc:Loc ui.054}">
                     <PathIcon Data="{x:Static icons:Icons.ListTree}" Width="16" Height="16"/>
                 </Button>
-                <Button Grid.Column="2" Classes="ghost compact" Content="新对话"
-                        Click="NewCopilotSession" AutomationProperties.Name="新建 Copilot 对话"/>
+                <Button Grid.Column="2" Classes="ghost compact" Content="{loc:Loc ui.064}"
+                        Click="NewCopilotSession" AutomationProperties.Name="{loc:Loc ui.065}"/>
                 <Button Grid.Column="3" Classes="ghost compact copilot-close"
-                        Click="ToggleCopilot" ToolTip.Tip="关闭 Copilot"
-                        AutomationProperties.Name="关闭 Copilot">
+                        Click="ToggleCopilot" ToolTip.Tip="{loc:Loc ui.042}"
+                        AutomationProperties.Name="{loc:Loc ui.042}">
                     <PathIcon Data="{x:Static icons:Icons.Close}" Width="11" Height="11"/>
                 </Button>
             </Grid>
@@ -498,14 +499,14 @@
             <Border Grid.Row="2" x:Name="CopilotApprovalCard" Classes="copilot-approval-card"
                     IsVisible="False" Margin="0,8,0,0">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="操作确认" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc ui.063}" FontWeight="SemiBold"/>
                     <ScrollViewer MaxHeight="155" VerticalScrollBarVisibility="Auto">
                         <TextBlock x:Name="CopilotApprovalText" TextWrapping="Wrap"/>
                     </ScrollViewer>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                        <Button Classes="secondary compact" Content="拒绝" Click="RejectCopilotPlan"/>
+                        <Button Classes="secondary compact" Content="{loc:Loc ui.061}" Click="RejectCopilotPlan"/>
                         <Button x:Name="CopilotApproveButton" Classes="primary compact"
-                                Content="确认执行" Click="ApproveCopilotPlan"/>
+                                Content="{loc:Loc ui.070}" Click="ApproveCopilotPlan"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -514,12 +515,12 @@
                     DragDrop.AllowDrop="True" DragDrop.DragOver="CopilotAttachmentDragOver"
                     DragDrop.DragLeave="CopilotAttachmentDragLeave"
                     DragDrop.Drop="CopilotAttachmentDrop"
-                    ToolTip.Tip="将文件列表中的文件或文件夹拖到这里，仅添加路径作为附件">
+                    ToolTip.Tip="{loc:Loc ui.053}">
                 <StackPanel Spacing="3">
                     <StackPanel x:Name="CopilotAttachmentEmptyHint" Orientation="Horizontal" Spacing="5">
                         <PathIcon Data="{x:Static icons:Icons.File}" Width="13" Height="13"
                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="拖入文件或文件夹作为附件" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc ui.062}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
                     </StackPanel>
                     <ScrollViewer x:Name="CopilotAttachmentScroll" IsVisible="False"
@@ -534,18 +535,18 @@
                     <TextBox x:Name="CopilotInput" Classes="multiline copilot-input"
                              MinHeight="50" MaxHeight="118" AcceptsReturn="True"
                              TextWrapping="Wrap"
-                             PlaceholderText="询问文件、整理任务，或描述你想完成的操作…"
-                             AutomationProperties.Name="Copilot 消息"/>
+                             PlaceholderText="{loc:Loc ui.073}"
+                             AutomationProperties.Name="{loc:Loc ui.032}"/>
                     <Button x:Name="CopilotSendButton" Grid.Row="1" HorizontalAlignment="Right"
                             Classes="primary compact copilot-send"
-                            Click="SendCopilotMessage" ToolTip.Tip="发送消息"
-                            AutomationProperties.Name="发送 Copilot 消息">
+                            Click="SendCopilotMessage" ToolTip.Tip="{loc:Loc ui.047}"
+                            AutomationProperties.Name="{loc:Loc ui.046}">
                         <PathIcon Data="{x:Static icons:Icons.Up}" Width="14" Height="14"/>
                     </Button>
                     <Button x:Name="CopilotStopButton" Grid.Row="1" HorizontalAlignment="Right"
                             Margin="0,0,38,0" IsVisible="False" Classes="secondary compact"
-                            Click="StopCopilotResponse" ToolTip.Tip="停止生成"
-                            AutomationProperties.Name="停止 Copilot 生成">
+                            Click="StopCopilotResponse" ToolTip.Tip="{loc:Loc ui.040}"
+                            AutomationProperties.Name="{loc:Loc ui.039}">
                         <PathIcon Data="{x:Static icons:Icons.Stop}" Width="12" Height="12"/>
                     </Button>
                 </Grid>
@@ -576,11 +577,11 @@
                     <!-- Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0">
                         <TextBlock Grid.Column="0" x:Name="TaskPanelTitle"
-                                   Text="后台任务" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"
+                                   Text="{loc:Loc ui.048}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    VerticalAlignment="Center" Margin="0,1,0,0"/>
                         <Button Grid.Column="1" x:Name="ClearPanelButton"
-                                Classes="ghost compact" Content="清空"
+                                Classes="ghost compact" Content="{loc:Loc ui.068}"
                                 Click="ClearAllPanelTasks" Margin="0,0,2,0"
                                 FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                         <Button Grid.Column="2" x:Name="ClosePanelButton"
@@ -604,7 +605,7 @@
                     <!-- Footer -->
                     <Grid Grid.Row="2" x:Name="PanelFooter"
                           IsVisible="False" Margin="0,2,0,0">
-                        <Button x:Name="ClearCompletedButton" Content="清除已完成"
+                        <Button x:Name="ClearCompletedButton" Content="{loc:Loc ui.069}"
                                 Classes="ghost compact" FontSize="{DynamicResource FontSizeLabel}"
                                 HorizontalAlignment="Right"
                                 Click="ClearCompletedPanel"/>
@@ -637,21 +638,21 @@
 	                                  Foreground="{DynamicResource AccentBrush}"
 	                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
 	                    </Border>
-	                    <TextBlock Grid.Column="1" Text="全局快速搜索" Margin="10,0,0,0"
+	                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.041}" Margin="10,0,0,0"
 	                               VerticalAlignment="Center" FontSize="17"
 	                               FontWeight="{StaticResource FontWeightSemibold}"/>
 	                    <ComboBox Grid.Column="2" x:Name="GlobalSearchScopeCombo"
 	                              Width="150" Height="28" Margin="8,0,8,0"
 	                              SelectionChanged="OnGlobalSearchScopeChanged">
-	                        <ComboBoxItem Tag="CurrentFolder">当前文件夹</ComboBoxItem>
-	                        <ComboBoxItem Tag="ThisMac">这台 Mac</ComboBoxItem>
-	                        <ComboBoxItem Tag="CustomFolders">自定义位置…</ComboBoxItem>
+	                        <ComboBoxItem Tag="CurrentFolder" Content="{loc:Loc ui.661}"></ComboBoxItem>
+	                        <ComboBoxItem Tag="ThisMac" Content="{loc:Loc ui.662}"></ComboBoxItem>
+	                        <ComboBoxItem Tag="CustomFolders" Content="{loc:Loc ui.663}"></ComboBoxItem>
 	                    </ComboBox>
-	                    <Button AutomationProperties.Name="添加搜索文件夹" Grid.Column="3" x:Name="GlobalSearchAddFolderButton"
+	                    <Button AutomationProperties.Name="{loc:Loc ui.067}" Grid.Column="3" x:Name="GlobalSearchAddFolderButton"
 	                            Classes="ghost compact" Content="＋" Width="28" Height="28"
-	                            IsVisible="False" ToolTip.Tip="添加搜索文件夹"
+	                            IsVisible="False" ToolTip.Tip="{loc:Loc ui.067}"
 	                            Click="OnAddGlobalSearchFolder"/>
-	                    <TextBlock Grid.Column="4" Text="Esc 关闭"
+	                    <TextBlock Grid.Column="4" Text="{loc:Loc ui.033}"
 	                               VerticalAlignment="Center" FontSize="11"
 	                               Foreground="{DynamicResource TextMutedBrush}"/>
 	                </Grid>
@@ -665,7 +666,7 @@
 	                        <TextBox Grid.Column="1" x:Name="GlobalSearchBox"
 	                                 Classes="search-input omnibox-input"
 	                                 FontSize="16"
-	                                 PlaceholderText="输入文件名、文件夹名或路径中的几个字…"
+	                                 PlaceholderText="{loc:Loc ui.075}"
 	                                 TextChanged="OnGlobalSearchTextChanged"
 	                                 KeyDown="OnGlobalSearchKeyDown"/>
 	                    </Grid>
@@ -673,7 +674,7 @@
                 <Grid Grid.Row="2" ColumnDefinitions="*,220" ColumnSpacing="12" Margin="0,12,0,6">
                     <Grid Grid.Column="0">
                         <TextBlock x:Name="GlobalSearchEmptyHint"
-                                   Text="输入内容即可搜索已索引的本地文件、常用位置和最近位置"
+                                   Text="{loc:Loc ui.074}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextMutedBrush}"/>
                         <ListBox x:Name="GlobalSearchResults"
@@ -701,7 +702,7 @@
                                         </StackPanel>
                                         <Button Grid.Column="2" Classes="icon-action" Width="28" Height="28"
                                                 VerticalAlignment="Center" IsVisible="{Binding CanLocate}"
-                                                AutomationProperties.Name="定位到所在位置" ToolTip.Tip="定位到所在位置"
+                                                AutomationProperties.Name="{loc:Loc ui.052}" ToolTip.Tip="{loc:Loc ui.052}"
                                                 Click="OnLocateGlobalSearchResult">
                                             <PathIcon Data="{x:Static icons:Icons.Location}" Width="16" Height="16"/>
                                         </Button>
@@ -720,9 +721,9 @@
                     </Border>
                 </Grid>
 	                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="2,7,2,0">
-	                    <TextBlock x:Name="GlobalSearchResultCount" Text="仅搜索 Mac Explorer 已获权限并建立索引的位置"
+	                    <TextBlock x:Name="GlobalSearchResultCount" Text="{loc:Loc ui.038}"
 	                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-	                    <TextBlock Grid.Column="1" Text="↑↓ 选择  ·  ↩ 打开"
+	                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.034}"
 	                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
 	                </Grid>
 	            </Grid>

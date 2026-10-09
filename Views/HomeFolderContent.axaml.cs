@@ -24,6 +24,7 @@ public partial class HomeFolderContent : UserControl
     private int _page;
     private bool _closed;
     private bool _opened;
+    private ILocalizationService? _language;
 
     public HomeFolderContent(FileTag tag, IReadOnlyList<string> paths, IFileTagService tags, HomeItemActions actions, IReadOnlyList<FileSystemEntry>? previewEntries = null)
     {
@@ -36,12 +37,16 @@ public partial class HomeFolderContent : UserControl
         AttachedToVisualTree += (_, _) =>
         {
             _opened = true;
+            _language = MacExplorer.Services.Impl.LocalizationService.Current;
+            if (_language != null) _language.LanguageChanged += OnLanguageChanged;
             _tags.TagsChanged += OnTagsChanged; _tags.TagRenamed += OnTagRenamed;
             _ = RenderPageAsync();
         };
         DetachedFromVisualTree += (_, _) =>
         {
             _closed = true;
+            if (_language != null) _language.LanguageChanged -= OnLanguageChanged;
+            _language = null;
             _tags.TagsChanged -= OnTagsChanged; _tags.TagRenamed -= OnTagRenamed;
             _loadCancellation?.Cancel(); _loadCancellation?.Dispose();
             _pageCancellation?.Cancel(); _pageCancellation?.Dispose();
@@ -61,9 +66,15 @@ public partial class HomeFolderContent : UserControl
         });
     }
 
+    private void OnLanguageChanged()
+    {
+        UpdateTitle();
+        if (!_closed) _ = RenderPageAsync();
+    }
+
     private void UpdateTitle()
     {
-        Avalonia.Automation.AutomationProperties.SetName(this, _tag.Name);
+        Avalonia.Automation.AutomationProperties.SetName(this, _tag.DisplayName);
         ContextMenu = _actions.CreateFolderMenu(_tag, Close);
     }
 
@@ -97,7 +108,7 @@ public partial class HomeFolderContent : UserControl
             await RenderPageAsync();
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (!token.IsCancellationRequested) ShowError("读取失败：" + ex.Message); }
+        catch (Exception ex) { if (!token.IsCancellationRequested) ShowError(MacExplorer.Services.Impl.LocalizationText.Get("读取失败：") + ex.Message); }
     }
 
     private async Task RenderPageAsync()
@@ -125,13 +136,13 @@ public partial class HomeFolderContent : UserControl
             var entries = pagePaths.Select(path => _knownEntries[path]).ToArray();
             RenderEntries(entries);
             EmptyMessage.IsVisible = entries.Length == 0;
-            ToolTip.SetTip(PreviousButton, $"上一页 · 第 {_page + 1}/{pageCount} 页");
-            ToolTip.SetTip(NextButton, $"下一页 · 第 {_page + 1}/{pageCount} 页");
+            ToolTip.SetTip(PreviousButton, MacExplorer.Services.Impl.LocalizationText.Get("上一页 · 第 {0}/{1} 页", _page + 1, pageCount));
+            ToolTip.SetTip(NextButton, MacExplorer.Services.Impl.LocalizationText.Get("下一页 · 第 {0}/{1} 页", _page + 1, pageCount));
             PreviousButton.IsEnabled = _page > 0; NextButton.IsEnabled = _page < pageCount - 1;
             ItemsScroll.Offset = default;
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (!token.IsCancellationRequested) ShowError("读取文件失败：" + ex.Message); }
+        catch (Exception ex) { if (!token.IsCancellationRequested) ShowError(MacExplorer.Services.Impl.LocalizationText.Get("读取文件失败：") + ex.Message); }
     }
     private void RenderEntries(IEnumerable<FileSystemEntry> entries)
     {

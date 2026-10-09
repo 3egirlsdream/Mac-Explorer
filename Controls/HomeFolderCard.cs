@@ -64,7 +64,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
         var dot = new Border { Width = 8, Height = 8, CornerRadius = new CornerRadius(4),
             Background = Brush.Parse(tag.ColorHex), Margin = new Thickness(0, 0, 8, 0) };
         header.Children.Add(dot);
-        var title = new TextBlock { Text = tag.Name, TextTrimming = TextTrimming.CharacterEllipsis,
+        var title = new TextBlock { Text = tag.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center, Classes = { "home-section-title" } };
         Grid.SetColumn(title, 1); header.Children.Add(title);
         _count = new TextBlock { Text = "…", Classes = { "home-secondary" }, Margin = new Thickness(8, 0),
@@ -72,7 +72,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
         Grid.SetColumn(_count, 2); header.Children.Add(_count);
         var more = new Button { Content = new PathIcon { Data = Geometry.Parse(MacExplorer.Assets.Icons.MoreHorizontal), Width = 16, Height = 16 },
             Classes = { "ghost", "home-card-menu" }, ContextMenu = menu };
-        AutomationProperties.SetName(more, $"{tag.Name}收藏夹选项");
+        AutomationProperties.SetName(more, MacExplorer.Services.Impl.LocalizationText.Get("{0}收藏夹选项", tag.DisplayName));
         more.Click += (_, _) => menu.Open(more);
         Grid.SetColumn(more, 3); header.Children.Add(more);
         content.Children.Add(header);
@@ -96,7 +96,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
         _grip = new Button { Classes = { "ghost", "home-resize-grip" },
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 0, 0), Cursor = new Cursor(StandardCursorType.BottomRightCorner) };
-        ToolTip.SetTip(_grip, "拖动调整大小；聚焦后用方向键调整行列数");
+        ToolTip.SetTip(_grip, MacExplorer.Services.Impl.LocalizationText.Get("拖动调整大小；聚焦后用方向键调整行列数"));
         _grip.AddHandler(PointerPressedEvent, OnGripPressed, RoutingStrategies.Tunnel);
         _grip.PointerMoved += OnGripMoved;
         _grip.PointerReleased += (_, e) => { if (_pointer == e.Pointer) { FinishResize(); e.Handled = true; } };
@@ -134,7 +134,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
 
     public void SetLoadError(string message)
     {
-        _count.Text = "未加载";
+        _count.Text = MacExplorer.Services.Impl.LocalizationText.Get("未加载");
         ToolTip.SetTip(_count, message);
     }
 
@@ -184,7 +184,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
             }
             else if (index == 0 && Paths.Count == 0)
             {
-                var add = new Button { Content = "添加文件", Classes = { "ghost", "home-grid-item" } };
+                var add = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("添加文件"), Classes = { "ghost", "home-grid-item" } };
                 add.Click += (_, _) => _add();
                 _grid.Children.Add(add);
             }
@@ -203,17 +203,17 @@ public sealed class HomeFolderCard : UserControl, IDisposable
             }
             mosaic.VerticalAlignment = VerticalAlignment.Center;
             var expandContent = MacExplorer.Views.HomeItemActions.CreateGridContent(mosaic,
-                new TextBlock { Text = $"全部 {Paths.Count}", FontSize = 12 });
+                new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("全部 {0}", Paths.Count), FontSize = 12 });
             var expand = new Button { Content = expandContent, Classes = { "ghost", "home-grid-item", "home-overflow" } };
-            AutomationProperties.SetName(expand, $"展开{TagDefinition.Name}收藏夹，共{Paths.Count}项");
-            ToolTip.SetTip(expand, $"展开全部 · 还有 {Paths.Count - capacity} 项");
+            AutomationProperties.SetName(expand, MacExplorer.Services.Impl.LocalizationText.Get("展开{0}收藏夹，共{1}项", TagDefinition.DisplayName, Paths.Count));
+            ToolTip.SetTip(expand, MacExplorer.Services.Impl.LocalizationText.Get("展开全部 · 还有 {0} 项", Paths.Count - capacity));
             expand.Click += (_, _) => _expand();
             _grid.Children.Add(expand);
         }
         _grip.Content = new PathIcon { Data = Geometry.Parse(MacExplorer.Assets.Icons.Resize), Width = 16, Height = 16 };
         _resizeLabel.Text = $"{_effective.Columns} × {_effective.Rows}";
-        ToolTip.SetTip(_grip, $"{_effective.Columns} 列 × {_effective.Rows} 行 · 拖动或用方向键调整");
-        AutomationProperties.SetName(_grip, $"调整{TagDefinition.Name}收藏夹大小，{_effective.Columns}列{_effective.Rows}行");
+        ToolTip.SetTip(_grip, MacExplorer.Services.Impl.LocalizationText.Get("{0} 列 × {1} 行 · 拖动或用方向键调整", _effective.Columns, _effective.Rows));
+        AutomationProperties.SetName(_grip, MacExplorer.Services.Impl.LocalizationText.Get("调整{0}收藏夹大小，{1}列{2}行", TagDefinition.DisplayName, _effective.Columns, _effective.Rows));
     }
 
     private void OnGripPressed(object? sender, PointerPressedEventArgs e)

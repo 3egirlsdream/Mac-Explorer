@@ -1,9 +1,10 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.RemoteConnectionDialog"
-        Title="连接远程服务器"
+        Title="{loc:Loc ui.028}"
         Width="480" Height="550" MinWidth="400" MinHeight="450"
         CanResize="True" WindowStartupLocation="CenterOwner">
     <Window.Resources>
@@ -15,7 +16,7 @@
     <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16" RowSpacing="8">
         <Border Grid.Row="0" x:Name="SavedServersPanel" IsVisible="False">
             <StackPanel Spacing="4">
-                <TextBlock Classes="settings-section-title" Text="已保存的服务器"/>
+                <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.512}"/>
                 <ListBox x:Name="SavedServersList" MaxHeight="100" SelectionChanged="OnSavedServerSelected">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -38,30 +39,30 @@
                     <StackPanel>
                         <Border Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                <TextBlock Classes="settings-label" Text="名称" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="NameBox" Classes="settings-inline-input" Watermark="可选" AutomationProperties.Name="服务器名称"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="NameBox" Classes="settings-inline-input" Watermark="{loc:Loc ui.513}" AutomationProperties.Name="{loc:Loc ui.514}"/>
                             </Grid>
                         </Border>
                         <Border Classes="settings-row settings-divider">
                             <StackPanel>
                                 <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                    <TextBlock Classes="settings-label" Text="主机地址" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" x:Name="HostBox" Classes="settings-inline-input" Watermark="IP 地址或域名" AutomationProperties.Name="主机地址"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.515}" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" x:Name="HostBox" Classes="settings-inline-input" Watermark="{loc:Loc ui.516}" AutomationProperties.Name="{loc:Loc ui.515}"/>
                                 </Grid>
-                                <TextBlock x:Name="HostError" IsVisible="False" Text="请输入主机地址" TextWrapping="Wrap"
+                                <TextBlock x:Name="HostError" IsVisible="False" Text="{loc:Loc ui.517}" TextWrapping="Wrap"
                                            Foreground="{DynamicResource DangerBrush}"/>
                             </StackPanel>
                         </Border>
                         <Border Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                <TextBlock Classes="settings-label" Text="端口" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="PortBox" Classes="settings-inline-input" Watermark="22" AutomationProperties.Name="端口"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.497}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="PortBox" Classes="settings-inline-input" Watermark="22" AutomationProperties.Name="{loc:Loc ui.497}"/>
                             </Grid>
                         </Border>
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                <TextBlock Classes="settings-label" Text="用户名" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="UsernameBox" Classes="settings-inline-input" Watermark="root" AutomationProperties.Name="用户名"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.518}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="UsernameBox" Classes="settings-inline-input" Watermark="root" AutomationProperties.Name="{loc:Loc ui.518}"/>
                             </Grid>
                         </Border>
                     </StackPanel>
@@ -70,59 +71,59 @@
                     <StackPanel>
                         <Border Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                <TextBlock Classes="settings-label" Text="认证方式" VerticalAlignment="Center"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.519}" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
-                                    <RadioButton x:Name="PasswordRadio" Content="密码" IsChecked="True" GroupName="Auth" Click="OnAuthMethodChanged"/>
-                                    <RadioButton x:Name="KeyRadio" Content="密钥文件" GroupName="Auth" Click="OnAuthMethodChanged"/>
+                                    <RadioButton x:Name="PasswordRadio" Content="{loc:Loc ui.510}" IsChecked="True" GroupName="Auth" Click="OnAuthMethodChanged"/>
+                                    <RadioButton x:Name="KeyRadio" Content="{loc:Loc ui.520}" GroupName="Auth" Click="OnAuthMethodChanged"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
                         <Border x:Name="PasswordPanel" Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                <TextBlock Classes="settings-label" Text="密码" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="PasswordBox" Classes="settings-inline-input" PasswordChar="•" AutomationProperties.Name="密码"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.510}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="PasswordBox" Classes="settings-inline-input" PasswordChar="•" AutomationProperties.Name="{loc:Loc ui.510}"/>
                             </Grid>
                         </Border>
                         <Border x:Name="KeyPanel" Classes="settings-row settings-divider" IsVisible="False">
                             <Grid ColumnDefinitions="90,*,Auto" ColumnSpacing="8">
-                                <TextBlock Classes="settings-label" Text="私钥文件" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="KeyPathBox" Classes="settings-inline-input" AutomationProperties.Name="私钥文件路径"/>
-                                <Button Grid.Column="2" Content="浏览" Classes="secondary compact" Click="OnBrowseKeyFile"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.521}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="KeyPathBox" Classes="settings-inline-input" AutomationProperties.Name="{loc:Loc ui.522}"/>
+                                <Button Grid.Column="2" Content="{loc:Loc ui.523}" Classes="secondary compact" Click="OnBrowseKeyFile"/>
                             </Grid>
                         </Border>
                         <Border x:Name="KeyPassphrasePanel" Classes="settings-row settings-divider" IsVisible="False">
                             <StackPanel Spacing="4">
                                 <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                    <TextBlock Classes="settings-label" Text="私钥口令" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" x:Name="KeyPassphraseBox" PasswordChar="•" Classes="settings-inline-input" PlaceholderText="未加密私钥可留空" AutomationProperties.Name="私钥解密口令"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.524}" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1" x:Name="KeyPassphraseBox" PasswordChar="•" Classes="settings-inline-input" PlaceholderText="{loc:Loc ui.525}" AutomationProperties.Name="{loc:Loc ui.526}"/>
                                 </Grid>
-                                <CheckBox x:Name="RememberKeyPassphrase" Content="将私钥口令保存到本机数据库" ToolTip.Tip="默认仅本次使用；勾选后在保存或成功连接时保存，可取消勾选并保存以删除。"/>
+                                <CheckBox x:Name="RememberKeyPassphrase" Content="{loc:Loc ui.527}" ToolTip.Tip="{loc:Loc ui.528}"/>
                             </StackPanel>
                         </Border>
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                <TextBlock Classes="settings-label" Text="默认路径" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="DefaultPathBox" Classes="settings-inline-input" Text="/" AutomationProperties.Name="默认路径"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.529}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="DefaultPathBox" Classes="settings-inline-input" Text="/" AutomationProperties.Name="{loc:Loc ui.529}"/>
                             </Grid>
                         </Border>
                     </StackPanel>
                 </Border>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Classes="ghost compact" Content="重试凭据加载" Click="OnRetryCredentials"
-                            ToolTip.Tip="检查应用数据库是否可访问后重试；旧配置与迁移未完成的密码会保留。"/>
-                    <Button Classes="ghost compact" Content="撤销主机信任" Click="OnForgetHostKey"
-                            ToolTip.Tip="仅处理当前填写的主机与端口，需要明确确认。"/>
+                    <Button Classes="ghost compact" Content="{loc:Loc ui.530}" Click="OnRetryCredentials"
+                            ToolTip.Tip="{loc:Loc ui.531}"/>
+                    <Button Classes="ghost compact" Content="{loc:Loc ui.532}" Click="OnForgetHostKey"
+                            ToolTip.Tip="{loc:Loc ui.533}"/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
         <ScrollViewer Grid.Row="2" MaxHeight="100" HorizontalScrollBarVisibility="Disabled">
-            <TextBlock x:Name="ConnectionStatus" Classes="settings-description" TextWrapping="Wrap" AutomationProperties.Name="连接和凭据状态"/>
+            <TextBlock x:Name="ConnectionStatus" Classes="settings-description" TextWrapping="Wrap" AutomationProperties.Name="{loc:Loc ui.534}"/>
         </ScrollViewer>
         <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,4,0,0">
-            <Button x:Name="DeleteButton" Content="删除" Classes="ghost compact" Foreground="{DynamicResource DangerBrush}" Click="OnDeleteServer" IsVisible="False"/>
-            <Button Grid.Column="2" Content="取消" Classes="secondary compact" Click="OnCancel"/>
-            <Button Grid.Column="3" x:Name="SaveButton" Content="保存" Classes="secondary compact" Click="OnSave"/>
-            <Button Grid.Column="4" x:Name="ConnectButton" Content="连接" Classes="primary compact" Click="OnConnect"/>
+            <Button x:Name="DeleteButton" Content="{loc:Loc ui.006}" Classes="ghost compact" Foreground="{DynamicResource DangerBrush}" Click="OnDeleteServer" IsVisible="False"/>
+            <Button Grid.Column="2" Content="{loc:Loc ui.094}" Classes="secondary compact" Click="OnCancel"/>
+            <Button Grid.Column="3" x:Name="SaveButton" Content="{loc:Loc ui.095}" Classes="secondary compact" Click="OnSave"/>
+            <Button Grid.Column="4" x:Name="ConnectButton" Content="{loc:Loc ui.499}" Classes="primary compact" Click="OnConnect"/>
         </Grid>
     </Grid>
 </controls:DialogWindow>

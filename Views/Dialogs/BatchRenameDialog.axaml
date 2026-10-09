@@ -1,10 +1,11 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:controls="using:MacExplorer.Controls" xmlns:models="using:MacExplorer.Models"
  xmlns:vm="using:MacExplorer.ViewModels" xmlns:icons="using:MacExplorer.Assets"
  xmlns:converters="using:MacExplorer.Converters"
  x:Class="MacExplorer.Views.Dialogs.BatchRenameDialog"
- Title="批量重命名" Width="1160" Height="720" MinWidth="780" MinHeight="480"
+ Title="{loc:Loc ui.014}" Width="1160" Height="720" MinWidth="780" MinHeight="480"
  CanResize="True" Background="{DynamicResource SurfaceBackgroundBrush}">
  <controls:DialogWindow.Resources>
   <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
@@ -16,17 +17,17 @@
  </controls:DialogWindow.Styles>
  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16" RowSpacing="10">
   <Grid x:Name="OptionsPanel" ColumnDefinitions="Auto,210,Auto,*,Auto,160,Auto" ColumnSpacing="8">
-   <TextBlock Text="预设" VerticalAlignment="Center"/>
-   <ComboBox x:Name="PresetCombo" Grid.Column="1" PlaceholderText="自定义" SelectionChanged="OnPresetChanged"/>
-   <Button Grid.Column="2" Classes="ghost compact" Click="OnSavePreset" ToolTip.Tip="保存规则与排序设置">保存预设</Button>
-   <TextBlock Grid.Column="4" Text="排序" VerticalAlignment="Center"/>
+   <TextBlock Text="{loc:Loc ui.439}" VerticalAlignment="Center"/>
+   <ComboBox x:Name="PresetCombo" Grid.Column="1" PlaceholderText="{loc:Loc ui.440}" SelectionChanged="OnPresetChanged"/>
+   <Button Grid.Column="2" Classes="ghost compact" Click="OnSavePreset" ToolTip.Tip="{loc:Loc ui.441}" Content="{loc:Loc ui.657}"></Button>
+   <TextBlock Grid.Column="4" Text="{loc:Loc ui.015}" VerticalAlignment="Center"/>
    <ComboBox x:Name="SortCombo" Grid.Column="5" SelectedIndex="0" SelectionChanged="OnOptionsChanged">
-    <ComboBoxItem Content="当前列表顺序"/><ComboBoxItem Content="名称自然排序"/>
-    <ComboBoxItem Content="创建时间"/><ComboBoxItem Content="修改时间"/>
-    <ComboBoxItem Content="拍摄时间"/><ComboBoxItem Content="手动顺序"/>
+    <ComboBoxItem Content="{loc:Loc ui.442}"/><ComboBoxItem Content="{loc:Loc ui.443}"/>
+    <ComboBoxItem Content="{loc:Loc ui.444}"/><ComboBoxItem Content="{loc:Loc ui.445}"/>
+    <ComboBoxItem Content="{loc:Loc ui.446}"/><ComboBoxItem Content="{loc:Loc ui.447}"/>
    </ComboBox>
    <ToggleButton x:Name="DescendingToggle" Grid.Column="6" Classes="icon-action" IsCheckedChanged="OnOptionsChanged"
-       ToolTip.Tip="升序／降序" AutomationProperties.Name="切换排序方向">
+       ToolTip.Tip="{loc:Loc ui.448}" AutomationProperties.Name="{loc:Loc ui.449}">
     <PathIcon x:Name="SortDirectionIcon" Classes="rename-action-icon" Data="{x:Static icons:Icons.SortAsc}"/>
    </ToggleButton>
   </Grid>
@@ -34,11 +35,11 @@
    <Border x:Name="RulesPanel" Classes="settings-group">
     <Grid RowDefinitions="Auto,*,Auto">
      <Grid Margin="12,10" ColumnDefinitions="*,Auto,Auto">
-      <TextBlock Text="规则序列" Classes="rename-heading" VerticalAlignment="Center"/>
-      <Button Grid.Column="1" Classes="icon-action" Click="OnDuplicateRule" ToolTip.Tip="复制当前规则" AutomationProperties.Name="复制规则">
+      <TextBlock Text="{loc:Loc ui.450}" Classes="rename-heading" VerticalAlignment="Center"/>
+      <Button Grid.Column="1" Classes="icon-action" Click="OnDuplicateRule" ToolTip.Tip="{loc:Loc ui.451}" AutomationProperties.Name="{loc:Loc ui.452}">
        <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Copy}"/>
       </Button>
-      <Button Grid.Column="2" Classes="icon-action" Click="OnRemoveRule" ToolTip.Tip="删除当前规则" AutomationProperties.Name="删除规则">
+      <Button Grid.Column="2" Classes="icon-action" Click="OnRemoveRule" ToolTip.Tip="{loc:Loc ui.453}" AutomationProperties.Name="{loc:Loc ui.454}">
        <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Delete}"/>
       </Button>
      </Grid>
@@ -46,16 +47,16 @@
       <ListBox.ItemTemplate>
        <DataTemplate x:DataType="models:BatchRenameRule">
         <Grid ColumnDefinitions="26,*" ColumnSpacing="4">
-         <CheckBox IsChecked="{Binding IsEnabled}" ToolTip.Tip="启用规则" AutomationProperties.Name="启用规则"/>
+         <CheckBox IsChecked="{Binding IsEnabled}" ToolTip.Tip="{loc:Loc ui.455}" AutomationProperties.Name="{loc:Loc ui.455}"/>
          <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
         </Grid>
        </DataTemplate>
       </ListBox.ItemTemplate>
      </ListBox>
      <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="6">
-      <Button x:Name="AddRuleButton" Classes="ghost compact" Click="OnAddRule" AutomationProperties.Name="添加规则"><StackPanel Orientation="Horizontal" Spacing="6"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Plus}"/><TextBlock Text="添加规则"/></StackPanel></Button>
-      <Button Grid.Column="1" Classes="icon-action" Click="OnMoveRuleUp" ToolTip.Tip="上移（⌥↑）" AutomationProperties.Name="上移规则"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
-      <Button Grid.Column="2" Classes="icon-action" Click="OnMoveRuleDown" ToolTip.Tip="下移（⌥↓）" AutomationProperties.Name="下移规则"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
+      <Button x:Name="AddRuleButton" Classes="ghost compact" Click="OnAddRule" AutomationProperties.Name="{loc:Loc ui.456}"><StackPanel Orientation="Horizontal" Spacing="6"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Plus}"/><TextBlock Text="{loc:Loc ui.456}"/></StackPanel></Button>
+      <Button Grid.Column="1" Classes="icon-action" Click="OnMoveRuleUp" ToolTip.Tip="{loc:Loc ui.457}" AutomationProperties.Name="{loc:Loc ui.458}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
+      <Button Grid.Column="2" Classes="icon-action" Click="OnMoveRuleDown" ToolTip.Tip="{loc:Loc ui.459}" AutomationProperties.Name="{loc:Loc ui.460}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
      </Grid>
     </Grid>
    </Border>
@@ -65,15 +66,15 @@
    <Grid x:Name="PreviewPanel" Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
      <ComboBox x:Name="FilterCombo" SelectedIndex="0" SelectionChanged="OnFilterChanged" HorizontalAlignment="Left" MinWidth="130">
-      <ComboBoxItem Content="全部项目"/><ComboBoxItem Content="仅看变化"/><ComboBoxItem Content="仅看冲突"/><ComboBoxItem Content="仅看失败"/><ComboBoxItem Content="仅看问题"/>
+      <ComboBoxItem Content="{loc:Loc ui.461}"/><ComboBoxItem Content="{loc:Loc ui.462}"/><ComboBoxItem Content="{loc:Loc ui.463}"/><ComboBoxItem Content="{loc:Loc ui.464}"/><ComboBoxItem Content="{loc:Loc ui.465}"/>
      </ComboBox>
      <ComboBox x:Name="StepCombo" Grid.Column="1" SelectionChanged="OnStepChanged" MinWidth="130"
-       ToolTip.Tip="选择最终结果或某一步的结果" AutomationProperties.Name="预览步骤"/>
+       ToolTip.Tip="{loc:Loc ui.466}" AutomationProperties.Name="{loc:Loc ui.467}"/>
     </Grid>
     <Grid Grid.Row="1" ColumnDefinitions="28,24,*,*,100,28" ColumnSpacing="6" Margin="6,0">
-     <TextBlock Grid.Column="2" Text="原名称" Classes="rename-heading"/>
-     <TextBlock x:Name="PreviewNameHeading" Grid.Column="3" Text="新名称" Classes="rename-heading"/>
-     <TextBlock Grid.Column="4" Text="状态" Classes="rename-heading"/>
+     <TextBlock Grid.Column="2" Text="{loc:Loc ui.468}" Classes="rename-heading"/>
+     <TextBlock x:Name="PreviewNameHeading" Grid.Column="3" Text="{loc:Loc ui.469}" Classes="rename-heading"/>
+     <TextBlock Grid.Column="4" Text="{loc:Loc ui.470}" Classes="rename-heading"/>
     </Grid>
     <ListBox x:Name="PreviewList" Grid.Row="2" Classes="rename-list" KeyDown="OnPreviewKeyDown">
      <ListBox.ItemTemplate>
@@ -82,13 +83,13 @@
         <Expander.Header>
         <Grid RowDefinitions="Auto,Auto" RowSpacing="2">
         <Grid ColumnDefinitions="28,24,*,*,100" ColumnSpacing="6">
-         <CheckBox IsChecked="{Binding IsIncluded}" IsEnabled="{Binding IsEditable}" ToolTip.Tip="参与重命名" AutomationProperties.Name="参与重命名"/>
+         <CheckBox IsChecked="{Binding IsIncluded}" IsEnabled="{Binding IsEditable}" ToolTip.Tip="{loc:Loc ui.471}" AutomationProperties.Name="{loc:Loc ui.471}"/>
          <Image Grid.Column="1" Source="{Binding Entry, Converter={StaticResource RenameFileIcon}, ConverterParameter=24}" Width="20" Height="20"/>
          <controls:RenameDiffText Grid.Column="2" Before="{Binding DisplayedName}" After="{Binding OriginalName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OriginalName}" VerticalAlignment="Center"/>
          <controls:RenameDiffText Grid.Column="3" Before="{Binding OriginalName}" After="{Binding DisplayedName}"
            TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DisplayedName}" VerticalAlignment="Center" IsVisible="{Binding !IsEditing}" DoubleTapped="OnEditName"/>
          <TextBox Grid.Column="3" Text="{Binding EditedName}" IsVisible="{Binding IsEditing}" Classes="settings-inline-input"
-           KeyDown="OnEditNameKeyDown" LostFocus="OnEditNameLostFocus" AutomationProperties.Name="目标名称"/>
+           KeyDown="OnEditNameKeyDown" LostFocus="OnEditNameLostFocus" AutomationProperties.Name="{loc:Loc ui.472}"/>
          <TextBlock Grid.Column="4" Text="{Binding StatusText}" Classes="rename-status" Classes.issue="{Binding HasIssue}" VerticalAlignment="Center" ToolTip.Tip="{Binding StatusText}"/>
         </Grid>
         <TextBlock Grid.Row="1" Margin="64,0,0,0" Text="{Binding DirectoryPath}" Classes="rename-heading" IsVisible="{Binding ShowDirectory}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DirectoryPath}"/>
@@ -96,10 +97,10 @@
         </Expander.Header>
         <StackPanel Spacing="6">
          <Grid ColumnDefinitions="48,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="4">
-          <TextBlock Text="原名称" Classes="rename-heading"/><TextBlock Grid.Column="1" Text="{Binding OriginalName}" TextWrapping="Wrap"/>
-          <TextBlock Grid.Row="1" Text="新名称" Classes="rename-heading"/>
+          <TextBlock Text="{loc:Loc ui.468}" Classes="rename-heading"/><TextBlock Grid.Column="1" Text="{Binding OriginalName}" TextWrapping="Wrap"/>
+          <TextBlock Grid.Row="1" Text="{loc:Loc ui.469}" Classes="rename-heading"/>
           <controls:RenameDiffText Grid.Row="1" Grid.Column="1" Before="{Binding OriginalName}" After="{Binding NewName}" TextWrapping="Wrap"/>
-          <TextBlock Grid.Row="2" Text="目录" Classes="rename-heading"/>
+          <TextBlock Grid.Row="2" Text="{loc:Loc ui.473}" Classes="rename-heading"/>
           <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DirectoryPath}" Classes="rename-heading" TextWrapping="Wrap"/>
          </Grid>
          <ItemsControl ItemsSource="{Binding Steps}">
@@ -117,7 +118,7 @@
           </ItemsControl.ItemTemplate>
          </ItemsControl>
          <Button Classes="icon-action" HorizontalAlignment="Right" Click="OnResetName" IsVisible="{Binding IsManual}"
-           IsEnabled="{Binding CanRestoreRuleResult}" ToolTip.Tip="恢复规则结果" AutomationProperties.Name="恢复规则结果">
+           IsEnabled="{Binding CanRestoreRuleResult}" ToolTip.Tip="{loc:Loc ui.474}" AutomationProperties.Name="{loc:Loc ui.474}">
           <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ArrowUndo}"/>
          </Button>
         </StackPanel>
@@ -128,22 +129,22 @@
     <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
      <StackPanel Spacing="4">
       <StackPanel x:Name="ConflictActions" Orientation="Horizontal" IsVisible="False" Spacing="4">
-       <Button x:Name="ExcludeConflictsButton" Classes="ghost compact" Content="排除冲突项" Click="OnExcludeConflicts"/>
-       <Button x:Name="ResolveConflictsButton" Classes="ghost compact" Content="编号解决重名" Click="OnResolveConflicts"/>
+       <Button x:Name="ExcludeConflictsButton" Classes="ghost compact" Content="{loc:Loc ui.475}" Click="OnExcludeConflicts"/>
+       <Button x:Name="ResolveConflictsButton" Classes="ghost compact" Content="{loc:Loc ui.476}" Click="OnResolveConflicts"/>
       </StackPanel>
-      <CheckBox x:Name="PhotoSortFallbackCheck" IsVisible="False" Content="拍摄日期缺失时按修改时间排序" IsCheckedChanged="OnOptionsChanged"/>
+      <CheckBox x:Name="PhotoSortFallbackCheck" IsVisible="False" Content="{loc:Loc ui.477}" IsCheckedChanged="OnOptionsChanged"/>
      </StackPanel>
-     <Button Grid.Column="1" Classes="icon-action" Click="OnMovePreviewUp" ToolTip.Tip="上移项目（⌥↑）" AutomationProperties.Name="上移项目"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
-     <Button Grid.Column="2" Classes="icon-action" Click="OnMovePreviewDown" ToolTip.Tip="下移项目（⌥↓）" AutomationProperties.Name="下移项目"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
+     <Button Grid.Column="1" Classes="icon-action" Click="OnMovePreviewUp" ToolTip.Tip="{loc:Loc ui.478}" AutomationProperties.Name="{loc:Loc ui.479}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
+     <Button Grid.Column="2" Classes="icon-action" Click="OnMovePreviewDown" ToolTip.Tip="{loc:Loc ui.480}" AutomationProperties.Name="{loc:Loc ui.481}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
     </Grid>
    </Grid>
   </Grid>
   <ProgressBar x:Name="ExecutionProgress" Grid.Row="2" IsVisible="False" Height="3" Minimum="0" Maximum="100"/>
   <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
    <Button x:Name="StatusButton" Classes="ghost compact" Click="OnStatusClick" HorizontalContentAlignment="Left" MaxWidth="520"/>
-   <Button x:Name="UndoButton" Grid.Column="1" HorizontalAlignment="Right" Classes="ghost compact" Content="撤销本次重命名" IsVisible="False" Click="OnUndo"/>
-   <Button x:Name="CancelButton" Grid.Column="2" Classes="secondary compact" Content="取消" Click="OnCancel"/>
-   <Button x:Name="ApplyButton" Grid.Column="3" Classes="primary compact" Content="重命名" IsEnabled="False" Click="OnApply"/>
+   <Button x:Name="UndoButton" Grid.Column="1" HorizontalAlignment="Right" Classes="ghost compact" Content="{loc:Loc ui.482}" IsVisible="False" Click="OnUndo"/>
+   <Button x:Name="CancelButton" Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.094}" Click="OnCancel"/>
+   <Button x:Name="ApplyButton" Grid.Column="3" Classes="primary compact" Content="{loc:Loc ui.325}" IsEnabled="False" Click="OnApply"/>
   </Grid>
  </Grid>
 </controls:DialogWindow>

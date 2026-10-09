@@ -3,8 +3,9 @@
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:avconv="using:Avalonia.Data.Converters"
+        xmlns:loc="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.SettingsDialog"
-        Title="设置"
+        Title="{loc:Loc settings.general}"
         Width="940" Height="700"
         MinWidth="780" MinHeight="540"
         CanResize="True"
@@ -16,43 +17,58 @@
     </Window.Styles>
 
     <TabControl x:Name="SettingsTabs" Classes="settings-shell" TabStripPlacement="Left">
-        <TabItem AutomationProperties.Name="通用">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.261}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Settings}"/>
-                    <TextBlock Text="通用" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.261}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="settings-page">
                     <StackPanel Classes="settings-header">
-                        <TextBlock Classes="settings-title" Text="通用"/>
-                        <TextBlock Classes="settings-description" Text="让 MacExplorer 更贴合你的日常使用习惯。"/>
+                    <TextBlock Classes="settings-title" Text="{loc:Loc settings.general}"/>
+                    <TextBlock Classes="settings-description" Text="{loc:Loc settings.general.description}"/>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="系统"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc settings.language}"/>
+                        <Border Classes="settings-group settings-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <TextBlock Classes="settings-label" Text="{loc:Loc settings.language}" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="1" x:Name="LanguageCombo" Width="148" VerticalAlignment="Center"
+                                          AutomationProperties.Name="{loc:Loc ui.031}" SelectionChanged="OnLanguageChanged">
+                                    <ComboBoxItem Content="{loc:Loc language.system}" Tag="system"/>
+                                    <ComboBoxItem Content="{loc:Loc language.zh}" Tag="zh-CN"/>
+                                    <ComboBoxItem Content="{loc:Loc language.en}" Tag="en"/>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc settings.system}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border x:Name="DefaultManagerRow" Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="设为默认文件管理器"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc settings.default_manager}"/>
                                             <TextBlock Classes="settings-description"
-                                                       Text="通过系统打开文件夹及兼容应用的「在 Finder 中显示」时使用 MacExplorer。更改后需重启电脑。"/>
+                                                       Text="{loc:Loc settings.default_manager.description}"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="DefaultManagerToggle" AutomationProperties.Name="设为默认文件管理器" Classes="settings-toggle compact"
+                                        <ToggleSwitch Grid.Column="1" x:Name="DefaultManagerToggle" AutomationProperties.Name="{loc:Loc ui.244}" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnDefaultManagerChanged"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="AI 智能分析"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc settings.ai_analysis}"/>
                                             <TextBlock Classes="settings-description"
-                                                       Text="在本机分析图片内容与 PDF 文字。照片地点联网解析需单独许可。"/>
+                                                       Text="{loc:Loc settings.ai_analysis.description}"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="AiAnalysisToggle" AutomationProperties.Name="AI 智能分析" Classes="settings-toggle compact"
+                                        <ToggleSwitch Grid.Column="1" x:Name="AiAnalysisToggle" AutomationProperties.Name="{loc:Loc ui.132}" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnAiAnalysisChanged"/>
                                     </Grid>
                                 </Border>
@@ -64,16 +80,16 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="隐私"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc settings.privacy}"/>
                         <Border Classes="settings-group">
                             <Border Classes="settings-row">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel>
-                                        <TextBlock Classes="settings-label" Text="照片地点联网解析"/>
-                                        <TextBlock Classes="settings-description" Text="将 GPS 经纬度发送给 Apple，转换为地点名称。默认关闭，可随时撤回。" TextWrapping="Wrap"/>
+                                        <TextBlock Classes="settings-label" Text="{loc:Loc settings.photo_location}"/>
+                                        <TextBlock Classes="settings-description" Text="{loc:Loc settings.photo_location.description}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="1" x:Name="PhotoLocationToggle" Classes="settings-toggle compact"
-                                                  AutomationProperties.Name="允许向 Apple 发送照片 GPS" VerticalAlignment="Center"
+                                                  AutomationProperties.Name="{loc:Loc ui.150}" VerticalAlignment="Center"
                                                   IsCheckedChanged="OnPhotoLocationChanged"/>
                                 </Grid>
                             </Border>
@@ -82,14 +98,14 @@
                     </StackPanel>
 
                     <StackPanel x:Name="DirectoryAccessGroup" Spacing="6" IsVisible="False">
-                        <TextBlock Classes="settings-section-title" Text="文件访问"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc settings.file_access}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <StackPanel x:Name="DirectoryAccessRows"/>
                                 <Border Classes="settings-row">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button Content="选择文件夹…" Classes="secondary compact" Click="OnGrantDirectory"/>
-                                        <Button Content="重试授权恢复" Classes="ghost compact" Click="OnRetryDirectoryAccess"/>
+                                        <Button Content="{loc:Loc settings.choose_folder}" Classes="secondary compact" Click="OnGrantDirectory"/>
+                                        <Button Content="{loc:Loc settings.retry_access}" Classes="ghost compact" Click="OnRetryDirectoryAccess"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -98,45 +114,45 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="文件速递"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc settings.file_delivery}"/>
                         <Border Classes="settings-group settings-row">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <StackPanel>
-                                    <TextBlock Classes="settings-label" Text="在菜单栏显示文件速递"/>
-                                    <TextBlock Classes="settings-description" Text="从常用文件夹和收藏夹快速拖文件到其他软件，关闭主窗口后仍可使用。"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc settings.file_delivery.title}"/>
+                                    <TextBlock Classes="settings-description" Text="{loc:Loc settings.file_delivery.description}"/>
                                 </StackPanel>
                                 <ToggleSwitch Grid.Column="1" x:Name="FileDeliveryToggle" Classes="settings-toggle compact"
-                                              AutomationProperties.Name="在菜单栏显示文件速递" VerticalAlignment="Center"
+                                              AutomationProperties.Name="{loc:Loc ui.162}" VerticalAlignment="Center"
                                               IsCheckedChanged="OnFileDeliveryChanged"/>
                             </Grid>
                         </Border>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="文件操作"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc settings.file_operations}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="移到废纸篓前确认"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc settings.confirm_trash}"/>
                                             <TextBlock Classes="settings-description"
-                                                       Text="默认开启。关闭后直接移到废纸篓；远程删除、永久删除和清空废纸篓仍需确认。"/>
+                                                       Text="{loc:Loc settings.confirm_trash.description}"/>
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" x:Name="ConfirmBeforeTrashToggle"
-                                                      AutomationProperties.Name="移到废纸篓前确认" Classes="settings-toggle compact"
+                                                      AutomationProperties.Name="{loc:Loc ui.238}" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnConfirmBeforeTrashChanged"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="双击空白处返回上级"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc settings.double_click_up}"/>
                                             <TextBlock Classes="settings-description"
-                                                       Text="默认关闭。开启后，双击文件区域背景返回上级；双击文件或文件夹仍打开项目。"/>
+                                                       Text="{loc:Loc settings.double_click_up.description}"/>
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" x:Name="DoubleClickEmptyAreaGoUpToggle"
-                                                      AutomationProperties.Name="双击空白处返回上级" Classes="settings-toggle compact"
+                                                      AutomationProperties.Name="{loc:Loc ui.153}" Classes="settings-toggle compact"
                                                       VerticalAlignment="Center" IsCheckedChanged="OnDoubleClickEmptyAreaGoUpChanged"/>
                                     </Grid>
                                 </Border>
@@ -147,11 +163,11 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="发送到">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.154}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Send}"/>
-                    <TextBlock Text="发送到" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.154}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -161,58 +177,58 @@
                         <StackPanel>
                             <Border Classes="settings-row settings-divider">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                    <TextBlock Classes="settings-label" Text="启用 LocalSend" VerticalAlignment="Center"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.158}" VerticalAlignment="Center"/>
                                     <ToggleSwitch x:Name="LocalSendEnabledToggle" Grid.Column="1" Classes="settings-toggle compact"
-                                                  AutomationProperties.Name="启用 LocalSend" IsCheckedChanged="OnLocalSendEnabledChanged"/>
+                                                  AutomationProperties.Name="{loc:Loc ui.158}" IsCheckedChanged="OnLocalSendEnabledChanged"/>
                                 </Grid>
                             </Border>
                             <Border Classes="settings-row settings-divider">
                                 <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
-                                    <TextBlock Classes="settings-label" Text="设备名称" VerticalAlignment="Center"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.245}" VerticalAlignment="Center"/>
                                     <TextBox x:Name="LocalSendAliasBox" Grid.Column="1" Classes="settings-inline-input"
                                              Height="30" LostFocus="OnLocalSendAliasChanged" KeyDown="OnLocalSendAliasKeyDown"/>
                                 </Grid>
                             </Border>
                             <Border Classes="settings-row">
                                 <Grid ColumnDefinitions="110,*,Auto" ColumnSpacing="12">
-                                    <TextBlock Classes="settings-label" Text="接收位置" VerticalAlignment="Center"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.182}" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="LocalSendDirectoryText" Grid.Column="1" Classes="settings-description"
                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="2" Content="更改…" Classes="secondary compact" Click="OnChooseLocalSendDirectory"/>
+                                    <Button Grid.Column="2" Content="{loc:Loc ui.215}" Classes="secondary compact" Click="OnChooseLocalSendDirectory"/>
                                 </Grid>
                             </Border>
                         </StackPanel>
                     </Border>
-                    <Button x:Name="LocalSendRetryButton" Content="重试保存关闭" Classes="ghost compact" IsVisible="False" Click="OnRetryLocalSendDisable" HorizontalAlignment="Right"/>
+                    <Button x:Name="LocalSendRetryButton" Content="{loc:Loc ui.265}" Classes="ghost compact" IsVisible="False" Click="OnRetryLocalSendDisable" HorizontalAlignment="Right"/>
                     <TextBlock x:Name="LocalSendStatus" Classes="settings-description" TextWrapping="Wrap"
                                HorizontalAlignment="Stretch" TextAlignment="Right"/>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
 
-        <TabItem x:Name="PluginSettingsTab" AutomationProperties.Name="插件">
+        <TabItem x:Name="PluginSettingsTab" AutomationProperties.Name="{loc:Loc ui.183}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Apps}"/>
-                    <TextBlock Text="插件" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.183}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <Grid RowDefinitions="Auto,*" RowSpacing="16" Classes="settings-page plugin-page">
                 <StackPanel Classes="settings-header">
-                    <TextBlock Classes="settings-title" Text="插件"/>
-                    <TextBlock Classes="settings-description" Text="插件可访问本地文件和网络，请仅安装信任的插件。" TextWrapping="Wrap"/>
+                    <TextBlock Classes="settings-title" Text="{loc:Loc ui.183}"/>
+                    <TextBlock Classes="settings-description" Text="{loc:Loc ui.184}" TextWrapping="Wrap"/>
                     <TextBlock x:Name="PluginStatusText" IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}" Classes="settings-description" TextWrapping="Wrap"/>
                 </StackPanel>
                 <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="Auto,32,*" ColumnSpacing="12" RowSpacing="10">
-                    <TextBlock Text="已安装" Classes="settings-section-title"/>
-                    <TextBlock Grid.Column="1" Text="插件市场" Classes="settings-section-title"/>
+                    <TextBlock Text="{loc:Loc ui.171}" Classes="settings-section-title"/>
+                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.185}" Classes="settings-section-title"/>
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-                        <Button Classes="secondary plugin-action" Content="安装插件…" Click="OnInstallPlugin"/>
-                        <Button Classes="secondary plugin-action" Content="恢复内置插件" Click="OnRestoreBuiltInPlugin"/>
+                        <Button Classes="secondary plugin-action" Content="{loc:Loc ui.167}" Click="OnInstallPlugin"/>
+                        <Button Classes="secondary plugin-action" Content="{loc:Loc ui.176}" Click="OnRestoreBuiltInPlugin"/>
                     </StackPanel>
                     <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBox x:Name="PluginMarketSearch" Watermark="搜索插件" Height="32" MinHeight="32" Padding="10,5" KeyDown="OnMarketSearchKey"/>
-                        <Button Grid.Column="1" Classes="secondary plugin-action" Content="搜索" Click="OnSearchMarket"/>
+                        <TextBox x:Name="PluginMarketSearch" Watermark="{loc:Loc ui.189}" Height="32" MinHeight="32" Padding="10,5" KeyDown="OnMarketSearchKey"/>
+                        <Button Grid.Column="1" Classes="secondary plugin-action" Content="{loc:Loc ui.186}" Click="OnSearchMarket"/>
                     </Grid>
                     <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel x:Name="PluginRows" Spacing="8" Margin="0,0,8,12"/>
@@ -227,40 +243,40 @@
             </Grid>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="位置">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.145}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Folder}"/>
-                    <TextBlock Text="位置" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.145}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="settings-page">
                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
                         <StackPanel Classes="settings-header">
-                            <TextBlock Classes="settings-title" Text="位置"/>
-                            <TextBlock Classes="settings-description" Text="管理全局搜索使用的文件夹范围。"/>
+                            <TextBlock Classes="settings-title" Text="{loc:Loc ui.145}"/>
+                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.240}"/>
                         </StackPanel>
                         <Button Grid.Column="1"
                                 x:Name="AddSearchLocationButton"
                                 Classes="settings-location-action"
-                                ToolTip.Tip="添加搜索位置"
-                                AutomationProperties.Name="添加搜索位置"
+                                ToolTip.Tip="{loc:Loc ui.232}"
+                                AutomationProperties.Name="{loc:Loc ui.232}"
                                 Click="OnAddSearchLocation">
                             <PathIcon Data="{x:Static icons:Icons.Plus}"/>
                         </Button>
                     </Grid>
                     <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title"
-                                   Text="搜索文件夹"/>
+                                   Text="{loc:Loc ui.190}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <StackPanel x:Name="EmptySearchLocationsPanel" Margin="24,36" Spacing="12" IsVisible="False">
                                     <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource SurfaceMutedBrush}">
                                         <PathIcon Data="{x:Static icons:Icons.Folder}" Width="26" Height="26" Foreground="{DynamicResource AccentBrush}"/>
                                     </Border>
-                                    <TextBlock Text="尚未添加搜索位置" Classes="settings-label" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="点击右上角的 +，添加需要搜索的文件夹。" Classes="settings-description" TextAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc ui.170}" Classes="settings-label" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc ui.233}" Classes="settings-description" TextAlignment="Center"/>
                                 </StackPanel>
                                 <ListBox x:Name="DefaultSearchLocationsList"
                                          Classes="settings-locations"
@@ -303,66 +319,66 @@
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
                             <Button x:Name="RemoveSearchLocationButton"
                                     Classes="settings-location-action"
-                                    ToolTip.Tip="移除选中的搜索位置"
-                                    AutomationProperties.Name="移除选中的搜索位置"
+                                    ToolTip.Tip="{loc:Loc ui.239}"
+                                    AutomationProperties.Name="{loc:Loc ui.239}"
                                     Click="OnRemoveSearchLocation">
                                 <PathIcon Data="{x:Static icons:Icons.Subtract}"/>
                             </Button>
                             <TextBlock Grid.Column="1"
                                        Classes="settings-description"
                                        VerticalAlignment="Center"
-                                       Text="选中列表中的文件夹后可将其从搜索位置中移除。"/>
+                                       Text="{loc:Loc ui.253}"/>
                         </Grid>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="文件显示">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.195}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.List}"/>
-                    <TextBlock Text="文件显示" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.195}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="settings-page">
                     <StackPanel Classes="settings-header">
-                        <TextBlock Classes="settings-title" Text="文件显示"/>
-                        <TextBlock Classes="settings-description" Text="调整文件和文件夹的显示方式。"/>
+                        <TextBlock Classes="settings-title" Text="{loc:Loc ui.195}"/>
+                        <TextBlock Classes="settings-description" Text="{loc:Loc ui.246}"/>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="可见性"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.155}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="隐藏系统文件"/>
-                                            <TextBlock Classes="settings-description" Text=".DS_Store、Thumbs.db 等系统文件"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc ui.270}"/>
+                                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.130}"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="HideSystemFilesToggle" AutomationProperties.Name="隐藏系统文件" Classes="settings-toggle compact"
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideSystemFilesToggle" AutomationProperties.Name="{loc:Loc ui.270}" Classes="settings-toggle compact"
                                                       IsCheckedChanged="OnFileDisplayChanged" Tag="system"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="隐藏点文件"/>
-                                            <TextBlock Classes="settings-description" Text="以 . 开头的隐藏文件"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc ui.268}"/>
+                                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.144}"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFilesToggle" AutomationProperties.Name="隐藏点文件" Classes="settings-toggle compact"
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFilesToggle" AutomationProperties.Name="{loc:Loc ui.268}" Classes="settings-toggle compact"
                                                       IsCheckedChanged="OnFileDisplayChanged" Tag="files"/>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="隐藏点文件夹"/>
-                                            <TextBlock Classes="settings-description" Text="例如 .git、.config 等隐藏文件夹"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc ui.269}"/>
+                                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.146}"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFoldersToggle" AutomationProperties.Name="隐藏点文件夹" Classes="settings-toggle compact"
+                                        <ToggleSwitch Grid.Column="1" x:Name="HideDotFoldersToggle" AutomationProperties.Name="{loc:Loc ui.269}" Classes="settings-toggle compact"
                                                       IsCheckedChanged="OnFileDisplayChanged" Tag="folders"/>
                                     </Grid>
                                 </Border>
@@ -370,16 +386,16 @@
                         </Border>
                     </StackPanel>
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="图标视图"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.011}"/>
                         <Border Classes="settings-group">
                             <Border Classes="settings-row">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel>
-                                        <TextBlock Classes="settings-label" Text="文件夹照片封面"/>
-                                        <TextBlock Classes="settings-description" Text="在文件夹图标内展示按文件名排序的前三张照片。"/>
+                                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.194}"/>
+                                        <TextBlock Classes="settings-description" Text="{loc:Loc ui.161}"/>
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="1" x:Name="FolderPhotoCoversToggle"
-                                                  Classes="settings-toggle compact" AutomationProperties.Name="文件夹照片封面"
+                                                  Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.194}"
                                                   VerticalAlignment="Center" IsCheckedChanged="OnFolderPhotoCoversChanged"/>
                                 </Grid>
                             </Border>
@@ -389,54 +405,54 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="侧边栏">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.147}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.SplitVertical}"/>
-                    <TextBlock Text="侧边栏" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.147}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="PanelSidebar" Classes="settings-page">
                     <StackPanel Classes="settings-header">
-                        <TextBlock Classes="settings-title" Text="侧边栏"/>
-                        <TextBlock Classes="settings-description" Text="选择常用入口，打造顺手的侧边栏。"/>
+                        <TextBlock Classes="settings-title" Text="{loc:Loc ui.147}"/>
+                        <TextBlock Classes="settings-description" Text="{loc:Loc ui.259}"/>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="收藏"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.192}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Person}"/><TextBlock Grid.Column="1" x:Name="UsernameSettingLabel" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示用户主目录" Tag="sidebar_show_username" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Desktop}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="桌面"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示桌面" Tag="sidebar_show_desktop" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.FileText}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文稿"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示文稿" Tag="sidebar_show_documents" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Download}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="下载"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示下载" Tag="sidebar_show_downloads" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Image}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="图片"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示图片" Tag="sidebar_show_pictures" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Music}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="音乐"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示音乐" Tag="sidebar_show_music" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Person}"/><TextBlock Grid.Column="1" x:Name="UsernameSettingLabel" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.213}" Tag="sidebar_show_username" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Desktop}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.219}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.212}" Tag="sidebar_show_desktop" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.FileText}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.199}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.210}" Tag="sidebar_show_documents" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Download}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.137}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.202}" Tag="sidebar_show_downloads" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Image}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.160}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.205}" Tag="sidebar_show_pictures" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Music}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.271}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.214}" Tag="sidebar_show_music" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="位置"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.145}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.ExternalDrive}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="Macintosh HD"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示Macintosh HD" Tag="sidebar_show_macintosh_hd" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Apps}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="应用程序"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示应用程序" Tag="sidebar_show_applications" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Trash}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="废纸篓"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示废纸篓" Tag="sidebar_show_trash" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.ExternalDrive}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="Macintosh HD"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.201}" Tag="sidebar_show_macintosh_hd" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Apps}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.172}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.207}" Tag="sidebar_show_applications" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Trash}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.173}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.208}" Tag="sidebar_show_trash" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="AI 智能"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.131}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.People}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="人物"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示人物" Tag="sidebar_show_ai_people" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Grid}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="分类"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示分类" Tag="sidebar_show_ai_categories" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Location}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="地点"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示地点" Tag="sidebar_show_ai_locations" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Calendar}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="日期"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示日期" Tag="sidebar_show_ai_dates" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
-                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Search}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="文字搜索"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="显示文字搜索" Tag="sidebar_show_ai_text_search" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.People}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.143}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.203}" Tag="sidebar_show_ai_people" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Grid}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.152}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.204}" Tag="sidebar_show_ai_categories" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Location}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.163}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.206}" Tag="sidebar_show_ai_locations" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Calendar}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.200}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.211}" Tag="sidebar_show_ai_dates" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
+                                <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Search}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.196}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.209}" Tag="sidebar_show_ai_text_search" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -444,34 +460,34 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="外观">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.164}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Image}"/>
-                    <TextBlock Text="外观" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.164}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="settings-page">
                     <StackPanel Classes="settings-header">
-                        <TextBlock Classes="settings-title" Text="外观"/>
-                        <TextBlock Classes="settings-description" Text="自定义主题、文字和交互反馈。"/>
+                        <TextBlock Classes="settings-title" Text="{loc:Loc ui.164}"/>
+                        <TextBlock Classes="settings-description" Text="{loc:Loc ui.242}"/>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="主题"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.139}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="界面主题"/>
-                                            <TextBlock Classes="settings-description" Text="跟随系统或固定使用浅色、深色。"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc ui.236}"/>
+                                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.249}"/>
                                         </StackPanel>
-                                        <ComboBox Grid.Column="1" x:Name="ThemeModeCombo" AutomationProperties.Name="界面主题" Width="148" VerticalAlignment="Center" SelectionChanged="OnThemeModeChanged">
-                                            <ComboBoxItem Content="跟随系统" Tag="system"/>
-                                            <ComboBoxItem Content="浅色" Tag="light"/>
-                                            <ComboBoxItem Content="深色" Tag="dark"/>
+                                        <ComboBox Grid.Column="1" x:Name="ThemeModeCombo" AutomationProperties.Name="{loc:Loc ui.236}" Width="148" VerticalAlignment="Center" SelectionChanged="OnThemeModeChanged">
+                                            <ComboBoxItem Content="{loc:Loc ui.248}" Tag="system"/>
+                                            <ComboBoxItem Content="{loc:Loc ui.224}" Tag="light"/>
+                                            <ComboBoxItem Content="{loc:Loc ui.227}" Tag="dark"/>
                                         </ComboBox>
                                     </Grid>
                                 </Border>
@@ -480,19 +496,19 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="字体"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.166}"/>
                         <Border Classes="settings-group">
                             <Border Classes="settings-row">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel>
-                                        <TextBlock Classes="settings-label" Text="界面字号"/>
-                                        <TextBlock Classes="settings-description" Text="同时调整侧栏、文件列表和其他页面文字，修改后立即生效。"/>
+                                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.237}"/>
+                                        <TextBlock Classes="settings-description" Text="{loc:Loc ui.157}"/>
                                     </StackPanel>
-                                    <ComboBox Grid.Column="1" x:Name="TypographyPresetCombo" AutomationProperties.Name="界面字号" Width="148"
+                                    <ComboBox Grid.Column="1" x:Name="TypographyPresetCombo" AutomationProperties.Name="{loc:Loc ui.237}" Width="148"
                                               VerticalAlignment="Center" SelectionChanged="OnTypographyPresetChanged">
-                                        <ComboBoxItem Content="小（90%）" Tag="small"/>
-                                        <ComboBoxItem Content="标准（100%）" Tag="standard"/>
-                                        <ComboBoxItem Content="大（115%）" Tag="large"/>
+                                        <ComboBoxItem Content="{loc:Loc ui.169}" Tag="small"/>
+                                        <ComboBoxItem Content="{loc:Loc ui.218}" Tag="standard"/>
+                                        <ComboBoxItem Content="{loc:Loc ui.165}" Tag="large"/>
                                     </ComboBox>
                                 </Grid>
                             </Border>
@@ -500,53 +516,53 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Classes="settings-section-title" Text="交互反馈"/>
+                        <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.141}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="配置主题"/>
-                                            <TextBlock Classes="settings-description" Text="浅色与深色分别保存颜色；切换主题时自动应用对应的一套。"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc ui.262}"/>
+                                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.225}"/>
                                         </StackPanel>
-                                        <ComboBox Grid.Column="1" x:Name="InteractionThemeVariantCombo" AutomationProperties.Name="配置交互颜色的主题" Width="148" VerticalAlignment="Center" SelectionChanged="OnInteractionThemeVariantChanged">
-                                            <ComboBoxItem Content="浅色主题" Tag="light"/>
-                                            <ComboBoxItem Content="深色主题" Tag="dark"/>
+                                        <ComboBox Grid.Column="1" x:Name="InteractionThemeVariantCombo" AutomationProperties.Name="{loc:Loc ui.263}" Width="148" VerticalAlignment="Center" SelectionChanged="OnInteractionThemeVariantChanged">
+                                            <ComboBoxItem Content="{loc:Loc ui.226}" Tag="light"/>
+                                            <ComboBoxItem Content="{loc:Loc ui.228}" Tag="dark"/>
                                         </ComboBox>
                                     </Grid>
                                 </Border>
                                 <Border Classes="settings-row">
                                     <StackPanel Spacing="8">
                                         <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="交互状态颜色"/>
-                                            <TextBlock Classes="settings-description" Text="选择状态后从调色盘取色，应用于按钮、列表、菜单、标签页和输入控件。"/>
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc ui.142}"/>
+                                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.260}"/>
                                         </StackPanel>
                                         <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
-                                            <Button x:Name="InteractionHoverColorButton" AutomationProperties.Name="悬停颜色" Classes="interaction-token-row" Tag="hover" Click="OnInteractionTokenSelected">
+                                            <Button x:Name="InteractionHoverColorButton" AutomationProperties.Name="{loc:Loc ui.179}" Classes="interaction-token-row" Tag="hover" Click="OnInteractionTokenSelected">
                                                 <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                     <Border x:Name="InteractionHoverColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="悬停" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.178}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                     <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 </Grid>
                                             </Button>
-                                            <Button Grid.Column="1" x:Name="InteractionSelectedColorButton" AutomationProperties.Name="选中或已勾选颜色" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
+                                            <Button Grid.Column="1" x:Name="InteractionSelectedColorButton" AutomationProperties.Name="{loc:Loc ui.255}" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
                                                 <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                     <Border x:Name="InteractionSelectedColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="选中或已勾选" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.254}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                     <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionSelectedColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 </Grid>
                                             </Button>
-                                            <Button Grid.Row="1" x:Name="InteractionSelectedHoverColorButton" AutomationProperties.Name="选中时悬停颜色" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
+                                            <Button Grid.Row="1" x:Name="InteractionSelectedHoverColorButton" AutomationProperties.Name="{loc:Loc ui.257}" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
                                                 <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                     <Border x:Name="InteractionSelectedHoverColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="选中时悬停" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.256}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                     <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionSelectedHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 </Grid>
                                             </Button>
-                                            <Button Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorButton" AutomationProperties.Name="文本高亮颜色" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
+                                            <Button Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorButton" AutomationProperties.Name="{loc:Loc ui.198}" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
                                                 <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                     <Border x:Name="InteractionTextHighlightColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="文本高亮" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
+                                                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.197}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                     <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 </Grid>
                                             </Button>
@@ -555,26 +571,26 @@
                                             <StackPanel Spacing="8">
                                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
                                                     <StackPanel>
-                                                        <TextBlock Classes="settings-label" Text="调色盘"/>
+                                                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.247}"/>
                                                         <TextBlock x:Name="InteractionSelectedTokenText" Classes="settings-description"/>
                                                     </StackPanel>
-                                                    <Button Grid.Column="1" Classes="secondary" Content="恢复本主题默认" VerticalAlignment="Center" Click="OnResetInteractionColors"/>
+                                                    <Button Grid.Column="1" Classes="secondary" Content="{loc:Loc ui.177}" VerticalAlignment="Center" Click="OnResetInteractionColors"/>
                                                 </Grid>
                                                 <WrapPanel>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#FFFFFF" AutomationProperties.Name="使用颜色 #FFFFFF" ToolTip.Tip="#FFFFFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#FFFFFF" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#F0F1F3" AutomationProperties.Name="使用颜色 #F0F1F3" ToolTip.Tip="#F0F1F3" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F0F1F3" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#E4E6EA" AutomationProperties.Name="使用颜色 #E4E6EA" ToolTip.Tip="#E4E6EA" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E4E6EA" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#1E2026" AutomationProperties.Name="使用颜色 #1E2026" ToolTip.Tip="#1E2026" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#1E2026" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#30343B" AutomationProperties.Name="使用颜色 #30343B" ToolTip.Tip="#30343B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#30343B" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#3B82F6" AutomationProperties.Name="使用颜色 #3B82F6" ToolTip.Tip="#3B82F6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#3B82F6" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#77AAFF" AutomationProperties.Name="使用颜色 #77AAFF" ToolTip.Tip="#77AAFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#77AAFF" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#22C55E" AutomationProperties.Name="使用颜色 #22C55E" ToolTip.Tip="#22C55E" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#22C55E" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#F59E0B" AutomationProperties.Name="使用颜色 #F59E0B" ToolTip.Tip="#F59E0B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F59E0B" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#E5484D" AutomationProperties.Name="使用颜色 #E5484D" ToolTip.Tip="#E5484D" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E5484D" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#A855F7" AutomationProperties.Name="使用颜色 #A855F7" ToolTip.Tip="#A855F7" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#A855F7" CornerRadius="12"/></Button>
-                                                    <Button Classes="interaction-palette-swatch" Tag="#14B8A6" AutomationProperties.Name="使用颜色 #14B8A6" ToolTip.Tip="#14B8A6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#14B8A6" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#FFFFFF" AutomationProperties.Name="{loc:Loc ui.331}" ToolTip.Tip="#FFFFFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#FFFFFF" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#F0F1F3" AutomationProperties.Name="{loc:Loc ui.332}" ToolTip.Tip="#F0F1F3" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F0F1F3" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#E4E6EA" AutomationProperties.Name="{loc:Loc ui.333}" ToolTip.Tip="#E4E6EA" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E4E6EA" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#1E2026" AutomationProperties.Name="{loc:Loc ui.334}" ToolTip.Tip="#1E2026" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#1E2026" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#30343B" AutomationProperties.Name="{loc:Loc ui.335}" ToolTip.Tip="#30343B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#30343B" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#3B82F6" AutomationProperties.Name="{loc:Loc ui.336}" ToolTip.Tip="#3B82F6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#3B82F6" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#77AAFF" AutomationProperties.Name="{loc:Loc ui.337}" ToolTip.Tip="#77AAFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#77AAFF" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#22C55E" AutomationProperties.Name="{loc:Loc ui.338}" ToolTip.Tip="#22C55E" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#22C55E" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#F59E0B" AutomationProperties.Name="{loc:Loc ui.339}" ToolTip.Tip="#F59E0B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F59E0B" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#E5484D" AutomationProperties.Name="{loc:Loc ui.340}" ToolTip.Tip="#E5484D" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E5484D" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#A855F7" AutomationProperties.Name="{loc:Loc ui.341}" ToolTip.Tip="#A855F7" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#A855F7" CornerRadius="12"/></Button>
+                                                    <Button Classes="interaction-palette-swatch" Tag="#14B8A6" AutomationProperties.Name="{loc:Loc ui.342}" ToolTip.Tip="#14B8A6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#14B8A6" CornerRadius="12"/></Button>
                                                 </WrapPanel>
-                                                <TextBox x:Name="InteractionCustomColorBox" AutomationProperties.Name="自定义交互颜色" PlaceholderText="也可输入 #RRGGBB 或 #AARRGGBB" TextChanged="OnInteractionCustomColorChanged"/>
+                                                <TextBox x:Name="InteractionCustomColorBox" AutomationProperties.Name="{loc:Loc ui.243}" PlaceholderText="{loc:Loc ui.140}" TextChanged="OnInteractionCustomColorChanged"/>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -587,36 +603,36 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem AutomationProperties.Name="打开方式">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.180}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Apps}"/>
-                    <TextBlock Text="打开方式" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.180}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <Grid Classes="settings-page" RowDefinitions="Auto,Auto,*" RowSpacing="16">
                 <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="settings-title" Text="打开方式"/>
-                    <Button x:Name="AddApplicationButton" AutomationProperties.Name="添加应用" Grid.Row="0" Grid.Column="1" Classes="secondary" Padding="12,7" VerticalAlignment="Top" Click="ToggleAddApplicationPopup">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="settings-title" Text="{loc:Loc ui.180}"/>
+                    <Button x:Name="AddApplicationButton" AutomationProperties.Name="{loc:Loc ui.231}" Grid.Row="0" Grid.Column="1" Classes="secondary" Padding="12,7" VerticalAlignment="Top" Click="ToggleAddApplicationPopup">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
-                            <TextBlock Text="添加" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc ui.229}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Popup x:Name="AddApplicationPopup" PlacementTarget="AddApplicationButton" Placement="BottomEdgeAlignedRight"
                            IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False">
                         <Border Classes="toolbar-popup" Width="360" MaxHeight="300">
                             <StackPanel Spacing="6">
-                                <TextBox x:Name="ApplicationSearchBox" AutomationProperties.Name="搜索应用" PlaceholderText="搜索应用..." TextChanged="OnApplicationSearchChanged"/>
-                                <TextBlock x:Name="InstalledAppsLoadingText" Text="正在扫描..." HorizontalAlignment="Center" Margin="0,8" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox x:Name="ApplicationSearchBox" AutomationProperties.Name="{loc:Loc ui.187}" PlaceholderText="{loc:Loc ui.188}" TextChanged="OnApplicationSearchChanged"/>
+                                <TextBlock x:Name="InstalledAppsLoadingText" Text="{loc:Loc ui.223}" HorizontalAlignment="Center" Margin="0,8" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <StackPanel x:Name="InstalledAppsPanel" Spacing="1"/>
                             </StackPanel>
                         </Border>
                     </Popup>
-                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="开启后显示在右键菜单首层，关闭后收进「打开方式」子菜单。" Classes="settings-description"/>
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{loc:Loc ui.174}" Classes="settings-description"/>
                 </Grid>
 
-                <TextBlock Grid.Row="1" Classes="settings-section-title" Text="右键菜单项"/>
+                <TextBlock Grid.Row="1" Classes="settings-section-title" Text="{loc:Loc ui.156}"/>
                 <Border Grid.Row="2" Classes="settings-group">
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
@@ -624,8 +640,8 @@
                                 <Border Width="56" Height="56" CornerRadius="16" Background="{DynamicResource SurfaceMutedBrush}">
                                     <PathIcon Data="{x:Static icons:Icons.Apps}" Width="26" Height="26" Foreground="{DynamicResource AccentBrush}"/>
                                 </Border>
-                                <TextBlock Text="添加你的常用应用" Classes="settings-label" HorizontalAlignment="Center"/>
-                                <TextBlock Text="点击右上角的「添加」，让打开文件更顺手。" Classes="settings-description" TextAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc ui.230}" Classes="settings-label" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc ui.234}" Classes="settings-description" TextAlignment="Center"/>
                             </StackPanel>
                             <StackPanel x:Name="ConfiguredAppsPanel" Spacing="0"/>
                         </StackPanel>
@@ -645,32 +661,32 @@
                 <StackPanel Classes="settings-page" Spacing="12">
                     <StackPanel Classes="settings-header">
                         <TextBlock Classes="settings-title" Text="Copilot"/>
-                        <TextBlock Classes="settings-description" Text="连接模型并管理应用内技能。"/>
+                        <TextBlock Classes="settings-description" Text="{loc:Loc ui.252}"/>
                     </StackPanel>
-                    <TextBlock Classes="settings-section-title" Text="模型连接"/>
+                    <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.222}"/>
                     <Border Classes="settings-group">
                         <StackPanel>
                             <Border Classes="settings-row settings-divider">
                                 <Grid ColumnDefinitions="110,*" ColumnSpacing="10">
-                                    <TextBlock Classes="settings-label" Text="API 地址" VerticalAlignment="Center"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.133}" VerticalAlignment="Center"/>
                                     <TextBox Grid.Column="1" x:Name="CopilotEndpointBox" Classes="settings-inline-input"
-                                             AutomationProperties.Name="Copilot API 地址"/>
+                                             AutomationProperties.Name="{loc:Loc ui.135}"/>
                                 </Grid>
                             </Border>
                             <Border Classes="settings-row settings-divider">
                                 <Grid ColumnDefinitions="110,*" ColumnSpacing="10">
-                                    <TextBlock Classes="settings-label" Text="模型" VerticalAlignment="Center"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.221}" VerticalAlignment="Center"/>
                                     <TextBox Grid.Column="1" x:Name="CopilotModelBox" Classes="settings-inline-input"
-                                             AutomationProperties.Name="Copilot 模型"/>
+                                             AutomationProperties.Name="{loc:Loc ui.136}"/>
                                 </Grid>
                             </Border>
                             <Border Classes="settings-row">
                                 <Grid ColumnDefinitions="110,*,Auto" ColumnSpacing="10">
                                     <TextBlock Classes="settings-label" Text="API Key" VerticalAlignment="Center"/>
                                     <TextBox Grid.Column="1" x:Name="CopilotKeyBox" Classes="settings-inline-input"
-                                             PasswordChar="●" Watermark="输入 API Key"
+                                             PasswordChar="●" Watermark="{loc:Loc ui.251}"
                                              AutomationProperties.Name="Copilot API Key"/>
-                                    <Button Grid.Column="2" Classes="secondary compact" Content="保存连接"
+                                    <Button Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.149}"
                                             Click="SaveCopilotConnection"/>
                                 </Grid>
                             </Border>
@@ -683,33 +699,33 @@
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <StackPanel>
-                                    <TextBlock Classes="settings-label" Text="文件信息共享许可"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.193}"/>
                                     <TextBlock x:Name="CopilotConsentStatus" Classes="settings-description" TextWrapping="Wrap"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Classes="secondary compact" Content="撤回同意" Click="OnRevokeCopilotConsent"
-                                        ToolTip.Tip="阻止后续发送；已发出的数据无法收回，文件正文仍需独立审批。"/>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.191}" Click="OnRevokeCopilotConsent"
+                                        ToolTip.Tip="{loc:Loc ui.266}"/>
                             </Grid>
                         </Border>
                     </Border>
-                    <TextBlock Classes="settings-section-title" Text="技能"/>
+                    <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.181}"/>
                     <Border Classes="settings-group" Padding="12">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
                                 <ComboBox x:Name="CopilotSkillPicker" SelectionChanged="OnCopilotSkillSelectionChanged"
-                                          AutomationProperties.Name="选择 Copilot 技能"/>
-                                <Button Grid.Column="1" Classes="secondary compact" Content="新建" Click="NewCopilotSkill"/>
-                                <Button Grid.Column="2" Classes="secondary compact" Content="启用/禁用" Click="ToggleCopilotSkill"/>
-                                <Button Grid.Column="3" Classes="secondary compact" Content="重置" Click="ResetCopilotSkill"/>
+                                          AutomationProperties.Name="{loc:Loc ui.258}"/>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.021}" Click="NewCopilotSkill"/>
+                                <Button Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.159}" Click="ToggleCopilotSkill"/>
+                                <Button Grid.Column="3" Classes="secondary compact" Content="{loc:Loc ui.264}" Click="ResetCopilotSkill"/>
                             </Grid>
                             <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
-                                <TextBlock Classes="settings-label" Text="名称" VerticalAlignment="Center"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Column="1" x:Name="CopilotSkillNameBox" Classes="settings-inline-input"
-                                         Watermark="小写字母、数字和连字符"/>
+                                         Watermark="{loc:Loc ui.168}"/>
                             </Grid>
                             <TextBox x:Name="CopilotSkillContentBox" Classes="settings-command-editor"
                                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="170" MaxHeight="300"
                                      Watermark="---&#10;name: my-skill&#10;description: ...&#10;---"/>
-                            <Button Classes="primary compact" Content="保存技能" Click="SaveCopilotSkill"
+                            <Button Classes="primary compact" Content="{loc:Loc ui.148}" Click="SaveCopilotSkill"
                                     HorizontalAlignment="Right"/>
                         </StackPanel>
                     </Border>
@@ -717,18 +733,18 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem x:Name="AboutTab" AutomationProperties.Name="关于">
+        <TabItem x:Name="AboutTab" AutomationProperties.Name="{loc:Loc ui.151}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Info}"/>
-                    <TextBlock Text="关于" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.151}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="PanelAbout" Classes="settings-page">
                     <StackPanel Classes="settings-header">
-                        <TextBlock Classes="settings-title" Text="关于"/>
-                        <TextBlock Classes="settings-description" Text="版本信息与软件更新。"/>
+                        <TextBlock Classes="settings-title" Text="{loc:Loc ui.151}"/>
+                        <TextBlock Classes="settings-description" Text="{loc:Loc ui.235}"/>
                     </StackPanel>
                     <Border Classes="settings-about-card">
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
@@ -740,7 +756,7 @@
                                 <Border Background="{DynamicResource ColorBgHover}" CornerRadius="20" Padding="12,4" HorizontalAlignment="Left">
                                     <TextBlock x:Name="AboutVersion" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Border>
-                                <TextBlock Text="为 macOS 重新设计的文件浏览体验。" Classes="settings-description"/>
+                                <TextBlock Text="{loc:Loc ui.138}" Classes="settings-description"/>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -750,10 +766,10 @@
                             <Border Classes="settings-row settings-divider">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel>
-                                        <TextBlock Classes="settings-label" Text="软件更新"/>
+                                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.250}"/>
                                         <TextBlock x:Name="UpdateStatus" Classes="settings-description"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" x:Name="UpdateButton" VerticalAlignment="Center" Classes="primary about-update-btn" Content="检查更新" Click="OnUpdateButtonClick"/>
+                                    <Button Grid.Column="1" x:Name="UpdateButton" VerticalAlignment="Center" Classes="primary about-update-btn" Content="{loc:Loc ui.220}" Click="OnUpdateButtonClick"/>
                                 </Grid>
                             </Border>
                         </StackPanel>
@@ -765,7 +781,7 @@
 
                     <Border x:Name="ChangelogBorder" IsVisible="False" Classes="settings-group" Padding="14,12">
                         <StackPanel Spacing="6">
-                            <TextBlock x:Name="ChangelogTitle" Text="更新日志" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock x:Name="ChangelogTitle" Text="{loc:Loc ui.216}" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextMutedBrush}"/>
                             <TextBlock x:Name="ChangelogText" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
                     </Border>
@@ -774,18 +790,18 @@
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <StackPanel>
-                                    <TextBlock Classes="settings-label" Text="隐私政策"/>
+                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.267}"/>
                                     <TextBlock x:Name="PrivacyPolicyStatus" Classes="settings-description" TextWrapping="Wrap"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Classes="secondary compact" Content="查看政策" Click="OnPrivacyPolicy"/>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.217}" Click="OnPrivacyPolicy"/>
                             </Grid>
                         </Border>
                     </Border>
                     <Border x:Name="SubscriptionSettings" IsVisible="False" Classes="settings-group">
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                <TextBlock Classes="settings-label" Text="App Store 订阅"/>
-                                <Button Grid.Column="1" Classes="secondary compact" Content="管理订阅" Click="OnManageSubscription"/>
+                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.134}"/>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.241}" Click="OnManageSubscription"/>
                             </Grid>
                         </Border>
                     </Border>
@@ -793,11 +809,11 @@
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
-        <TabItem AutomationProperties.Name="快捷键">
+        <TabItem AutomationProperties.Name="{loc:Loc ui.175}">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <PathIcon Classes="settings-nav-icon" Data="{x:Static icons:Icons.Keyboard}"/>
-                    <TextBlock Text="快捷键" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc ui.175}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TabItem.Header>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled">

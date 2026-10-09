@@ -27,6 +27,7 @@ public partial class HomeDashboard : UserControl
     private CancellationTokenSource? _recentCancellation;
     private MainWindow? _expandedOwner;
     private bool _attached;
+    private ILocalizationService? _language;
 
     public HomeDashboard()
     {
@@ -48,10 +49,12 @@ public partial class HomeDashboard : UserControl
         var runner = services.GetService<HomeScriptRunner>();
         if (_tags == null || _workspace == null || files == null || runner == null)
         {
-            StatusMessage.Text = "首页服务尚未初始化。";
+            StatusMessage.Text = MacExplorer.Services.Impl.LocalizationText.Get("首页服务尚未初始化。");
             return;
         }
         _actions = new(this, _navigation, files, _tags, _workspace, runner, SetStatus);
+        _language = LocalizationService.Current;
+        if (_language != null) _language.LanguageChanged += OnLanguageChanged;
         _navigation.PropertyChanged += OnNavigationChanged;
         _tags.TagsChanged += OnTagsChanged;
         _workspace.HistoryChanged += OnHistoryChanged;
@@ -59,8 +62,15 @@ public partial class HomeDashboard : UserControl
         if (_navigation.IsHomePage) _ = RefreshAsync();
     }
 
+    private void OnLanguageChanged()
+    {
+        if (_attached && _navigation?.IsHomePage == true) _ = RefreshAsync();
+    }
+
     private void Disconnect()
     {
+        if (_language != null) _language.LanguageChanged -= OnLanguageChanged;
+        _language = null;
         if (_navigation != null) _navigation.PropertyChanged -= OnNavigationChanged;
         if (_tags != null) _tags.TagsChanged -= OnTagsChanged;
         if (_workspace != null)
@@ -137,10 +147,10 @@ public partial class HomeDashboard : UserControl
             await Task.WhenAll(_cards.Select(card => LoadFolderAsync(card, tagsService, token)));
             token.ThrowIfCancellationRequested();
             var visible = _cards.Count(card => card.IsVisible);
-            SetStatus(visible == 0 ? "还没有收藏。新建标签，或把文件拖到收藏夹中。" : "");
+            SetStatus(visible == 0 ? MacExplorer.Services.Impl.LocalizationText.Get("还没有收藏。新建标签，或把文件拖到收藏夹中。") : "");
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (!token.IsCancellationRequested) SetStatus("读取收藏夹失败：" + ex.Message); }
+        catch (Exception ex) { if (!token.IsCancellationRequested) SetStatus(MacExplorer.Services.Impl.LocalizationText.Get("读取收藏夹失败：") + ex.Message); }
     }
 
     private async Task LoadFolderAsync(HomeFolderCard card, IFileTagService tags, CancellationToken token)
@@ -202,7 +212,7 @@ public partial class HomeDashboard : UserControl
             RecentEmpty.IsVisible = entries.Count == 0;
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (!token.IsCancellationRequested) SetStatus("读取使用记录失败：" + ex.Message); }
+        catch (Exception ex) { if (!token.IsCancellationRequested) SetStatus(MacExplorer.Services.Impl.LocalizationText.Get("读取使用记录失败：") + ex.Message); }
     }
 
     private void OnRecentAreaSizeChanged(object? sender, SizeChangedEventArgs e) => SizeRecentItems();

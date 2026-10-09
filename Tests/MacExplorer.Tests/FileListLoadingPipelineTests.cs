@@ -60,7 +60,7 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         Assert.All(streamedAddedEntries, e => Assert.False(string.IsNullOrEmpty(e.FullPath)));
 
         var expected = all
-            .OrderBy(e => e.IsDirectory)
+            .OrderBy(e => e.IsFolder)
             .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .Select(e => e.FullPath)
             .ToList();

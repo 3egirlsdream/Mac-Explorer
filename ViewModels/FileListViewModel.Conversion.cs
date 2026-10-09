@@ -25,7 +25,8 @@ public partial class FileListViewModel
         {
             var commands = plugin.Manifest.Commands.Where(command => command.Match.Matches(files)).Select(command => new ContextMenuAction
             {
-                Label = command.Title, IconSvg = PluginIcon(command.Icon), IsEnabled = !plugin.Running,
+                Label = plugin.Manifest.Id == "com.macexplorer.file-conversion"
+                    ? MacExplorer.Services.Impl.LocalizationText.Get(command.Title) : command.Title, IconSvg = PluginIcon(command.Icon), IsEnabled = !plugin.Running,
                 Execute = async () =>
                 {
                     if (_appCapabilities == null)
@@ -36,7 +37,8 @@ public partial class FileListViewModel
                             System.Text.Json.JsonSerializer.Serialize(new { paths = files.Select(file => file.Path).ToArray() }), this);
                 }
             }).ToArray();
-            return new ContextMenuAction { Label = plugin.Manifest.Name, IconSvg = PluginIcon(plugin.Manifest.Icon), SubItems = commands };
+            return new ContextMenuAction { Label = plugin.Manifest.Id == "com.macexplorer.file-conversion"
+                ? MacExplorer.Services.Impl.LocalizationText.Get(plugin.Manifest.Name) : plugin.Manifest.Name, IconSvg = PluginIcon(plugin.Manifest.Icon), SubItems = commands };
         }).Where(action => action.SubItems!.Count > 0).ToArray();
     }
 

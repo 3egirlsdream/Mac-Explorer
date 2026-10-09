@@ -55,7 +55,7 @@ public sealed class HomeItemActions : IDisposable
             Opacity = entry.IsReadable ? 1 : 0.5 };
         var image = new MacExplorer.Controls.HomeFileImage(entry, compact ? 30 : 48, _navigation.GetListThumbnailAsync, _thumbnails)
         { HorizontalAlignment = HorizontalAlignment.Center };
-        var name = new TextBlock { Text = entry.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis,
+        var name = new TextBlock { Text = InterfaceLocationNames.Get(entry.FullPath, _navigation.HomeDirectory) ?? entry.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis,
             FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         if (compact)
         {
@@ -67,7 +67,7 @@ public sealed class HomeItemActions : IDisposable
             labels.Children.Add(name);
             var timestamp = addedUtc ?? entry.Created.ToUniversalTime();
             var time = new TextBlock { Text = FormatAddedTime(timestamp, DateTime.UtcNow), Classes = { "home-secondary" } };
-            ToolTip.SetTip(time, $"添加于 {timestamp.ToLocalTime():yyyy-MM-dd HH:mm}");
+            ToolTip.SetTip(time, MacExplorer.Services.Impl.LocalizationText.Get("添加于 {0}", timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm")));
             labels.Children.Add(time);
             Grid.SetColumn(labels, 1); content.Children.Add(labels);
             button.Content = content;
@@ -77,8 +77,8 @@ public sealed class HomeItemActions : IDisposable
             name.TextAlignment = TextAlignment.Center;
             button.Content = CreateGridContent(image, name);
         }
-        AutomationProperties.SetName(button, entry.Name + (entry.IsReadable ? "" : "，路径不可用"));
-        ToolTip.SetTip(button, entry.FullPath + (entry.IsReadable ? "" : "\n项目已移动、删除或暂时不可访问"));
+        AutomationProperties.SetName(button, entry.Name + (entry.IsReadable ? "" : MacExplorer.Services.Impl.LocalizationText.Get("，路径不可用")));
+        ToolTip.SetTip(button, entry.FullPath + (entry.IsReadable ? "" : "\n" + MacExplorer.Services.Impl.LocalizationText.Get("项目已移动、删除或暂时不可访问")));
         button.Click += async (_, _) => await GuardAsync(() => OpenAsync(entry, beforeOpen));
         var menu = new ContextMenu();
         menu.Opened += (_, _) =>
@@ -93,10 +93,10 @@ public sealed class HomeItemActions : IDisposable
     internal static string FormatAddedTime(DateTime addedUtc, DateTime nowUtc)
     {
         var elapsed = nowUtc - addedUtc;
-        if (elapsed.TotalMinutes < 1) return "最近添加";
-        if (elapsed.TotalHours < 1) return $"{(int)elapsed.TotalMinutes} 分钟前";
-        if (elapsed.TotalDays < 1) return $"{(int)elapsed.TotalHours} 小时前";
-        if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays} 天前";
+        if (elapsed.TotalMinutes < 1) return MacExplorer.Services.Impl.LocalizationText.Get("最近添加");
+        if (elapsed.TotalHours < 1) return MacExplorer.Services.Impl.LocalizationText.Get("{0} 分钟前", (int)elapsed.TotalMinutes);
+        if (elapsed.TotalDays < 1) return MacExplorer.Services.Impl.LocalizationText.Get("{0} 小时前", (int)elapsed.TotalHours);
+        if (elapsed.TotalDays < 7) return MacExplorer.Services.Impl.LocalizationText.Get("{0} 天前", (int)elapsed.TotalDays);
         return addedUtc.ToLocalTime().ToString("yyyy-MM-dd");
     }
 
@@ -118,7 +118,7 @@ public sealed class HomeItemActions : IDisposable
     private async Task OpenAsync(FileSystemEntry entry, Action? beforeOpen)
     {
         if (!await Task.Run(() => _files.ExistsAsync(entry.FullPath)))
-            throw new FileNotFoundException("项目已移动、删除或暂时不可访问。", entry.FullPath);
+            throw new FileNotFoundException(MacExplorer.Services.Impl.LocalizationText.Get("项目已移动、删除或暂时不可访问。"), entry.FullPath);
         beforeOpen?.Invoke();
         // Preserve the app's bundle/archive/normal-file activation behavior instead of invoking a shell here.
         await _navigation.OpenEntryAsync(entry);
@@ -134,8 +134,8 @@ public sealed class HomeItemActions : IDisposable
     private void PopulateItemMenu(ContextMenu menu, FileSystemEntry entry, FileTag? tag, Action? beforeOpen)
     {
         menu.Items.Clear();
-        menu.Items.Add(ActionItem("打开", () => OpenAsync(entry, beforeOpen), entry.IsReadable));
-        menu.Items.Add(ActionItem("在文件列表中显示", async () =>
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("打开"), () => OpenAsync(entry, beforeOpen), entry.IsReadable));
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("在文件列表中显示"), async () =>
         {
             beforeOpen?.Invoke();
             await _navigation.RevealFileAsync(entry);
@@ -149,7 +149,7 @@ public sealed class HomeItemActions : IDisposable
                 menu.Items.Add(new Separator());
                 if (commands.Count > 0)
                 {
-                    var run = new MenuItem { Header = "运行命令", IsEnabled = entry.IsReadable };
+                    var run = new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("运行命令"), IsEnabled = entry.IsReadable };
                     foreach (var command in commands)
                     {
                         var captured = command;
@@ -161,16 +161,16 @@ public sealed class HomeItemActions : IDisposable
                     ContextMenuPopupStyler.Attach(run);
                     menu.Items.Add(run);
                 }
-                menu.Items.Add(ActionItem("编辑脚本命令…", () => EditCommandsAsync(entry.FullPath)));
+                menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("编辑脚本命令…"), () => EditCommandsAsync(entry.FullPath)));
             }
         }
         if (tag != null)
         {
             menu.Items.Add(new Separator());
-            menu.Items.Add(ActionItem("从此收藏夹移除", async () =>
+            menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("从此收藏夹移除"), async () =>
             {
                 var result = await Task.Run(() => _tags.SetTagAsync([entry.FullPath], tag, false));
-                _status(result.PendingFiles > 0 ? "已移除收藏，等待同步 Finder。" : "已移除收藏，原文件保持不变。");
+                _status(result.PendingFiles > 0 ? MacExplorer.Services.Impl.LocalizationText.Get("已移除收藏，等待同步 Finder。") : MacExplorer.Services.Impl.LocalizationText.Get("已移除收藏，原文件保持不变。"));
             }));
         }
     }
@@ -178,24 +178,24 @@ public sealed class HomeItemActions : IDisposable
     public ContextMenu CreateFolderMenu(FileTag tag, Action? beforeNavigate = null)
     {
         var menu = new ContextMenu();
-        menu.Items.Add(ActionItem("添加文件…", () => AddAsync(tag, folders: false)));
-        menu.Items.Add(ActionItem("添加文件夹…", () => AddAsync(tag, folders: true)));
-        menu.Items.Add(ActionItem("在文件列表中打开", async () =>
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("添加文件…"), () => AddAsync(tag, folders: false)));
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("添加文件夹…"), () => AddAsync(tag, folders: true)));
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("在文件列表中打开"), async () =>
         {
             beforeNavigate?.Invoke();
             await _navigation.NavigateToAsync(tag.VirtualPath);
         }));
         menu.Items.Add(new Separator());
-        menu.Items.Add(ActionItem("重置收藏夹大小", () =>
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("重置收藏夹大小"), () =>
         {
             _workspace.SaveLayout(tag, new HomeFolderLayout());
             return Task.CompletedTask;
         }));
         if (tag.IsCustom)
-            menu.Items.Add(ActionItem("重命名标签…", async () =>
+            menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("重命名标签…"), async () =>
             {
                 if (TopLevel.GetTopLevel(_owner) is not Window owner) return;
-                var name = await new HomeNameDialog("重命名标签", tag.Name).ShowDialog<string?>(owner);
+                var name = await new HomeNameDialog(MacExplorer.Services.Impl.LocalizationText.Get("重命名标签"), tag.Name).ShowDialog<string?>(owner);
                 if (name != null) await Task.Run(() => _tags.RenameTagAsync(tag, name));
             }));
         return menu;
@@ -207,10 +207,10 @@ public sealed class HomeItemActions : IDisposable
         IReadOnlyList<IStorageItem> items;
         if (folders)
             items = await top.StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
-                { Title = $"收藏文件夹到“{tag.Name}”", AllowMultiple = true });
+                { Title = MacExplorer.Services.Impl.LocalizationText.Get("收藏文件夹到“{0}”", tag.DisplayName), AllowMultiple = true });
         else
             items = await top.StorageProvider.OpenAuthorizedFilePickerAsync(new FilePickerOpenOptions
-                { Title = $"收藏文件到“{tag.Name}”", AllowMultiple = true });
+                { Title = MacExplorer.Services.Impl.LocalizationText.Get("收藏文件到“{0}”", tag.DisplayName), AllowMultiple = true });
         try { await AddPathsAsync(tag, items.Where(i => i.Path.IsFile).Select(i => i.Path.LocalPath).ToArray()); }
         finally { foreach (var item in items) item.Dispose(); }
     }
@@ -233,7 +233,7 @@ public sealed class HomeItemActions : IDisposable
     {
         await _runner.RunAsync(path, command);
         _ = _workspace.RecordUseAsync(path);
-        _status($"已在默认终端中打开：{command.Name}");
+        _status(MacExplorer.Services.Impl.LocalizationText.Get("已在默认终端中打开：{0}", command.Name));
     }
 
     public Task<IReadOnlyList<FileSystemEntry>> LoadEntriesAsync(IReadOnlyList<string> paths, CancellationToken ct)

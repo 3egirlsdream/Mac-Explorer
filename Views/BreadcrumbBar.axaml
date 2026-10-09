@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
@@ -77,13 +78,13 @@
             Classes.path-editing="{Binding #PathInput.IsVisible}" Padding="4,2"
             PointerPressed="OnBrowseModePointerPressed">
         <Grid ColumnDefinitions="*">
-            <TextBlock Text="首页" IsVisible="{Binding IsHomePage}" Margin="8,0"
+            <TextBlock Text="{loc:Loc ui.029}" IsVisible="{Binding IsHomePage}" Margin="8,0"
                        FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
             <!-- The workspace routes home shortcuts to the central omnibox. -->
             <TextBox Grid.Column="0"
                      x:Name="HomePathInput"
                      Classes="breadcrumb-input omnibox-input"
-                     PlaceholderText="输入路径、URL 或搜索内容..."
+                     PlaceholderText="{loc:Loc ui.431}"
                      IsVisible="False"
                      GotFocus="OnInputGotFocus"
                      KeyDown="OnInputKeyDown"
@@ -116,8 +117,8 @@
                                 <Button Classes="breadcrumb-button breadcrumb-dropdown breadcrumb-segment-dropdown"
                                         Click="OnDirectoryDropdownClicked"
                                         KeyDown="OnDropdownKeyDown"
-                                        AutomationProperties.Name="{Binding DisplayName, StringFormat='显示 {0} 的子目录'}"
-                                        ToolTip.Tip="显示子目录">
+                                        AutomationProperties.Name="{loc:LocFormat Path=DisplayName, Text='显示 {0} 的子目录'}"
+                                        ToolTip.Tip="{loc:Loc ui.432}">
                                     <PathIcon Data="{x:Static icons:Icons.ChevronRight}" Width="10" Height="10"/>
                                 </Button>
                                 <Border IsVisible="{Binding HasDropdown, Converter={StaticResource BoolNotConverter}}">
@@ -134,12 +135,12 @@
                         Classes="breadcrumb-button breadcrumb-dropdown"
                         Width="28" IsVisible="False" HorizontalAlignment="Left"
                         Click="OnOverflowClicked"
-                        ToolTip.Tip="显示隐藏的上级目录"
-                        AutomationProperties.Name="显示隐藏的上级目录">
+                        ToolTip.Tip="{loc:Loc ui.433}"
+                        AutomationProperties.Name="{loc:Loc ui.433}">
                     <PathIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="14" Height="14"/>
                 </Button>
                 <Border Grid.Column="1" Background="Transparent"
-                        ToolTip.Tip="点击编辑路径"/>
+                        ToolTip.Tip="{loc:Loc ui.434}"/>
             </Grid>
 
             <Popup x:Name="HiddenBreadcrumbPopup"
@@ -154,7 +155,7 @@
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                              Tapped="OnHiddenBreadcrumbTapped"
-                             AutomationProperties.Name="隐藏的上级目录">
+                             AutomationProperties.Name="{loc:Loc ui.435}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="models:BreadcrumbSegment">
                                 <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding FullPath}"
@@ -186,10 +187,10 @@
                                 <TextBox Grid.Column="1" x:Name="DirectoryDropdownSearch"
                                          Classes="search-input omnibox-input" Height="28" MinHeight="28"
                                          Padding="3,0" Background="Transparent" BorderThickness="0"
-                                         PlaceholderText="筛选目录"
+                                         PlaceholderText="{loc:Loc ui.436}"
                                          Foreground="{DynamicResource TextPrimaryBrush}"
                                          TextChanged="OnDirectorySearchTextChanged"
-                                         AutomationProperties.Name="筛选子目录"/>
+                                         AutomationProperties.Name="{loc:Loc ui.437}"/>
                             </Grid>
                         </Border>
                         <TextBlock Grid.Row="1" x:Name="DirectoryDropdownStatus" Margin="10,8"
@@ -202,7 +203,7 @@
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  Tapped="OnDirectoryTapped"
-                                 AutomationProperties.Name="子目录">
+                                 AutomationProperties.Name="{loc:Loc ui.438}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="models:BreadcrumbSegment">
                                     <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding DisplayName}"
@@ -219,7 +220,7 @@
             <TextBox Grid.Column="0"
                      x:Name="PathInput"
                      Classes="breadcrumb-input omnibox-input"
-                     PlaceholderText="输入路径、URL 或搜索内容..."
+                     PlaceholderText="{loc:Loc ui.431}"
                      IsVisible="False"
                      GotFocus="OnInputGotFocus"
                      KeyDown="OnInputKeyDown"

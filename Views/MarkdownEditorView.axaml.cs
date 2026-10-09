@@ -1,4 +1,5 @@
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -15,6 +16,7 @@ namespace MacExplorer.Views;
 
 public partial class MarkdownEditorView : UserControl, IDisposable
 {
+    private readonly ILocalizationService? _language;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly CancellationToken _lifetimeToken;
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
@@ -35,6 +37,8 @@ public partial class MarkdownEditorView : UserControl, IDisposable
 
     public MarkdownEditorView()
     {
+        _language = LocalizationService.Current;
+        if (_language != null) _language.LanguageChanged += OnInterfaceLanguageChanged;
         _lifetimeToken = _lifetime.Token;
         InitializeComponent();
         Editor.Options.ConvertTabsToSpaces = true;
@@ -75,7 +79,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            if (!_disposed) ShowError("打开失败：" + ex.Message);
+            if (!_disposed) ShowError(LocalizationText.Get("打开失败：{0}", ex.Message));
             // A failed read never becomes an editable empty document.
         }
         finally
@@ -183,7 +187,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
             if (saveAs)
             {
                 var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-                if (storage?.CanSave != true) throw new IOException("当前环境不支持选择保存位置。");
+                if (storage?.CanSave != true) throw new IOException(LocalizationText.Get("当前环境不支持选择保存位置。"));
                 var file = await storage.SaveAuthorizedFilePickerAsync(new FilePickerSaveOptions
                 {
                     Title = "Markdown 另存为",
@@ -195,7 +199,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
                 if (file == null) return false;
                 using (file)
                 {
-                    var path = file.TryGetLocalPath() ?? throw new IOException("请选择本地文件路径。");
+                    var path = file.TryGetLocalPath() ?? throw new IOException(LocalizationText.Get("请选择本地文件路径。"));
                     saved = await document.SaveCopyAsync(path, text, _lifetimeToken);
                 }
             }
@@ -211,7 +215,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested) { return false; }
         catch (Exception ex)
         {
-            if (!_disposed) ShowError("保存失败：" + ex.Message);
+            if (!_disposed) ShowError(LocalizationText.Get("保存失败：{0}", ex.Message));
             return false;
         }
         finally
@@ -304,14 +308,14 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         {
             TitleText.Text = Path.GetFileName(_document.FilePath) + (_dirty ? " •" : string.Empty);
             var lineEnding = _document.NewLine == "\r\n" ? "CRLF" : _document.NewLine == "\r" ? "CR" : "LF";
-            StatusText.Text = $"{(_saving ? "正在保存…" : _dirty ? "未保存" : "已保存")}  ·  {_document.EncodingName}  ·  {lineEnding}  ·  {Editor.Document.LineCount:N0} 行";
+            StatusText.Text = $"{LocalizationText.Get(_saving ? "正在保存…" : _dirty ? "未保存" : "已保存")}  ·  {_document.EncodingName}  ·  {lineEnding}  ·  {LocalizationText.Get("{0} 行", Editor.Document.LineCount.ToString("N0", _language?.Culture))}";
         }
-        else StatusText.Text = _loading ? "正在读取…" : "未打开可编辑的文档";
+        else StatusText.Text = _loading ? LocalizationText.Get("正在读取…") : LocalizationText.Get("未打开可编辑的文档");
         OnCaretChanged(this, EventArgs.Empty);
     }
 
     private void OnCaretChanged(object? sender, EventArgs e) =>
-        CaretText.Text = $"第 {Editor.TextArea.Caret.Line} 行，第 {Editor.TextArea.Caret.Column} 列";
+        CaretText.Text = LocalizationText.Get("第 {0} 行，第 {1} 列", Editor.TextArea.Caret.Line, Editor.TextArea.Caret.Column);
 
     private void SetMode(string mode)
     {
@@ -340,7 +344,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         var menu = new ContextMenu();
         void Item(string title, Action action)
         {
-            var item = new MenuItem { Header = title };
+            var item = new MenuItem { Header = LocalizationText.Get(title) };
             item.Click += (_, _) => action();
             menu.Items.Add(item);
         }
@@ -380,7 +384,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
     {
         var query = FindText.Text ?? string.Empty;
         var text = Editor.Text;
-        if (query.Length == 0) { SearchMessage.Text = "请输入查找内容"; return; }
+        if (query.Length == 0) { SearchMessage.Text = LocalizationText.Get("请输入查找内容"); return; }
         int index;
         if (backwards)
         {
@@ -393,12 +397,12 @@ public partial class MarkdownEditorView : UserControl, IDisposable
             index = text.IndexOf(query, Math.Min(Editor.SelectionStart + Editor.SelectionLength, text.Length), SearchComparison);
             if (index < 0) index = text.IndexOf(query, SearchComparison);
         }
-        if (index < 0) { SearchMessage.Text = "未找到"; return; }
+        if (index < 0) { SearchMessage.Text = LocalizationText.Get("未找到"); return; }
         Editor.CaretOffset = index + query.Length;
         Editor.SelectionStart = index;
         Editor.SelectionLength = query.Length;
         Editor.ScrollToLine(Editor.Document.GetLineByOffset(index).LineNumber);
-        SearchMessage.Text = "已定位（到末尾后循环查找）";
+        SearchMessage.Text = LocalizationText.Get("已定位（到末尾后循环查找）");
     }
 
     private void OnReplace(object? sender, RoutedEventArgs e)
@@ -430,7 +434,18 @@ public partial class MarkdownEditorView : UserControl, IDisposable
             var replacement = (ReplaceText.Text ?? string.Empty).ReplaceLineEndings(_document.NewLine);
             Editor.Document.Replace(0, text.Length, text.Replace(query, replacement, SearchComparison));
         }
-        SearchMessage.Text = $"已替换 {count} 处";
+        SearchMessage.Text = LocalizationText.Get("已替换 {0} 处", count);
+    }
+
+    private void OnInterfaceLanguageChanged()
+    {
+        if (_disposed) return;
+        UpdateChrome();
+        Editor.ContextMenu?.Close();
+        Editor.ContextMenu = CreateEditorMenu();
+        _headingMenu?.Close();
+        _headingMenu = null;
+        RefreshPreview();
     }
 
     private void OnThemeChanged(object? sender, EventArgs e) => ApplyHighlighting();
@@ -441,6 +456,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        if (_language != null) _language.LanguageChanged -= OnInterfaceLanguageChanged;
         _lifetime.Cancel();
         _lifetime.Dispose();
         _refreshTimer.Stop();
@@ -487,7 +503,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         for (var level = 1; level <= 6; level++)
         {
             var action = $"H{level}";
-            var item = new MenuItem { Header = $"{level} 级标题" };
+            var item = new MenuItem { Header = LocalizationText.Get("{0} 级标题", level) };
             item.Click += (_, _) => ApplyFormat(action);
             menu.Items.Add(item);
         }

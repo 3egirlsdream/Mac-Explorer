@@ -203,10 +203,12 @@ public partial class FinderSidebarView : UserControl
     private void UpdateActiveStates()
     {
         if (ViewModel == null) return;
+        if (RemoteServersList.ItemsSource is IEnumerable<RemoteServerInfo> servers)
+            foreach (var server in servers) server.RefreshLocalizedText();
         var hasTags = ViewModel.SidebarTags.Count > 0;
-        TagsSectionTitle.Text = "标签";
+        TagsSectionTitle.Text = MacExplorer.Services.Impl.LocalizationText.Get("标签");
         TagsSectionHeader.Margin = new Thickness(0, hasTags ? 16 : 8, 0, 2);
-        AutomationProperties.SetName(TagsSectionHeader, hasTags ? "展开或收起标签" : "添加标签");
+        AutomationProperties.SetName(TagsSectionHeader, MacExplorer.Services.Impl.LocalizationText.Get(hasTags ? "展开或收起标签" : "添加标签"));
         TagsChevron.IsVisible = hasTags;
         var current = ViewModel.CurrentPath;
         var home = ViewModel.HomeDirectory;
@@ -499,9 +501,19 @@ public partial class FinderSidebarView : UserControl
         _folderDropPath = null;
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
+            language.LanguageChanged += UpdateActiveStates;
+        UpdateActiveStates();
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         ClearFolderDropTarget();
+        if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
+            language.LanguageChanged -= UpdateActiveStates;
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -555,7 +567,7 @@ public partial class FinderSidebarView : UserControl
         NewTagEditorRow.IsVisible = true;
         _activeTagEditorRow = NewTagEditorRow;
         _activeTagInput = NewTagInput;
-        NewTagInput.Text = "新标签";
+        NewTagInput.Text = MacExplorer.Services.Impl.LocalizationText.Get("新标签");
         FocusTagInput(NewTagInput);
     }
 

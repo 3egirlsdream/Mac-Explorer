@@ -32,6 +32,7 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
         MacExplorer.Services.Markdown.MarkdownLocalization.Register();
         Services = ConfigureServices();
+        Services.GetRequiredService<ILocalizationService>();
         Services.GetRequiredService<IThemeService>().Initialize();
         Services.GetRequiredService<IInteractionStyleService>().Initialize();
         Services.GetRequiredService<ITypographyService>().Initialize();
@@ -333,6 +334,7 @@ public partial class App : Application
         services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<ILocalizationService, Services.Impl.LocalizationService>();
         services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddSingleton<ILocalSendService, Services.Impl.LocalSendService>();
         services.AddSingleton<Copilot.CopilotSettings>();

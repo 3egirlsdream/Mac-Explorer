@@ -230,7 +230,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             name.Release();
             if (_hasVirtualRows)
             {
-                var count = Format("0 张照片", MetaFontSize, Secondary, 100);
+                var count = Format(MacExplorer.Services.Impl.LocalizationText.Get("{0} 张照片", 0), MetaFontSize, Secondary, 100);
                 countHeight = Math.Ceiling(count.Height);
                 count.Release();
             }
@@ -307,6 +307,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
+            language.LanguageChanged += RefreshLanguage;
         _attached = true;
         _topLevel = TopLevel.GetTopLevel(this);
         if (_topLevel != null) _topLevel.ScalingChanged += OnScalingChanged;
@@ -325,6 +327,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
         ObserveRows([]);
         _images.Clear();
         ClearTexts();
+        if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
+            language.LanguageChanged -= RefreshLanguage;
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -503,8 +507,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
         UpdatePointerPosition(position);
         var disclosure = TreeDisclosureIndexAt(position);
         ToolTip.SetTip(this, EditingPath != null ? null
-            : disclosure >= 0 && _treeRows[disclosure].HasError ? "读取失败，点击重试"
-            : disclosure >= 0 && _treeRows[disclosure].IsLoading ? "正在读取文件夹"
+            : disclosure >= 0 && _treeRows[disclosure].HasError ? MacExplorer.Services.Impl.LocalizationText.Get("读取失败，点击重试")
+            : disclosure >= 0 && _treeRows[disclosure].IsLoading ? MacExplorer.Services.Impl.LocalizationText.Get("正在读取文件夹")
             : EntryAt(position)?.DisplayName);
     }
 
@@ -547,6 +551,12 @@ public sealed class FastFileList : Control, ILogicalScrollable
         foreach (var entry in next)
             if (_observed.Add(entry)) entry.PropertyChanged += OnEntryChanged;
     }
+    private void RefreshLanguage()
+    {
+        ClearTexts();
+        InvalidateVisual();
+    }
+
     private void OnEntryChanged(object? sender, PropertyChangedEventArgs e)
     {
         InvalidateVisual();
@@ -608,12 +618,12 @@ public sealed class FastFileList : Control, ILogicalScrollable
         {
             var group = _groups.FirstOrDefault(candidate => candidate.Name == section.Name);
             var displayedCount = group.DisplayCount ?? section.Count;
-            var label = $"{section.Name} · {displayedCount} 项";
+            var label = MacExplorer.Services.Impl.LocalizationText.Get(section.Name!) + " · " + MacExplorer.Services.Impl.LocalizationText.Get("{0} 项", displayedCount);
             if (!_headerTexts.TryGetValue(label, out var text))
             {
                 if (_headerTexts.Count >= TextCacheLimit) ClearHeaderTexts();
-                var title = Format(section.Name!, DetailFontSize, Secondary, Math.Max(1, Bounds.Width - 28), weight: FontWeight.SemiBold);
-                _headerTexts[label] = text = (title, Format($"· {displayedCount} 项", CaptionFontSize, Muted, Math.Max(1, Bounds.Width - 28)));
+                var title = Format(MacExplorer.Services.Impl.LocalizationText.Get(section.Name!), DetailFontSize, Secondary, Math.Max(1, Bounds.Width - 28), weight: FontWeight.SemiBold);
+                _headerTexts[label] = text = (title, Format("· " + MacExplorer.Services.Impl.LocalizationText.Get("{0} 项", displayedCount), CaptionFontSize, Muted, Math.Max(1, Bounds.Width - 28)));
             }
             var y = section.Top - _offset + 6;
             text.Title.Draw(context, new Point(14, y + Math.Round((GroupMinHeight - Math.Ceiling(text.Title.Height)) / 2)));

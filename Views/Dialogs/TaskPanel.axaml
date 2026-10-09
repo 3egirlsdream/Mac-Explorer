@@ -1,9 +1,10 @@
 <controls:ToolWindow xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="using:MacExplorer.Assets"
         x:Class="MacExplorer.Views.Dialogs.TaskPanel"
-        Title="后台任务" Width="420" Height="480" MinWidth="380" MinHeight="360"
+        Title="{loc:Loc ui.048}" Width="420" Height="480" MinWidth="380" MinHeight="360"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource GlassMenuBg}">
 
@@ -101,12 +102,12 @@
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                <TextBlock x:Name="TaskSummaryText" Text="没有正在运行的任务"
+                <TextBlock x:Name="TaskSummaryText" Text="{loc:Loc ui.535}"
                            FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"
                            VerticalAlignment="Center"/>
             </StackPanel>
             <Button x:Name="ClearAllButton" Grid.Column="1"
-                    Content="全部清空" Classes="ghost compact"
+                    Content="{loc:Loc ui.536}" Classes="ghost compact"
                     Click="ClearAllTasks"/>
         </Grid>
 
@@ -115,19 +116,19 @@
             <Border Grid.Column="0" Classes="task-summary">
                 <StackPanel Spacing="1">
                     <TextBlock x:Name="RunningCountText" Text="0" Classes="task-stat-value"/>
-                    <TextBlock Text="进行中" Classes="task-stat-label"/>
+                    <TextBlock Text="{loc:Loc ui.537}" Classes="task-stat-label"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="1" Classes="task-summary">
                 <StackPanel Spacing="1">
                     <TextBlock x:Name="CompletedCountText" Text="0" Classes="task-stat-value"/>
-                    <TextBlock Text="已完成" Classes="task-stat-label"/>
+                    <TextBlock Text="{loc:Loc ui.538}" Classes="task-stat-label"/>
                 </StackPanel>
             </Border>
             <Border x:Name="FailedStat" Grid.Column="2" Classes="task-summary">
                 <StackPanel Spacing="1">
                     <TextBlock x:Name="FailedCountText" Text="0" Classes="task-stat-value"/>
-                    <TextBlock Text="需要处理" Classes="task-stat-label"/>
+                    <TextBlock Text="{loc:Loc ui.539}" Classes="task-stat-label"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -141,10 +142,10 @@
                     <PathIcon Data="{x:Static icons:Icons.Info}" Width="34" Height="34"
                               Foreground="{DynamicResource TextMutedBrush}"
                               HorizontalAlignment="Center"/>
-                    <TextBlock Text="没有后台任务" FontSize="{DynamicResource FontSizeBodyLarge}" FontWeight="{StaticResource FontWeightSemibold}"
+                    <TextBlock Text="{loc:Loc ui.540}" FontSize="{DynamicResource FontSizeBodyLarge}" FontWeight="{StaticResource FontWeightSemibold}"
                                HorizontalAlignment="Center"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="所有任务都已处理完毕"
+                    <TextBlock Text="{loc:Loc ui.541}"
                                FontSize="{DynamicResource FontSizeLabel}"
                                HorizontalAlignment="Center"
                                Foreground="{DynamicResource TextMutedBrush}"/>
@@ -162,7 +163,7 @@
         <Grid Grid.Row="3" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
             <Button x:Name="ClearCompletedButton"
                     Grid.Column="1"
-                    Content="清除已完成"
+                    Content="{loc:Loc ui.069}"
                     Classes="ghost compact"
                     Click="ClearCompleted"/>
         </Grid>

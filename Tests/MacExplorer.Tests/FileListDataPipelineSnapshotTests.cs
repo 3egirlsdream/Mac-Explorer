@@ -75,6 +75,57 @@ public class FileListDataPipelineSnapshotTests
         Assert.Equal(input.Length, snapshots[^1].Entries.Count);
     }
 
+    [Theory]
+    [InlineData(SortField.Name, true)]
+    [InlineData(SortField.Name, false)]
+    [InlineData(SortField.Modified, true)]
+    [InlineData(SortField.Modified, false)]
+    [InlineData(SortField.Size, true)]
+    [InlineData(SortField.Size, false)]
+    [InlineData(SortField.Type, true)]
+    [InlineData(SortField.Type, false)]
+    public async Task SortPriorityIsIndependentOfSortFieldAndDirection(SortField field, bool ascending)
+    {
+        var input = new[]
+        {
+            new FileSystemEntry { FullPath = "/root/z.txt", Name = "z.txt", Extension = ".txt", Size = 10, LastModified = new DateTime(2026, 9, 1) },
+            new FileSystemEntry { FullPath = "/root/b", Name = "b", IsDirectory = true, Size = 10, LastModified = new DateTime(2026, 9, 1) },
+            new FileSystemEntry { FullPath = "/root/a.txt", Name = "a.txt", Extension = ".txt", Size = 1, LastModified = new DateTime(2026, 9, 2) },
+            new FileSystemEntry { FullPath = "/root/a", Name = "a", IsDirectory = true, Size = 1, LastModified = new DateTime(2026, 9, 2) }
+        };
+        foreach (var priority in Enum.GetValues<SortPriority>())
+        {
+            IOrderedEnumerable<FileSystemEntry> ordered = field switch
+            {
+                SortField.Name => ascending ? input.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+                    : input.OrderByDescending(e => e.Name, StringComparer.OrdinalIgnoreCase),
+                SortField.Modified => ascending ? input.OrderBy(e => e.LastModified) : input.OrderByDescending(e => e.LastModified),
+                SortField.Size => ascending ? input.OrderBy(e => e.Size) : input.OrderByDescending(e => e.Size),
+                _ => ascending ? input.OrderBy(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+                    : input.OrderByDescending(e => e.Extension, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            };
+            var expected = priority switch
+            {
+                SortPriority.Files => ordered.OrderBy(e => e.IsFolder).ToArray(),
+                SortPriority.Folders => ordered.OrderBy(e => !e.IsFolder).ToArray(),
+                _ => ordered.ToArray()
+            };
+            FileListSnapshot? final = null;
+            await foreach (var snapshot in new FileListDataPipeline().LoadAsync(Batches(input, 1),
+                Query(field, ascending) with { SortPriority = priority }))
+                final = snapshot;
+            Assert.NotNull(final);
+            Assert.Equal(expected, final!.Entries);
+
+            var sorter = new SortFilterViewModel { SortField = field, SortAscending = ascending, SortPriority = priority };
+            sorter.SetRawEntries(input);
+            sorter.ApplySortAndGroup(entries => Assert.Equal(expected, entries));
+            var incremental = new System.Collections.ObjectModel.ObservableCollection<FileSystemEntry>();
+            foreach (var entry in input) sorter.InsertBatch([entry], incremental);
+            Assert.Equal(expected, incremental);
+        }
+    }
+
     [Fact]
     public async Task TenThousandFastItemsPublishFirstAndFinalInsteadOfPerFile()
     {

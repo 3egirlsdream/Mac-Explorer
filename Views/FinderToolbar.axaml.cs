@@ -3,6 +3,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Views.Dialogs;
@@ -46,11 +47,18 @@ public partial class FinderToolbar : UserControl
         GotFocus += (_, _) => UpdateActionAvailability();
         AttachedToVisualTree += (_, _) =>
         {
+            if (Services.Impl.LocalizationService.Current is { } language)
+                language.LanguageChanged += SyncSortMenu;
             SubscribeToViewModel(ViewModel);
             _ = ViewModel?.LoadNewItemActionsAsync();
             SyncViewModeToggles();
         };
-        DetachedFromVisualTree += (_, _) => SubscribeToViewModel(null);
+        DetachedFromVisualTree += (_, _) =>
+        {
+            if (Services.Impl.LocalizationService.Current is { } language)
+                language.LanguageChanged -= SyncSortMenu;
+            SubscribeToViewModel(null);
+        };
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
@@ -123,6 +131,9 @@ public partial class FinderToolbar : UserControl
     {
         if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(FileListViewModel.ViewMode))
             Dispatcher.UIThread.Post(SyncViewModeToggles);
+        if (e.PropertyName is nameof(FileListViewModel.SortField) or nameof(FileListViewModel.SortAscending)
+            or nameof(FileListViewModel.SortPriority) or nameof(FileListViewModel.GroupField))
+            Dispatcher.UIThread.Post(SyncSortMenu);
         if (e.PropertyName is nameof(FileListViewModel.StatusSummaryText) or nameof(FileListViewModel.CutPaths)
             or nameof(FileListViewModel.IsHomePage) or nameof(FileListViewModel.CurrentPath))
             Dispatcher.UIThread.Post(UpdateActionAvailability);
@@ -135,6 +146,7 @@ public partial class FinderToolbar : UserControl
         ListViewToggle.IsChecked = viewMode == ViewMode.List;
         TreeViewToggle.IsChecked = viewMode == ViewMode.Tree;
         UpdateActionAvailability();
+        SyncSortMenu();
     }
 
     private void UpdateActionAvailability()
@@ -166,8 +178,35 @@ public partial class FinderToolbar : UserControl
         var shouldOpen = !SortDropdown.IsOpen;
         CloseDropdowns();
         SortDropdown.IsOpen = shouldOpen;
-        if (ViewModel != null)
-            SortDirectionButton.Content = ViewModel.SortAscending ? "升序 ↑" : "降序 ↓";
+        SyncSortMenu();
+    }
+
+    private void SyncSortMenu()
+    {
+        if (ViewModel is not { } viewModel) return;
+        SortDirectionButton.Content = Services.Impl.LocalizationText.Get(viewModel.SortAscending ? "升序 ↑" : "降序 ↓");
+        foreach (var button in SortDropdown.Child!.GetLogicalDescendants().OfType<Button>())
+        {
+            var selected = button.Classes.Contains("sort-field") ? viewModel.SortField.ToString()
+                : button.Classes.Contains("sort-group") ? viewModel.GroupField.ToString()
+                : button.Classes.Contains("sort-priority") ? viewModel.SortPriority.ToString() : null;
+            if (selected == null) continue;
+            button.Classes.Set("selected", button.Tag as string == selected);
+            button.SetValue(Avalonia.Automation.AutomationProperties.HelpTextProperty,
+                button.Tag as string == selected ? Services.Impl.LocalizationText.Get("已选中") : "");
+        }
+    }
+
+    private async void SelectPriorityField(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string value } && Enum.TryParse<SortPriority>(value, out var priority)
+            && ViewModel is { } viewModel)
+            await InvokeUiCapabilityAsync("ui.sort", new
+            {
+                field = viewModel.SortField.ToString(), ascending = viewModel.SortAscending,
+                priority = priority.ToString()
+            });
+        SortDropdown.IsOpen = false;
     }
 
     private async void SelectSortField(object? sender, RoutedEventArgs e)
@@ -300,6 +339,7 @@ public partial class FinderToolbar : UserControl
     {
         NewBtn.Classes.Set("dropdown-open", NewDropdown.IsOpen);
         SortButton.Classes.Set("dropdown-open", SortDropdown.IsOpen);
+        if (SortDropdown.IsOpen) SyncSortMenu();
         MoreBtn.Classes.Set("dropdown-open", MoreDropdown.IsOpen);
     }
 
