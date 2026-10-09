@@ -31,13 +31,21 @@ def fetch_policy(url):
         return response.status, response.url, response.read(2 * 1024 * 1024).decode('utf-8')
 
 
+def validate_subscription(product, configuration):
+    expected = configuration.get('appStoreSubscriptionProductId')
+    if not expected or not re.fullmatch(r'[A-Za-z0-9_.-]+', expected) or product != expected:
+        raise ValueError('Configure and pass the actual annual subscription product ID before submission.')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--identifier', required=True)
     parser.add_argument('--policy', required=True)
+    parser.add_argument('--subscription-product', required=True)
     parser.add_argument('--config', type=pathlib.Path, default=pathlib.Path(__file__).with_name('release-config.json'))
     arguments = parser.parse_args()
     try:
+        validate_subscription(arguments.subscription_product, json.loads(arguments.config.read_text()))
         validate(arguments.identifier, arguments.policy, json.loads(arguments.config.read_text()), fetch_policy)
     except Exception as error:
         raise SystemExit('Submission preflight rejected: ' + str(error))

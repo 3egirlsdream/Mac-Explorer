@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Views.SubscriptionView" Background="{DynamicResource TitleBarBackgroundBrush}">
+    <UserControl.Styles>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+    </UserControl.Styles>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <controls:WindowTitleBar Title="Mac Explorer"/>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <Grid x:Name="IntroductionGrid" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
+                  MaxWidth="820" Margin="24,12" VerticalAlignment="Center">
+                <Image x:Name="WorkflowImage" Source="avares://MacExplorer/Assets/Subscriptions/workflow-hero.png"
+                       Height="260" Stretch="Uniform" Margin="0,0,24,0"
+                       AutomationProperties.Name="分屏浏览、复制路径与快速跳转的功能示意图"/>
+                <StackPanel x:Name="FeaturePanel" Grid.Column="1" Spacing="18" VerticalAlignment="Center">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="让文件操作，更顺手。" FontSize="25" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="少一点来回，多一点专注。" Classes="settings-description" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Grid ColumnDefinitions="24,*">
+                        <PathIcon Data="{x:Static icons:Icons.CopyPath}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3">
+                            <TextBlock Text="一键复制路径" FontWeight="SemiBold"/>
+                            <TextBlock Text="文件位置，随手分享或粘贴使用。" Classes="settings-description" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="24,*">
+                        <PathIcon Data="{x:Static icons:Icons.SplitVertical}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3">
+                            <TextBlock Text="分屏浏览，从容整理" FontWeight="SemiBold"/>
+                            <TextBlock Text="两个目录并排，跨目录操作更直观。" Classes="settings-description" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="24,*">
+                        <PathIcon Data="{x:Static icons:Icons.Search}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3">
+                            <TextBlock Text="快速跳转，即刻抵达" FontWeight="SemiBold"/>
+                            <TextBlock Text="用路径与快捷搜索，直达目标位置。" Classes="settings-description" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Margin="24,8,24,16" Spacing="8" MaxWidth="420" HorizontalAlignment="Stretch">
+            <TextBlock x:Name="StatusText" Classes="settings-description" TextAlignment="Center" TextWrapping="Wrap"/>
+            <StackPanel Spacing="6">
+                <TextBlock x:Name="PriceText" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="23" TextAlignment="Center" TextWrapping="Wrap"/>
+                <TextBlock x:Name="TermsText" Classes="settings-description" TextAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+            <TextBlock x:Name="MessageText" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" IsVisible="False"/>
+            <Button x:Name="SubscribeButton" Classes="primary" MinHeight="36" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Subscribe"/>
+            <WrapPanel HorizontalAlignment="Center">
+                <Button x:Name="RestoreButton" Classes="ghost compact" Content="恢复购买" Click="Restore"/>
+                <Button x:Name="RetryButton" Classes="ghost compact" Content="重新检查" Click="Retry"/>
+                <Button x:Name="ManageButton" Classes="ghost compact" Content="管理订阅" Click="Manage"/>
+            </WrapPanel>
+            <WrapPanel HorizontalAlignment="Center">
+                <Button Classes="ghost compact" Content="隐私政策" Click="Privacy"/>
+                <Button Classes="ghost compact" Content="使用条款" Click="Terms"/>
+                <Button Classes="ghost compact" Content="退出" Click="Quit"/>
+            </WrapPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

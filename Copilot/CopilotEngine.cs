@@ -18,7 +18,7 @@ public sealed class CopilotEngine : IDisposable
 {
     private readonly IAppCapabilityRegistry capabilities;
     private readonly CopilotSettings settings;
-    private readonly CopilotKeychain keychain;
+    private readonly CopilotCredentialStore credentials;
     private readonly CopilotStore store;
     private readonly CopilotSkillCatalog skillCatalog;
     private readonly Func<FileListViewModel?> activePane;
@@ -41,12 +41,12 @@ public sealed class CopilotEngine : IDisposable
     private bool _disposed;
 
     public CopilotEngine(IAppCapabilityRegistry capabilities, CopilotSettings settings,
-        CopilotKeychain keychain, CopilotStore store, CopilotSkillCatalog skillCatalog,
+        CopilotCredentialStore credentials, CopilotStore store, CopilotSkillCatalog skillCatalog,
         Func<FileListViewModel?> activePane, Func<HttpMessageHandler>? modelTransportFactory = null)
     {
         this.capabilities = capabilities;
         this.settings = settings;
-        this.keychain = keychain;
+        this.credentials = credentials;
         this.store = store;
         this.skillCatalog = skillCatalog;
         this.activePane = activePane;
@@ -65,7 +65,7 @@ public sealed class CopilotEngine : IDisposable
 
     public string SessionId => _sessionId;
     internal CopilotSettings ConsentSettings => settings;
-    internal CopilotKeychain ConsentKeychain => keychain;
+    internal CopilotCredentialStore ConsentCredentials => credentials;
     public bool NeedsApproval => _approval != null;
     public CapabilityPlan? PendingApprovalPlan => TryGetApprovalPlan(_approval);
     public string? PendingRecipient
@@ -170,7 +170,7 @@ public sealed class CopilotEngine : IDisposable
     {
         if (_approval != null) throw new InvalidOperationException("请先处理待确认的操作。");
         if (_disposed) throw new ObjectDisposedException(nameof(CopilotEngine));
-        if (!settings.HasMetadataConsent(keychain.Read()))
+        if (!settings.HasMetadataConsent(credentials.Read()))
             throw new InvalidOperationException("请先允许向当前 AI 服务发送文件信息。 ");
         attachments ??= [];
         PrepareForSend();
@@ -187,7 +187,7 @@ public sealed class CopilotEngine : IDisposable
     public async Task<CopilotReply> RespondToApprovalAsync(bool approved, Action<AgentResponseUpdate>? onUpdate = null,
         CancellationToken cancellationToken = default)
     {
-        if (approved && !settings.HasMetadataConsent(keychain.Read()))
+        if (approved && !settings.HasMetadataConsent(credentials.Read()))
             throw new InvalidOperationException("接收配置已变化，请重新允许发送文件信息。 ");
         var request = _approval ?? throw new InvalidOperationException("没有待确认的操作。");
         if (approved) ValidatePendingApprovalRecipient();
@@ -206,7 +206,7 @@ public sealed class CopilotEngine : IDisposable
 
         var responses = _approvalResponses.ToArray();
         _approvalResponses.Clear();
-        if (!approved && !settings.HasMetadataConsent(keychain.Read()))
+        if (!approved && !settings.HasMetadataConsent(credentials.Read()))
         {
             ClearSessionRuntime();
             return new("已拒绝操作。", null, false);
@@ -275,7 +275,7 @@ public sealed class CopilotEngine : IDisposable
 
     private async Task EnsureAgentAsync(CancellationToken cancellationToken)
     {
-        var key = keychain.Read();
+        var key = credentials.Read();
         if (string.IsNullOrWhiteSpace(key))
             throw new InvalidOperationException("请在设置中配置 Copilot API Key。");
         if (!Uri.TryCreate(settings.Endpoint, UriKind.Absolute, out var endpoint)
@@ -296,7 +296,7 @@ public sealed class CopilotEngine : IDisposable
             {
                 ConnectTimeout = TimeSpan.FromSeconds(30),
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
-            }, settings, keychain, settings.Endpoint, settings.Model, key), store, () => _sessionId)) { Timeout = TimeSpan.FromMinutes(10) };
+            }, settings, credentials, settings.Endpoint, settings.Model, key), store, () => _sessionId)) { Timeout = TimeSpan.FromMinutes(10) };
         var chatClient = new OpenAI.Chat.ChatClient(settings.Model, new ApiKeyCredential(key),
             new OpenAIClientOptions
             {

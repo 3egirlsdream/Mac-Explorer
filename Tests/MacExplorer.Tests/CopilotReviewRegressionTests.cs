@@ -87,10 +87,10 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
             Endpoint = "http://127.0.0.1:18549/v1",
             Model = "new-model"
         };
-        var keychain = new CopilotKeychain();
-        keychain.Save("local-test-key");
-        settings.AllowMetadataSharing(keychain.Read());
-        using var engine = new CopilotEngine(new RecordingRegistry(), settings, keychain, store,
+        var credentials = new CopilotCredentialStore();
+        credentials.Save("local-test-key");
+        settings.AllowMetadataSharing(credentials.Read());
+        using var engine = new CopilotEngine(new RecordingRegistry(), settings, credentials, store,
             new CopilotSkillCatalog(), () => null, () => server);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var replyResult = await engine.SendAsync("fresh prompt", cancellationToken: timeout.Token);

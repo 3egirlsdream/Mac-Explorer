@@ -9,6 +9,7 @@ public partial class MainWindow
 {
     internal override bool IsShortcutAvailable(ShortcutDefinition definition)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return definition.Id is "native.quit" or "native.hide" or "native.hide-others";
         if (base.IsShortcutAvailable(definition)) return true;
         var focused = FocusManager?.GetFocusedElement() as Avalonia.Visual;
         var text = IsInsideTextInput(focused);

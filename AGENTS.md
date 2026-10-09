@@ -18,6 +18,7 @@
 - 实现复用 `DialogWindow` / `AppWindow`、`SettingsStyles.axaml` 的分组与字段行，以及全局按钮、输入框和主题色；完成后检查浅色、深色、窄窗口、长文本和图标是否完整显示。
 
 # 组件样式
+- 商店订阅锁定统一使用 `AppWindow` 的 `SubscriptionHost` 与 `SubscriptionView`，复用紧凑设置分组和全局按钮；由应用级订阅服务同步所有窗口，价格与试用资格来自 StoreKit。
 - 文件列表视图切换复用全局 `view-mode-segmented`；三项工具栏追加 `three` 样式和 `ViewModeTrackThreeGeometry`，保持统一高度、圆角及选中态。
 - 文字搜索页使用紧凑间距；热门文字复用全局 `Button.tag-chip` 胶囊标签，`tag-label` 与 `tag-count` / `tag-count-text` 分别显示文字和文件数，内容双向居中，长标签省略并通过提示显示完整文字。
 - 脚本命令编辑复用 `SettingsStyles.axaml` 的分组和紧凑字段行；组内输入使用 `settings-inline-input` 透明表面，命令使用 `settings-command-editor` 等宽多行编辑，分隔线使用 `settings-divider-row`。标题栏透明并与窗口表面一体，说明放入提示，不重复显示标题与完整路径。
@@ -52,6 +53,8 @@
 - 紧凑步进输入统一使用全局 `NumericUpDown.compact`，整块圆角表面与居中文本，原生增减和键盘行为保留；无表面图标操作复用 `Button.icon-action` / `ToggleButton.icon-action`，详情展开复用 `Expander.compact-details`，箭头随展开状态切换。
 
 - Cmd+K 搜索在面板内固定右侧预览，默认尺寸，不显示尺寸选择、标题和路径，复用 `SuperPreviewView` 的纯内容预览及全局主题表面、`RadiusLg`，随结果选中项更新且不抢焦点；每项定位按钮复用 `Button.icon-action` 与 Fluent Location 图标，回车保持原打开操作。
+
+- 商店版订阅页通过 `AppWindow.SubscriptionHost` 覆盖标题栏与正文，复用 `WindowTitleBar`、全局按钮和主题资源；功能介绍在窄窗口内滚动，价格、试用／订阅及恢复购买入口固定可见。
 
 # 自动测试
 - 需要启动真实应用或使用默认服务路径的自动测试、原生 UI 验证，通过 `bash Tools/Testing/run-isolated.sh <可执行文件> [参数...]` 启动，每次创建独立临时目录并设置 `MACEXPLORER_TEST_ROOT`；已有显式临时目录与测试替身的单元测试保持原运行方式。构建使用 `-p:SkipMacOSReleaseDMG=true`。

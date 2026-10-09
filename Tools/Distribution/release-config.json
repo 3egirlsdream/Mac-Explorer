@@ -1,6 +1,7 @@
 {
   "websiteBundleIdentifier": "com.macexplorer.app",
-  "appStoreBundleIdentifier": null,
+  "appStoreBundleIdentifier": "com.thankful.top.macexplorer.store",
+  "appStoreSubscriptionProductId": "001",
   "privacyPolicyUrl": "https://3egirlsdream.github.io/Mac-Explorer/privacy/",
   "privacyContact": "xulezuo@hotmail.com"
 }

@@ -33,7 +33,7 @@ internal static class SftpPrivateKeyConsent
             { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
         var input = new TextBox { PasswordChar = '•', Classes = { "settings-inline-input" }, PlaceholderText = "私钥解密口令" };
         Avalonia.Automation.AutomationProperties.SetName(input, "私钥解密口令");
-        var remember = new CheckBox { Content = "将私钥口令保存到钥匙串", IsChecked = false };
+        var remember = new CheckBox { Content = "将私钥口令保存到本机数据库", IsChecked = false };
         var cancel = new Button { Content = "取消", Classes = { "secondary", "compact" } };
         var connect = new Button { Content = "连接", Classes = { "primary", "compact" } };
         cancel.Click += (_, _) => dialog.Close();

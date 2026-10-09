@@ -209,37 +209,4 @@ bool me_eject_volume(const char *path) {
     }
 }
 void me_string_free(void *string) { free(string); }
-char *me_secret_read(const char *service, const char *account, int *status) {
-    @autoreleasepool {
-        NSDictionary *query = @{(__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
-            (__bridge id)kSecAttrService: [NSString stringWithUTF8String:service],
-            (__bridge id)kSecAttrAccount: [NSString stringWithUTF8String:account],
-            (__bridge id)kSecReturnData: @YES, (__bridge id)kSecMatchLimit: (__bridge id)kSecMatchLimitOne};
-        CFTypeRef result = nullptr;
-        *status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
-        if (*status != errSecSuccess) return nullptr;
-        NSData *data = CFBridgingRelease(result);
-        return MEString([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
-    }
-}
-int me_secret_save(const char *service, const char *account, const char *secret) {
-    @autoreleasepool {
-        NSMutableDictionary *query = [@{(__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
-            (__bridge id)kSecAttrService: [NSString stringWithUTF8String:service],
-            (__bridge id)kSecAttrAccount: [NSString stringWithUTF8String:account]} mutableCopy];
-        NSData *data = [[NSString stringWithUTF8String:secret] dataUsingEncoding:NSUTF8StringEncoding];
-        OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query,
-            (__bridge CFDictionaryRef)@{(__bridge id)kSecValueData: data});
-        if (status != errSecItemNotFound) return status;
-        query[(__bridge id)kSecValueData] = data;
-        return SecItemAdd((__bridge CFDictionaryRef)query, nullptr);
-    }
-}
-int me_secret_delete(const char *service, const char *account) {
-    @autoreleasepool {
-        return SecItemDelete((__bridge CFDictionaryRef)@{(__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
-            (__bridge id)kSecAttrService: [NSString stringWithUTF8String:service],
-            (__bridge id)kSecAttrAccount: [NSString stringWithUTF8String:account]});
-    }
-}
 }

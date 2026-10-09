@@ -31,7 +31,7 @@ public partial class MainWindow
         var engine = new CopilotEngine(
             App.Services.GetRequiredService<IAppCapabilityRegistry>(),
             App.Services.GetRequiredService<CopilotSettings>(),
-            App.Services.GetRequiredService<CopilotKeychain>(),
+            App.Services.GetRequiredService<CopilotCredentialStore>(),
             App.Services.GetRequiredService<CopilotStore>(),
             App.Services.GetRequiredService<CopilotSkillCatalog>(),
             () => _activeFileList);
@@ -255,7 +255,7 @@ public partial class MainWindow
         try
         {
             if (!await Dialogs.CopilotPrivacyConsent.EnsureAsync(this,
-                Copilot.ConsentSettings, Copilot.ConsentKeychain)) return;
+                Copilot.ConsentSettings, Copilot.ConsentCredentials)) return;
             if (Copilot.PrepareForSend() is { } notice)
             {
                 CopilotTranscript.Children.Clear();

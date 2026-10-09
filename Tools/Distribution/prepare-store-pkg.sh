@@ -7,7 +7,8 @@ fi
 app=$1; output=$2; installer=$3
 root=$(cd "$(dirname "$0")/../.." && pwd)
 python3 "$root/Tools/Distribution/verify-bundle.py" "$app" AppStore
-python3 "$root/Tools/Distribution/verify-release-config.py" --identifier "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" --policy "$(/usr/libexec/PlistBuddy -c 'Print :PrivacyPolicyURL' "$app/Contents/Info.plist")"
+task_subscription_product=$(/usr/libexec/PlistBuddy -c 'Print :AppStoreSubscriptionProductID' "$app/Contents/Info.plist")
+python3 "$root/Tools/Distribution/verify-release-config.py" --identifier "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" --policy "$(/usr/libexec/PlistBuddy -c 'Print :PrivacyPolicyURL' "$app/Contents/Info.plist")" --subscription-product "$task_subscription_product"
 task_signature=$(codesign -d -vv "$app" 2>&1)
 task_authority=$(printf '%s\n' "$task_signature" | sed -n 's/^Authority=//p' | head -n 1)
 if ! [[ "$task_authority" == "3rd Party Mac Developer Application:"* || "$task_authority" == "Apple Distribution:"* || "$task_authority" == "Mac App Distribution:"* ]]; then

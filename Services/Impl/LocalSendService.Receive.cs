@@ -51,6 +51,7 @@ public sealed partial class LocalSendService
 
     private async Task<IResult> PrepareUploadAsync(HttpContext context)
     {
+        if (Subscriptions.SubscriptionAccess.IsLocked) return Results.StatusCode(403);
         if (!Enabled || _running == null) return Results.StatusCode(503);
         context.Features.Get<IHttpMaxRequestBodySizeFeature>()!.MaxRequestBodySize = 4 * 1024 * 1024;
         PrepareRequest? request;

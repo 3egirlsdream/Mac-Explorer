@@ -21,7 +21,7 @@
                                                   Title="{TemplateBinding Title}"
                                                   TitleBarBackgroundContent="{TemplateBinding TitleBarBackgroundContent}"
                                                   TitleBarContent="{TemplateBinding TitleBarContent}"/>
-                            <ContentPresenter Grid.Row="1"
+                            <ContentPresenter x:Name="WindowContent" Grid.Row="1"
                                               Content="{TemplateBinding Content}"
                                               ContentTemplate="{TemplateBinding ContentTemplate}"
                                               HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -32,6 +32,8 @@
                                     Background="{DynamicResource OverlayBrush}"
                                     IsHitTestVisible="True"
                                     IsVisible="False"/>
+                            <Grid x:Name="SubscriptionHost" Grid.RowSpan="2" IsVisible="False"
+                                  chrome:WindowDecorationProperties.ElementRole="User"/>
                         </Grid>
                         </VisualLayerManager>
                     </Border>
@@ -43,6 +45,10 @@
             </Style>
             <Style Selector="^:modal-blocked /template/ Border#ModalTitleBarHitShield">
                 <Setter Property="IsVisible" Value="True"/>
+            </Style>
+            <Style Selector="^:subscription-locked /template/ ContentPresenter#WindowContent, ^:subscription-locked /template/ local|WindowTitleBar#WindowTitleBar, ^:subscription-locked /template/ Grid#WindowOverlayHost">
+                <Setter Property="IsEnabled" Value="False"/>
+                <Setter Property="IsHitTestVisible" Value="False"/>
             </Style>
         </ControlTheme>
     </Styles.Resources>

@@ -105,6 +105,7 @@ public partial class App : Application
             };
             desktop.Exit += (_, _) =>
             {
+                Services.GetService<Services.Subscriptions.SubscriptionService>()?.Dispose();
                 _startupUpdateCancellation.Cancel();
                 Services.GetRequiredService<FileDeliveryController>().Dispose();
                 DirectoryAccess.Current.Dispose();
@@ -187,6 +188,8 @@ public partial class App : Application
         if (sender is MainWindow window)
             window.Opened -= OnStartupWindowOpened;
         Dispatcher.UIThread.Post(Views.FileListView.PrepareFileDrag, DispatcherPriority.ApplicationIdle);
+        if (DistributionChannel.IsAppStore)
+            Dispatcher.UIThread.Post(() => Services.GetRequiredService<Services.Subscriptions.SubscriptionService>().Start(), DispatcherPriority.ApplicationIdle);
         _ = Task.Run(CheckStartupUpdateAsync);
         DispatcherTimer.RunOnce(() =>
         {
@@ -248,6 +251,8 @@ public partial class App : Application
     private static async void OnApplicationActivated(object? sender, ActivatedEventArgs e)
     {
         if (_desktop == null) return;
+        if (DistributionChannel.IsAppStore)
+            _ = Services.GetRequiredService<Services.Subscriptions.SubscriptionService>().RefreshAsync();
 
         var path = GetActivatedPath(e);
         if (path == null) return;
@@ -262,6 +267,7 @@ public partial class App : Application
 
         window.Show();
         window.Activate();
+        if (MacExplorer.Services.Subscriptions.SubscriptionAccess.IsLocked) return;
         if (!string.IsNullOrWhiteSpace(path))
             await window.NavigateToPathAsync(path);
     }
@@ -286,6 +292,9 @@ public partial class App : Application
         ApplicationDataMigration.Prepare();
         _ = DirectoryAccess.Current;
         var services = new ServiceCollection();
+        if (DistributionChannel.IsAppStore)
+            services.AddSingleton(sp => new Services.Subscriptions.SubscriptionService(new Platforms.MacOS.StoreKitBridge(), true,
+                logger: sp.GetService<ILogger<Services.Subscriptions.SubscriptionService>>()));
         var indexConfig = new IndexConfiguration();
         services.AddSingleton(indexConfig);
         services.AddSingleton(sp => new DatabaseConnectionFactory(indexConfig.DatabasePath));
@@ -327,7 +336,7 @@ public partial class App : Application
         services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddSingleton<ILocalSendService, Services.Impl.LocalSendService>();
         services.AddSingleton<Copilot.CopilotSettings>();
-        services.AddSingleton<Copilot.CopilotKeychain>();
+        services.AddSingleton<Copilot.CopilotCredentialStore>();
         services.AddSingleton<Copilot.CopilotStore>();
         services.AddSingleton<Copilot.CopilotSkillCatalog>();
         services.AddSingleton<Copilot.CopilotContentExtractor>();

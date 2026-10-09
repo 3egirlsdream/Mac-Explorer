@@ -16,6 +16,11 @@ errors = []
 if info.get('DistributionChannel') != channel: errors.append('Bundle channel metadata does not match requested channel')
 if not info.get('PrivacyPolicyURL', '').startswith('https://'): errors.append('Missing HTTPS privacy policy URL')
 if channel == 'AppStore':
+    if not (app / 'Contents/Frameworks/libMacExplorerStoreKit.dylib').is_file(): errors.append('Missing StoreKit 2 bridge')
+    else:
+        exports = subprocess.check_output(['nm', '-gU', str(app / 'Contents/Frameworks/libMacExplorerStoreKit.dylib')], text=True)
+        for symbol in ['me_store_start', 'me_store_request', 'me_store_cancel', 'me_store_stop']:
+            if not re.search(r'\b_' + symbol + r'$', exports, re.M): errors.append('Missing StoreKit bridge export: ' + symbol)
     for document_type in info.get('CFBundleDocumentTypes', []):
         if document_type.get('LSHandlerRank') not in {'Owner', 'Default', 'Alternate', 'None'}:
             errors.append('Missing or invalid LSHandlerRank: ' + document_type.get('CFBundleTypeName', '(unnamed)'))

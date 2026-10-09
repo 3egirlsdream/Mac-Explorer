@@ -8,7 +8,7 @@ namespace MacExplorer.Views.Dialogs;
 public partial class SettingsDialog
 {
     private CopilotSettings CopilotConnection => App.Services.GetRequiredService<CopilotSettings>();
-    private CopilotKeychain CopilotKeychain => App.Services.GetRequiredService<CopilotKeychain>();
+    private CopilotCredentialStore CopilotCredentialStore => App.Services.GetRequiredService<CopilotCredentialStore>();
     private CopilotSkillCatalog CopilotSkills => App.Services.GetRequiredService<CopilotSkillCatalog>();
     private string? _savedCopilotKey;
 
@@ -19,7 +19,7 @@ public partial class SettingsDialog
         RefreshCopilotSkills();
         try
         {
-            _savedCopilotKey = CopilotKeychain.Read();
+            _savedCopilotKey = CopilotCredentialStore.Read();
             CopilotKeyBox.Text = _savedCopilotKey;
         }
         catch (Exception ex) { CopilotSettingsStatus.Text = ex.Message; }
@@ -39,7 +39,7 @@ public partial class SettingsDialog
             var key = CopilotKeyBox.Text?.Trim();
             if (!string.IsNullOrWhiteSpace(key) && key != _savedCopilotKey)
             {
-                CopilotKeychain.Save(key);
+                CopilotCredentialStore.Save(key);
                 _savedCopilotKey = key;
             }
             CopilotConnection.Endpoint = endpoint;

@@ -1341,6 +1341,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task OpenEntryAsync(FileSystemEntry entry)
     {
+        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (IsBrowseOnly)
         {
             if (entry.IsFolder) await NavigateToAsync(entry.FullPath);

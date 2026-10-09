@@ -7,6 +7,8 @@ using MacExplorer.Platforms.MacOS;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using Avalonia.Interactivity;
+using MacExplorer.Services.Subscriptions;
+using Avalonia.Threading;
 
 namespace MacExplorer.Controls;
 
@@ -15,6 +17,8 @@ public class AppWindow : Window
     private WindowState _stateBeforeFullScreen = WindowState.Normal;
     internal IShortcutService Shortcuts { get; set; } = ShortcutService.Resolve();
     private ShortcutHintController? _shortcutHints;
+    private SubscriptionService? _subscription;
+    private Grid? _subscriptionHost;
     internal bool IsShortcutHintVisible => _shortcutHints?.IsVisible == true;
 
     public static readonly StyledProperty<Control?> TitleBarContentProperty =
@@ -46,8 +50,11 @@ public class AppWindow : Window
 
     internal WindowState RestorableWindowState => _stateBeforeFullScreen;
 
-    public AppWindow()
+    public AppWindow() : this(null) { }
+
+    internal AppWindow(SubscriptionService? subscription)
     {
+        _subscription = subscription;
         WindowDecorations = WindowDecorations.BorderOnly;
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 40;
@@ -58,12 +65,19 @@ public class AppWindow : Window
 
         Opened += (_, _) =>
         {
+            _subscription ??= SubscriptionAccess.Current;
+            if (_subscription != null) _subscription.Changed += OnSubscriptionChanged;
+            UpdateSubscription();
             ApplyNativeWindowChrome();
             UpdateWindowPseudoClasses();
             _shortcutHints ??= new ShortcutHintController(this, Shortcuts);
         };
-        Closed += (_, _) => { _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this); };
-        Activated += (_, _) => UpdateWindowPseudoClasses();
+        Closed += (_, _) =>
+        {
+            if (_subscription != null) _subscription.Changed -= OnSubscriptionChanged;
+            _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this);
+        };
+        Activated += (_, _) => { UpdateWindowPseudoClasses(); if (_subscription != null) _ = _subscription.RefreshAsync(); };
         Deactivated += (_, _) => UpdateWindowPseudoClasses();
         KeyDown += OnWindowKeyDown;
         AddHandler(KeyDownEvent, (_, e) =>
@@ -90,6 +104,25 @@ public class AppWindow : Window
     {
         base.OnApplyTemplate(e);
         WindowOverlayHost = e.NameScope.Find<Grid>("WindowOverlayHost");
+        _subscriptionHost = e.NameScope.Find<Grid>("SubscriptionHost");
+        UpdateSubscription();
+    }
+
+    private void OnSubscriptionChanged() => Dispatcher.UIThread.Post(UpdateSubscription);
+
+    private void UpdateSubscription()
+    {
+        var locked = _subscription?.IsLocked ?? SubscriptionAccess.IsLocked;
+        PseudoClasses.Set(":subscription-locked", locked);
+        if (_subscriptionHost == null) return;
+        if (locked && _subscriptionHost.Children.Count == 0)
+            _subscriptionHost.Children.Add(new Views.SubscriptionView(_subscription ?? SubscriptionAccess.Current));
+        _subscriptionHost.IsVisible = locked;
+        if (locked)
+        {
+            _shortcutHints?.Cancel();
+            if (ContextMenu is { IsOpen: true }) ContextMenu.Close();
+        }
     }
 
     public void ApplyNativeWindowChrome() => MacWindowChrome.MakeTransparent(this);

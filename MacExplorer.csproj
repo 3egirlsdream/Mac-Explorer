@@ -9,8 +9,9 @@
     <RootNamespace>MacExplorer</RootNamespace>
     <ApplicationId Condition="'$(DistributionChannel)' == 'Website'">com.thankful.top.macexplorer</ApplicationId>
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
+    <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>1.0.51</Version>
+    <Version>1.0.52</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -24,6 +25,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Assets/PrivacyPolicy.txt" LogicalName="MacExplorer.PrivacyPolicy.txt" />
     <AssemblyMetadata Include="PrivacyPolicyUrl" Value="$(PrivacyPolicyUrl)" />
+    <AssemblyMetadata Include="AppStoreSubscriptionProductId" Value="$(AppStoreSubscriptionProductId)" Condition="'$(DistributionChannel)' == 'AppStore'" />
     <AvaloniaResource Include="Assets\**" Exclude="Assets\*.cs;Assets\*.axaml" />
     <Compile Remove="Plugins/**/*.cs" />
     <Compile Remove="Tools/PluginTestFixture/**/*.cs" />
@@ -88,7 +90,11 @@
   <!-- Create macOS .app bundle after build (macOS-only: Avalonia Desktop outputs a raw binary, not a bundle) -->
   <Target Name="ValidateStoreSubmission" BeforeTargets="PrepareForBuild" Condition="'$(StoreSubmission)' == 'true'">
     <Error Condition="'$(DistributionChannel)' != 'AppStore'" Text="StoreSubmission requires the AppStore channel."/>
-    <Exec Command="python3 Tools/Distribution/verify-release-config.py --identifier '$(AppStoreBundleId)' --policy '$(PrivacyPolicyUrl)'"/>
+    <Error Condition="'$(AppStoreSubscriptionProductId)' == ''" Text="Set AppStoreSubscriptionProductId to the actual annual subscription product before submission."/>
+    <Exec Command="python3 Tools/Distribution/verify-release-config.py --identifier '$(AppStoreBundleId)' --policy '$(PrivacyPolicyUrl)' --subscription-product '$(AppStoreSubscriptionProductId)'"/>
+  </Target>
+  <Target Name="BuildMacOSStoreKitBridge" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore'">
+    <Exec Command="xcrun swiftc -parse-as-library -emit-library -O -target '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' 'Platforms/MacOS/StoreKitBridge.swift' -framework StoreKit -framework AppKit -Xlinker -install_name -Xlinker '@rpath/libMacExplorerStoreKit.dylib' -o '$(OutputPath)libMacExplorerStoreKit.dylib'" />
   </Target>
   <Target Name="BuildMacOSImageAnalysisHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ImageAnalysisHelper.swift' '$(OutputPath)MacExplorer.ImageAnalysis' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit" />
@@ -160,6 +166,7 @@
     <Copy SourceFiles="Assets/ConversionNotices.txt;Assets/PrivacyPolicy.txt" DestinationFolder="$(_ResourcesDir)" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :PrivacyPolicyURL string $(PrivacyPolicyUrl)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :DistributionChannel string $(DistributionChannel)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+    <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :AppStoreSubscriptionProductID string $(AppStoreSubscriptionProductId)&quot; '$(_AppBundleDir)/Contents/Info.plist'" Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' != ''" />
     <ItemGroup><_LegalNotices Include="ThirdParty/Notices/**/*" /></ItemGroup>
     <Copy SourceFiles="@(_LegalNotices)" DestinationFiles="@(_LegalNotices->'$(_ResourcesDir)/Notices/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="LICENSE" DestinationFiles="$(_ResourcesDir)/Notices/Project.LICENSE.txt" />
@@ -172,6 +179,7 @@
     <ItemGroup>
       <_BundleFiles Include="$(OutputPath)*.dll" />
       <_NativeLibs Include="$(OutputPath)*.dylib" />
+      <_NativeLibs Remove="$(OutputPath)libMacExplorerStoreKit.dylib" Condition="'$(DistributionChannel)' != 'AppStore'" />
       <_BundleFiles Include="$(OutputPath)*.deps.json" />
       <_BundleFiles Include="$(OutputPath)*.runtimeconfig.json" />
       <_BundleFiles Include="$(OutputPath)*.pdb" />

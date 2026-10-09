@@ -33,7 +33,7 @@ internal sealed class ShortcutService : IShortcutService, IDisposable
     public IReadOnlyList<ShortcutBinding> GetBindings(string id) => _overrides.TryGetValue(id, out var binding)
         ? new[] { binding } : Definitions.First(d => d.Id == id).Defaults;
     public string GetDisplay(string id) => GetBindings(id)[0].Display;
-    public bool Matches(string id, KeyEventArgs e) => !IsRecording && GetBindings(id).Any(b => b.Matches(e));
+    public bool Matches(string id, KeyEventArgs e) => !Subscriptions.SubscriptionAccess.IsLocked && !IsRecording && GetBindings(id).Any(b => b.Matches(e));
 
     public bool TrySet(string id, ShortcutBinding binding, out string? error)
     {

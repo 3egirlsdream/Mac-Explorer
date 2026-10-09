@@ -17,6 +17,7 @@ public sealed partial class LocalSendService
 
     public async Task SendAsync(LocalSendDevice device, IReadOnlyList<string> paths)
     {
+        Subscriptions.SubscriptionAccess.RequireAccess();
         var task = _tasks.AddTask("发送到 " + device.Alias);
         if (!await _sendGate.WaitAsync(0))
         {

@@ -36,6 +36,7 @@ public sealed class FileOperationService(
     public async Task<FileOperationResult> CopyDetailedAsync(
         IReadOnlyList<string> sourcePaths, string destinationDirectory)
     {
+        Subscriptions.SubscriptionAccess.RequireAccess();
         if (sourcePaths.Count == 0) return new([], [], []);
         var trackProgress = !VirtualPath.IsRemotePath(destinationDirectory)
             && sourcePaths.All(path => !VirtualPath.IsRemotePath(path));
@@ -114,6 +115,7 @@ public sealed class FileOperationService(
         string currentPath, Action<string>? setStatus = null,
         FileListViewModel? refreshedViewModel = null)
     {
+        Subscriptions.SubscriptionAccess.RequireAccess();
         var paths = entries.Select(entry => entry.FullPath).Distinct(StringComparer.Ordinal).ToArray();
         if (paths.Length == 0) return;
         var deletedPaths = new List<string>(paths.Length);
@@ -185,6 +187,7 @@ public sealed class FileOperationService(
     private async Task<FileOperationResult> MoveCoreAsync(FileSystemEntry source, FileSystemEntry targetFolder,
         Action<string>? setStatus, bool throwOnMetadataFailure)
     {
+        Subscriptions.SubscriptionAccess.RequireAccess();
         if (!targetFolder.IsDirectory) throw new InvalidOperationException("目标不是文件夹。");
         var movedPath = VirtualPath.IsRemotePath(targetFolder.FullPath)
             ? files.CombinePath(targetFolder.FullPath, Path.GetFileName(source.FullPath))

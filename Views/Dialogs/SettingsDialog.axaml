@@ -781,6 +781,14 @@
                             </Grid>
                         </Border>
                     </Border>
+                    <Border x:Name="SubscriptionSettings" IsVisible="False" Classes="settings-group">
+                        <Border Classes="settings-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <TextBlock Classes="settings-label" Text="App Store 订阅"/>
+                                <Button Grid.Column="1" Classes="secondary compact" Content="管理订阅" Click="OnManageSubscription"/>
+                            </Grid>
+                        </Border>
+                    </Border>
                     <TextBlock Text="Copyright 2024-2026 MacExplorer" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}"/>
                 </StackPanel>
             </ScrollViewer>

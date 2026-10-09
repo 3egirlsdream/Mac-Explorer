@@ -8,6 +8,13 @@ spec.loader.exec_module(release_config)
 
 
 class SubmissionGateTests(unittest.TestCase):
+    def test_subscription_requires_explicit_matching_product_id(self):
+        configuration = {'appStoreSubscriptionProductId': 'com.example.release.annual'}
+        release_config.validate_subscription('com.example.release.annual', configuration)
+        for product, config in [('', configuration), ('other', configuration), ('annual', {}), ('annual', {'appStoreSubscriptionProductId': None})]:
+            with self.subTest(product=product), self.assertRaises(ValueError):
+                release_config.validate_subscription(product, config)
+
     def setUp(self):
         self.config = {'appStoreBundleIdentifier': 'com.example.release', 'privacyPolicyUrl': 'https://example.test/privacy/', 'privacyContact': 'privacy@example.test'}
         self.body = '隐私政策 Copilot LocalSend'

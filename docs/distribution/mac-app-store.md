@@ -13,7 +13,7 @@
 | 图片回退与人脸裁剪 | 原系统图片处理 | 使用随包签名 helper 的 ImageIO，保留 EXIF 方向及原有 Skia 图片兜底 |
 | 磁盘弹出 | 原 diskutil 流程 | 公开 NSWorkspace API，系统拒绝时返回失败，不请求提权 |
 | 更新与外部执行 | 自更新、插件市场、外部插件、脚本及 Terminal 入口 | 禁用；保留固定内置转换和签名帮助程序 |
-| AI、照片地点、SFTP | 接收方确认、地点解析许可、钥匙串和主机信任 | 使用相同控制 |
+| AI、照片地点、SFTP | 接收方确认、地点解析许可、本机数据库凭据和主机信任 | 使用相同控制 |
 | 安装包 | DMG | 正式签名的 PKG |
 
 ## 本地构建
@@ -63,7 +63,7 @@ bash Tools/Distribution/prepare-store-pkg.sh \
 
 历史结果保留于 [初始实现](archive/mac-app-store.md)、[渠道复核](archive/mac-app-store-review.md)、[隐私复核](archive/privacy-security-review.md)及 [可靠性复核](archive/reliability-release-review.md)。正式商店签名、账号/profile 和成功 PKG 流程仍需具备相应资源后验收；Intel 运行测试按用户要求不执行。
 
-正式提交前还需填写 App Privacy 标签、截图、年龄分级、支持信息、审核操作说明和加密出口合规资料。真实系统 Keychain、局域网拒绝／恢复、实际 SFTP 服务、外置磁盘弹出及生产签名 Sandbox 必须单独验收。付费解锁／订阅只有采用该商业模式时才接入 StoreKit；当前不新增收费机制。
+正式提交前还需填写 App Privacy 标签、截图、年龄分级、支持信息、审核操作说明和加密出口合规资料。数据库凭据持久化、局域网拒绝／恢复、实际 SFTP 服务、外置磁盘弹出及生产签名 Sandbox 必须单独验收。付费解锁／订阅只有采用该商业模式时才接入 StoreKit；当前不新增收费机制。
 
 ## 2026-10-01 适配验证
 

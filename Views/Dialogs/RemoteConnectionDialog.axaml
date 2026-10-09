@@ -96,7 +96,7 @@
                                     <TextBlock Classes="settings-label" Text="私钥口令" VerticalAlignment="Center"/>
                                     <TextBox Grid.Column="1" x:Name="KeyPassphraseBox" PasswordChar="•" Classes="settings-inline-input" PlaceholderText="未加密私钥可留空" AutomationProperties.Name="私钥解密口令"/>
                                 </Grid>
-                                <CheckBox x:Name="RememberKeyPassphrase" Content="将私钥口令保存到钥匙串" ToolTip.Tip="默认仅本次使用；勾选后在保存或成功连接时保存，可取消勾选并保存以删除。"/>
+                                <CheckBox x:Name="RememberKeyPassphrase" Content="将私钥口令保存到本机数据库" ToolTip.Tip="默认仅本次使用；勾选后在保存或成功连接时保存，可取消勾选并保存以删除。"/>
                             </StackPanel>
                         </Border>
                         <Border Classes="settings-row">
@@ -109,7 +109,7 @@
                 </Border>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button Classes="ghost compact" Content="重试凭据加载" Click="OnRetryCredentials"
-                            ToolTip.Tip="解锁钥匙串或允许访问后重试；旧配置与迁移未完成的密码会保留。"/>
+                            ToolTip.Tip="检查应用数据库是否可访问后重试；旧配置与迁移未完成的密码会保留。"/>
                     <Button Classes="ghost compact" Content="撤销主机信任" Click="OnForgetHostKey"
                             ToolTip.Tip="仅处理当前填写的主机与端口，需要明确确认。"/>
                 </StackPanel>

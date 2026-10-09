@@ -337,9 +337,9 @@ public sealed class DistributionCommonTests : IDisposable
     [Fact]
     public async Task CopilotRejectsUnconsentedSendBeforeAnyTransportOrHistoryWrite()
     {
-        var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings()); var keychain = new CopilotKeychain();
-        keychain.Save("isolated-test-key"); var store = new CopilotStore(Path.Combine(_root, "copilot.db"));
-        using var engine = new CopilotEngine(null!, settings, keychain, store, null!, () => null,
+        var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings()); var credentials = new CopilotCredentialStore();
+        credentials.Save("isolated-test-key"); var store = new CopilotStore(Path.Combine(_root, "copilot.db"));
+        using var engine = new CopilotEngine(null!, settings, credentials, store, null!, () => null,
             () => throw new Exception("Transport must not be created"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => engine.SendAsync("fixture", cancellationToken: Token));
         Assert.Empty(engine.History);

@@ -145,6 +145,7 @@ public class BatchRenameService : IBatchRenameService
     public async Task<BatchRenameResult> ExecuteAsync(List<BatchRenamePreviewItem> previewItems,
         IProgress<BatchRenameProgress>? progress = null, CancellationToken cancellationToken = default)
     {
+        Subscriptions.SubscriptionAccess.RequireAccess();
         await _execution.WaitAsync(cancellationToken);
         try { return await ExecuteCoreAsync(previewItems, progress, cancellationToken); }
         finally { _execution.Release(); }

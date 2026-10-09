@@ -37,7 +37,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
     public event EventHandler<string>? ReconnectFailed;
 
     public RemoteConnectionService(ILogger<RemoteConnectionService>? logger = null)
-        : this(Path.Combine(RuntimePaths.DataDirectory, "remote-servers.json"), new KeychainCredentialStore("com.macexplorer.sftp"), logger) { }
+        : this(Path.Combine(RuntimePaths.DataDirectory, "remote-servers.json"), new DatabaseCredentialStore("com.macexplorer.sftp"), logger) { }
 
     internal RemoteConnectionService(string configPath, ICredentialStore credentials, ILogger<RemoteConnectionService>? logger = null)
     {
@@ -193,7 +193,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
             }
             catch (Exception rollback)
             {
-                throw new InvalidOperationException("操作未完成，恢复原凭据也失败。原配置已保留，请修复钥匙串后重试。", rollback);
+                throw new InvalidOperationException("操作未完成，恢复原凭据也失败。原配置已保留，请检查应用数据库是否可写后重试。", rollback);
             }
             throw;
         }
@@ -367,7 +367,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "Failed to load saved remote servers");
-            CredentialLoadError = $"凭据加载或迁移尚未完成：{ex.Message} 原配置已保留，请解锁钥匙串或允许访问后重试。";
+            CredentialLoadError = $"凭据加载或迁移尚未完成：{ex.Message} 原配置已保留，请检查应用数据库是否可访问后重试。";
         }
     }
 

@@ -21,6 +21,7 @@ public partial class FileDeliveryWindow : AppWindow
 {
     internal override bool IsShortcutAvailable(ShortcutDefinition definition)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return false;
         if (base.IsShortcutAvailable(definition)) return true;
         var text = FileListView.IsTextInputSource(FocusManager?.GetFocusedElement());
         if (definition.Id.StartsWith("editor."))
@@ -283,6 +284,7 @@ public partial class FileDeliveryWindow : AppWindow
 
     private void OnPanelKeyDown(object? sender, KeyEventArgs e)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return;
         if (e.Handled || Shortcuts.IsRecording) return;
         if (e.Key != Key.Escape) return;
         if (_addEntryMenu?.IsOpen == true) _addEntryMenu.Close();

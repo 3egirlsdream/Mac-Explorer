@@ -87,6 +87,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
 
     public async Task ShowPanelAsync()
     {
+        Subscriptions.SubscriptionAccess.RequireAccess();
         if (_disposed || _dragging || !delivery.Enabled)
             throw new InvalidOperationException("文件速递当前不可用。");
         EnsureWindow();

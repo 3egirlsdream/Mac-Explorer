@@ -42,6 +42,7 @@ public sealed class HomeItemActions : IDisposable
 
     public async Task GuardAsync(Func<Task> action)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return;
         try { await action(); }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _status(ex.Message); _navigation.StatusText = ex.Message; }

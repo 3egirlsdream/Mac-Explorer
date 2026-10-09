@@ -237,6 +237,7 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return;
         if (e.Handled || Shortcuts.IsRecording) return;
         if (IsInsideTextInput(e.Source as Visual) && Services.Impl.ShortcutService.IsTextEditingGesture(e)) return;
         if (_homeFolderTransition != null)

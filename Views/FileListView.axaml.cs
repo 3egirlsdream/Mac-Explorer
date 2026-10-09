@@ -1295,6 +1295,7 @@ public partial class FileListView : UserControl
     {
         try
         {
+            if (Services.Subscriptions.SubscriptionAccess.IsLocked) return;
             if (action.Execute != null)
                 await action.Execute();
         }
@@ -1306,6 +1307,7 @@ public partial class FileListView : UserControl
 
     private void OnContextMenuKeyDown(object? sender, KeyEventArgs e)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) { e.Handled = true; return; }
         TryHandleFileShortcut(e);
     }
 
@@ -2232,6 +2234,7 @@ public partial class FileListView : UserControl
 
     private void OnFileListKeyDown(object? sender, KeyEventArgs e)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) { e.Handled = true; return; }
         TryHandleFileShortcut(e);
         HandleFastListNavigation(e);
     }

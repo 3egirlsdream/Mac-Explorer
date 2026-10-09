@@ -71,6 +71,7 @@ internal sealed class ShortcutHintController : IDisposable
 
     internal bool HandleActivity(KeyboardActivity activity, Key key, KeyModifiers modifiers, bool repeat)
     {
+        if (Services.Subscriptions.SubscriptionAccess.IsLocked) { Cancel(); return false; }
         if (_disposed) return false;
         if (activity == KeyboardActivity.Deactivated) { Cancel(); return false; }
         if (activity == KeyboardActivity.KeyDown && _shortcuts.IsRecording)
@@ -148,7 +149,7 @@ internal sealed class ShortcutHintController : IDisposable
         if (_view != null) _window.WindowOverlayHost?.Children.Remove(_view);
         _view = null; _showing = false;
     }
-    private void Cancel() { _hold.Reset(); _timer.Stop(); RemoveView(); }
+    internal void Cancel() { _hold.Reset(); _timer.Stop(); RemoveView(); }
     private void OnDeactivated(object? sender, EventArgs e) => Cancel();
     private void OnSettingsChanged()
     {

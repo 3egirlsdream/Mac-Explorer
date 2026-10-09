@@ -92,6 +92,7 @@ public class FileOperationHistoryService : IFileOperationHistoryService
 
     private async Task<bool> UndoAsync(Guid? batchId)
     {
+        Subscriptions.SubscriptionAccess.RequireAccess();
         await _undoGate.WaitAsync();
         try { return await UndoCoreAsync(batchId); }
         finally { _undoGate.Release(); }

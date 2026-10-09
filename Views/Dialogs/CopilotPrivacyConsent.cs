@@ -9,9 +9,9 @@ namespace MacExplorer.Views.Dialogs;
 
 internal static class CopilotPrivacyConsent
 {
-    internal static async Task<bool> EnsureAsync(Window owner, CopilotSettings settings, CopilotKeychain keychain)
+    internal static async Task<bool> EnsureAsync(Window owner, CopilotSettings settings, CopilotCredentialStore credentials)
     {
-        var key = keychain.Read();
+        var key = credentials.Read();
         if (settings.HasMetadataConsent(key)) return true;
         var endpoint = settings.Endpoint; var model = settings.Model;
         var dialog = new DialogWindow { Title = "允许向 AI 发送文件信息", Width = 440,
@@ -38,7 +38,7 @@ internal static class CopilotPrivacyConsent
         dialog.Opened += (_, _) => cancel.Focus();
         if (!await dialog.ShowDialog<bool>(owner)) return false;
         // A settings window may have changed the receiver while this dialog was open.
-        if (settings.Endpoint != endpoint || settings.Model != model || keychain.Read() != key) return false;
+        if (settings.Endpoint != endpoint || settings.Model != model || credentials.Read() != key) return false;
         settings.AllowMetadataSharing(key);
         return true;
     }

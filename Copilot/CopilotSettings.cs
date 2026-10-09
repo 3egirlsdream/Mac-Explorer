@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Text;
 using MacExplorer.Services;
 
@@ -25,10 +24,10 @@ public sealed class CopilotSettings(ISettingsService settings)
     }
 }
 
-/// <summary>Uses the existing account identity with the public SecItem API.</summary>
-public sealed class CopilotKeychain
+/// <summary>Stores the API key in the local application database.</summary>
+public sealed class CopilotCredentialStore
 {
-    private readonly Services.Impl.KeychainCredentialStore _store = new("com.macexplorer.copilot");
+    private readonly Services.Impl.DatabaseCredentialStore _store = new("com.macexplorer.copilot");
     public string? Read() => _store.Read("api-key") ?? (RuntimePaths.TestRoot != null
         ? Environment.GetEnvironmentVariable("MACEXPLORER_COPILOT_TEST_KEY") : null);
     public void Save(string key) => _store.Save("api-key", key);

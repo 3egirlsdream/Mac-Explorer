@@ -95,6 +95,7 @@ public partial class SettingsDialog : DialogWindow
         LoadPrivacySettings();
         if (DistributionChannel.IsAppStore)
         {
+            SubscriptionSettings.IsVisible = true;
             DefaultManagerRow.IsVisible = false;
             UpdateButton.IsVisible = false;
             PluginSettingsTab.IsVisible = false;
@@ -146,6 +147,12 @@ public partial class SettingsDialog : DialogWindow
         }
         DirectoryAccessStatus.Text = access.RestoreError ?? (access.AuthorizedRoots.Count == 0
             ? "选择需要浏览的文件夹；离线磁盘连接后可重试。" : "授权包含所选文件夹及子目录。移除授权不会删除文件。");
+    }
+
+    private async void OnManageSubscription(object? sender, RoutedEventArgs e)
+    {
+        if (Services.Subscriptions.SubscriptionAccess.Current is { } subscription)
+            await subscription.ManageAsync();
     }
 
     private async void OnGrantDirectory(object? sender, RoutedEventArgs e)

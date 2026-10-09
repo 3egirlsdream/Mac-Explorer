@@ -20,11 +20,11 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     public async Task CopilotRevocationBlocksAnExistingTransportAndRequiresFreshConsent()
     {
         var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings());
-        if (RuntimePaths.TestRoot == null) Assert.Skip("Run through Tools/Testing/run-isolated.sh to keep Keychain isolated.");
-        var keychain = new CopilotKeychain(); keychain.Save("security-followup-fixture-key"); var key = keychain.Read()!;
+        if (RuntimePaths.TestRoot == null) Assert.Skip("Run through Tools/Testing/run-isolated.sh to keep application credentials isolated.");
+        var credentials = new CopilotCredentialStore(); credentials.Save("security-followup-fixture-key"); var key = credentials.Read()!;
         settings.AllowMetadataSharing(key);
         var transport = new RecordingTransport();
-        using var client = new HttpClient(new PrivacyConsentHandler(transport, settings, keychain, settings.Endpoint, settings.Model, key));
+        using var client = new HttpClient(new PrivacyConsentHandler(transport, settings, credentials, settings.Endpoint, settings.Model, key));
         using (await client.GetAsync("https://fixture.test/v1", Token)) { }
         Assert.Equal(1, transport.Sends);
         settings.RevokeMetadataSharing();
@@ -308,8 +308,8 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
         private readonly Dictionary<string, string> _values = [];
         public bool FailSave, FailDelete;
         public string? Read(string account) => _values.GetValueOrDefault(account);
-        public void Save(string account, string secret) { if (FailSave) throw new IOException("Keychain locked fixture"); _values[account] = secret; }
-        public void Delete(string account) { if (FailDelete) throw new UnauthorizedAccessException("Keychain denied fixture"); _values.Remove(account); }
+        public void Save(string account, string secret) { if (FailSave) throw new IOException("Database write failure fixture"); _values[account] = secret; }
+        public void Delete(string account) { if (FailDelete) throw new UnauthorizedAccessException("Database delete failure fixture"); _values.Remove(account); }
     }
     public void Dispose() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
 }
