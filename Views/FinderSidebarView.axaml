@@ -160,6 +160,7 @@
         </Style>
     </UserControl.Styles>
 
+    <Grid RowDefinitions="*,Auto">
     <ScrollViewer>
         <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
@@ -649,4 +650,13 @@
 
                 </StackPanel>
             </ScrollViewer>
+    <Border Grid.Row="1" x:Name="SidebarSettingsItem" Classes="sidebar-item" Margin="8,4,8,8"
+            PointerPressed="OnSidebarItemPressed" ToolTip.Tip="{loc:Loc ui.072}"
+            AutomationProperties.Name="{loc:Loc ui.072}">
+        <StackPanel Orientation="Horizontal" Background="Transparent">
+            <PathIcon Data="{x:Static icons:Icons.Settings}" Classes="sidebar-icon"/>
+            <TextBlock Text="{loc:Loc ui.072}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+        </StackPanel>
+    </Border>
+    </Grid>
 </UserControl>

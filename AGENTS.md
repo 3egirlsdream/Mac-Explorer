@@ -56,6 +56,8 @@
 
 - 商店版订阅页通过 `AppWindow.SubscriptionHost` 覆盖标题栏与正文，复用 `WindowTitleBar`、全局按钮和主题资源；功能介绍在窄窗口内滚动，价格、试用／订阅及恢复购买入口固定可见。
 
+- 设置入口固定在侧栏底部、位于目录滚动区域之外，复用 Fluent Settings 图标与 `sidebar-item` 的 Border／StackPanel 结构，不嵌套按钮悬停表面；Copilot 通过设置中的启用开关控制，默认关闭，所有窗口同步按钮可见性。
+
 # 自动测试
 - 需要启动真实应用或使用默认服务路径的自动测试、原生 UI 验证，通过 `bash Tools/Testing/run-isolated.sh <可执行文件> [参数...]` 启动，每次创建独立临时目录并设置 `MACEXPLORER_TEST_ROOT`；已有显式临时目录与测试替身的单元测试保持原运行方式。构建使用 `-p:SkipMacOSReleaseDMG=true`。
 - 测试模式的数据库、配置、缓存、插件和默认用户目录均位于测试目录；启动索引及“这台 Mac”搜索仅覆盖测试目录。测试开关优先于 `MACEXPLORER_DB_PATH` / `MACEXPLORER_PLUGIN_PATH`，不会复用真实用户的历史与收藏。
@@ -79,4 +81,10 @@
 
 - 通用按钮使用 `FontFamilyButton` 的西文字体优先、中文苹方回退顺序，内容默认水平与垂直居中；菜单及行操作仍由对应样式显式指定对齐，不按语言添加固定像素偏移。
 
+- 快捷键文字统一复用 `ShortcutText`、`FontFamilyShortcut` 与 `FontSizeBody`，覆盖菜单、设置主键／修饰键及 Cmd 提示；按字形实际边界将修饰键符号缩放到统一可见高度并居中，不仅统一字号。固定 Cmd 符号复用 `shortcut-symbol`。
+
 - 主窗口激活页签由 `ChromiumTabStripSurface` 沿曲线轮廓绘制零偏移轻阴影，浅／深色强度统一使用 `ActiveTabShadowColor`，不为整条标题栏绘制阴影。
+
+- 文档预览共用 `DocumentPreviewHost`：PDF 使用按宽度适配的纵向连续页面，Office 使用内嵌系统 Quick Look；单文件预览收起内容列表，不显示底部元信息与操作栏，应用弹窗出现时隐藏原生内容。
+
+- 文件缩略图统一复用 `ThumbnailShadow` 主题资源与 `ThumbnailAppearance`，沿实际图片边缘绘制零偏移、轻模糊的均匀阴影；文件列表与首页共用，类型图标和文件夹图标不加矩形阴影。

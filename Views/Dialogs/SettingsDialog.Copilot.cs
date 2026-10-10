@@ -14,6 +14,7 @@ public partial class SettingsDialog
 
     private void LoadCopilotSettings()
     {
+        CopilotEnabledToggle.IsChecked = CopilotConnection.Enabled;
         CopilotEndpointBox.Text = CopilotConnection.Endpoint;
         CopilotModelBox.Text = CopilotConnection.Model;
         RefreshCopilotSkills();
@@ -23,6 +24,11 @@ public partial class SettingsDialog
             CopilotKeyBox.Text = _savedCopilotKey;
         }
         catch (Exception ex) { CopilotSettingsStatus.Text = ex.Message; }
+    }
+
+    private void OnCopilotEnabledChanged(object? sender, RoutedEventArgs e)
+    {
+        CopilotConnection.Enabled = CopilotEnabledToggle.IsChecked == true;
     }
 
     private void SaveCopilotConnection(object? sender, RoutedEventArgs e)

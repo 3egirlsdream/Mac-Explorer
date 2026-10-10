@@ -30,10 +30,15 @@ internal sealed class FastFileListImages
     internal long CachedBytes => _bytes;
 
     public Bitmap? Get(FileSystemEntry entry, bool folderCoversEnabled = false)
+        => Get(entry, folderCoversEnabled, out _);
+
+    public Bitmap? Get(FileSystemEntry entry, bool folderCoversEnabled, out bool isThumbnail)
     {
+        isThumbnail = false;
         var key = ImageKey.ForView(entry, _pixelSize, folderCoversEnabled && FolderCoverProvider != null);
         if (_cache.TryGetValue(key, out var node))
         {
+            isThumbnail = !entry.IsDirectory;
             _lru.Remove(node);
             _lru.AddFirst(node);
             return node.Value.Bitmap;

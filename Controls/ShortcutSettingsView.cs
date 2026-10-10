@@ -57,7 +57,7 @@ internal sealed class ShortcutSettingsView : StackPanel
                 if (definition.IsEditable)
                 {
                     var command = new Border { Classes = { "shortcut-fixed-key" },
-                        Child = new TextBlock { Text = "⌘", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } };
+                        Child = new ShortcutText { Text = "⌘", Classes = { "shortcut-symbol" }, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } };
                     AutomationProperties.SetName(command, "Cmd 固定不可修改");
                     ToolTip.SetTip(command, "Cmd 固定不可修改");
                     keyGroup.Children.Add(command);

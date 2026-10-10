@@ -3,6 +3,13 @@
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI">
+    <Style Selector="controls|FastFileList">
+        <Setter Property="ThumbnailShadow" Value="{DynamicResource ThumbnailShadow}"/>
+    </Style>
+    <Style Selector="controls|HomeFileImage">
+        <Setter Property="ThumbnailShadow" Value="{DynamicResource ThumbnailShadow}"/>
+    </Style>
+
     <Styles.Resources>
 
         <ControlTheme x:Key="IconActionButtonTheme" TargetType="Button">
@@ -858,6 +865,22 @@
     <Style Selector="TextBlock.shortcut-name, TextBlock.shortcut-keys">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.shortcut-keys, TextBlock.shortcut-symbol,
+                     MenuItem /template/ TextBlock#PART_InputGestureText">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyShortcut}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+    </Style>
+    <Style Selector="Button.shortcut-binding, Button.shortcut-modifier">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyShortcut}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="ContentTemplate">
+            <DataTemplate>
+                <controls:ShortcutText Text="{Binding}" Classes="shortcut-symbol"/>
+            </DataTemplate>
+        </Setter>
     </Style>
     <Style Selector="Button.shortcut-binding">
         <Setter Property="MinWidth" Value="96"/>

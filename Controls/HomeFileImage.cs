@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Converters;
@@ -11,8 +12,29 @@ using MacExplorer.Services;
 namespace MacExplorer.Controls;
 
 /// <summary>Visible-only thumbnail loading; fallback images remain owned by the shared icon cache.</summary>
-public sealed class HomeFileImage : Image
+public sealed class HomeFileImage : Control
 {
+    public static readonly StyledProperty<IImage?> SourceProperty = Image.SourceProperty.AddOwner<HomeFileImage>();
+    public IImage? Source { get => GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
+
+    public static readonly StyledProperty<BoxShadows> ThumbnailShadowProperty = AvaloniaProperty.Register<HomeFileImage, BoxShadows>(nameof(ThumbnailShadow));
+    public BoxShadows ThumbnailShadow { get => GetValue(ThumbnailShadowProperty); set => SetValue(ThumbnailShadowProperty, value); }
+
+    static HomeFileImage() => AffectsRender<HomeFileImage>(SourceProperty, ThumbnailShadowProperty);
+
+    public override void Render(DrawingContext context)
+    {
+        if (Source is { } source)
+        {
+            var scale = Math.Min(Bounds.Width / source.Size.Width, Bounds.Height / source.Size.Height);
+            var size = new Size(source.Size.Width * scale, source.Size.Height * scale);
+            var destination = new Rect(new Rect(Bounds.Size).Center - new Vector(size.Width / 2, size.Height / 2), size);
+            if (ReferenceEquals(source, _lease?.Bitmap)) ThumbnailAppearance.DrawShadow(context, destination, ThumbnailShadow);
+            context.DrawImage(source, destination);
+        }
+        base.Render(context);
+    }
+
     private static readonly FileEntryToIconConverter Icons = new();
     private readonly FileSystemEntry _entry;
     private readonly Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>> _provider;
@@ -34,7 +56,6 @@ public sealed class HomeFileImage : Image
         _entry = entry;
         _provider = provider;
         Width = Height = size;
-        Stretch = Avalonia.Media.Stretch.Uniform;
         EffectiveViewportChanged += (_, e) =>
         {
             _inViewport = e.EffectiveViewport.Intersects(new Rect(Bounds.Size));

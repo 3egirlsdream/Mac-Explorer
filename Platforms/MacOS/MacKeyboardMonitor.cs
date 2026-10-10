@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
+using Avalonia.Threading;
 
 namespace MacExplorer.Platforms.MacOS;
 
@@ -12,10 +13,13 @@ internal sealed class MacKeyboardMonitor : IDisposable
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int KeyboardCallback(int kind, ushort keyCode, int modifiers, int repeat);
     private readonly KeyboardCallback _callback;
+    private readonly Window _window;
+    private bool _disposed;
     private IntPtr _handle;
 
     public MacKeyboardMonitor(Window window, Func<KeyboardActivity, Key, KeyModifiers, bool, bool> callback)
     {
+        _window = window;
         _callback = (kind, keyCode, modifiers, repeat) =>
         {
             try
@@ -28,8 +32,21 @@ internal sealed class MacKeyboardMonitor : IDisposable
             }
             catch (Exception ex) { System.Diagnostics.Trace.TraceError($"Shortcut input: {ex}"); return 0; }
         };
-        if (window.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle handle)
-            _handle = MacExplorerKeyboardCreate(handle.NSView, _callback);
+        TryAttach();
+        // Opened can precede the NSView joining its NSWindow; retry once the layout is loaded.
+        Dispatcher.UIThread.Post(TryAttach, DispatcherPriority.Loaded);
+        window.Activated += OnActivated;
+    }
+
+    private void OnActivated(object? sender, EventArgs e) => TryAttach();
+
+    private void TryAttach()
+    {
+        if (_disposed || _handle != IntPtr.Zero) return;
+        var handle = _window.TryGetPlatformHandle();
+        var view = handle is IMacOSTopLevelPlatformHandle mac ? mac.NSView
+            : handle?.HandleDescriptor == "NSView" ? handle.Handle : IntPtr.Zero;
+        if (view != IntPtr.Zero) _handle = MacExplorerKeyboardCreate(view, _callback);
     }
 
     internal static Key FromKeyCode(ushort code) => code switch
@@ -59,6 +76,8 @@ internal sealed class MacKeyboardMonitor : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
+        _window.Activated -= OnActivated;
         if (_handle != IntPtr.Zero) { MacExplorerKeyboardDestroy(_handle); _handle = IntPtr.Zero; }
         GC.KeepAlive(_callback);
     }

@@ -39,7 +39,7 @@
         <Border x:Name="Shell" Classes="super-preview-shell" CornerRadius="16" MaxWidth="1400" MaxHeight="900"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="False">
             <Border CornerRadius="{Binding CornerRadius, ElementName=Shell}" ClipToBounds="True">
-            <Grid RowDefinitions="Auto,Auto,*,Auto">
+            <Grid RowDefinitions="Auto,Auto,*">
                 <Grid Grid.Row="0" x:Name="PreviewHeader" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12,12,8">
                     <Button AutomationProperties.Name="{loc:Loc ui.598}" Grid.Column="0" x:Name="BackButton" Classes="ghost compact" Width="30" Height="30"
                             Padding="6" Click="GoBack" ToolTip.Tip="{loc:Loc ui.598}">
@@ -63,15 +63,10 @@
 
                 <Border Grid.Row="1" x:Name="HeaderDivider" Height="1" Background="{DynamicResource ColorDivider}"/>
 
-                <Grid Grid.Row="2" x:Name="PreviewContentGrid" ColumnDefinitions="310,6,*" Margin="12,10,12,10">
+                <Grid Grid.Row="2" x:Name="PreviewContentGrid" ColumnDefinitions="240,6,*" Margin="8">
                     <Border Grid.Column="0" x:Name="PreviewListCard" Classes="card" CornerRadius="10" ClipToBounds="True">
-                        <Grid RowDefinitions="Auto,*">
-                            <Grid Grid.Row="0" x:Name="PreviewListHeader" ColumnDefinitions="*,Auto" Margin="12,10,10,6">
-                                <TextBlock Text="{loc:Loc ui.601}" FontSize="13" FontWeight="{StaticResource FontWeightSemibold}"/>
-                                <TextBlock Grid.Column="1" x:Name="ListHintText" Text="{loc:Loc ui.602}" FontSize="10"
-                                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
-                            </Grid>
-                            <ListBox Grid.Row="1" x:Name="ItemsList" Classes="super-preview-items"
+                        <Grid RowDefinitions="*">
+                            <ListBox x:Name="ItemsList" Classes="super-preview-items"
                                      SelectionMode="Single" SelectionChanged="OnItemSelectionChanged"
                                      DoubleTapped="OnItemDoubleTapped">
                                 <ListBox.ItemTemplate>
@@ -98,51 +93,35 @@
                         </Grid>
                     </Border>
                     <Border Grid.Column="1" x:Name="ContentDivider" Background="{DynamicResource ColorDivider}" Width="1" HorizontalAlignment="Center"/>
-                    <Border Grid.Column="2" x:Name="PreviewCard" Classes="card" CornerRadius="10" Padding="18" ClipToBounds="True">
-                        <Grid RowDefinitions="*,Auto">
-                            <Grid Grid.Row="0" x:Name="PreviewHost">
-                                <TextBlock x:Name="PreviewPlaceholder" Text="{loc:Loc ui.603}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="14"
-                                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
-                                <Image x:Name="PreviewImage" IsVisible="False" Stretch="Uniform"
+                    <Border Grid.Column="2" x:Name="PreviewCard" Classes="card" CornerRadius="{DynamicResource RadiusLg}" Padding="0" ClipToBounds="True">
+                        <Grid x:Name="PreviewHost">
+                            <TextBlock x:Name="PreviewPlaceholder" Text="{loc:Loc ui.603}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       MaxWidth="900" MaxHeight="650"/>
-                                <ScrollViewer x:Name="PreviewTextScroll" IsVisible="False"
-                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                                    <TextBox x:Name="PreviewText" IsReadOnly="True" AcceptsReturn="True"
-                                             TextWrapping="NoWrap" BorderThickness="0" Background="Transparent"
-                                             FontFamily="{StaticResource FontFamilyMono}" FontSize="13"
-                                             Padding="8" HorizontalContentAlignment="Left"
-                                             VerticalContentAlignment="Top"/>
-                                </ScrollViewer>
-                                <StackPanel x:Name="FolderSummary" IsVisible="False" HorizontalAlignment="Center"
-                                            VerticalAlignment="Center" Spacing="8">
-                                    <PathIcon x:Name="FolderSummaryIcon" Data="{x:Static icons:Icons.Folder}" Width="72" Height="72"
-                                              Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
-                                    <TextBlock x:Name="FolderSummaryTitle" FontSize="20" FontWeight="{StaticResource FontWeightSemibold}"
-                                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="500"/>
-                                    <TextBlock x:Name="FolderSummaryDetails" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
-                                               HorizontalAlignment="Center" TextAlignment="Center"/>
-                                    <TextBlock Text="{loc:Loc ui.604}" FontSize="11"
-                                               Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="1" x:Name="PreviewMetadata" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
-                                <TextBlock x:Name="PreviewMetaText" Text="" FontSize="11"
-                                           Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
-                                <Button Grid.Column="1" x:Name="QuickLookButton" Classes="ghost compact"
-                                        Content="{loc:Loc ui.605}" IsVisible="False" Click="OpenWithQuickLook"/>
-                            </Grid>
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="14"
+                                       TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
+                            <Image x:Name="PreviewImage" IsVisible="False" Stretch="Uniform"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ScrollViewer x:Name="PreviewTextScroll" IsVisible="False"
+                                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                <TextBox x:Name="PreviewText" IsReadOnly="True" AcceptsReturn="True"
+                                         TextWrapping="NoWrap" BorderThickness="0" Background="Transparent"
+                                         FontFamily="{StaticResource FontFamilyMono}" FontSize="13"
+                                         Padding="8" HorizontalContentAlignment="Left"
+                                         VerticalContentAlignment="Top"/>
+                            </ScrollViewer>
+                            <StackPanel x:Name="FolderSummary" IsVisible="False" HorizontalAlignment="Center"
+                                        VerticalAlignment="Center" Spacing="8">
+                                <PathIcon x:Name="FolderSummaryIcon" Data="{x:Static icons:Icons.Folder}" Width="72" Height="72"
+                                          Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="FolderSummaryTitle" FontSize="20" FontWeight="{StaticResource FontWeightSemibold}"
+                                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="500"/>
+                                <TextBlock x:Name="FolderSummaryDetails" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
+                                           HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc ui.604}" FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
-                </Grid>
-
-                <Grid Grid.Row="3" x:Name="PreviewFooter" ColumnDefinitions="*,Auto" Margin="16,0,16,12">
-                    <TextBlock x:Name="StatusText" Text="{loc:Loc ui.606}"
-                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.599}" FontSize="11"
-                               Foreground="{DynamicResource AccentBrush}"/>
                 </Grid>
             </Grid>
             </Border>

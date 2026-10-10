@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>1.0.54</Version>
+    <Version>1.0.55</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -101,7 +101,7 @@
   </Target>
 
   <Target Name="BuildMacOSNativeDragHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <Exec Command="clang++ -fobjc-arc -dynamiclib -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' 'Platforms/MacOS/SandboxAccess.mm' -framework AppKit -framework Foundation -framework Security -framework Quartz -framework CoreServices -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+    <Exec Command="clang++ -fobjc-arc -dynamiclib -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' 'Platforms/MacOS/SandboxAccess.mm' 'Platforms/MacOS/DocumentPreview.mm' -framework AppKit -framework Foundation -framework Security -framework Quartz -framework CoreServices -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
   <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">

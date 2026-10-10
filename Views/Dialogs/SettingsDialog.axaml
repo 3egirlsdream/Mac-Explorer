@@ -663,6 +663,17 @@
                         <TextBlock Classes="settings-title" Text="Copilot"/>
                         <TextBlock Classes="settings-description" Text="{loc:Loc ui.252}"/>
                     </StackPanel>
+                    <Border Classes="settings-group">
+                        <Border Classes="settings-compact-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <TextBlock Classes="settings-label" Text="{loc:Loc settings.copilot_enabled}" VerticalAlignment="Center"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="CopilotEnabledToggle" Classes="settings-toggle compact"
+                                              AutomationProperties.Name="{loc:Loc settings.copilot_enabled}"
+                                              ToolTip.Tip="{loc:Loc settings.copilot_enabled.description}"
+                                              IsCheckedChanged="OnCopilotEnabledChanged"/>
+                            </Grid>
+                        </Border>
+                    </Border>
                     <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.222}"/>
                     <Border Classes="settings-group">
                         <StackPanel>

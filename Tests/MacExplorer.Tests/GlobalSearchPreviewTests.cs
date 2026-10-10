@@ -51,7 +51,7 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Empty(fixture.Model.FileList.SelectedEntries);
             Assert.False(preview.FindControl<Border>("PreviewListCard")!.IsVisible);
             Assert.False(preview.FindControl<Grid>("PreviewHeader")!.IsVisible);
-            Assert.False(preview.FindControl<Grid>("PreviewMetadata")!.IsVisible);
+            Assert.Null(preview.FindControl<Grid>("PreviewMetadata"));
             var panel = fixture.Window.FindControl<Border>("GlobalSearchPreviewPanel")!;
             Assert.Equal(220, panel.Bounds.Width);
             Assert.Equal(860, fixture.Window.FindControl<Border>("GlobalSearchPanel")!.Width);

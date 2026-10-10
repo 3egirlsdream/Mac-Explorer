@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.Interactivity;
 using MacExplorer.Platforms.MacOS;
 using MacExplorer.Services;
 
@@ -66,8 +67,36 @@ internal sealed class ShortcutHintController : IDisposable
         shortcuts.RecordingChanged += OnRecordingChanged;
         window.SizeChanged += OnSizeChanged;
         window.Deactivated += OnDeactivated;
+        window.AddHandler(InputElement.KeyDownEvent, OnRoutedKeyDown, RoutingStrategies.Tunnel, true);
+        window.AddHandler(InputElement.KeyUpEvent, OnRoutedKeyUp, RoutingStrategies.Tunnel, true);
         if (OperatingSystem.IsMacOS()) _native = new MacKeyboardMonitor(window, HandleActivity);
     }
+
+    private void OnRoutedKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (Services.Impl.ShortcutService.IsModifier(e.Key))
+            HandleActivity(KeyboardActivity.Modifiers, e.Key, e.KeyModifiers | ModifierFor(e.Key), false);
+        else
+        {
+            _hold.Interrupt();
+            UpdateAnimation();
+        }
+    }
+
+    private void OnRoutedKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (Services.Impl.ShortcutService.IsModifier(e.Key))
+            HandleActivity(KeyboardActivity.Modifiers, e.Key, e.KeyModifiers, false);
+    }
+
+    private static KeyModifiers ModifierFor(Key key) => key switch
+    {
+        Key.LWin or Key.RWin => KeyModifiers.Meta,
+        Key.LeftShift or Key.RightShift => KeyModifiers.Shift,
+        Key.LeftAlt or Key.RightAlt => KeyModifiers.Alt,
+        Key.LeftCtrl or Key.RightCtrl => KeyModifiers.Control,
+        _ => KeyModifiers.None
+    };
 
     internal bool HandleActivity(KeyboardActivity activity, Key key, KeyModifiers modifiers, bool repeat)
     {
@@ -174,6 +203,8 @@ internal sealed class ShortcutHintController : IDisposable
         _shortcuts.RecordingChanged -= OnRecordingChanged;
         _window.SizeChanged -= OnSizeChanged;
         _window.Deactivated -= OnDeactivated;
+        _window.RemoveHandler(InputElement.KeyDownEvent, OnRoutedKeyDown);
+        _window.RemoveHandler(InputElement.KeyUpEvent, OnRoutedKeyUp);
     }
 }
 
@@ -221,7 +252,7 @@ internal sealed class ShortcutHintView : Border
                 var name = new TextBlock { Text = definition.Context == null ? definition.Name : $"{definition.Name} · {definition.Context}", TextTrimming = TextTrimming.CharacterEllipsis,
                     VerticalAlignment = VerticalAlignment.Center, Classes = { "shortcut-name" } };
                 ToolTip.SetTip(name, definition.Context == null ? definition.Name : $"{definition.Name} · {definition.Context}");
-                var key = new TextBlock { Text = string.Join(" / ", _shortcuts.GetBindings(definition.Id)
+                var key = new ShortcutText { Text = string.Join(" / ", _shortcuts.GetBindings(definition.Id)
                     .Select(b => b.Display)),
                     VerticalAlignment = VerticalAlignment.Center, Classes = { "shortcut-keys" } };
                 Grid.SetColumn(key, 1); row.Children.Add(name); row.Children.Add(key); section.Children.Add(row);

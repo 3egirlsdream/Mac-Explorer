@@ -994,6 +994,7 @@ public partial class FileListView : UserControl
     {
         if (action.IsSeparator) return new Separator();
         var item = new MenuItem { Header = action.Label, IsEnabled = action.IsEnabled, Tag = action };
+        ContextMenuPopupStyler.Attach(item);
         if (!string.IsNullOrEmpty(action.ToolTip)) ToolTip.SetTip(item, action.ToolTip);
         if (action.IsCheckable)
         {
@@ -1037,13 +1038,11 @@ public partial class FileListView : UserControl
         if (action.SubItems is { Count: > 0 })
         {
             FillMenu(item, action.SubItems.ToList(), requestVersion);
-            ContextMenuPopupStyler.Attach(item);
         }
         if (action.LoadSubItemsAsync != null)
         {
             _asyncSubmenus.Add(item);
             FillMenu(item, [new ContextMenuAction { Label = "正在搜索…", IsEnabled = false }], requestVersion);
-            ContextMenuPopupStyler.Attach(item);
             item.PropertyChanged += (_, e) =>
             {
                 if (e.Property != MenuItem.IsSubMenuOpenProperty) return;

@@ -20,6 +20,70 @@ namespace MacExplorer.Tests;
 
 public sealed class ShortcutTests
 {
+    [AvaloniaFact]
+    public void MenuUsesNormalizedShortcutAndTracksBindingChanges()
+    {
+        using var theme = new FastListTestTheme();
+        var item = new MenuItem { Header = "复制路径", InputGesture = new KeyGesture(Key.C, KeyModifiers.Meta | KeyModifiers.Shift) };
+        ContextMenuPopupStyler.Attach(item);
+        var target = new Button { ContextMenu = new ContextMenu { Items = { item } } };
+        var window = InputAppearanceTests.CreateWindow(target, false, 640);
+        try
+        {
+            target.ContextMenu.Open(target);
+            Dispatcher.UIThread.RunJobs();
+            var label = Assert.Single(item.GetVisualDescendants().OfType<ShortcutText>());
+            Assert.Contains("C", label.Text);
+            item.InputGesture = new KeyGesture(Key.J, KeyModifiers.Meta);
+            Assert.Contains("J", label.Text);
+            Assert.EndsWith("J", label.Text);
+        }
+        finally { target.ContextMenu.Close(); window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(16)]
+    public void ModifierSymbolsUseEqualInkHeightAndVerticalCenter(double size)
+    {
+        var label = new ShortcutText { Text = "⇧⌥⌘C", FontSize = size,
+            FontFamily = new Avalonia.Media.FontFamily("Menlo") };
+        label.Measure(Size.Infinity);
+        Assert.Equal(3, label.SymbolBounds.Count);
+        Assert.All(label.SymbolBounds, bounds =>
+        {
+            Assert.Equal(size * .75, bounds.Height, 6);
+            Assert.Equal(size / 2, bounds.Center.Y, 6);
+        });
+    }
+
+    [AvaloniaFact]
+    public void RoutedCommandHoldShowsHintAndReleaseRemovesIt()
+    {
+        using var service = new ShortcutService(new ShortcutMemorySettings());
+        var content = new Button();
+        var window = new AppWindow { Width = 700, Height = 600, Content = content, Shortcuts = service };
+        window.Show();
+        typeof(WindowBase).GetMethod("HandleActivated", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(window, null);
+        long now = 0;
+        using var controller = new ShortcutHintController(window, service, () => now);
+        try
+        {
+            content.Focus();
+            window.KeyPress(Key.LWin, RawInputModifiers.Meta, PhysicalKey.MetaLeft, null);
+            now = 699; controller.AdvanceAnimation();
+            Assert.False(controller.IsVisible);
+            now = 700; controller.AdvanceAnimation();
+            Assert.True(controller.IsVisible);
+            window.KeyRelease(Key.LWin, RawInputModifiers.None, PhysicalKey.MetaLeft, null);
+            now = 900; controller.AdvanceAnimation();
+            Assert.False(controller.IsVisible);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

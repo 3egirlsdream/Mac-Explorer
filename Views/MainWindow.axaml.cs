@@ -122,6 +122,8 @@ public partial class MainWindow : AppWindow
         Closed += OnClosed;
         Application.Current?.ActualThemeVariantChanged += OnActualThemeVariantChanged;
         _taskManager.TasksChanged += OnTasksChanged;
+        App.Services.GetRequiredService<ISettingsService>().SettingChanged += OnCopilotSettingChanged;
+        ApplyCopilotEnabled();
         ApplyAppearanceSettings();
         AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -773,6 +775,7 @@ public partial class MainWindow : AppWindow
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        App.Services.GetRequiredService<ISettingsService>().SettingChanged -= OnCopilotSettingChanged;
         _copilot?.Dispose();
         _copilot = null;
         CloseHomeFolderImmediately();
@@ -1355,12 +1358,6 @@ public partial class MainWindow : AppWindow
         PaneLayoutPopup.IsOpen = !PaneLayoutPopup.IsOpen;
         if (PaneLayoutPopup.IsOpen)
             Dispatcher.UIThread.Post(UpdatePaneLayoutPickerSelection);
-        e.Handled = true;
-    }
-
-    private async void OpenSettingsFromTitleBar(object? sender, RoutedEventArgs e)
-    {
-        await ExecuteWindowCapabilityAsync("ui.settings", "{}");
         e.Handled = true;
     }
 

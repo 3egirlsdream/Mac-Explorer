@@ -299,6 +299,13 @@ public partial class FinderSidebarView : UserControl
 
     private async Task<bool> NavigateSidebarItemAsync(Border border)
     {
+        if (border == SidebarSettingsItem)
+        {
+            if (TopLevel.GetTopLevel(this) is MainWindow window)
+                window.OpenSettings();
+            return true;
+        }
+
         if (ViewModel == null)
             return false;
 

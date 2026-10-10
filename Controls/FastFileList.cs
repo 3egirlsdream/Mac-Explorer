@@ -48,6 +48,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public static readonly StyledProperty<IBrush?> MutedProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Muted), Brushes.Gray);
     public static readonly StyledProperty<IBrush?> DividerProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Divider), Brushes.LightGray);
     public static readonly StyledProperty<IBrush?> FocusRingProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(FocusRing));
+    public static readonly StyledProperty<BoxShadows> ThumbnailShadowProperty = AvaloniaProperty.Register<FastFileList, BoxShadows>(nameof(ThumbnailShadow));
     public static readonly StyledProperty<BoxShadows> SelectionOutlineProperty = AvaloniaProperty.Register<FastFileList, BoxShadows>(nameof(SelectionOutline));
     public static readonly StyledProperty<BoxShadows> FocusOutlineProperty = AvaloniaProperty.Register<FastFileList, BoxShadows>(nameof(FocusOutline));
     public static readonly StyledProperty<CornerRadius> RowCornerRadiusProperty = AvaloniaProperty.Register<FastFileList, CornerRadius>(nameof(RowCornerRadius), new CornerRadius(4));
@@ -72,6 +73,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public IBrush? Muted { get => GetValue(MutedProperty); set => SetValue(MutedProperty, value); }
     public IBrush? Divider { get => GetValue(DividerProperty); set => SetValue(DividerProperty, value); }
     public IBrush? FocusRing { get => GetValue(FocusRingProperty); set => SetValue(FocusRingProperty, value); }
+    public BoxShadows ThumbnailShadow { get => GetValue(ThumbnailShadowProperty); set => SetValue(ThumbnailShadowProperty, value); }
     public BoxShadows SelectionOutline { get => GetValue(SelectionOutlineProperty); set => SetValue(SelectionOutlineProperty, value); }
     public BoxShadows FocusOutline { get => GetValue(FocusOutlineProperty); set => SetValue(FocusOutlineProperty, value); }
     public CornerRadius RowCornerRadius { get => GetValue(RowCornerRadiusProperty); set => SetValue(RowCornerRadiusProperty, value); }
@@ -185,7 +187,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         AffectsRender<FastFileList>(IsGridProperty, IsLoadingProperty, BackgroundProperty, ForegroundProperty, SecondaryProperty, HoverProperty,
             SelectedProperty, SelectedHoverProperty, AlternateRowProperty, DropBrushProperty, FontFamilyProperty, FontWeightProperty,
             FontSizeProperty, DetailFontSizeProperty, CaptionFontSizeProperty, MetaFontSizeProperty, GroupMinHeightProperty,
-            MutedProperty, DividerProperty, FocusRingProperty, SelectionOutlineProperty, FocusOutlineProperty, RowCornerRadiusProperty);
+            MutedProperty, DividerProperty, FocusRingProperty, SelectionOutlineProperty, FocusOutlineProperty, RowCornerRadiusProperty, ThumbnailShadowProperty);
     }
 
     public void SetRows(IReadOnlyList<FileSystemEntry> rows)
@@ -700,12 +702,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private void DrawIcon(DrawingContext context, FileSystemEntry entry, Rect bounds)
     {
-        var image = _images.Get(entry, IsGrid && _folderCoversEnabled);
+        var image = _images.Get(entry, IsGrid && _folderCoversEnabled, out var isThumbnail);
         if (image != null)
         {
             var scale = Math.Min(bounds.Width / image.Size.Width, bounds.Height / image.Size.Height);
             var size = new Size(image.Size.Width * scale, image.Size.Height * scale);
-            context.DrawImage(image, new Rect(bounds.Center - new Vector(size.Width / 2, size.Height / 2), size));
+            var destination = new Rect(bounds.Center - new Vector(size.Width / 2, size.Height / 2), size);
+            if (isThumbnail) ThumbnailAppearance.DrawShadow(context, destination, ThumbnailShadow);
+            context.DrawImage(image, destination);
         }
         else
         {

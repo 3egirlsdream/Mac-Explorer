@@ -605,6 +605,8 @@ internal static partial class LocalizationCatalog
             ["ui.595"] = ("重新检查", "Check again"),
             ["ui.596"] = ("使用条款", "Terms of use"),
             ["ui.597"] = ("退出", "Quit"),
+            ["ui.preview-document-unreadable"] = ("无法读取此文档", "Unable to read this document"),
+            ["ui.preview-pdf-locked"] = ("此 PDF 已加密，请解锁后预览", "This PDF is encrypted. Unlock it to preview."),
             ["ui.598"] = ("返回上一层", "Back one level"),
             ["ui.599"] = ("预览", "Preview"),
             ["ui.600"] = ("关闭预览（Esc）", "Close preview (Esc)"),

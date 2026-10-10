@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using MacExplorer.Assets;
 using MacExplorer.Copilot;
+using MacExplorer.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,8 +39,25 @@ public partial class MainWindow
         return engine;
     }
 
+    private void OnCopilotSettingChanged(string key)
+    {
+        if (key != CopilotSettings.EnabledKey) return;
+        if (Dispatcher.UIThread.CheckAccess()) ApplyCopilotEnabled();
+        else Dispatcher.UIThread.Post(ApplyCopilotEnabled);
+    }
+
+    private void ApplyCopilotEnabled()
+    {
+        var enabled = App.Services.GetRequiredService<ISettingsService>().Get(CopilotSettings.EnabledKey, false);
+        CopilotStatusButton.IsVisible = enabled;
+        if (enabled) return;
+        CopilotPanel.IsVisible = false;
+        if (_copilotBusy && CopilotStopButton.IsEnabled) _copilotRunCts?.Cancel();
+    }
+
     private void ToggleCopilot(object? sender, RoutedEventArgs e)
     {
+        if (!App.Services.GetRequiredService<ISettingsService>().Get(CopilotSettings.EnabledKey, false)) return;
         CopilotPanel.IsVisible = !CopilotPanel.IsVisible;
         if (!CopilotPanel.IsVisible) return;
         if (CopilotHistoryPane.IsVisible) RefreshCopilotHistory();

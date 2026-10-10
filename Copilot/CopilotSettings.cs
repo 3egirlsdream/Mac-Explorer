@@ -10,6 +10,12 @@ public sealed class CopilotSettings(ISettingsService settings)
     public bool HasMetadataConsent(string? key) => settings.Get("copilot.metadata-consent") == ConsentSignature(key);
     public void AllowMetadataSharing(string? key) => settings.Set("copilot.metadata-consent", ConsentSignature(key));
     public void RevokeMetadataSharing() => settings.Set("copilot.metadata-consent", "");
+    public const string EnabledKey = "copilot.enabled";
+    public bool Enabled
+    {
+        get => settings.Get(EnabledKey, false);
+        set => settings.Set(EnabledKey, value);
+    }
     public const string EndpointKey = "copilot.endpoint";
     public const string ModelKey = "copilot.model";
     public string Endpoint
