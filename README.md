@@ -1,237 +1,164 @@
+<p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
+
 <p align="center">
-  <img src="Assets/appicon.svg" width="128" alt="Mac Explorer">
+  <img src="Assets/appicon.svg" width="112" alt="Mac Explorer icon">
 </p>
 
 <h1 align="center">Mac Explorer</h1>
-<p align="center">多工作区 macOS 文件管理器 &nbsp;|&nbsp; A multi-pane file manager for macOS</p>
+<p align="center">A file workspace for macOS: browse, find, preview, organize, and share.</p>
 
 <p align="center">
-  <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest"><img src="https://img.shields.io/github/v/release/3egirlsdream/Mac-Explorer?color=3b82f6&label=Download" alt="Release"></a>
+  <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest"><img src="https://img.shields.io/github/v/release/3egirlsdream/Mac-Explorer?color=3b82f6&label=Download" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/3egirlsdream/Mac-Explorer?color=2f9e64" alt="License"></a>
-  <img src="https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-8b94a3" alt="macOS Apple Silicon">
-  <img src="https://img.shields.io/badge/runtime-.NET%2010%20Self--Contained-512bd4" alt="Runtime">
+  <img src="https://img.shields.io/badge/macOS-14%2B-8b94a3" alt="macOS 14 or later">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-supported-8b94a3" alt="Apple Silicon and Intel">
 </p>
 
 <p align="center">
-  <a href="https://3egirlsdream.github.io/Mac-Explorer/">官网 · Website</a> ·
-  <a href="https://3egirlsdream.github.io/Mac-Explorer/privacy/">隐私政策 · Privacy</a> ·
-  <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest">下载 · Download</a> ·
-  <a href="https://github.com/3egirlsdream/Mac-Explorer/releases">更新记录 · Releases</a> ·
-  <a href="https://github.com/3egirlsdream/Mac-Explorer/issues">反馈 · Issues</a>
+  <a href="https://3egirlsdream.github.io/Mac-Explorer/">Website</a> ·
+  <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest">Download</a> ·
+  <a href="CHANGELOG.md">Changelog</a> ·
+  <a href="https://3egirlsdream.github.io/Mac-Explorer/privacy/">Privacy</a> ·
+  <a href="https://github.com/3egirlsdream/Mac-Explorer/issues">Feedback</a>
 </p>
 
----
+Mac Explorer brings everyday file work into one macOS app. Keep folders side by side, gather files without moving them, search names and analyzed content, preview before opening, and handle local files, archives, and SFTP connections from the same workspace.
 
-<details open>
-<summary><b>中文</b></summary>
+![Mac Explorer workspace](Assets/mac-explorer-product.png)
 
-Mac Explorer 是为 macOS 打造的文件管理器。在一个窗口里并排浏览多个目录，用筛选、搜索和 Finder 标签整理文件，按空格预览文件夹与压缩包，并直接连接 SFTP 服务器。支持列表与网格视图、浅色与深色主题，以及 macOS 原生拖放、菜单和 Quick Look 集成。
+## Features
 
-## 最近更新
+### Tabs, split panes, and navigation
 
-当前源码功能介绍对应 **v1.0.53**；本次详细更新见 [更新日志](CHANGELOG.md)，可下载版本和完整发布记录见 [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases)。
+- Keep multiple locations open in tabs, each with its own navigation history, sorting, and view.
+- Choose horizontal or vertical splits, three- or four-pane layouts, or a larger main pane beside smaller panes. Browse source and destination together when organizing files.
+- Jump through clickable breadcrumbs, searchable subfolder menus, or direct path entry. Use Back, Forward, and Up to navigate.
+- Reach pinned folders, recent locations, local volumes, and the Trash from the sidebar.
 
-- **批量重命名工作台**：跨目录选择本地文件与文件夹，组合规则、模板、编号和日期，逐步预览名称差异；支持预设、手动调整、冲突处理和整批撤销。
-- **自定义快捷键**：在设置中录制组合、检查冲突并恢复默认；长按 Cmd 可查看快捷键提示，菜单与工具栏提示同步更新。
-- **Cmd+K 内容预览**：搜索结果右侧固定显示文件、文件夹或压缩包预览，保持输入焦点，并可直接定位到所在位置。
-- **Copilot 索引查询**：组合搜索已有 PDF/OCR 正文、相机、地点、日期、标签和评分；读取正文继续逐页确认，重命名方案可交给工作台编辑。
-- **LocalSend 收发**：从本地文件右键菜单发现设备并发送，或在接收确认后保存文件；可设置设备名称、接收位置和扫描网段，支持通过 IP 连接。
-- **RAW 缩略图回退**：系统预览无法解码部分相机 RAW 文件时，尝试使用随应用打包的 LibRaw 生成缩略图。
-- **应用内 Copilot**：通过已登记的应用能力协助查找和整理文件；修改文件及发送文件正文前显示计划并等待确认。模型地址、模型名和 API Key 由用户配置。
-- **文件速递**：从菜单栏打开独立面板，以页签浏览常用目录或收藏夹，预览文件并拖出复制。
-- **树形列表与文件夹封面**：在列表中展开本地文件夹；图标视图可选用文件夹内照片生成封面，缩略图按可见范围加载。
-- **文件编辑与处理**：支持 Markdown 预览和编辑，以及批量重命名和文件格式转换。
+### Flexible file views
 
-## 核心功能
+- Switch between list, icon grid, and tree list views; expand local folders directly in the tree list.
+- Sort and group files by properties such as type, date, and size. Choose files first, folders first, or mixed sorting.
+- Combine column filters to narrow a directory. Multiple choices in one column match any selected value; filters across columns apply together.
+- Browse image thumbnails and optional photo covers for folders. Camera RAW thumbnails use a fallback when the system preview cannot decode supported files.
+- Inspect paths, sizes, dates, image dimensions, camera and other photo metadata in the information panel. Calculate and copy SHA-256 hashes for local files.
 
-| 功能 | 说明 |
-|------|------|
-| **多标签与分屏** | 标签页独立维护导航历史、排序和视图；支持横向、纵向、四宫格及主次窗格布局 |
-| **列表、网格、树形列表与筛选** | 切换视图，在树形列表中展开本地文件夹，按类型、日期或大小分组；表头支持多选筛选，同列选项取并集，不同列条件取交集 |
-| **路径导航** | 面包屑逐级跳转、子目录下拉搜索、路径输入，以及置顶文件夹与最近访问入口 |
-| **Finder 标签** | 为文件添加或移除标签，在侧边栏按标签聚合浏览，并写入 macOS Finder 标签；添加标签不移动或复制文件 |
-| **文件搜索** | 当前目录搜索与全局搜索，结合 SQLite FTS5 文件名索引、已生成的 OCR 文本和 AI 标签；支持搜索结果预览 |
-| **AI 图片分析** | 使用 Apple Vision 在设备上识别人脸、图中文字和场景分类；结合照片元数据整理日期与地点，地点名称解析可能需要联网 |
-| **预览** | 空格预览图片、PDF、文本及系统支持的文档/媒体；文件夹和压缩包可继续浏览，具体格式效果取决于 macOS Quick Look 支持 |
-| **压缩包管理** | 浏览和解压 ZIP、TAR、7Z 等格式；创建 ZIP、TAR.GZ、TAR.BZ2，支持 ZIP 密码保护，以及解压到当前目录或独立目录 |
-| **SFTP 远程管理** | 保存服务器连接，浏览、上传、下载和管理远程文件；通过本地应用编辑远程文件后自动回传修改 |
-| **Copilot 文件助手** | 使用已登记的应用能力查找与整理文件；修改文件或向模型发送文件正文前显示确认计划，对话与执行记录保存在本地；需自行配置模型服务 |
-| **文件速递** | 从菜单栏打开独立浏览面板，使用目录与收藏夹页签预览文件并拖出复制 |
-| **批量重命名** | 跨目录规则链、正则替换、名称模板、编号、日期和扩展名处理，逐步预览差异、处理冲突并整批撤销 |
-| **快捷键** | 自定义 Cmd 组合、冲突检查、恢复默认，以及长按 Cmd 显示提示 |
-| **Git 与文件操作** | 显示 Git 状态，支持复制、移动、拖放、废纸篓操作和可撤销的文件操作 |
-| **外观与更新** | 浅色/深色主题、毛玻璃效果、标准/紧凑/舒适排版密度、交互颜色设置，以及应用内更新检查与下载 |
+### Home, favorites, tags, and ratings
 
-### 使用 Copilot
+- Start from a home dashboard with recent files and folders, frequent locations, favorites, and shortcuts to the home folder, desktop, and disks.
+- Organize favorites in resizable grids and expand larger collections for browsing.
+- Apply Finder tags and browse tagged files together from the sidebar. Tagging or adding to favorites keeps files in their original locations; removing a tag or favorite does not delete the source file.
+- Assign star ratings to help organize and find important files.
 
-在“设置 → Copilot”填写兼容 OpenAI 的 API 地址、模型名和 API Key，再点击窗口右上角的 Copilot 图标。API Key 存储在应用本机 SQLite 数据库（未额外加密）；对话和执行记录保存在本机。文件修改及向模型发送文件正文会先显示计划，确认前请核对路径和接收方。
+### Search and local image analysis
 
-### 标签与文件位置
+- Search within the current workspace or open global search with `⌘ K`. Preview selected results beside the search field and reveal them in their folder.
+- Search indexed filenames and existing PDF text, image OCR, and analysis results.
+- Use on-device image analysis to browse people, recognized text, scene categories, and photo dates and locations. Name people groups to make them easier to find.
+- Browse popular recognized words and the files containing them. Photo place-name lookup is optional and may use an online service.
+- Control automatic analysis and search scope in Settings. Content search depends on the files already indexed or analyzed.
 
-从旧版本升级时，收藏集名称及其文件关联会迁移为标签，文件保留在原位置。拖入标签或向标签粘贴只添加标签关联；删除标签只移除该标签及关联，不删除文件。Finder 标签写入失败时会保留待同步记录，并在下次启动时重试。
+### Preview without opening another app
 
-## 安装
+- Press `Space` to preview a selected file or folder in the current window.
+- Preview images, PDFs, text, and supported documents and media. Browse folder and archive contents, including subfolders and nested archives.
+- Read Markdown with formatted preview, or open the built-in editor to edit it and see the rendered result.
+- Preview coverage depends on the file format and macOS Quick Look support; RAW coverage also depends on the camera format.
 
-打包流程为 **macOS 15 或更新版本**的 Apple Silicon 和 Intel Mac 分别生成自包含安装包，无需另外安装 .NET 运行时。
+### File operations and batch rename
 
-1. 从 [最新发布](https://github.com/3egirlsdream/Mac-Explorer/releases/latest) 下载 Apple Silicon 版 `MacExplorer-<版本>-macos.dmg`；发布页提供 Intel 版时，下载 `MacExplorer-<版本>-macos-intel.dmg`。
-2. 打开 DMG，将 **Mac Explorer** 拖入 **Applications** 文件夹。
-3. 从 Applications 启动应用。发布页也提供 ZIP 包。
+- Create files and folders, copy, move, rename, drag and drop, use Open With, copy paths, and move items to the Trash. Undo supported file operations.
+- Track longer operations in the background task panel, with progress and cancellation where supported.
+- Rename selected local files and folders across directories in the batch rename workbench. Combine replacement, regular expressions, insertion, removal, case changes, cleanup, numbering, dates, templates, and extension rules.
+- Reorder rules, save presets, inspect each step, compare old and new names, exclude items, or adjust target names manually.
+- Check conflicts before execution, resolve duplicate names, inspect results, and undo a completed batch.
 
-## 常用快捷键
+### Archives and file conversion
 
-| 快捷键 | 操作 |
-|--------|------|
-| `⌘ T` / `⌘ W` | 新建 / 关闭标签页；关闭最后一个标签页时关闭窗口 |
-| `Control Tab` / `Control Shift Tab` | 切换到下一个 / 上一个标签页 |
-| `⌘ L` | 聚焦路径输入 |
-| `⌘ F` | 切换当前工作区搜索 |
-| `⌘ K` / `⌘ Shift F` | 打开全局搜索 |
-| `Space` | 预览单个选中的文件或文件夹 |
-| `Esc` | 退出预览或关闭当前弹出界面 |
-| `⌘ Z` | 撤销最近一次支持撤销的文件操作 |
+- Browse and extract ZIP, TAR, 7Z, and other supported archive formats. Extract into the current folder or a separate folder.
+- Create ZIP, TAR.GZ, and TAR.BZ2 archives, including password-protected ZIP files.
+- Convert Markdown and supported text files to Word or PDF, and Word documents to PDF.
+- Convert SVG, ICO, ICNS, and WebP to PNG or JPG, with image size options. Available conversion actions depend on the selected file.
 
-</details>
+### SFTP and Git status
 
-<details>
-<summary><b>English</b></summary>
+- Save SFTP connections and authenticate with a password or private key. Review the server fingerprint when establishing trust.
+- Browse and manage remote files, upload and download, or edit a remote file in a local app and upload the changes automatically.
+- See Git status alongside files when a compatible Git installation and repository are available.
 
-Mac Explorer is a file manager built for macOS. Browse several folders side by side, organize files with filters, search and Finder tags, press Space to explore folders and archives, and connect to SFTP servers from the same window. It includes list and grid views, light and dark themes, native drag and drop, context menus, and Quick Look integration.
+### LocalSend sharing
 
-## Recent Updates
+- Send selected local files and folders to discovered LocalSend devices from the context menu.
+- Review the sending device and file list before accepting incoming files, and choose where to save them.
+- Configure your device name, receive folder, and additional discovery subnets, or connect directly by IP when discovery cannot find a device.
+- Follow send and receive progress in the task panel. Device discovery requires network reachability.
 
-This source overview reflects **v1.0.53**. See the [changelog](CHANGELOG.md) for details of this update and [GitHub Releases](https://github.com/3egirlsdream/Mac-Explorer/releases) for available downloads and the full release history.
+### File Delivery from the menu bar
 
-- **Batch rename workbench**: combine rules, templates, sequences and dates for selected local files and folders across directories. Preview each step, adjust names manually, manage conflicts, save presets and undo a batch.
-- **Custom shortcuts**: record combinations in Settings, check conflicts and restore defaults. Hold Cmd to show shortcut hints; menu labels and toolbar tips update together.
-- **Cmd+K content preview**: preview files, folders and archives in a fixed pane beside search results, keep input focus and reveal items in their location.
-- **Copilot index queries**: combine existing PDF/OCR text, camera, location, date, tag and rating filters. Sharing file contents still requires approval for each page; generated rename plans open in the editable workbench.
-- **LocalSend transfers**: discover devices from a local file's context menu and send files, or accept incoming files before saving. Configure the device name, receive folder, and scan subnet, or connect by IP.
-- **RAW thumbnail fallback**: when macOS cannot decode certain camera RAW files, the bundled LibRaw library can generate thumbnails.
-- **In-app Copilot**: find and organize files through registered app capabilities. File changes and disclosure of file contents require a plan and confirmation. You configure the model endpoint, model name and API key.
-- **File Delivery**: open a separate menu bar panel, browse frequent folders or favorites in tabs, preview files and drag out copies.
-- **Tree list and folder covers**: expand local folders within the list; optionally create icon-view covers from photos inside folders, with thumbnails loaded for visible items.
-- **Editing and file processing**: preview and edit Markdown, batch rename files and convert file formats.
+- Open a compact panel from the macOS menu bar to access downloads, desktop, and your own folder or favorite tabs.
+- Browse in list or icon view, preview files, and drag out copies to another app or location.
+- Each entry remembers its browsing location. The panel remains available after the main window closes, until you quit the app.
+- Remove panel entries without deleting their folders or favorites.
 
-## Core Features
+### Copilot file assistant
 
-| Feature | Description |
-|---------|-------------|
-| **Tabs and split panes** | Independent navigation history, sorting and view per tab; horizontal, vertical, four-pane grid and main/secondary layouts |
-| **List, grid, tree list and filters** | Switch views, expand local folders in the tree list, group by type/date/size, and select column filters; options within a column use OR, while different columns use AND |
-| **Path navigation** | Clickable breadcrumbs, searchable subfolder dropdowns, direct path entry, pinned folders and recent locations |
-| **Finder tags** | Apply or remove tags, browse tagged files from the sidebar, and write tags to macOS Finder; tagging keeps files in place |
-| **File search** | Current-folder and global search using SQLite FTS5 filename indexing, generated OCR text and AI tags, with previews in search results |
-| **AI image analysis** | On-device Apple Vision for face detection, OCR and scene classification; photo metadata supplies dates and locations, while place-name lookup may require a network connection |
-| **Super Preview** | Press Space to preview images, PDFs, text and system-supported documents/media, or browse folders and archives; format coverage depends on macOS Quick Look support |
-| **Archive management** | Browse and extract ZIP, TAR, 7Z and other formats; create ZIP, TAR.GZ and TAR.BZ2 archives, protect ZIPs with passwords, and extract into the current or a separate folder |
-| **SFTP remote access** | Save connections, browse, upload, download and manage remote files; edit through a local application and automatically upload changes |
-| **Copilot file assistant** | Find and organize files through registered app capabilities; file changes and sending file contents to the model require confirmation, with conversations and execution history stored locally; bring your own model service |
-| **File Delivery** | Open a separate menu bar panel, browse folder and favorite tabs, preview files and drag out copies |
-| **Batch rename** | Cross-directory rule chains, regex replacements, templates, sequences, dates and extension handling, with step previews, conflict checks and batch undo |
-| **Shortcuts** | Custom Cmd combinations, conflict checks, restore defaults and hold-Cmd hints |
-| **Git and file operations** | Git status indicators, copy, move, drag and drop, Trash actions, and undo for supported file operations |
-| **Appearance and updates** | Light/dark themes, frosted glass, standard/compact/comfortable typography, configurable interaction colors, and in-app update checks and downloads |
+- Use natural language to find files, inspect metadata, organize selections, prepare rename rules, convert files, or summarize approved content through the app's available capabilities.
+- Combine existing name, PDF/OCR, camera, location, date, people, tag, rating, and file-property filters to find candidates.
+- Attach file or folder paths to a conversation, revisit local conversation history, and use built-in or custom skills for repeated workflows.
+- Review a plan before file changes or sending file contents to the model. Rename proposals can open in the workbench for further editing.
 
-### Using Copilot
+To use Copilot, enter an OpenAI-compatible API endpoint, model name, and API key in **Settings → Copilot**, then open it from the main window. A model service must be configured by the user; its usage is subject to that provider's terms and pricing.
 
-Enter an OpenAI-compatible API endpoint, model name and API key under Settings → Copilot, then open Copilot from the upper-right window button. The API key is stored in the local application SQLite database (without additional encryption); conversations and execution history stay on this Mac. Review the paths and recipient shown in the plan before confirming file changes or sending file contents to the model.
+### Customization and extensions
 
-### Tags Keep Files in Place
+- Use English or Chinese, light or dark appearance, glass surfaces, and standard, compact, or comfortable typography. Adjust interaction colors to suit your preference.
+- Customize keyboard shortcuts, check conflicts, restore defaults, and hold `⌘` to show available shortcut hints.
+- In the website edition, configure named commands for home-page scripts, including their icons, shell, and working directory, and run them through your terminal.
+- Install and manage file-processing extensions through the plugin market or local `.mexplug` packages in the website edition. Developers can build and publish extensions with the [plugin SDK](docs/plugins.md) and [developer center](https://3egirlsdream.github.io/Mac-Explorer/developers/).
 
-Upgrading migrates collection names and file associations to tags without relocating files. Dropping or pasting files onto a tag adds the tag only. Deleting a tag removes that tag and its associations without deleting files. Failed Finder tag writes remain pending and are retried on the next launch.
+## Installation and editions
 
-## Installation
+Requires **macOS 14 or later**, on **Apple Silicon or Intel**. Downloads include the runtime; no separate .NET installation is needed.
 
-The packaging workflow creates separate self-contained installers for Apple Silicon and Intel Macs running **macOS 15 or later**. Neither requires a separate .NET runtime.
+1. Open the [latest release](https://github.com/3egirlsdream/Mac-Explorer/releases/latest).
+2. Choose the Apple Silicon DMG (`macos`) or Intel DMG (`macos-intel`) for your Mac. ZIP downloads are also available when included in the release.
+3. Open the DMG and drag **Mac Explorer** into **Applications**, then launch it.
 
-1. Download `MacExplorer-<version>-macos.dmg` for Apple Silicon from the [latest release](https://github.com/3egirlsdream/Mac-Explorer/releases/latest). When the release includes an Intel build, download `MacExplorer-<version>-macos-intel.dmg` instead.
-2. Open the DMG and drag **Mac Explorer** into **Applications**.
-3. Launch the app from Applications. A ZIP package is also available on the release page.
+This overview describes the current source. Check the [changelog](CHANGELOG.md) and release notes for the features included in your installed version.
 
-## Keyboard Shortcuts
+| Area | Website edition | App Store edition |
+| --- | --- | --- |
+| File access | Uses macOS file permissions | Browse folders authorized through the system picker; manage authorization in Settings |
+| Updates | In-app update checks and downloads | Managed through the App Store |
+| Extensions and scripts | Plugin market, external plugins, scripts, and terminal actions | Built-in file conversion; external plugins, arbitrary scripts, and terminal actions are unavailable |
+| Git status | Uses an available system Git | Available only when Git and the repository are accessible within the authorized scope; some repository configurations are unsupported |
+
+## Privacy and control
+
+File indexes, tags, ratings, settings, analysis results, and Copilot history are stored locally. Image recognition runs on the device. Optional photo location lookup, a configured AI provider, SFTP connections, and LocalSend transfers use their respective services or selected peers.
+
+Copilot confirms the AI recipient before sharing file information and asks for approval before sending file contents or changing files. Saved Copilot API keys, SFTP passwords, and private-key passphrases are stored in the local application database without additional encryption. See the [privacy policy](https://3egirlsdream.github.io/Mac-Explorer/privacy/) for details and available controls.
+
+## Default shortcuts
 
 | Shortcut | Action |
-|----------|--------|
-| `⌘ T` / `⌘ W` | Open / close a tab; closing the last tab closes the window |
+| --- | --- |
+| `⌘ T` / `⌘ W` | Open / close a tab |
 | `Control Tab` / `Control Shift Tab` | Next / previous tab |
-| `⌘ L` | Focus path input |
+| `⌘ L` | Focus the path input |
 | `⌘ F` | Toggle search in the active workspace |
 | `⌘ K` / `⌘ Shift F` | Open global search |
-| `Space` | Preview one selected file or folder |
-| `Esc` | Exit preview or dismiss the current popup |
-| `⌘ Z` | Undo the most recent supported file operation |
+| `Space` | Preview a selected file or folder |
+| `Esc` | Dismiss a preview or popup |
+| `⌘ Z` | Undo a supported operation |
+| Hold `⌘` | Show shortcut hints, when enabled |
 
-</details>
+Customize supported commands in **Settings → Shortcuts**.
 
----
+## Development and feedback
 
-## 技术栈 · Tech Stack
-
-| 技术 Technology | 用途 Purpose |
-|-----------------|--------------|
-| .NET 10 | 自包含桌面运行时 · Self-contained desktop runtime |
-| Avalonia 12 | 桌面 UI 与自绘文件列表 · Desktop UI and custom file views |
-| CommunityToolkit.Mvvm | MVVM 与源码生成器 · MVVM and source generators |
-| Microsoft.Data.Sqlite / SQLite FTS5 | 文件索引、标签与设置存储 · File indexing, tags and settings |
-| SharpCompress / DotNetZip | 压缩包读取、写入与 ZIP 加密 · Archives and encrypted ZIP creation |
-| SSH.NET | SFTP 远程文件访问 · Remote file access |
-| Microsoft Agents AI / Microsoft.Extensions.AI | 应用内 Copilot 与模型接入 · In-app Copilot and model integration |
-| Svg.Skia / Fluent UI System Icons | SVG 渲染与界面图标 · SVG rendering and UI icons |
-| Apple Vision / Quick Look / AppKit | 图片分析、预览与原生系统集成 · Image analysis, previews and native integration |
-
-## 项目结构 · Structure
-
-```text
-Mac-Explorer/
-├── App.axaml / App.axaml.cs   应用入口、依赖注入与生命周期
-├── Assets/                   应用图标、主题、排版与组件样式
-├── Controls/                 自绘文件列表、窗口与自定义控件
-├── Copilot/                  文件助手、能力目录、会话与技能
-├── Views/                    工作区、文件列表、侧边栏、预览与设置
-├── ViewModels/               标签页、导航、筛选、标签等视图模型
-├── Models/                   文件、标签、筛选与操作数据模型
-├── Services/                 服务接口与实现：文件、标签、压缩、Git、SFTP
-├── Indexing/                 SQLite 索引、数据库结构与迁移
-├── Platforms/MacCatalyst/    macOS 平台服务与 Objective-C 桥接
-├── Platforms/MacOS/          Swift / Objective-C++ 原生辅助程序
-├── Tests/MacExplorer.Tests/  单元测试与 Avalonia 无头交互测试
-├── Tools/Performance/        文件列表性能测量工具
-├── doc/                     构建与开发文档
-├── docs/                    GitHub Pages 官网与设计文档
-└── .github/workflows/       自动发布流程
-```
-
-## 开发 · Development
-
-开发环境：**.NET 10 SDK、Xcode / Command Line Tools、macOS 15+**。原生辅助程序的构建需要 Swift 编译器及 macOS SDK。
-
-Development requires **.NET 10 SDK, Xcode / Command Line Tools, and macOS 15+**. Native helpers use the Swift compiler and macOS SDK.
-
-```bash
-git clone https://github.com/3egirlsdream/Mac-Explorer.git
-cd Mac-Explorer
-dotnet restore MacExplorer.csproj
-dotnet build MacExplorer.csproj -c Debug
-open "bin/Debug/net10.0/osx-arm64/Mac Explorer.app"
-```
-
-运行测试 · Run tests:
-
-```bash
-dotnet test Tests/MacExplorer.Tests/MacExplorer.Tests.csproj -p:SkipMacOSReleaseDMG=true
-```
-
-构建 Release 应用与 DMG · Build the Release app and DMG:
-
-```bash
-dotnet build MacExplorer.csproj -c Release
-```
-
-产物位于 `bin/Release/net10.0/osx-arm64/`。更多打包、签名与公证说明见 [构建文档 · Build guide](doc/BUILD.md)。
-
-Artifacts are written to `bin/Release/net10.0/osx-arm64/`. See the [build guide](doc/BUILD.md) for packaging, signing and notarization.
+For building, packaging, signing, and notarization, see the [build guide](doc/BUILD.md). For isolated application testing, see [testing instructions](AGENTS.md#自动测试). Report bugs or request features through [GitHub Issues](https://github.com/3egirlsdream/Mac-Explorer/issues), including your macOS version, app version, and steps to reproduce.
 
 ## License
 
-This project is licensed under the [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later).
+Mac Explorer is licensed under [GNU GPL v3.0 or later](LICENSE). Third-party license notices are collected in [ThirdParty/Notices](ThirdParty/Notices/README.md).
