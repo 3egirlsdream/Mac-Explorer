@@ -24,7 +24,9 @@
 
 Mac Explorer brings everyday file work into one macOS app. Keep folders side by side, gather files without moving them, search names and analyzed content, preview before opening, and handle local files, archives, and SFTP connections from the same workspace.
 
-![Mac Explorer workspace](Assets/mac-explorer-product.png)
+![Mac Explorer workspace](Assets/readme-workspace-1.0.54.jpg)
+
+*Screenshot: v1.0.54, captured on October 10, 2026 with demo files in an isolated profile.*
 
 ## Features
 
