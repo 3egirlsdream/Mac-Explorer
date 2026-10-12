@@ -221,7 +221,22 @@ internal static class MacWindowChrome
     }
 
     private static NSRect GetRect(IntPtr receiver, string selector)
-        => receiver == IntPtr.Zero ? default : objc_msgSend_getRect(receiver, GetSelector(selector));
+    {
+        if (receiver == IntPtr.Zero)
+            return default;
+
+        var nativeSelector = GetSelector(selector);
+        // x86-64 returns the 32-byte NSRect through a hidden first argument.
+        // Normal objc_msgSend would mistake that buffer for the receiver (#20).
+        // ARM64 uses objc_msgSend with its separate struct-return register.
+        if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
+        {
+            objc_msgSend_getRect_stret(out var rect, receiver, nativeSelector);
+            return rect;
+        }
+
+        return objc_msgSend_getRect(receiver, nativeSelector);
+    }
 
     private static void SendRect(IntPtr receiver, string selector, NSRect value)
     {
@@ -270,6 +285,9 @@ internal static class MacWindowChrome
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static extern NSRect objc_msgSend_getRect(IntPtr receiver, IntPtr selector);
+
+    [DllImport(LibObjC, EntryPoint = "objc_msgSend_stret")]
+    private static extern void objc_msgSend_getRect_stret(out NSRect result, IntPtr receiver, IntPtr selector);
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_setRect(IntPtr receiver, IntPtr selector, NSRect value);
