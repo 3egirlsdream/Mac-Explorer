@@ -6,9 +6,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "TabStartup")]
+public sealed class TabStartupViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void NewTabRestoresPreferencesWithoutWritingThemBack()
     {
         var settings = new StartupSettings();
@@ -33,7 +35,11 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(new[] { "ViewMode", "IsInfoPanelVisible" }, settings.Writes);
     }
 
-    private sealed class StartupSettings : ISettingsService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class StartupSettings : ISettingsService
     {
         public event Action<string>? SettingChanged { add { } remove { } }
         private readonly Dictionary<string, object> _values = new()
@@ -63,4 +69,5 @@ public sealed partial class FileListViewModelCreateTests
         public Dictionary<string, string> GetAll()
             => _values.ToDictionary(pair => pair.Key, pair => pair.Value.ToString()!);
     }
+
 }

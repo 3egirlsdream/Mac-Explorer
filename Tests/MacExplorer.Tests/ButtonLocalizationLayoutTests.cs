@@ -11,6 +11,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Smoke", "UI")]
+[Trait("Area", "Localization")]
 public sealed class ButtonLocalizationLayoutTests
 {
     [AvaloniaTheory]
@@ -70,4 +73,5 @@ public sealed class ButtonLocalizationLayoutTests
         public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
         public Dictionary<string, string> GetAll() => new(_values);
     }
+
 }

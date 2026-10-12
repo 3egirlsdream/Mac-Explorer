@@ -19,6 +19,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Smoke", "UI")]
+[Trait("Area", "InputAppearance")]
 public sealed class InputAppearanceTests
 {
     [AvaloniaTheory]
@@ -140,7 +143,6 @@ public sealed class InputAppearanceTests
         {
             input.Focus();
             Dispatcher.UIThread.RunJobs();
-            Assert.True(input.GetVisualDescendants().OfType<Border>().Any(x => x.Name == "PART_BorderElement"), string.Join(", ", input.GetVisualDescendants().Select(x => $"{x.GetType().Name}:{(x as Control)?.Name}")));
             var border = input.GetVisualDescendants().OfType<Border>().Single(x => x.Name == "PART_BorderElement");
             var presenter = input.GetVisualDescendants().OfType<TextPresenter>().Single();
             Assert.Equal(new Thickness(0), border.BorderThickness);
@@ -180,7 +182,6 @@ public sealed class InputAppearanceTests
         var window = CreateWindow(check, dark);
         try
         {
-            Assert.True(check.GetVisualDescendants().OfType<Border>().Any(x => x.Name == "NormalRectangle"), string.Join(", ", check.GetVisualDescendants().Select(x => $"{x.GetType().Name}:{(x as Control)?.Name}")));
             var border = check.GetVisualDescendants().OfType<Border>().Single(x => x.Name == "NormalRectangle");
             Assert.Equal(Color.Parse(dark ? "#454545" : "#E9E9E9"), ((ISolidColorBrush)border.Background!).Color);
             Assert.Equal(new Thickness(0), border.BorderThickness);
@@ -220,9 +221,13 @@ public sealed class InputAppearanceTests
         Dispatcher.UIThread.RunJobs();
         return window;
     }
+
 }
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Smoke", "UI")]
+[Trait("Area", "InputAppearance")]
+public sealed class InputAppearanceViewModelTests : FileListViewModelTestBase
 {
     [AvaloniaTheory]
     [InlineData(false)]
@@ -264,4 +269,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { window.Close(); }
     }
+
 }

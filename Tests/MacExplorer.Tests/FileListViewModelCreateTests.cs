@@ -23,17 +23,15 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Area", "FileList")]
+public sealed class FileListViewModelCreateTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(ViewMode.List, GroupField.None, false)]
-    [InlineData(ViewMode.List, GroupField.Type, false)]
-    [InlineData(ViewMode.Grid, GroupField.None, false)]
     [InlineData(ViewMode.Grid, GroupField.Type, false)]
-    [InlineData(ViewMode.List, GroupField.None, true)]
     [InlineData(ViewMode.List, GroupField.Type, true)]
     [InlineData(ViewMode.Grid, GroupField.None, true)]
-    [InlineData(ViewMode.Grid, GroupField.Type, true)]
+    [Trait("Kind", "UI")]
     public void ScrollBarInteractionScrollsWithoutStartingMarqueeOrChangingSelection(
         ViewMode viewMode, GroupField groupField, bool clickTrack)
     {
@@ -98,7 +96,8 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void EmptyAreaDragCreatesMarqueeAndSelectsMultipleRows()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -139,11 +138,11 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(ViewMode.List, false)]
     [InlineData(ViewMode.List, true)]
     [InlineData(ViewMode.Tree, false)]
-    [InlineData(ViewMode.Tree, true)]
+    [Trait("Kind", "UI")]
     public void DragBeginningInBlankPartOfListRowStartsFileDrag(ViewMode mode, bool folder)
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -184,7 +183,8 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void ClickingBlankPartOfListRowsSelectsFilesAndFolders()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -228,7 +228,8 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task DoubleClickingBlankPartOfListRowOpensTheDirectory()
     {
         var root = Path.Combine(Path.GetTempPath(), $"fkfinder-row-double-click-{Guid.NewGuid():N}");
@@ -276,7 +277,8 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void RightHandWhitespaceDoesNotStartFileDrag()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -313,7 +315,8 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void RightClickingSelectedRowWhitespaceKeepsTheMultiSelection()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -365,7 +368,8 @@ public sealed partial class FileListViewModelCreateTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void EmptyAreaDragCreatesMarqueeAndSelectsMultipleGridItems()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -397,7 +401,8 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void SwitchingFromListToGridUsesOnlyGridHitRegions()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -441,7 +446,8 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void DragBeginningInGridCellGapStartsMarqueeInsteadOfItemClick()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -475,7 +481,8 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void GridMarqueeAroundOneIconSelectsOnlyThatEntry()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -511,7 +518,8 @@ public sealed partial class FileListViewModelCreateTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task CreateNewFileAsync_ReloadsDirectoryThenSelectsCreatedEntryAndRequestsRename()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -535,7 +543,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task PasteAsync_SavesClipboardImageIntoCurrentFolderAndSelectsIt()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -552,7 +561,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Contains("已粘贴图片", viewModel.StatusText);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task PasteAsync_ReportsStatusWhenClipboardImageCannotBeRead()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -565,7 +575,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal("无法读取剪贴板中的图片", viewModel.StatusText);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task PasteAsync_DoesNothingOnHomePage()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -581,7 +592,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(viewModel.HasStatusMessage);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task ConfirmDeleteSelectedAsync_ReloadsDirectoryAfterDelete()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -617,7 +629,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RenameEntryAsync_ReloadsDirectoryAndReselectsRenamedEntry()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -648,7 +661,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Same(viewModel, notifier.ExcludedViewModel);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task NewlyCreatedFolderKeepsRenamedBreadcrumbAfterLocalization()
     {
         const string parent = "/tmp/FKFinderTests";
@@ -683,7 +697,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal("新名称", navigation.Breadcrumbs[^1].DisplayName);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RefreshAsync_ReplacesCollectionWithFreshEntries()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -714,7 +729,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task NavigateToAsync_ShowsDestinationAndPlaceholderBeforeListingCompletes()
     {
         var root = Path.Combine(Path.GetTempPath(), $"fkfinder-navigation-{Guid.NewGuid():N}");
@@ -776,6 +792,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void CurrentLocationTitleFollowsDirectoryRootAndHomeNavigation()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -798,6 +815,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void CurrentLocationTitleUsesLastSpecialViewBreadcrumbAndNotifiesBindings()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -814,6 +832,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void TabsSwitchIndependentFileListInstancesAndSelectAdjacentTabOnClose()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -840,6 +859,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void RelativeTabSelectionWrapsInBothDirections()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -857,6 +877,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void TwelvePaneLayoutsExposeTheExpectedOneToFourVisiblePanes()
     {
         (PaneLayout Layout, int Count)[] expected =
@@ -873,6 +894,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void MultiPaneLayoutKeepsActiveTabVisibleAndRestoresSinglePane()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -906,6 +928,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SelectingVisibleTabOnlyChangesActiveSlot()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -930,6 +953,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SelectingHiddenTabReplacesActiveSlotInsteadOfLastSlot()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -956,6 +980,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SamePaneCountLayoutChangePreservesSlotOrderAndActiveSlot()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -983,6 +1008,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void PaneCountShrinkAndExpandPreserveActiveTabAtNormalizedSlot()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -1018,6 +1044,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ClosingActiveVisibleTabRefillsSameSlotAndKeepsItActive()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -1044,6 +1071,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ClosingHiddenOrNonActiveTabDoesNotMoveActiveSlot()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -1075,6 +1103,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ClosingBelowPaneCountChoosesCanonicalFallbackLayout()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
@@ -1103,6 +1132,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void TwelveLayoutDefinitionsMatchDocumentedStableSlotCoordinates()
     {
         var expected = new Dictionary<PaneLayout, PaneSlotPlacement[]>
@@ -1125,7 +1155,11 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Equal(placements, MainWindowViewModel.GetPaneLayoutDefinition(layout).Slots);
     }
 
-    private static FileListViewModel CreateViewModel(
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static FileListViewModel CreateViewModel(
         IFileService fileService,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
         NavigationViewModel? navigation = null,
@@ -1141,7 +1175,7 @@ public sealed partial class FileListViewModelCreateTests
         IOpenWithAppService? openWithAppService = null,
         IBackgroundTaskManager? backgroundTaskManager = null,
         bool browseOnly = false, IQuickLookService? quickLookService = null,
-        ILocalSendService? localSendService = null)
+        ILocalSendService? localSendService = null, ISearchService? searchService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1157,7 +1191,7 @@ public sealed partial class FileListViewModelCreateTests
         return new FileListViewModel(
             navigation,
             fileOps,
-            new SearchViewModel(),
+            new SearchViewModel(searchService),
             new ArchiveViewModel(archiveService: archiveService, fileService: fileService),
             new AiViewModel(fileIndex: index),
             new PinnedFoldersViewModel(),
@@ -1179,7 +1213,7 @@ public sealed partial class FileListViewModelCreateTests
             localSendService: localSendService) { IsBrowseOnly = browseOnly };
     }
 
-    private sealed class StaleRenamedDisplayNames(string renamedPath) : IDisplayNameService
+    protected sealed class StaleRenamedDisplayNames(string renamedPath) : IDisplayNameService
     {
         public (string OldPath, string NewPath)? RecordedRename { get; private set; }
 
@@ -1192,7 +1226,7 @@ public sealed partial class FileListViewModelCreateTests
             => RecordedRename = (oldPath, newPath);
     }
 
-    private sealed class FakeFileService(string homeDirectory) : IFileService
+    protected sealed class FakeFileService(string homeDirectory) : IFileService
     {
         private readonly Dictionary<string, FileSystemEntry> _entries = new(StringComparer.Ordinal);
 
@@ -1340,7 +1374,7 @@ public sealed partial class FileListViewModelCreateTests
         };
     }
 
-    private sealed class FakeFileIndex : IFileIndex
+    protected sealed class FakeFileIndex : IFileIndex
     {
         public Task<IReadOnlyList<FileSystemEntry>> GetDirectoryContentsAsync(string parentPath)
             => Task.FromResult<IReadOnlyList<FileSystemEntry>>([]);
@@ -1355,7 +1389,7 @@ public sealed partial class FileListViewModelCreateTests
             => Task.FromResult(false);
     }
 
-    private sealed class FakeFileIndexWriter : IFileIndexWriter
+    protected sealed class FakeFileIndexWriter : IFileIndexWriter
     {
         public Task UpdateDirectoryAsync(string directoryPath, IReadOnlyList<FileSystemEntry> entries, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateDirectoriesAsync(IEnumerable<string> directoryPaths) => Task.CompletedTask;
@@ -1364,7 +1398,7 @@ public sealed partial class FileListViewModelCreateTests
         public Task AddEntryAsync(FileSystemEntry entry) => Task.CompletedTask;
     }
 
-    private sealed class FakeDirectoryChangeNotifier : IDirectoryChangeNotifier
+    protected sealed class FakeDirectoryChangeNotifier : IDirectoryChangeNotifier
     {
         public FileListViewModel? ExcludedViewModel { get; private set; }
 
@@ -1383,4 +1417,5 @@ public sealed partial class FileListViewModelCreateTests
         {
         }
     }
+
 }

@@ -7,10 +7,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-[SupportedOSPlatform("macos")]
+[Trait("Kind", "Integration")]
+[Trait("Area", "Plugin")]
 public sealed class ReviewPluginLifetimeTests
 {
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task ConcurrentDisposeJoinsTheSameCleanupAndDrainsBlockedRpcBeforeDisposingSynchronization()
     {
         using var fixture = new WorkerFixture("#!/bin/sh\nexec sleep 60\n");
@@ -38,7 +39,7 @@ public sealed class ReviewPluginLifetimeTests
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task UnwritableLogStillDrainsStderrSoTheWorkerCanReturnItsResult()
     {
         using var fixture = new WorkerFixture("#!/bin/sh\nIFS= read -r request || exit 1\n" +
@@ -59,7 +60,7 @@ public sealed class ReviewPluginLifetimeTests
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task PluginReportedCancellationIsNotMisreportedAsAHostTimeout()
     {
         using var fixture = new WorkerFixture("#!/bin/sh\nIFS= read -r request || exit 1\n" +
@@ -111,4 +112,5 @@ public sealed class ReviewPluginLifetimeTests
         }
         public void Dispose() { Kill(); Directory.Delete(_root, true); }
     }
+
 }

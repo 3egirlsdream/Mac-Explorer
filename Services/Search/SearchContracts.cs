@@ -13,6 +13,7 @@ public sealed record SearchIndexStatus(string Root, SearchIndexPhase Phase, long
         : Phase switch
     {
         SearchIndexPhase.Building => $"索引建立中（已处理 {IndexedEntries:N0} 项），结果仍在补全",
+            SearchIndexPhase.Partial when FailedDirectories == 0 && Error is { } error => error,
         SearchIndexPhase.Partial => $"部分范围未更新（{FailedDirectories} 个目录），结果可能不完整",
         SearchIndexPhase.Unavailable => "此位置暂不可访问，显示已有索引",
         _ => "索引已更新（按索引排除规则）"

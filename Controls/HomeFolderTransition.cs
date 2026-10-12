@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -22,7 +21,8 @@ internal sealed class HomeFolderTransition : Grid, IDisposable
     private readonly MatrixTransform _previewTransform = new();
     private readonly Border _scrim;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(16) };
-    private readonly Stopwatch _clock = new();
+    private readonly TimeProvider _timeProvider;
+    private long _started;
     private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private RenderTargetBitmap? _snapshot;
     private Rect _origin;
@@ -35,8 +35,9 @@ internal sealed class HomeFolderTransition : Grid, IDisposable
     public Task Completion => _completion.Task;
     internal double Progress => _progress;
 
-    public HomeFolderTransition(Control source, Control content)
+    public HomeFolderTransition(Control source, Control content, TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _source = source; _content = content; _sourceOpacity = source.Opacity;
         Focusable = true;
         Opacity = 0;
@@ -102,7 +103,7 @@ internal sealed class HomeFolderTransition : Grid, IDisposable
         Opacity = 1;
         Focus();
         ApplyProgress();
-        _clock.Restart(); _timer.Start();
+        _started = _timeProvider.GetTimestamp(); _timer.Start();
     }
 
     public void Close()
@@ -114,12 +115,15 @@ internal sealed class HomeFolderTransition : Grid, IDisposable
             _origin = new Rect(point.Value, _source.Bounds.Size);
         else _preview.IsVisible = false;
         _content.IsHitTestVisible = false;
-        _clock.Restart(); _timer.Start();
+        _started = _timeProvider.GetTimestamp(); _timer.Start();
     }
 
     private void OnTick(object? sender, EventArgs e)
+        => AdvanceFrame();
+
+    internal void AdvanceFrame()
     {
-        var t = Math.Clamp(_clock.Elapsed.TotalMilliseconds / (_closing ? 240 : 320), 0, 1);
+        var t = Math.Clamp(_timeProvider.GetElapsedTime(_started).TotalMilliseconds / (_closing ? 240 : 320), 0, 1);
         var eased = 1 - Math.Pow(1 - t, 3);
         _progress = _closing ? _start * (1 - eased) : eased;
         ApplyProgress();

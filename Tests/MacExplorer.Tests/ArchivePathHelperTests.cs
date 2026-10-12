@@ -3,6 +3,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Archive")]
 public sealed class ArchivePathHelperTests
 {
     [Fact]
@@ -27,4 +29,5 @@ public sealed class ArchivePathHelperTests
         Assert.Equal(archive, archivePath);
         Assert.Equal("folder/file.txt", internalPath);
     }
+
 }

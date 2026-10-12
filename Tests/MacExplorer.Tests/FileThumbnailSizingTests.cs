@@ -3,7 +3,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class FileThumbnailSizingTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "Thumbnail")]
+public sealed class FileThumbnailSizingTests
 {
     [Theory]
     [InlineData(56, 1, 64)]
@@ -20,4 +22,5 @@ public class FileThumbnailSizingTests
         Assert.Equal(64, FileThumbnailSizing.GetPixelSize(double.NaN, double.NaN));
         Assert.Equal(256, FileThumbnailSizing.GetPixelSize(double.MaxValue, double.MaxValue));
     }
+
 }

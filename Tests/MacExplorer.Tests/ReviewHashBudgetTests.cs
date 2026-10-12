@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ReviewHashBudget")]
 public sealed class ReviewHashBudgetTests
 {
     [Theory]
@@ -88,4 +90,5 @@ public sealed class ReviewHashBudgetTests
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         public override void Flush() => throw new NotSupportedException();
     }
+
 }

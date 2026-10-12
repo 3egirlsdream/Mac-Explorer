@@ -8,6 +8,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "UnifiedFileTag")]
 public sealed class UnifiedFileTagTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "fkfinder-unified-tags-" + Guid.NewGuid().ToString("N"));
@@ -15,6 +16,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     private CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MigrationPreservesEmptyCollectionsMergesNamesAndIsNotRepeated()
     {
         using (var connection = Factory.GetConnection())
@@ -46,6 +48,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PendingAdditionAndRemovalSurviveRestartAndStaleMetadata()
     {
         var store = new MemoryStore { FailWrites = true };
@@ -68,6 +71,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ConcurrentChangesAndCaseOnlyRenamePreserveOtherNativeTags()
     {
         var store = new MemoryStore();
@@ -84,6 +88,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task RenameColorAndDeleteIncludeUnindexedFinderMatches()
     {
         var store = new MemoryStore();
@@ -101,7 +106,8 @@ public sealed class UnifiedFileTagTests : IDisposable
         Assert.DoesNotContain(await service.GetSidebarTagsAsync(Ct), t => t.Name == "完成");
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Stress")]
     public async Task MoreThanFiveThousandMatchesAreManagedWithoutTruncation()
     {
         var store = new MemoryStore();
@@ -127,6 +133,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PendingRenameAndColorSurviveStaleRefreshAndRestart()
     {
         var store = new MemoryStore { FailWrites = true };
@@ -148,6 +155,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PendingChangesFollowDirectoryMovesCopiesAndDeletion()
     {
         var store = new MemoryStore { FailWrites = true };
@@ -164,6 +172,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task EmptyTagsPersistAndSystemNamesAreProtected()
     {
         using (var service = new FileTagService(Factory))
@@ -181,10 +190,11 @@ public sealed class UnifiedFileTagTests : IDisposable
         Assert.True(saved.IsPinned);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task MacNativeTagsRoundTripAndOtherColorsAndFileContentsRemainIntact()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "原文件.txt");
         await File.WriteAllTextAsync(path, "unchanged", Ct);
@@ -205,6 +215,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task InterruptedSyncLeavesRemainingFilesPending()
     {
         using var cancel = new CancellationTokenSource();
@@ -219,6 +230,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MigrationNormalizesExistingColorAliasesAndDuplicateMemberships()
     {
         using (var connection = Factory.GetConnection())
@@ -242,6 +254,7 @@ public sealed class UnifiedFileTagTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void FailedMigrationRollsBackVersionAndPreservesLegacyRows()
     {
         using var connection = Factory.GetConnection();
@@ -293,4 +306,5 @@ public sealed class UnifiedFileTagTests : IDisposable
         SqliteConnection.ClearAllPools();
         if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
     }
+
 }

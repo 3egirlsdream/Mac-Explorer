@@ -9,6 +9,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "DirectoryIndexIncremental")]
 public sealed class DirectoryIndexIncrementalTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "fkfinder-index-" + Guid.NewGuid().ToString("N"));
@@ -42,6 +43,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     };
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task UnchangedSnapshotDoesNotWriteFilesOrFtsAndPreservesRowIdsAndIndexedAt()
     {
         FileSystemEntry[] entries = [Entry("/data/a.txt"), Entry("/data/B.txt")];
@@ -57,6 +59,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task DeltaUpdatesOnlyChangedRowsAndKeepsOtherDirectories()
     {
         await _index.UpdateDirectoryAsync("/data", [Entry("/data/a.txt"), Entry("/data/b.txt"), Entry("/data/c.txt")], Ct);
@@ -73,6 +76,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MetadataOnlyUpdateDoesNotTouchFtsButNameChangeDoes()
     {
         await _index.UpdateDirectoryAsync("/data", [Entry("/data/a.txt")], Ct);
@@ -86,6 +90,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task AllPersistedAttributesAreComparedWithSqlNullSemantics()
     {
         await _index.UpdateDirectoryAsync("/data", [Entry("/data/plain")], Ct);
@@ -96,6 +101,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task EmptySnapshotClearsOnlyItsDirectoryAndFts()
     {
         await _index.UpdateDirectoryAsync("/data", [Entry("/data/gone.txt")], Ct);
@@ -108,6 +114,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MergedApplicationRowsAreReusedWithoutRemovingOtherSystemApps()
     {
         await _index.UpdateDirectoryAsync("/System/Applications", [Entry("/System/Applications/A.app"), Entry("/System/Applications/B.app")], Ct);
@@ -119,6 +126,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PathsAreCaseSensitiveAndFailureRollsBackPriorMutations()
     {
         await _index.UpdateDirectoryAsync("/data", [Entry("/data/a"), Entry("/data/A")], Ct);
@@ -131,6 +139,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CancellationAfterWritesRollsBackFilesFtsAndDirectoryMetadata()
     {
         await _index.UpdateDirectoryAsync("/data", [Entry("/data/old")], Ct);
@@ -157,6 +166,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task V9MigrationPreservesSearchAndInstallsConditionalTriggerIdempotently()
     {
         await _index.UpdateDirectoryAsync("/data", [Entry("/data/migration.txt")], Ct);
@@ -181,7 +191,8 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
         Assert.Single(await _index.SearchByNameAsync("renamed"));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RecordingVisitReturnsToUiWhileAnotherConnectionHoldsWriteLock()
     {
         using var service = new FrequentFolderService(_factory, "/home");
@@ -221,4 +232,5 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
         return rows.ToArray();
     }
     public void Dispose() { _db.Dispose(); _index.Dispose(); SqliteConnection.ClearAllPools(); Directory.Delete(_root, true); }
+
 }

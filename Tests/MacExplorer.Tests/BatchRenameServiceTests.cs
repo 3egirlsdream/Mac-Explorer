@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "BatchRename")]
 public sealed class BatchRenameServiceTests
 {
     [Fact]
@@ -234,4 +236,5 @@ public sealed class BatchRenameServiceTests
             CancellationToken ct = default)
             => Task.CompletedTask;
     }
+
 }

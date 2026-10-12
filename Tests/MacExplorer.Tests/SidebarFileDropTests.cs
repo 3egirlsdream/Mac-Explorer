@@ -18,9 +18,10 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Area", "Sidebar")]
+public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("direct")]
     [InlineData("hover")]
     [InlineData("continue-blank")]
@@ -34,6 +35,7 @@ public sealed partial class FileListViewModelCreateTests
     [InlineData("invalid")]
     [InlineData("same-directory")]
     [InlineData("self")]
+    [Trait("Kind", "UI")]
     public async Task SidebarFileDragNavigatesAndMovesOnlyAtFinalDrop(string scenario)
     {
         using var theme = new FastListTestTheme();
@@ -56,7 +58,8 @@ public sealed partial class FileListViewModelCreateTests
         typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
         if (scenario == "volume")
             vm.ExternalVolumes.Add(new VolumeInfo { Path = desktop, DisplayName = "Test volume", IsExternal = true });
-        var sidebar = new FinderSidebarView { DataContext = vm, Width = 240 };
+        var hover = new SidebarHoverScheduler();
+        var sidebar = new FinderSidebarView { DataContext = vm, Width = 240, ScheduleFolderHover = hover.Schedule };
         sidebar.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
         sidebar.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         var fileView = new FileListView { DataContext = vm };
@@ -111,6 +114,7 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Equal(root, vm.CurrentPath);
             if (scenario is "hover" or "continue-blank" or "continue-child")
             {
+                hover.Fire();
                 await WaitForIssue11Async(() => vm.CurrentPath == desktop && !vm.IsDirectoryLoading);
                 Assert.Empty(files.MoveRequests);
             }
@@ -126,7 +130,7 @@ public sealed partial class FileListViewModelCreateTests
                     Assert.Equal(DragDropEffects.None, Raise(DragDrop.DropEvent, RowPoint(trash)).DragEffects);
                 }
                 if (invalid) Assert.Equal(DragDropEffects.None, Raise(DragDrop.DropEvent, RowPoint(row)).DragEffects);
-                await Task.Delay(750);
+                hover.Fire();
                 Dispatcher.UIThread.RunJobs();
                 Assert.Equal(root, vm.CurrentPath);
                 Assert.Empty(files.MoveRequests);
@@ -165,7 +169,7 @@ public sealed partial class FileListViewModelCreateTests
             Assert.Empty(files.CopyRequests);
             Assert.Equal(DragDropEffects.Move, drop.DragEffects);
             Assert.DoesNotContain("folder-drop-target", row.Classes);
-            await Task.Delay(700);
+            hover.Fire();
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(scenario is "hover" or "continue-blank" or "continue-child" ? desktop : root, vm.CurrentPath);
         }
@@ -177,9 +181,10 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "Integration")]
     public async Task SidebarFileDropMovesRealFilesAndPreservesContent(bool hoverFirst)
     {
         using var theme = new FastListTestTheme();
@@ -234,6 +239,34 @@ public sealed partial class FileListViewModelCreateTests
             typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
             sourceFolder.Delete(true);
             File.Delete(target);
+        }
+    }
+
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class SidebarHoverScheduler
+    {
+        private readonly List<Pending> _pending = [];
+        public IDisposable Schedule(Action action, TimeSpan delay)
+        {
+            Assert.Equal(TimeSpan.FromMilliseconds(600), delay);
+            var pending = new Pending(action);
+            _pending.Add(pending);
+            return pending;
+        }
+        public void Fire()
+        {
+            var pending = _pending.ToArray();
+            _pending.Clear();
+            foreach (var item in pending) item.Fire();
+        }
+        private sealed class Pending(Action action) : IDisposable
+        {
+            private bool _cancelled;
+            public void Fire() { if (!_cancelled) action(); }
+            public void Dispose() => _cancelled = true;
         }
     }
 }

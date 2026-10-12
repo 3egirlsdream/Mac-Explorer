@@ -7,13 +7,16 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class ChromiumTabStripSurfaceTests
+[Trait("Smoke", "UI")]
+[Trait("Area", "ChromiumTabStripSurface")]
+public sealed class ChromiumTabStripSurfaceTests
 {
     [Theory]
     [InlineData(16, 0, 0, -16)]
     [InlineData(0, -10, 10, 0)]
     [InlineData(10, 0, 0, 10)]
     [InlineData(0, 16, 16, 0)]
+    [Trait("Kind", "Unit")]
     public void CornersHaveContinuousTangentAndCurvature(double ax, double ay, double bx, double by)
     {
         var (first, second) = ChromiumTabStripSurface.CreateCornerCurves(
@@ -35,6 +38,7 @@ public class ChromiumTabStripSurfaceTests
     }
 
     [AvaloniaFact]
+    [Trait("Kind", "UI")]
     public void JoinedBackgroundSpansTheFullTitleBarOutsideTheTabScroller()
     {
         var backdrop = new ChromiumTabStripSurface();
@@ -65,4 +69,5 @@ public class ChromiumTabStripSurfaceTests
         Assert.Equal(expected.X, actual.X, 8);
         Assert.Equal(expected.Y, actual.Y, 8);
     }
+
 }

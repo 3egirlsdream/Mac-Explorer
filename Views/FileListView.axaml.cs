@@ -276,7 +276,11 @@ public partial class FileListView : UserControl
         Shortcuts.Changed += RefreshOpenMenuShortcuts;
         _columnLayoutService ??= ViewModel?.ColumnLayoutService;
         SubscribeColumnLayoutService();
-        Dispatcher.UIThread.Post(ApplyListColumnWidths, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() =>
+        {
+            UpdateSortHeaders();
+            ApplyListColumnWidths();
+        }, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -1019,6 +1023,7 @@ public partial class FileListView : UserControl
             }
             catch { }
         }
+        item.Icon ??= new Border { Width = 16, Height = 16 };
         if (!string.IsNullOrWhiteSpace(action.IconBase64))
             _ = LoadMenuIconAsync(item, action.IconBase64, 16, requestVersion);
         else if (action.LoadIconBase64Async != null)
@@ -1226,16 +1231,12 @@ public partial class FileListView : UserControl
         catch { return null; }
     }
 
-    private async System.Threading.Tasks.Task ShowMenuAsync(Control anchor, bool hasSelection)
+    private async System.Threading.Tasks.Task ShowMenuAsync(Control anchor, FileSystemEntry? entry)
     {
         if (ViewModel == null || ViewModel.IsBrowseOnly) return;
 
         var requestVersion = ++_menuRequestVersion;
         CloseCurrentMenu();
-        var entry = hasSelection && ViewModel.SelectedEntries.Count > 0
-            ? ViewModel.SelectedEntries[0]
-            : null;
-
         if (entry != null)
             await ViewModel.ShowFileContextMenuAsync(entry, 0, 0);
         else
@@ -1382,6 +1383,7 @@ public partial class FileListView : UserControl
         if (FastListActive && entry != null) _fastFocusedPath = entry.FullPath;
         if (entry == null && !IsWithinVisual(sourceVisual, FileScroll))
             return;
+        DismissContextMenu();
         _rightPressedEntry = entry;
         _rightPressedAnchor = entry == null ? FileScroll : FastList;
         if (entry != null && !ViewModel.IsEntrySelected(entry))
@@ -1415,6 +1417,7 @@ public partial class FileListView : UserControl
         if (point.Properties.IsRightButtonPressed)
         {
             CancelSlowRename();
+            DismissContextMenu();
             ViewModel.NotifyTransientInteractionStarted();
             _rightPressedEntry = entry;
             _rightPressedAnchor = control;
@@ -1734,11 +1737,12 @@ public partial class FileListView : UserControl
             return;
 
         var contextAnchor = _rightPressedAnchor;
-        var hasSelection = _rightPressedEntry != null;
+        var entry = _rightPressedEntry;
         _rightPressedAnchor = null;
+        _rightPressedEntry = null;
         e.Handled = true;
         ResetDragState();
-        await ShowMenuAsync(contextAnchor, hasSelection);
+        await ShowMenuAsync(contextAnchor, entry);
     }
 
     private void ResetDragState()

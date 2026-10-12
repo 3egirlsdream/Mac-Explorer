@@ -18,6 +18,9 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
     private readonly ConcurrentDictionary<string, string> _iconCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, Task<string?>> _iconLoads = new(StringComparer.OrdinalIgnoreCase);
 
+    private Task<List<AppListItem>>? _installedApps;
+    private DateTimeOffset _installedAppsExpires;
+
     public OpenWithAppService(DatabaseConnectionFactory connectionFactory, ILogger<OpenWithAppService>? logger = null)
     {
         _connectionFactory = connectionFactory;
@@ -307,44 +310,79 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
         return unavailableIds.Count;
     }
 
-    public Task<List<AppListItem>> GetInstalledAppsAsync()
+    public async Task<List<AppListItem>> GetInstalledAppsAsync()
     {
-        return Task.Run(() =>
+        Task<List<AppListItem>> pending;
+        lock (_lock)
         {
-            var apps = new List<AppListItem>();
-            var searchPaths = new[] { "/Applications", "/System/Applications", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Applications") };
-
-            foreach (var searchPath in searchPaths)
+            if (_installedApps == null || _installedApps.IsFaulted
+                || (_installedApps.IsCompleted && DateTimeOffset.UtcNow >= _installedAppsExpires))
             {
-                try
-                {
-                    if (!Directory.Exists(searchPath)) continue;
-                    foreach (var dir in Directory.EnumerateDirectories(searchPath, "*.app", SearchOption.TopDirectoryOnly))
-                    {
-                        try
-                        {
-                            var plistPath = Path.Combine(dir, "Contents", "Info.plist");
-                            if (!File.Exists(plistPath)) continue;
-
-                            var bundleId = ReadPlistValue(plistPath, "CFBundleIdentifier");
-                            var name = ReadPlistValue(plistPath, "CFBundleName") ?? Path.GetFileNameWithoutExtension(dir);
-                            if (string.IsNullOrEmpty(bundleId)) continue;
-
-                            apps.Add(new AppListItem
-                            {
-                                Name = name,
-                                BundleId = bundleId,
-                                AppPath = dir,
-                            });
-                        }
-                        catch { }
-                    }
-                }
-                catch { }
+                _installedAppsExpires = DateTimeOffset.UtcNow.AddMinutes(1);
+                _installedApps = Task.Run(() => DiscoverInstalledApps([
+                    "/Applications", "/System/Applications",
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Applications")
+                ]));
             }
+            pending = _installedApps;
+        }
+        return new List<AppListItem>(await pending);
+    }
 
-            return apps.OrderBy(a => a.Name).ToList();
-        });
+    internal static List<AppListItem> DiscoverInstalledApps(IEnumerable<string> roots)
+    {
+        var apps = new List<AppListItem>();
+        var directories = new Stack<string>(roots);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        while (directories.TryPop(out var directory))
+        {
+            if (!visited.Add(directory) || !Directory.Exists(directory)) continue;
+            try
+            {
+                if (directory.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+                {
+                    var plist = Path.Combine(directory, "Contents", "Info.plist");
+                    if (!File.Exists(plist)) continue;
+                    var bundleId = ReadPlistValue(plist, "CFBundleIdentifier");
+                    if (string.IsNullOrEmpty(bundleId)) continue;
+                    var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        Path.GetFileNameWithoutExtension(directory)
+                    };
+                    foreach (var key in new[] { "CFBundleName", "CFBundleDisplayName" })
+                        if (ReadPlistValue(plist, key) is { } name) names.Add(name);
+                    var resources = Path.Combine(directory, "Contents", "Resources");
+                    if (Directory.Exists(resources))
+                    {
+                        foreach (var locale in Directory.EnumerateDirectories(resources, "*.lproj"))
+                        {
+                            var strings = Path.Combine(locale, "InfoPlist.strings");
+                            if (!File.Exists(strings)) continue;
+                            foreach (var key in new[] { "CFBundleName", "CFBundleDisplayName" })
+                                if (ReadPlistValue(strings, key) is { } name) names.Add(name);
+                        }
+                    }
+                    apps.Add(new AppListItem
+                    {
+                        Name = ReadPlistValue(plist, "CFBundleDisplayName")
+                            ?? ReadPlistValue(plist, "CFBundleName") ?? Path.GetFileNameWithoutExtension(directory),
+                        Names = names.ToArray(), BundleId = bundleId, AppPath = directory
+                    });
+                    continue;
+                }
+                foreach (var child in Directory.EnumerateDirectories(directory))
+                {
+                    if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
+                        directories.Push(child);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // An inaccessible application must not hide other installed applications.
+            }
+        }
+        return apps.DistinctBy(app => app.BundleId, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(app => app.Name).ToList();
     }
 
     private static ApplicationAvailability GetApplicationAvailability(string bundleId)

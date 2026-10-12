@@ -317,6 +317,7 @@ public partial class App : Application
         services.AddSingleton<IApplicationLauncherService, Platforms.MacCatalyst.Services.MacApplicationLauncherService>();
         services.AddSingleton<IContextMenuService, Platforms.MacCatalyst.Services.MacContextMenuService>();
         services.AddSingleton<IOpenWithAppService>(sp => new OpenWithAppService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILogger<OpenWithAppService>>()));
+        services.AddSingleton<ApplicationOpenCommandService>();
         services.AddSingleton<IMetadataService, Platforms.MacCatalyst.Services.MacMetadataService>();
         services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
         services.AddSingleton<IQuickLookService, Platforms.MacCatalyst.Services.MacQuickLookService>();

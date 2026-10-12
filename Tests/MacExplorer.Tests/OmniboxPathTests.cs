@@ -10,9 +10,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "OmniboxPath")]
+public sealed class OmniboxPathViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -43,7 +45,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task OmniboxExactPathSuggestionNavigatesFilesAndDirectories(bool directory)
@@ -75,7 +77,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(true, false)]
     [InlineData(false, false)]
     [InlineData(true, true)]
@@ -133,4 +135,5 @@ public sealed partial class FileListViewModelCreateTests
             root.Delete(recursive: true);
         }
     }
+
 }

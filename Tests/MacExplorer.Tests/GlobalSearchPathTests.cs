@@ -9,9 +9,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Search")]
+public sealed class GlobalSearchPathViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("pending", false)]
     [InlineData("pending", true)]
     [InlineData("ready", false)]
@@ -73,7 +75,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task GlobalSearchEnterStillExecutesSelectedSuggestionForOrdinaryQuery()
     {
         using var theme = new FastListTestTheme();
@@ -99,7 +101,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(overlay.IsVisible);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task GlobalSearchDoubleDDoesNotOpenAndConventionalShortcutsStillWork()
     {
         using var theme = new FastListTestTheme();
@@ -118,4 +120,5 @@ public sealed partial class FileListViewModelCreateTests
         window.KeyPress(Key.F, RawInputModifiers.Meta | RawInputModifiers.Shift, PhysicalKey.F, null);
         Assert.True(overlay.IsVisible);
     }
+
 }

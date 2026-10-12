@@ -7,7 +7,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-[SupportedOSPlatform("macos")]
+[Trait("Kind", "Unit")]
+[Trait("Area", "ClipboardImagePaste")]
 public sealed class ClipboardImagePasteTests : IDisposable
 {
     private const string TimestampImageNamePattern = @"^图片 \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}\.png$";
@@ -56,6 +57,7 @@ public sealed class ClipboardImagePasteTests : IDisposable
         Assert.Equal(4, names.Length);
         Assert.Contains(names, name => name!.EndsWith(" 2.png"));
     }
+
 }
 
 internal sealed class ImageClipboardService(ClipboardImageData? image = null) : IClipboardService

@@ -5,9 +5,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Home")]
 public sealed class HomeScriptRunnerTests
 {
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("/bin/sh")]
     [InlineData("/bin/bash")]
     [InlineData("/bin/zsh")]
@@ -65,7 +67,7 @@ public sealed class HomeScriptRunnerTests
         finally { directory.Delete(recursive: true); }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void LaunchUsesTheDefaultCommandHandlerWithoutCapturingTerminalInputOrOutput()
     {
         var start = HomeScriptRunner.BuildTerminalStartInfo("/tmp/a ' command.command");
@@ -75,7 +77,7 @@ public sealed class HomeScriptRunnerTests
         Assert.False(start.RedirectStandardOutput);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void InvalidCommandOrWorkingDirectoryIsRejectedBeforeProcessStart()
     {
         var directory = Directory.CreateTempSubdirectory("MacExplorer_HomeValidation_");
@@ -92,4 +94,5 @@ public sealed class HomeScriptRunnerTests
         }
         finally { directory.Delete(recursive: true); }
     }
+
 }

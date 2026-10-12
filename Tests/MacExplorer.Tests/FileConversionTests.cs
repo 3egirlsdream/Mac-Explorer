@@ -10,6 +10,7 @@ using W = DocumentFormat.OpenXml.Wordprocessing;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "FileConversion")]
 public sealed class FileConversionTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "fkfinder-conversion-test-" + Guid.NewGuid().ToString("N"));
@@ -35,10 +36,12 @@ public sealed class FileConversionTests : IDisposable
     [InlineData("a.icns", "Png,Jpg")]
     [InlineData("a.png", "")]
     [InlineData("a.pdf", "")]
+    [Trait("Kind", "Unit")]
     public void FormatsFollowSourceType(string name, string formats)
         => Assert.Equal(formats, string.Join(',', new FileConversionService().GetAvailableFormats(Path.Combine(_root, name))));
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void DirectoriesAndRemotePathsAreNotConvertible()
     {
         var directory = Path.Combine(_root, "folder.md"); Directory.CreateDirectory(directory);
@@ -47,6 +50,7 @@ public sealed class FileConversionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void StrictUnicodeDecodingNeverSilentlyReplacesInvalidBytes()
     {
         const string text = "中文 # ` < >\n最后一行";
@@ -64,6 +68,7 @@ public sealed class FileConversionTests : IDisposable
     [InlineData("")]
     [InlineData("  # 原文\n```\n<tag> & 文本\n\t最后一行")]
     [InlineData("第一行\n\n最后一行\n")]
+    [Trait("Kind", "Unit")]
     public async Task TextDocxPreservesLiteralContent(string text)
     {
         var source = Write("literal.txt", text);
@@ -84,6 +89,7 @@ public sealed class FileConversionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MarkdownCreatesEditableValidStructuresAndDoesNotLoadRemoteImages()
     {
         using (var bitmap = new SKBitmap(12, 8))
@@ -129,6 +135,7 @@ public sealed class FileConversionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CollisionAndCancellationLeaveSourcesAndExistingOutputsIntact()
     {
         var source = Write("same.txt", "original");
@@ -143,6 +150,7 @@ public sealed class FileConversionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task SvgUsesCanvasSizeTransparencyAndWhiteJpegBackground()
     {
         var source = Write("icon.svg", """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><defs><linearGradient id="g"><stop stop-color="red"/></linearGradient></defs><rect width="20" height="20" fill="url(#g)"/></svg>""");
@@ -165,13 +173,15 @@ public sealed class FileConversionTests : IDisposable
     [InlineData("width=\"2in\" height=\"1in\"", 192, 96)]
     [InlineData("viewBox=\"0 0 60 30\" width=\"120\"", 120, 60)]
     [InlineData("", 512, 512)]
+    [Trait("Kind", "Unit")]
     public void SvgSizeFallbacks(string attributes, int width, int height)
     {
         var path = Write("size.svg", $"<svg xmlns=\"http://www.w3.org/2000/svg\" {attributes}/>");
         Assert.Equal(new ConversionImageSize(width, height), FileConversionService.ReadSvg(path).Size);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task NativeWordAndMarkdownPdfContainCompleteMultipageText()
     {
         var service = Service();
@@ -206,7 +216,8 @@ public sealed class FileConversionTests : IDisposable
         Assert.All(new[] { markdownPdf.OutputPath, wordPdf.OutputPath }, path => Assert.True(new FileInfo(path).Length < 2_000_000));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task MarkdownPdfKeepsShortBlocksTogetherAndPrintsCodeColors()
     {
         var markdown = new StringBuilder("# 中文排版与代码\n\n```javascript\nconst greeting = \"你好\";\nfunction sayHello(name) {\n  // 保留颜色与缩进\n  return greeting + name;\n}\n```\n\n");
@@ -273,7 +284,8 @@ public sealed class FileConversionTests : IDisposable
         Assert.True(process.ExitCode == 0, await stderr);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task NativeIconsDecodeLargestFrameAndDamagedFilesFail()
     {
         var service = Service();
@@ -304,10 +316,11 @@ public sealed class FileConversionTests : IDisposable
         Assert.False(File.Exists(Path.ChangeExtension(invalid, ".pdf")));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task HelperTimeoutTerminatesProcess()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var pidFile = Path.Combine(_root, "helper.pid");
         var helper = Write("slow-helper", "#!/bin/sh\necho $$ > \"$1\"\nexec sleep 30\n");
         File.SetUnixFileMode(helper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
@@ -338,9 +351,10 @@ public sealed class FileConversionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ReadOnlyDestinationAndMalformedImageDoNotLeavePartialOutputs()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var source = Write("readonly.txt", "source content");
         var before = File.GetUnixFileMode(_root);
         File.SetUnixFileMode(_root, UnixFileMode.UserRead | UnixFileMode.UserExecute);
@@ -358,4 +372,5 @@ public sealed class FileConversionTests : IDisposable
         using var document = WordprocessingDocument.Open(result.OutputPath, false);
         Assert.Contains("END", document.MainDocumentPart!.Document.InnerText);
     }
+
 }

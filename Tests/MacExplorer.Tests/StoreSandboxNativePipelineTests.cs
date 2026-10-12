@@ -7,9 +7,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "StoreSandboxNativePipeline")]
 public sealed class StoreSandboxNativePipelineTests
 {
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task AuthorizedNativeHelpersConvertDocumentsAndExtractPdfAndImageText()
     {
         Assert.SkipWhen(!DistributionChannel.IsAppStore || DirectoryAccess.Current.AuthorizedRoots.Count == 0,
@@ -45,4 +47,5 @@ public sealed class StoreSandboxNativePipelineTests
         Assert.Contains(result.RecognizedTexts, item => item.Text.Contains("4826", StringComparison.Ordinal));
         Assert.Equal("Native invoice 4826\nSandbox document conversion.", await File.ReadAllTextAsync(source, token));
     }
+
 }

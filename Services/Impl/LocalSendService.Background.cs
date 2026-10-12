@@ -11,7 +11,7 @@ public sealed partial class LocalSendService
         public LocalSendDevice Device = device;
         public DateTime NextAttempt;
         public DateTime NormalNextAttempt;
-        public DateTime LastTouched = DateTime.UtcNow;
+        public DateTime LastTouched;
         public DateTime LastSuccess;
         public long HistoryVerifiedUtcTicks;
         public int Failures;
@@ -79,12 +79,12 @@ public sealed partial class LocalSendService
     {
         lock (_discoveryLock)
         {
-            if (!ReferenceEquals(_discovery, state) || DateTime.UtcNow - state.LastRefresh < TimeSpan.FromSeconds(15)) return;
-            state.LastRefresh = DateTime.UtcNow;
+            if (!ReferenceEquals(_discovery, state) || UtcNow - state.LastRefresh < TimeSpan.FromSeconds(15)) return;
+            state.LastRefresh = UtcNow;
             foreach (var candidate in state.Candidates.Values)
                 if (!candidate.InFlight)
                 {
-                    candidate.NextAttempt = DateTime.UtcNow;
+                    candidate.NextAttempt = UtcNow;
                     candidate.NormalNextAttempt = candidate.NextAttempt;
                 }
             state.Wake();
@@ -112,7 +112,7 @@ public sealed partial class LocalSendService
             {
                 wake = existing.Device.Address != peer.Address || existing.Device.Port != peer.Port;
                 existing.Device = peer;
-                existing.LastTouched = DateTime.UtcNow;
+                existing.LastTouched = UtcNow;
                 existing.HistoryVerifiedUtcTicks = Math.Max(existing.HistoryVerifiedUtcTicks, historyVerifiedUtcTicks);
             }
             else
@@ -129,7 +129,7 @@ public sealed partial class LocalSendService
                 if (state.Candidates.Count < 128)
                 {
                     state.Candidates[key] = new CandidateState(peer)
-                    { HistoryVerifiedUtcTicks = historyVerifiedUtcTicks };
+                    { HistoryVerifiedUtcTicks = historyVerifiedUtcTicks, LastTouched = UtcNow };
                     wake = true;
                 }
             }
@@ -155,7 +155,7 @@ public sealed partial class LocalSendService
         lock (_discoveryLock)
         {
             if (!ReferenceEquals(_discovery, state) || state.Token.IsCancellationRequested) return [];
-            var now = DateTime.UtcNow;
+            var now = UtcNow;
             foreach (var key in _peers.Where(item => now - item.Value.Seen > TimeSpan.FromSeconds(75))
                 .Select(item => item.Key).ToArray()) _peers.Remove(key);
             return _peers.Values.OrderByDescending(item => item.Seen)
@@ -192,8 +192,8 @@ public sealed partial class LocalSendService
                 if (announce) await AnnounceAsync(state.Token);
                 await ProbeDueCandidatesAsync(state);
                 if (state.Interfaces.Count == 0 || _sending != null || _incoming != null
-                    || (roundComplete && DateTime.UtcNow < cooldownUntil)
-                    || DateTime.UtcNow < scanResumeAt)
+                    || (roundComplete && UtcNow < cooldownUntil)
+                    || UtcNow < scanResumeAt)
                 {
                     await WaitForDiscoveryAsync(state, TimeSpan.FromSeconds(state.Interfaces.Count == 0 ? 30 : 5));
                     continue;
@@ -203,8 +203,8 @@ public sealed partial class LocalSendService
                     scanOwner.Reset(NewRound());
                     roundComplete = false;
                 }
-                var activeUntil = DateTime.UtcNow + TimeSpan.FromSeconds(20);
-                while (DateTime.UtcNow < activeUntil && !state.Token.IsCancellationRequested
+                var activeUntil = UtcNow + TimeSpan.FromSeconds(20);
+                while (UtcNow < activeUntil && !state.Token.IsCancellationRequested
                        && _sending == null && _incoming == null)
                 {
                     var batch = new List<string>(4);
@@ -212,7 +212,7 @@ public sealed partial class LocalSendService
                     if (batch.Count == 0)
                     {
                         roundComplete = true;
-                        cooldownUntil = DateTime.UtcNow + TimeSpan.FromMinutes(5);
+                        cooldownUntil = UtcNow + TimeSpan.FromMinutes(5);
                         break;
                     }
                     await ScanCandidatesAsync(state, batch, DiscoveryPort, TimeSpan.FromSeconds(3), state.Token);
@@ -221,7 +221,7 @@ public sealed partial class LocalSendService
                 }
                 if (!roundComplete)
                 {
-                    scanResumeAt = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+                    scanResumeAt = UtcNow + TimeSpan.FromSeconds(5);
                     await WaitForDiscoveryAsync(state, TimeSpan.FromSeconds(5));
                 }
             }
@@ -236,7 +236,7 @@ public sealed partial class LocalSendService
         lock (_discoveryLock)
         {
             if (!ReferenceEquals(_discovery, state)) return;
-            var now = DateTime.UtcNow;
+            var now = UtcNow;
             var fast = FastKnownCandidates(state);
             foreach (var item in fast)
                 if (item.NextAttempt > now + TimeSpan.FromSeconds(5))
@@ -258,7 +258,7 @@ public sealed partial class LocalSendService
         {
             var item = entry.Item;
             var peer = entry.Peer;
-            var started = DateTime.UtcNow;
+            var started = UtcNow;
             var success = await ProbePeerAsync(state, peer, state.Token);
             lock (_discoveryLock)
             {
@@ -278,7 +278,7 @@ public sealed partial class LocalSendService
                 {
                     1 => 15, 2 => 30, 3 => 60, 4 => 120, _ => 300
                 };
-                var now = DateTime.UtcNow;
+                var now = UtcNow;
                 item.NormalNextAttempt = now + TimeSpan.FromSeconds(normalSeconds + Random.Shared.Next(0, 4));
                 item.NextAttempt = fastKnown ? now + TimeSpan.FromSeconds(5) : item.NormalNextAttempt;
                 if (!success && _peers.TryGetValue(peer.Fingerprint, out var online)
@@ -292,7 +292,7 @@ public sealed partial class LocalSendService
     {
         lock (_discoveryLock)
         {
-            var now = DateTime.UtcNow;
+            var now = UtcNow;
             if (!ReferenceEquals(_discovery, state) || now - state.LastPrune < TimeSpan.FromMinutes(1)) return;
             state.LastPrune = now;
             foreach (var key in state.Candidates.Where(item => !item.Value.InFlight
@@ -311,24 +311,27 @@ public sealed partial class LocalSendService
                 .Select(item => item.NextAttempt).DefaultIfEmpty(DateTime.MaxValue).Min();
             if (earliest != DateTime.MaxValue)
             {
-                var untilKnown = earliest - DateTime.UtcNow;
+                var untilKnown = earliest - UtcNow;
                 duration = TimeSpan.FromTicks(Math.Min(duration.Ticks, Math.Max(0, untilKnown.Ticks)));
             }
         }
-        await state.Signal.WaitAsync(duration, state.Token);
+        using var timeout = new CancellationTokenSource(duration, _timeProvider);
+        using var wait = CancellationTokenSource.CreateLinkedTokenSource(state.Token, timeout.Token);
+        try { await state.Signal.WaitAsync(wait.Token); }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !state.Token.IsCancellationRequested) { }
     }
 
-    private static async Task RateLimitUnknownAsync(DiscoveryState state, CancellationToken token)
+    private async Task RateLimitUnknownAsync(DiscoveryState state, CancellationToken token)
     {
         long start;
         lock (state.RateLock)
         {
-            var now = Stopwatch.GetTimestamp();
+            var now = _timeProvider.GetTimestamp();
             start = Math.Max(now, state.NextUnknownProbeTicks);
-            state.NextUnknownProbeTicks = start + Stopwatch.Frequency * 16 / 1000;
+            state.NextUnknownProbeTicks = start + _timeProvider.TimestampFrequency * 16 / 1000;
         }
-        var delay = TimeSpan.FromSeconds((start - Stopwatch.GetTimestamp()) / (double)Stopwatch.Frequency);
-        if (delay > TimeSpan.Zero) await Task.Delay(delay, token);
+        var delay = TimeSpan.FromSeconds((start - _timeProvider.GetTimestamp()) / (double)_timeProvider.TimestampFrequency);
+        if (delay > TimeSpan.Zero) await Task.Delay(delay, _timeProvider, token);
     }
 
     private static bool ValidPeerFingerprint(string protocol, string? fingerprint)

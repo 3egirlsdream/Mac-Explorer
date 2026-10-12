@@ -7,11 +7,13 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "FolderPhotoCover")]
 public sealed class FolderPhotoCoverTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("FolderPhotoCover_").FullName;
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SelectsOnlyFirstThreeDirectImagesByFileName()
     {
         var folder = Path.Combine(_root, "Album");
@@ -30,6 +32,7 @@ public sealed class FolderPhotoCoverTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task EmptyMissingAndBrokenPhotosFallBackWithoutReadingBeyondFirstThree()
     {
         var folder = Path.Combine(_root, "Album");
@@ -56,6 +59,7 @@ public sealed class FolderPhotoCoverTests : IDisposable
     [InlineData(2, 64)]
     [InlineData(3, 64)]
     [InlineData(3, 112)]
+    [Trait("Kind", "Unit")]
     public async Task OneToThreePhotosRemainVisibleInsideTheFolder(int count, int pixels)
     {
         var folder = Path.Combine(_root, $"Album-{count}");
@@ -88,6 +92,7 @@ public sealed class FolderPhotoCoverTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CoverRequestsRunOnlyWhenEnabledAndCancelWhenNoLongerVisible()
     {
         var folder = Path.Combine(_root, "Album");
@@ -122,6 +127,7 @@ public sealed class FolderPhotoCoverTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task RapidViewportChangesDoNotQueuePerFolderCoverRequests()
     {
         var started = 0;
@@ -152,6 +158,7 @@ public sealed class FolderPhotoCoverTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ApplicationLinksVirtualAndUnreadableFoldersDoNotRequestCovers()
     {
         var entries = new[]
@@ -179,7 +186,8 @@ public sealed class FolderPhotoCoverTests : IDisposable
         finally { images.Clear(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RefreshInvalidatesCachedCoverWithoutDiscardingFolderIcon()
     {
         var folder = Path.Combine(_root, "Album");
@@ -258,4 +266,5 @@ public sealed class FolderPhotoCoverTests : IDisposable
         public bool IsImageFile(string extension) => extension.Equals(".png", StringComparison.OrdinalIgnoreCase);
         public void EvictFromCache(string filePath) { }
     }
+
 }

@@ -18,9 +18,11 @@ using AssetIcons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Sidebar")]
 public sealed class FinderSidebarInteractionTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void SectionHeaderRevealsChevronsOnHoverAndKeepsTagCreationDiscoverable()
     {
         var sidebar = new FinderSidebarView();
@@ -57,7 +59,7 @@ public sealed class FinderSidebarInteractionTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TagCreateAndRenameUseTheItemRowAsTheOnlyEditor()
     {
         var tag = new FileTag("项目资料", FileTagCatalog.CustomTagColor, FileTagKind.Custom);
@@ -115,7 +117,7 @@ public sealed class FinderSidebarInteractionTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ExternalVolumeRowsAlignWithBuiltInLocationRows()
     {
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
@@ -281,4 +283,5 @@ public sealed class FinderSidebarInteractionTests
         Assert.DoesNotContain(confirmButton.GetVisualDescendants().OfType<TextBlock>(),
             textBlock => textBlock.Text == "\u2713");
     }
+
 }

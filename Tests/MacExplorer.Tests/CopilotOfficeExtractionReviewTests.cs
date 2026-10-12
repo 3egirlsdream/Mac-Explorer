@@ -9,9 +9,11 @@ using D = DocumentFormat.OpenXml.Drawing;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Copilot")]
 public sealed partial class CopilotReviewRegressionTests
 {
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task OfficePagesContinueUntilTheWholeNormalDocumentIsRead()
     {
         Directory.CreateDirectory(_root);
@@ -30,6 +32,7 @@ public sealed partial class CopilotReviewRegressionTests
     [Theory]
     [InlineData(1_100_000, "字符")]
     [InlineData(13_000_000, "解压")]
+    [Trait("Kind", "Unit")]
     public async Task HighlyCompressibleOfficeContentReportsItsLimit(int characters, string reason)
     {
         Directory.CreateDirectory(_root);
@@ -49,6 +52,7 @@ public sealed partial class CopilotReviewRegressionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task SpreadsheetExtractionKeepsSheetOrderAndSparseCellCoordinates()
     {
         Directory.CreateDirectory(_root);
@@ -78,6 +82,7 @@ public sealed partial class CopilotReviewRegressionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PresentationExtractionUsesSlideIdOrderInsteadOfRelationshipOrder()
     {
         Directory.CreateDirectory(_root);
@@ -119,4 +124,5 @@ public sealed partial class CopilotReviewRegressionTests
                 new P.TextBody(new D.BodyProperties(), new D.ListStyle(),
                     new D.Paragraph(new D.Run(new D.Text(text))))))));
     }
+
 }

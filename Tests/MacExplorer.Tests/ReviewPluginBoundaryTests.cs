@@ -6,12 +6,14 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Plugin")]
 public sealed class ReviewPluginBoundaryTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("macexplorer-boundary-").FullName;
     public void Dispose() => Directory.Delete(_root, true);
 
     [Theory]
+    [Trait("Kind", "Unit")]
     [InlineData("report.")]
     [InlineData(".env")]
     [InlineData("report.tar.gz")]
@@ -28,6 +30,7 @@ public sealed class ReviewPluginBoundaryTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task InvalidLaterFilenameIsRejectedBeforeAnyOutputIsPublished()
     {
         var work = Directory.CreateDirectory(Path.Combine(_root, "work")).FullName;
@@ -42,6 +45,7 @@ public sealed class ReviewPluginBoundaryTests : IDisposable
     }
 
     [Theory]
+    [Trait("Kind", "Unit")]
     [InlineData("null-id")]
     [InlineData("null-command")]
     [InlineData("null-command-id")]
@@ -64,13 +68,15 @@ public sealed class ReviewPluginBoundaryTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ManifestSizeIsLimitedBeforeJsonMaterialization()
     {
         File.WriteAllBytes(Path.Combine(_root, "plugin.json"), new byte[1024 * 1024 + 1]);
         Assert.Contains("过大", Assert.Throws<InvalidDataException>(() => PluginPackage.ReadManifest(_root)).Message);
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
+    [Trait("Kind", "Integration")]
     [InlineData("id")]
     [InlineData("version")]
     [InlineData("api")]
@@ -104,4 +110,5 @@ public sealed class ReviewPluginBoundaryTests : IDisposable
         Assert.True(Directory.Exists(previous.Directory));
         Assert.Empty(Directory.GetDirectories(environment.Manager.RootDirectory, ".install-*"));
     }
+
 }

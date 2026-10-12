@@ -7,10 +7,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-[SupportedOSPlatform("macos")]
+[Trait("Kind", "Integration")]
+[Trait("Area", "Plugin")]
 public sealed class PluginPipeCancellationTests
 {
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task WorkerThatNeverReadsStdinCannotBlockTimeoutOrCancellation(bool userCancellation)
@@ -54,4 +55,5 @@ public sealed class PluginPipeCancellationTests
             Directory.Delete(root, true);
         }
     }
+
 }

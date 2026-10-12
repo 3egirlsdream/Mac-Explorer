@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "RuntimePaths")]
 public sealed class RuntimePathsTests : IDisposable
 {
     private readonly string? _previousRoot = Environment.GetEnvironmentVariable(RuntimePaths.TestRootVariable);
@@ -87,4 +89,5 @@ public sealed class RuntimePathsTests : IDisposable
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
     }
+
 }

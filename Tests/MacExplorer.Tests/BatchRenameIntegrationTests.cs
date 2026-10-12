@@ -15,9 +15,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "BatchRename")]
+public sealed class BatchRenameIntegrationViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BatchRenameShortcutsPreserveInlineRenameAndRequireFileListFocus()
     {
         using var theme = new FastListTestTheme(); var files = new FakeFileService("/tmp/BatchRenameInput");
@@ -48,7 +50,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void BatchRenameToolbarTracksSelectionAndReadOnlyScope()
     {
         using var pane = CreateViewModel(new FakeFileService("/tmp/BatchRenameToolbar"));
@@ -63,7 +65,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(readOnlyToolbar.FindControl<Button>("BatchRenameButton")!.IsEnabled);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CopilotHandsEditableRulesAndFrozenCrossDirectorySelectionToWorkbench()
     {
         var files = new FakeFileService("/tmp/BatchRenameCopilot");
@@ -85,7 +87,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False((await registry.ExecuteUiAsync("ui.batch-rename-dialog", "{}", pane)).Success);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CopilotRuleArraySupportsCrossDirectoryExecutionAndRejectsAmbiguousRuleInputs()
     {
         var files = new FakeFileService("/tmp/BatchRenameCopilotArray");
@@ -101,10 +103,15 @@ public sealed partial class FileListViewModelCreateTests
             "{\"paths\":[\"/tmp/OtherBatchRenameArray/项目_002.txt\"],\"rule\":{\"type\":\"AddPrefix\"},\"rules\":[{\"type\":\"Cleanup\"}]}", pane));
     }
 
-    private static AppCapabilityRegistry BatchRegistry(IFileService files, IBatchRenameService? rename = null)
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static AppCapabilityRegistry BatchRegistry(IFileService files, IBatchRenameService? rename = null)
     {
         rename ??= new BatchRenameService(files);
         return new AppCapabilityRegistry(files, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, rename,
             new BatchRenameOperationService(rename, new FileOperationHistoryService(files, batchRename: rename), new BackgroundTaskManager(null)));
     }
+
 }

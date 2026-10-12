@@ -9,11 +9,13 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Thumbnail")]
 public sealed class LibRawThumbnailTests
 {
     private static string SamplePath => Path.Combine(AppContext.BaseDirectory, "TestData", "generated-orientation-6.dng");
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void GeneratedDng_DecodesToOrientedPng()
     {
         var bytes = LibRawThumbnailDecoder.Decode(SamplePath, 48, TestContext.Current.CancellationToken);
@@ -25,7 +27,7 @@ public sealed class LibRawThumbnailTests
         Assert.Equal(48, bitmap.Height);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void CancelledDecode_ThrowsAndCanBeRetried()
     {
         using var cancelled = new CancellationTokenSource();
@@ -35,7 +37,7 @@ public sealed class LibRawThumbnailTests
         Assert.NotNull(LibRawThumbnailDecoder.Decode(SamplePath, 96, TestContext.Current.CancellationToken));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void MonochromeDng_DecodesToGrayPng()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "TestData", "generated-monochrome.dng");
@@ -48,7 +50,7 @@ public sealed class LibRawThumbnailTests
         Assert.Equal(center.Green, center.Blue);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void TruncatedDng_ReturnsNoImage()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkraw-truncated-" + Guid.NewGuid().ToString("N"));
@@ -62,7 +64,7 @@ public sealed class LibRawThumbnailTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task ThumbnailService_UsesRawFallbackForKnownImagesAndIgnoresOldRawByteCache()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkraw-service-" + Guid.NewGuid().ToString("N"));
@@ -105,7 +107,7 @@ public sealed class LibRawThumbnailTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void RealCameraSample_WhenProvided_DecodesToPng()
     {
         var path = Environment.GetEnvironmentVariable("FKFINDER_REAL_RAW_SAMPLE");
@@ -140,7 +142,7 @@ public sealed class LibRawThumbnailTests
             $"sample={path}\niterations=8\nresident_memory_samples={string.Join(',', memorySamples)}\n");
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task RawFilesCanPopulateFolderCover()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkraw-cover-" + Guid.NewGuid().ToString("N"));
@@ -162,7 +164,7 @@ public sealed class LibRawThumbnailTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task WaitingRawRequest_DoesNotOccupyTheNormalImageGenerationSlot()
     {
         var gate = (SemaphoreSlim?)typeof(MacThumbnailService)
@@ -192,6 +194,8 @@ public sealed class LibRawThumbnailTests
         }
         Assert.NotNull(pngPath);
         var service = new MacThumbnailService(Path.Combine(root, "cache"), 1024 * 1024, 0.8, 1);
+        var queued = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.RawDecodeQueued += () => queued.TrySetResult();
         Task<MacExplorer.Services.ThumbnailResult?>? rawTask = null;
         try
         {
@@ -199,7 +203,7 @@ public sealed class LibRawThumbnailTests
             try
             {
                 rawTask = service.GetThumbnailResultAsync(rawPath, 48, timeout.Token);
-                await Task.Delay(TimeSpan.FromSeconds(3), timeout.Token);
+                await queued.Task.WaitAsync(timeout.Token);
                 Assert.False(rawTask.IsCompleted);
                 var ordinary = await service.GetThumbnailResultAsync(pngPath, 48, timeout.Token)
                     .WaitAsync(TimeSpan.FromSeconds(2), timeout.Token);
@@ -220,4 +224,5 @@ public sealed class LibRawThumbnailTests
             finally { Directory.Delete(root, recursive: true); }
         }
     }
+
 }

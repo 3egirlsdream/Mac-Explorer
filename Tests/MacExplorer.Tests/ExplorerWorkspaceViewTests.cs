@@ -16,9 +16,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "ExplorerWorkspaceView")]
 public sealed class ExplorerWorkspaceViewTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void NewWideWorkspaceNeverClosesItsSidebarDuringFirstLayout()
     {
         using var workspace = new ExplorerWorkspaceView();
@@ -41,7 +43,7 @@ public sealed class ExplorerWorkspaceViewTests
         window.Close();
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(1000, false, true)]
     [InlineData(1280, false, false)]
     [InlineData(1280, true, true)]
@@ -56,7 +58,7 @@ public sealed class ExplorerWorkspaceViewTests
         Assert.Equal(compact, workspace.FindControl<FinderSidebarView>("SidebarControl")!.IsRailMode);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void BreakpointAndForceCompactUseTheSameWorkspaceAndDataContext()
     {
         var dataContext = new object();
@@ -82,7 +84,7 @@ public sealed class ExplorerWorkspaceViewTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void CompactRoundTripReusesSidebarAndRestoresInlineWidths()
     {
         var workspace = new ExplorerWorkspaceView();
@@ -140,7 +142,7 @@ public sealed class ExplorerWorkspaceViewTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void WorkspaceContainsExactlyOneBreadcrumbAndNoWindowLevelEntries()
     {
         var workspace = new ExplorerWorkspaceView();
@@ -155,7 +157,7 @@ public sealed class ExplorerWorkspaceViewTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void CompactToolbarKeepsTheFullStyleOfVisibleButtons()
     {
         var toolbar = new FinderToolbar { IsCompact = true };
@@ -175,7 +177,7 @@ public sealed class ExplorerWorkspaceViewTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ExplicitPreviewReloadsAndReleaseAlwaysAdvanceRequestGeneration()
     {
         var panel = new InfoPanelView();
@@ -199,11 +201,14 @@ public sealed class ExplorerWorkspaceViewTests
         Assert.False(panel.IsLivePreviewEnabled);
         window.Close();
     }
+
 }
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "ExplorerWorkspaceView")]
+public sealed class ExplorerWorkspaceViewViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("NewDropdown")]
     [InlineData("SortDropdown")]
     [InlineData("MoreDropdown")]
@@ -271,4 +276,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { window.Close(); }
     }
+
 }

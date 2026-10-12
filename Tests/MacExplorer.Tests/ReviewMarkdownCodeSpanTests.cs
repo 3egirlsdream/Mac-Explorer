@@ -6,9 +6,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Markdown")]
 public sealed class ReviewMarkdownCodeSpanTests
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("alpha", "`alpha`")]
     [InlineData("a`b", "``a`b``")]
     [InlineData("`alpha`", "`` `alpha` ``")]
@@ -37,7 +39,7 @@ public sealed class ReviewMarkdownCodeSpanTests
         Assert.Equal(before + expected + after, editor.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void InlineCodeAtAnEmptySelectionKeepsTheEditablePlaceholder()
     {
         var editor = new TextEditor { Document = new TextDocument() };
@@ -48,7 +50,7 @@ public sealed class ReviewMarkdownCodeSpanTests
         Assert.Equal(string.Empty, editor.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ReadOnlyCodeIsNotMutated()
     {
         var editor = new TextEditor { Document = new TextDocument("`keep`"), IsReadOnly = true };
@@ -57,7 +59,7 @@ public sealed class ReviewMarkdownCodeSpanTests
         Assert.Equal("`keep`", editor.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FencedCodeStillUsesAtLeastThreeBackticksAndPreservesCrLf()
     {
         var editor = new TextEditor { Document = new TextDocument("a```b") };
@@ -67,4 +69,5 @@ public sealed class ReviewMarkdownCodeSpanTests
         editor.Undo();
         Assert.Equal("a```b", editor.Text);
     }
+
 }

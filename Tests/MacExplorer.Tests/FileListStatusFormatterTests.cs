@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileList")]
 public sealed class FileListStatusFormatterTests
 {
     [Fact]
@@ -92,4 +94,5 @@ public sealed class FileListStatusFormatterTests
         FullPath = Path.Combine("/tmp", name),
         Size = size
     };
+
 }

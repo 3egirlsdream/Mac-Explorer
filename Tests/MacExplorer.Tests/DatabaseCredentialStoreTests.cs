@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "DatabaseCredentialStore")]
 public sealed class DatabaseCredentialStoreTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "credentials-" + Guid.NewGuid().ToString("N"));
@@ -61,4 +63,5 @@ public sealed class DatabaseCredentialStoreTests : IDisposable
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
     }
+
 }

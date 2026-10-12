@@ -14,7 +14,7 @@
     <None Update="plugin.json" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="MacExplorer.Tests" />
   </ItemGroup>
-  <Target Name="BuildConversionHelper" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+  <Target Name="BuildConversionHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="../../Platforms/MacOS/FileConversionHelper.swift;../../Platforms/MacOS/HelperFileAccess.swift;../../Tools/Distribution/build-helper.sh;../../Directory.Build.props;$(MSBuildProjectFullPath);$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(TargetDir)MacExplorer.FileConversion">
     <Exec Command="bash ../../Tools/Distribution/build-helper.sh '../../Platforms/MacOS/FileConversionHelper.swift' '$(TargetDir)MacExplorer.FileConversion' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework AppKit -framework WebKit -framework ImageIO -framework UniformTypeIdentifiers" />
     <Exec Command="codesign --force --sign - '$(TargetDir)MacExplorer.FileConversion'" />
   </Target>

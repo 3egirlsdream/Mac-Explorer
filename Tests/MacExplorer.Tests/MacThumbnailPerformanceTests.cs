@@ -5,6 +5,8 @@ namespace MacExplorer.Tests;
 
 // These tests use the real cache/gates with a deterministic generator. They do not
 // require Quick Look, sips, a window server, or real image-generation timings.
+[Trait("Kind", "Unit")]
+[Trait("Area", "Thumbnail")]
 public sealed class MacThumbnailPerformanceTests : IDisposable
 {
     private static readonly byte[] Png = Convert.FromBase64String(
@@ -456,4 +458,5 @@ public sealed class MacThumbnailPerformanceTests : IDisposable
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
+
 }

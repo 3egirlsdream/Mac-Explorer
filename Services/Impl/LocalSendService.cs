@@ -26,6 +26,8 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     private readonly ISettingsService _settings;
     private readonly IBackgroundTaskManager _tasks;
     private readonly ILogger<LocalSendService>? _logger;
+    private readonly TimeProvider _timeProvider;
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly SemaphoreSlim _httpProbeGate = new(4, 4);
@@ -53,6 +55,7 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     private int _port;
     private string? _lastError;
     internal DirectoryAccess? FileAccessOverride { get; set; }
+    internal int? ListeningPortOverride { get; set; }
     private DirectoryAccess AccessGrants => FileAccessOverride ?? DirectoryAccess.Current;
     public int ListeningPort => _port;
     internal string? Fingerprint => _fingerprint;
@@ -83,11 +86,13 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
             && Interlocked.CompareExchange(ref peak, active, previous) != previous) { }
     }
 
-    public LocalSendService(ISettingsService settings, IBackgroundTaskManager tasks, ILogger<LocalSendService>? logger = null)
+    public LocalSendService(ISettingsService settings, IBackgroundTaskManager tasks, ILogger<LocalSendService>? logger = null,
+        TimeProvider? timeProvider = null)
     {
         _settings = settings;
         _tasks = tasks;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     private bool _disableRequested;
@@ -156,7 +161,7 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
             lock (_discoveryLock) _runningToken = _running.Token;
             // Check first so an already occupied default port does not produce
             // Kestrel's expected hosting-failure log on every launch.
-            var preferredPort = CanBindDefaultPort() ? DiscoveryPort : 0;
+            var preferredPort = ListeningPortOverride ?? (CanBindDefaultPort() ? DiscoveryPort : 0);
             try { _host = await CreateHostAsync(preferredPort, _running.Token); }
             catch (IOException ex) when (preferredPort == DiscoveryPort && IsAddressInUse(ex))
             { _host = await CreateHostAsync(0, _running.Token); }

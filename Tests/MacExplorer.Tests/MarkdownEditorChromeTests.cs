@@ -14,9 +14,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Markdown")]
 public sealed class MarkdownEditorChromeTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FormatToolbarUsesAppIconButtons()
     {
         var view = new MarkdownEditorView();
@@ -38,7 +40,7 @@ public sealed class MarkdownEditorChromeTests
             .Count(separator => separator.Classes.Contains("toolbar-separator")));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ModeSwitchUsesAppSegmentedToggles()
     {
         var view = new MarkdownEditorView();
@@ -59,7 +61,7 @@ public sealed class MarkdownEditorChromeTests
         Assert.False(Assert.IsType<Border>(view.FindControl<Border>("SourcePane")).IsVisible);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void EveryIconConstantParsesToGeometry()
     {
         var constants = typeof(Icons)
@@ -75,4 +77,5 @@ public sealed class MarkdownEditorChromeTests
             Assert.True(bounds.X >= -1 && bounds.Y >= -1 && bounds.Right <= 25 && bounds.Bottom <= 25, constant.Name);
         }
     }
+
 }

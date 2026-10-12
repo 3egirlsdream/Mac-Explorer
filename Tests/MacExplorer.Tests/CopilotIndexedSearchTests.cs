@@ -12,6 +12,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Copilot")]
 public sealed class CopilotIndexedSearchTests : IDisposable
 {
     private readonly string _root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "copilot-index-" + Guid.NewGuid().ToString("N"));
@@ -48,6 +49,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
         null!, null!, null!, null!, null!, _catalog, metadata, _tags);
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PdfContentUsesAnalysisEvenWithoutFileCacheOrSearchEntryAndNeverReturnsExcerpt()
     {
         var path = FileAt("unrelated-name.PDF");
@@ -63,6 +65,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CachePreservesPageOrderAndPaginationWhileChangedPdfFallsBackToExtractor()
     {
         var path = FileAt("book.pdf");
@@ -86,6 +89,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task LiteralUnicodeQueriesRespectRootHiddenFilesDeletionAndStaleAnalysis()
     {
         var target = FileAt("visible.pdf");
@@ -105,6 +109,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CameraDateLocationSemanticTagsRatingsAndFilePropertiesCombineBeforePaging()
     {
         var path = FileAt("holiday.jpg");
@@ -139,6 +144,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task NamedPeopleAndFutureAnalysisFieldsAreSearchableWithoutExposingFaceFeatures()
     {
         var path = FileAt("portrait.jpg");
@@ -152,7 +158,8 @@ public sealed class CopilotIndexedSearchTests : IDisposable
         Assert.Contains("person", Assert.Single((await Search(new() { Query = "小王" })).Items).MatchedSources);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task ContentWrongRouteReturnsApprovalGuidanceAndIndexResultsBecomeCandidateArtifacts()
     {
         var path = FileAt("answer.pdf");
@@ -177,6 +184,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task FileInfoExposesExifButExcludesRawSpotlightBodyAndCachedOcr()
     {
         var path = FileAt("photo.jpg");
@@ -192,6 +200,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task IndexResultsContinueWithoutDuplicatesAndIncludeUnindexedAnalysis()
     {
         for (var i = 0; i < 105; i++) await Analyze(FileAt($"page-{i:000}.pdf"), "needle");
@@ -236,4 +245,5 @@ public sealed class CopilotIndexedSearchTests : IDisposable
         _index.Dispose();
         Directory.Delete(_root, true);
     }
+
 }

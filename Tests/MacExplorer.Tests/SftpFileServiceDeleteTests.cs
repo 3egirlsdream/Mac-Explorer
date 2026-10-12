@@ -3,7 +3,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class SftpFileServiceDeleteTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "Sftp")]
+public sealed class SftpFileServiceDeleteTests
 {
     [Fact]
     public void DeleteDirectoryTreeDeletesChildrenBeforeParents()
@@ -58,4 +60,5 @@ public class SftpFileServiceDeleteTests
         Assert.Throws<InvalidOperationException>(() =>
             SftpFileService.DeleteDirectoryTree(path, _ => [], _ => { }, _ => { }));
     }
+
 }

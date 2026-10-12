@@ -3,6 +3,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Search")]
 public sealed class ReviewSearchVisibilityTests
 {
     [Theory]
@@ -57,4 +59,5 @@ public sealed class ReviewSearchVisibilityTests
         Assert.Equal(10_000, visible);
         Assert.True(allocated < 4096, $"Allocated {allocated} bytes for candidate visibility.");
     }
+
 }

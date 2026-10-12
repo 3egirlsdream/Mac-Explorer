@@ -23,6 +23,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "BatchRename")]
 public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
 {
     private static FileSystemEntry Entry(string path) => new()
@@ -31,6 +32,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         BatchRenameRuleEngine.Generate(request, new Dictionary<string, DateTime?>(), default);
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void OrderedRulesHaveIndependentCountersAndExcludedItemsDoNotConsumeNumbers()
     {
         var entries = new[] { Entry("/fixtures/DSC_10.JPG"), Entry("/fixtures/DSC_2.JPG"), Entry("/fixtures/DSC_3.JPG") };
@@ -51,6 +53,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ManualNamesOverrideRuleErrorsWithoutMutatingSavedRulesOrNumbering()
     {
         var rules = new[] { new BatchRenameRule { Type = BatchRenameRuleType.Template, TemplateText = "{taken:yyyyMMdd}_{n:000}" } };
@@ -65,6 +68,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ReplacementDistinguishesLiteralTextCapturesOccurrenceAndRegexTimeout()
     {
         var request = new BatchRenameRequest { Entries = [Entry("/fixtures/one_one.txt")],
@@ -83,6 +87,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     [InlineData("👨‍👩‍👧‍👦你好.tar.gz", "你好.tar.gz")]
     [InlineData(".隐藏文件", "隐藏文件")]
     [InlineData("é你好", "你好")]
+    [Trait("Kind", "Unit")]
     public void CharacterRangesKeepEmojiCombiningCharactersAndExtensionsIntact(string before, string after)
     {
         var items = Compute(new BatchRenameRequest { Entries = [Entry("/fixtures/" + before)],
@@ -91,6 +96,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void TitleCaseKeepsExistingSeparatorsAndCurrentDateIsFrozen()
     {
         var request = new BatchRenameRequest { Entries = [Entry("/fixtures/hello world_test-file.txt")], CapturedAt = new DateTime(2024, 5, 6),
@@ -102,6 +108,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task FileAndFolderConflictsAreLocalToTheirDirectoryAndAncestorsAreBlocked()
     {
         using var env = new RenameFixture();
@@ -119,6 +126,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ExchangeCycleCaseOnlyAndGroupedUndoPreserveFileContents()
     {
         using var env = new RenameFixture();
@@ -141,6 +149,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ChangedSourcesAndNewTargetOccupantsPreventAllMutations()
     {
         using var env = new RenameFixture(); var a = await env.File("a.txt", "A"); var b = await env.File("b.txt", "B");
@@ -156,6 +165,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task FailedCycleRestoresOriginalsAndCanRetryTheAcceptedTargets()
     {
         using var env = new RenameFixture(); var a = await env.File("a.txt", "A"); var b = await env.File("b.txt", "B");
@@ -169,6 +179,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task StopAtSafeBoundaryKeepsOneUndoBatchAcrossRetry()
     {
         using var env = new RenameFixture(); var a = await env.File("a.txt", "A"); var b = await env.File("b.txt", "B");
@@ -186,6 +197,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MetadataIsCachedAndMissingPhotoDatesRequireAnExplicitFallback()
     {
         using var env = new RenameFixture(); var a = await env.File("a.jpg", "A"); var b = await env.File("b.jpg", "B");
@@ -202,7 +214,8 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         Assert.True((await rename.GeneratePreviewAsync(request)).CanExecute);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void TenThousandPreviewRowsAreVirtualizedAndNarrowLayoutKeepsActionsVisible()
     {
         using var theme = new FastListTestTheme();
@@ -218,7 +231,8 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         Assert.True(dialog.FindControl<Button>("ApplyButton")!.Bounds.Width > 0); dialog.Close();
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Stress")]
     public async Task TenThousandRealFilesPreviewWithoutBlockingAndCanBeCancelled()
     {
         using var env = new RenameFixture();
@@ -239,6 +253,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task IndexSyncFailuresDoNotReclassifySuccessfulRenamesAsRetryableFailures()
     {
         using var env = new RenameFixture(); var a = await env.File("a.txt", "A");
@@ -251,6 +266,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task IndexRecordsUseTemporaryLogicalPathsDuringNameExchange()
     {
         using var env = new RenameFixture(); var a = await env.File("a.txt", "A"); var b = await env.File("b.txt", "B");
@@ -264,7 +280,8 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         Assert.Equal(2, Directory.GetFiles(env.Root).Length);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RuleDragPresetRestoreAndCompletionStatusUseActualDialogControls()
     {
         using var env = new RenameFixture(); var a = await env.File("a.txt", "A"); var b = await env.File("b.txt", "B");
@@ -311,6 +328,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         finally { dialog.Close(); }
     }
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task FolderExchangeAndUndoMigrateDescendantIndexTagsAndPins()
     {
         using var env = new RenameFixture();
@@ -346,7 +364,8 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         Assert.Contains(await pins.GetAllAsync(), pin => pin.FolderPath == Path.Combine(aPath, "sub") && pin.DisplayName == "A子目录");
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void DifferenceRunsHighlightRemovedPrefixesAndKeepJoinedEmojiTogether()
     {
         var old = new RenameDiffText { Before = "photo.JPG", After = "DSC_photo.JPG" };
@@ -357,9 +376,10 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         Assert.Equal(emoji.After, string.Concat(runs.Select(r => r.Text)));
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public async Task CompactSpinnersAndDisclosureKeepTheirAppearanceAndNativeInput(bool dark)
     {
         using var env = new RenameFixture(); var entry = await env.File("DSC_001.JPG", "A");
@@ -407,7 +427,8 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         finally { dialog.Close(); Application.Current.Styles.Remove(components); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task TemplateParametersFollowTheFieldsActuallyUsedWithoutLosingDefaults()
     {
         using var env = new RenameFixture(); var entry = await env.File("DSC_001.JPG", "A");
@@ -489,4 +510,5 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
             await base.RenameAsync(path, name); AfterRename?.Invoke();
         }
     }
+
 }

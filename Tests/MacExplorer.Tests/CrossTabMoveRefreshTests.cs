@@ -14,9 +14,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "CrossTabMoveRefresh")]
+public sealed class CrossTabMoveRefreshViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DisposedTabStopsReceivingDirectoryChanges()
     {
         var files = new FakeFileService("/tmp/cross-tab-dispose");
@@ -36,7 +38,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal("new.txt", Assert.Single(open.Entries).Name);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task CrossTabMoveRefreshesInactiveSourceAndDestination(bool grid)
@@ -102,4 +104,5 @@ public sealed partial class FileListViewModelCreateTests
             Directory.Delete(root, true);
         }
     }
+
 }

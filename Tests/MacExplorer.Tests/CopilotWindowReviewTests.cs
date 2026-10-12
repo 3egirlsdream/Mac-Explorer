@@ -18,9 +18,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Copilot")]
+public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CopilotDropShowsDistinctAttachmentsAndSendMovesTagsToTranscript()
     {
         var root = Directory.CreateTempSubdirectory("copilot-drop-").FullName;
@@ -75,7 +77,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CopilotPanelAndHistoryFitTheMinimumWindow()
     {
         using var theme = new FastListTestTheme();
@@ -102,7 +104,7 @@ public sealed partial class FileListViewModelCreateTests
         AssertFits();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task StopButtonCancelsStreamingAndStartsASeparateSession()
     {
         var root = Path.Combine(Path.GetTempPath(), "fk-copilot-stop-" + Guid.NewGuid().ToString("N"));
@@ -136,7 +138,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ClosingCopilotCancelsStreamingAndReleasesSessionOwnership()
     {
         var root = Path.Combine(Path.GetTempPath(), "fk-copilot-close-" + Guid.NewGuid().ToString("N"));
@@ -169,7 +171,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CopilotApprovalRemainsRejectableWhenTranscriptAndHistoryReadsFail()
     {
         var root = Path.Combine(Path.GetTempPath(), "fk-copilot-window-" + Guid.NewGuid().ToString("N"));
@@ -232,7 +234,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CopilotFileListPagesKeepStableOrderAndSavedCandidateContracts()
     {
         var root = Path.Combine(Path.GetTempPath(), "fk-copilot-candidates-" + Guid.NewGuid().ToString("N"));
@@ -268,12 +270,17 @@ public sealed partial class FileListViewModelCreateTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
-    private static Task RunCopilotWindowAction(MainWindow window,
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static Task RunCopilotWindowAction(MainWindow window,
         Func<Action<AgentResponseUpdate>, Task<CopilotReply>> action) =>
         RunCopilotWindowAction(window, (onUpdate, _) => action(onUpdate), true);
 
-    private static Task RunCopilotWindowAction(MainWindow window,
+    protected static Task RunCopilotWindowAction(MainWindow window,
         Func<Action<AgentResponseUpdate>, CancellationToken, Task<CopilotReply>> action, bool allowStop) =>
         (Task)typeof(MainWindow).GetMethod("RunCopilotAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(window, [action, allowStop])!;
+
 }

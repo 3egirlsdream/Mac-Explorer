@@ -9,6 +9,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "OpenWithMenuPlacement")]
 public sealed class OpenWithSchemaMigrationTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "fkfinder-openwith-v9-" + Guid.NewGuid().ToString("N"));
@@ -81,13 +83,16 @@ public sealed class OpenWithSchemaMigrationTests : IDisposable
         SqliteConnection.ClearAllPools();
         if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
     }
+
 }
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Area", "OpenWithMenuPlacement")]
+public sealed class OpenWithMenuPlacementViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(true)]
     [InlineData(false)]
+    [Trait("Kind", "UI")]
     public async Task BuiltInActionsFollowSettingsAndStayMutuallyExclusive(bool enabled)
     {
         var files = new FakeFileService("/tmp/FKFinderBuiltIns");
@@ -132,9 +137,10 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(true)]
     [InlineData(false)]
+    [Trait("Kind", "UI")]
     public async Task BackgroundMenuFollowsTerminalSetting(bool terminalEnabled)
     {
         var files = new FakeFileService("/tmp/FKFinderBuiltIns");
@@ -159,6 +165,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ContextMenuServiceKeepsTopLevelAppsOutOfSubmenuAndHidesBuiltIns()
     {
         var apps = PlacementOpenWithAppService.WithBuiltIns(true);
@@ -181,7 +188,11 @@ public sealed partial class FileListViewModelCreateTests
             topLevel.Select(action => action.Label));
     }
 
-    private sealed class PlacementOpenWithAppService : IOpenWithAppService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class PlacementOpenWithAppService : IOpenWithAppService
     {
         public List<OpenWithApp> TopLevel { get; init; } = [];
         public List<OpenWithApp> SubmenuApps { get; init; } = [];
@@ -217,7 +228,7 @@ public sealed partial class FileListViewModelCreateTests
         public Task<List<AppListItem>> GetInstalledAppsAsync() => Task.FromResult<List<AppListItem>>([]);
     }
 
-    private sealed class PlacementLauncher : IApplicationLauncherService
+    protected sealed class PlacementLauncher : IApplicationLauncherService
     {
         public string? RevealedPath { get; private set; }
         public string? TerminalPath { get; private set; }
@@ -239,7 +250,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    private sealed class PlacementContextMenuService : IContextMenuService
+    protected sealed class PlacementContextMenuService : IContextMenuService
     {
         public bool IsAppInstalled(string bundleIdentifier) => true;
 
@@ -263,4 +274,5 @@ public sealed partial class FileListViewModelCreateTests
         public Task<IReadOnlyList<ContextMenuAction>> GetTrashFileContextMenuActionsAsync(FileSystemEntry entry) => Task.FromResult<IReadOnlyList<ContextMenuAction>>([]);
         public Task<IReadOnlyList<ContextMenuAction>> GetTrashBackgroundContextMenuActionsAsync() => Task.FromResult<IReadOnlyList<ContextMenuAction>>([]);
     }
+
 }

@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "AiAnalysisQueryPerformance")]
 public sealed class AiAnalysisQueryPerformanceTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"ai-query-performance-{Guid.NewGuid():N}");
@@ -204,4 +206,5 @@ public sealed class AiAnalysisQueryPerformanceTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
+
 }

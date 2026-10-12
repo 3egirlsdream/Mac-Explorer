@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileList")]
 public sealed class FileListColumnLayoutServiceTests
 {
     [Fact]
@@ -137,4 +139,5 @@ public sealed class FileListColumnLayoutServiceTests
             pair => pair.Value?.ToString() ?? string.Empty,
             StringComparer.Ordinal);
     }
+
 }

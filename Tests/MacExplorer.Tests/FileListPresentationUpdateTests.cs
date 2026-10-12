@@ -5,7 +5,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class FileListPresentationUpdateTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileList")]
+public sealed class FileListPresentationUpdateTests
 {
     [Fact]
     public void SelectionAndCutDoNotInvalidateIcons()
@@ -96,4 +98,5 @@ public class FileListPresentationUpdateTests
     {
         FullPath = path, Name = Path.GetFileName(path), LastModified = new DateTime(2026, 9, 3)
     };
+
 }

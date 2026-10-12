@@ -3,6 +3,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Preview")]
 public sealed class LivePreviewCoordinatorTests
 {
     [Fact]
@@ -137,4 +139,5 @@ public sealed class LivePreviewCoordinatorTests
             events.Add($"{name}:off:end");
         }
     }
+
 }

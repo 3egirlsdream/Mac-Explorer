@@ -18,13 +18,15 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Area", "FileDragStart")]
+public sealed class FileDragStartViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
+    [Trait("Kind", "UI")]
     public void FileDragKeepsCaptureOutsideItemAndCancelsRenameWhileDataIsPending(bool grid, bool multiple)
     {
         using var theme = new FastListTestTheme();
@@ -71,7 +73,8 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void FileDragCaptureLossCancelsPendingRenameAndDrag()
     {
         using var theme = new FastListTestTheme();
@@ -97,6 +100,7 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void FileDragPathsDoNotRequireFileSystemAccessAndExcludeVirtualEntries()
     {
         var path = $"/Volumes/Disconnected-{Guid.NewGuid():N}/file.txt";
@@ -108,7 +112,8 @@ public sealed partial class FileListViewModelCreateTests
         ]));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task FileDragFolderDropMovesItsContentsOnDisk()
     {
         using var theme = new FastListTestTheme();
@@ -148,6 +153,11 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    private static FieldInfo DragField(string name)
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static FieldInfo DragField(string name)
         => typeof(FileListView).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
+
 }

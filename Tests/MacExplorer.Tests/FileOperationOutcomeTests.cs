@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileOperationOutcome")]
 public sealed class FileOperationOutcomeTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "fk-operation-outcome-" + Guid.NewGuid().ToString("N"));
@@ -132,4 +134,5 @@ public sealed class FileOperationOutcomeTests : IDisposable
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
+
 }

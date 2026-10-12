@@ -8,9 +8,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Home")]
 public sealed class HomeFileImageTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task RemovingImageCancelsRequestAndIgnoresLateResult()
     {
         var requested = new TaskCompletionSource<CancellationToken>();
@@ -38,7 +40,7 @@ public sealed class HomeFileImageTests
         finally { window.Close(); finish.TrySetResult(null); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task FolderAndHiddenImageDoNotRequestThumbnails()
     {
         var calls = 0;
@@ -59,4 +61,5 @@ public sealed class HomeFileImageTests
         }
         finally { window.Close(); }
     }
+
 }

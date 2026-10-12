@@ -10,9 +10,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileTreeView")]
+public sealed class FileTreeViewViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TreeExpandsOneLevelAtATimeAndCollapseReleasesDescendants()
     {
         const string root = "/tmp/FKFinderTreeTests";
@@ -59,7 +61,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(3, vm.Entries.Count);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TreeRetriesFailedBranchAndKeepsExpansionAcrossViewModeChanges()
     {
         const string root = "/tmp/FKFinderTreeRetryTests";
@@ -91,7 +93,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal("ready.txt", vm.TreeRows[1].Entry.Name);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TreeBranchRefreshChangesOnlyItsVisibleChildren()
     {
         const string root = "/tmp/FKFinderTreeRefreshTests";
@@ -117,7 +119,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.DoesNotContain(vm.TreeRows, row => row.Entry.FullPath.StartsWith(root + "/parent", StringComparison.Ordinal));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TreeNavigationCancelsPendingBranchAndRejectsOldResults()
     {
         var root = Path.Combine(Path.GetTempPath(), "FKFinderTreeNavigationTests-" + Guid.NewGuid().ToString("N"));
@@ -153,7 +155,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TenThousandChildEntriesLoadOffTheUiThreadAndCommitSortedOnce()
     {
         const string root = "/tmp/FKFinderTreeLargeBranchTests";
@@ -194,7 +196,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(2, changes);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TreeAppliesSortFilterAndRootGroupsWithoutChildHeaders()
     {
         const string root = "/tmp/FKFinderTreeQueryTests";
@@ -221,7 +223,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Contains(vm.TreeRows, row => row.Entry.Name == "a.txt" && row.Depth == 1);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryViewMenuSelectsTreeWithoutGrantingFileOperations()
     {
         using var fixture = new FileDeliveryTests.Fixture();
@@ -249,7 +251,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void SearchLocationKeepsOrdinaryFirstLevelSelectionInTreeMode()
     {
         const string root = "/tmp/FKFinderTreeSearchFallbackTests";
@@ -269,7 +271,11 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Same(folder, Assert.Single(vm.SelectedEntries));
     }
 
-    private static FileSystemEntry TreeEntry(string parent, string name, bool folder = false,
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static FileSystemEntry TreeEntry(string parent, string name, bool folder = false,
         bool symlink = false, bool readable = true) => new()
     {
         FullPath = Path.Combine(parent, name), Name = name, IsDirectory = folder,
@@ -277,7 +283,7 @@ public sealed partial class FileListViewModelCreateTests
         IconKey = folder ? "folder" : "file-generic", Extension = folder ? "" : Path.GetExtension(name)
     };
 
-    private static async Task WaitForTreeRowsAsync(FileListViewModel vm, int count)
+    protected static async Task WaitForTreeRowsAsync(FileListViewModel vm, int count)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         while (vm.TreeRows.Count != count)
@@ -287,7 +293,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    private static async Task WaitForTreeOrderAsync(FileListViewModel vm, string first, string second)
+    protected static async Task WaitForTreeOrderAsync(FileListViewModel vm, string first, string second)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         while (true)
@@ -299,7 +305,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    private static async Task WaitForTreeGroupsAsync(FileListViewModel vm)
+    protected static async Task WaitForTreeGroupsAsync(FileListViewModel vm)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         while (vm.TreeGroups.Count == 0 || vm.TreeGroups.Sum(group => group.VisibleCount) != vm.TreeRows.Count)
@@ -308,4 +314,5 @@ public sealed partial class FileListViewModelCreateTests
             await Task.Delay(10, timeout.Token);
         }
     }
+
 }

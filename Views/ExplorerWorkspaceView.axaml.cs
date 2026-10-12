@@ -274,6 +274,9 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     public void CloseTransientUi(object? source)
     {
+        // Avalonia's internal dismiss layer must forward the click before we remove it.
+        if (source?.GetType().FullName == "Avalonia.Controls.Primitives.LightDismissOverlayLayer")
+            return;
         FileListControl.DismissContextMenu();
         ToolbarControl.CloseDropdownsFromPointerSource(source);
         BreadcrumbControl.CloseTransientUiFromPointerSource(source);

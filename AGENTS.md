@@ -59,6 +59,8 @@
 - 设置入口固定在侧栏底部、位于目录滚动区域之外，复用 Fluent Settings 图标与 `sidebar-item` 的 Border／StackPanel 结构，不嵌套按钮悬停表面；Copilot 通过设置中的启用开关控制，默认关闭，所有窗口同步按钮可见性。
 
 # 自动测试
+- 日常修改优先运行 `bash Tools/Testing/run-tests.sh fast`，覆盖全部 Unit 和共享组件 UI 冒烟，增量构建加执行目标不超过 15 秒；本轮已构建可追加 `--no-build`，需要验收总时长可追加 `--budget 15`。页面交互用 `ui --area <功能>`，真实网络／原生进程用 `integration --area <功能>`；共享 UI 变化运行 `ui`，发布与测试基础设施变化运行 `full`。不要每次小改动反复跑全量。完整分类、环境和报告见 `Tools/Testing/README.md`。
+- `MacExplorer.UnitTests` 仅收纳明确无全局应用状态的可并行测试；其余测试保持串行与 Avalonia PerTest 隔离。普通 `dotnet test` 默认不运行显式 UI／集成／压力用例，发布 CI 必须通过统一入口运行 `full`，同时覆盖两个程序集。
 - 需要启动真实应用或使用默认服务路径的自动测试、原生 UI 验证，通过 `bash Tools/Testing/run-isolated.sh <可执行文件> [参数...]` 启动，每次创建独立临时目录并设置 `MACEXPLORER_TEST_ROOT`；已有显式临时目录与测试替身的单元测试保持原运行方式。构建使用 `-p:SkipMacOSReleaseDMG=true`。
 - 测试模式的数据库、配置、缓存、插件和默认用户目录均位于测试目录；启动索引及“这台 Mac”搜索仅覆盖测试目录。测试开关优先于 `MACEXPLORER_DB_PATH` / `MACEXPLORER_PLUGIN_PATH`，不会复用真实用户的历史与收藏。
 - 原生 UI 测试直接启动新构建 `.app/Contents/MacOS/MacExplorer`，确保继承环境变量；不要复用已运行的普通实例。测试数据放在本次测试目录，避免真实桌面、文稿、下载目录及指向它们的符号链接。
@@ -88,3 +90,5 @@
 - 文档预览共用 `DocumentPreviewHost`：PDF 使用按宽度适配的纵向连续页面，Office 使用内嵌系统 Quick Look；单文件预览收起内容列表，不显示底部元信息与操作栏，应用弹窗出现时隐藏原生内容。
 
 - 文件缩略图统一复用 `ThumbnailShadow` 主题资源与 `ThumbnailAppearance`，沿实际图片边缘绘制零偏移、轻模糊的均匀阴影；文件列表与首页共用，类型图标和文件夹图标不加矩形阴影。
+
+- 搜索清除按钮复用全局 `Button.search-clear-btn`，尺寸 15×15px（30px 输入框高度的一半），10px Fluent 关闭图标居中。

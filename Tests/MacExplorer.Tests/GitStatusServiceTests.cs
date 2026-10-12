@@ -6,11 +6,13 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Git")]
 public sealed class GitStatusServiceTests : IDisposable
 {
     private readonly string _root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "fkfinder-git-" + Guid.NewGuid().ToString("N"))).FullName;
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void AvailabilityRequiresASuccessfulGitVersionAndFallsBackToAnotherCandidate()
     {
         var attempts = new List<string>();
@@ -25,7 +27,7 @@ public sealed class GitStatusServiceTests : IDisposable
         Assert.DoesNotContain("/usr/bin/git", GitStatusService.StoreGitCandidates);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task AvailableGitReportsChangesAndFailedReadsAreNotCachedAsClean()
     {
         var git = GitStatusService.StoreGitCandidates.First(File.Exists);
@@ -75,10 +77,10 @@ public sealed class GitStatusServiceTests : IDisposable
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task StoreRejectsUnauthorizedRepositoryBeforeReturningCachedStatus()
     {
-        if (!DistributionChannel.IsAppStore) return;
+        Assert.SkipWhen(!DistributionChannel.IsAppStore, "Requires the App Store channel.");
         await InitializeRepositoryAsync(GitStatusService.StoreGitCandidates.First(File.Exists));
         using var service = new GitStatusService();
         using (var allowed = new DirectoryAccess(Path.Combine(_root, "allowed.json"), false))
@@ -91,7 +93,7 @@ public sealed class GitStatusServiceTests : IDisposable
         Assert.Empty(GitStatusService.GetUntrackedPaths(_root));
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData(null, true)]
     [InlineData("", false)]
     [InlineData("filter.lfs.clean\ngit-lfs clean -- %f\0", true)]
@@ -127,4 +129,5 @@ public sealed class GitStatusServiceTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_root, true);
+
 }

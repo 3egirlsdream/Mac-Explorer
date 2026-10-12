@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Copilot")]
 public sealed class CopilotAttachmentTests
 {
     [Fact]
@@ -43,4 +45,5 @@ public sealed class CopilotAttachmentTests
         Assert.Contains("\"Type\":\"folder\"", prompt);
         Assert.Equal(attachments, CopilotAttachments.Parse(JsonSerializer.Serialize(attachments)));
     }
+
 }

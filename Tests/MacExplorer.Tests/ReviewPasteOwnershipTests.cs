@@ -6,6 +6,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ReviewPasteOwnership")]
 public sealed class ReviewPasteOwnershipTests
 {
     [Theory]
@@ -164,4 +166,5 @@ public sealed class ReviewPasteOwnershipTests
         public Func<MethodInfo, object?[], object?> Handler { get; set; } = (_, _) => throw new NotSupportedException();
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => Handler(targetMethod!, args ?? []);
     }
+
 }

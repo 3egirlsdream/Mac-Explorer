@@ -10,7 +10,8 @@ using System.Runtime.Versioning;
 
 namespace MacExplorer.Tests;
 
-[SupportedOSPlatform("macos")]
+[Trait("Kind", "Unit")]
+[Trait("Area", "LocalFileCopy")]
 public sealed class LocalFileCopyTests : IDisposable
 {
     private readonly string _root = Path.Combine("/tmp", "fkfinder-copy-tests-" + Guid.NewGuid().ToString("N"));
@@ -248,4 +249,5 @@ public sealed class LocalFileCopyTests : IDisposable
         public Task CopyTextAsync(string text) => Task.CompletedTask;
         public Task PasteFilesAsync(string targetDirectory) => throw new NotSupportedException();
     }
+
 }

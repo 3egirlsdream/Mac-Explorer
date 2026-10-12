@@ -11,6 +11,7 @@ using MacExplorer.Views;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Subscription")]
 public sealed class SubscriptionTests
 {
     private sealed class Store : ISubscriptionStore
@@ -67,6 +68,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ConstructionAndPreWindowActivationDoNoStoreWorkAndInitialCheckAllowsUse()
     {
         var pending = new TaskCompletionSource<SubscriptionSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -86,6 +88,7 @@ public sealed class SubscriptionTests
     [Theory]
     [InlineData(SubscriptionState.Trial)]
     [InlineData(SubscriptionState.Subscribed)]
+    [Trait("Kind", "Unit")]
     public async Task ActiveEntitlementSurvivesNetworkFailureOnlyUntilVerifiedExpiry(SubscriptionState state)
     {
         var clock = new Clock();
@@ -101,6 +104,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task TimeoutLocksUnknownUserAndIgnoresLateSuccess()
     {
         var pending = new TaskCompletionSource<SubscriptionSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -113,6 +117,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task EmptyVerifiedResultRevokesOldAccessRatherThanKeepingCache()
     {
         var store = new Store { Read = _ => Task.FromResult(new SubscriptionSnapshot(SubscriptionState.Subscribed, DateTimeOffset.UtcNow.AddYears(1))) };
@@ -124,6 +129,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ExpiryTimerLocksBeforeRenewalCheckCompletesAndVerifiedRenewalUnlocks()
     {
         var clock = new Clock();
@@ -139,6 +145,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PeriodicCheckRunsAfterFifteenMinutesAndStopsAfterDisposal()
     {
         var clock = new Clock(); var store = new Store();
@@ -151,6 +158,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ConcurrentChecksAreMerged()
     {
         var pending = new TaskCompletionSource<SubscriptionSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -164,6 +172,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ProductFailureCannotRevokeValidAccess()
     {
         var store = new Store
@@ -179,6 +188,7 @@ public sealed class SubscriptionTests
     [Theory]
     [InlineData(PurchaseOutcome.Cancelled)]
     [InlineData(PurchaseOutcome.Pending)]
+    [Trait("Kind", "Unit")]
     public async Task PendingAndCancelledPurchasesNeverUnlock(PurchaseOutcome outcome)
     {
         var store = new Store { Outcome = outcome };
@@ -188,6 +198,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task SuccessfulPurchaseAndExplicitRestoreRefreshEntitlements()
     {
         var store = new Store();
@@ -200,6 +211,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task TransactionArrivingDuringCheckForcesNewCheck()
     {
         var pending = new TaskCompletionSource<SubscriptionSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -217,6 +229,7 @@ public sealed class SubscriptionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task WebsiteNeverStartsStoreOrLocks()
     {
         var store = new Store();
@@ -226,9 +239,10 @@ public sealed class SubscriptionTests
         Assert.Equal(0, store.Starts + store.Checks + store.Products + store.Restores);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public async Task SharedLockDisablesEveryWindowAndUnlockRestoresContent(bool dark)
     {
         var store = new Store();
@@ -266,4 +280,5 @@ public sealed class SubscriptionTests
         }
         finally { first.Close(); second.Close(); }
     }
+
 }

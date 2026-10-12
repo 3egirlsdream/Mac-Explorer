@@ -14,6 +14,7 @@ public sealed class PluginSession : IAsyncDisposable
     private readonly ConcurrentDictionary<int, long> _children = new();
     private readonly Task _reader;
     private readonly Task _logReader;
+    private readonly Task _exit;
     private readonly Func<Task> _onDisposed;
     private readonly CancellationTokenSource _cancel = new();
     private Task? _stopTask;
@@ -49,6 +50,7 @@ public sealed class PluginSession : IAsyncDisposable
         _process = Process.Start(info) ?? throw new IOException("无法启动插件进程。");
         _reader = ReadAsync();
         _logReader = ReadLogAsync();
+        _exit = ObserveExitAsync();
     }
 
     internal PluginSession(string pluginDirectory, string workDirectory, string logPath, Func<Task> onDisposed)
@@ -57,13 +59,21 @@ public sealed class PluginSession : IAsyncDisposable
         WorkDirectory = workDirectory; LogPath = logPath; _onDisposed = onDisposed;
         Directory.CreateDirectory(workDirectory);
         _builtIn = new MacExplorer.FileConversion.Plugin.ConversionPlugin(start => DirectoryAccess.Current.ConfigureHelper(start));
-        _reader = _logReader = Task.CompletedTask;
+        _exit = _reader = _logReader = Task.CompletedTask;
     }
 
     public void Cancel()
     {
         lock (_lifetimeGate)
             if (_disposed == 0) _cancel.Cancel();
+    }
+
+    private async Task ObserveExitAsync()
+    {
+        await _process.WaitForExitAsync().ConfigureAwait(false);
+        KillChildren();
+        // Drain buffered replies before EOF faults any remaining calls.
+        await _reader.ConfigureAwait(false);
     }
 
     private async Task ReadAsync()
@@ -77,7 +87,10 @@ public sealed class PluginSession : IAsyncDisposable
                     ?? throw new InvalidDataException("插件返回了无效消息。");
                 if (message.Jsonrpc != "2.0") throw new InvalidDataException("插件通信版本不兼容。");
                 if (message.Method == "child-process" && message.Params is { } child)
+                {
                     _children[child.GetProperty("pid").GetInt32()] = child.GetProperty("started").GetInt64();
+                    if (_process.HasExited) KillChildren();
+                }
                 else if (message.Method == "progress" && message.Params is { } parameters)
                     Progress?.Invoke(parameters.Deserialize<PluginProgress>(PluginProtocol.Json)!);
                 else if (message.Id is { } id && _pending.TryRemove(id, out var completion))
@@ -206,7 +219,7 @@ public sealed class PluginSession : IAsyncDisposable
         try
         {
             deadline.Token.ThrowIfCancellationRequested();
-            if (_reader.IsCompleted) throw new IOException("插件进程已退出。");
+            if (_reader.IsCompleted || _process.HasExited) throw new IOException("插件进程已退出。");
             await SendAsync(new() { Id = id, Method = method, Params = parameters == null ? null : JsonSerializer.SerializeToElement(parameters, PluginProtocol.Json) }, deadline.Token);
             var result = await completion.Task.WaitAsync(deadline.Token);
             return result.Deserialize<T>(PluginProtocol.Json) ?? throw new InvalidDataException("插件结果为空。");
@@ -283,7 +296,7 @@ public sealed class PluginSession : IAsyncDisposable
             if (_builtIn == null) await StopAsync();
             // RPC finally blocks release _writes and linked tokens. Join them before
             // disposing those objects, including when callers dispose concurrently.
-            await Task.WhenAll(_reader, _logReader, _callsDrained.Task);
+            await Task.WhenAll(_reader, _logReader, _exit, _callsDrained.Task);
         }
         finally
         {

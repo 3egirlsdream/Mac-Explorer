@@ -6,6 +6,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileDelivery")]
 public sealed class FileDeliveryTests
 {
     [Fact]
@@ -107,4 +109,5 @@ public sealed class FileDeliveryTests
         }
         public void Dispose() { Tags.Dispose(); Settings.Dispose(); Directory.Delete(Root, true); }
     }
+
 }

@@ -16,9 +16,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "SecurityDialog")]
 public sealed class SecurityDialogTests
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ConfirmationRequiresAcceptAndEscapeOrCancelReturnFalse(bool dark)
@@ -41,7 +43,7 @@ public sealed class SecurityDialogTests
         finally { owner.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task PrivateKeyPromptDefaultsToOneUseAndCancelReturnsNoCredential(bool dark)
@@ -63,7 +65,7 @@ public sealed class SecurityDialogTests
         finally { owner.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public void FailedRemoteDialogSaveAndDeleteKeepFormAndSavedServer(bool dark)
@@ -123,4 +125,5 @@ public sealed class SecurityDialogTests
             Directory.Delete(root, true);
         }
     }
+
 }

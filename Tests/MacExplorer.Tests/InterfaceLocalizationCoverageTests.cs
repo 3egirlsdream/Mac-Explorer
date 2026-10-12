@@ -11,9 +11,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Localization")]
+public sealed class InterfaceLocalizationCoverageViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ExistingSidebarTabsAndBreadcrumbsFollowAppLanguageAndKeepUserNames()
     {
         using var language = new LocalizationService(new StartupSettings(), () => AppLanguage.ChineseSimplified);
@@ -53,17 +55,24 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal("红色", FileTagCatalog.FinderColors[0].DisplayName);
     }
 
-    private sealed class ChineseSystemDisplayNames : IDisplayNameService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class ChineseSystemDisplayNames : IDisplayNameService
     {
         public string GetDisplayName(string path) => path.EndsWith("/Desktop") ? "桌面" : System.IO.Path.GetFileName(path);
         public string GetUserName() => "测试账户";
         public void RecordRename(string oldPath, string newPath) { }
     }
+
 }
 
+[Trait("Area", "Localization")]
 public sealed class InterfaceLocalizationCoverageTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void HomeMarkupAndFormattedBindingsRefreshInBothDirections()
     {
         using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
@@ -94,6 +103,7 @@ public sealed class InterfaceLocalizationCoverageTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void BuiltInLocationsDoNotTranslateUnrelatedFolders()
     {
         using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.English);
@@ -115,4 +125,5 @@ public sealed class InterfaceLocalizationCoverageTests
         public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
         public Dictionary<string, string> GetAll() => new(_values);
     }
+
 }

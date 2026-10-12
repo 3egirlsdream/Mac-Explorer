@@ -9,6 +9,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "PdfAnalysis")]
 public sealed class PdfAnalysisTests : IDisposable
 {
     private readonly string _root = Path.Combine(Environment.GetEnvironmentVariable("MACEXPLORER_TEST_ROOT") ?? Path.GetTempPath(), $"pdf-analysis-{Guid.NewGuid():N}");
@@ -27,6 +28,7 @@ public sealed class PdfAnalysisTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CacheIsSharedAcrossTabs_AndChangedFileReplacesOldText()
     {
         var entry = FileEntry("book.PDF");
@@ -52,6 +54,7 @@ public sealed class PdfAnalysisTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task DifferentDocumentsShareOneExtractionSlot_AndWaitingRequestCanCancel()
     {
         var first = FileEntry("first.pdf");
@@ -80,6 +83,7 @@ public sealed class PdfAnalysisTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task FailuresContinue_EmptyFilesComplete_AndMissingFilesAreCleaned()
     {
         var bad = FileEntry("bad.pdf");
@@ -107,6 +111,7 @@ public sealed class PdfAnalysisTests : IDisposable
     [InlineData("navigation")]
     [InlineData("setting")]
     [InlineData("task")]
+    [Trait("Kind", "Unit")]
     public async Task CancellationDoesNotCommit_AndCanRetry(string source)
     {
         var entry = FileEntry("cancel.pdf");
@@ -131,6 +136,7 @@ public sealed class PdfAnalysisTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ModifiedDuringExtractionIsNotCommitted_AndRemoteEntriesAreIgnored()
     {
         var entry = FileEntry("changed.pdf");
@@ -149,6 +155,7 @@ public sealed class PdfAnalysisTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PdfTagsSurviveRename_AndDeleteWithDirectoryPrefix()
     {
         var entry = FileEntry("rename.pdf");
@@ -162,7 +169,8 @@ public sealed class PdfAnalysisTests : IDisposable
         Assert.Empty(await _tags.SearchByTagAsync("目录"));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task NativeHelperExtractsTextScansAndMixedPages_AndRejectsInvalidDocuments()
     {
         var repo = PluginTestEnvironment.Repository;
@@ -196,9 +204,10 @@ public sealed class PdfAnalysisTests : IDisposable
         Assert.Contains("4826", imageJson);
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "Integration")]
     public async Task HungHelperIsKilledOnTimeoutOrCancellation(bool cancel)
     {
         var pidPath = Path.Combine(_root, "pid");
@@ -255,4 +264,5 @@ public sealed class PdfAnalysisTests : IDisposable
         return await output;
     }
     public void Dispose() { _tags.Dispose(); _settings.Dispose(); Directory.Delete(_root, true); }
+
 }

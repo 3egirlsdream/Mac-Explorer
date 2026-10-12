@@ -13,9 +13,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileList")]
+public sealed class FastFileListRenameViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -67,11 +69,14 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { window.Close(); }
     }
+
 }
 
+[Trait("Kind", "UI")]
+[Trait("Area", "FileList")]
 public sealed class FastFileListRenameTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void GridRenameHidesOriginalNameAndSelectionDecorationAndRestoresThemAfterwards()
     {
         var entry = FastFileListTests.Entry(0);
@@ -107,4 +112,5 @@ public sealed class FastFileListRenameTests
         static IEnumerable<Drawing> Leaves(Drawing drawing) => drawing is DrawingGroup group
             ? group.Children.SelectMany(Leaves) : [drawing];
     }
+
 }

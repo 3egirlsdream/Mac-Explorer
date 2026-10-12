@@ -16,9 +16,11 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Microsoft.Extensions.Time.Testing;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "LocalSend")]
 public sealed class LocalSendServiceTests : IAsyncLifetime
 {
     private readonly string? _oldRoot = Environment.GetEnvironmentVariable(RuntimePaths.TestRootVariable);
@@ -37,19 +39,25 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
     {
         Environment.SetEnvironmentVariable(RuntimePaths.TestRootVariable, _root);
         RuntimePaths.PrepareTestRoot();
-        _service = new LocalSendService(_settings, _tasks);
+        await StartServiceAsync();
+        _client = new HttpClient(new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+            UseProxy = false
+        }) { Timeout = TimeSpan.FromSeconds(30) };
+    }
+
+    private async Task StartServiceAsync(TimeProvider? clock = null)
+    {
+        _service = new LocalSendService(_settings, _tasks, timeProvider: clock);
         _service.FileAccessOverride = _testAccess;
+        _service.ListeningPortOverride = 0;
         _service.ScanInterfacesOverride = () => [];
         _service.DiscoveryAddressesOverride = () => [IPAddress.Loopback];
         using (var availableUdp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)))
             _service.DiscoveryUdpPortOverride = ((IPEndPoint)availableUdp.Client.LocalEndPoint!).Port;
         _service.ConfirmReceiveAsync = (request, _) => Task.FromResult(new LocalSendReceiveDecision(true, request.DefaultDirectory));
         await _service.StartAsync();
-        _client = new HttpClient(new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-            UseProxy = false
-        }) { Timeout = TimeSpan.FromSeconds(30) };
     }
 
     public async ValueTask DisposeAsync()
@@ -87,7 +95,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         return response.StatusCode;
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ListenerAdvertisesItsActualPort()
     {
         Assert.InRange(_service.ListeningPort, 1, 65535);
@@ -97,7 +106,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(_service.ListeningPort, json.RootElement.GetProperty("port").GetInt32());
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task LegacyInfoDiscoverySelectsVersionTwoAndRejectsSelf()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -122,7 +132,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.PreconditionFailed, self.StatusCode);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public void ScanSubnetSettingNormalizesAndRejectsInvalidRanges()
     {
         _service.ScanSubnet = "172.20.235.83/24";
@@ -136,7 +147,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal("", _service.ScanSubnet);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public void AutomaticCandidatesRespectNetworkScopePrefixAndPrivate16Boundary()
     {
         LocalSendService.ScanInterface[] networks =
@@ -174,7 +186,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Contains(fair, address => address.StartsWith("192.168.", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task TargetedSubnetScanPinsCertificateBoundsResponsesAndCancelsBeforeRegistration()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -250,7 +263,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Contains(await _service.DiscoverAsync(cancellationToken), peer => peer.Fingerprint == fingerprint);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task NetworkRejoinCancelsAnInFlightManualConnection()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -280,7 +294,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(0, _settings.HistoryWrites);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task MenuSubscriptionContinuesAcrossNetworkGenerationWithoutStartingAnotherScan()
     {
         using var cancel = new CancellationTokenSource();
@@ -303,7 +318,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => subscription);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task BackgroundRegistersWithoutMenuAndKeepsWorkingAfterMalformedPeerAndUdpBurst()
     {
         using var rsa = RSA.Create(2048);
@@ -379,9 +395,11 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
             device => device.Fingerprint.Equals(fingerprint, StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task KnownHistoryRegistersAgainWithinSecondsWithoutOpeningMenuAndRecoversAfterFailure()
     {
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest("CN=LocalSend known peer", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
@@ -397,13 +415,13 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
             int count;
             lock (calls)
             {
-                calls.Add(DateTime.UtcNow);
+                calls.Add(clock.GetUtcNow().UtcDateTime);
                 count = calls.Count;
             }
             if (count == 6) sixth.TrySetResult();
             if (count == 5)
             {
-                try { await Task.Delay(TimeSpan.FromSeconds(10), context.RequestAborted); }
+                try { await Task.Delay(Timeout.InfiniteTimeSpan, context.RequestAborted); }
                 catch (OperationCanceledException) { }
             }
             return count == 3 ? Results.StatusCode(503) : Results.Json(new
@@ -419,12 +437,23 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
             new LocalSendService.VerifiedPeerHistory(fingerprint, "127.0.0.1", port,
                 "Known peer", ["known-local"], DateTime.UtcNow.Ticks)
         }));
-        await using var service = new LocalSendService(settings, new BackgroundTaskManager());
+        await using var service = new LocalSendService(settings, new BackgroundTaskManager(), timeProvider: clock);
         service.ScanInterfacesOverride = () => [new LocalSendService.ScanInterface("127.0.0.1", 32, "known-local")];
         service.DiscoveryAddressesOverride = () => [IPAddress.Loopback];
         await service.StartAsync();
         // No DiscoverAsync call: the third response fails, and the fifth times out.
-        await sixth.Task.WaitAsync(TimeSpan.FromSeconds(45));
+        await TestTime.WaitUntilAsync(() =>
+        {
+            lock (calls) return calls.Count >= 1 && service.DiscoveryInFlightCount == 0;
+        });
+        for (var expected = 2; expected <= 6; expected++)
+        {
+            clock.Advance(TimeSpan.FromSeconds(5));
+            await TestTime.WaitUntilAsync(() => { lock (calls) return calls.Count >= expected; });
+            if (expected == 5) clock.Advance(TimeSpan.FromSeconds(4));
+            await TestTime.WaitUntilAsync(() => service.DiscoveryInFlightCount == 0);
+        }
+        Assert.True(sixth.Task.IsCompleted);
         DateTime[] observed;
         lock (calls) observed = calls.Take(6).ToArray();
         var gaps = Enumerable.Range(1, 5).Select(index => (observed[index] - observed[index - 1]).TotalSeconds).ToArray();
@@ -436,14 +465,19 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
 
         await service.SetEnabledAsync(false);
         var countAfterStop = calls.Count;
-        await Task.Delay(TimeSpan.FromSeconds(6));
+        clock.Advance(TimeSpan.FromSeconds(6));
+        await Task.Yield();
         Assert.Equal(countAfterStop, calls.Count);
         Assert.Equal(0, service.ListeningPort);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task FastKnownRegistrationIsLimitedToEightVerifiedDevices()
     {
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        await _service.DisposeAsync();
+        await StartServiceAsync(clock);
         var fingerprints = new Dictionary<int, string>();
         var calls = new Dictionary<int, List<DateTime>>();
         var allFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -461,7 +495,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
                 var port = context.Connection.LocalPort;
                 fingerprint = fingerprints[port];
                 if (!calls.TryGetValue(port, out var times)) calls[port] = times = [];
-                times.Add(DateTime.UtcNow);
+                times.Add(clock.GetUtcNow().UtcDateTime);
                 if (calls.Count == 9) allFirst.TrySetResult();
             }
             return Results.Json(new { alias = "Known HTTP peer", version = "2.2", fingerprint });
@@ -480,7 +514,16 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         }
         // No DiscoverAsync call: every peer is verified in-process by background registration.
         await allFirst.Task.WaitAsync(TimeSpan.FromSeconds(8));
-        await Task.Delay(TimeSpan.FromSeconds(10));
+        await TestTime.WaitUntilAsync(() => _service.DiscoveryInFlightCount == 0);
+        for (var round = 2; round <= 3; round++)
+        {
+            clock.Advance(TimeSpan.FromSeconds(5));
+            await TestTime.WaitUntilAsync(() =>
+            {
+                lock (calls) return ports.Count(port => calls[port].Count >= round) == 8;
+            });
+            await TestTime.WaitUntilAsync(() => _service.DiscoveryInFlightCount == 0);
+        }
         int[] observed;
         lock (calls)
         {
@@ -493,7 +536,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.InRange(_service.DiscoveryStats.PeakHttp, 1, 4);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task HttpAnnouncementKeepsLegacyUnencryptedRegistrationBounded()
     {
         const string fingerprint = "legacy-http-fingerprint";
@@ -520,9 +564,10 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.InRange(_service.DiscoveryStats.PeakHttp, 1, 4);
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "Integration")]
     public async Task LateOldAddressRegistrationDoesNotReplaceNewVerifiedAddress(bool oldFails)
     {
         using var rsa = RSA.Create(2048);
@@ -573,7 +618,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(newPort, Assert.Single(matching).Port);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task UnknownProbeRateAndConcurrencyStayWithinBudget()
     {
         var addresses = Enumerable.Range(1, 96).Select(index => $"127.0.0.{index}").ToArray();
@@ -588,7 +634,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.InRange(stats.PeakHttp, 0, 4);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task RepeatedDisposeCannotRestartListener()
     {
         await _service.DisposeAsync();
@@ -598,7 +645,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         await Assert.ThrowsAsync<ObjectDisposedException>(() => _service.SetEnabledAsync(true));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task StopAndNetworkRebuildDrainProbesAndDoNotKeepOldGenerationAlive()
     {
         var addresses = Enumerable.Range(1, 96).Select(index => $"127.0.0.{index}").ToArray();
@@ -629,7 +677,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(0, _service.DiscoveryUdpPort);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task NetworkChangeBurstCannotRestartAfterStop()
     {
         var first = _service.DiscoveryCoordinator;
@@ -649,7 +698,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Null(_service.DiscoveryCoordinator);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ConcurrentStartKeepsOneListenerAndIdentity()
     {
         var port = _service.ListeningPort;
@@ -659,10 +709,12 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(fingerprint, _service.Fingerprint);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task OccupiedDefaultPortFallsBackToAnAdvertisedDynamicPort()
     {
         await _service.SetEnabledAsync(false);
+        _service.ListeningPortOverride = null;
         var occupant = new TcpListener(IPAddress.Any, 53317);
         try
         {
@@ -681,9 +733,10 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         finally { occupant.Stop(); }
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("127.0.0.1")]
     [InlineData("::1")]
+    [Trait("Kind", "Integration")]
     public async Task ManualIpConnectionAcceptsOfficialInfoWithoutPortAndProtocolOnlyAfterCertificateMatch(string peerAddress)
     {
         using var rsa = RSA.Create(2048);
@@ -736,7 +789,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => interrupted);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task SendSingleDirectoryZeroByteAndCollisionOverPinnedHttps()
     {
         var source = Path.Combine(_root, "Documents", "资料");
@@ -756,7 +810,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
             && task.ErrorMessage!.Contains("跳过"));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task RejectsTraversalAndWrongTokenThenAcceptsCorrectUpload()
     {
         using (var invalid = await _client.PostAsJsonAsync(Url("prepare-upload"), PrepareBody(("a", "../escape.txt", 3, null))))
@@ -768,7 +823,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Conflict, await UploadAsync(session, "a", tokens["a"], "abc"u8.ToArray()));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task LengthAndHashFailureReleaseTheSessionAndCleanTempFiles()
     {
         var (session, tokens) = await PrepareAsync(("a", "bad.txt", 4, null));
@@ -781,7 +837,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Empty(Directory.GetFiles(Path.Combine(_root, "Downloads"), "*.part", SearchOption.AllDirectories));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task BusyRejectionAndDisableCancelPendingRequest()
     {
         var waiting = new TaskCompletionSource<LocalSendReceiveDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -804,7 +861,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.True(_service.ListeningPort > 0);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task SenderCanCancelWhileReceiverIsConfirmingWithoutSessionId()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -830,7 +888,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
             Assert.Equal(HttpStatusCode.OK, cancelledSession.StatusCode);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ReceivesLargeFileBeyondDefaultKestrelLimit()
     {
         var content = new byte[31 * 1024 * 1024];
@@ -840,7 +899,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Equal(content.Length, new FileInfo(Path.Combine(_root, "Downloads", "large.bin")).Length);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task OversizedMetadataIsRejectedWithoutOrphanTask()
     {
         var size = long.MaxValue / 2;
@@ -851,7 +911,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         _ = await PrepareAsync(("d", "good.txt", 1, null));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task PartialAcceptanceAndRejectedRequest()
     {
         var first = Path.Combine(_root, "Documents", "first.txt");
@@ -872,7 +933,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.False(File.Exists(Path.Combine(_root, "Downloads", "reject.txt")));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ParallelUploadsAndCancellationKeepCompletedFiles()
     {
         var (session, tokens) = await PrepareAsync(("a", "a.txt", 1, null), ("b", "b.txt", 1, null));
@@ -892,7 +954,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         _ = await PrepareAsync(("e", "e.txt", 1, null));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task CancellingReceiveTaskKeepsCompletedFilesAndShowsTheirCount()
     {
         var (session, tokens) = await PrepareAsync(("a", "kept.txt", 1, null), ("b", "cancelled.txt", 1, null));
@@ -906,7 +969,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.False(File.Exists(Path.Combine(_root, "Downloads", "cancelled.txt")));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task AbortedUploadReleasesSessionAndKeepsCompletedFile()
     {
         var (session, tokens) = await PrepareAsync(("a", "kept.txt", 1, null),
@@ -936,6 +1000,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
     }
 
     [Fact(Explicit = true)]
+    [Trait("Kind", "Manual")]
     public async Task SendsToOfficialLocalSendClient()
     {
         // Manual interop check: start the official app first and accept its receive dialog.
@@ -948,7 +1013,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.Contains(_tasks.Tasks, task => task.Label == "发送到 " + alias && task.State == BackgroundTaskState.Completed);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task SkipsSymlinkAndFifoWithoutOpeningThem()
     {
         var directory = Path.Combine(_root, "Documents", "mixed");
@@ -1006,4 +1072,5 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
             await _release.Task.WaitAsync(token);
         }
     }
+
 }

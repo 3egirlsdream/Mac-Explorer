@@ -4,7 +4,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class ResponsiveWorkspaceLayoutTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "Window")]
+public sealed class ResponsiveWorkspaceLayoutTests
 {
     [Fact]
     public void WidthBelowBreakpointUsesCompactOverlay()
@@ -41,4 +43,5 @@ public class ResponsiveWorkspaceLayoutTests
         Assert.Equal(48, layout.SidebarCompactPaneLength);
         Assert.Equal(SplitViewDisplayMode.Overlay, layout.InfoPanelDisplayMode);
     }
+
 }

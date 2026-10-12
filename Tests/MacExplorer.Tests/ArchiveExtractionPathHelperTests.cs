@@ -3,6 +3,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Archive")]
 public sealed class ArchiveExtractionPathHelperTests
 {
     [Theory]
@@ -43,4 +45,5 @@ public sealed class ArchiveExtractionPathHelperTests
             Directory.Delete(root, recursive: true);
         }
     }
+
 }

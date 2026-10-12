@@ -14,9 +14,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Copilot")]
 public sealed class CopilotThinkingCardTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ThinkingExpandsWhileStreamingAndCollapsesWhenFinished()
     {
         var card = new CopilotThinkingCard
@@ -64,4 +66,5 @@ public sealed class CopilotThinkingCardTests
         }
         finally { window.Close(); }
     }
+
 }

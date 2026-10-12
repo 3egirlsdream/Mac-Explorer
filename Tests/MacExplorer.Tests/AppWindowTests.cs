@@ -12,9 +12,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class AppWindowTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Window")]
+public sealed class AppWindowTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void WindowOverlayCoversTitleBarAndContentWithoutDisablingThem()
     {
         var content = new Button { Content = "Content" };
@@ -36,7 +38,7 @@ public class AppWindowTests
         finally { window.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("MinimizeButton")]
     [InlineData("FullScreenButton")]
     public void HoveringDisabledDialogControlsKeepsCloseSymbolVisible(string buttonName)
@@ -89,7 +91,7 @@ public class AppWindowTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TitleBarPopupIsHostedInsideTheWindowAndKeepsItsPositionWhenWindowMoves()
     {
         var target = new Border { Width = 28, Height = 28 };
@@ -120,7 +122,7 @@ public class AppWindowTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TitleBarWithoutContentUsesSingleRowAndShowsTitle()
     {
         var window = new AppWindow { Width = 480, Height = 320, Title = "设置" };
@@ -136,7 +138,7 @@ public class AppWindowTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TitleBarWithContentSharesTheTrafficLightRowAndReplacesTheTitle()
     {
         var content = new Border();
@@ -161,7 +163,7 @@ public class AppWindowTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FullScreenToggleRestoresNormalState()
     {
         var window = new AppWindow { CanMaximize = true, WindowState = WindowState.Normal };
@@ -173,7 +175,7 @@ public class AppWindowTests
         Assert.Equal(WindowState.Normal, window.WindowState);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FullScreenToggleRestoresMaximizedState()
     {
         var window = new AppWindow { CanMaximize = true, WindowState = WindowState.Maximized };
@@ -184,7 +186,7 @@ public class AppWindowTests
         Assert.Equal(WindowState.Maximized, window.WindowState);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ModalBlockPreventsFullScreenToggle()
     {
         var window = new AppWindow
@@ -199,7 +201,7 @@ public class AppWindowTests
         Assert.Equal(WindowState.Normal, window.WindowState);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void WindowCapabilitiesUpdateTrafficLightButtons()
     {
         var titleBar = new WindowTitleBar();
@@ -216,7 +218,7 @@ public class AppWindowTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ModalBlockDisablesAllTrafficLightButtons()
     {
         var titleBar = new WindowTitleBar();
@@ -236,7 +238,7 @@ public class AppWindowTests
         window.Close();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FullScreenTemplateKeepsExitButtonAvailable()
     {
         var window = new AppWindow { CanMaximize = true };
@@ -252,4 +254,5 @@ public class AppWindowTests
         Assert.Equal(WindowState.Normal, window.WindowState);
         window.Close();
     }
+
 }

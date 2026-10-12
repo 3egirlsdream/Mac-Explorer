@@ -3,6 +3,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ReviewLocalMoveContract")]
 public sealed class ReviewLocalMoveContractTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("macexplorer-move-review-").FullName;
@@ -67,4 +69,5 @@ public sealed class ReviewLocalMoveContractTests : IDisposable
         Assert.Equal("new", await File.ReadAllTextAsync(Path.Combine(target, "same.txt")));
         Assert.Equal("keep", await File.ReadAllTextAsync(Path.Combine(target, "keep.txt")));
     }
+
 }

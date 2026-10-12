@@ -11,12 +11,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Area", "Preview")]
+public sealed class FilePreviewRegressionViewModelTests : FileListViewModelTestBase
 {
-    private static readonly byte[] PreviewTestPng = Convert.FromBase64String(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
-
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task InfoPanelAppliesBackgroundTextAndImageResultsAndUsesIconForUnsupportedFiles()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fkfinder-preview-test-" + Guid.NewGuid().ToString("N"));
@@ -83,7 +82,8 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task InfoPanelShowsFileHashWithTooltipAndCopyButton()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fkfinder-hash-test-" + Guid.NewGuid().ToString("N"));
@@ -130,9 +130,10 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(ViewMode.List)]
     [InlineData(ViewMode.Grid)]
+    [Trait("Kind", "UI")]
     public async Task RealizedFileIconsLoadThumbnailsOffThreadAndKeepThemAfterPresentationChanges(ViewMode mode)
     {
         var cachePath = Path.Combine(Path.GetTempPath(), "fkfinder-thumb-" + Guid.NewGuid().ToString("N") + ".png");
@@ -168,7 +169,8 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RemovingARealizedRowCancelsItsThumbnailRequest()
     {
         var service = new PreviewThumbnailStub(null);
@@ -188,7 +190,14 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    private static async Task WaitForPreviewAsync(Func<bool> ready)
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static readonly byte[] PreviewTestPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
+    protected static async Task WaitForPreviewAsync(Func<bool> ready)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);
         while (!ready() && DateTime.UtcNow < deadline)
@@ -199,7 +208,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.True(ready(), "Preview did not reach the expected state.");
     }
 
-    private sealed class PreviewThumbnailStub(string? cachePath) : IThumbnailService
+    protected sealed class PreviewThumbnailStub(string? cachePath) : IThumbnailService
     {
         public int CallCount;
         public bool CalledOnUiThread;
@@ -222,4 +231,5 @@ public sealed partial class FileListViewModelCreateTests
         public bool IsImageFile(string extension) => extension == ".png";
         public void EvictFromCache(string path) { }
     }
+
 }

@@ -7,6 +7,8 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
+using Microsoft.Extensions.DependencyInjection;
 using MacExplorer.ViewModels;
 
 namespace MacExplorer.Views;
@@ -21,6 +23,11 @@ public partial class BreadcrumbBar : UserControl
     private FileListViewModel? _observedViewModel;
     private BreadcrumbOverflowPanel? _overflowPanel;
     private int _hiddenBreadcrumbCount;
+    private string? _suggestionInput;
+    private bool _executingApplication;
+    internal ApplicationOpenCommandService? ApplicationCommands { get; set; }
+    private ApplicationOpenCommandService? GetApplicationCommands()
+        => ApplicationCommands ??= App.Services?.GetService<ApplicationOpenCommandService>();
 
     public BreadcrumbBar()
     {
@@ -147,7 +154,18 @@ public partial class BreadcrumbBar : UserControl
         if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(input.Text))
             return;
 
+        e.Handled = true;
         var suggestion = PathSuggestionList.SelectedItem as OmniboxSuggestion;
+        var explicitApplication = ApplicationOpenCommandService.TryParse(input.Text, out _);
+        if ((explicitApplication || suggestion?.Kind == OmniboxSuggestionKind.Application
+                || (suggestion == null && !OmniboxService.IsNavigablePath(OmniboxService.NormalizePath(input.Text.Trim()))))
+            && await ExecuteApplicationInputAsync(input,
+                explicitApplication || suggestion?.Kind == OmniboxSuggestionKind.Application))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (suggestion == null && !OmniboxService.IsNavigablePath(OmniboxService.NormalizePath(input.Text.Trim())))
             suggestion = (PathSuggestionList.ItemsSource as IEnumerable<OmniboxSuggestion>)?.FirstOrDefault();
         if (suggestion != null)
@@ -162,6 +180,62 @@ public partial class BreadcrumbBar : UserControl
                 EndPathEditing();
         }
         e.Handled = true;
+    }
+
+    private async Task<bool> ExecuteApplicationInputAsync(TextBox input, bool explicitCommand = true)
+    {
+        if (_executingApplication) return true;
+        if (ViewModel == null) return false;
+        var text = input.Text!;
+        var selected = _suggestionInput == text ? PathSuggestionList.SelectedItem as OmniboxSuggestion : null;
+        _executingApplication = true;
+        try
+        {
+            var commands = GetApplicationCommands();
+            var suggestions = commands == null ? []
+                : await commands.GetSuggestionsAsync(ViewModel, text, CancellationToken.None);
+            if (input.Text != text || _activeInput != input) return true;
+            if (suggestions.Count == 0 && !explicitCommand) return false;
+            if (!ApplicationOpenCommandService.HasLocalDirectory(ViewModel))
+            {
+                ViewModel.StatusText = LocalizationText.Get("请先进入本地目录");
+                return true;
+            }
+            var target = selected?.Kind == OmniboxSuggestionKind.Application
+                ? suggestions.FirstOrDefault(item => item.Value == selected.Value) : null;
+            if (target == null && suggestions.Count == 1) target = suggestions[0];
+            if (target != null)
+                await ExecuteSuggestionAsync(target);
+            else
+            {
+                if (explicitCommand || _suggestionInput != text)
+                    ShowSuggestions(suggestions, text);
+                ViewModel.StatusText = LocalizationText.Get(suggestions.Count == 0
+                    ? "未找到匹配的应用" : "请选择要打开的应用");
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ViewModel.StatusText = LocalizationText.Get("打开应用失败：{0}", ex.Message);
+            return true;
+        }
+        finally { _executingApplication = false; }
+    }
+
+    internal async Task<IReadOnlyList<OmniboxSuggestion>> GetInputSuggestionsAsync(
+        string? input, CancellationToken cancellationToken)
+    {
+        if (ViewModel == null) return [];
+        var commands = GetApplicationCommands();
+        var applicationTask = commands == null
+            ? Task.FromResult<IReadOnlyList<OmniboxSuggestion>>([])
+            : commands.GetSuggestionsAsync(ViewModel, input ?? string.Empty, cancellationToken);
+        if (ApplicationOpenCommandService.TryParse(input, out _))
+            return await applicationTask;
+        var fileTask = OmniboxService.GetSuggestionsAsync(ViewModel, input, cancellationToken);
+        await Task.WhenAll(applicationTask, fileTask);
+        return [.. await applicationTask, .. await fileTask];
     }
 
     private void MoveSuggestionSelection(int delta)
@@ -203,7 +277,15 @@ public partial class BreadcrumbBar : UserControl
     {
         var suggestion = (sender as Control)?.DataContext as OmniboxSuggestion;
         if (suggestion != null)
-            await ExecuteSuggestionAsync(suggestion);
+        {
+            if (suggestion.Kind == OmniboxSuggestionKind.Application && _activeInput != null)
+            {
+                PathSuggestionList.SelectedItem = suggestion;
+                await ExecuteApplicationInputAsync(_activeInput);
+            }
+            else
+                await ExecuteSuggestionAsync(suggestion);
+        }
         e.Handled = true;
     }
 
@@ -212,8 +294,20 @@ public partial class BreadcrumbBar : UserControl
         if (ViewModel == null)
             return;
 
+        var input = _activeInput;
+        var text = input?.Text;
+        try
+        {
+            await OmniboxService.ExecuteAsync(ViewModel, suggestion);
+        }
+        catch (Exception ex) when (suggestion.Kind == OmniboxSuggestionKind.Application
+            || ApplicationOpenCommandService.TryParse(text, out _))
+        {
+            ViewModel.StatusText = LocalizationText.Get("打开应用失败：{0}", ex.Message);
+            return;
+        }
+        if (input != _activeInput || input?.Text != text) return;
         CloseSuggestions();
-        await OmniboxService.ExecuteAsync(ViewModel, suggestion);
         if (_activeInput == HomePathInput)
             HomePathInput.Text = string.Empty;
         else
@@ -223,6 +317,10 @@ public partial class BreadcrumbBar : UserControl
     private async Task RefreshSuggestionsAsync(string? value)
     {
         _suggestionCancellation?.Cancel();
+        PathSuggestionList.SelectedIndex = -1;
+        PathSuggestionList.ItemsSource = null;
+        PathSuggestionsPopup.IsOpen = false;
+        _suggestionInput = null;
         _suggestionCancellation?.Dispose();
         _suggestionCancellation = new CancellationTokenSource();
         var token = _suggestionCancellation.Token;
@@ -233,16 +331,29 @@ public partial class BreadcrumbBar : UserControl
         IReadOnlyList<OmniboxSuggestion> suggestions;
         try
         {
-            suggestions = await OmniboxService.GetSuggestionsAsync(ViewModel, value, token);
+            suggestions = await GetInputSuggestionsAsync(value, token);
         }
         catch (OperationCanceledException)
         {
             return;
         }
+        catch (Exception ex)
+        {
+            if (!token.IsCancellationRequested)
+                ViewModel.StatusText = LocalizationText.Get("打开应用失败：{0}", ex.Message);
+            return;
+        }
 
-        if (token.IsCancellationRequested || _activeInput == null)
+        if (token.IsCancellationRequested || _activeInput == null || _activeInput.Text != value)
             return;
 
+        ShowSuggestions(suggestions, value);
+    }
+
+    private void ShowSuggestions(IReadOnlyList<OmniboxSuggestion> suggestions, string? input)
+    {
+        if (_activeInput == null) return;
+        _suggestionInput = input;
         PathSuggestionsPopup.PlacementTarget = _activeInput;
         PathSuggestionsSurface.Width = Math.Max(_activeInput.Bounds.Width, _activeInput.DesiredSize.Width);
         PathSuggestionList.ItemsSource = suggestions;

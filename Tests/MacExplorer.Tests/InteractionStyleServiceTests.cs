@@ -9,9 +9,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "InteractionStyleService")]
 public sealed class InteractionStyleServiceTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ColorsAreConfiguredAndAppliedIndependentlyForEachTheme()
     {
         var settings = new MemorySettingsService();
@@ -95,7 +97,7 @@ public sealed class InteractionStyleServiceTests
         service.ApplyCurrentTheme();
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void InvalidColorDoesNotReplaceTheThemeSpecificToken()
     {
         var service = new InteractionStyleService(new MemorySettingsService());
@@ -105,7 +107,7 @@ public sealed class InteractionStyleServiceTests
         Assert.Equal("#2B3038", service.GetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FormerFocusSettingsAreMigratedToTheSelectedToken()
     {
         var settings = new MemorySettingsService();
@@ -146,4 +148,5 @@ public sealed class InteractionStyleServiceTests
 
         public Dictionary<string, string> GetAll() => new(_values, StringComparer.OrdinalIgnoreCase);
     }
+
 }

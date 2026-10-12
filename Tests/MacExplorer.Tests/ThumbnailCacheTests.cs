@@ -4,12 +4,14 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Thumbnail")]
 public sealed class ThumbnailCacheTests
 {
     [Theory]
     [InlineData(".psd")]
     [InlineData(".PSD")]
     [InlineData(".psb")]
+    [Trait("Kind", "Unit")]
     public void PhotoshopFilesAreEligibleForQuickLookThumbnails(string extension)
     {
         Assert.True(MacThumbnailService.SupportsThumbnailExtension(extension));
@@ -27,6 +29,7 @@ public sealed class ThumbnailCacheTests
     [InlineData(".toml")]
     [InlineData(".flac")]
     [InlineData(".vob")]
+    [Trait("Kind", "Unit")]
     public void ExpandedSuperPreviewFormatsAreEligibleForThumbnails(string extension)
     {
         Assert.True(MacThumbnailService.SupportsThumbnailExtension(extension));
@@ -36,6 +39,7 @@ public sealed class ThumbnailCacheTests
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MenuByteCache_ConcurrentConsumersShareCachedBytes()
     {
         var cache = new FileListView.ByteLruCache(8 * 1024 * 1024);
@@ -49,6 +53,7 @@ public sealed class ThumbnailCacheTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void MenuByteCache_EvictsLeastRecentlyUsedBytesAtCapacity()
     {
         var cache = new FileListView.ByteLruCache(10);
@@ -66,7 +71,8 @@ public sealed class ThumbnailCacheTests
         Assert.Same(regenerated, cache.GetOrAdd("second", () => regenerated));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ThumbnailResults_UseStablePathAcrossGenerationMemoryDiskAndConcurrency()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -110,7 +116,8 @@ public sealed class ThumbnailCacheTests
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ThumbnailDiskCache_TrimsEveryWriteToTargetAndProtectsCurrentResult()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -182,4 +189,5 @@ public sealed class ThumbnailCacheTests
         Directory.CreateDirectory(path);
         return path;
     }
+
 }

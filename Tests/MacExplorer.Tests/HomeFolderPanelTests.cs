@@ -6,9 +6,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Home")]
 public sealed class HomeFolderPanelTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ResizingReclaimsGapsWithoutOverlappingCards()
     {
         var first = new Border { Width = 200, Height = 300 };
@@ -27,4 +29,5 @@ public sealed class HomeFolderPanelTests
         Assert.False(first.Bounds.Intersects(third.Bounds));
         Assert.False(second.Bounds.Intersects(third.Bounds));
     }
+
 }

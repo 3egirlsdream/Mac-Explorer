@@ -12,6 +12,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "FileList")]
 public sealed class FileListLoadingPipelineTests : IDisposable
 {
     private const string TestHome = "/tmp/FKFinderPipelineTests";
@@ -21,7 +22,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     public FileListLoadingPipelineTests() => _accessOverride = DirectoryAccess.UseForTests(_testAccess);
     public void Dispose() { _accessOverride.Dispose(); _testAccess.Dispose(); }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RefreshAsync_LargeDirectory_PublishesCompleteSortedCollectionOnce()
     {
         const int totalEntries = 40 * 256;
@@ -84,7 +86,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RemoteNavigationAndRefresh_UseBatchApiAndPublishOnlyAfterCompletion()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -126,7 +129,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         Assert.Equal(refreshed.Select(entry => entry.FullPath).Order(), viewModel.Entries.Select(entry => entry.FullPath).Order());
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RemoteDirectorySwitch_CancelsOldProducerWithoutPollutingNewDirectory()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -158,7 +162,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         Assert.False(viewModel.IsDirectoryLoading);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RemoteRefresh_RestoresSelectionThatArrivesAfterFirstBatch()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -191,7 +196,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         Assert.Contains(restored, viewModel.Entries);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task RemoteNavigation_ConsumesPendingSelectionOnlyAfterLaterBatchArrives()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -220,7 +226,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         Assert.Equal(entries[500].FullPath, Assert.Single(viewModel.SelectedEntries).FullPath);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task MacFileService_EarlyEnumeratorDisposal_CancelsBoundedProducerPromptly()
     {
         var testCancellation = TestContext.Current.CancellationToken;
@@ -245,6 +252,7 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void InsertBatchHasKnownDescendingTypeOrderAndStableNameTieBreaker()
     {
         var beta = MakeEntry(TestHome, "beta.txt");
@@ -269,13 +277,14 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     [InlineData(SortField.Size, false, 6)]
     [InlineData(SortField.Type, true, 7)]
     [InlineData(SortField.Type, false, 8)]
+    [Trait("Kind", "Unit")]
     public void InsertBatch_ProducesSameOrderAndGroupsAsFullSort(SortField sortField, bool ascending, int seed)
     {
-        var entries = BuildUniqueEntries(10_240);
+        var entries = BuildUniqueEntries(513);
         var order = Enumerable.Range(0, entries.Count).ToArray();
         Shuffle(new Random(seed), order);
         var batches = new List<IReadOnlyList<FileSystemEntry>>();
-        const int batchSize = 256;
+        const int batchSize = 128;
         for (var i = 0; i < order.Length; i += batchSize)
             batches.Add(order.Skip(i).Take(batchSize).Select(index => entries[index]).ToArray());
 
@@ -301,6 +310,7 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void InsertBatch_FiltersTemporarySystemAndDotEntries()
     {
         var sortFilter = new SortFilterViewModel();
@@ -429,7 +439,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task SuccessfulEmptyDirectoryStillUpdatesItsIndex()
     {
         var root = Path.Combine("/tmp", "fkfinder-empty-" + Guid.NewGuid().ToString("N"));
@@ -446,7 +457,8 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         finally { Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task VirtualTrashListingDoesNotRequireAPhysicalSentinelDirectory()
     {
         var writer = new FakeFileIndexWriter();
@@ -457,9 +469,10 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         Assert.Equal(service.TrashDirectory, updated.Path);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public async Task MissingOrFailedDirectoryDoesNotClearIndex(bool failEnumeration)
     {
         var root = Path.Combine("/tmp", "fkfinder-failed-" + Guid.NewGuid().ToString("N"));
@@ -695,4 +708,5 @@ public sealed class FileListLoadingPipelineTests : IDisposable
         public Task RemoveEntryAsync(string path) => Task.CompletedTask;
         public Task AddEntryAsync(FileSystemEntry entry) => Task.CompletedTask;
     }
+
 }

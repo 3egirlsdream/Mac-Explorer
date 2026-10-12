@@ -4,7 +4,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class FileListSnapshotCollectionTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileList")]
+public sealed class FileListSnapshotCollectionTests
 {
     [Fact]
     public void ReplaceAllEmitsOneResetForTenThousandItems()
@@ -51,4 +53,5 @@ public class FileListSnapshotCollectionTests
         entries.ReplaceAll([1, 2]);
         Assert.Equal(new[] { 1, 2 }, entries);
     }
+
 }

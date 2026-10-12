@@ -15,9 +15,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "NewItemMenu")]
+public sealed class NewItemMenuViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("", 4)]
     [InlineData("com.kingsoft.wpsoffice.mac", 7)]
     [InlineData("com.microsoft.Word", 5)]
@@ -82,7 +84,11 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    private sealed class NewMenuContextService(string installedApp) : IContextMenuService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class NewMenuContextService(string installedApp) : IContextMenuService
     {
         public bool IsAppInstalled(string bundleIdentifier) => bundleIdentifier == installedApp;
         public Task<IReadOnlyList<ContextMenuAction>> GetFileContextMenuActionsAsync(FileSystemEntry entry) => Empty();
@@ -95,4 +101,5 @@ public sealed partial class FileListViewModelCreateTests
         public Task<string?> GetDefaultApplicationIconBase64Async(string path) => Task.FromResult<string?>(null);
         private static Task<IReadOnlyList<ContextMenuAction>> Empty() => Task.FromResult<IReadOnlyList<ContextMenuAction>>([]);
     }
+
 }

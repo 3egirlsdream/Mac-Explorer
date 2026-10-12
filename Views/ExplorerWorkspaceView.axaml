@@ -163,12 +163,11 @@
                                                  KeyDown="OnSearchKeyDown"/>
                                         <Button Grid.Column="2" x:Name="SearchClearButton"
                                                 Classes="ghost close-btn search-clear-btn"
-                                                Width="28" Height="28" MinWidth="28" MinHeight="28" Padding="0"
                                                 Background="Transparent"
                                                 Foreground="{DynamicResource TextMutedBrush}"
                                                 IsVisible="False" Click="ClearSearch"
                                                 AutomationProperties.Name="{loc:Loc ui.548}" ToolTip.Tip="{loc:Loc ui.549}">
-                                            <PathIcon Data="{x:Static icons:Icons.Close}" Width="14" Height="14"/>
+                                            <PathIcon Data="{x:Static icons:Icons.Close}"/>
                                         </Button>
                                     </Grid>
                                 </Border>

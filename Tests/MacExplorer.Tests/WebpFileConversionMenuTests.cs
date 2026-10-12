@@ -4,9 +4,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "Integration")]
+[Trait("Area", "FileConversion")]
+public sealed class WebpFileConversionMenuViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("image.webp")]
     [InlineData("image.WEBP")]
     public async Task WebpConversionMenuAppearsInBothBuildPhases(string name)
@@ -33,4 +35,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { Directory.Delete(root, true); }
     }
+
 }

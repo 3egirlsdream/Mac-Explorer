@@ -18,9 +18,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "LocalSend")]
+public sealed class LocalSendMenuViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task LocalSendMenuAppearsOnlyForEnabledLocalEntries()
     {
         var files = new FakeFileService("/private/tmp/fk-localsend-menu");
@@ -30,26 +32,26 @@ public sealed partial class FileListViewModelCreateTests
         using var vm = CreateViewModel(files, localSendService: service);
         await vm.RefreshAsync();
         var fast = await vm.LoadCompleteFileContextMenuAsync(local);
-        var sendTo = Assert.Single(fast, action => action.Label == "发送到");
+        var sendTo = Assert.Single(fast, action => action.Label == "发送");
         var localSend = Assert.Single(sendTo.SubItems!);
         Assert.Equal("LocalSend", localSend.Label);
         Assert.NotNull(localSend.IconImage);
         Assert.NotNull(localSend.LoadSubItemsAsync);
         service.IsEnabled = false;
-        Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(local), action => action.Label == "发送到");
+        Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(local), action => action.Label == "发送");
         service.IsEnabled = true;
         var remote = new FileSystemEntry { FullPath = VirtualPath.BuildRemotePath("host", "/file.txt"), Name = "file.txt" };
-        Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(remote), action => action.Label == "发送到");
+        Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(remote), action => action.Label == "发送");
         var invalid = new FileSystemEntry { FullPath = "sftp://host/file.txt", Name = "file.txt" };
-        Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(invalid), action => action.Label == "发送到");
+        Assert.DoesNotContain(await vm.LoadCompleteFileContextMenuAsync(invalid), action => action.Label == "发送");
         using var browseVm = CreateViewModel(files, browseOnly: true, localSendService: service);
         Assert.Empty(await browseVm.LoadCompleteFileContextMenuAsync(local));
         var navigation = new NavigationViewModel(files) { CurrentPath = vm.TrashPath, IsHomePage = false };
         using var trashVm = CreateViewModel(files, navigation: navigation, localSendService: service);
-        Assert.DoesNotContain(await trashVm.LoadCompleteFileContextMenuAsync(local), action => action.Label == "发送到");
+        Assert.DoesNotContain(await trashVm.LoadCompleteFileContextMenuAsync(local), action => action.Label == "发送");
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ClosingMenuCancelsDiscoveryAndDiscardsLateDeviceResults()
     {
         var files = new FakeFileService("/private/tmp/fk-localsend-menu");
@@ -73,7 +75,7 @@ public sealed partial class FileListViewModelCreateTests
             Dispatcher.UIThread.RunJobs();
             var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
             Assert.True(menu.IsOpen);
-            var sendTo = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "发送到");
+            var sendTo = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "发送");
             sendTo.IsSubMenuOpen = true;
             var localSend = Assert.Single(sendTo.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "LocalSend");
             localSend.IsSubMenuOpen = true;
@@ -91,7 +93,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task SelectingDiscoveredDeviceSendsTheSelectedFile()
     {
         var files = new FakeFileService("/private/tmp/fk-localsend-menu");
@@ -115,7 +117,7 @@ public sealed partial class FileListViewModelCreateTests
             Dispatcher.UIThread.RunJobs();
             var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
             Assert.True(menu.IsOpen);
-            var sendTo = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "发送到");
+            var sendTo = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "发送");
             sendTo.IsSubMenuOpen = true;
             var localSend = Assert.Single(sendTo.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "LocalSend");
             localSend.IsSubMenuOpen = true;
@@ -140,7 +142,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ProgressiveDiscoveryKeepsDeviceRowCurrentAndIgnoresOldRefreshResults()
     {
         var files = new FakeFileService("/private/tmp/fk-localsend-progress");
@@ -163,7 +165,7 @@ public sealed partial class FileListViewModelCreateTests
             window.MouseUp(point, MouseButton.Right, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
             var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
-            var sendTo = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "发送到");
+            var sendTo = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "发送");
             sendTo.IsSubMenuOpen = true;
             var localSend = Assert.Single(sendTo.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "LocalSend");
             localSend.IsSubMenuOpen = true;
@@ -224,7 +226,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ManualAddressDialogKeepsActionsVisibleWithLongStatus()
     {
         var dialog = new LocalSendAddressDialog(new FakeLocalSend());
@@ -243,7 +245,11 @@ public sealed partial class FileListViewModelCreateTests
         finally { dialog.Close(); Dispatcher.UIThread.RunJobs(); }
     }
 
-    private sealed class FakeLocalSend : ILocalSendService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class FakeLocalSend : ILocalSendService
     {
         private readonly List<TaskCompletionSource<IReadOnlyList<LocalSendDevice>>> _discoveries = [];
         public readonly List<Action<IReadOnlyList<LocalSendDevice>>?> ProgressCallbacks = [];
@@ -286,4 +292,5 @@ public sealed partial class FileListViewModelCreateTests
             return Task.CompletedTask;
         }
     }
+
 }

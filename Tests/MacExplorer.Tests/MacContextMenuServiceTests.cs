@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "MacContextMenuService")]
 public sealed class MacContextMenuServiceTests
 {
     [Fact]
@@ -65,4 +67,5 @@ public sealed class MacContextMenuServiceTests
         public Task OpenInEditorAsync(string path, string cliName, string bundleId) => Task.CompletedTask;
         public Task RevealInFinderAsync(string path) => Task.CompletedTask;
     }
+
 }

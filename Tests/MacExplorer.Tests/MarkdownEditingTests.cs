@@ -6,6 +6,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Markdown")]
 public sealed class MarkdownEditingTests
 {
     [Theory]
@@ -16,6 +17,7 @@ public sealed class MarkdownEditingTests
     [InlineData("8) item", 7, "\n9) ")]
     [InlineData("> quote", 7, "\n> ")]
     [InlineData("9223372036854775807. item", 25, "\n")]
+    [Trait("Kind", "Unit")]
     public void SmartNewLineContinuesCommonMarkdown(string text, int caret, string expected)
     {
         var change = MarkdownSmartNewLine.CreateChange(text, caret, 0);
@@ -23,6 +25,7 @@ public sealed class MarkdownEditingTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SmartNewLineAtOffsetZeroDoesNotReadBeforeTheDocument()
     {
         var change = MarkdownSmartNewLine.CreateChange("\ntext", 0, 0);
@@ -35,6 +38,7 @@ public sealed class MarkdownEditingTests
     [InlineData("- [ ] ")]
     [InlineData("2. ")]
     [InlineData("> ")]
+    [Trait("Kind", "Unit")]
     public void EmptyListOrQuoteExitsThePrefix(string text)
     {
         var change = MarkdownSmartNewLine.CreateChange(text, text.Length, 0, "\r\n");
@@ -43,7 +47,8 @@ public sealed class MarkdownEditingTests
         Assert.Equal("\r\n", change.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void BoldIsOneUndoableDocumentEdit()
     {
         var editor = new TextEditor { Document = new TextDocument("Hello world") };
@@ -57,7 +62,8 @@ public sealed class MarkdownEditingTests
         Assert.Equal("Hello **world**", editor.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void MultilinePrefixPreservesCrLfAndDoesNotIncludeTheNextUnselectedLine()
     {
         const string original = "alpha\r\nbeta\r\ngamma";
@@ -70,7 +76,8 @@ public sealed class MarkdownEditingTests
         Assert.Equal(original, editor.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void EmptyDocumentCanBeFormatted()
     {
         var editor = new TextEditor { Document = new TextDocument() };
@@ -80,7 +87,8 @@ public sealed class MarkdownEditingTests
         Assert.Equal(string.Empty, editor.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void CodeFenceGrowsPastBackticksInsideTheSelection()
     {
         var editor = new TextEditor { Document = new TextDocument("```inside```") };
@@ -90,6 +98,7 @@ public sealed class MarkdownEditingTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void IndentationDoesNotContinueMarkdownListsInsideCodeFences()
     {
         var document = new TextDocument("```\n- code\n");
@@ -97,10 +106,12 @@ public sealed class MarkdownEditingTests
         Assert.Equal("```\n- code\n", document.Text);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void HighlightingDefinitionsLoadInBothThemes()
     {
         Assert.NotNull(MarkdownHighlighting.Create(false).GetNamedColor("Heading"));
         Assert.NotNull(MarkdownHighlighting.Create(true).GetNamedColor("Heading"));
     }
+
 }

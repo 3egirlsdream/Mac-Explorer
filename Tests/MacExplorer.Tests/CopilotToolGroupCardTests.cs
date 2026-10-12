@@ -13,9 +13,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Copilot")]
 public sealed class CopilotToolGroupCardTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void LegacyExecutionRecordsRenderAsCompactLabelAndDetailRows()
     {
         var card = new CopilotToolGroupCard
@@ -56,7 +58,7 @@ public sealed class CopilotToolGroupCardTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void BatchCollapsesAfterCompletionAndCanBeExpandedAgain()
     {
         var card = new CopilotToolGroupCard
@@ -107,4 +109,5 @@ public sealed class CopilotToolGroupCardTests
         }
         finally { window.Close(); }
     }
+
 }

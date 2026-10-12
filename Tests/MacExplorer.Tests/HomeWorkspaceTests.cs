@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Home")]
 public sealed class HomeWorkspaceTests
 {
     [Fact]
@@ -196,4 +198,5 @@ public sealed class HomeWorkspaceTests
             Directory.Delete(Root, recursive: true);
         }
     }
+
 }

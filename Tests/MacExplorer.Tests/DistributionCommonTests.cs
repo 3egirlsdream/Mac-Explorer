@@ -13,6 +13,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "DistributionCommon")]
 public sealed class DistributionCommonTests : IDisposable
 {
     private readonly string _root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "channel-" + Guid.NewGuid().ToString("N"));
@@ -20,6 +21,7 @@ public sealed class DistributionCommonTests : IDisposable
     public DistributionCommonTests() => Directory.CreateDirectory(_root);
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void UpgradeCopiesCommittedWalAndPreservesSourceAndExistingDestination()
     {
         var oldPath = Path.Combine(_root, "old.db"); var newPath = Path.Combine(_root, "new.db");
@@ -42,6 +44,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void FailedUpgradeLeavesOriginalAndNoPartialDestination()
     {
         var oldPath = Path.Combine(_root, "corrupt.db"); var newPath = Path.Combine(_root, "new.db");
@@ -55,6 +58,7 @@ public sealed class DistributionCommonTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "Unit")]
     public void SchemaInitializationFailureCannotResetExistingUserState(bool useFactory)
     {
         var path = Path.Combine(_root, "existing-profile.db");
@@ -73,6 +77,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void DirectoryGrantRestoresMovedRootAndClosesEveryNativeScope()
     {
         var store = Path.Combine(_root, "bookmarks.json"); var original = Path.Combine(_root, "original");
@@ -104,6 +109,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void MalformedGrantsRemainRecoverableAndFailedSaveClosesNewScope()
     {
         var native = new FakeBookmarks();
@@ -127,6 +133,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void DirectoryGrantRejectsSymlinkEscapeAndUnselectedPaths()
     {
         var root = Path.Combine(_root, "selected"); Directory.CreateDirectory(root);
@@ -141,6 +148,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void RepeatedAccessChecksResolveOnlyTargetsAndStillRejectRetargetedLinks()
     {
         var selected = Directory.CreateDirectory(Path.Combine(_root, "selected-cache")).FullName;
@@ -162,6 +170,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void HelpersReuseOnlyRequestedGrantsAndCannotReuseRevokedAccess()
     {
         var selected = Directory.CreateDirectory(Path.Combine(_root, "helper-selected")).FullName;
@@ -184,9 +193,10 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task StoreGitStatusRejectsInvalidPaths()
     {
-        if (!DistributionChannel.IsAppStore) return;
+        Assert.SkipWhen(!DistributionChannel.IsAppStore, "Requires the App Store channel.");
         using var git = new GitStatusService();
         Assert.Null(await git.GetRepoStatusAsync("invalid\0path"));
         Assert.Empty(GitStatusService.GetIgnoredPaths("invalid\0path"));
@@ -194,9 +204,10 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void NativePathResolutionKeepsNewChildrenWithinTheirCanonicalParentAndRejectsDanglingLinkEscape()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var selected = Path.Combine(_root, "native-selected"); Directory.CreateDirectory(selected);
         var outside = Path.Combine(_root, "native-outside"); Directory.CreateDirectory(outside);
         var parent = MacExplorer.Platforms.MacOS.MacSandboxNative.RealPath(selected);
@@ -210,6 +221,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SftpUpgradeMovesPasswordsIntoCredentialStoreAndKeepsConnections()
     {
         var path = Path.Combine(_root, "remote-servers.json"); var credentials = new MemoryCredentials();
@@ -223,6 +235,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SftpCredentialFailureKeepsLegacyConfigAndConnectionForRetry()
     {
         var path = Path.Combine(_root, "remote-servers.json");
@@ -233,6 +246,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SftpLaterSaveCannotEraseAnotherServersUnmigratedPassword()
     {
         var path = Path.Combine(_root, "remote-servers.json");
@@ -253,7 +267,8 @@ public sealed class DistributionCommonTests : IDisposable
         Assert.Equal("unmigrated-secret", restarted.GetSavedServers().Single(s => s.Id == "locked").Password);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task RevokedGrantStopsExistingIndexWatchAndCanBeReauthorized()
     {
         var selected = Directory.CreateDirectory(Path.Combine(_root, "index-files")).FullName;
@@ -324,6 +339,7 @@ public sealed class DistributionCommonTests : IDisposable
     { public string GetInitials(string name) => ""; }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void CopilotConsentExpiresOnEndpointModelOrCredentialChange()
     {
         var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings());
@@ -335,6 +351,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CopilotRejectsUnconsentedSendBeforeAnyTransportOrHistoryWrite()
     {
         var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings()); var credentials = new CopilotCredentialStore();
@@ -346,6 +363,7 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task FixedBuiltInConversionProducesDocxThroughSharedSession()
     {
         var input = Path.Combine(_root, "input.txt"); await File.WriteAllTextAsync(input, "shared conversion", Token);
@@ -359,7 +377,8 @@ public sealed class DistributionCommonTests : IDisposable
         Assert.Contains(zip.Entries, e => e.FullName == "word/document.xml");
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task BothChannelsTransferFilesOverIpv4AndIpv6AndKeepLegacyInfo()
     {
         var native = new FakeBookmarks(); using var access = new DirectoryAccess(Path.Combine(_root, "access.json"), true, native, []);
@@ -392,9 +411,10 @@ public sealed class DistributionCommonTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task StoreChannelRejectsExternalExecutionAtServiceBoundary()
     {
-        if (!DistributionChannel.IsAppStore) return;
+        Assert.SkipWhen(!DistributionChannel.IsAppStore, "Requires the App Store channel.");
         var manager = new PluginManager(new PluginTestEnvironment.MemorySettings(), Path.Combine(_root, "Plugins"), "missing", "missing", "missing");
         await Assert.ThrowsAsync<NotSupportedException>(() => manager.InstallAsync("missing", Token));
         await Assert.ThrowsAsync<NotSupportedException>(() => manager.StartAsync("external", "command", [], Token));
@@ -433,4 +453,5 @@ public sealed class DistributionCommonTests : IDisposable
         }
     }
     public void Dispose() { SqliteConnection.ClearAllPools(); if (Directory.Exists(_root)) Directory.Delete(_root, true); }
+
 }

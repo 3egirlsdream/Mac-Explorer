@@ -10,4 +10,9 @@
   <Target Name="ValidateDistributionChannel" BeforeTargets="PrepareForBuild">
     <Error Condition="'$(DistributionChannel)' != 'Website' and '$(DistributionChannel)' != 'AppStore'" Text="DistributionChannel must be Website or AppStore." />
   </Target>
+  <Target Name="PrepareMacOSNativeOptions">
+    <WriteLinesToFile File="$(IntermediateOutputPath)macos-native-options.txt"
+                      Lines="$(_NativeArchitecture);$(MacOSMinimumVersion);$(DistributionChannel)"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
 </Project>

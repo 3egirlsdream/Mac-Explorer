@@ -10,9 +10,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileList")]
+public sealed class FileListViewModelFolderCoverViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ExplicitRefreshInvalidatesCoversEvenWhenDirectoryRowsAreUnchanged()
     {
         var root = Directory.CreateTempSubdirectory("FolderCoverRefresh_").FullName;
@@ -27,7 +29,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FolderCoverSettingIsOffByDefaultAndUpdatesOpenViewsImmediately()
     {
         var root = Directory.CreateTempSubdirectory("FolderCoverSetting_").FullName;
@@ -77,4 +79,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { Directory.Delete(root, recursive: true); }
     }
+
 }

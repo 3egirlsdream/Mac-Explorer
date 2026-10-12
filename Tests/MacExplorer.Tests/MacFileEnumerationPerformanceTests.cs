@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "MacFileEnumerationPerformance")]
 public sealed class MacFileEnumerationPerformanceTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"file-enumeration-performance-{Guid.NewGuid():N}");
@@ -134,7 +136,7 @@ public sealed class MacFileEnumerationPerformanceTests : IDisposable
     [Fact]
     public async Task SymbolicLinks_KeepTheirOwnPathAndDirectoryClassification()
     {
-        if (OperatingSystem.IsWindows()) return; // This service targets macOS/Unix semantics.
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Requires Unix filesystem semantics."); // This service targets macOS/Unix semantics.
         var token = TestContext.Current.CancellationToken;
         var targetFile = Path.Combine(_root, "target.txt");
         var targetDirectory = Path.Combine(_root, "target-directory");
@@ -204,4 +206,5 @@ public sealed class MacFileEnumerationPerformanceTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
+
 }

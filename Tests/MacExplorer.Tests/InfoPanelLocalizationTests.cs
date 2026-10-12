@@ -9,9 +9,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Localization")]
+public sealed class InfoPanelLocalizationViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task InfoPanelLocalizesUnsupportedPreviewAndKeepsLoadedContentWhenLanguageChanges()
     {
         using var language = new LocalizationService(new StartupSettings(), () => AppLanguage.English);
@@ -61,4 +63,5 @@ public sealed partial class FileListViewModelCreateTests
             Directory.Delete(root, true);
         }
     }
+
 }

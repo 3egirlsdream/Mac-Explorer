@@ -8,6 +8,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ReviewOutputCancellation")]
 public sealed class ReviewOutputCancellationTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("macexplorer-output-review-").FullName;
@@ -110,4 +112,5 @@ public sealed class ReviewOutputCancellationTests : IDisposable
         Assert.False(File.Exists(staging));
         Assert.Equal("complete", await File.ReadAllTextAsync(result));
     }
+
 }

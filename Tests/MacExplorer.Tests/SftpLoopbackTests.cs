@@ -6,9 +6,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Sftp")]
 public sealed class SftpLoopbackTests
 {
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task RealHandshakeRejectsBeforeAuthenticationTrustsOnceAndRejectsChangedHost()
     {
         var python = Environment.GetEnvironmentVariable("MACEXPLORER_SFTP_TEST_PYTHON");
@@ -71,7 +73,7 @@ public sealed class SftpLoopbackTests
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task EncryptedPrivateKeySupportsOneUseOptInReloadAndCancellation()
     {
         var python = Environment.GetEnvironmentVariable("MACEXPLORER_SFTP_TEST_PYTHON");
@@ -168,4 +170,5 @@ public sealed class SftpLoopbackTests
         var log = Path.Combine(root, "events.jsonl");
         return File.Exists(log) ? File.ReadLines(log).Count(line => JsonDocument.Parse(line).RootElement.GetProperty("event").GetString() == "authentication") : 0;
     }
+
 }

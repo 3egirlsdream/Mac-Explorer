@@ -10,9 +10,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileList")]
+public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public void FileListContentHitTargetsLeaveWhitespaceForMarquee(bool grid)
@@ -45,7 +47,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FastListAndHeaderShareColumnWidthsAfterResizeAndLongNamesStayWithinNameColumn()
     {
         using var theme = new FastListTestTheme();
@@ -71,4 +73,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { window.Close(); }
     }
+
 }

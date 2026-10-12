@@ -18,9 +18,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Copilot")]
+public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void SortMenuTracksSelectionsAndPriorityDoesNotChangeSortDirection()
     {
         var theme = new Avalonia.Themes.Fluent.FluentTheme();
@@ -76,7 +78,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ToolbarViewSwitchUsesRegisteredCapability()
     {
         var previousServices = App.Services;
@@ -104,7 +106,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CopilotPlanExpiresWhenSourceChangesOrPaneSwitches()
     {
         var files = new FakeFileService("/tmp/FKFinderCopilotCapabilityState");
@@ -133,7 +135,7 @@ public sealed partial class FileListViewModelCreateTests
             registry.ExecuteApprovedAsync(changed.Id, pane));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ApprovedContentPagesExposeContinuationUntilEndOfFile()
     {
         var root = Path.Combine(Path.GetTempPath(), "fk-copilot-pages-" + Guid.NewGuid().ToString("N"));
@@ -173,7 +175,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BatchRenamePlanUsesExistingPreviewAndRejectsChangedSource()
     {
         var files = new FakeFileService("/tmp/FKFinderCopilotBatchRename");
@@ -213,7 +215,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.True(history.CanUndo);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task MarketInstallRejectsChangedPackageMetadataBeforeDownload()
     {
         using var plugins = new PluginTestEnvironment(initialize: false);
@@ -236,7 +238,11 @@ public sealed partial class FileListViewModelCreateTests
             registry.ExecuteApprovedAsync(plan.Id, pane));
     }
 
-    private sealed class MarketListingHandler : HttpMessageHandler
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class MarketListingHandler : HttpMessageHandler
     {
         public string Sha256 { get; set; } = new('a', 64);
 
@@ -255,4 +261,5 @@ public sealed partial class FileListViewModelCreateTests
             });
         }
     }
+
 }

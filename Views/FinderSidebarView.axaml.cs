@@ -28,6 +28,8 @@ public partial class FinderSidebarView : UserControl
     private Border? _folderDropTarget;
     private string? _folderDropPath;
     private IDisposable? _folderHoverTimer;
+    internal Func<Action, TimeSpan, IDisposable> ScheduleFolderHover { get; set; }
+        = (action, delay) => DispatcherTimer.RunOnce(action, delay);
     private FileListViewModel? _subscribedViewModel;
     private readonly Dictionary<Control, RailSecondaryState> _railSecondaryStates = [];
     private bool _isRailMode;
@@ -409,7 +411,7 @@ public partial class FinderSidebarView : UserControl
                     _folderDropTarget = row;
                     _folderDropPath = targetPath;
                     row!.Classes.Add("folder-drop-target");
-                    _folderHoverTimer = DispatcherTimer.RunOnce(
+                    _folderHoverTimer = ScheduleFolderHover(
                         () => OpenHoveredFolderAsync(row, targetPath), TimeSpan.FromMilliseconds(600));
                 }
                 return;

@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>1.0.55</Version>
+    <Version>1.0.56</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -93,18 +93,18 @@
     <Error Condition="'$(AppStoreSubscriptionProductId)' == ''" Text="Set AppStoreSubscriptionProductId to the actual annual subscription product before submission."/>
     <Exec Command="python3 Tools/Distribution/verify-release-config.py --identifier '$(AppStoreBundleId)' --policy '$(PrivacyPolicyUrl)' --subscription-product '$(AppStoreSubscriptionProductId)'"/>
   </Target>
-  <Target Name="BuildMacOSStoreKitBridge" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore'">
+  <Target Name="BuildMacOSStoreKitBridge" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore' and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="Platforms/MacOS/StoreKitBridge.swift;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)libMacExplorerStoreKit.dylib">
     <Exec Command="xcrun swiftc -parse-as-library -emit-library -O -target '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' 'Platforms/MacOS/StoreKitBridge.swift' -framework StoreKit -framework AppKit -Xlinker -install_name -Xlinker '@rpath/libMacExplorerStoreKit.dylib' -o '$(OutputPath)libMacExplorerStoreKit.dylib'" />
   </Target>
-  <Target Name="BuildMacOSImageAnalysisHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+  <Target Name="BuildMacOSImageAnalysisHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="Platforms/MacOS/ImageAnalysisHelper.swift;Platforms/MacOS/HelperFileAccess.swift;Tools/Distribution/build-helper.sh;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)MacExplorer.ImageAnalysis">
     <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ImageAnalysisHelper.swift' '$(OutputPath)MacExplorer.ImageAnalysis' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit" />
   </Target>
 
-  <Target Name="BuildMacOSNativeDragHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+  <Target Name="BuildMacOSNativeDragHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))" Inputs="Platforms/MacOS/NativeFileDrag.mm;Platforms/MacOS/FileDeliveryStatusItem.mm;Platforms/MacOS/KeyboardMonitor.mm;Platforms/MacOS/FolderIcon.mm;Platforms/MacOS/SandboxAccess.mm;Platforms/MacOS/DocumentPreview.mm;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)libMacExplorerNativeDrag.dylib">
     <Exec Command="clang++ -fobjc-arc -dynamiclib -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' 'Platforms/MacOS/SandboxAccess.mm' 'Platforms/MacOS/DocumentPreview.mm' -framework AppKit -framework Foundation -framework Security -framework Quartz -framework CoreServices -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
-  <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle">
+  <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="'$(SkipMacOSBundle)' != 'true'">
     <MSBuild Projects="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">
       <Output TaskParameter="TargetOutputs" ItemName="_ConversionAssembly" />
     </MSBuild>
@@ -117,11 +117,11 @@
     <ZipDirectory SourceDirectory="$(_ConversionPluginOutput)" DestinationFile="$(OutputPath)BundledPlugins/FileConversion.mexplug" Overwrite="true" />
   </Target>
 
-  <Target Name="BuildMacOSThumbnailHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+  <Target Name="BuildMacOSThumbnailHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="Platforms/MacOS/ThumbnailHelper.swift;Platforms/MacOS/HelperFileAccess.swift;Tools/Distribution/build-helper.sh;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)MacExplorer.Thumbnail">
     <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ThumbnailHelper.swift' '$(OutputPath)MacExplorer.Thumbnail' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers" />
   </Target>
 
-  <Target Name="BuildMacOSGitHelper" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore'">
+  <Target Name="BuildMacOSGitHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore' and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="Platforms/MacOS/GitHelper.swift;Platforms/MacOS/HelperFileAccess.swift;Tools/Distribution/build-helper.sh;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)MacExplorer.Git">
     <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/GitHelper.swift' '$(OutputPath)MacExplorer.Git' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)'" />
   </Target>
 
@@ -129,7 +129,7 @@
     <Copy SourceFiles="$(MSBuildProjectDirectory)/Assets/appicon.icns" DestinationFolder="$(OutputPath)" Condition="Exists('$(MSBuildProjectDirectory)/Assets/appicon.icns')" />
   </Target>
 
-  <Target Name="CreateMacOSBundle" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
+  <Target Name="CreateMacOSBundle" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(SkipMacOSBundle)' != 'true'">
     <Error Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreBundleId)' == ''" Text="Set AppStoreBundleId explicitly; website identity is preserved." />
     <PropertyGroup>
       <_AppBundleName>Mac Explorer.app</_AppBundleName>

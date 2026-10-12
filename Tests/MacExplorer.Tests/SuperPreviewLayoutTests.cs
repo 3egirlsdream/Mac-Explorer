@@ -12,9 +12,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Preview")]
+public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task StandalonePreviewUsesFullWidthAndDirectoryPreviewRetainsNavigation(bool dark)
@@ -70,4 +72,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { root.Delete(true); }
     }
+
 }

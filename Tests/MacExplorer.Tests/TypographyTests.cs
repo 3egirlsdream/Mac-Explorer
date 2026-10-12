@@ -15,6 +15,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Smoke", "UI")]
+[Trait("Area", "Typography")]
 public sealed class TypographyTests
 {
     [AvaloniaFact]
@@ -181,4 +184,5 @@ public sealed class TypographyTests
 
         public Dictionary<string, string> GetAll() => new(_values, StringComparer.OrdinalIgnoreCase);
     }
+
 }

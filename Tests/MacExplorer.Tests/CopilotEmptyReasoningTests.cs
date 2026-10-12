@@ -11,6 +11,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Copilot")]
 public sealed class CopilotEmptyReasoningTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "copilot-empty-reasoning-" + Guid.NewGuid().ToString("N"));
@@ -113,4 +115,5 @@ public sealed class CopilotEmptyReasoningTests : IDisposable
         }
     }
     public void Dispose() => Directory.Delete(_root, true);
+
 }

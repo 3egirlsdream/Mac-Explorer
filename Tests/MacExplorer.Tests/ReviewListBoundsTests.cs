@@ -5,9 +5,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "ReviewListBounds")]
 public sealed class ReviewListBoundsTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void RightCanvasDoesNotSelectRowsButCrossingIntoTheRowDoes()
     {
         var list = new FastFileList();
@@ -22,7 +24,7 @@ public sealed class ReviewListBoundsTests
         Assert.Equal(rows, list.RowsWithCentersIn(0, 90).ToArray());
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void NarrowViewportClipsRowsAndGridStillUsesItsCells()
     {
         var list = new FastFileList();
@@ -35,4 +37,5 @@ public sealed class ReviewListBoundsTests
         list.Arrange(new Rect(0, 0, 1000, 300));
         Assert.NotEmpty(list.EntriesInRectangle(new Rect(850, 0, 150, 280)));
     }
+
 }

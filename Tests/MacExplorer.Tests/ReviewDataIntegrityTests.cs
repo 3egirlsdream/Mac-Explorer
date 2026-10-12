@@ -6,6 +6,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ReviewDataIntegrity")]
 public sealed class ReviewDataIntegrityTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("macexplorer-review-").FullName;
@@ -130,4 +132,5 @@ public sealed class ReviewDataIntegrityTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_root, "second-copy.txt")));
         Assert.Empty(Directory.GetFiles(_root, ".MacExplorer-create-*"));
     }
+
 }

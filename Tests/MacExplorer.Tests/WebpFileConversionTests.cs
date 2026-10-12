@@ -8,6 +8,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "FileConversion")]
 public sealed class WebpFileConversionTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "macexplorer-webp-test-" + Guid.NewGuid().ToString("N"));
@@ -41,6 +42,7 @@ public sealed class WebpFileConversionTests : IDisposable
     }
 
     [Theory]
+    [Trait("Kind", "Unit")]
     [InlineData("image.webp")]
     [InlineData("image.WEBP")]
     [InlineData("image.WeBp")]
@@ -58,6 +60,7 @@ public sealed class WebpFileConversionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void WebpDoesNotEnableDirectoriesRemotePathsOrBatchImageConversion()
     {
         var directory = Path.Combine(_root, "folder.webp");
@@ -80,7 +83,8 @@ public sealed class WebpFileConversionTests : IDisposable
             Assert.DoesNotContain(SourceManifest().Commands, command => command.Match.Matches(files));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public void BundledPluginMatchesSourceVersionAndAdvertisesWebp()
     {
         using var package = ZipFile.OpenRead(PluginTestEnvironment.BundledPackage);
@@ -92,7 +96,8 @@ public sealed class WebpFileConversionTests : IDisposable
             .Select(command => command.Id));
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
+    [Trait("Kind", "Integration")]
     [InlineData(true, false)]
     [InlineData(false, false)]
     [InlineData(true, true)]
@@ -134,7 +139,8 @@ public sealed class WebpFileConversionTests : IDisposable
         Assert.Equal(original, File.ReadAllBytes(source));
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
+    [Trait("Kind", "Integration")]
     [InlineData(FileConversionFormat.Png)]
     [InlineData(FileConversionFormat.Jpg)]
     public async Task NativeAnimatedWebpExportsFirstFrameAndReportsAnimationLoss(FileConversionFormat format)
@@ -155,7 +161,8 @@ public sealed class WebpFileConversionTests : IDisposable
         Assert.Equal(original, File.ReadAllBytes(source));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task InvalidWebpFailsWithoutLeavingOutputOrChangingSource()
     {
         var source = Path.Combine(_root, "broken.webp");
@@ -171,7 +178,8 @@ public sealed class WebpFileConversionTests : IDisposable
         Assert.Equal(original, File.ReadAllBytes(source));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task CancelledWebpConversionDoesNotCommitOutput()
     {
         var source = WriteFixture("cancel.webp", LosslessWebp);
@@ -185,4 +193,5 @@ public sealed class WebpFileConversionTests : IDisposable
         Assert.Empty(Directory.GetFileSystemEntries(outputDirectory));
         Assert.Equal(original, File.ReadAllBytes(source));
     }
+
 }

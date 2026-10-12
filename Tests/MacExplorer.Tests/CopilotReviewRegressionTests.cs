@@ -10,12 +10,14 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Copilot")]
 public sealed partial class CopilotReviewRegressionTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "fk-copilot-review-" + Guid.NewGuid().ToString("N"));
     private CopilotStore CreateStore() => new(Path.Combine(_root, "copilot.db"));
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void TwoWindowsCannotResumeOrDeleteAnOccupiedSessionAndDeletedStateCannotReturn()
     {
         var store = CreateStore();
@@ -35,6 +37,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ChangedRecipientAndLegacyHistoryStartFreshSessionsWithoutRestoringOldState()
     {
         var store = CreateStore();
@@ -64,7 +67,8 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
         Assert.Empty(store.GetTurns(resumed.SessionId));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task ChangedEndpointRequestBodyContainsOnlyTheFreshConversation()
     {
         var store = CreateStore();
@@ -117,6 +121,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PendingApprovalAfterRestartOrSwitchRequiresFreshPreview()
     {
         var store = CreateStore();
@@ -145,7 +150,8 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
         public Dictionary<string, string> GetAll() => new(_values);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task ReadAndPreviewToolsMarshalPaneAccessAndCapabilitiesToUiThread()
     {
         var registry = new RecordingRegistry();
@@ -167,7 +173,8 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
         Assert.Equal(1, registry.PreviewCalls);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task FailedAndCancelledResultsAreNotCountedAsCompletedOperations()
     {
         var store = CreateStore();
@@ -192,6 +199,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void CandidatePagesRetainTheArrayContractAndExposeAllItems()
     {
         var items = Enumerable.Range(0, 401).Select(index => $"/tmp/{index:D4}.txt").ToArray();
@@ -225,6 +233,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     [InlineData("{\"offset\":1.5}")]
     [InlineData("{\"offset\":\"bad\"}")]
     [InlineData("{\"offset\":2}")]
+    [Trait("Kind", "Unit")]
     public void InvalidCandidateOffsetsDoNotSilentlyRestartTheList(string json)
     {
         using var arguments = JsonDocument.Parse(json);
@@ -235,6 +244,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "Unit")]
     public async Task ResponseReplayStaysWithTheSessionThatStartedTheRequest(bool streaming)
     {
         var store = CreateStore();
@@ -262,6 +272,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
+    [Trait("Kind", "Unit")]
     public async Task ZeroLengthReadsDoNotSaveAnIncompleteReasoningResponse(int overload)
     {
         var store = CreateStore();
@@ -344,4 +355,5 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
+
 }

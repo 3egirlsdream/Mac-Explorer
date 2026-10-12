@@ -11,9 +11,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Copilot")]
 public sealed class CopilotMarkdownViewTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void AssistantBubbleRendersAndUpdatesMarkdownInPlace()
     {
         var view = new CopilotMarkdownView();
@@ -48,4 +50,5 @@ public sealed class CopilotMarkdownViewTests
         }
         finally { window.Close(); }
     }
+
 }

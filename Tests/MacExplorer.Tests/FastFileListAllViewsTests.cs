@@ -13,9 +13,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileList")]
+public sealed class FastFileListAllViewsViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("remote")]
     [InlineData("archive")]
     [InlineData("trash")]
@@ -81,7 +83,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task GroupedRefreshKeepsVisibleFileAndSelectionAndKeyboardSkipsHeaders(bool grid)
@@ -133,7 +135,7 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { window.Close(); }
     }
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ArchiveNavigationShowsSkeletonImmediatelyAndDiscardsResultsAfterLeaving()
     {
         using var theme = new FastListTestTheme();
@@ -166,7 +168,11 @@ public sealed partial class FileListViewModelCreateTests
         finally { archive.Release.TrySetResult([]); window.Close(); root.Delete(true); }
     }
 
-    private sealed class DelayedArchiveService : IArchiveService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class DelayedArchiveService : IArchiveService
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<IReadOnlyList<FileSystemEntry>> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

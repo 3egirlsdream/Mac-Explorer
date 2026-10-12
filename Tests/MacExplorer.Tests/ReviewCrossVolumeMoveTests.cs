@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ReviewCrossVolumeMove")]
 public sealed class ReviewCrossVolumeMoveTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "move-" + Guid.NewGuid().ToString("N"));
@@ -130,7 +132,7 @@ public sealed class ReviewCrossVolumeMoveTests : IDisposable
     [Fact]
     public async Task MacDirectoryLinkIsMovedWithoutMovingItsTarget()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var linkedDirectory = Directory.CreateDirectory(Path.Combine(_root, "linked")).FullName;
         File.WriteAllText(Path.Combine(linkedDirectory, "keep"), "target content");
         var link = Path.Combine(Source, "link");
@@ -145,7 +147,7 @@ public sealed class ReviewCrossVolumeMoveTests : IDisposable
     [Fact]
     public async Task MacRuntimeSocketCannotMakeAnIncompleteCopyDeleteTheSource()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         // Darwin limits Unix-domain socket paths; use a short /tmp fixture here.
         var socketRoot = Directory.CreateDirectory("/tmp/mv-" + Guid.NewGuid().ToString("N")[..8]).FullName;
         try
@@ -172,4 +174,5 @@ public sealed class ReviewCrossVolumeMoveTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
+
 }

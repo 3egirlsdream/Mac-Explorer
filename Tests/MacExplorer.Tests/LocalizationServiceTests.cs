@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Localization")]
 public sealed class LocalizationServiceTests
 {
     [Fact]
@@ -16,13 +18,13 @@ public sealed class LocalizationServiceTests
 
         service.SetLanguage(AppLanguage.English);
         Assert.Equal("en", settings.Get("app_language"));
-        Assert.Equal("Language", service["settings.language"]);
+        Assert.Equal("Display language", service["settings.language"]);
         Assert.Equal("Version 1.2", service.Get("settings.version", "1.2"));
         Assert.Equal(1, changes);
 
         service.SetLanguage(AppLanguage.ChineseSimplified);
         Assert.Equal("zh-CN", settings.Get("app_language"));
-        Assert.Equal("应用语言", service["settings.language"]);
+        Assert.Equal("显示语言", service["settings.language"]);
         Assert.Equal(2, changes);
 
         service.SetLanguage(AppLanguage.System);
@@ -43,4 +45,5 @@ public sealed class LocalizationServiceTests
         public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
         public Dictionary<string, string> GetAll() => new(_values);
     }
+
 }

@@ -5,13 +5,15 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Window")]
 public sealed class MacWindowChromeTests
 {
     private const string LibObjC = "/usr/lib/libobjc.A.dylib";
     private static readonly MethodInfo GetRect = typeof(MacWindowChrome).GetMethod(
         "GetRect", BindingFlags.Static | BindingFlags.NonPublic)!;
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData(-13.5, 27.25, 640.5, 480.75)]
     [InlineData(0, 0, 1, 2)]
     public void NativeRectangleReturnPreservesAllFourDoubles(double x, double y, double width, double height)
@@ -35,7 +37,7 @@ public sealed class MacWindowChromeTests
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void NilRectangleReceiverReturnsZeroWithoutNativeDispatch()
     {
         var result = GetRect.Invoke(null, [IntPtr.Zero, "bounds"])!;
@@ -60,4 +62,5 @@ public sealed class MacWindowChromeTests
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr Send(IntPtr receiver, IntPtr selector);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern void SendVoid(IntPtr receiver, IntPtr selector);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr ValueWithRect(IntPtr receiver, IntPtr selector, NativeRect rect);
+
 }

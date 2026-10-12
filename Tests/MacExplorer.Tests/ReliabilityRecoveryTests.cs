@@ -7,12 +7,14 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "ReliabilityRecovery")]
 public sealed class ReliabilityRecoveryTests : IDisposable
 {
     private readonly string _root = Path.Combine(RuntimePaths.TestRoot ?? "/private/tmp", "fk-recovery-" + Guid.NewGuid().ToString("N"));
     public ReliabilityRecoveryTests() => Directory.CreateDirectory(_root);
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task DisablePersistenceFailureStillStopsNetworkAndRetrySurvivesReload()
     {
         var factory = new DatabaseConnectionFactory(Path.Combine(_root, "settings.db"));
@@ -42,6 +44,7 @@ public sealed class ReliabilityRecoveryTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void RestoreSaveFailureEntersUnauthorizedThenRetriesAndClosesOldScopes()
     {
         var store = Path.Combine(_root, "grants.json"); var backend = new Bookmarks();
@@ -61,9 +64,10 @@ public sealed class ReliabilityRecoveryTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void UnreadableRecordAndMalformedBackupFailureNeverOverwriteOriginal()
     {
-        if (OperatingSystem.IsWindows()) return;
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Requires Unix filesystem semantics.");
         var store = Path.Combine(_root, "grants.json"); var backend = new Bookmarks();
         File.WriteAllText(store, "invalid original");
         var directoryMode = File.GetUnixFileMode(_root);
@@ -95,6 +99,7 @@ public sealed class ReliabilityRecoveryTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void InvalidJsonIsPreservedUntilExplicitReauthorization()
     {
         var store = Path.Combine(_root, "invalid.json"); File.WriteAllText(store, "original invalid JSON");
@@ -116,4 +121,5 @@ public sealed class ReliabilityRecoveryTests : IDisposable
         public string RealPath(string path) => Path.GetFullPath(path);
     }
     public void Dispose() => Directory.Delete(_root, true);
+
 }

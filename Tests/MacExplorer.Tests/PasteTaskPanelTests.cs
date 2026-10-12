@@ -9,9 +9,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "PasteTaskPanel")]
 public sealed class PasteTaskPanelTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TaskPanelDisplaysCopyProgressCancellationAndFailureDetails()
     {
         var manager = new BackgroundTaskManager();
@@ -39,4 +41,5 @@ public sealed class PasteTaskPanelTests
         }
         finally { panel.Close(); }
     }
+
 }

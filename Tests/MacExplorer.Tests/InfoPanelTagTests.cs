@@ -17,15 +17,17 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "Integration")]
+[Trait("Area", "InfoPanelTag")]
+public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
     public async Task InfoPanelRemovesCustomTagsFromFinderAndKeepsOtherTags(bool dark, bool lastTag)
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
 
         var directory = Path.Combine(Path.GetTempPath(), "fkfinder-info-tags-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -133,7 +135,11 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    private static async Task SeedFinderTagsAsync(string path, string[] tags)
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static async Task SeedFinderTagsAsync(string path, string[] tags)
     {
         var plist = new XDocument(new XElement("plist", new XAttribute("version", "1.0"),
             new XElement("array", tags.Select(tag => new XElement("string", tag)))));
@@ -144,4 +150,5 @@ public sealed partial class FileListViewModelCreateTests
         await process.WaitForExitAsync(TestContext.Current.CancellationToken);
         Assert.Equal(0, process.ExitCode);
     }
+
 }

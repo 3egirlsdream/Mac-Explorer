@@ -104,7 +104,8 @@ public partial class FileListView
     }
 
     private FileSystemEntry? EntryAtPointer(PointerEventArgs e)
-        => FastListActive && IsWithinVisual(e.Source as Visual, FastList)
+        => FastListActive && (IsWithinVisual(e.Source as Visual, FastList)
+            || e.Source?.GetType().FullName == "Avalonia.Controls.Primitives.LightDismissOverlayLayer")
             ? FastList.EntryAt(e.GetPosition(FastList))
             : null;
 

@@ -19,9 +19,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Markdown")]
 public sealed class MarkdownPreviewTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void CodeBlockCopyButtonUsesTheAppIconButton()
     {
         var view = new MarkdownPreviewView();
@@ -111,4 +113,5 @@ public sealed class MarkdownPreviewTests
             Assert.IsAssignableFrom<ISolidColorBrush>(expected).Color,
             Assert.IsAssignableFrom<ISolidColorBrush>(actual).Color);
     }
+
 }

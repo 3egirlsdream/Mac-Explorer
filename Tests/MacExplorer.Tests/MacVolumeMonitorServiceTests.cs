@@ -3,6 +3,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "MacVolumeMonitorService")]
 public sealed class MacVolumeMonitorServiceTests
 {
     [Theory]
@@ -27,4 +29,5 @@ public sealed class MacVolumeMonitorServiceTests
     {
         Assert.True(MacVolumeMonitorService.ShouldShowInSidebar(name));
     }
+
 }

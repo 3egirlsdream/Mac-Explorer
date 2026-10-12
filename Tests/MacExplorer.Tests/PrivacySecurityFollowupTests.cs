@@ -10,6 +10,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "PrivacySecurityFollowup")]
 public sealed class PrivacySecurityFollowupTests : IDisposable
 {
     private readonly string _root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "security-" + Guid.NewGuid().ToString("N"));
@@ -17,6 +18,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     public PrivacySecurityFollowupTests() => Directory.CreateDirectory(_root);
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CopilotRevocationBlocksAnExistingTransportAndRequiresFreshConsent()
     {
         var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings());
@@ -37,6 +39,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void FailedPrivacyPersistenceReportsFailureBlocksCurrentSharingAndCanRetry()
     {
         var factory = new DatabaseConnectionFactory(Path.Combine(_root, "privacy-settings.db"));
@@ -71,6 +74,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void PhotoConsentDefaultsOffRevokesExistingLeaseAndDoesNotReviveOldHelpers()
     {
         var settings = new PluginTestEnvironment.MemorySettings();
@@ -95,7 +99,8 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
         Assert.False(new PhotoLocationConsent(settings, path).Enabled);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task SwiftNetworkEntryChecksLiveLeaseBeforeCallingGeocoder()
     {
         var source = await File.ReadAllTextAsync(Path.Combine(PluginTestEnvironment.Repository, "Platforms/MacOS/ImageAnalysisHelper.swift"), Token);
@@ -124,7 +129,8 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
         Assert.Equal("0", (await Run(executable, ["fixture", "--location-consent", path + "-missing", "lease-a"])).Output.Trim());
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task NativeHelperRetainsLocalGpsCameraAndOcrWithoutNetworkPermission()
     {
         using var access = new DirectoryAccess(Path.Combine(_root, "access.json"), true, internalRoots: [_root]);
@@ -140,6 +146,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task Aes256ZipRoundTripsChineseNamesAndDuplicateSourcesThroughSharpCompress()
     {
         using var access = new DirectoryAccess(Path.Combine(_root, "access.json"), true, internalRoots: [_root]);
@@ -170,6 +177,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task LegacyDotNetZipAes256PackageStillExtracts()
     {
         using var access = new DirectoryAccess(Path.Combine(_root, "access.json"), true, internalRoots: [_root]);
@@ -181,7 +189,8 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
         Assert.Equal("legacy AES256 中文 fixture", File.ReadAllText(Path.Combine(destination, "中文目录/旧照片.txt")));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task CancellationDuringEncryptedFileWriteRemovesPartialArchive()
     {
         using var access = new DirectoryAccess(Path.Combine(_root, "access.json"), true, internalRoots: [_root]);
@@ -197,6 +206,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task HostTrustRequiresConsentPersistsAndRejectsChangedKeyWithoutOverwriting()
     {
         var path = Path.Combine(_root, "known.json"); var store = new SftpHostKeyStore(path);
@@ -220,6 +230,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CancelledConfirmationAndFailedTrustPersistenceCannotSaveTrust()
     {
         var path = Path.Combine(_root, "known.json"); var store = new SftpHostKeyStore(path);
@@ -236,6 +247,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SaveAndDeleteFailuresKeepPreviousConfigCredentialAndOtherServers()
     {
         var path = Path.Combine(_root, "servers.json"); var credentials = new MemoryCredentials();
@@ -256,6 +268,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void FailedLegacyMigrationShowsRetryStateAndRetainsAllSecrets()
     {
         var path = Path.Combine(_root, "servers.json");
@@ -269,6 +282,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void UnreadableConfigOrHostTrustCannotBeSilentlyOverwritten()
     {
         var path = Path.Combine(_root, "servers.json"); File.WriteAllText(path, "invalid fixture");
@@ -312,4 +326,5 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
         public void Delete(string account) { if (FailDelete) throw new UnauthorizedAccessException("Database delete failure fixture"); _values.Remove(account); }
     }
     public void Dispose() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
+
 }

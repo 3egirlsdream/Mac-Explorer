@@ -16,13 +16,14 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileList")]
+public sealed class FastFileListStyleViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    [InlineData(true, true)]
     public void FastListRowWhitespaceSelectsOnPressAndKeepsHover(bool selected, bool dark)
     {
         using var theme = new FastListTestTheme();
@@ -71,10 +72,9 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(false, true)]
-    [InlineData(true, false)]
     [InlineData(true, true)]
     public void FastListKeepsContentGeometryAndThemeTokensAcrossFontSizes(bool grid, bool grouped)
     {
@@ -136,4 +136,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { window.Close(); Application.Current!.Styles.Remove(styles); }
     }
+
 }

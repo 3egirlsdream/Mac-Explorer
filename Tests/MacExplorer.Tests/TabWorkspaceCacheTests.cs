@@ -14,9 +14,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "TabWorkspaceCache")]
+public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TabCacheReusesAttachedListAndScrollWithoutReadingDirectory()
     {
         using var theme = new FastListTestTheme();
@@ -49,7 +51,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(offset, list.Offset.Y);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TabCacheRetainsLoadedThumbnailsAndReleasesThemOnEviction()
     {
         using var theme = new FastListTestTheme();
@@ -86,7 +88,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(0, images.PendingCount);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TabCacheLargeDirectorySwitchKeepsRowsAndDoesNotEnumerate()
     {
         using var theme = new FastListTestTheme();
@@ -107,7 +109,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(reads, fixture.Files.EnumerateDirectoryCallCount);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TabCacheEvictsLeastRecentAndRestoresItsAnchor()
     {
         using var theme = new FastListTestTheme();
@@ -137,7 +139,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(first.FileList.Entries[30].FullPath, Assert.Single(first.FileList.SelectedEntries).FullPath);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TabCacheProtectsVisiblePanesAndHonorsRecentActivation()
     {
         using var theme = new FastListTestTheme();
@@ -162,7 +164,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(2, fixture.Workspaces.Values.Count(view => view.IsVisible));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TabCacheShowsTargetBeforeOldPreviewReleaseAndClosesCachedTabs()
     {
         using var theme = new FastListTestTheme();
@@ -191,21 +193,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { release.TrySetResult(); }
     }
 
-    public static IEnumerable<object[]> CachedPaneLayouts()
-    {
-        foreach (var layout in new[]
-                 {
-                     PaneLayout.TwoColumns,
-                     PaneLayout.MainLeftTwoRowsRight,
-                     PaneLayout.FourGrid
-                 })
-        {
-            yield return [layout, 0];
-            yield return [layout, MainWindowViewModel.GetPaneCount(layout) - 1];
-        }
-    }
-
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [MemberData(nameof(CachedPaneLayouts))]
     public async Task TabCacheReturningToSinglePaneFillsWindowAndRestoresSidebar(PaneLayout layout, int activeIndex)
     {
@@ -233,7 +221,25 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    private sealed class TabCacheFixture : IAsyncDisposable
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    public static IEnumerable<object[]> CachedPaneLayouts()
+    {
+        foreach (var layout in new[]
+                 {
+                     PaneLayout.TwoColumns,
+                     PaneLayout.MainLeftTwoRowsRight,
+                     PaneLayout.FourGrid
+                 })
+        {
+            yield return [layout, 0];
+            yield return [layout, MainWindowViewModel.GetPaneCount(layout) - 1];
+        }
+    }
+
+    protected sealed class TabCacheFixture : IAsyncDisposable
     {
         private readonly IServiceProvider _previousServices;
         private readonly ServiceProvider _services;
@@ -298,4 +304,5 @@ public sealed partial class FileListViewModelCreateTests
             _services.Dispose();
         }
     }
+
 }

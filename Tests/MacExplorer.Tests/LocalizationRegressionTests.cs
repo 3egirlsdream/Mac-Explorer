@@ -17,6 +17,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Localization")]
 public sealed class LocalizationRegressionTests
 {
     [Theory]
@@ -26,10 +27,12 @@ public sealed class LocalizationRegressionTests
     [InlineData("zh-Hant", AppLanguage.ChineseSimplified)]
     [InlineData("fr-FR", AppLanguage.ChineseSimplified)]
     [InlineData(null, AppLanguage.ChineseSimplified)]
+    [Trait("Kind", "Unit")]
     public void SystemPreferenceMappingUsesTheSupportedLanguages(string? preferred, AppLanguage expected)
         => Assert.Equal(expected, LocalizationService.MapSystemLanguage(preferred));
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void FirstLaunchFollowsSystemAndPersistedOverrideSurvivesRecreation()
     {
         var settings = new MemorySettings();
@@ -47,7 +50,8 @@ public sealed class LocalizationRegressionTests
         Assert.Equal("unknown.key", reopened["unknown.key"]);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void MarkupBindingUpdatesMultipleWindowsAndAccessibilityWithoutDataContext()
     {
         using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
@@ -61,23 +65,24 @@ public sealed class LocalizationRegressionTests
         first.Bind(Window.TitleProperty, (Binding)extension.ProvideValue(null!));
         second.Bind(Window.TitleProperty, (Binding)extension.ProvideValue(null!));
         button.Bind(Avalonia.Automation.AutomationProperties.NameProperty, (Binding)extension.ProvideValue(null!));
-        Assert.Equal("应用语言", first.Title);
+        Assert.Equal("显示语言", first.Title);
         language.SetLanguage(AppLanguage.English);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("Language", first.Title);
-        Assert.Equal("Language", second.Title);
-        Assert.Equal("Language", Avalonia.Automation.AutomationProperties.GetName(button));
+        Assert.Equal("Display language", first.Title);
+        Assert.Equal("Display language", second.Title);
+        Assert.Equal("Display language", Avalonia.Automation.AutomationProperties.GetName(button));
         Assert.Equal(BindingMode.OneWay, ((Binding)extension.ProvideValue(null!)).Mode);
         Assert.Equal("en-US", I18nManager.Instance.Culture.Name);
         language.SetLanguage(AppLanguage.ChineseSimplified);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("应用语言", second.Title);
+        Assert.Equal("显示语言", second.Title);
         Assert.Equal("zh-CN", I18nManager.Instance.Culture.Name);
         first.Close();
         second.Close();
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void DatesAndStatusUseInterfaceCultureEvenInAnOlderExecutionContext()
     {
         using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
@@ -93,7 +98,8 @@ public sealed class LocalizationRegressionTests
         }, null);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void AlreadyDrawnFileRowsDiscardOldCultureText()
     {
         using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
@@ -115,6 +121,7 @@ public sealed class LocalizationRegressionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void EveryResourceHasMatchingPlaceholderIndicesAndValidCompositeFormat()
     {
         Assert.Equal(LocalizationCatalog.Zh.Keys.Order(), LocalizationCatalog.En.Keys.Order());
@@ -133,6 +140,7 @@ public sealed class LocalizationRegressionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void PluginCultureIsAdditiveToApiV1AndOldRequestsDefaultToChinese()
     {
         var old = JsonSerializer.Deserialize<PluginInvocation>("""
@@ -147,6 +155,7 @@ public sealed class LocalizationRegressionTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ConcurrentConversionInvocationsKeepTheirOwnWarningsAndRestoreCulture()
     {
         var original = CultureInfo.CurrentUICulture;
@@ -172,7 +181,8 @@ public sealed class LocalizationRegressionTests
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task NativeConversionErrorsUseInvocationLanguage()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-native-language-" + Guid.NewGuid().ToString("N"));
@@ -198,4 +208,5 @@ public sealed class LocalizationRegressionTests
         public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
         public Dictionary<string, string> GetAll() => new(_values);
     }
+
 }

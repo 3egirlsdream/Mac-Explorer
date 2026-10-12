@@ -11,9 +11,12 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Smoke", "UI")]
+[Trait("Area", "FileList")]
 public sealed class FastFileListLayoutTests
 {
     [AvaloniaFact]
+    [Trait("Kind", "UI")]
     public void LargeGridDoesNotShapeOffscreenNamesAndReservesTwoLines()
     {
         using var theme = new FastListTestTheme();
@@ -41,6 +44,7 @@ public sealed class FastFileListLayoutTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public void GroupHeadersHitTestingScrollingAndResizeShareFileGeometry(bool grid)
     {
         using var theme = new FastListTestTheme();
@@ -89,6 +93,7 @@ public sealed class FastFileListLayoutTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void VariableGridRowsKeepHeadersGapsAndViewportBoundariesAligned()
     {
         var layout = new FastFileListLayout();
@@ -109,6 +114,7 @@ public sealed class FastFileListLayoutTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void GridVerticalNavigationCrossesPartialGroupRowsWithoutSelectingHeaders()
     {
         var layout = new FastFileListLayout();
@@ -125,6 +131,7 @@ public sealed class FastFileListLayoutTests
     }
 
     [AvaloniaFact]
+    [Trait("Kind", "UI")]
     public async Task VirtualCoverLoadsWithoutCallingLocalThumbnailProviderForSentinelPaths()
     {
         var images = new FastFileListImages();
@@ -149,4 +156,5 @@ public sealed class FastFileListLayoutTests
         }
         finally { images.Clear(); }
     }
+
 }

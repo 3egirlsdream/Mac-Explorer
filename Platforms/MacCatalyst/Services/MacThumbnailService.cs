@@ -55,6 +55,7 @@ public class MacThumbnailService : IThumbnailService
     private static readonly TimeSpan NativeImageTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan RawDecodeTimeout = TimeSpan.FromSeconds(30);
     private static readonly SemaphoreSlim RawDecodeGate = new(1, 1);
+    internal event Action? RawDecodeQueued;
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
     private readonly ConcurrentQueue<string> _cacheOrder = new();
     private readonly ConcurrentDictionary<string, DateTime> _failedThumbnails = new();
@@ -405,7 +406,9 @@ public class MacThumbnailService : IThumbnailService
         }
 
         if (result != null) return result;
-        await RawDecodeGate.WaitAsync(ct).ConfigureAwait(false);
+        var rawSlot = RawDecodeGate.WaitAsync(ct);
+        RawDecodeQueued?.Invoke();
+        await rawSlot.ConfigureAwait(false);
         try
         {
             // RAW queue time does not consume its budget or a normal image slot.

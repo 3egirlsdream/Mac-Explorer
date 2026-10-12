@@ -4,11 +4,13 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Thumbnail")]
 public sealed class NativeImageThumbnailTests : IDisposable
 {
     private readonly string _root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "fkfinder-image-helper-" + Guid.NewGuid().ToString("N"))).FullName;
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task ImageAndFaceModesResizeAndSelectVisionCoordinates()
     {
         var source = Path.Combine(_root, "中文 image.png");
@@ -35,7 +37,7 @@ public sealed class NativeImageThumbnailTests : IDisposable
         Assert.True(File.Exists(source));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task ImageModeAppliesExifOrientation()
     {
         var source = Path.Combine(_root, "rotated.jpg");
@@ -69,4 +71,5 @@ public sealed class NativeImageThumbnailTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_root, true);
+
 }

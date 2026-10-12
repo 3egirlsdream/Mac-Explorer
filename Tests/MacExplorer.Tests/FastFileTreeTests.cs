@@ -8,9 +8,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "FastFileTree")]
 public sealed class FastFileTreeTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TreeDisclosureAndIndentedNamesUseVisibleRowGeometry()
     {
         var parent = new FileSystemEntry { FullPath = "/tree/parent", Name = "parent", IsDirectory = true };
@@ -39,7 +41,7 @@ public sealed class FastFileTreeTests
         Assert.Equal(-1, list.TreeDisclosureIndexAt(new Point(21, 15)));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void NarrowDarkTreeKeepsDisclosureAndNameInsideViewport()
     {
         var folder = new FileSystemEntry { FullPath = "/tree/parent", Name = "很长的文件夹名称", IsDirectory = true };
@@ -59,4 +61,5 @@ public sealed class FastFileTreeTests
         Assert.InRange(list.NameBounds(1).Right, 1, 420);
         Assert.Equal(2, list.LastRenderedRowCount);
     }
+
 }

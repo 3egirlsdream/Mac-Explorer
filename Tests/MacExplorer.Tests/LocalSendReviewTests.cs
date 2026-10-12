@@ -22,7 +22,8 @@ namespace MacExplorer.Tests;
 [CollectionDefinition("LocalSend review", DisableParallelization = true)]
 public sealed class LocalSendReviewCollection { }
 
-[Collection("LocalSend review")]
+[Trait("Kind", "Integration")]
+[Trait("Area", "LocalSend")]
 public sealed class LocalSendReviewTests : IAsyncLifetime
 {
     private readonly string? _oldRoot = Environment.GetEnvironmentVariable(RuntimePaths.TestRootVariable);
@@ -69,7 +70,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         }
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("foreign-ids")]
     [InlineData("null-map")]
     [InlineData("empty-token")]
@@ -94,7 +95,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         Assert.Equal("review-session", Assert.Single(peer.Cancellations));
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ValidFullAndPartialAcceptanceKeepExistingSemantics(bool partial)
@@ -114,7 +115,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         Assert.Empty(peer.Cancellations);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task NoContentPreparationStillCompletesWithoutUploading()
     {
         var peer = await StartPeerAsync(Results.NoContent());
@@ -125,7 +126,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         Assert.Empty(peer.Cancellations);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task OversizedPreparationReplyDoesNotStartUploading()
     {
         var peer = await StartPeerAsync(Results.Json(new
@@ -141,7 +142,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         Assert.Empty(peer.Uploads);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task ReplyBudgetDoesNotLimitTheUploadedFileSize()
     {
         var path = Path.Combine(_root, "Documents", "large.bin");
@@ -158,7 +159,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         Assert.Equal(SHA256.HashData(bytes), SHA256.HashData(Assert.Single(peer.Uploads).Value));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task CancelledConfirmationCannotPublishALateAcceptedDecision()
     {
         var target = Path.Combine(_root, "cancelled-receive");
@@ -184,7 +185,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, cleanup.StatusCode);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task CompletedFileCannotBeUploadedAgainWhileAnotherFileIsPending()
     {
         using var prepare = await _client.PostAsJsonAsync(Url("prepare-upload"), ReceiveBody(), TestContext.Current.CancellationToken);
@@ -273,4 +274,5 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
         public Dictionary<string, string> GetAll() => new(_values);
     }
+
 }

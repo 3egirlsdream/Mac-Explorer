@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileTagService")]
 public sealed class FileTagServiceTests : IDisposable
 {
     private readonly string _databasePath = Path.Combine(
@@ -116,4 +118,5 @@ public sealed class FileTagServiceTests : IDisposable
             FileTag tag,
             CancellationToken cancellationToken = default) => Task.FromResult(paths);
     }
+
 }

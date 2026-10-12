@@ -4,7 +4,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class WindowPlacementMathTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "Window")]
+public sealed class WindowPlacementMathTests
 {
     [Fact]
     public void ValidPlacementKeepsLogicalSizeAndPosition()
@@ -62,4 +64,5 @@ public class WindowPlacementMathTests
         var centered = WindowPlacementMath.Center(1280, 800, false, new PixelRect(0, 0, 1920, 1080), 1, 1000, 680);
         Assert.Equal(new PixelPoint(320, 140), centered.Position);
     }
+
 }

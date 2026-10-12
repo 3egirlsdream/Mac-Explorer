@@ -12,6 +12,7 @@ public class OpenWithApp
 
 public class AppListItem
 {
+    public IReadOnlyList<string> Names { get; set; } = [];
     public string Name { get; set; } = "";
     public string BundleId { get; set; } = "";
     public string AppPath { get; set; } = "";

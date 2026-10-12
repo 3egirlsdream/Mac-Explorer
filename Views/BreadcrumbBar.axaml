@@ -240,14 +240,18 @@
                                 <Grid ColumnDefinitions="32,*"
                                       Background="Transparent"
                                       Tapped="OnSuggestionTapped">
-                                    <Border Width="28" Height="28" CornerRadius="6"
-                                            Background="{DynamicResource ColorBgHover}">
-                                        <PathIcon Data="{Binding IconData}"
-                                                  Width="15" Height="15"
-                                                  Foreground="{Binding IconColor}"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"/>
-                                    </Border>
+                                    <Grid Width="28" Height="28">
+                                        <Border CornerRadius="6" IsVisible="{Binding !HasIconImage}"
+                                                Background="{DynamicResource ColorBgHover}">
+                                            <PathIcon Data="{Binding IconData}"
+                                                      Width="15" Height="15"
+                                                      Foreground="{Binding IconColor}"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                        </Border>
+                                        <Image Source="{Binding IconImage}" IsVisible="{Binding HasIconImage}"
+                                               Width="28" Height="28" Stretch="Uniform"/>
+                                    </Grid>
                                     <StackPanel Grid.Column="1" Margin="8,0,4,0"
                                                 VerticalAlignment="Center" Spacing="1">
                                         <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeBody}"

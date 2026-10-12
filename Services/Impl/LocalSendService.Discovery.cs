@@ -73,7 +73,7 @@ public sealed partial class LocalSendService
             {
                 int version;
                 lock (_discoveryLock) version = _networkChangeVersion;
-                await Task.Delay(500, token);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), _timeProvider, token);
                 lock (_discoveryLock)
                     if (version != _networkChangeVersion) continue;
                 await RejoinDiscoveryAsync();
@@ -194,7 +194,7 @@ public sealed partial class LocalSendService
             try { return await DiscoverGenerationAsync(cancellationToken, onDevicesChanged); }
             catch (OperationCanceledException) when (onDevicesChanged != null
                 && !cancellationToken.IsCancellationRequested && Enabled && !_disposed)
-            { await Task.Delay(100, cancellationToken); }
+            { await Task.Delay(TimeSpan.FromMilliseconds(100), _timeProvider, cancellationToken); }
         }
     }
 
@@ -208,7 +208,7 @@ public sealed partial class LocalSendService
         RefreshKnown(state);
         using var total = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, state.Token);
         var previous = "\0";
-        var until = onDevicesChanged == null ? DateTime.UtcNow + TimeSpan.FromSeconds(2) : DateTime.MaxValue;
+        var until = onDevicesChanged == null ? UtcNow + TimeSpan.FromSeconds(2) : DateTime.MaxValue;
         do
         {
             total.Token.ThrowIfCancellationRequested();
@@ -221,8 +221,8 @@ public sealed partial class LocalSendService
                 total.Token.ThrowIfCancellationRequested();
                 onDevicesChanged?.Invoke(snapshot);
             }
-            if (DateTime.UtcNow >= until) return snapshot;
-            await Task.Delay(200, total.Token);
+            if (UtcNow >= until) return snapshot;
+            await Task.Delay(TimeSpan.FromMilliseconds(200), _timeProvider, total.Token);
         } while (true);
     }
 
@@ -292,7 +292,7 @@ public sealed partial class LocalSendService
     private async Task<LocalSendDevice> ConnectByAddressUnderGateAsync(DiscoveryState state, string address, int port,
         CancellationToken cancellationToken)
     {
-        var attemptStarted = DateTime.UtcNow;
+        var attemptStarted = UtcNow;
         string? certificateFingerprint = null;
         var handler = new SocketsHttpHandler
         {
@@ -339,11 +339,11 @@ public sealed partial class LocalSendService
 
     private async Task<bool> ProbePeerAsync(DiscoveryState state, LocalSendDevice peer, CancellationToken cancellationToken)
     {
-        var attemptStarted = DateTime.UtcNow;
+        var attemptStarted = UtcNow;
         try
         {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, state.Token);
-            timeout.CancelAfter(TimeSpan.FromSeconds(4));
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(4), _timeProvider);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, state.Token, deadline.Token);
             await _httpProbeGate.WaitAsync(timeout.Token);
             RecordPeak(ref _peakHttp, Interlocked.Increment(ref _httpInFlight));
             try
@@ -410,7 +410,7 @@ public sealed partial class LocalSendService
             if (!ReferenceEquals(_discovery, state) || state.Token.IsCancellationRequested) return false;
             if (_peers.TryGetValue(peer.Fingerprint, out var current) && current.Seen > attemptStarted
                 && (current.Device.Address != peer.Address || current.Device.Port != peer.Port)) return false;
-            _peers[peer.Fingerprint] = (peer, DateTime.UtcNow);
+            _peers[peer.Fingerprint] = (peer, UtcNow);
             if (_peers.Count > 128)
             {
                 var oldest = _peers.OrderBy(item => item.Value.Seen).First();
@@ -432,11 +432,11 @@ public sealed partial class LocalSendService
             if (candidate != null)
             {
                 candidate.Device = peer;
-                candidate.LastSuccess = DateTime.UtcNow;
+                candidate.LastSuccess = UtcNow;
                 candidate.Failures = 0;
-                candidate.NormalNextAttempt = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+                candidate.NormalNextAttempt = UtcNow + TimeSpan.FromSeconds(60);
                 candidate.NextAttempt = FastKnown(state, candidate)
-                    ? DateTime.UtcNow + TimeSpan.FromSeconds(5) : candidate.NormalNextAttempt;
+                    ? UtcNow + TimeSpan.FromSeconds(5) : candidate.NormalNextAttempt;
             }
             return true;
         }

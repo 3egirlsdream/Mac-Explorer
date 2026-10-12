@@ -9,9 +9,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileDelivery")]
+public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryPanelLoadsSharedStylesAndSwitchesEntriesWithoutChangingMainList()
     {
         using var fixture = new FileDeliveryTests.Fixture();
@@ -39,7 +41,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryAddMenuReferencesExistingFavoriteAndReloadsRenamedChoices()
     {
         using var fixture = new FileDeliveryTests.Fixture();
@@ -73,7 +75,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryTabsShowLocationAndTagIcons()
     {
         using var fixture = new FileDeliveryTests.Fixture();
@@ -110,7 +112,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryTabDeleteRemovesOnlyTheEntryAndClosesItsMenu()
     {
         using var fixture = new FileDeliveryTests.Fixture();
@@ -147,7 +149,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryBrowseModeBlocksMutationCommandsAndMenus()
     {
         var files = new FakeFileService("/tmp/DeliveryTests");
@@ -180,7 +182,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(DragDropEffects.Copy | DragDropEffects.Move, new FileListView { DataContext = normal }.AllowedDragEffects);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(Key.Back, KeyModifiers.Meta)]
     [InlineData(Key.Delete, KeyModifiers.None)]
     [InlineData(Key.F2, KeyModifiers.None)]
@@ -197,7 +199,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(vm.IsDeleteConfirmDialogVisible);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryOpensFilesInPreviewAndRejectsVirtualNavigation()
     {
         var preview = new DeliveryPreview();
@@ -210,7 +212,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(before, vm.CurrentPath);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task DeliveryHiddenListDoesNotRefreshOnDirectoryNotification()
     {
         var files = new FakeFileService("/tmp/DeliveryTests");
@@ -223,9 +225,14 @@ public sealed partial class FileListViewModelCreateTests
         Assert.True(files.EnumerateDirectoryCallCount > 0);
     }
 
-    private sealed class DeliveryPreview : IQuickLookService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class DeliveryPreview : IQuickLookService
     {
         public string? Path { get; private set; }
         public Task PreviewFileAsync(string filePath) { Path = filePath; return Task.CompletedTask; }
     }
+
 }

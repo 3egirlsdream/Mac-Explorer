@@ -1212,31 +1212,37 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var parentPath = Path.GetDirectoryName(entry.FullPath);
-        if (string.IsNullOrEmpty(parentPath) || !Directory.Exists(parentPath))
-            return;
+        await RevealEntryInParentAsync(entry);
+    }
 
-        var canReuseCurrentDirectory =
-            string.Equals(_navigation.CurrentPath, parentPath, StringComparison.Ordinal)
-            && !_navigation.IsSearchMode
-            && !_navigation.IsAiView
-            && !_navigation.IsArchiveView
-            && !_navigation.IsRemoteView;
-        if (canReuseCurrentDirectory)
+    public async Task RevealEntryInParentAsync(FileSystemEntry entry)
+    {
+        var parentPath = Path.GetDirectoryName(entry.FullPath);
+        if (entry.IsVirtual || string.IsNullOrEmpty(parentPath)
+            || !Directory.Exists(parentPath) || (!File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath)))
         {
-            var target = Entries.FirstOrDefault(candidate =>
-                string.Equals(candidate.FullPath, entry.FullPath, StringComparison.Ordinal));
-            if (target != null)
-            {
-                SetSelection([target], target);
-                ScrollToSelectionRequested?.Invoke();
-                return;
-            }
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("项目或所在目录已不存在");
+            return;
         }
 
-        PendingSelectFileName = entry.Name;
-        ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
-        await NavigateToAsync(parentPath);
+        if (!string.Equals(CurrentPath, parentPath, StringComparison.Ordinal)
+            || IsSearchMode || IsAiView || IsArchiveView || IsRemoteView
+            || !Entries.Any(candidate => string.Equals(candidate.FullPath, entry.FullPath, StringComparison.Ordinal)))
+            await NavigateToAsync(parentPath);
+
+        if (!string.Equals(CurrentPath, parentPath, StringComparison.Ordinal) || IsSearchMode
+            || !string.IsNullOrEmpty(ReadErrorMessage))
+            return;
+        var target = Entries.FirstOrDefault(candidate =>
+            string.Equals(candidate.FullPath, entry.FullPath, StringComparison.Ordinal));
+        if (target == null || (!File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath)))
+        {
+            ClearSelection();
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("项目或所在目录已不存在");
+            return;
+        }
+        SetSelection([target], target);
+        ScrollToSelectionRequested?.Invoke();
     }
 
     [RelayCommand]
@@ -2256,7 +2262,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             actions.Add(new ContextMenuAction
             {
-                Label = MacExplorer.Services.Impl.LocalizationText.Get("发送到"),
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("发送"),
                 IconSvg = Icons.Send,
                 SubItems =
                 [
@@ -2316,6 +2322,22 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ShortcutId = ShortcutIds.CopyPath,
             Execute = () => _clipboardService?.CopyTextAsync(entry.FullPath) ?? Task.CompletedTask
         });
+
+        if (IsSearchMode && !_search.WasHomePageBeforeSearch && !entry.IsVirtual && !isRemote
+            && Path.IsPathFullyQualified(CurrentPath) && Path.IsPathFullyQualified(SearchScopePath)
+            && Path.IsPathFullyQualified(entry.FullPath)
+            && !string.Equals(Path.GetDirectoryName(entry.FullPath),
+                Path.TrimEndingDirectorySeparator(SearchScopePath), StringComparison.Ordinal)
+            && entry.FullPath.StartsWith(Path.EndsInDirectorySeparator(SearchScopePath)
+                    ? SearchScopePath : SearchScopePath + Path.DirectorySeparatorChar,
+                StringComparison.Ordinal))
+        {
+            actions.Add(new ContextMenuAction
+            {
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("打开文件所在目录"),
+                Execute = () => RevealEntryInParentAsync(entry)
+            });
+        }
 
         // Finder/Terminal actions (skip for remote paths)
         if (!isRemote)
@@ -2600,7 +2622,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         return new ContextMenuAction
         {
             Label = MacExplorer.Services.Impl.LocalizationText.Get("移动到"),
-            IconSvg = Icons.Folder,
             IsEnabled = isEnabled,
             SubItems = destinations
         };
@@ -3897,6 +3918,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.SearchQuery = query;
         _navigation.PushOrReplaceSearchHistory(query, searchRoot, wasHomePage, []);
         ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+        ClearSelection();
         IsLoading = true;
 
         try
@@ -3908,7 +3930,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 entries =>
                 {
                     ApplyEntries(entries);
-                    SelectedEntries.Clear();
                     _navigation.UpdateCurrentSearchResults(_sortFilter.RawEntries.ToArray());
                 },
                 msg => StatusText = msg

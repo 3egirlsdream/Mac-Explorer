@@ -6,6 +6,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Home")]
 public sealed class HomeGridContentTests
 {
     [Theory]
@@ -13,13 +14,15 @@ public sealed class HomeGridContentTests
     [InlineData(5, "5 分钟前")]
     [InlineData(120, "2 小时前")]
     [InlineData(2880, "2 天前")]
+    [Trait("Kind", "Unit")]
     public void AddedTimeUsesRelativeLabels(int minutes, string expected)
     {
         var now = DateTime.UtcNow;
         Assert.Equal(expected, HomeItemActions.FormatAddedTime(now.AddMinutes(-minutes), now));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void FileAndOverflowHoverSurfacesAreSquare()
     {
         var file = new Button { Classes = { "home-grid-item" } };
@@ -38,7 +41,8 @@ public sealed class HomeGridContentTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void DifferentImageShapesShareTheSameIconSlotAndLabelBaseline()
     {
         var labels = new List<TextBlock>();
@@ -53,4 +57,5 @@ public sealed class HomeGridContentTests
         }
         Assert.All(labels, label => Assert.Equal(labels[0].Bounds.Y, label.Bounds.Y));
     }
+
 }

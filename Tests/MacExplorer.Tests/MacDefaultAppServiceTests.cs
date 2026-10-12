@@ -4,7 +4,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class MacDefaultAppServiceTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "MacDefaultAppService")]
+public sealed class MacDefaultAppServiceTests
 {
     private const string AppId = "com.thankful.top.macexplorer";
     private const string FinderId = "com.apple.finder";
@@ -141,4 +143,5 @@ public class MacDefaultAppServiceTests
             Viewer = bundleId;
         }
     }
+
 }

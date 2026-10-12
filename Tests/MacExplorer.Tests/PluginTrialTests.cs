@@ -7,7 +7,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class PluginTrialTests
+[Trait("Kind", "Integration")]
+[Trait("Area", "Plugin")]
+public sealed class PluginTrialTests
 {
     private static string Paid(PluginTestEnvironment env, string version, int days)
     {
@@ -22,7 +24,7 @@ public class PluginTrialTests
         return package;
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task TrialSurvivesUninstallRestartUpgradeAndClockRollback()
     {
         using var env = new PluginTestEnvironment();
@@ -44,7 +46,7 @@ public class PluginTrialTests
         Assert.False(restarted.GetTrial("test.fixture", true).Active);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task TrialStartsOnceUnderConcurrentRequests()
     {
         using var env = new PluginTestEnvironment(); await env.Manager.InstallAsync(Paid(env, "1.0.0", 3));
@@ -53,14 +55,14 @@ public class PluginTrialTests
         Assert.Single(results.Select(r => r.ExpiresAt).Distinct());
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void CorruptLedgerDoesNotGrantNewTrial()
     {
         using var env = new PluginTestEnvironment(); env.Settings.Set("plugin_trials_v1", "broken");
         Assert.Throws<JsonException>(() => env.Manager.GetTrial("test.fixture", true));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task PaidPluginWithoutAuthorizationInterfaceFailsClosed()
     {
         using var env = new PluginTestEnvironment(); await env.Manager.InstallAsync(Paid(env, "1.0.0", 7));
@@ -70,7 +72,7 @@ public class PluginTrialTests
         Assert.Equal(PluginAccessStatus.Failed, access.Status);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task MarketHashMismatchNeverInstalls()
     {
         using var env = new PluginTestEnvironment(); var bytes = await File.ReadAllBytesAsync(env.CreateFixture());
@@ -85,4 +87,5 @@ public class PluginTrialTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
             => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes), RequestMessage = request });
     }
+
 }

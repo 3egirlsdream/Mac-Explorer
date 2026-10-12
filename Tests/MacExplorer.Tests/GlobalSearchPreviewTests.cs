@@ -17,9 +17,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Search")]
+public sealed class GlobalSearchPreviewViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task GlobalSearchFixedPreviewTracksSelectionKeepsInputFocusAndReleasesOnClose(bool dark)
@@ -79,7 +81,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { root.Delete(true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task GlobalSearchLocateSelectsFileAndEnterStillLaunchesIt()
     {
         var root = Directory.CreateTempSubdirectory("FKFinder_SearchLocate_");
@@ -113,7 +115,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { root.Delete(true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task GlobalSearchFixedFolderUsesSharedContentListAndCommandsClearPreview()
     {
         var root = Directory.CreateTempSubdirectory("FKFinder_SearchFolder_");
@@ -142,7 +144,11 @@ public sealed partial class FileListViewModelCreateTests
         finally { root.Delete(true); }
     }
 
-    private static (TextBox Input, ListBox Results, Grid Row) ShowGlobalSearchResult(
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static (TextBox Input, ListBox Results, Grid Row) ShowGlobalSearchResult(
         MainWindow window, OmniboxSuggestion suggestion)
     {
         window.KeyPress(Key.K, RawInputModifiers.Meta, PhysicalKey.K, null);
@@ -160,4 +166,5 @@ public sealed partial class FileListViewModelCreateTests
             control => control.Classes.Contains("global-search-result"));
         return (input, results, row);
     }
+
 }

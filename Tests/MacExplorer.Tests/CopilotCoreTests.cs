@@ -7,9 +7,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Copilot")]
 public sealed class CopilotCoreTests
 {
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task StreamingDeltasProduceOneCompleteAssistantReply()
     {
         var deltas = new List<string>();
@@ -26,6 +28,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ToolBatchKeepsModelSpeechBeforeCallsAndSummaryAfterResults()
     {
         var trace = new CopilotRunTrace();
@@ -63,6 +66,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ReasoningDeltasRemainInTheirOwnStepAfterToolCalls()
     {
         var trace = new CopilotRunTrace();
@@ -88,6 +92,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void InterruptedToolBatchShowsFailureInsteadOfRunningForever()
     {
         var trace = new CopilotRunTrace();
@@ -105,6 +110,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task EveryRegisteredCapabilityHasUniqueIdAndMutationCannotUseReadEntry()
     {
         var registry = new AppCapabilityRegistry(null!, null!, null!, null!, null!, null!, null!, null!,
@@ -132,6 +138,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void CapabilitySearchFindsKnownIdsInMultiWordQueries()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fk-copilot-search-" + Guid.NewGuid().ToString("N"));
@@ -160,7 +167,8 @@ public sealed class CopilotCoreTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task PreviewReturnsSpecificFailureInsteadOfGenericToolError()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fk-copilot-preview-" + Guid.NewGuid().ToString("N"));
@@ -179,7 +187,8 @@ public sealed class CopilotCoreTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public void InstalledPluginCommandsAppearInCapabilityCatalog()
     {
         using var env = new PluginTestEnvironment();
@@ -192,6 +201,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ContentPagesCoverLongLinesWithoutLosingCharacters()
     {
         var path = Path.Combine(Path.GetTempPath(), "fk-copilot-content-" + Guid.NewGuid().ToString("N") + ".html");
@@ -217,6 +227,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ClassificationProposalOnlyAcceptsPathsFromTheSameSessionCandidateSet()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fk-copilot-classify-" + Guid.NewGuid().ToString("N"));
@@ -239,6 +250,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SessionDeletionAlsoRemovesTranscriptAndArtifacts()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fk-copilot-test-" + Guid.NewGuid().ToString("N"));
@@ -265,6 +277,7 @@ public sealed class CopilotCoreTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SessionListSwitchAndDeleteRestoreTheRemainingConversation()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fk-copilot-history-" + Guid.NewGuid().ToString("N"));
@@ -296,4 +309,5 @@ public sealed class CopilotCoreTests
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
     }
+
 }

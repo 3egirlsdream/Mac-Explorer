@@ -203,7 +203,7 @@ public sealed partial class LocalSendService
         var scopes = (ScanInterfacesOverride?.Invoke() ?? state.Interfaces).Select(item => item.Scope).Distinct(StringComparer.Ordinal)
             .OrderBy(item => item, StringComparer.Ordinal).ToArray();
         if (scopes.Length == 0) return;
-        var now = DateTime.UtcNow.Ticks;
+        var now = UtcNow.Ticks;
         lock (_discoveryLock)
         {
             if (!ReferenceEquals(_discovery, state) || state.Token.IsCancellationRequested) return;

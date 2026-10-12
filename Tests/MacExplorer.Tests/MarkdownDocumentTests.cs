@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Markdown")]
 public sealed class MarkdownDocumentTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "MacExplorer-Markdown-Tests-" + Guid.NewGuid().ToString("N"));
@@ -125,7 +127,7 @@ public sealed class MarkdownDocumentTests : IDisposable
     [Fact]
     public async Task SymbolicLinkIsPreservedOnSave()
     {
-        if (OperatingSystem.IsWindows()) return;
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Requires Unix filesystem semantics.");
         var target = FilePath("target.md");
         await File.WriteAllTextAsync(target, "original");
         var link = FilePath("link.md");
@@ -139,7 +141,7 @@ public sealed class MarkdownDocumentTests : IDisposable
     [Fact]
     public async Task RetargetedSymbolicLinkIsNotOverwritten()
     {
-        if (OperatingSystem.IsWindows()) return;
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Requires Unix filesystem semantics.");
         var first = FilePath("first.md");
         var second = FilePath("second.md");
         await File.WriteAllTextAsync(first, "same");
@@ -153,4 +155,5 @@ public sealed class MarkdownDocumentTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
+
 }

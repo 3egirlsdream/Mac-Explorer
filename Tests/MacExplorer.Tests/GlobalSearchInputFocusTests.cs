@@ -12,6 +12,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Search")]
 public sealed class GlobalSearchInputFocusTests
 {
     public static TheoryData<string> EmbeddedInputClasses => new()
@@ -67,7 +69,7 @@ public sealed class GlobalSearchInputFocusTests
         return snapshot;
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [MemberData(nameof(EmbeddedInputClasses))]
     public void EmbeddedInputKeepsItsGeometryWhenFocused(string inputClass)
     {
@@ -108,4 +110,5 @@ public sealed class GlobalSearchInputFocusTests
         Assert.True(changes.Count == 0,
             $"Focusing '{inputClass}' changed geometry:\n" + string.Join("\n", changes));
     }
+
 }

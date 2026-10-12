@@ -7,9 +7,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "StartupUpdate")]
 public sealed class StartupUpdateTests
 {
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("999.0.0", true)]
     [InlineData("0.0.0", false)]
     public async Task WorkerReturnsOnlyNewerVersionsWithoutInstalling(string version, bool available)
@@ -25,7 +27,7 @@ public sealed class StartupUpdateTests
         else Assert.Null(result);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task WorkerReportsConnectionFailureWithoutProducingAnUpdate()
     {
         using var http = new HttpClient(new VersionResponseHandler(null));
@@ -36,7 +38,7 @@ public sealed class StartupUpdateTests
         Assert.NotEmpty(error.ToString());
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task ChildActuallyRunsAtLowPriority()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
@@ -66,7 +68,7 @@ public sealed class StartupUpdateTests
         return int.Parse(output.Trim());
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task CancellingCheckStopsItsChildProcess()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
@@ -110,4 +112,5 @@ public sealed class StartupUpdateTests
             });
         }
     }
+
 }

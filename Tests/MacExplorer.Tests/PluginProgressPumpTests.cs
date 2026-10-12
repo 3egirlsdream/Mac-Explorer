@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Plugin")]
 public sealed class PluginProgressPumpTests
 {
     [Fact]
@@ -50,4 +52,5 @@ public sealed class PluginProgressPumpTests
         Assert.Equal("done", Assert.Single(applied).Message);
         Assert.Empty(queue);
     }
+
 }

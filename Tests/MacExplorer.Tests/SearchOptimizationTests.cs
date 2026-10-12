@@ -11,6 +11,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Search")]
 public sealed class SearchOptimizationTests
 {
     private static SearchEntry Entry(string path, string initials = "", bool directory = false, bool link = false)
@@ -49,6 +50,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ParserUsesAndTermsAndQuotedValues()
     {
         var q = SearchQuery.Parse("合同 2026 ext:pdf,PNG path:\"My Projects\" \"final version\"");
@@ -61,6 +63,7 @@ public sealed class SearchOptimizationTests
     [InlineData("ext:")]
     [InlineData("path:")]
     [InlineData("  ")]
+    [Trait("Kind", "Unit")]
     public void IncompleteOperatorsDoNotSearchEverything(string input) => Assert.True(SearchQuery.Parse(input).IsEmpty);
 
     [Theory]
@@ -68,10 +71,12 @@ public sealed class SearchOptimizationTests
     [InlineData("ht", null)]
     [InlineData("a", null)]
     [InlineData("😀中", null)]
+    [Trait("Kind", "Unit")]
     public void ShortUnicodeTermsUseLiteralFallback(string input, string? expected) =>
         Assert.Equal(expected, SearchQuery.Parse(input).GetTrigramExpression(true));
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void NamesFoldButPathIdentityDoesNot()
     {
         Assert.Equal(SearchQuery.Fold("café"), SearchQuery.Fold("cafe\u0301"));
@@ -85,10 +90,12 @@ public sealed class SearchOptimizationTests
     [InlineData("/private/tmp/Work/a.pdf", "/private/tmp/Work", "/tmp/Work", "/tmp/Work/a.pdf")]
     [InlineData("/private/tmp/Work", "/private/tmp/Work", "/tmp/Work", "/tmp/Work")]
     [InlineData("/private/tmp/Work2/a", "/private/tmp/Work", "/tmp/Work", "/private/tmp/Work2/a")]
+    [Trait("Kind", "Unit")]
     public void NativeEventPathsMapOnlyTheWatchedAlias(string path, string physical, string logical, string expected) =>
         Assert.Equal(expected, MacSearchChangeSource.MapEventPath(path, physical, logical));
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task DirectoryAndVisibilityAreAppliedBeforeTheLimit()
     {
         using var db = new Database();
@@ -107,6 +114,7 @@ public sealed class SearchOptimizationTests
     [InlineData("合同", "项目合同.pdf")]
     [InlineData("目合同", "项目合同.pdf")]
     [InlineData("\"a\\\"b\"", "a\"b.pdf")]
+    [Trait("Kind", "Unit")]
     public async Task LiteralsHaveIdenticalMembershipWithTrigramCandidates(string input, string expected)
     {
         using var db = new Database();
@@ -117,6 +125,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task PinyinAndMetadataUseOneQueryModel()
     {
         using var db = new Database();
@@ -132,6 +141,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CaseDistinctPathsAreBothReturned()
     {
         using var db = new Database();
@@ -140,6 +150,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task RescanPreservesRowIdsAndFtsMembership()
     {
         using var db = new Database();
@@ -160,6 +171,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task SuccessfulEmptyParentRemovesDeletedSubtrees()
     {
         using var db = new Database();
@@ -171,6 +183,7 @@ public sealed class SearchOptimizationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "Unit")]
     public async Task ReplacingDirectoryWithFileOrLinkPrunesItsOldChildren(bool link)
     {
         using var db = new Database();
@@ -180,6 +193,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task UnchangedExplicitLinkRootKeepsItsIndexedChildren()
     {
         using var db = new Database();
@@ -189,6 +203,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task InterruptedDirectoryScanDoesNotPruneOldRows()
     {
         using var db = new Database();
@@ -199,6 +214,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task AiTagsAreScopedBeforeLimitAndDoNotDuplicateNameHits()
     {
         using var db = new Database(ai: true);
@@ -216,6 +232,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task NameAndAiTermsCanBeCombined()
     {
         using var db = new Database(ai: true);
@@ -232,6 +249,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CancellationIsNotReportedAsEmptyResults()
     {
         using var db = new Database();
@@ -242,6 +260,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CheckpointPersistsUnsignedEventIdsWithoutLoss()
     {
         using var db = new Database();
@@ -257,6 +276,7 @@ public sealed class SearchOptimizationTests
     [InlineData(8u, "/scope", true)]
     [InlineData(32u, "/scope", true)]
     [InlineData(128u, "/scope", true)]
+    [Trait("Kind", "Unit")]
     public void RecoveryFlagsBecomeRecursiveWork(uint flags, string expected, bool restart)
     {
         var change = MacSearchChangeSource.Decode("/scope", "/scope/deep", flags, 123);
@@ -295,7 +315,8 @@ public sealed class SearchOptimizationTests
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task DeepEventsUpdateIndexWithoutASecondWatchOrPerQueryRescan()
     {
         using var db = new Database();
@@ -316,7 +337,8 @@ public sealed class SearchOptimizationTests
         Assert.Equal(10ul, await db.Catalog.GetCheckpointAsync(root));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task MissingRootIsUnavailableNotComplete()
     {
         using var db = new Database();
@@ -331,9 +353,10 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void MacPinyinProducesCommonInitials()
     {
-        if (!OperatingSystem.IsMacOS()) return; // The repository's test RID is osx-arm64.
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS."); // The repository's test RID is osx-arm64.
         Assert.Equal("HT2026.PDF", new MacPinyinInitials().GetInitials("合同2026.pdf"));
     }
 
@@ -350,6 +373,7 @@ public sealed class SearchOptimizationTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task OldQueryCannotOverwriteNewResultsEvenIfProviderIgnoresCancellation()
     {
         var service = new UncooperativeSearch();
@@ -365,4 +389,5 @@ public sealed class SearchOptimizationTests
         Assert.Contains("new", status);
         Assert.DoesNotContain("old", status);
     }
+
 }

@@ -11,9 +11,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "PopupGlass")]
 public sealed class PopupGlassTests
 {
     [Fact]
+    [Trait("Kind", "Unit")]
     public void UnchangedBackdropReusesSnapshotButPixelChangeOutsideSampleGridDoesNot()
     {
         var info = new SkiaSharp.SKImageInfo(64, 64, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul);
@@ -31,7 +33,8 @@ public sealed class PopupGlassTests
         Assert.True(Reuses());
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void GlassUnderHiddenPageDoesNotExpandBackdropCaptureAndReappearsNormally()
     {
         var glass = new LiquidGlassSurface();
@@ -58,7 +61,8 @@ public sealed class PopupGlassTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void PopupCaptureIncludesPageContentWithoutCapturingMenusOrChangingSidebarCapture()
     {
         var page = new CaptureProbe();
@@ -87,9 +91,10 @@ public sealed class PopupGlassTests
         public override void Render(DrawingContext context) => RenderCount++;
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public void NestedMenusKeepGlassAfterReopeningAndThemeChanges(bool dark)
     {
         var target = new Button { Content = "Open" };
@@ -147,9 +152,10 @@ public sealed class PopupGlassTests
         Assert.Equal(expected.ClipToBounds, actual.ClipToBounds);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public void DropdownShadowFitsItsPopupWindow(bool dark)
     {
         var combo = new ComboBox { Width = 220, ItemsSource = new[] { "First", "Second", "Third" }, SelectedIndex = 0 };
@@ -180,4 +186,5 @@ public sealed class PopupGlassTests
                 $"{ancestor.GetType().Name} clips the popup shadow");
         }
     }
+
 }

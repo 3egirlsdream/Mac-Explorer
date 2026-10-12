@@ -11,6 +11,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Copilot")]
 public sealed class CopilotReasoningReplayTests
 {
     [Fact]
@@ -588,4 +590,5 @@ public sealed class CopilotReasoningReplayTests
                 };
         }
     }
+
 }

@@ -18,9 +18,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Area", "FileConversion")]
+public sealed class FileConversionMenuViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void RightPressAndReleaseOpensConversionSubmenuInFastList()
     {
         using var plugins = new PluginTestEnvironment();
@@ -55,7 +57,8 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ConversionMenuMatchesBothBuildPhasesAndExcludesUnsupportedSelections()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-menu-convert-" + Guid.NewGuid().ToString("N"));
@@ -93,7 +96,8 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task PluginTaskPanelEntryAppearsOnlyWhenPluginRequestsIt()
     {
         using var plugins = new PluginTestEnvironment();
@@ -128,22 +132,8 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Directory.Delete(root, true); }
     }
 
-    private static async Task RunPluginCommandAsync(FileListViewModel viewModel, FileSystemEntry entry, string commandLabel)
-    {
-        var plugin = Assert.Single(await viewModel.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "测试插件");
-        var execution = Assert.Single(plugin.SubItems!, item => item.Label == commandLabel).Execute!();
-        var deadline = DateTime.UtcNow.AddSeconds(30);
-        while (!execution.IsCompleted && DateTime.UtcNow < deadline)
-        {
-            Dispatcher.UIThread.RunJobs();
-            await Task.Delay(10);
-        }
-        Assert.True(execution.IsCompleted, "插件命令未在限时内完成。");
-        await execution;
-        Dispatcher.UIThread.RunJobs();
-    }
-
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void ImageConversionDialogKeepsAspectRatio()
     {
         var dialog = new ImageConversionDialog(new ConversionImageSize(80, 40), FileConversionFormat.Png);
@@ -155,7 +145,8 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(480m, width.Value);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
+    [Trait("Kind", "UI")]
     [InlineData(false)]
     [InlineData(true)]
     public void ImageSizeSpinnersStayBorderlessDuringRepeatedClicks(bool dark)
@@ -219,4 +210,24 @@ public sealed partial class FileListViewModelCreateTests
             Application.Current.Styles.Remove(fluent);
         }
     }
+
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected static async Task RunPluginCommandAsync(FileListViewModel viewModel, FileSystemEntry entry, string commandLabel)
+    {
+        var plugin = Assert.Single(await viewModel.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "测试插件");
+        var execution = Assert.Single(plugin.SubItems!, item => item.Label == commandLabel).Execute!();
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!execution.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+        Assert.True(execution.IsCompleted, "插件命令未在限时内完成。");
+        await execution;
+        Dispatcher.UIThread.RunJobs();
+    }
+
 }

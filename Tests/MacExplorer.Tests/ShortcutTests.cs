@@ -18,9 +18,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "Shortcut")]
 public sealed class ShortcutTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void MenuUsesNormalizedShortcutAndTracksBindingChanges()
     {
         using var theme = new FastListTestTheme();
@@ -41,10 +43,11 @@ public sealed class ShortcutTests
         finally { target.ContextMenu.Close(); window.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(12)]
     [InlineData(13)]
     [InlineData(16)]
+    [Trait("Kind", "UI")]
     public void ModifierSymbolsUseEqualInkHeightAndVerticalCenter(double size)
     {
         var label = new ShortcutText { Text = "⇧⌥⌘C", FontSize = size,
@@ -58,7 +61,8 @@ public sealed class ShortcutTests
         });
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void RoutedCommandHoldShowsHintAndReleaseRemovesIt()
     {
         using var service = new ShortcutService(new ShortcutMemorySettings());
@@ -84,9 +88,10 @@ public sealed class ShortcutTests
         finally { window.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public void HintUsesSharedRoundedGlassSurfaceAndContentInsets(bool dark)
     {
         using var service = new ShortcutService(new ShortcutMemorySettings());
@@ -130,6 +135,7 @@ public sealed class ShortcutTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void DefaultsPreserveAliasesAndKeepHomeSeparateFromNativeHide()
     {
         using var service = new ShortcutService(new ShortcutMemorySettings());
@@ -142,6 +148,7 @@ public sealed class ShortcutTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void ReassignmentPersistsAndReplacesEveryOldAlias()
     {
         var settings = new ShortcutMemorySettings();
@@ -177,6 +184,7 @@ public sealed class ShortcutTests
     [InlineData(Key.Q, KeyModifiers.Meta | KeyModifiers.Shift | KeyModifiers.Alt)]
     [InlineData(Key.D, KeyModifiers.Meta | KeyModifiers.Alt)]
     [InlineData(Key.D6, KeyModifiers.Meta | KeyModifiers.Shift)]
+    [Trait("Kind", "Unit")]
     public void InvalidOrOverlappingBindingsLeaveExistingConfiguration(Key key, KeyModifiers modifiers)
     {
         using var service = new ShortcutService(new ShortcutMemorySettings());
@@ -186,6 +194,7 @@ public sealed class ShortcutTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void SettingsChangesReachEveryServiceAndMalformedDataFallsBack()
     {
         var settings = new ShortcutMemorySettings();
@@ -207,6 +216,7 @@ public sealed class ShortcutTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void HoldStateSuppressesShortcutsAndDoesNotReopenUntilCommandIsReleased()
     {
         var state = new ShortcutHoldState();
@@ -221,7 +231,8 @@ public sealed class ShortcutTests
         state.Reset(); state.Advance(9000); Assert.False(state.ShouldShow);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void HintAnimationInterruptionsRecordingAndShutdownLeaveNoOverlay()
     {
         using var service = new ShortcutService(new ShortcutMemorySettings());
@@ -273,7 +284,8 @@ public sealed class ShortcutTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void SettingsRecorderConsumesCommandsAndEscapeWithoutClosingWindow()
     {
         using var theme = new FastListTestTheme();
@@ -312,7 +324,8 @@ public sealed class ShortcutTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void ChangedBindingsUpdateTooltipsAndRouteInAllOpenWindows()
     {
         using var service = new ShortcutService(new ShortcutMemorySettings());
@@ -340,6 +353,7 @@ public sealed class ShortcutTests
 
     internal static KeyEventArgs KeyArgs(Key key, KeyModifiers modifiers) => new()
         { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers };
+
 }
 
 internal sealed class ShortcutMemorySettings : ISettingsService
@@ -357,9 +371,11 @@ internal sealed class ShortcutMemorySettings : ISettingsService
     public Dictionary<string, string> GetAll() => new(_values);
 }
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Shortcut")]
+public sealed class ShortcutViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task TabNavigationUsesRealInputWrapsAndRespectsRecordingAndModalState(bool native)
@@ -409,7 +425,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ConfiguredApplicationShortcutsReplaceAliasesAndExecuteOnlyOnce()
     {
         using var theme = new FastListTestTheme();
@@ -435,7 +451,7 @@ public sealed partial class FileListViewModelCreateTests
         window.KeyPress(Key.Y, RawInputModifiers.Meta, PhysicalKey.Y, null); Assert.Equal(count + 1, fixture.Model.Tabs.Count);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ConfiguredFileShortcutUsesRealInputAndNeverLeaksIntoTextOrBrowseMode()
     {
         using var theme = new FastListTestTheme();
@@ -473,4 +489,5 @@ public sealed partial class FileListViewModelCreateTests
         }
         finally { window.Close(); }
     }
+
 }

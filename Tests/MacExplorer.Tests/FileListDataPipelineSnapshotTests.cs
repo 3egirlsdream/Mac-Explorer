@@ -7,7 +7,9 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class FileListDataPipelineSnapshotTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileList")]
+public sealed class FileListDataPipelineSnapshotTests
 {
     [Fact]
     public async Task FinalSnapshotHasKnownNameOrderAndTypeGroups()
@@ -270,4 +272,5 @@ public class FileListDataPipelineSnapshotTests
         public override long GetTimestamp() => Interlocked.Read(ref _ticks);
         public void Advance(TimeSpan value) => Interlocked.Add(ref _ticks, value.Ticks);
     }
+
 }

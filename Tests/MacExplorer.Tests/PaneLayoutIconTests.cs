@@ -5,6 +5,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "PaneLayoutIcon")]
 public sealed class PaneLayoutIconTests
 {
     [Theory]
@@ -46,4 +48,5 @@ public sealed class PaneLayoutIconTests
         Assert.Equal(32, panes[0].Height);
         Assert.Equal(mainOnLeft, panes[0].X < panes[1].X);
     }
+
 }

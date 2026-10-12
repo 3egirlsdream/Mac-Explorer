@@ -3,9 +3,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Plugin")]
 public sealed class PluginSharedRootReviewTests
 {
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task UpgradingAnotherManagerDoesNotDeleteAnOlderReferencedVersion()
     {
         using var environment = new PluginTestEnvironment();
@@ -19,4 +21,5 @@ public sealed class PluginSharedRootReviewTests
         Assert.True(oldPlugin.Enabled, oldPlugin.LastError);
         Assert.Equal("1.0.0", oldPlugin.Manifest.Version);
     }
+
 }

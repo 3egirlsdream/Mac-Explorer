@@ -6,6 +6,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ReviewFileOperationCompletion")]
 public sealed class ReviewFileOperationCompletionTests
 {
     private static FileSystemEntry Entry(string path, bool directory = false) =>
@@ -217,4 +219,5 @@ public sealed class ReviewFileOperationCompletionTests
         public Func<MethodInfo, object?[], object?> Handler { get; set; } = (_, _) => throw new NotSupportedException();
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => Handler(targetMethod!, args ?? []);
     }
+
 }

@@ -7,7 +7,8 @@ public enum OmniboxSuggestionKind
     Path,
     Result,
     Command,
-    RecentDirectory
+    RecentDirectory,
+    Application
 }
 
 public sealed record OmniboxSuggestion(
@@ -18,8 +19,11 @@ public sealed record OmniboxSuggestion(
     string IconData,
     string IconColor,
     FileSystemEntry? Entry = null,
-    Func<Task>? ExecuteAction = null)
+    Func<Task>? ExecuteAction = null,
+    Avalonia.Media.IImage? IconImage = null)
 {
+    public bool HasIconImage => IconImage != null;
+
     public bool CanLocate => Entry is { IsVirtual: false }
         || Kind is OmniboxSuggestionKind.Path or OmniboxSuggestionKind.RecentDirectory;
 }

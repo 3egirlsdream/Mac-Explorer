@@ -6,6 +6,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileColumnFilter")]
 public sealed class FileColumnFilterTests
 {
     [Theory]
@@ -159,4 +161,5 @@ public sealed class FileColumnFilterTests
         FullPath = "/test/" + name, Name = name, Size = size,
         Extension = Path.GetExtension(name), LastModified = modified ?? DateTime.Today
     };
+
 }

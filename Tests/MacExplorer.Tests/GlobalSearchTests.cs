@@ -6,6 +6,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "Search")]
 public sealed class GlobalSearchTests
 {
     [Fact]
@@ -89,4 +91,5 @@ public sealed class GlobalSearchTests
 
         public Dictionary<string, string> GetAll() => new(_values, StringComparer.OrdinalIgnoreCase);
     }
+
 }

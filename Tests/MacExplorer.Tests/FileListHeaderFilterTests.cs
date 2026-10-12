@@ -18,9 +18,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "FileList")]
+public sealed class FileListHeaderFilterViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TypeDropdownFiltersApplicationsSeparatelyFromFolders()
     {
         using var host = new HeaderFilterHost(includeApplication: true);
@@ -33,7 +35,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(["Folder"], host.Vm.Entries.Select(e => e.Name));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void HeaderFiltersSupportMultipleChecksFilenameAndKeyboardWithoutSorting()
     {
         using var host = new HeaderFilterHost();
@@ -66,7 +68,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(4, host.Vm.Entries.Count);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void HeaderSortButtonsToggleEveryColumnAndStaySeparateFromDropdowns()
     {
         using var host = new HeaderFilterHost();
@@ -84,7 +86,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void HeaderRangeKeyboardNavigationStaysInsideTheOpenFilter()
     {
         using var host = new HeaderFilterHost();
@@ -98,7 +100,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.True(options[1].IsFocused);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(620, false)]
     [InlineData(900, true)]
     public void HeaderLabelsIconsAndDropdownTargetsFitTheirColumns(double width, bool dark)
@@ -122,7 +124,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FilteringDropsHiddenSelectionsAndResetsOnNavigation()
     {
         using var host = new HeaderFilterHost();
@@ -136,7 +138,11 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.Vm.HasFileListFilters);
     }
 
-    private sealed class HeaderFilterHost : IDisposable
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class HeaderFilterHost : IDisposable
     {
         private readonly FluentTheme _theme = new();
         public FileListViewModel Vm { get; }
@@ -194,4 +200,5 @@ public sealed partial class FileListViewModelCreateTests
             Application.Current!.Styles.Remove(_theme);
         }
     }
+
 }

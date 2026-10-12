@@ -11,9 +11,11 @@ using W = DocumentFormat.OpenXml.Wordprocessing;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Integration")]
+[Trait("Area", "Plugin")]
 public sealed class PluginSystemTests
 {
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("txt", "to-docx")]
     [InlineData("md", "to-docx")]
     [InlineData("md", "to-pdf")]
@@ -61,7 +63,7 @@ public sealed class PluginSystemTests
         Assert.Empty(Directory.GetDirectories(Path.Combine(env.Manager.RootDirectory, ".work")));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task DisableUninstallAndRestorePersistAcrossStartup()
     {
         using var env = new PluginTestEnvironment();
@@ -82,7 +84,7 @@ public sealed class PluginSystemTests
         }
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task UpdatePinsRunningVersionAndUninstallWaitsForSession()
     {
         using var env = new PluginTestEnvironment();
@@ -112,7 +114,7 @@ public sealed class PluginSystemTests
         Assert.False(env.Manager.Plugins.Single(p => p.Manifest.Id == "test.fixture").Running);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task SecondInstanceAdoptsInstalledDirectoryInsteadOfReplacingIt()
     {
         using var env = new PluginTestEnvironment();
@@ -128,7 +130,7 @@ public sealed class PluginSystemTests
         Assert.Null(Assert.Single(env.Manager.Plugins).LastError);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task InstallingSameVersionFromAnotherInstanceKeepsTheRunningDirectory()
     {
         using var env = new PluginTestEnvironment();
@@ -143,7 +145,7 @@ public sealed class PluginSystemTests
         Assert.True(Directory.Exists(directory));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task BuiltInRepairsItselfWhenItsDirectoryDisappears()
     {
         using var env = new PluginTestEnvironment();
@@ -163,7 +165,7 @@ public sealed class PluginSystemTests
         Path.Combine(PluginTestEnvironment.ApplicationOutput, "MacExplorer"),
         Path.Combine(PluginTestEnvironment.ApplicationOutput, "MacExplorer.dll"));
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("../escape.txt", false)]
     [InlineData("/absolute.txt", false)]
     [InlineData("link", true)]
@@ -184,7 +186,7 @@ public sealed class PluginSystemTests
         Assert.Empty(Directory.GetDirectories(env.Manager.RootDirectory, ".install-*"));
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("crash")]
     [InlineData("invalid-wire")]
     [InlineData("crash-helper")]
@@ -198,8 +200,9 @@ public sealed class PluginSystemTests
         var work = session.WorkDirectory;
         try
         {
-            await Assert.ThrowsAnyAsync<Exception>(() => session.CallAsync<PluginResult>("execute",
+            var error = await Assert.ThrowsAnyAsync<Exception>(() => session.CallAsync<PluginResult>("execute",
                 new PluginInvocation("failure", command, [new(source)], work), TimeSpan.FromSeconds(5), default));
+            Assert.True(error is IOException or JsonException, $"Expected worker failure, received {error.GetType().Name}.");
         }
         finally { await session.DisposeAsync(); }
         Assert.False(IsRunning(pid));
@@ -207,7 +210,7 @@ public sealed class PluginSystemTests
         Assert.False(env.Manager.Plugins.Single(p => p.Manifest.Id == "test.fixture").Running);
     }
 
-    [Theory]
+    [Theory(Explicit = true)]
     [InlineData("hang", true)]
     [InlineData("cancel", false)]
     public async Task TimeoutAndCancellationTerminateWorkers(string command, bool timeout)
@@ -233,7 +236,7 @@ public sealed class PluginSystemTests
         Assert.False(Directory.Exists(work));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task ClosingSessionPipeReapsHelperAndManagerShutdownReapsWorkers()
     {
         using var env = new PluginTestEnvironment();
@@ -252,7 +255,7 @@ public sealed class PluginSystemTests
         Assert.False(IsRunning(child));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task CommitRejectsEscapedOutputAndPreservesCollisionFiles()
     {
         using var env = new PluginTestEnvironment();
@@ -273,7 +276,7 @@ public sealed class PluginSystemTests
         Assert.Empty(Directory.GetFiles(env.Root, ".MacExplorer*"));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task CommitPlacesBatchOutputsNextToTheirSources()
     {
         using var env = new PluginTestEnvironment();
@@ -291,7 +294,7 @@ public sealed class PluginSystemTests
         Assert.Equal("b", File.ReadAllText(outputs[1]));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task CommitRejectsMissingOrForeignBatchSources()
     {
         using var env = new PluginTestEnvironment();
@@ -307,7 +310,7 @@ public sealed class PluginSystemTests
         Assert.False(File.Exists(Path.Combine(env.Root, "first.docx")));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public void BatchMatchingRequiresEveryFileToMatchAndHonorsSelectionRange()
     {
         var match = new PluginMatch { Extensions = [".txt"], MinSelection = 2, MaxSelection = 3 };
@@ -317,7 +320,7 @@ public sealed class PluginSystemTests
         Assert.False(match.Matches([new("/tmp/one.txt"), new("/tmp/two.txt"), new("/tmp/three.txt"), new("/tmp/four.txt")]));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task BatchInvocationRelaysTaskProgressAndCommitsPerFile()
     {
         using var env = new PluginTestEnvironment();
@@ -339,7 +342,7 @@ public sealed class PluginSystemTests
         Assert.Equal("two", File.ReadAllText(committed[1]));
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
     public async Task BundledConversionProcessesBatchInOneInvocation()
     {
         using var env = new PluginTestEnvironment();
@@ -403,4 +406,5 @@ public sealed class PluginSystemTests
         }
         return env.Write("source." + extension, "PLUGIN_CONTENT\n中文测试\n");
     }
+
 }

@@ -4,6 +4,7 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Area", "AppUpdateArchitecture")]
 public sealed class AppUpdateArchitectureTests
 {
     [Theory]
@@ -13,6 +14,7 @@ public sealed class AppUpdateArchitectureTests
     [InlineData(Architecture.Arm64, "macos-intel.zip", "macos.zip")]
     [InlineData(Architecture.X64, "macos.dmg", "macos-intel.dmg")]
     [InlineData(Architecture.Arm64, "macos-intel.dmg", "macos.dmg")]
+    [Trait("Kind", "Unit")]
     public void OfficialAssetsFollowTheRunningArchitectureIncludingRosetta(
         Architecture architecture, string source, string expected)
     {
@@ -26,6 +28,7 @@ public sealed class AppUpdateArchitectureTests
     [InlineData("https://example.com/universal.zip")]
     [InlineData("https://example.com/MacExplorer-1.0.54-macos.zip")]
     [InlineData("https://example.com/download?file=MacExplorer-1.0.55-macos.zip")]
+    [Trait("Kind", "Unit")]
     public void UnrecognizedOrDifferentVersionUrlsArePreserved(string url)
         => Assert.Equal(url, AppUpdateService.ResolveDownloadUri(url, "1.0.55", Architecture.X64).AbsoluteUri);
 
@@ -34,19 +37,22 @@ public sealed class AppUpdateArchitectureTests
     [InlineData("/local/update.zip")]
     [InlineData("file:///local/update.zip")]
     [InlineData("ftp://example.com/update.zip")]
+    [Trait("Kind", "Unit")]
     public void InvalidDownloadUrlsAreRejected(string url)
         => Assert.Throws<InvalidOperationException>(() =>
             AppUpdateService.ResolveDownloadUri(url, "1.0.55", Architecture.X64));
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void UnsupportedArchitectureCannotSelectAnOfficialPackage()
         => Assert.Throws<InvalidOperationException>(() => AppUpdateService.ResolveDownloadUri(
             "https://example.com/MacExplorer-1.0.55-macos.zip", "1.0.55", Architecture.X86));
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task DownloadedIntelBinaryPassesIntelValidationAndFailsArmValidation()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var directory = Path.Combine(Path.GetTempPath(), "fkfinder-update-arch-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
@@ -67,4 +73,5 @@ public sealed class AppUpdateArchitectureTests
         }
         finally { Directory.Delete(directory, true); }
     }
+
 }

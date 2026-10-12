@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "PerformancePipeline")]
 public sealed class PerformancePipelineTests
 {
     [Fact]
@@ -43,4 +45,5 @@ public sealed class PerformancePipelineTests
                 if (File.Exists(databasePath + suffix)) File.Delete(databasePath + suffix);
         }
     }
+
 }

@@ -12,9 +12,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Home")]
 public sealed class HomeFolderCardTests
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(0, false)]
     [InlineData(2, false)]
     [InlineData(8, false)]
@@ -40,7 +42,7 @@ public sealed class HomeFolderCardTests
         else Assert.DoesNotContain(grid.Children.OfType<Button>(), button => button.Classes.Contains("home-overflow"));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ViewportResizeDoesNotPersistASmallerPreferredGrid()
     {
         using var card = CreateCard(() => { });
@@ -57,7 +59,7 @@ public sealed class HomeFolderCardTests
         Assert.Equal(0, committed);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FocusedResizeGripSupportsKeyboardAndCommitsOnce()
     {
         using var card = CreateCard(() => { });
@@ -72,10 +74,10 @@ public sealed class HomeFolderCardTests
     }
 
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void CardBodyAndFileCellHaveSeparateActions()
     {
-        Application.Current!.Styles.Insert(0, new Avalonia.Themes.Fluent.FluentTheme());
+        using var theme = new FastListTestTheme();
         var expanded = 0;
         var opened = 0;
         Button? item = null;
@@ -108,10 +110,10 @@ public sealed class HomeFolderCardTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void ResizeArcAppearsOnHoverAndKeyboardFocus()
     {
-        Application.Current!.Styles.Insert(0, new Avalonia.Themes.Fluent.FluentTheme());
+        using var theme = new FastListTestTheme();
         using var card = CreateCard(() => { });
         var window = new Window { Content = card, Width = 600, Height = 400 };
         window.Styles.Add((Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
@@ -135,4 +137,5 @@ public sealed class HomeFolderCardTests
     private static HomeFolderCard CreateCard(Action expand)
         => new(new FileTag("Work", "#808080", FileTagKind.Custom), new HomeFolderLayout(),
             entry => new Button { Content = entry.Name }, expand, () => { }, new ContextMenu());
+
 }

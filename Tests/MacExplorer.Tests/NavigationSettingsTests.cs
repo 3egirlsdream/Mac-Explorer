@@ -4,6 +4,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "NavigationSettings")]
 public sealed class NavigationSettingsTests
 {
     [Fact]
@@ -57,4 +59,5 @@ public sealed class NavigationSettingsTests
             Directory.Delete(root, true);
         }
     }
+
 }

@@ -13,9 +13,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public class AppUpdateTests
+[Trait("Area", "AppUpdate")]
+public sealed class AppUpdateTests
 {
     [Fact]
+    [Trait("Kind", "Unit")]
     public async Task DetailsIncludeCurrentVersionHistoryEvenWhenNoUpdateIsAvailable()
     {
         var handler = new UpdateResponseHandler();
@@ -36,6 +38,7 @@ public class AppUpdateTests
     [Theory]
     [InlineData("999.0.0", true)]
     [InlineData("0.0.0", false)]
+    [Trait("Kind", "Unit")]
     public async Task LegacyBackendStillSupportsUpdateDetection(string latest, bool expected)
     {
         using var http = new HttpClient(new UpdateResponseHandler { Version = new VersionInfo { Version = latest, Memo = "旧接口日志" } });
@@ -45,7 +48,8 @@ public class AppUpdateTests
         Assert.Equal(expected, await service.CheckVersionAsync(TestContext.Current.CancellationToken) != null);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void AlreadyLatestShowsCurrentReleaseMemoWithoutOfferingInstallation()
     {
         using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
@@ -66,7 +70,8 @@ public class AppUpdateTests
         Assert.Equal(0, service.InstallAttempts);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void StartupUpdateDisplaysAllReleaseSectionsAndUntruncatedBodies()
     {
         using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
@@ -89,7 +94,8 @@ public class AppUpdateTests
         Assert.Equal(0, service.InstallAttempts);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void StartupUpdateOpensAboutPageWithoutDownloading()
     {
         using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
@@ -106,11 +112,11 @@ public class AppUpdateTests
         Assert.Equal(0, updateService.InstallAttempts);
     }
 
-    [Fact]
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task ExtractUpdateArchivePreservesMacOsExtendedAttributes()
     {
-        if (!OperatingSystem.IsMacOS())
-            return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
 
         var root = Path.Combine(Path.GetTempPath(), $"MacExplorer_UpdateTest_{Guid.NewGuid():N}");
         var source = Path.Combine(root, "Payload");
@@ -148,7 +154,8 @@ public class AppUpdateTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public void FailedValidationCannotBeOverwrittenByQueuedProgress()
     {
         using var language = new LocalizationService(new SettingsServiceStub(), () => AppLanguage.ChineseSimplified);
@@ -341,4 +348,5 @@ public class AppUpdateTests
 
         public Task<List<AppListItem>> GetInstalledAppsAsync() => Task.FromResult<List<AppListItem>>([]);
     }
+
 }

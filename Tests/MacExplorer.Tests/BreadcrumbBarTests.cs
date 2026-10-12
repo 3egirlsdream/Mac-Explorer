@@ -20,9 +20,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "BreadcrumbBar")]
+public sealed class BreadcrumbBarViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BreadcrumbDropdownShowsOnlyImmediateVisibleDirectoriesAndClickNavigates()
     {
         using var host = new BreadcrumbTestHost();
@@ -50,7 +52,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.DoesNotContain("open", arrow.Classes);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void BreadcrumbArrowHoverUsesSharedBrushAndLabelStaysTransparent()
     {
         using var host = new BreadcrumbTestHost();
@@ -73,7 +75,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(arrow.Background).Color);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BreadcrumbArrowRepeatedClicksAndPathEditingKeepTheBarFlat()
     {
         using var host = new BreadcrumbTestHost();
@@ -102,7 +104,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Equal(default, surface.BoxShadow);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -137,7 +139,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(input.IsVisible);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void BreadcrumbOverflowKeepsLastSegmentAndOpensHiddenAncestors()
     {
         using var host = new BreadcrumbTestHost();
@@ -174,7 +176,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(popup.IsOpen);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void BreadcrumbOverflowStillLeavesRightEdgeForPathEditing()
     {
         using var host = new BreadcrumbTestHost();
@@ -191,7 +193,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.True(host.Bar.FindControl<TextBox>("PathInput")!.IsFocused);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void LastBreadcrumbHasNoDropdownHitTarget()
     {
         using var host = new BreadcrumbTestHost();
@@ -212,7 +214,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.Bar.FindControl<Popup>("DirectoryDropdownPopup")!.IsOpen);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void BreadcrumbOverflowTrimsLongLastNameAndRestoresAncestorsOnResize()
     {
         using var host = new BreadcrumbTestHost();
@@ -239,7 +241,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.True(double.IsPositiveInfinity(lastLabel.MaxWidth));
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task BreadcrumbDropdownUsesTheNewToolbarMenuAppearance(bool dark)
@@ -307,7 +309,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("escape")]
     [InlineData("outside")]
     [InlineData("toggle")]
@@ -345,7 +347,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.DoesNotContain("open", arrow.Classes);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BreadcrumbDropdownIgnoresOldLoadWhenAnotherArrowOpens()
     {
         using var host = new BreadcrumbTestHost();
@@ -373,7 +375,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.Popup.IsOpen);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BreadcrumbDropdownSupportsKeyboardNavigationAndEmptyDirectories()
     {
         using var host = new BreadcrumbTestHost();
@@ -393,7 +395,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.Popup.IsOpen);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BreadcrumbDropdownReportsReadErrorsAndHonorsHiddenFolderSetting()
     {
         using var host = new BreadcrumbTestHost();
@@ -409,7 +411,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.List.IsVisible);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BreadcrumbSearchFiltersLiveAndResetsWithoutReloadingDirectories()
     {
         using var host = new BreadcrumbTestHost(inWorkspace: true);
@@ -457,7 +459,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.Popup.IsOpen);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task BreadcrumbSearchEnteredDuringLoadingAppliesWhenReadyAndSupportsKeyboardNavigation()
     {
         using var host = new BreadcrumbTestHost();
@@ -483,7 +485,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.Popup.IsOpen);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task BreadcrumbScrollbarSurvivesWorkspaceOutsideClickHandling(bool clickTrack)
@@ -520,7 +522,11 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(host.Popup.IsOpen);
     }
 
-    private sealed class BreadcrumbTestHost : IDisposable
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class BreadcrumbTestHost : IDisposable
     {
         private readonly Application _application = Application.Current!;
         private readonly IStyle[] _styles;
@@ -623,4 +629,5 @@ public sealed partial class FileListViewModelCreateTests
                 _application.Styles.Remove(style);
         }
     }
+
 }

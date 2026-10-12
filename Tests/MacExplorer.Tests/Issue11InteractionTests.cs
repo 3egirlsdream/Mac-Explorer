@@ -20,9 +20,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "Issue11Interaction")]
+public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void Issue11PreferencesDefaultSafelyAndUpdateExistingTabs()
     {
         var settings = new StartupSettings();
@@ -46,7 +48,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(first.DoubleClickEmptyAreaGoUp);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void Issue11PreferencesSurviveSettingsServiceRestart()
     {
         var root = Directory.CreateTempSubdirectory("issue11-settings-").FullName;
@@ -73,7 +75,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task Issue11DeleteConfirmationUsesSnapshotAndCancelIsSafe()
     {
         var files = new FakeFileService("/tmp/Issue11");
@@ -100,7 +102,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.False(vm.IsDeleteConfirmDialogVisible);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task Issue11DeleteWithoutConfirmationIsImmediateAndNotReentrant()
     {
         var files = new FakeFileService("/tmp/Issue11");
@@ -128,7 +130,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Null(await files.GetEntryAsync(first.FullPath));
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("keyboard", true)]
     [InlineData("keyboard", false)]
     [InlineData("toolbar", true)]
@@ -169,7 +171,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Issue11RemoteDeleteAlwaysRequiresConfirmation(bool mixed)
@@ -190,7 +192,7 @@ public sealed partial class FileListViewModelCreateTests
         Assert.Empty(files.DeleteRequests);
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -227,7 +229,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task Issue11BackgroundPreferenceDoesNotOverrideFolderDoubleClick()
     {
         using var theme = new FastListTestTheme();
@@ -253,7 +255,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Directory.Delete(root, true); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Issue11GroupHeaderDoubleClickIsNotBackground(bool grid)
@@ -279,7 +281,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task Issue11FileDragActivatesHoveredTabWithoutDroppingOrLosingSourceSelection()
     {
         using var theme = new FastListTestTheme();
@@ -338,16 +340,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Directory.Delete(root, true); }
     }
 
-    public static IEnumerable<object[]> Issue11FileAreaDropCases()
-    {
-        foreach (var grid in new[] { false, true })
-        foreach (var onFolder in new[] { false, true })
-        foreach (var sameDirectory in new[] { false, true })
-        foreach (var modifiers in new[] { KeyModifiers.None, KeyModifiers.Alt })
-            yield return [grid, onFolder, sameDirectory, modifiers];
-    }
-
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [MemberData(nameof(Issue11FileAreaDropCases))]
     public async Task Issue11FileAreaDropMovesToFinalPositionAndIgnoresSourceDirectory(
         bool grid, bool onFolder, bool sameDirectory, KeyModifiers modifiers)
@@ -429,7 +422,7 @@ public sealed partial class FileListViewModelCreateTests
         }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
@@ -459,7 +452,20 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, true); }
     }
 
-    private static void DoubleClickIssue11(Window window, Point point)
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    public static IEnumerable<object[]> Issue11FileAreaDropCases()
+    {
+        foreach (var grid in new[] { false, true })
+        foreach (var onFolder in new[] { false, true })
+        foreach (var sameDirectory in new[] { false, true })
+        foreach (var modifiers in new[] { KeyModifiers.None, KeyModifiers.Alt })
+            yield return [grid, onFolder, sameDirectory, modifiers];
+    }
+
+    protected static void DoubleClickIssue11(Window window, Point point)
     {
         window.MouseDown(point, MouseButton.Left, RawInputModifiers.LeftMouseButton);
         window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
@@ -468,14 +474,14 @@ public sealed partial class FileListViewModelCreateTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static void RenderIssue11(Window window)
+    protected static void RenderIssue11(Window window)
     {
         window.UpdateLayout();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static async Task WaitForIssue11Async(Func<bool> ready)
+    protected static async Task WaitForIssue11Async(Func<bool> ready)
     {
         var timeout = DateTime.UtcNow.AddSeconds(5);
         while (!ready() && DateTime.UtcNow < timeout)
@@ -485,9 +491,12 @@ public sealed partial class FileListViewModelCreateTests
         }
         Assert.True(ready(), "The interaction did not complete before timeout.");
     }
+
 }
 
-public class FileDropPolicyTests
+[Trait("Kind", "Unit")]
+[Trait("Area", "Issue11Interaction")]
+public sealed class FileDropPolicyTests
 {
     [Theory]
     [InlineData("/source/folder", "/target", DragDropEffects.Move)]
@@ -505,4 +514,5 @@ public class FileDropPolicyTests
     [InlineData("/source/file", "", DragDropEffects.None)]
     public void FileDropChoosesLocalMoveOrRemoteCopy(string source, string target, DragDropEffects effect)
         => Assert.Equal(effect, FileDropPolicy.GetEffect([source], target));
+
 }

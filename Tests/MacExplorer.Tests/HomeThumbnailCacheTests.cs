@@ -6,9 +6,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "UI")]
+[Trait("Area", "Thumbnail")]
 public sealed class HomeThumbnailCacheTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ExpandedFolderReusesDecodedPreviewWithoutCallingProviderAgain()
     {
         using var cache = new HomeThumbnailCache();
@@ -33,7 +35,7 @@ public sealed class HomeThumbnailCacheTests
         Assert.Equal(1, calls);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task CancellingOneConsumerDoesNotCancelTheOther()
     {
         using var cache = new HomeThumbnailCache();
@@ -52,4 +54,5 @@ public sealed class HomeThumbnailCacheTests
         completed.SetResult(null);
         using var result = await second;
     }
+
 }

@@ -10,12 +10,14 @@
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageReference Include="Avalonia.Headless.XUnit" Version="12.0.4" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../MacExplorer.csproj" />
+    <ProjectReference Include="../MacExplorer.UnitTests/MacExplorer.UnitTests.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" />
     <ProjectReference Include="../../Tools/PluginTestFixture/PluginTestFixture.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
@@ -26,13 +28,27 @@
     <Content Include="TestData/gps-ocr-fixture.jpg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/sftp-loopback.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <Target Name="CopyHostNativeTestDependencies" AfterTargets="Build">
+  <ItemGroup>
+    <Compile Remove="ArchivePathHelperTests.cs" />
+    <Compile Remove="ArchiveExtractionPathHelperTests.cs" />
+    <Compile Remove="FileThumbnailSizingTests.cs" />
+    <Compile Remove="FileIconTests.cs" />
+    <Compile Remove="WindowPlacementMathTests.cs" />
+    <Compile Remove="FileListSnapshotCollectionTests.cs" />
+    <Compile Remove="FileListStatusFormatterTests.cs" />
+    <Compile Remove="FileListColumnLayoutServiceTests.cs" />
+    <Compile Remove="PaneLayoutIconTests.cs" />
+    <Compile Remove="ReviewSearchVisibilityTests.cs" />
+    <Compile Remove="ReviewHashBudgetTests.cs" />
+  </ItemGroup>
+  <Target Name="CopyHostNativeTestDependencies" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <MSBuild Projects="../../MacExplorer.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">
       <Output TaskParameter="TargetOutputs" ItemName="_HostAssembly" />
     </MSBuild>
     <PropertyGroup><_HostDirectory>@(_HostAssembly->'%(RootDir)%(Directory)')</_HostDirectory></PropertyGroup>
-    <Copy SourceFiles="$(_HostDirectory)libMacExplorerNativeDrag.dylib;$(_HostDirectory)MacExplorer.Thumbnail;$(_HostDirectory)MacExplorer.ImageAnalysis;$(_HostDirectory)MacExplorer.FileConversion" DestinationFolder="$(TargetDir)" />
-    <Copy SourceFiles="$(_HostDirectory)MacExplorer.Git" DestinationFolder="$(TargetDir)" Condition="'$(DistributionChannel)' == 'AppStore'" />
+    <Copy SourceFiles="$(_HostDirectory)libMacExplorerNativeDrag.dylib" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(_HostDirectory)MacExplorer.Thumbnail;$(_HostDirectory)MacExplorer.ImageAnalysis;$(_HostDirectory)MacExplorer.FileConversion" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="'$(SkipMacOSNativeHelpers)' != 'true'" />
+    <Copy SourceFiles="$(_HostDirectory)MacExplorer.Git" DestinationFolder="$(TargetDir)" Condition="'$(DistributionChannel)' == 'AppStore' and '$(SkipMacOSNativeHelpers)' != 'true'" />
     <Copy SourceFiles="../../Plugins/FileConversion/plugin.json" DestinationFolder="$(TargetDir)BuiltInConversion" />
   </Target>
 </Project>

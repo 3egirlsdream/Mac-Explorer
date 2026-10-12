@@ -18,9 +18,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "UnifiedTagInteraction")]
+public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task TagMenuAlignsColoredIconsAndLabelsWithStandardItems(bool isChecked)
@@ -44,7 +46,7 @@ public sealed partial class FileListViewModelCreateTests
         {
             Dispatcher.UIThread.RunJobs();
             var showMenu = typeof(FileListView).GetMethod("ShowMenuAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-            await (Task)showMenu.Invoke(view, [view, true])!;
+            await (Task)showMenu.Invoke(view, [view, entry])!;
             Dispatcher.UIThread.RunJobs();
             var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
             var submenu = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "标签");
@@ -70,7 +72,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); root.Delete(true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TagMenuAppliesToMultipleFilesAndFoldersAndCutPasteOnlyAddsTag()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-tag-ui-" + Guid.NewGuid().ToString("N"));
@@ -126,7 +128,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TagViewPasteIgnoresClipboardImage()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-tag-image-" + Guid.NewGuid().ToString("N"));
@@ -150,7 +152,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task SidebarCreatesEmptyTagWithEnterAndCancelsWithEscape()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-tag-editor-" + Guid.NewGuid().ToString("N"));
@@ -220,7 +222,7 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); Application.Current!.Styles.Remove(theme); Directory.Delete(root, true); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task TagRenameAndDeletionUpdateBothWindowsAndHistory()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-tag-windows-" + Guid.NewGuid().ToString("N"));
@@ -251,7 +253,11 @@ public sealed partial class FileListViewModelCreateTests
         finally { Directory.Delete(root, true); }
     }
 
-    private sealed class TagTestClipboard : IClipboardService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class TagTestClipboard : IClipboardService
     {
         private ClipboardEntry? _entry;
         public ClipboardPasteKind PasteKindOverride { get; set; } = ClipboardPasteKind.None;

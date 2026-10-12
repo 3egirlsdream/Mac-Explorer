@@ -3,6 +3,8 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "FileIcon")]
 public sealed class FileIconTests
 {
     [Theory]
@@ -12,4 +14,5 @@ public sealed class FileIconTests
     {
         Assert.Equal("file-android-package", FileIconResolver.ResolveIconKey(extension));
     }
+
 }

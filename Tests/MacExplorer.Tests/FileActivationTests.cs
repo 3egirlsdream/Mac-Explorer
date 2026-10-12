@@ -7,11 +7,13 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Area", "FileActivation")]
+public sealed class FileActivationViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Kind", "UI")]
     public async Task ActivatedFileKeepsItsNameAndIsSelectedInItsParentFolder(bool alreadyInFolder)
     {
         var root = Directory.CreateTempSubdirectory("MacExplorer_Activation_");
@@ -39,15 +41,9 @@ public sealed partial class FileListViewModelCreateTests
 
             Assert.Equal(folder.FullName, viewModel.CurrentPath);
             Assert.Equal(path, Assert.Single(viewModel.SelectedEntries).FullPath);
+            Assert.True(scrollRequested);
             if (alreadyInFolder)
-            {
                 Assert.Equal(0, fileService.EnumerateDirectoryCallCount);
-                Assert.True(scrollRequested);
-            }
-            else
-            {
-                Assert.Equal(FileListViewModel.ScrollMode.ScrollToSelected, viewModel.ScrollBehaviorAfterLoad);
-            }
         }
         finally
         {
@@ -56,9 +52,11 @@ public sealed partial class FileListViewModelCreateTests
     }
 
     [Fact]
+    [Trait("Kind", "Unit")]
     public void OrdinaryActivationDoesNotNavigate()
     {
         Assert.Null(App.GetActivatedPath(new ActivatedEventArgs(ActivationKind.Reopen)));
         Assert.Null(App.GetActivatedPath(new FileActivatedEventArgs([])));
     }
+
 }

@@ -14,9 +14,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-public sealed partial class FileListViewModelCreateTests
+[Trait("Kind", "UI")]
+[Trait("Area", "ApplicationBundle")]
+public sealed class ApplicationBundleViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(ViewMode.List)]
     [InlineData(ViewMode.Grid)]
     public async Task DoubleClickLaunchesApplicationAndPackageContentsRemainExplicit(ViewMode mode)
@@ -60,7 +62,11 @@ public sealed partial class FileListViewModelCreateTests
         finally { window.Close(); root.Delete(true); }
     }
 
-    private sealed class BundleTestLauncher : IApplicationLauncherService
+}
+
+public abstract partial class FileListViewModelTestBase
+{
+    protected sealed class BundleTestLauncher : IApplicationLauncherService
     {
         public List<string> Opened { get; } = [];
         public Task OpenFileAsync(string path) { Opened.Add(path); return Task.CompletedTask; }
@@ -69,8 +75,11 @@ public sealed partial class FileListViewModelCreateTests
         public Task OpenInEditorAsync(string path, string cliName, string bundleId) => Task.CompletedTask;
         public Task RevealInFinderAsync(string path) => Task.CompletedTask;
     }
+
 }
 
+[Trait("Kind", "Unit")]
+[Trait("Area", "ApplicationBundle")]
 public sealed class ApplicationBundleTests
 {
     [Fact]
@@ -96,7 +105,7 @@ public sealed class ApplicationBundleTests
     [Fact]
     public async Task NativeApplicationIconCacheRefreshesExpiredImages()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var root = Directory.CreateTempSubdirectory("FKFinder_AppIcon_");
         var appPath = Directory.CreateDirectory(Path.Combine(root.FullName, "Example.app")).FullName;
         var service = new MacFileService();
@@ -123,4 +132,5 @@ public sealed class ApplicationBundleTests
             root.Delete(true);
         }
     }
+
 }
