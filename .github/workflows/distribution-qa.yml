@@ -52,17 +52,26 @@ jobs:
           set -euo pipefail
           runner=$(find "$RUNNER_TEMP/build-$CHANNEL/bin/MacExplorer.Tests" -type f -name MacExplorer.Tests | head -n 1)
           test -x "$runner"
+          channel_selectors=()
+          if [[ "$CHANNEL" == Website ]]; then
+            channel_selectors+=(
+              -method- MacExplorer.Tests.DistributionCommonTests.StoreGitStatusRejectsInvalidPaths
+              -method- MacExplorer.Tests.DistributionCommonTests.StoreChannelRejectsExternalExecutionAtServiceBoundary
+              -method- MacExplorer.Tests.GitStatusServiceTests.StoreRejectsUnauthorizedRepositoryBeforeReturningCachedStatus
+            )
+          fi
           test_status=0
           bash Tools/Testing/run-isolated.sh env \
             MACEXPLORER_TEST_REPOSITORY="$GITHUB_WORKSPACE" \
             MACEXPLORER_SFTP_TEST_PYTHON="$RUNNER_TEMP/sftp-fixture/bin/python" \
-            "$runner" -class MacExplorer.Tests.ReliabilityRecoveryTests \
+            "$runner" -explicit on -class MacExplorer.Tests.ReliabilityRecoveryTests \
             -class MacExplorer.Tests.SftpLoopbackTests -class MacExplorer.Tests.DistributionCommonTests \
             -class MacExplorer.Tests.GitStatusServiceTests \
             -class MacExplorer.Tests.PrivacySecurityFollowupTests -class MacExplorer.Tests.SecurityDialogTests \
             -class MacExplorer.Tests.LocalSendServiceTests -class MacExplorer.Tests.LocalSendReviewTests \
             -class MacExplorer.Tests.FileListLoadingPipelineTests \
             -method- MacExplorer.Tests.LocalSendServiceTests.SendsToOfficialLocalSendClient \
+            "${channel_selectors[@]}" \
             > "$RUNNER_TEMP/tests-$CHANNEL.log" 2>&1 || test_status=$?
           cat "$RUNNER_TEMP/tests-$CHANNEL.log"
           test "$test_status" -eq 0
