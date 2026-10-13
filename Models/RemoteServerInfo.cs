@@ -8,6 +8,7 @@ public class RemoteServerInfo : INotifyPropertyChanged
     private bool _isConnected;
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public RemoteServiceType ServiceType { get; set; } = RemoteServiceType.Sftp;
     public string Name { get; set; } = "";
     public string Host { get; set; } = "";
     public int Port { get; set; } = 22;
@@ -55,4 +56,9 @@ public enum RemoteAuthMethod
 {
     Password,
     PrivateKey
+}
+
+public enum RemoteServiceType
+{
+    Sftp
 }

@@ -49,6 +49,12 @@
         </ResourceDictionary>
     </UserControl.Resources>
     <UserControl.Styles>
+        <Style Selector="Grid#TitleBarSurface">
+            <Setter Property="Background" Value="{DynamicResource TitleBarBackgroundBrush}"/>
+        </Style>
+        <Style Selector="local|WindowTitleBar:overlay Grid#TitleBarSurface">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
         <Style Selector="Button.window-control">
             <Setter Property="Theme" Value="{StaticResource TrafficLightButtonTheme}"/>
             <Setter Property="Width" Value="24"/>
@@ -128,7 +134,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid Height="44" Background="{DynamicResource TitleBarBackgroundBrush}">
+    <Grid x:Name="TitleBarSurface" Height="44">
         <ContentPresenter Content="{Binding #TitleBarRoot.TitleBarBackgroundContent}"
                           HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                           IsHitTestVisible="False"/>

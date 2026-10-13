@@ -20,6 +20,7 @@ public partial class MainWindow
 {
     private CopilotEngine? _copilot;
     private bool _copilotBusy;
+    private bool _copilotPreparingSend;
     private bool _copilotClosed;
     private CancellationTokenSource? _copilotRunCts;
     private Task? _copilotRunTask;
@@ -267,13 +268,14 @@ public partial class MainWindow
     private async void SendCopilotMessage(object? sender, RoutedEventArgs e)
     {
         var message = CopilotInput.Text?.Trim();
-        if (_copilotBusy || CopilotApprovalCard.IsVisible
+        if (_copilotBusy || _copilotPreparingSend || CopilotApprovalCard.IsVisible
             || string.IsNullOrEmpty(message) && _copilotAttachments.Count == 0) return;
         message = string.IsNullOrEmpty(message) ? "请查看这些附件。" : message;
+        _copilotPreparingSend = true;
         try
         {
             if (!await Dialogs.CopilotPrivacyConsent.EnsureAsync(this,
-                Copilot.ConsentSettings, Copilot.ConsentCredentials)) return;
+                Copilot.ConsentSettings)) return;
             if (Copilot.PrepareForSend() is { } notice)
             {
                 CopilotTranscript.Children.Clear();
@@ -286,6 +288,7 @@ public partial class MainWindow
             AddCopilotLine("错误", ex.Message);
             return;
         }
+        finally { _copilotPreparingSend = false; }
         var attachments = _copilotAttachments.ToArray();
         CopilotInput.Text = string.Empty;
         AddCopilotLine("你", message);

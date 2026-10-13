@@ -21,6 +21,24 @@ public class AppWindow : Window
     private Grid? _subscriptionHost;
     internal bool IsShortcutHintVisible => _shortcutHints?.IsVisible == true;
 
+    public static readonly StyledProperty<bool> ExtendContentToTopProperty =
+        AvaloniaProperty.Register<AppWindow, bool>(nameof(ExtendContentToTop));
+
+    public static readonly StyledProperty<bool> FullHeightContentProperty =
+        AvaloniaProperty.Register<AppWindow, bool>(nameof(FullHeightContent));
+
+    public bool ExtendContentToTop
+    {
+        get => GetValue(ExtendContentToTopProperty);
+        set => SetValue(ExtendContentToTopProperty, value);
+    }
+
+    public bool FullHeightContent
+    {
+        get => GetValue(FullHeightContentProperty);
+        set => SetValue(FullHeightContentProperty, value);
+    }
+
     public static readonly StyledProperty<Control?> TitleBarContentProperty =
         AvaloniaProperty.Register<AppWindow, Control?>(nameof(TitleBarContent));
 
@@ -153,7 +171,8 @@ public class AppWindow : Window
                 _stateBeforeFullScreen = WindowState;
             UpdateWindowPseudoClasses();
         }
-        else if (change.Property == IsModalInteractionBlockedProperty)
+        else if (change.Property == IsModalInteractionBlockedProperty
+            || change.Property == ExtendContentToTopProperty || change.Property == FullHeightContentProperty)
         {
             UpdateWindowPseudoClasses();
         }
@@ -171,6 +190,8 @@ public class AppWindow : Window
 
     private void UpdateWindowPseudoClasses()
     {
+        PseudoClasses.Set(":extended-content", ExtendContentToTop);
+        PseudoClasses.Set(":full-height-content", FullHeightContent);
         PseudoClasses.Set(":normal", WindowState == WindowState.Normal);
         PseudoClasses.Set(":maximized", WindowState == WindowState.Maximized);
         PseudoClasses.Set(":fullscreen", WindowState == WindowState.FullScreen);
@@ -184,6 +205,7 @@ public class DialogWindow : AppWindow
 {
     public DialogWindow()
     {
+        ExtendContentToTop = true;
         CanResize = false;
         CanMinimize = false;
         CanMaximize = false;

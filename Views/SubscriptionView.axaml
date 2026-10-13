@@ -1,12 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
-             x:Class="MacExplorer.Views.SubscriptionView" Background="{DynamicResource TitleBarBackgroundBrush}">
+             x:Class="MacExplorer.Views.SubscriptionView" Background="{DynamicResource DialogContentBrush}">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
+    </UserControl.Resources>
     <UserControl.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </UserControl.Styles>
     <Grid RowDefinitions="Auto,*,Auto">
-        <controls:WindowTitleBar Title="Mac Explorer"/>
+        <controls:WindowTitleBar/>
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <Grid x:Name="IntroductionGrid" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
                   MaxWidth="820" Margin="24,12" VerticalAlignment="Center">

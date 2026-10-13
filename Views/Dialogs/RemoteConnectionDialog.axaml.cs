@@ -12,6 +12,13 @@ public partial class RemoteConnectionDialog : DialogWindow
 {
     private readonly IRemoteConnectionService _connectionService;
     private RemoteServerInfo? _editingServer;
+    private const string NewDraftId = "new-draft";
+    private readonly Dictionary<string, ServerDraft> _drafts = new();
+    private bool _refreshingServers;
+    private bool _connecting;
+    private sealed record ServerDraft(string Name, string Host, string Port, string Username,
+        string Password, string KeyPath, string Passphrase, bool Remember, string Path, bool UseKey);
+
     private readonly CancellationTokenSource _connectionCancellation = new();
     public RemoteServerInfo? Result { get; private set; }
     public bool Connected { get; private set; }
@@ -26,7 +33,6 @@ public partial class RemoteConnectionDialog : DialogWindow
             RememberKeyPassphrase.IsChecked = false;
         };
         _connectionService = App.Services.GetRequiredService<IRemoteConnectionService>();
-        Height = _connectionService.GetSavedServers().Count > 0 ? 650 : 550;
         Loaded += OnLoaded;
         Closed += (_, _) => _connectionCancellation.Cancel();
     }
@@ -34,43 +40,85 @@ public partial class RemoteConnectionDialog : DialogWindow
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
         RefreshSavedServers();
+        SavedServersList.SelectedIndex = _connectionService.GetSavedServers().Count > 0 ? 0 : -1;
         ConnectionStatus.Text = _connectionService.CredentialLoadError ?? "";
         HostBox.Focus();
     }
 
     private void RefreshSavedServers()
     {
-        var servers = _connectionService.GetSavedServers();
-        SavedServersList.ItemsSource = servers;
-        SavedServersPanel.IsVisible = servers.Count > 0;
+        var selectedId = _editingServer?.Id;
+        _refreshingServers = true;
+        try
+        {
+            var servers = _connectionService.GetSavedServers();
+            SavedServersList.ItemsSource = servers;
+            SavedServersList.SelectedItem = servers.FirstOrDefault(server => server.Id == selectedId);
+        }
+        finally { _refreshingServers = false; }
+    }
+
+    private void RememberDraft()
+    {
+        _drafts[_editingServer?.Id ?? NewDraftId] = new ServerDraft(
+            NameBox.Text ?? "", HostBox.Text ?? "", PortBox.Text ?? "", UsernameBox.Text ?? "",
+            PasswordBox.Text ?? "", KeyPathBox.Text ?? "", KeyPassphraseBox.Text ?? "",
+            RememberKeyPassphrase.IsChecked == true, DefaultPathBox.Text ?? "", KeyRadio.IsChecked == true);
     }
 
     private void OnSavedServerSelected(object? sender, SelectionChangedEventArgs e)
     {
-        if (SavedServersList.SelectedItem is not RemoteServerInfo server) return;
+        if (_refreshingServers || _connecting || SavedServersList.SelectedItem is not RemoteServerInfo server) return;
+        RememberDraft();
         _editingServer = server;
-        NameBox.Text = server.Name;
-        HostBox.Text = server.Host;
-        PortBox.Text = server.Port.ToString();
-        UsernameBox.Text = server.Username;
-        DefaultPathBox.Text = server.DefaultPath;
-        DeleteButton.IsVisible = true;
+        var draft = _drafts.GetValueOrDefault(server.Id) ?? new ServerDraft(server.Name, server.Host,
+            server.Port.ToString(), server.Username, server.Password, server.PrivateKeyPath,
+            server.PrivateKeyPassphrase, server.RememberPrivateKeyPassphrase, server.DefaultPath,
+            server.AuthMethod == RemoteAuthMethod.PrivateKey);
+        LoadDraft(draft);
+        DeleteButton.IsEnabled = true;
+    }
 
-        PasswordBox.Text = server.Password;
-        KeyPathBox.Text = server.PrivateKeyPath;
-        KeyPassphraseBox.Text = server.PrivateKeyPassphrase;
-        RememberKeyPassphrase.IsChecked = server.RememberPrivateKeyPassphrase;
-        if (server.AuthMethod == RemoteAuthMethod.PrivateKey)
-        {
-            KeyRadio.IsChecked = true;
-            KeyPathBox.Text = server.PrivateKeyPath;
-        }
-        else
-        {
-            PasswordRadio.IsChecked = true;
-            PasswordBox.Text = server.Password;
-        }
-        OnAuthMethodChanged(this, e);
+    private void LoadDraft(ServerDraft draft)
+    {
+        NameBox.Text = draft.Name;
+        HostBox.Text = draft.Host;
+        PortBox.Text = draft.Port;
+        UsernameBox.Text = draft.Username;
+        PasswordBox.Text = draft.Password;
+        KeyPathBox.Text = draft.KeyPath;
+        KeyPassphraseBox.Text = draft.Passphrase;
+        RememberKeyPassphrase.IsChecked = draft.Remember;
+        DefaultPathBox.Text = draft.Path;
+        KeyRadio.IsChecked = draft.UseKey;
+        PasswordRadio.IsChecked = !draft.UseKey;
+        ServiceTypeBox.SelectedIndex = 0;
+        HostError.IsVisible = false;
+        OnAuthMethodChanged(this, new RoutedEventArgs());
+    }
+
+    private void OnAddServer(object? sender, RoutedEventArgs e)
+    {
+        if (_connecting) return;
+        RememberDraft();
+        ClearForm();
+        SavedServersList.SelectedItem = null;
+        if (_drafts.TryGetValue(NewDraftId, out var draft)) LoadDraft(draft);
+        ConnectionStatus.Text = "";
+        HostBox.Focus();
+    }
+
+    private void SetConnecting(bool value)
+    {
+        _connecting = value;
+        SavedServersPanel.IsEnabled = !value;
+        ServiceParametersHost.IsEnabled = !value;
+        NameBox.IsEnabled = !value;
+        ServiceTypeBox.IsEnabled = !value;
+        AuxiliaryActions.IsEnabled = !value;
+        ConnectButton.IsEnabled = !value;
+        SaveButton.IsEnabled = !value;
+        ConnectButton.Content = MacExplorer.Services.Impl.LocalizationText.Get(value ? "remote.connecting" : "ui.499");
     }
 
     private void OnAuthMethodChanged(object? sender, RoutedEventArgs e)
@@ -104,12 +152,11 @@ public partial class RemoteConnectionDialog : DialogWindow
 
     private async void OnConnect(object? sender, RoutedEventArgs e)
     {
+        if (_connecting) return;
         var server = BuildServerInfo();
         if (server == null) return;
-
-        ConnectButton.IsEnabled = false;
-        SaveButton.IsEnabled = false;
-        ConnectButton.Content = "连接中...";
+        RememberDraft();
+        SetConnecting(true);
 
         try
         {
@@ -128,20 +175,22 @@ public partial class RemoteConnectionDialog : DialogWindow
         }
         finally
         {
-            ConnectButton.IsEnabled = true;
-            SaveButton.IsEnabled = true;
-            ConnectButton.Content = "连接";
+            SetConnecting(false);
         }
     }
 
     private void OnSave(object? sender, RoutedEventArgs e)
     {
+        if (_connecting) return;
         var server = BuildServerInfo();
         if (server == null) return;
         try
         {
             _connectionService.SaveServer(server);
+            _drafts.Remove(_editingServer?.Id ?? NewDraftId);
             _editingServer = server;
+            RememberDraft();
+            DeleteButton.IsEnabled = true;
             RefreshSavedServers();
             ConnectionStatus.Text = "已保存。";
         }
@@ -150,13 +199,15 @@ public partial class RemoteConnectionDialog : DialogWindow
 
     private void OnDeleteServer(object? sender, RoutedEventArgs e)
     {
-        if (_editingServer == null) return;
+        if (_connecting || _editingServer == null) return;
         try
         {
             _connectionService.RemoveServer(_editingServer.Id);
+            _drafts.Remove(_editingServer.Id);
             _editingServer = null;
             ClearForm();
             RefreshSavedServers();
+            if (_drafts.TryGetValue(NewDraftId, out var draft)) LoadDraft(draft);
             ConnectionStatus.Text = "已删除连接配置；主机信任可单独撤销。";
         }
         catch (Exception ex) { ConnectionStatus.Text = $"删除失败：{ex.Message} 配置已保留，可重试删除。"; }
@@ -168,8 +219,13 @@ public partial class RemoteConnectionDialog : DialogWindow
         _connectionService.RetryCredentialMigration();
         ConnectionStatus.Text = _connectionService.CredentialLoadError ?? "凭据已重新加载；迁移完成。";
         RefreshSavedServers();
-        if (selectedId != null)
-            SavedServersList.SelectedItem = _connectionService.GetSavedServers().FirstOrDefault(server => server.Id == selectedId);
+        if (selectedId != null && _connectionService.GetSavedServers().FirstOrDefault(server => server.Id == selectedId) is { } reloaded)
+        {
+            PasswordBox.Text = reloaded.Password;
+            KeyPassphraseBox.Text = reloaded.PrivateKeyPassphrase;
+            RememberKeyPassphrase.IsChecked = reloaded.RememberPrivateKeyPassphrase;
+            RememberDraft();
+        }
     }
 
     private async void OnForgetHostKey(object? sender, RoutedEventArgs e)
@@ -210,6 +266,7 @@ public partial class RemoteConnectionDialog : DialogWindow
         }
         // Editing is a candidate until persistence succeeds; failed saves cannot mutate saved objects.
         var server = new RemoteServerInfo { Id = _editingServer?.Id ?? Guid.NewGuid().ToString("N") };
+        server.ServiceType = RemoteServiceType.Sftp;
         server.Name = NameBox.Text?.Trim() ?? "";
         server.Host = host!;
         server.Port = port;
@@ -236,6 +293,6 @@ public partial class RemoteConnectionDialog : DialogWindow
         RememberKeyPassphrase.IsChecked = false;
         DefaultPathBox.Text = "/";
         PasswordRadio.IsChecked = true;
-        DeleteButton.IsVisible = false;
+        DeleteButton.IsEnabled = false;
     }
 }

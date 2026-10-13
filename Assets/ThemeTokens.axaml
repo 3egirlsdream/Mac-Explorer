@@ -57,6 +57,9 @@
                     <BoxShadows x:Key="HomeSearchShadow">0 0 34 -22 #28000000, inset 0 0 0 1 #06000000</BoxShadows>
                     <BoxShadows x:Key="HomeSearchFocusShadow">0 0 42 -24 #30000000, inset 0 0 0 1 #10000000</BoxShadows>
                     <DropShadowEffect x:Key="ViewModeToggleShadow" OffsetX="0" OffsetY="0.5" BlurRadius="4.5" Color="#606068" Opacity="0.16"/>
+                    <SolidColorBrush x:Key="DialogContentBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="DialogGroupBrush" Color="#F8F8F8"/>
+                    <SolidColorBrush x:Key="DialogDividerBrush" Color="#EEEEEE"/>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F4F6"/>
                     <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#F7F7F8"/>
                     <SolidColorBrush x:Key="WindowBorderBrush" Color="#18000000"/>
@@ -220,6 +223,9 @@
                     <BoxShadows x:Key="HomeSearchShadow">0 0 34 -22 #90000000, inset 0 0 0 1 #36000000</BoxShadows>
                     <BoxShadows x:Key="HomeSearchFocusShadow">0 0 42 -24 #A0000000, inset 0 0 0 1 #42000000</BoxShadows>
                     <DropShadowEffect x:Key="ViewModeToggleShadow" OffsetX="0" OffsetY="0.5" BlurRadius="4.5" Color="#101114" Opacity="0.28"/>
+                    <SolidColorBrush x:Key="DialogContentBrush" Color="#1B1D21"/>
+                    <SolidColorBrush x:Key="DialogGroupBrush" Color="#292D34"/>
+                    <SolidColorBrush x:Key="DialogDividerBrush" Color="#343942"/>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#17191D"/>
                     <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#202329"/>
                     <SolidColorBrush x:Key="WindowBorderBrush" Color="#22000000"/>

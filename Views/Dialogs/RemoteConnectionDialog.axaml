@@ -5,34 +5,49 @@
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.RemoteConnectionDialog"
         Title="{loc:Loc ui.028}"
-        Width="480" Height="550" MinWidth="400" MinHeight="450"
+        FullHeightContent="True" Width="820" Height="620" MinWidth="700" MinHeight="500"
         CanResize="True" WindowStartupLocation="CenterOwner">
-    <Window.Resources>
-        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
-    </Window.Resources>
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+        <Style Selector="ListBox.remote-server-list">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBox.remote-server-list > ListBoxItem">
+            <Setter Property="Padding" Value="6,6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+        </Style>
     </Window.Styles>
-    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16" RowSpacing="8">
-        <Border Grid.Row="0" x:Name="SavedServersPanel" IsVisible="False">
-            <StackPanel Spacing="4">
-                <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.512}"/>
-                <ListBox x:Name="SavedServersList" MaxHeight="100" SelectionChanged="OnSavedServerSelected">
+    <Grid ColumnDefinitions="220,*">
+        <Border x:Name="SavedServersPanel" Background="{DynamicResource TitleBarBackgroundBrush}"
+                BorderBrush="{DynamicResource DialogDividerBrush}" BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,*,Auto" Margin="10,58,10,12" RowSpacing="8">
+                <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.324}"/>
+                <ListBox Grid.Row="1" x:Name="SavedServersList" Classes="remote-server-list" SelectionChanged="OnSavedServerSelected">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="4,2">
                                 <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="16" Height="16"
                                           Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding DisplayName}" Classes="settings-label"/>
-                                    <TextBlock Text="{Binding ConnectionString}" Classes="settings-description"/>
+                                    <TextBlock Text="{Binding DisplayName}" Classes="settings-label" TextWrapping="NoWrap" ToolTip.Tip="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding ConnectionString}" Classes="settings-description" TextWrapping="NoWrap" ToolTip.Tip="{Binding ConnectionString}" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-            </StackPanel>
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Button x:Name="AddServerButton" Classes="ghost compact" Click="OnAddServer" Content="{loc:Loc remote.add}"/>
+                    <Button Grid.Column="1" x:Name="DeleteButton" Classes="icon-action" Click="OnDeleteServer" IsEnabled="False" ToolTip.Tip="{loc:Loc ui.006}" AutomationProperties.Name="{loc:Loc ui.006}">
+                        <PathIcon Data="{x:Static icons:Icons.Delete}" Width="16" Height="16"/>
+                    </Button>
+                </Grid>
+            </Grid>
         </Border>
+        <Border Grid.Column="1" Background="{DynamicResource DialogContentBrush}" Padding="16,58,16,16">
+        <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="8">
+            <TextBlock Grid.Row="0" Text="{loc:Loc ui.028}" Classes="settings-title"/>
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="8">
                 <Border Classes="settings-group">
@@ -43,6 +58,19 @@
                                 <TextBox Grid.Column="1" x:Name="NameBox" Classes="settings-inline-input" Watermark="{loc:Loc ui.513}" AutomationProperties.Name="{loc:Loc ui.514}"/>
                             </Grid>
                         </Border>
+                        <Border Classes="settings-row">
+                            <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                                <TextBlock Classes="settings-label" Text="{loc:Loc remote.type}" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="1" x:Name="ServiceTypeBox" Classes="settings-inline-input" SelectedIndex="0" AutomationProperties.Name="{loc:Loc remote.type}">
+                                    <ComboBoxItem Content="SFTP"/>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+                <StackPanel x:Name="ServiceParametersHost" Spacing="8">
+                <Border Classes="settings-group">
+                    <StackPanel>
                         <Border Classes="settings-row settings-divider">
                             <StackPanel>
                                 <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
@@ -108,7 +136,8 @@
                         </Border>
                     </StackPanel>
                 </Border>
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                </StackPanel>
+                <StackPanel x:Name="AuxiliaryActions" Orientation="Horizontal" Spacing="8">
                     <Button Classes="ghost compact" Content="{loc:Loc ui.530}" Click="OnRetryCredentials"
                             ToolTip.Tip="{loc:Loc ui.531}"/>
                     <Button Classes="ghost compact" Content="{loc:Loc ui.532}" Click="OnForgetHostKey"
@@ -120,10 +149,12 @@
             <TextBlock x:Name="ConnectionStatus" Classes="settings-description" TextWrapping="Wrap" AutomationProperties.Name="{loc:Loc ui.534}"/>
         </ScrollViewer>
         <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,4,0,0">
-            <Button x:Name="DeleteButton" Content="{loc:Loc ui.006}" Classes="ghost compact" Foreground="{DynamicResource DangerBrush}" Click="OnDeleteServer" IsVisible="False"/>
+
             <Button Grid.Column="2" Content="{loc:Loc ui.094}" Classes="secondary compact" Click="OnCancel"/>
             <Button Grid.Column="3" x:Name="SaveButton" Content="{loc:Loc ui.095}" Classes="secondary compact" Click="OnSave"/>
             <Button Grid.Column="4" x:Name="ConnectButton" Content="{loc:Loc ui.499}" Classes="primary compact" Click="OnConnect"/>
         </Grid>
+        </Grid>
+        </Border>
     </Grid>
 </controls:DialogWindow>

@@ -49,8 +49,8 @@
             <ControlTemplate>
                 <Grid ColumnDefinitions="176,*">
                     <Border Background="{DynamicResource TitleBarBackgroundBrush}"
-                            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="0,0,1,0">
-                        <DockPanel Margin="10,14,10,14">
+                            BorderBrush="{DynamicResource DialogDividerBrush}" BorderThickness="0,0,1,0">
+                        <DockPanel Margin="10,58,10,14">
                             <Grid DockPanel.Dock="Top" ColumnDefinitions="28,*" ColumnSpacing="8" Margin="8,0,0,16">
                                 <Image Source="/Assets/appicon.ico" Width="28" Height="28"/>
                                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
@@ -64,7 +64,7 @@
                             </ScrollViewer>
                         </DockPanel>
                     </Border>
-                    <Border Grid.Column="1" Background="{DynamicResource TitleBarBackgroundBrush}">
+                    <Border Grid.Column="1" Padding="0,44,0,0" Background="{DynamicResource DialogContentBrush}">
                         <ContentPresenter Name="PART_SelectedContentHost"
                                           Content="{TemplateBinding SelectedContent}"
                                           ContentTemplate="{TemplateBinding SelectedContentTemplate}"
@@ -127,7 +127,7 @@
     <Style Selector="Button.interaction-token-row">
         <Setter Property="MinHeight" Value="48"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource DialogDividerBrush}"/>
     </Style>
     <Style Selector="TextBlock.settings-title">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
@@ -144,7 +144,7 @@
     </Style>
 
     <Style Selector="Border.settings-group">
-        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DialogGroupBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
@@ -158,7 +158,7 @@
     </Style>
 
     <Style Selector="Border.settings-row.settings-divider">
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource DialogDividerBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
 
@@ -169,7 +169,7 @@
     </Style>
 
     <Style Selector="Border.settings-compact-row.settings-divider">
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource DialogDividerBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
 
@@ -188,7 +188,7 @@
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
     <Style Selector="Border.settings-divider-row">
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource DialogDividerBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
 
@@ -213,7 +213,7 @@
     </Style>
 
     <Style Selector="Border.settings-about-card">
-        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DialogGroupBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>

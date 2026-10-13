@@ -5,8 +5,7 @@
         x:Class="MacExplorer.Views.Dialogs.LocalSendPinDialog"
         Title="{loc:Loc ui.500}"
         Width="360" Height="150" CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource TitleBarBackgroundBrush}">
+        WindowStartupLocation="CenterOwner">
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>

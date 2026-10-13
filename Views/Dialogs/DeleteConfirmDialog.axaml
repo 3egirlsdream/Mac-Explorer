@@ -5,8 +5,7 @@
         x:Class="MacExplorer.Views.Dialogs.DeleteConfirmDialog"
         Title="{loc:Loc ui.374}" Width="420" Height="240"
         CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource GlassEffectBg}">
+        WindowStartupLocation="CenterOwner">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <TextBlock Grid.Row="0" x:Name="DialogTitle" Text="{loc:Loc ui.374}" FontSize="{DynamicResource FontSizeHeading}" FontWeight="{StaticResource FontWeightMedium}"

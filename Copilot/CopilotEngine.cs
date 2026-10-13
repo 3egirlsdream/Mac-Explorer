@@ -65,7 +65,6 @@ public sealed class CopilotEngine : IDisposable
 
     public string SessionId => _sessionId;
     internal CopilotSettings ConsentSettings => settings;
-    internal CopilotCredentialStore ConsentCredentials => credentials;
     public bool NeedsApproval => _approval != null;
     public CapabilityPlan? PendingApprovalPlan => TryGetApprovalPlan(_approval);
     public string? PendingRecipient
@@ -170,7 +169,7 @@ public sealed class CopilotEngine : IDisposable
     {
         if (_approval != null) throw new InvalidOperationException("请先处理待确认的操作。");
         if (_disposed) throw new ObjectDisposedException(nameof(CopilotEngine));
-        if (!settings.HasMetadataConsent(credentials.Read()))
+        if (!settings.HasMetadataConsent())
             throw new InvalidOperationException("请先允许向当前 AI 服务发送文件信息。 ");
         attachments ??= [];
         PrepareForSend();
@@ -187,8 +186,8 @@ public sealed class CopilotEngine : IDisposable
     public async Task<CopilotReply> RespondToApprovalAsync(bool approved, Action<AgentResponseUpdate>? onUpdate = null,
         CancellationToken cancellationToken = default)
     {
-        if (approved && !settings.HasMetadataConsent(credentials.Read()))
-            throw new InvalidOperationException("接收配置已变化，请重新允许发送文件信息。 ");
+        if (approved && !settings.HasMetadataConsent())
+            throw new InvalidOperationException("AI 分享许可已撤回，请重新允许发送文件信息。 ");
         var request = _approval ?? throw new InvalidOperationException("没有待确认的操作。");
         if (approved) ValidatePendingApprovalRecipient();
         _handledApprovalCalls.Add(request.ToolCall.CallId);
@@ -206,7 +205,7 @@ public sealed class CopilotEngine : IDisposable
 
         var responses = _approvalResponses.ToArray();
         _approvalResponses.Clear();
-        if (!approved && !settings.HasMetadataConsent(credentials.Read()))
+        if (!approved && !settings.HasMetadataConsent())
         {
             ClearSessionRuntime();
             return new("已拒绝操作。", null, false);

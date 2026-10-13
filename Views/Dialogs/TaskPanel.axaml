@@ -4,14 +4,13 @@
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="using:MacExplorer.Assets"
         x:Class="MacExplorer.Views.Dialogs.TaskPanel"
-        Title="{loc:Loc ui.048}" Width="420" Height="480" MinWidth="380" MinHeight="360"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource GlassMenuBg}">
+        ExtendContentToTop="True" Title="{loc:Loc ui.048}" Width="420" Height="480" MinWidth="380" MinHeight="360"
+        WindowStartupLocation="CenterOwner">
 
     <controls:ToolWindow.Styles>
         <!-- ── Stat card ── -->
         <Style Selector="Border.task-summary">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+            <Setter Property="Background" Value="{DynamicResource DialogGroupBrush}"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Padding" Value="12,8"/>
         </Style>

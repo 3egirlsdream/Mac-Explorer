@@ -8,16 +8,13 @@
         CanResize="False"
         WindowStartupLocation="CenterOwner">
 
-    <Window.Resources>
-        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
-    </Window.Resources>
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
-        <Style Selector=":is(controls|AppWindow) /template/ Border#WindowFrame">
-            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
-        </Style>
     </Window.Styles>
 
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="settings-title" Margin="16,10,16,6"
+                   Text="{Binding Title, RelativeSource={RelativeSource AncestorType=controls:DialogWindow}}"/>
     <Grid RowDefinitions="Auto,Auto" RowSpacing="12" Margin="16,6,16,16">
         <Border Classes="settings-group">
             <StackPanel>
@@ -97,4 +94,5 @@
                     Click="ConfirmClick"/>
         </StackPanel>
     </Grid>
+    </DockPanel>
 </controls:DialogWindow>

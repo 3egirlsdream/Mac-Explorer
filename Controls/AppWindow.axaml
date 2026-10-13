@@ -9,23 +9,22 @@
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border x:Name="WindowFrame"
-                            Background="{DynamicResource WindowBackgroundBrush}"
                             BorderBrush="{DynamicResource WindowBorderBrush}"
                             BorderThickness="0"
                             CornerRadius="{DynamicResource RadiusXl}"
                             ClipToBounds="True">
                         <VisualLayerManager Name="PART_VisualLayerManager">
                         <Grid RowDefinitions="Auto,*">
+                            <ContentPresenter x:Name="WindowContent"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
                             <local:WindowTitleBar x:Name="WindowTitleBar"
                                                   Grid.Row="0"
                                                   Title="{TemplateBinding Title}"
                                                   TitleBarBackgroundContent="{TemplateBinding TitleBarBackgroundContent}"
                                                   TitleBarContent="{TemplateBinding TitleBarContent}"/>
-                            <ContentPresenter x:Name="WindowContent" Grid.Row="1"
-                                              Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
                             <Grid x:Name="WindowOverlayHost" Grid.RowSpan="2" chrome:WindowDecorationProperties.ElementRole="User"/>
                             <Border x:Name="ModalTitleBarHitShield"
                                     Grid.Row="0"
@@ -39,6 +38,23 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
+            <Style Selector="^ /template/ Border#WindowFrame">
+                <Setter Property="Background" Value="{DynamicResource WindowBackgroundBrush}"/>
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#WindowContent">
+                <Setter Property="Grid.Row" Value="1"/>
+            </Style>
+            <Style Selector="^:extended-content /template/ Border#WindowFrame">
+                <Setter Property="Background" Value="{DynamicResource DialogContentBrush}"/>
+            </Style>
+            <Style Selector="^:extended-content /template/ ContentPresenter#WindowContent">
+                <Setter Property="Grid.Row" Value="0"/>
+                <Setter Property="Grid.RowSpan" Value="2"/>
+                <Setter Property="Margin" Value="0,44,0,0"/>
+            </Style>
+            <Style Selector="^:extended-content:full-height-content /template/ ContentPresenter#WindowContent">
+                <Setter Property="Margin" Value="0"/>
+            </Style>
             <Style Selector="^:maximized /template/ Border#WindowFrame, ^:fullscreen /template/ Border#WindowFrame">
                 <Setter Property="CornerRadius" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>

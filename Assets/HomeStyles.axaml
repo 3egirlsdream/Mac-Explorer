@@ -154,7 +154,7 @@
         <Setter Property="Opacity" Value="1"/>
     </Style>
     <Style Selector="Border.home-dialog-surface">
-        <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
-        <Setter Property="Padding" Value="24"/>
+        <Setter Property="Background" Value="{DynamicResource DialogContentBrush}"/>
+        <Setter Property="Padding" Value="16"/>
     </Style>
 </Styles>

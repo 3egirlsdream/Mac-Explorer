@@ -19,21 +19,47 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
 
     [Fact]
     [Trait("Kind", "Unit")]
+    public void CopilotApprovalSurvivesSettingsReloadAndCredentialChanges()
+    {
+        var factory = new DatabaseConnectionFactory(Path.Combine(_root, "copilot-consent.db"));
+        using (var database = factory.GetConnection())
+        using (var command = database.CreateCommand())
+        {
+            command.CommandText = "CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT)";
+            command.ExecuteNonQuery();
+        }
+        using (var settings = new SettingsService(factory))
+            new CopilotSettings(settings).AllowMetadataSharing();
+        using var reloaded = new SettingsService(factory);
+        var copilot = new CopilotSettings(reloaded);
+        copilot.Endpoint = "https://different.test/v1";
+        copilot.Model = "different-model";
+        Assert.True(copilot.HasMetadataConsent());
+        if (RuntimePaths.TestRoot == null) Assert.Skip("Run isolated to keep application credentials isolated.");
+        new CopilotCredentialStore().Save("replacement-fixture-key");
+        Assert.True(new CopilotSettings(reloaded).HasMetadataConsent());
+        copilot.RevokeMetadataSharing();
+        using var revoked = new SettingsService(factory);
+        Assert.False(new CopilotSettings(revoked).HasMetadataConsent());
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
     public async Task CopilotRevocationBlocksAnExistingTransportAndRequiresFreshConsent()
     {
         var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings());
         if (RuntimePaths.TestRoot == null) Assert.Skip("Run through Tools/Testing/run-isolated.sh to keep application credentials isolated.");
         var credentials = new CopilotCredentialStore(); credentials.Save("security-followup-fixture-key"); var key = credentials.Read()!;
-        settings.AllowMetadataSharing(key);
+        settings.AllowMetadataSharing();
         var transport = new RecordingTransport();
         using var client = new HttpClient(new PrivacyConsentHandler(transport, settings, credentials, settings.Endpoint, settings.Model, key));
         using (await client.GetAsync("https://fixture.test/v1", Token)) { }
         Assert.Equal(1, transport.Sends);
         settings.RevokeMetadataSharing();
-        Assert.False(settings.HasMetadataConsent(key));
+        Assert.False(settings.HasMetadataConsent());
         await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetAsync("https://fixture.test/v1", Token));
         Assert.Equal(1, transport.Sends);
-        settings.AllowMetadataSharing(key);
+        settings.AllowMetadataSharing();
         using (await client.GetAsync("https://fixture.test/v1", Token)) { }
         Assert.Equal(2, transport.Sends);
     }
@@ -49,7 +75,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
         command.ExecuteNonQuery();
         using var settings = new SettingsService(factory);
         var copilot = new CopilotSettings(settings);
-        copilot.AllowMetadataSharing("fixture-key");
+        copilot.AllowMetadataSharing();
         var leasePath = Path.Combine(_root, "privacy-lease");
         var photo = new PhotoLocationConsent(settings, leasePath);
         photo.SetAllowed(true);
@@ -60,7 +86,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
             """;
         command.ExecuteNonQuery();
         Assert.Throws<Microsoft.Data.Sqlite.SqliteException>(() => copilot.RevokeMetadataSharing());
-        Assert.False(copilot.HasMetadataConsent("fixture-key"));
+        Assert.False(copilot.HasMetadataConsent());
         Assert.Throws<Microsoft.Data.Sqlite.SqliteException>(() => photo.SetAllowed(false));
         Assert.False(photo.Enabled);
         Assert.Equal("", File.ReadAllText(leasePath));
@@ -69,7 +95,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
         copilot.RevokeMetadataSharing();
         photo.SetAllowed(false);
         using var reloaded = new SettingsService(factory);
-        Assert.False(new CopilotSettings(reloaded).HasMetadataConsent("fixture-key"));
+        Assert.False(new CopilotSettings(reloaded).HasMetadataConsent());
         Assert.False(new PhotoLocationConsent(reloaded, leasePath).Enabled);
     }
 

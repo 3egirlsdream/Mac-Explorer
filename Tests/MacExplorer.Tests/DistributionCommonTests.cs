@@ -340,14 +340,33 @@ public sealed class DistributionCommonTests : IDisposable
 
     [Fact]
     [Trait("Kind", "Unit")]
-    public void CopilotConsentExpiresOnEndpointModelOrCredentialChange()
+    public void CopilotConsentIsSharedAcrossInstancesAndConfigurationChangesUntilRevoked()
     {
-        var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings());
-        Assert.False(settings.HasMetadataConsent("key")); settings.AllowMetadataSharing("key");
-        Assert.True(settings.HasMetadataConsent("key")); Assert.False(settings.HasMetadataConsent("other-key"));
-        settings.Model = "different"; Assert.False(settings.HasMetadataConsent("key"));
-        settings.AllowMetadataSharing("key"); settings.Endpoint = "https://different.test/v1";
-        Assert.False(settings.HasMetadataConsent("key"));
+        var store = new PluginTestEnvironment.MemorySettings();
+        var settings = new CopilotSettings(store);
+        Assert.False(settings.HasMetadataConsent());
+        settings.AllowMetadataSharing();
+        settings.Model = "different";
+        settings.Endpoint = "https://different.test/v1";
+        var otherWindow = new CopilotSettings(store);
+        Assert.True(otherWindow.HasMetadataConsent());
+        otherWindow.RevokeMetadataSharing();
+        Assert.False(settings.HasMetadataConsent());
+    }
+
+    [Theory]
+    [Trait("Kind", "Unit")]
+    [InlineData("", false)]
+    [InlineData("invalid", false)]
+    [InlineData("0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF", true)]
+    public void CopilotRecognizesPreviouslySavedApproval(string consent, bool allowed)
+    {
+        var store = new PluginTestEnvironment.MemorySettings();
+        store.Set(CopilotSettings.MetadataConsentKey, consent);
+        var settings = new CopilotSettings(store);
+        Assert.Equal(allowed, settings.HasMetadataConsent());
+        settings.RevokeMetadataSharing();
+        Assert.False(new CopilotSettings(store).HasMetadataConsent());
     }
 
     [Fact]

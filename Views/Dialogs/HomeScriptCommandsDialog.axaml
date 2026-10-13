@@ -3,15 +3,12 @@
                        xmlns:controls="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
                        x:Class="MacExplorer.Views.Dialogs.HomeScriptCommandsDialog"
                        Width="620" Height="400" MinWidth="460" MinHeight="300" CanResize="True" Title="{loc:Loc ui.492}">
-    <Window.Resources>
-        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
-    </Window.Resources>
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
-        <Style Selector=":is(controls|AppWindow) /template/ Border#WindowFrame">
-            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
-        </Style>
     </Window.Styles>
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="settings-title" Margin="16,10,16,6"
+                   Text="{Binding Title, RelativeSource={RelativeSource AncestorType=controls:DialogWindow}}"/>
     <Grid RowDefinitions="*,Auto,Auto" Margin="16,6,16,16">
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="CommandRows" Spacing="10" Margin="0,0,8,0"/>
@@ -31,4 +28,5 @@
             </StackPanel>
         </DockPanel>
     </Grid>
+    </DockPanel>
 </controls:DialogWindow>

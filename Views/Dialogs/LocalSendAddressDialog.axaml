@@ -5,8 +5,7 @@
         x:Class="MacExplorer.Views.Dialogs.LocalSendAddressDialog"
         Title="{loc:Loc ui.494}"
         Width="380" MinHeight="190" MaxHeight="300" SizeToContent="Height" CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource TitleBarBackgroundBrush}">
+        WindowStartupLocation="CenterOwner">
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>

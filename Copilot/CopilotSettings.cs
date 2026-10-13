@@ -1,15 +1,18 @@
-using System.Text;
 using MacExplorer.Services;
 
 namespace MacExplorer.Copilot;
 
 public sealed class CopilotSettings(ISettingsService settings)
 {
-    private string ConsentSignature(string? key) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-        Encoding.UTF8.GetBytes(Endpoint + "\n" + Model + "\n" + key)));
-    public bool HasMetadataConsent(string? key) => settings.Get("copilot.metadata-consent") == ConsentSignature(key);
-    public void AllowMetadataSharing(string? key) => settings.Set("copilot.metadata-consent", ConsentSignature(key));
-    public void RevokeMetadataSharing() => settings.Set("copilot.metadata-consent", "");
+    public const string MetadataConsentKey = "copilot.metadata-consent";
+    public bool HasMetadataConsent()
+    {
+        var consent = settings.Get(MetadataConsentKey);
+        // Earlier versions stored a SHA-256 receiver signature after explicit approval.
+        return consent == "allowed" || consent is { Length: 64 } && consent.All(Uri.IsHexDigit);
+    }
+    public void AllowMetadataSharing() => settings.Set(MetadataConsentKey, "allowed");
+    public void RevokeMetadataSharing() => settings.Set(MetadataConsentKey, "");
     public const string EnabledKey = "copilot.enabled";
     public bool Enabled
     {

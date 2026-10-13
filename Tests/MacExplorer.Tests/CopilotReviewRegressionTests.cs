@@ -93,7 +93,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
         };
         var credentials = new CopilotCredentialStore();
         credentials.Save("local-test-key");
-        settings.AllowMetadataSharing(credentials.Read());
+        settings.AllowMetadataSharing();
         using var engine = new CopilotEngine(new RecordingRegistry(), settings, credentials, store,
             new CopilotSkillCatalog(), () => null, () => server);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));

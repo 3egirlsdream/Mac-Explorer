@@ -8,6 +8,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Models;
+using MacExplorer.Copilot;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.Views.Dialogs;
@@ -20,6 +21,50 @@ namespace MacExplorer.Tests;
 [Trait("Area", "SecurityDialog")]
 public sealed class SecurityDialogTests
 {
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CopilotSharesOnePromptAcrossWindowsAndOnlyPromptsAgainAfterRevocation(bool allow)
+    {
+        var settingsStore = new PluginTestEnvironment.MemorySettings();
+        var settings = new CopilotSettings(settingsStore);
+        var otherSettings = new CopilotSettings(settingsStore);
+        var owner = InputAppearanceTests.CreateWindow(new TextBlock(), false);
+        var otherOwner = InputAppearanceTests.CreateWindow(new TextBlock(), true);
+        try
+        {
+            var first = CopilotPrivacyConsent.EnsureAsync(owner, settings);
+            var second = CopilotPrivacyConsent.EnsureAsync(otherOwner, otherSettings);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(otherOwner.OwnedWindows);
+            var dialog = owner.OwnedWindows.Single();
+            dialog.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, allow ? "允许发送" : "取消"))
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(allow, await first);
+            Assert.Equal(allow, await second);
+            Assert.Equal(allow, settings.HasMetadataConsent());
+            if (allow)
+            {
+                settings.Model = "different";
+                settings.Endpoint = "https://different.test/v1";
+                Assert.True(await CopilotPrivacyConsent.EnsureAsync(otherOwner, otherSettings));
+                Assert.Empty(otherOwner.OwnedWindows);
+                otherSettings.RevokeMetadataSharing();
+            }
+            var retry = CopilotPrivacyConsent.EnsureAsync(otherOwner, otherSettings);
+            Dispatcher.UIThread.RunJobs();
+            otherOwner.OwnedWindows.Single().Close(false);
+            Assert.False(await retry);
+            Assert.False(settings.HasMetadataConsent());
+        }
+        finally
+        {
+            foreach (var dialog in owner.OwnedWindows.ToArray()) dialog.Close(false);
+            foreach (var dialog in otherOwner.OwnedWindows.ToArray()) dialog.Close(false);
+            owner.Close(); otherOwner.Close();
+        }
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]

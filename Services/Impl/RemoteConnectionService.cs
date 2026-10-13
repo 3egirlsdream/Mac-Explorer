@@ -168,7 +168,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     private static RemoteServerInfo CopyServer(RemoteServerInfo server) => new RemoteServerInfo
         {
-            Id = server.Id, Name = server.Name, Host = server.Host, Port = server.Port, Username = server.Username,
+            Id = server.Id, ServiceType = server.ServiceType, Name = server.Name, Host = server.Host, Port = server.Port, Username = server.Username,
             DefaultPath = server.DefaultPath, AuthMethod = server.AuthMethod, Password = server.Password,
             PrivateKeyPath = server.PrivateKeyPath, PrivateKeyPassphrase = server.PrivateKeyPassphrase,
             RememberPrivateKeyPassphrase = server.RememberPrivateKeyPassphrase

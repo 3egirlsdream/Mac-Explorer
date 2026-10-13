@@ -5,41 +5,28 @@
  xmlns:vm="using:MacExplorer.ViewModels" xmlns:icons="using:MacExplorer.Assets"
  xmlns:converters="using:MacExplorer.Converters"
  x:Class="MacExplorer.Views.Dialogs.BatchRenameDialog"
- Title="{loc:Loc ui.014}" Width="1160" Height="720" MinWidth="780" MinHeight="480"
- CanResize="True" Background="{DynamicResource SurfaceBackgroundBrush}">
+ FullHeightContent="True" Title="{loc:Loc ui.014}" Width="1160" Height="720" MinWidth="780" MinHeight="480"
+ CanResize="True">
  <controls:DialogWindow.Resources>
-  <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
   <converters:FileEntryToIconConverter x:Key="RenameFileIcon"/>
  </controls:DialogWindow.Resources>
  <controls:DialogWindow.Styles>
   <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
   <StyleInclude Source="avares://MacExplorer/Assets/BatchRenameStyles.axaml"/>
  </controls:DialogWindow.Styles>
- <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16" RowSpacing="10">
-  <Grid x:Name="OptionsPanel" ColumnDefinitions="Auto,210,Auto,*,Auto,160,Auto" ColumnSpacing="8">
-   <TextBlock Text="{loc:Loc ui.439}" VerticalAlignment="Center"/>
-   <ComboBox x:Name="PresetCombo" Grid.Column="1" PlaceholderText="{loc:Loc ui.440}" SelectionChanged="OnPresetChanged"/>
-   <Button Grid.Column="2" Classes="ghost compact" Click="OnSavePreset" ToolTip.Tip="{loc:Loc ui.441}" Content="{loc:Loc ui.657}"></Button>
-   <TextBlock Grid.Column="4" Text="{loc:Loc ui.015}" VerticalAlignment="Center"/>
-   <ComboBox x:Name="SortCombo" Grid.Column="5" SelectedIndex="0" SelectionChanged="OnOptionsChanged">
-    <ComboBoxItem Content="{loc:Loc ui.442}"/><ComboBoxItem Content="{loc:Loc ui.443}"/>
-    <ComboBoxItem Content="{loc:Loc ui.444}"/><ComboBoxItem Content="{loc:Loc ui.445}"/>
-    <ComboBoxItem Content="{loc:Loc ui.446}"/><ComboBoxItem Content="{loc:Loc ui.447}"/>
-   </ComboBox>
-   <ToggleButton x:Name="DescendingToggle" Grid.Column="6" Classes="icon-action" IsCheckedChanged="OnOptionsChanged"
-       ToolTip.Tip="{loc:Loc ui.448}" AutomationProperties.Name="{loc:Loc ui.449}">
-    <PathIcon x:Name="SortDirectionIcon" Classes="rename-action-icon" Data="{x:Static icons:Icons.SortAsc}"/>
-   </ToggleButton>
-  </Grid>
-  <Grid x:Name="BodyGrid" Grid.Row="1" ColumnDefinitions="190,280,*" RowDefinitions="*" ColumnSpacing="12" RowSpacing="10">
-   <Border x:Name="RulesPanel" Classes="settings-group">
+ <Grid ColumnDefinitions="190,*">
+  <Border x:Name="RulesSidebar" Background="{DynamicResource TitleBarBackgroundBrush}" BorderBrush="{DynamicResource DialogDividerBrush}" BorderThickness="0,0,1,0" Padding="0,44,0,0">
+   <Border x:Name="RulesPanel" Background="Transparent">
     <Grid RowDefinitions="Auto,*,Auto">
-     <Grid Margin="12,10" ColumnDefinitions="*,Auto,Auto">
+     <Grid Margin="12,10" ColumnDefinitions="*,Auto,Auto,Auto">
       <TextBlock Text="{loc:Loc ui.450}" Classes="rename-heading" VerticalAlignment="Center"/>
-      <Button Grid.Column="1" Classes="icon-action" Click="OnDuplicateRule" ToolTip.Tip="{loc:Loc ui.451}" AutomationProperties.Name="{loc:Loc ui.452}">
+      <Button x:Name="AddRuleButton" Grid.Column="1" Classes="icon-action" Click="OnAddRule" ToolTip.Tip="{loc:Loc ui.456}" AutomationProperties.Name="{loc:Loc ui.456}">
+       <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Plus}"/>
+      </Button>
+      <Button Grid.Column="2" Classes="icon-action" Click="OnDuplicateRule" ToolTip.Tip="{loc:Loc ui.451}" AutomationProperties.Name="{loc:Loc ui.452}">
        <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Copy}"/>
       </Button>
-      <Button Grid.Column="2" Classes="icon-action" Click="OnRemoveRule" ToolTip.Tip="{loc:Loc ui.453}" AutomationProperties.Name="{loc:Loc ui.454}">
+      <Button Grid.Column="3" Classes="icon-action" Click="OnRemoveRule" ToolTip.Tip="{loc:Loc ui.453}" AutomationProperties.Name="{loc:Loc ui.454}">
        <PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Delete}"/>
       </Button>
      </Grid>
@@ -54,16 +41,24 @@
       </ListBox.ItemTemplate>
      </ListBox>
      <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="6">
-      <Button x:Name="AddRuleButton" Classes="ghost compact" Click="OnAddRule" AutomationProperties.Name="{loc:Loc ui.456}"><StackPanel Orientation="Horizontal" Spacing="6"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.Plus}"/><TextBlock Text="{loc:Loc ui.456}"/></StackPanel></Button>
       <Button Grid.Column="1" Classes="icon-action" Click="OnMoveRuleUp" ToolTip.Tip="{loc:Loc ui.457}" AutomationProperties.Name="{loc:Loc ui.458}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
       <Button Grid.Column="2" Classes="icon-action" Click="OnMoveRuleDown" ToolTip.Tip="{loc:Loc ui.459}" AutomationProperties.Name="{loc:Loc ui.460}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
      </Grid>
     </Grid>
    </Border>
-   <Border x:Name="EditorPanel" Grid.Column="1" Classes="settings-group">
+  </Border>
+  <Border Grid.Column="1" Background="{DynamicResource DialogContentBrush}" Padding="0,44,0,0">
+ <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16" RowSpacing="10">
+  <Grid x:Name="OptionsPanel" ColumnDefinitions="Auto,210,*,Auto" ColumnSpacing="8">
+   <TextBlock Text="{loc:Loc ui.439}" VerticalAlignment="Center"/>
+   <ComboBox x:Name="PresetCombo" Grid.Column="1" PlaceholderText="{loc:Loc ui.440}" SelectionChanged="OnPresetChanged"/>
+   <Button x:Name="SavePresetButton" Grid.Column="3" Classes="secondary compact" Click="OnSavePreset" ToolTip.Tip="{loc:Loc ui.441}" Content="{loc:Loc ui.657}"/>
+  </Grid>
+  <Grid x:Name="BodyGrid" Grid.Row="1" ColumnDefinitions="280,*" RowDefinitions="*" ColumnSpacing="12" RowSpacing="10">
+   <Border x:Name="EditorPanel" Grid.Column="0" Classes="settings-group">
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="RuleEditor" Margin="0,6"/></ScrollViewer>
    </Border>
-   <Grid x:Name="PreviewPanel" Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
+   <Grid x:Name="PreviewPanel" Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
      <ComboBox x:Name="FilterCombo" SelectedIndex="0" SelectionChanged="OnFilterChanged" HorizontalAlignment="Left" MinWidth="130">
       <ComboBoxItem Content="{loc:Loc ui.461}"/><ComboBoxItem Content="{loc:Loc ui.462}"/><ComboBoxItem Content="{loc:Loc ui.463}"/><ComboBoxItem Content="{loc:Loc ui.464}"/><ComboBoxItem Content="{loc:Loc ui.465}"/>
@@ -126,7 +121,7 @@
       </DataTemplate>
      </ListBox.ItemTemplate>
     </ListBox>
-    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+    <Grid Grid.Row="3">
      <StackPanel Spacing="4">
       <StackPanel x:Name="ConflictActions" Orientation="Horizontal" IsVisible="False" Spacing="4">
        <Button x:Name="ExcludeConflictsButton" Classes="ghost compact" Content="{loc:Loc ui.475}" Click="OnExcludeConflicts"/>
@@ -134,17 +129,17 @@
       </StackPanel>
       <CheckBox x:Name="PhotoSortFallbackCheck" IsVisible="False" Content="{loc:Loc ui.477}" IsCheckedChanged="OnOptionsChanged"/>
      </StackPanel>
-     <Button Grid.Column="1" Classes="icon-action" Click="OnMovePreviewUp" ToolTip.Tip="{loc:Loc ui.478}" AutomationProperties.Name="{loc:Loc ui.479}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronUp}"/></Button>
-     <Button Grid.Column="2" Classes="icon-action" Click="OnMovePreviewDown" ToolTip.Tip="{loc:Loc ui.480}" AutomationProperties.Name="{loc:Loc ui.481}"><PathIcon Classes="rename-action-icon" Data="{x:Static icons:Icons.ChevronDown}"/></Button>
     </Grid>
    </Grid>
   </Grid>
   <ProgressBar x:Name="ExecutionProgress" Grid.Row="2" IsVisible="False" Height="3" Minimum="0" Maximum="100"/>
-  <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
-   <Button x:Name="StatusButton" Classes="ghost compact" Click="OnStatusClick" HorizontalContentAlignment="Left" MaxWidth="520"/>
+  <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+   <Button x:Name="StatusButton" Classes="ghost compact" Click="OnStatusClick" ClipToBounds="True" HorizontalContentAlignment="Left" MaxWidth="520"/>
    <Button x:Name="UndoButton" Grid.Column="1" HorizontalAlignment="Right" Classes="ghost compact" Content="{loc:Loc ui.482}" IsVisible="False" Click="OnUndo"/>
    <Button x:Name="CancelButton" Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.094}" Click="OnCancel"/>
    <Button x:Name="ApplyButton" Grid.Column="3" Classes="primary compact" Content="{loc:Loc ui.325}" IsEnabled="False" Click="OnApply"/>
   </Grid>
+ </Grid>
+  </Border>
  </Grid>
 </controls:DialogWindow>

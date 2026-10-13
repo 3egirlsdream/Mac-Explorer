@@ -251,7 +251,7 @@ public sealed class SubscriptionTests
         var secondButton = new Button { Content = "速递操作" };
         var first = new AppWindow(service) { Width = 640, Height = 480, Content = firstButton,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
-        var second = new AppWindow(service) { Width = 360, Height = 400, Content = secondButton,
+        var second = new AppWindow(service) { ExtendContentToTop = true, FullHeightContent = true, Width = 360, Height = 400, Content = secondButton,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
         try
         {

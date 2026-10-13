@@ -20,6 +20,7 @@ internal sealed class ConfirmDialog : DialogWindow
         confirm.Click += (_, _) => Close(true);
         Content = new StackPanel { Margin = new Thickness(16), Spacing = 12, Children =
         {
+            new TextBlock { Text = title, Classes = { "settings-title" } },
             new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Classes = { "settings-description" } },
             new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8, Children = { cancel, confirm } }

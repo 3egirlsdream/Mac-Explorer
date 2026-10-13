@@ -7,8 +7,8 @@ internal sealed class PrivacyConsentHandler(HttpMessageHandler transport, Copilo
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         if (settings.Endpoint != endpoint || settings.Model != model || credentials.Read() != key
-            || !settings.HasMetadataConsent(key))
-            throw new InvalidOperationException("AI 分享许可已撤回或接收配置已变化，发送已停止，请重新确认接收方。");
+            || !settings.HasMetadataConsent())
+            throw new InvalidOperationException("AI 分享许可已撤回或连接配置已变化，发送已停止，请检查设置后重试。");
         return base.SendAsync(request, cancellationToken);
     }
 }

@@ -7,6 +7,9 @@ internal static partial class LocalizationCatalog
     internal static readonly IReadOnlyDictionary<string, (string Chinese, string English)> Ui =
         new Dictionary<string, (string, string)>(StringComparer.Ordinal)
         {
+            ["remote.type"] = ("服务类型", "Service type"),
+            ["remote.add"] = ("新增", "Add"),
+            ["remote.connecting"] = ("连接中…", "Connecting…"),
             ["ui.000"] = ("不分组", "No grouping"),
             ["ui.001"] = ("不区分", "No priority"),
             ["ui.002"] = ("信息面板", "Info panel"),
@@ -685,8 +688,8 @@ internal static partial class LocalizationCatalog
             ["ui.664"] = ("搜索：{0}", "Search: {0}"),
             ["ui.665"] = ("范围：{0}（包含已索引子文件夹）", "Scope: {0} (including indexed subfolders)"),
             ["ui.666"] = ("显示 {0} 的子目录", "Show subfolders of {0}"),
-            ["ui.667"] = ("已允许向当前 AI 接收方分享文件信息。", "Sharing file information with the current AI recipient is allowed."),
-            ["ui.668"] = ("尚未许可；下一次发送需要确认接收方。", "Permission not granted. Confirm the recipient before the next send."),
+            ["ui.667"] = ("已允许向配置的 AI 服务分享文件信息；应用内无需重复授权。", "File information sharing with configured AI services is allowed. No repeated approval is needed in the app."),
+            ["ui.668"] = ("尚未许可；首次发送需要授权。", "Permission not granted. Approval is required before the first send."),
             ["ui.669"] = ("正在监听端口 {0}。", "Listening on port {0}."),
             ["ui.670"] = ("正在启动…", "Starting…"),
             ["ui.671"] = ("已停止发现和接收。", "Discovery and receiving stopped."),

@@ -86,20 +86,25 @@ public partial class WindowTitleBar : UserControl
 
     private void OnOwnerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == Window.CanMinimizeProperty
+        if (e.Property == AppWindow.ExtendContentToTopProperty
+            || e.Property == Window.CanMinimizeProperty
             || e.Property == Window.CanMaximizeProperty
             || e.Property == Window.WindowStateProperty
             || e.Property == AppWindow.IsModalInteractionBlockedProperty)
+        {
             UpdateWindowControlState();
+            UpdateTitleBarContentState();
+        }
     }
 
     private void OnOwnerActivationChanged(object? sender, EventArgs e) => UpdateWindowControlState();
 
     private void UpdateTitleBarContentState()
     {
+        PseudoClasses.Set(":overlay", _ownerWindow?.ExtendContentToTop == true);
         var hasContent = TitleBarContent is not null;
         TitleBarContentRow.IsVisible = hasContent;
-        TitleText.IsVisible = !hasContent;
+        TitleText.IsVisible = !hasContent && _ownerWindow?.ExtendContentToTop != true;
     }
 
     private void UpdateWindowControlState()

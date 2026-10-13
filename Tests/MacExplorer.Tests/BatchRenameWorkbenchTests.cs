@@ -228,7 +228,20 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
         Assert.NotNull(list.ContainerFromItem(rows[^1]));
         dialog.Width = 800; dialog.Height = 500; dialog.UpdateLayout(); Dispatcher.UIThread.RunJobs();
         Assert.Equal(2, dialog.FindControl<Grid>("BodyGrid")!.ColumnDefinitions.Count);
-        Assert.True(dialog.FindControl<Button>("ApplyButton")!.Bounds.Width > 0); dialog.Close();
+        var rail = dialog.FindControl<Border>("RulesSidebar")!;
+        Assert.Equal(0, rail.TranslatePoint(default, dialog)!.Value.Y);
+        Assert.Equal(dialog.ClientSize.Height, rail.Bounds.Height);
+        dialog.FindControl<Button>("StatusButton")!.Content = new string('长', 200);
+        dialog.UpdateLayout();
+        foreach (var name in new[] { "ApplyButton", "CancelButton", "AddRuleButton" })
+        {
+            var button = dialog.FindControl<Button>(name)!;
+            var origin = button.TranslatePoint(default, dialog)!.Value;
+            Assert.True(button.Bounds.Width > 0);
+            Assert.True(origin.X + button.Bounds.Width <= dialog.ClientSize.Width);
+            Assert.True(origin.Y + button.Bounds.Height <= dialog.ClientSize.Height);
+        }
+        dialog.Close();
     }
 
     [Fact(Explicit = true)]

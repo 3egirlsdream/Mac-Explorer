@@ -106,9 +106,7 @@ public partial class BatchRenameDialog : DialogWindow
             if (rule.ApplyToExtension) { rule.Target = RenameTarget.FullName; rule.ApplyToExtension = false; }
             AddRule(rule);
         }
-        SortCombo.SelectedIndex = (int)_options.Sort; DescendingToggle.IsChecked = _options.Descending;
         PhotoSortFallbackCheck.IsChecked = _options.PhotoSortFallbackToModified;
-        UpdateSortDirection();
         LoadPresets(); RuleList.SelectedIndex = 0;
         _changing = false; _ready = true;
         Title = $"批量重命名 · {_entries.Count} 项";
@@ -329,11 +327,9 @@ public partial class BatchRenameDialog : DialogWindow
     {
         if (!_ready || _changing) return;
         PresetCombo.SelectedIndex = -1;
-        _options.Sort = (RenameSort)SortCombo.SelectedIndex; _options.Descending = DescendingToggle.IsChecked == true;
         _options.PhotoSortFallbackToModified = PhotoSortFallbackCheck.IsChecked == true;
-        UpdateSortDirection(); QueuePreview();
+        QueuePreview();
     }
-    private void UpdateSortDirection() => SortDirectionIcon.Data = Geometry.Parse(_options.Descending ? Assets.Icons.SortDesc : Assets.Icons.SortAsc);
     private async void QueuePreview()
     {
         if (!_ready || _changing || _executing || _completed || _rename == null) return;
@@ -456,8 +452,6 @@ public partial class BatchRenameDialog : DialogWindow
             row.IsEditing = true; Dispatcher.UIThread.Post(() => { editor?.Focus(); editor?.SelectAll(); }); e.Handled = true;
         }
     }
-    private void OnMovePreviewUp(object? sender, RoutedEventArgs e) => MovePreview(-1);
-    private void OnMovePreviewDown(object? sender, RoutedEventArgs e) => MovePreview(1);
     private void MovePreview(int delta)
     {
         if (PreviewList.SelectedItem is not BatchRenamePreviewRow row || _executing || _completed) return;
@@ -465,7 +459,7 @@ public partial class BatchRenameDialog : DialogWindow
         var index = ordered.FindIndex(e => e.FullPath == row.Item.OriginalPath); var destination = index + delta;
         if (index < 0 || destination < 0 || destination >= ordered.Count) return;
         var entry = ordered[index]; ordered.RemoveAt(index); ordered.Insert(destination, entry);
-        _entries = ordered; _options.Sort = RenameSort.Manual; SortCombo.SelectedIndex = (int)RenameSort.Manual; QueuePreview();
+        _entries = ordered; _options.Sort = RenameSort.Manual; QueuePreview();
     }
 
     private void OnReorderPressed(object? sender, PointerPressedEventArgs e)
@@ -496,7 +490,6 @@ public partial class BatchRenameDialog : DialogWindow
             if (index < 0 || destination < 0) return;
             _rows.RemoveAt(index); _rows.Insert(destination, row);
             _entries = _rows.Select(r => r.Item.Entry!).ToArray(); _options.Sort = RenameSort.Manual;
-            _changing = true; SortCombo.SelectedIndex = (int)RenameSort.Manual; _changing = false;
             RefreshRows(row.Item.OriginalPath);
         }
         ApplyButton.IsEnabled = false; e.Handled = true;
@@ -589,13 +582,13 @@ public partial class BatchRenameDialog : DialogWindow
     {
         if (BodyGrid == null) return;
         var narrow = Width < 1030;
-        if (_narrow == narrow && BodyGrid.ColumnDefinitions.Count == (narrow ? 2 : 3)) return;
+        if (_narrow == narrow && BodyGrid.ColumnDefinitions.Count == 2) return;
         _narrow = narrow;
-        BodyGrid.ColumnDefinitions = new ColumnDefinitions(narrow ? "280,*" : "190,280,*");
-        BodyGrid.RowDefinitions = new RowDefinitions(narrow ? "170,*" : "*");
-        Grid.SetRow(RulesPanel, 0); Grid.SetColumn(RulesPanel, 0);
-        Grid.SetRow(EditorPanel, narrow ? 1 : 0); Grid.SetColumn(EditorPanel, narrow ? 0 : 1);
-        Grid.SetColumn(PreviewPanel, narrow ? 1 : 2); Grid.SetRowSpan(PreviewPanel, narrow ? 2 : 1);
+        BodyGrid.ColumnDefinitions = new ColumnDefinitions(narrow ? "210,*" : "280,*");
+        BodyGrid.RowDefinitions = new RowDefinitions("*");
+        Grid.SetRow(EditorPanel, 0); Grid.SetColumn(EditorPanel, 0);
+        Grid.SetColumn(PreviewPanel, 1); Grid.SetRowSpan(PreviewPanel, 1);
+        OptionsPanel.ColumnDefinitions = new ColumnDefinitions(narrow ? "Auto,*,Auto,Auto" : "Auto,210,*,Auto");
     }
 
     private void LoadPresets()
@@ -620,9 +613,8 @@ public partial class BatchRenameDialog : DialogWindow
         _changing = true;
         foreach (var rule in _rules) rule.PropertyChanged -= OnRuleChanged;
         _rules.Clear(); foreach (var rule in preset.Rules) AddRule(rule.Clone());
-        _options = preset.Options.Clone(); SortCombo.SelectedIndex = (int)_options.Sort; DescendingToggle.IsChecked = _options.Descending;
+        _options = preset.Options.Clone();
         PhotoSortFallbackCheck.IsChecked = _options.PhotoSortFallbackToModified;
-        UpdateSortDirection();
         RuleList.SelectedIndex = 0; _changing = false; BuildEditor(); QueuePreview();
     }
     private async void OnSavePreset(object? sender, RoutedEventArgs e)

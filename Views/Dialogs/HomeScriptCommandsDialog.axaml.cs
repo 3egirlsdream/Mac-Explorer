@@ -28,7 +28,7 @@ public partial class HomeScriptCommandsDialog : DialogWindow
         var commands = workspace.GetCommands(path);
         foreach (var command in commands) AddRow(command);
         if (commands.Count == 0) AddRow(HomeScriptCommand.Create(path));
-        Height = Math.Clamp(112 + _rows.Count * 144, MinHeight, 540);
+        Height = Math.Clamp(140 + _rows.Count * 144, MinHeight, 540);
     }
 
     private void AddRow(HomeScriptCommand command)

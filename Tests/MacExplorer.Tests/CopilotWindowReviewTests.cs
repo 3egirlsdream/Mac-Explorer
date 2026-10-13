@@ -37,7 +37,7 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
                 services => services.AddSingleton(store));
             var consentSettings = new CopilotSettings(new StartupSettings());
             var consentKeychain = new CopilotCredentialStore();
-            consentSettings.AllowMetadataSharing(consentKeychain.Read());
+            consentSettings.AllowMetadataSharing();
             var engine = new CopilotEngine(null!, consentSettings, consentKeychain, store, null!, () => null);
             typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(fixture.Window, engine);

@@ -6,8 +6,7 @@
         Title="{loc:Loc ui.503}"
         Width="480" MinWidth="420" MaxWidth="600"
         MinHeight="280" MaxHeight="540"
-        CanResize="False" WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource TitleBarBackgroundBrush}">
+        CanResize="False" WindowStartupLocation="CenterOwner">
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
