@@ -24,6 +24,9 @@ public sealed class SftpLoopbackTests
         try
         {
             var fixture = await StartServer(python!, root, "transfer-host", 0, token);
+            using var access = new DirectoryAccess(Path.Combine(root, "access.json"), true,
+                internalRoots: [root, RuntimePaths.DataDirectory]);
+            using var accessOverride = DirectoryAccess.UseForTests(access);
             using var connections = new RemoteConnectionService(Path.Combine(root, "servers.json"),
                 new PrivacySecurityFollowupTests.MemoryCredentials());
             connections.ConfirmHostKeyAsync = (_, _) => Task.FromResult(true);
@@ -84,6 +87,8 @@ public sealed class SftpLoopbackTests
         try
         {
             var fixture = await StartServer(python!, root, "resume-host", 0, token);
+            using var access = new DirectoryAccess(Path.Combine(root, "access.json"), true, internalRoots: [root]);
+            using var accessOverride = DirectoryAccess.UseForTests(access);
             using var connections = new RemoteConnectionService(Path.Combine(root, "servers.json"), new PrivacySecurityFollowupTests.MemoryCredentials());
             connections.ConfirmHostKeyAsync = (_, _) => Task.FromResult(true);
             var server = new RemoteServerInfo { Host = "127.0.0.1", Port = fixture.Port, Username = "fixture", Password = "fixture-secret" };
