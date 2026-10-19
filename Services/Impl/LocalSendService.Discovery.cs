@@ -45,6 +45,7 @@ public sealed partial class LocalSendService
             _udp = udp;
             state.ReceiveTask = ReceiveAnnouncementsAsync(state, udp);
             state.CoordinatorTask = Task.Run(() => RunDiscoveryAsync(state));
+            state.ScanTask = Task.Run(() => RunUnknownScanAsync(state));
         }
         catch { udp.Dispose(); throw; }
     }
@@ -124,6 +125,7 @@ public sealed partial class LocalSendService
             {
                 await previousState.Completion;
                 previousState.Signal.Dispose();
+                previousState.ScanSignal.Dispose();
             }
             previousDiscovery.Dispose();
             _networkDiscovery = new CancellationTokenSource();

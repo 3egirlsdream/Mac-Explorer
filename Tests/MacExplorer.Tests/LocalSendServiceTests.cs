@@ -172,6 +172,13 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         Assert.DoesNotContain("172.20.227.63", expanded);
         Assert.All(expanded, address => Assert.StartsWith("172.20.", address));
 
+        var nearby = LocalSendService.ExpandedScanCandidates(
+            [new LocalSendService.ScanInterface("172.20.202.91", 24, "wired")], [], 800);
+        Assert.Contains("172.20.205.32", nearby);
+        Assert.Contains("172.20.199.32", nearby);
+        Assert.DoesNotContain("172.20.202.91", nearby);
+        Assert.Equal(nearby.Count, nearby.Distinct(StringComparer.Ordinal).Count());
+
         var narrow = LocalSendService.FastScanCandidates(
             [new LocalSendService.ScanInterface("192.168.1.140", 25, "wifi-b")], [], "");
         Assert.Contains("192.168.1.200", narrow);
@@ -616,6 +623,117 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         var matching = (await _service.DiscoverAsync(TestContext.Current.CancellationToken))
             .Where(device => device.Fingerprint.Equals(fingerprint, StringComparison.OrdinalIgnoreCase)).ToArray();
         Assert.Equal(newPort, Assert.Single(matching).Port);
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task BackgroundScanKeepsConcurrencyWhilePeerRegistrationIsSlow()
+    {
+        var registered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var scanned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observing = 0;
+        var count = 0;
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        await using var app = builder.Build();
+        app.MapPost("/api/localsend/v2/register", async (HttpContext context) =>
+        {
+            registered.TrySetResult();
+            await release.Task.WaitAsync(context.RequestAborted);
+            return Results.Json(new { alias = "Slow peer", version = "2.2", fingerprint = "slow-http-peer" });
+        });
+        await app.StartAsync();
+        var port = new Uri(Assert.Single(app.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!.Addresses)).Port;
+        _service.TcpProbeOverride = async (_, _, token) =>
+        {
+            if (Volatile.Read(ref observing) == 1 && Interlocked.Increment(ref count) >= 40)
+                scanned.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return false;
+        };
+        _service.ScanInterfacesOverride = () => [new LocalSendService.ScanInterface("172.20.202.91", 24, "test")];
+        await _service.RejoinDiscoveryAsync();
+        try
+        {
+            using var inbound = await _client.PostAsJsonAsync(Url("register"), new { alias = "Slow peer",
+                version = "2.2", fingerprint = "slow-http-peer", port, protocol = "http" });
+            Assert.Equal(HttpStatusCode.OK, inbound.StatusCode);
+            await registered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            Volatile.Write(ref observing, 1);
+            await scanned.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.False(release.Task.IsCompleted);
+            Assert.InRange(_service.DiscoveryStats.PeakTcp, 8, 16);
+            Console.WriteLine($"Background scan during slow registration: {count} probes, peak TCP {_service.DiscoveryStats.PeakTcp}");
+        }
+        finally
+        {
+            release.TrySetResult();
+            await _service.SetEnabledAsync(false);
+        }
+        var stopped = _service.DiscoveryStats.UnknownProbes;
+        await Task.Delay(100);
+        Assert.Equal(stopped, _service.DiscoveryStats.UnknownProbes);
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task ChangingSubnetReplacesActiveBackgroundCandidatesWithoutRestart()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cleared = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var phase = 0;
+        _service.TcpProbeOverride = async (address, _, token) =>
+        {
+            if (address.StartsWith("172.20.202.", StringComparison.Ordinal))
+            {
+                started.TrySetResult();
+                if (Volatile.Read(ref phase) == 2) cleared.TrySetResult();
+            }
+            if (address == "10.9.8.1") changed.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return false;
+        };
+        _service.ScanInterfacesOverride = () => [new LocalSendService.ScanInterface("172.20.202.91", 24, "test")];
+        await _service.RejoinDiscoveryAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var coordinator = _service.DiscoveryCoordinator;
+        _service.ScanSubnet = "10.9.8.0/24";
+        await changed.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Volatile.Write(ref phase, 2);
+        _service.ScanSubnet = "";
+        await cleared.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.Same(coordinator, _service.DiscoveryCoordinator);
+        Assert.Equal("", _settings.Get(ILocalSendService.ScanSubnetKey));
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task RefreshWakesCompletedBackgroundScanWithoutWaitingForCooldown()
+    {
+        var first = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var again = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var count = 0;
+        _service.TcpProbeOverride = (address, _, _) =>
+        {
+            Assert.Equal("10.9.8.7", address);
+            if (Interlocked.Increment(ref count) == 1) first.TrySetResult();
+            else again.TrySetResult();
+            return Task.FromResult(false);
+        };
+        _service.ScanSubnet = "10.9.8.7/32";
+        _service.ScanInterfacesOverride = () => [new LocalSendService.ScanInterface("127.0.0.1", 32, "test")];
+        await _service.RejoinDiscoveryAsync();
+        await first.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        await Task.Delay(100);
+        Assert.Equal(1, Volatile.Read(ref count));
+        var coordinator = _service.DiscoveryCoordinator;
+        var discover = _service.DiscoverAsync(TestContext.Current.CancellationToken);
+        await again.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        await discover;
+        Assert.Same(coordinator, _service.DiscoveryCoordinator);
     }
 
     [Fact(Explicit = true)]

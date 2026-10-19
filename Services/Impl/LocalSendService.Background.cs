@@ -1,5 +1,4 @@
 using System.Net;
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
@@ -26,6 +25,10 @@ public sealed partial class LocalSendService
         public readonly IReadOnlyList<VerifiedPeerHistory> History = history;
         public readonly Dictionary<string, CandidateState> Candidates = new(StringComparer.OrdinalIgnoreCase);
         public readonly SemaphoreSlim Signal = new(0, 1);
+        public readonly SemaphoreSlim ScanSignal = new(0, 1);
+        public CancellationTokenSource? ScanBatchCancellation;
+        public int ScanVersion;
+        public bool ScanRefreshRequested;
         public readonly object RateLock = new();
         public long NextUnknownProbeTicks;
         public DateTime LastRefresh;
@@ -35,13 +38,20 @@ public sealed partial class LocalSendService
         public TaskCompletionSource ExternalIdle = CompletedIdle();
         public Task ReceiveTask = Task.CompletedTask;
         public Task CoordinatorTask = Task.CompletedTask;
-        public Task Completion => Task.WhenAll(ReceiveTask, CoordinatorTask, ExternalIdle.Task);
+        public Task ScanTask = Task.CompletedTask;
+        public Task Completion => Task.WhenAll(ReceiveTask, CoordinatorTask, ScanTask, ExternalIdle.Task);
 
         private static TaskCompletionSource CompletedIdle()
         {
             var idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             idle.SetResult();
             return idle;
+        }
+
+        public void WakeScan()
+        {
+            try { ScanSignal.Release(); }
+            catch (SemaphoreFullException) { }
         }
 
         public void Wake()
@@ -81,6 +91,9 @@ public sealed partial class LocalSendService
         {
             if (!ReferenceEquals(_discovery, state) || UtcNow - state.LastRefresh < TimeSpan.FromSeconds(15)) return;
             state.LastRefresh = UtcNow;
+            state.AnnounceRequested = true;
+            state.ScanRefreshRequested = true;
+            state.WakeScan();
             foreach (var candidate in state.Candidates.Values)
                 if (!candidate.InFlight)
                 {
@@ -171,15 +184,6 @@ public sealed partial class LocalSendService
                 QueueCandidate(state, new LocalSendDevice(item.Alias, item.Fingerprint, item.Address, item.Port, "https"),
                     item.VerifiedUtcTicks);
             await AnnounceAsync(state.Token);
-            var fast = FastScanCandidates(state.Interfaces, state.History, ScanSubnet);
-            var fastSet = fast.ToHashSet(StringComparer.Ordinal);
-            IEnumerator<string> NewRound() => fast.Concat(ExpandedScanStream(state.Interfaces, state.History)
-                    .Where(address => !fastSet.Contains(address)))
-                .Take(65536).GetEnumerator();
-            using var scanOwner = new ScanRound(NewRound());
-            var roundComplete = false;
-            var cooldownUntil = DateTime.MinValue;
-            var scanResumeAt = DateTime.MinValue;
             while (!state.Token.IsCancellationRequested)
             {
                 PruneCandidates(state);
@@ -191,43 +195,117 @@ public sealed partial class LocalSendService
                 }
                 if (announce) await AnnounceAsync(state.Token);
                 await ProbeDueCandidatesAsync(state);
-                if (state.Interfaces.Count == 0 || _sending != null || _incoming != null
-                    || (roundComplete && UtcNow < cooldownUntil)
-                    || UtcNow < scanResumeAt)
-                {
-                    await WaitForDiscoveryAsync(state, TimeSpan.FromSeconds(state.Interfaces.Count == 0 ? 30 : 5));
-                    continue;
-                }
-                if (roundComplete)
-                {
-                    scanOwner.Reset(NewRound());
-                    roundComplete = false;
-                }
-                var activeUntil = UtcNow + TimeSpan.FromSeconds(20);
-                while (UtcNow < activeUntil && !state.Token.IsCancellationRequested
-                       && _sending == null && _incoming == null)
-                {
-                    var batch = new List<string>(4);
-                    while (batch.Count < 4 && scanOwner.MoveNext()) batch.Add(scanOwner.Current);
-                    if (batch.Count == 0)
-                    {
-                        roundComplete = true;
-                        cooldownUntil = UtcNow + TimeSpan.FromMinutes(5);
-                        break;
-                    }
-                    await ScanCandidatesAsync(state, batch, DiscoveryPort, TimeSpan.FromSeconds(3), state.Token);
-                    await ProbeDueCandidatesAsync(state);
-                    await Task.Yield();
-                }
-                if (!roundComplete)
-                {
-                    scanResumeAt = UtcNow + TimeSpan.FromSeconds(5);
-                    await WaitForDiscoveryAsync(state, TimeSpan.FromSeconds(5));
-                }
+                await WaitForDiscoveryAsync(state, TimeSpan.FromSeconds(5));
             }
         }
         catch (OperationCanceledException) when (state.Token.IsCancellationRequested) { }
         catch (Exception ex) { _logger?.LogWarning(ex, "LocalSend background discovery stopped"); }
+    }
+
+    private async Task RunUnknownScanAsync(DiscoveryState state)
+    {
+        IEnumerator<string> NewRound()
+        {
+            var history = RelevantHistory(state.Interfaces);
+            var fast = FastScanCandidates(state.Interfaces, history, ScanSubnet);
+            var fastSet = fast.ToHashSet(StringComparer.Ordinal);
+            return fast.Concat(ExpandedScanStream(state.Interfaces, history)
+                .Where(address => !fastSet.Contains(address))).Take(65536).GetEnumerator();
+        }
+
+        try
+        {
+            using var scanOwner = new ScanRound(NewRound());
+            using var priority = new ScanRound(Enumerable.Empty<string>().GetEnumerator());
+            var version = 0;
+            var roundComplete = false;
+            var cooldownUntil = DateTime.MinValue;
+            var scanResumeAt = DateTime.MinValue;
+            var activeUntil = UtcNow + TimeSpan.FromSeconds(20);
+            while (!state.Token.IsCancellationRequested)
+            {
+                using var batchCancellation = CancellationTokenSource.CreateLinkedTokenSource(state.Token);
+                lock (_discoveryLock)
+                {
+                    if (!ReferenceEquals(_discovery, state)) return;
+                    if (version != state.ScanVersion)
+                    {
+                        version = state.ScanVersion;
+                        scanOwner.Reset(NewRound());
+                        priority.Reset(Enumerable.Empty<string>().GetEnumerator());
+                        roundComplete = false;
+                        scanResumeAt = DateTime.MinValue;
+                        activeUntil = UtcNow + TimeSpan.FromSeconds(20);
+                    }
+                    if (state.ScanRefreshRequested)
+                    {
+                        state.ScanRefreshRequested = false;
+                        priority.Reset(FastScanCandidates(state.Interfaces, RelevantHistory(state.Interfaces), ScanSubnet)
+                            .GetEnumerator());
+                        scanResumeAt = DateTime.MinValue;
+                        activeUntil = UtcNow + TimeSpan.FromSeconds(20);
+                        if (roundComplete)
+                        {
+                            scanOwner.Reset(NewRound());
+                            roundComplete = false;
+                        }
+                    }
+                    state.ScanBatchCancellation = batchCancellation;
+                }
+                try
+                {
+                    if (state.Interfaces.Count == 0 || _sending != null || _incoming != null
+                        || (roundComplete && UtcNow < cooldownUntil) || UtcNow < scanResumeAt)
+                    {
+                        await WaitForScanAsync(state, TimeSpan.FromSeconds(5), batchCancellation.Token);
+                        continue;
+                    }
+                    if (roundComplete)
+                    {
+                        scanOwner.Reset(NewRound());
+                        roundComplete = false;
+                        activeUntil = UtcNow + TimeSpan.FromSeconds(20);
+                    }
+                    var batch = new List<string>(64);
+                    while (batch.Count < 64)
+                    {
+                        if (priority.MoveNext()) batch.Add(priority.Current);
+                        else if (scanOwner.MoveNext()) batch.Add(scanOwner.Current);
+                        else break;
+                    }
+                    if (batch.Count == 0)
+                    {
+                        roundComplete = true;
+                        cooldownUntil = UtcNow + TimeSpan.FromMinutes(5);
+                        continue;
+                    }
+                    await ScanCandidatesAsync(state, batch, DiscoveryPort, TimeSpan.FromSeconds(3), batchCancellation.Token);
+                    if (UtcNow >= activeUntil)
+                    {
+                        scanResumeAt = UtcNow + TimeSpan.FromSeconds(5);
+                        activeUntil = scanResumeAt + TimeSpan.FromSeconds(20);
+                    }
+                }
+                catch (OperationCanceledException) when (!state.Token.IsCancellationRequested
+                    && batchCancellation.IsCancellationRequested) { }
+                finally
+                {
+                    lock (_discoveryLock)
+                        if (ReferenceEquals(state.ScanBatchCancellation, batchCancellation))
+                            state.ScanBatchCancellation = null;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (state.Token.IsCancellationRequested) { }
+        catch (Exception ex) { _logger?.LogWarning(ex, "LocalSend unknown address scan stopped"); }
+    }
+
+    private async Task WaitForScanAsync(DiscoveryState state, TimeSpan duration, CancellationToken token)
+    {
+        using var timeout = new CancellationTokenSource(duration, _timeProvider);
+        using var wait = CancellationTokenSource.CreateLinkedTokenSource(token, timeout.Token);
+        try { await state.ScanSignal.WaitAsync(wait.Token); }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !token.IsCancellationRequested) { }
     }
 
     private async Task ProbeDueCandidatesAsync(DiscoveryState state)

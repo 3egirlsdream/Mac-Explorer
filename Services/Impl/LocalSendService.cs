@@ -139,8 +139,19 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     public string ScanSubnet
     {
         get => _settings.Get(ILocalSendService.ScanSubnetKey, "");
-        set => _settings.Set(ILocalSendService.ScanSubnetKey,
-            string.IsNullOrWhiteSpace(value) ? "" : ParseScanSubnet(value).Normalized);
+        set
+        {
+            var subnet = string.IsNullOrWhiteSpace(value) ? "" : ParseScanSubnet(value).Normalized;
+            if (subnet == ScanSubnet) return;
+            _settings.Set(ILocalSendService.ScanSubnetKey, subnet);
+            lock (_discoveryLock)
+            {
+                if (_discovery is not { } state) return;
+                state.ScanVersion++;
+                state.ScanBatchCancellation?.Cancel();
+                state.WakeScan();
+            }
+        }
     }
     public Func<LocalSendIncomingRequest, CancellationToken, Task<LocalSendReceiveDecision>>? ConfirmReceiveAsync { get; set; }
     public Func<CancellationToken, Task<string?>>? RequestPinAsync { get; set; }
@@ -276,6 +287,7 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         {
             await stopping.Completion;
             stopping.Signal.Dispose();
+            stopping.ScanSignal.Dispose();
         }
         if (_host != null)
         {

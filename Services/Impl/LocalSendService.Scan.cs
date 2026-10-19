@@ -13,6 +13,7 @@ public sealed partial class LocalSendService
     internal sealed record VerifiedPeerHistory(string Fingerprint, string Address, int Port, string Alias,
         string[] Scopes, long VerifiedUtcTicks);
     internal Func<IReadOnlyList<ScanInterface>>? ScanInterfacesOverride;
+    internal Func<string, int, CancellationToken, Task<bool>>? TcpProbeOverride;
 
     private IReadOnlyList<ScanInterface> CurrentScanInterfaces()
         => ScanInterfacesOverride?.Invoke() ?? PhysicalScanInterfaces();
@@ -124,8 +125,8 @@ public sealed partial class LocalSendService
                 preferred.Add(Range(value & 0xffffff00u, 256).GetEnumerator());
         }
         foreach (var address in privateAddresses)
-            preferred.Add(Range(address & 0xfffff000u, 4096).GetEnumerator());
-        var remaining = groups.Select(group => Range(group, 65536).GetEnumerator()).ToList();
+            preferred.Add(NearbySubnetAddresses(address, 16).GetEnumerator());
+        var remaining = privateAddresses.Select(address => NearbySubnetAddresses(address, 256).GetEnumerator()).ToList();
         var seen = new HashSet<uint>();
         var self = privateAddresses.ToHashSet();
         foreach (var address in AppendRoundRobin(preferred)) yield return address;
@@ -153,6 +154,25 @@ public sealed partial class LocalSendService
             {
                 foreach (var stream in streams) stream.Dispose();
             }
+        }
+    }
+
+    private static IEnumerable<uint> NearbySubnetAddresses(uint address, int subnetCount)
+    {
+        var firstSubnet = (int)((address >> 8) & 255) & ~(subnetCount - 1);
+        var localSubnet = (int)((address >> 8) & 255);
+        var subnets = Enumerable.Range(firstSubnet, subnetCount)
+            .OrderBy(subnet => Math.Abs(subnet - localSubnet)).ThenBy(subnet => subnet).ToArray();
+        var network = address & 0xffff0000u;
+        // Visit each nearby subnet before advancing the host offset, rather than
+        // exhausting thousands of lower addresses before reaching a neighbour.
+        for (uint host = 1; host <= 254; host++)
+            foreach (var subnet in subnets)
+                yield return network | ((uint)subnet << 8) | host;
+        foreach (var subnet in subnets)
+        {
+            yield return network | ((uint)subnet << 8);
+            yield return network | ((uint)subnet << 8) | 255;
         }
     }
 
@@ -239,6 +259,7 @@ public sealed partial class LocalSendService
             using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
             {
+                if (TcpProbeOverride is { } probe) return await probe(address, port, timeout.Token);
                 await socket.ConnectAsync(new IPEndPoint(IPAddress.Parse(address), port), timeout.Token);
                 return true;
             }
