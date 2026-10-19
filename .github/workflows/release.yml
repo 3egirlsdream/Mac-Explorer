@@ -181,7 +181,20 @@ jobs:
 
       - name: Run tests
         shell: bash
-        run: bash Tools/Testing/run-tests.sh full --configuration Release
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          python3 -m unittest discover -s Tools/Testing -p 'test_*.py' -v
+          bash Tools/Testing/run-tests.sh full --configuration Release
+
+      - name: Preserve release test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-test-results-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/fkfinder-tests-*/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Publish application
         shell: bash

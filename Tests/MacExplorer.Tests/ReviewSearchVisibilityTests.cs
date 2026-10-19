@@ -50,7 +50,11 @@ public sealed class ReviewSearchVisibilityTests
     {
         const string path = "/scope/project/assets/documents/quarter/report.txt";
         var options = new SearchOptions();
-        for (var i = 0; i < 1000; i++) options.IsVisible(path, "report.txt", false, "/scope");
+        // Consume the warmup result so Release builds execute the predicate before measurement.
+        var warmed = 0;
+        for (var i = 0; i < 10_000; i++)
+            if (options.IsVisible(path, "report.txt", false, "/scope")) warmed++;
+        Assert.Equal(10_000, warmed);
         var before = GC.GetAllocatedBytesForCurrentThread();
         var visible = 0;
         for (var i = 0; i < 10_000; i++)

@@ -74,6 +74,7 @@ def main():
         if not report.exists():
             return result or 1
         assembly = ET.parse(report).getroot().find("assembly")
+        print_failures(assembly)
         tests.extend(assembly.iter("test"))
         for key in counts:
             counts[key] += int(assembly.get(key, "0"))
@@ -97,6 +98,18 @@ def main():
         print(f"Flow exceeded the {args.budget:g}s budget.")
         return code or 1
     return code
+
+
+def print_failures(assembly):
+    for node in [*assembly.iter("test"), *assembly.findall("./errors/error")]:
+        failure = node.find("failure")
+        if failure is None:
+            continue
+        print(f"FAILED: {node.get('name') or node.get('type') or 'Assembly error'}")
+        for element in ("message", "stack-trace"):
+            detail = failure.findtext(element)
+            if detail:
+                print(detail)
 
 
 def run(command, log):
