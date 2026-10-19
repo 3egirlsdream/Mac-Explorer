@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text.Json;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
+using MacExplorer.Services;
+using MacExplorer.Platforms.MacCatalyst.Services;
 using Xunit;
 
 namespace MacExplorer.Tests;
@@ -10,6 +12,112 @@ namespace MacExplorer.Tests;
 [Trait("Area", "Sftp")]
 public sealed class SftpLoopbackTests
 {
+    [Fact(Explicit = true)]
+    [Trait("Area", "FileTasks")]
+    public async Task QueuedTransfersPauseResumeAndCaptureTheServerInsteadOfTheSelectedTab()
+    {
+        var python = Environment.GetEnvironmentVariable("MACEXPLORER_SFTP_TEST_PYTHON");
+        if (python == null) Assert.Skip("Set MACEXPLORER_SFTP_TEST_PYTHON to an isolated Paramiko QA virtualenv.");
+        var token = TestContext.Current.CancellationToken;
+        var root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "sftp-transfer-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var fixture = await StartServer(python!, root, "transfer-host", 0, token);
+            using var connections = new RemoteConnectionService(Path.Combine(root, "servers.json"),
+                new PrivacySecurityFollowupTests.MemoryCredentials());
+            connections.ConfirmHostKeyAsync = (_, _) => Task.FromResult(true);
+            var server = new RemoteServerInfo { Host = "127.0.0.1", Port = fixture.Port, Username = "fixture", Password = "fixture-secret" };
+            var browserClient = await connections.ConnectAsync(server, token); connections.SaveServer(server);
+            var payload = new byte[1024 * 1024]; new Random(19).NextBytes(payload);
+            using (var stream = browserClient.Create("/payload.bin")) stream.Write(payload);
+            browserClient.CreateDirectory("/uploads");
+            var manager = new BackgroundTaskManager();
+            using var remote = new SftpFileService(connections);
+            remote.SetCurrentServer("a-different-tab");
+            var files = new CompositeFileService(new MacFileService(), remote, manager, connections);
+            var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var requested = false;
+            manager.TasksChanged += () =>
+            {
+                var task = manager.Tasks.FirstOrDefault(t => t.IsQueuedFileTask);
+                if (!requested && task?.BytesTransferred > 0)
+                { requested = true; manager.PauseTask(task.Id); }
+                if (task?.State == BackgroundTaskState.Paused) paused.TrySetResult();
+            };
+            var outputDirectory = Directory.CreateDirectory(Path.Combine(root, "downloads")).FullName;
+            var download = files.CopyWithProgressAsync(VirtualPath.BuildRemotePath(server.Id, "/payload.bin"), outputDirectory, ct: token);
+            await paused.Task.WaitAsync(TimeSpan.FromSeconds(12), token); Assert.False(download.IsCompleted);
+            manager.ResumeTask(manager.Tasks[0].Id);
+            var output = await download.WaitAsync(TimeSpan.FromSeconds(20), token);
+            Assert.Equal(payload, await File.ReadAllBytesAsync(output, token));
+            var remoteOutput = await files.CopyWithProgressAsync(output, VirtualPath.BuildRemotePath(server.Id, "/uploads"), ct: token);
+            Assert.Equal(VirtualPath.BuildRemotePath(server.Id, "/uploads/payload.bin"), remoteOutput);
+            using var uploaded = browserClient.OpenRead("/uploads/payload.bin"); using var memory = new MemoryStream();
+            uploaded.CopyTo(memory); Assert.Equal(payload, memory.ToArray());
+            var history = new FileOperationHistoryService(new MacFileService());
+            using var editor = new RemoteFileEditService(connections, tasks: manager, history: history);
+            var localEdit = await editor.DownloadForEditAsync("/uploads/payload.bin", server.Id);
+            await File.WriteAllTextAsync(localEdit, "edited contents", token);
+            await editor.UploadAsync(localEdit, "/uploads/payload.bin", server.Id);
+            Assert.Equal("edited contents", browserClient.ReadAllText("/uploads/payload.bin"));
+            Assert.False(history.CanUndo);
+            Assert.Equal(4, manager.Tasks.Count); Assert.All(manager.Tasks, t => Assert.Equal(BackgroundTaskState.Completed, t.State));
+            await manager.ShutdownAsync();
+        }
+        finally
+        {
+            foreach (var process in Servers)
+            { try { if (!process.HasExited) process.Kill(true); } catch (InvalidOperationException) { } process.Dispose(); }
+            Servers.Clear(); if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Area", "FileTasks")]
+    public async Task DisconnectedDownloadResumesOwnedPartialOutputWithoutCreatingAnotherCopy()
+    {
+        var python = Environment.GetEnvironmentVariable("MACEXPLORER_SFTP_TEST_PYTHON");
+        if (python == null) Assert.Skip("Set MACEXPLORER_SFTP_TEST_PYTHON to an isolated Paramiko QA virtualenv.");
+        var token = TestContext.Current.CancellationToken;
+        var root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "sftp-resume-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var fixture = await StartServer(python!, root, "resume-host", 0, token);
+            using var connections = new RemoteConnectionService(Path.Combine(root, "servers.json"), new PrivacySecurityFollowupTests.MemoryCredentials());
+            connections.ConfirmHostKeyAsync = (_, _) => Task.FromResult(true);
+            var server = new RemoteServerInfo { Host = "127.0.0.1", Port = fixture.Port, Username = "fixture", Password = "fixture-secret" };
+            var browser = await connections.ConnectAsync(server, token); connections.SaveServer(server);
+            var payload = new byte[2 * 1024 * 1024]; new Random(20).NextBytes(payload);
+            using (var stream = browser.Create("/resume.bin")) stream.Write(payload);
+            var manager = new BackgroundTaskManager(); using var remote = new SftpFileService(connections);
+            var files = new CompositeFileService(new MacFileService(), remote, manager, connections);
+            var disconnected = false;
+            manager.TasksChanged += () =>
+            {
+                if (!disconnected && manager.Tasks.FirstOrDefault()?.BytesTransferred >= 128 * 1024)
+                { disconnected = true; fixture.Process.Kill(true); }
+            };
+            var directory = Directory.CreateDirectory(Path.Combine(root, "downloads")).FullName;
+            var first = files.CopyWithProgressAsync(VirtualPath.BuildRemotePath(server.Id, "/resume.bin"), directory, ct: token);
+            await Assert.ThrowsAnyAsync<Exception>(() => first.WaitAsync(TimeSpan.FromSeconds(15), token));
+            var task = Assert.Single(manager.Tasks); Assert.Equal(BackgroundTaskState.NeedsAttention, task.State);
+            Assert.True(Directory.GetFiles(directory).Single().EndsWith(".fkfinder-tmp", StringComparison.Ordinal));
+            connections.Disconnect(server.Id); await fixture.Process.WaitForExitAsync(token);
+            await StartServer(python!, root, "resume-host", fixture.Port, token);
+            manager.RetryTask(task.Id); await manager.WaitForCompletionAsync(task.Id).WaitAsync(TimeSpan.FromSeconds(20), token);
+            Assert.Equal(BackgroundTaskState.Completed, task.State);
+            Assert.Equal(payload, await File.ReadAllBytesAsync(Path.Combine(directory, "resume.bin"), token));
+            Assert.Single(Directory.GetFiles(directory)); Assert.Single(manager.Tasks); await manager.ShutdownAsync();
+        }
+        finally
+        {
+            foreach (var process in Servers)
+            { try { if (!process.HasExited) process.Kill(true); } catch (InvalidOperationException) { } process.Dispose(); }
+            Servers.Clear(); if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
     [Fact(Explicit = true)]
     public async Task RealHandshakeRejectsBeforeAuthenticationTrustsOnceAndRejectsChangedHost()
     {

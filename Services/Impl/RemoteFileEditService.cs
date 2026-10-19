@@ -1,3 +1,5 @@
+using MacExplorer.Models;
+using Renci.SshNet;
 using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
@@ -7,16 +9,18 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
     private readonly IRemoteConnectionService _connectionService;
     private readonly ILogger<RemoteFileEditService>? _logger;
     private readonly string _tempDir;
+    private readonly IBackgroundTaskManager? _tasks;
+    private readonly IFileOperationHistoryService? _history;
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new();
     private readonly Dictionary<string, (string RemotePath, string ServerId)> _watchMap = new();
     private readonly Dictionary<string, string> _remoteToLocalMap = new();
-    private readonly HashSet<string> _downloading = new();
     private readonly HashSet<string> _uploading = new();
 
-    public RemoteFileEditService(IRemoteConnectionService connectionService, ILogger<RemoteFileEditService>? logger = null)
+    public RemoteFileEditService(IRemoteConnectionService connectionService, ILogger<RemoteFileEditService>? logger = null,
+        IBackgroundTaskManager? tasks = null, IFileOperationHistoryService? history = null)
     {
         _connectionService = connectionService;
-        _logger = logger;
+        _logger = logger; _tasks = tasks; _history = history;
         _tempDir = Path.Combine(
             RuntimePaths.DataDirectory, "remote-edit");
         if (!Directory.Exists(_tempDir))
@@ -26,124 +30,47 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
     private static string MakeRemoteKey(string serverId, string remotePath)
         => $"{serverId}::{remotePath}";
 
-    public async Task<string> DownloadForEditAsync(string remotePath, string serverId)
+    private SftpClient Client(string path, FileTaskContext context)
     {
-        var client = _connectionService.GetClient(serverId)
-            ?? throw new InvalidOperationException("Server not connected");
+        var serverId = VirtualPath.ParseRemotePath(path).ServerId;
+        return context.Resource("sftp:" + serverId, () => _connectionService.LeaseClientAsync(serverId, context.CancellationToken).GetAwaiter().GetResult());
+    }
 
-        var serverDir = Path.Combine(_tempDir, serverId);
-        if (!Directory.Exists(serverDir))
-            Directory.CreateDirectory(serverDir);
-
-        var remoteKey = MakeRemoteKey(serverId, remotePath);
-        string localPath;
-
-        if (_remoteToLocalMap.TryGetValue(remoteKey, out var existingLocalPath) && File.Exists(existingLocalPath))
+    public Task<string> DownloadForEditAsync(string remotePath, string serverId)
+    {
+        var source = VirtualPath.BuildRemotePath(serverId, remotePath);
+        var directory = Path.Combine(_tempDir, serverId,
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(remotePath)))[..16]);
+        return FileTaskContext.RunAsync(_tasks, new(BackgroundTaskKind.RemoteDownload, LocalizationText.Get("下载远程文件"), [source], directory), async context =>
         {
-            localPath = existingLocalPath;
-        }
-        else
-        {
-            var fileName = Path.GetFileName(remotePath);
-            localPath = Path.Combine(serverDir, fileName);
-            _remoteToLocalMap[remoteKey] = localPath;
-        }
-
-        // Mark as downloading to prevent watcher from uploading
-        lock (_downloading) _downloading.Add(localPath);
-
-        // Temporarily disable watcher
-        var watcherDisabled = false;
-        if (_watchers.TryGetValue(localPath, out var watcher))
-        {
-            watcher.EnableRaisingEvents = false;
-            watcherDisabled = true;
-        }
-
-        try
-        {
-            for (int retry = 0; retry < 3; retry++)
-            {
-                try
-                {
-                    await Task.Run(() =>
-                    {
-                        using var remoteStream = client.OpenRead(remotePath);
-                        using var localStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-                        var buffer = new byte[81920];
-                        int bytesRead;
-                        while ((bytesRead = remoteStream.Read(buffer, 0, buffer.Length)) > 0)
-                        {
-                            localStream.Write(buffer, 0, bytesRead);
-                        }
-                    }, CancellationToken.None);
-                    break;
-                }
-                catch (IOException) when (retry < 2)
-                {
-                    await Task.Delay(500);
-                }
-            }
-
-            _logger?.LogInformation("Downloaded {Remote} to {Local}", remotePath, localPath);
-            return localPath;
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "Failed to download {Remote}", remotePath);
-            // Remove mapping on failure
-            _remoteToLocalMap.Remove(remoteKey);
-            throw;
-        }
-        finally
-        {
-            lock (_downloading) _downloading.Remove(localPath);
-            // Re-enable watcher
-            if (watcherDisabled && watcher != null)
-            {
-                watcher.EnableRaisingEvents = true;
-            }
-        }
+            Directory.CreateDirectory(directory);
+            var output = await SftpTransfer.CopyAsync(source, directory, context, path => Client(path, context), null);
+            var key = MakeRemoteKey(serverId, remotePath);
+            if (_remoteToLocalMap.TryGetValue(key, out var previous)) StopWatching(previous);
+            _remoteToLocalMap[key] = output;
+            return output;
+        });
     }
 
     public async Task UploadAsync(string localPath, string remotePath, string serverId)
     {
-        // Skip upload if currently downloading
-        lock (_downloading)
-        {
-            if (_downloading.Contains(localPath)) return;
-        }
-
-        var key = localPath;
         lock (_uploading)
         {
-            if (_uploading.Contains(key)) return;
-            _uploading.Add(key);
+            if (_uploading.Contains(localPath)) return;
+            _uploading.Add(localPath);
         }
-
         try
         {
-            var client = _connectionService.GetClient(serverId)
-                ?? throw new InvalidOperationException("Server not connected");
-
-            await Task.Run(() =>
+            var target = VirtualPath.BuildRemotePath(serverId, remotePath);
+            var directory = VirtualPath.BuildRemotePath(serverId, Path.GetDirectoryName(remotePath) ?? "/");
+            await FileTaskContext.RunAsync(_tasks, new(BackgroundTaskKind.RemoteUpload, LocalizationText.Get("上传远程文件"), [localPath], target), async context =>
             {
-                using var localStream = File.OpenRead(localPath);
-                using var remoteStream = client.OpenWrite(remotePath);
-                var buffer = new byte[81920];
-                int bytesRead;
-                while ((bytesRead = localStream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    remoteStream.Write(buffer, 0, bytesRead);
-                }
+                await SftpTransfer.CopyAsync(localPath, directory, context, path => Client(path, context), null, target, true);
+                if (_history != null) await _history.RecordIrreversibleAsync(target, LocalizationText.Get("远程修改不可撤销。"));
+                return true;
             });
-
-            _logger?.LogInformation("Uploaded {Local} to {Remote}", localPath, remotePath);
         }
-        finally
-        {
-            lock (_uploading) { _uploading.Remove(key); }
-        }
+        finally { lock (_uploading) _uploading.Remove(localPath); }
     }
 
     public void WatchForChanges(string localTempPath, string remotePath, string serverId)
@@ -162,12 +89,6 @@ public class RemoteFileEditService : IRemoteFileEditService, IDisposable
         watcher.Changed += async (_, e) =>
         {
             if (e.FullPath != localTempPath) return;
-
-            // Skip if currently downloading
-            lock (_downloading)
-            {
-                if (_downloading.Contains(localTempPath)) return;
-            }
 
             try
             {

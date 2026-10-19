@@ -34,7 +34,7 @@ public partial class FileListViewModel
     {
         if (IsBrowseOnly || IsArchiveView || IsTrashActive || request.Entries.Count == 0
             || request.Entries.Any(e => !IsBatchRenameTarget(e)))
-        { StatusText = "请选择可重命名的本地文件或文件夹"; return; }
+        { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("请选择可重命名的本地文件或文件夹"); return; }
         PendingBatchRenameRequest = request.Snapshot();
         RequestBatchRename?.Invoke();
     }

@@ -77,7 +77,7 @@ public partial class SettingsDialog
     {
         CopilotSkillPicker.SelectedItem = null;
         CopilotSkillNameBox.Text = string.Empty;
-        CopilotSkillContentBox.Text = "---\nname: my-skill\ndescription: Describe when to use this skill.\n---\n\n# 新技能\n\n只调用已登记能力；修改前先预览并请求批准。\n";
+        CopilotSkillContentBox.Text = MacExplorer.Services.Impl.LocalizationText.Get("---\nname: my-skill\ndescription: Describe when to use this skill.\n---\n\n# 新技能\n\n只调用已登记能力；修改前先预览并请求批准。\n");
         CopilotSkillNameBox.Focus();
     }
 

@@ -35,7 +35,7 @@ public partial class ImageConversionDialog : DialogWindow
     private void RefreshLanguage()
     {
         Heading.Text = Services.Impl.LocalizationService.Current?.Get("conversion.to_format", _format.ToString().ToUpperInvariant())
-            ?? "转为 " + _format.ToString().ToUpperInvariant();
+            ?? MacExplorer.Services.Impl.LocalizationText.Get("转为 ") + _format.ToString().ToUpperInvariant();
         Description.Text = Services.Impl.LocalizationText.Get(_format == FileConversionFormat.Jpg
             ? "透明区域使用白色背景，图片质量为 90%。" : "保留原图的透明背景。");
     }

@@ -1,3 +1,4 @@
+using Avalonia.LogicalTree;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
@@ -46,6 +47,78 @@ public sealed class AppUpdateTests
         var details = await service.GetVersionDetailsAsync(TestContext.Current.CancellationToken);
         Assert.Null(details!.History);
         Assert.Equal(expected, await service.CheckVersionAsync(TestContext.Current.CancellationToken) != null);
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Kind", "UI")]
+    [Trait("Area", "Localization")]
+    public void SettingsLanguageListUsesCatalogAndKeepsDraftsAcrossLanguageChanges(bool dark)
+    {
+        var styles = new Avalonia.Styling.IStyle[]
+        {
+            new Avalonia.Themes.Fluent.FluentTheme(),
+            (Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")),
+            (Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml"))
+        };
+        foreach (var style in styles) Avalonia.Application.Current!.Styles.Add(style);
+        var settings = new SettingsServiceStub();
+        using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
+        var dialog = new SettingsDialog(new DefaultAppServiceStub(), settings, new ThemeServiceStub(),
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), new FailingUpdateService(), localizationService: language)
+        {
+            Width = 780,
+            RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light
+        };
+        // Exercise the real general-settings page without starting plugins and account services.
+        dialog.Opened -= (EventHandler)Delegate.CreateDelegate(typeof(EventHandler), dialog, "OnOpened");
+        typeof(SettingsDialog).GetMethod("LoadSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(dialog, null);
+        typeof(SettingsDialog).GetField("_initializing", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(dialog, false);
+        dialog.Show();
+        try
+        {
+            var configured = new List<OpenWithApp>
+            {
+                new() { BundleId = BuiltInOpenWithActions.RevealInFinderBundleId, Label = "在 Finder 中显示", IsTopLevel = true },
+                new() { BundleId = "custom", Label = "我的应用", IsTopLevel = false }
+            };
+            typeof(SettingsDialog).GetField("_openWithApps", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .SetValue(dialog, configured);
+            typeof(SettingsDialog).GetMethod("RefreshLanguage", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(dialog, null);
+            var combo = dialog.FindControl<ComboBox>("LanguageCombo")!;
+            Assert.Equal(new[] { "system" }.Concat(language.AvailableLanguages.Select(x => x.Id)),
+                combo.Items.OfType<ComboBoxItem>().Select(x => (string)x.Tag!));
+            var draft = dialog.FindControl<TextBox>("LocalSendAliasBox")!;
+            draft.Text = "unfinished draft";
+            foreach (var option in language.AvailableLanguages)
+            {
+                var item = combo.Items.OfType<ComboBoxItem>().Single(x => Equals(x.Tag, option.Id));
+                combo.SelectedItem = item;
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(option.Id, language.Language);
+                Assert.Equal(option.NativeName, item.Content);
+                Assert.Equal("unfinished draft", draft.Text);
+                Assert.Equal(language["language.system"], ((ComboBoxItem)combo.Items[0]!).Content);
+                Assert.True(combo.Bounds.Width > 0);
+                var labels = dialog.FindControl<StackPanel>("ConfiguredAppsPanel")!.GetLogicalDescendants().OfType<TextBlock>()
+                    .Select(text => text.Text).ToArray();
+                Assert.Contains(configured[0].DisplayLabel, labels);
+                Assert.Contains("我的应用", labels);
+                Assert.Contains(Services.Impl.LocalizationText.Get("收进「打开方式」子菜单"), labels);
+                Assert.Equal(PrivacyPolicy.Status, dialog.FindControl<TextBlock>("PrivacyPolicyStatus")!.Text);
+            }
+            language.SetLanguage(AppLanguage.System);
+            Assert.Equal("system", ((ComboBoxItem)combo.SelectedItem!).Tag);
+        }
+        finally
+        {
+            dialog.Close();
+            foreach (var style in styles) Avalonia.Application.Current!.Styles.Remove(style);
+        }
     }
 
     [AvaloniaFact(Explicit = true)]

@@ -120,6 +120,8 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     private void OnFileListPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(FileListViewModel.CurrentLocationTitle))
+            ToolTip.SetTip(SidebarToggleButton, MacExplorer.Services.Impl.LocalizationText.Get(SidebarSplitView.IsPaneOpen ? "收起侧栏" : "展开侧栏"));
         if (e.PropertyName is nameof(FileListViewModel.IsHomePage)
             or nameof(FileListViewModel.IsAiView)
             or nameof(FileListViewModel.IsNetworkPage)
@@ -223,7 +225,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         SidebarSplitView.IsPaneOpen = open;
         SidebarControl.SetRailMode(!open);
-        ToolTip.SetTip(SidebarToggleButton, open ? "收起侧栏" : "展开侧栏");
+        ToolTip.SetTip(SidebarToggleButton, open ? MacExplorer.Services.Impl.LocalizationText.Get("收起侧栏") : MacExplorer.Services.Impl.LocalizationText.Get("展开侧栏"));
     }
 
     public void TogglePageSearch()

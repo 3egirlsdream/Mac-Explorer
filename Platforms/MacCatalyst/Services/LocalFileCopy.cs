@@ -1,3 +1,4 @@
+using MacExplorer.Services;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using MacExplorer.Models;
@@ -6,7 +7,15 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 
 internal static class LocalFileCopy
 {
-    private sealed record CopyEntry(string Path, bool IsDirectory, string? LinkTarget, long Length, bool IsRuntimeFile = false);
+    private sealed class PartialCopy
+    {
+        public required string Temporary;
+        public long Offset;
+        public bool Created;
+        public bool Committed;
+        public string? Identity;
+    }
+    private sealed record CopyEntry(string Path, bool IsDirectory, string? LinkTarget, long Length, DateTime Modified, string? Identity, bool IsRuntimeFile = false);
 
     public static string Copy(string sourcePath, string destinationDirectory,
         IProgress<FileOperationProgress>? progress, CancellationToken ct)
@@ -25,7 +34,10 @@ internal static class LocalFileCopy
                 throw new IOException("不能将文件夹复制到它自身或其子文件夹中。");
         }
 
-        var destinationPath = GetDestinationPath(destinationDirectory, Path.GetFileName(sourcePath), source.IsDirectory);
+        var context = FileTaskContext.Current;
+        var destinationPath = context?.Remember("local-copy-output:" + sourcePath + ":" + destinationDirectory,
+            () => GetDestinationPath(destinationDirectory, Path.GetFileName(sourcePath), source.IsDirectory))
+            ?? GetDestinationPath(destinationDirectory, Path.GetFileName(sourcePath), source.IsDirectory);
         MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(destinationPath);
         var entries = new List<CopyEntry>();
         var errors = new List<Exception>();
@@ -37,6 +49,11 @@ internal static class LocalFileCopy
 
         void Report(string path, bool scanning = false, bool force = false)
         {
+            if (context != null)
+            {
+                context.Task.BytesTransferred = completed; context.Task.TotalBytes = total;
+                context.Task.BytesPerSecond = completed / Math.Max(.001, clock.Elapsed.TotalSeconds);
+            }
             if (!force && clock.ElapsedMilliseconds - lastReport < 100) return;
             lastReport = clock.ElapsedMilliseconds;
             progress?.Report(new FileOperationProgress
@@ -56,6 +73,8 @@ internal static class LocalFileCopy
             if (entry.IsRuntimeFile)
             {
                 skipped++;
+                context?.ReportItem(entry.Path, null, FileTaskItemState.Skipped,
+                    MacExplorer.Services.Impl.LocalizationText.Get("已跳过运行时通信文件。"));
                 return;
             }
             entries.Add(entry);
@@ -81,15 +100,27 @@ internal static class LocalFileCopy
         }
 
         Report(sourcePath, scanning: true, force: true);
-        Scan(source);
+        var manifest = context?.Remember("local-copy-manifest:" + sourcePath + ":" + destinationDirectory, () =>
+        { Scan(source); return entries.ToArray(); });
+        if (manifest == null) Scan(source);
+        else if (entries.Count == 0) { entries.AddRange(manifest); total = entries.Sum(e => e.Length + 1); }
+        if (context != null) context.Task.TotalItems = entries.Count;
         var buffer = new byte[128 * 1024];
         foreach (var entry in entries)
         {
             ct.ThrowIfCancellationRequested();
+            FileTaskContext.Checkpoint();
             var destination = entry.Path == sourcePath
                 ? destinationPath
                 : Path.Combine(destinationPath, Path.GetRelativePath(sourcePath, entry.Path));
             var before = completed;
+            if (context?.IsDone("local-copy:" + entry.Path + ":" + destination) == true)
+            {
+                if (context.Remember("local-output-identity:" + destination, () => FileIdentitySnapshot.Capture(destination, false))
+                    != FileIdentitySnapshot.Capture(destination, false))
+                    throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("暂存文件已变化，无法继续。"));
+                completed += entry.Length + 1; continue;
+            }
             try
             {
                 if (entry.LinkTarget != null)
@@ -104,35 +135,68 @@ internal static class LocalFileCopy
                 }
                 else
                 {
-                    using (var input = new FileStream(entry.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                    using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    var state = context?.Remember("local-file:" + destination, () => new PartialCopy
+                    { Temporary = destination + "." + context.Task.Id + ".fkfinder-tmp" })
+                        ?? new PartialCopy { Temporary = destination + "." + Guid.NewGuid().ToString("N") + ".fkfinder-tmp" };
+                    context?.RegisterCleanup("local-file:" + destination, () =>
                     {
-                        try
+                        if (state.Created && !state.Committed && File.Exists(state.Temporary)
+                            && FileIdentitySnapshot.Capture(state.Temporary, false)?.Identity == state.Identity)
+                            File.Delete(state.Temporary);
+                    });
+                    if (!state.Committed)
+                    {
+                        if (ReadEntry(entry.Path) != entry) throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("源项目已变化，请重新创建任务。"));
+                        using var input = new FileStream(entry.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                        using (var output = new FileStream(state.Temporary, state.Created ? FileMode.Open : FileMode.CreateNew,
+                            FileAccess.ReadWrite, FileShare.None))
                         {
-                            int read;
-                            while ((read = input.Read(buffer)) > 0)
+                            state.Created = true;
+                            state.Identity ??= FileIdentitySnapshot.Capture(state.Temporary, false)?.Identity;
+                            if (FileIdentitySnapshot.Capture(state.Temporary, false)?.Identity != state.Identity)
+                                throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("暂存文件已变化，无法继续。"));
+                            if (output.Length != state.Offset) throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("暂存文件已变化，无法继续。"));
+                            var verify = new byte[buffer.Length]; long remaining = state.Offset;
+                            while (remaining > 0)
                             {
                                 ct.ThrowIfCancellationRequested();
-                                output.Write(buffer, 0, read);
-                                completed += read;
-                                Report(entry.Path);
+                                var count = (int)Math.Min(buffer.Length, remaining);
+                                input.ReadExactly(buffer.AsSpan(0, count)); output.ReadExactly(verify.AsSpan(0, count));
+                                if (!buffer.AsSpan(0, count).SequenceEqual(verify.AsSpan(0, count)))
+                                    throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("暂存文件已变化，无法继续。"));
+                                remaining -= count;
                             }
+                            completed += state.Offset;
+                            try
+                            {
+                                int read;
+                                while ((read = input.Read(buffer)) > 0)
+                                {
+                                    ct.ThrowIfCancellationRequested(); FileTaskContext.Checkpoint();
+                                    if (ReadEntry(entry.Path) != entry) throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("源项目已变化，请重新创建任务。"));
+                                    output.Write(buffer, 0, read); state.Offset += read; completed += read;
+                                    Report(entry.Path);
+                                }
+                                output.Flush();
+                            }
+                            catch (OperationCanceledException) { output.Dispose(); context?.Cleanup(); if (context == null) File.Delete(state.Temporary); throw; }
                         }
-                        catch
-                        {
-                            // Only remove the incomplete file created by this operation.
-                            output.Dispose();
-                            File.Delete(destination);
-                            throw;
-                        }
+                        if (ReadEntry(entry.Path) != entry) throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("源项目已变化，请重新创建任务。"));
+                        File.Move(state.Temporary, destination, false); state.Committed = true;
                     }
                     CopyMetadata(entry.Path, destination);
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
+                context?.ReportItem(entry.Path, destination, FileTaskItemState.Failed, ex.Message);
                 RecordError(entry.Path, ex);
+                completed = before + entry.Length + 1;
+                continue;
             }
+            context?.Remember("local-output-identity:" + destination, () => FileIdentitySnapshot.Capture(destination, false));
+            context?.MarkDone("local-copy:" + entry.Path + ":" + destination);
+            context?.ReportItem(entry.Path, destination, FileTaskItemState.Completed);
             completed = before + entry.Length + 1;
             Report(entry.Path);
         }
@@ -141,6 +205,7 @@ internal static class LocalFileCopy
         foreach (var entry in entries.AsEnumerable().Reverse().Where(e => e.IsDirectory && e.LinkTarget == null))
         {
             ct.ThrowIfCancellationRequested();
+            FileTaskContext.Checkpoint();
             var destination = entry.Path == sourcePath ? destinationPath
                 : Path.Combine(destinationPath, Path.GetRelativePath(sourcePath, entry.Path));
             try
@@ -172,12 +237,12 @@ internal static class LocalFileCopy
                 throw new IOException($"无法读取文件类型：{path}", new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError()));
             var type = status.Mode & 0xf000;
             if (type is 0xc000 or 0x1000) // Unix socket / FIFO: process endpoints, not stored file data.
-                return new CopyEntry(path, false, null, 0, IsRuntimeFile: true);
+                return new CopyEntry(path, false, null, 0, info.LastWriteTimeUtc, FileIdentitySnapshot.Capture(path, false)?.Identity, IsRuntimeFile: true);
             if (type != 0x8000)
                 throw new IOException($"不支持复制此特殊文件：{path}");
         }
         return new CopyEntry(path, isDirectory, target,
-            isDirectory || target != null ? 0 : ((FileInfo)info).Length);
+            isDirectory || target != null ? 0 : ((FileInfo)info).Length, info.LastWriteTimeUtc, FileIdentitySnapshot.Capture(path, false)?.Identity);
     }
 
     // Darwin's 64-bit struct stat (macOS SDK sys/stat.h).

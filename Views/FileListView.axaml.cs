@@ -1005,7 +1005,7 @@ public partial class FileListView : UserControl
             item.ToggleType = MenuItemToggleType.CheckBox;
             item.IsChecked = action.IsChecked;
             if (action.IsIndeterminate)
-                item.Header = action.Label + "（部分文件）";
+                item.Header = action.Label + MacExplorer.Services.Impl.LocalizationText.Get("（部分文件）");
         }
         if (action.ShortcutId != null)
             item.InputGesture = Shortcuts.GetBindings(action.ShortcutId)[0].Gesture;
@@ -1060,7 +1060,7 @@ public partial class FileListView : UserControl
         if (action.LoadSubItemsAsync != null)
         {
             _asyncSubmenus.Add(item);
-            FillMenu(item, [new ContextMenuAction { Label = "正在搜索…", IsEnabled = false }], requestVersion);
+            FillMenu(item, [new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("正在搜索…"), IsEnabled = false }], requestVersion);
             item.PropertyChanged += (_, e) =>
             {
                 if (e.Property != MenuItem.IsSubMenuOpenProperty) return;
@@ -1080,7 +1080,7 @@ public partial class FileListView : UserControl
         if (_menuLoads.Remove(item, out var previous)) { previous.Cancel(); previous.Dispose(); }
         var cancellation = new CancellationTokenSource();
         _menuLoads[item] = cancellation;
-        FillMenu(item, [new ContextMenuAction { Label = "正在搜索…", IsEnabled = false }], requestVersion);
+        FillMenu(item, [new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("正在搜索…"), IsEnabled = false }], requestVersion);
         _ = LoadSubmenuAsync(item, loader, requestVersion, cancellation);
     }
 
@@ -1103,14 +1103,14 @@ public partial class FileListView : UserControl
         catch (OperationCanceledException)
         {
             if (IsCurrent()) UpdateSubmenu(item,
-                [new ContextMenuAction { Label = "搜索已停止", IsEnabled = false },
-                 new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ReloadParentSubmenu = true }], requestVersion);
+                [new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("搜索已停止"), IsEnabled = false },
+                 new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), IconSvg = Icons.Refresh, ReloadParentSubmenu = true }], requestVersion);
         }
         catch (Exception ex)
         {
             if (!IsCurrent()) return;
-            UpdateSubmenu(item, [new ContextMenuAction { Label = "搜索失败：" + ex.Message, IsEnabled = false },
-                new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, ReloadParentSubmenu = true }], requestVersion);
+            UpdateSubmenu(item, [new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("搜索失败：") + ex.Message, IsEnabled = false },
+                new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), IconSvg = Icons.Refresh, ReloadParentSubmenu = true }], requestVersion);
         }
         finally
         {
@@ -1587,7 +1587,7 @@ public partial class FileListView : UserControl
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceError($"File drag failed: {ex}");
-            if (ViewModel != null) ViewModel.StatusText = $"拖动失败: {ex.Message}";
+            if (ViewModel != null) ViewModel.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("拖动失败: {0}", ex.Message);
             ResetDragState();
         }
     }
@@ -1897,7 +1897,7 @@ public partial class FileListView : UserControl
         catch (Exception ex)
         {
             e.DragEffects = DragDropEffects.None;
-            viewModel.StatusText = $"拖放失败: {ex.Message}";
+            viewModel.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("拖放失败: {0}", ex.Message);
         }
     }
 
@@ -2219,19 +2219,19 @@ public partial class FileListView : UserControl
         if (ViewModel == null) return;
         EmptyState.IsVisible = !ViewModel.IsLoading && ViewModel.Entries.Count == 0;
         var readFailed = !string.IsNullOrWhiteSpace(ViewModel.ReadErrorMessage) && !ViewModel.IsSearchMode;
-        var searchFailed = ViewModel.IsSearchMode && ViewModel.StatusText.StartsWith("搜索失败:", StringComparison.Ordinal);
-        var disconnected = ViewModel.IsRemoteView && ViewModel.StatusText == "服务器未连接";
-        EmptyStateText.Text = readFailed ? "无法读取此位置"
-            : searchFailed ? "无法完成搜索"
-            : disconnected ? "未连接"
-            : ViewModel.HasFileListFilters || ViewModel.IsSearchMode ? "未找到匹配的文件"
-            : ViewModel.IsTagView ? "此标签下暂无文件" : "此文件夹为空";
+        var searchFailed = ViewModel.IsSearchMode && ViewModel.StatusText.StartsWith(MacExplorer.Services.Impl.LocalizationText.Get("搜索失败:"), StringComparison.Ordinal);
+        var disconnected = ViewModel.IsRemoteView && ViewModel.StatusText == MacExplorer.Services.Impl.LocalizationText.Get("服务器未连接");
+        EmptyStateText.Text = readFailed ? MacExplorer.Services.Impl.LocalizationText.Get("无法读取此位置")
+            : searchFailed ? MacExplorer.Services.Impl.LocalizationText.Get("无法完成搜索")
+            : disconnected ? MacExplorer.Services.Impl.LocalizationText.Get("未连接")
+            : ViewModel.HasFileListFilters || ViewModel.IsSearchMode ? MacExplorer.Services.Impl.LocalizationText.Get("未找到匹配的文件")
+            : ViewModel.IsTagView ? MacExplorer.Services.Impl.LocalizationText.Get("此标签下暂无文件") : MacExplorer.Services.Impl.LocalizationText.Get("此文件夹为空");
         EmptyStateHint.Text = readFailed ? ViewModel.ReadErrorMessage
             : searchFailed ? ViewModel.StatusText
-            : disconnected ? "请从侧栏或“连接远程服务器”入口连接"
-            : ViewModel.HasFileListFilters ? "试试减少筛选条件，或清除筛选查看全部文件。"
-            : ViewModel.IsSearchMode ? $"“{ViewModel.SearchQuery}”\n范围：{ViewModel.SearchScopePath}（包含已索引子文件夹）"
-            : ViewModel.IsTagView && !ViewModel.IsBrowseOnly ? "拖入或粘贴文件以添加标签，原文件位置保持不变。"
+            : disconnected ? MacExplorer.Services.Impl.LocalizationText.Get("请从侧栏或“连接远程服务器”入口连接")
+            : ViewModel.HasFileListFilters ? MacExplorer.Services.Impl.LocalizationText.Get("试试减少筛选条件，或清除筛选查看全部文件。")
+            : ViewModel.IsSearchMode ? MacExplorer.Services.Impl.LocalizationText.Get("“{0}”\n范围：{1}（包含已索引子文件夹）", ViewModel.SearchQuery, ViewModel.SearchScopePath)
+            : ViewModel.IsTagView && !ViewModel.IsBrowseOnly ? MacExplorer.Services.Impl.LocalizationText.Get("拖入或粘贴文件以添加标签，原文件位置保持不变。")
             : string.Empty;
         EmptyStateHint.IsVisible = !string.IsNullOrEmpty(EmptyStateHint.Text);
         ClearEmptyFiltersButton.IsVisible = ViewModel.HasFileListFilters && !readFailed && !searchFailed && !disconnected;

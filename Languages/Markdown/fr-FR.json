@@ -1,0 +1,26 @@
+{
+  "language": "Français",
+  "description": "Français",
+  "cultureName": "fr-FR",
+  "CodeWF": {
+    "MarkdownL": {
+      "ImagePreviewTitle": "Aperçu de l’image",
+      "ImagePreviewZoomOut": "Réduire",
+      "ImagePreviewZoomIn": "Agrandir",
+      "ImagePreviewRotateLeft": "Tourner à gauche",
+      "ImagePreviewRotateRight": "Tourner à droite",
+      "ImagePreviewSaveAs": "Enregistrer sous",
+      "ImagePreviewImagesFileType": "Images",
+      "ImagePreviewZoomStatus": "{0:P0} / {1} degrés",
+      "ImagePreviewActualSize": "1:1",
+      "ImagePreviewFit": "Ajuster",
+      "ImageLoadFailed": "Impossible de charger l’image : {0}",
+      "ImageFileNotFound": "Fichier introuvable : {0}",
+      "CopySelectedText": "Copier le texte sélectionné",
+      "CopyRenderedText": "Copier le texte affiché",
+      "Copy": "Copier",
+      "SocialCopyToolName": "Éditeur Markdown",
+      "SocialCopySuffixFormat": "Mis en forme avec {0}"
+    }
+  }
+}

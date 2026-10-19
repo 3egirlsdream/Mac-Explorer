@@ -406,7 +406,7 @@ public partial class FinderSidebarView : UserControl
         }
         catch (Exception ex)
         {
-            viewModel.StatusText = $"打开文件夹失败: {ex.Message}";
+            viewModel.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("打开文件夹失败: {0}", ex.Message);
         }
     }
 
@@ -456,7 +456,7 @@ public partial class FinderSidebarView : UserControl
         catch (Exception ex)
         {
             e.DragEffects = DragDropEffects.None;
-            viewModel.StatusText = $"拖放失败: {ex.Message}";
+            viewModel.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("拖放失败: {0}", ex.Message);
         }
     }
 

@@ -45,6 +45,7 @@ internal sealed class ShortcutHintController : IDisposable
 {
     private readonly AppWindow _window;
     private readonly IShortcutService _shortcuts;
+    private readonly ILocalizationService? _language;
     private readonly ShortcutHoldState _hold = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly Func<long> _now;
@@ -64,6 +65,8 @@ internal sealed class ShortcutHintController : IDisposable
         _now = clock ?? (() => _clock.ElapsedMilliseconds);
         _timer.Tick += OnTick;
         shortcuts.Changed += OnSettingsChanged;
+        _language = Services.Impl.LocalizationService.Current;
+        if (_language != null) _language.LanguageChanged += OnSettingsChanged;
         shortcuts.RecordingChanged += OnRecordingChanged;
         window.SizeChanged += OnSizeChanged;
         window.Deactivated += OnDeactivated;
@@ -200,6 +203,7 @@ internal sealed class ShortcutHintController : IDisposable
         _disposed = true; Cancel(); _native?.Dispose();
         _timer.Tick -= OnTick;
         _shortcuts.Changed -= OnSettingsChanged;
+        if (_language != null) _language.LanguageChanged -= OnSettingsChanged;
         _shortcuts.RecordingChanged -= OnRecordingChanged;
         _window.SizeChanged -= OnSizeChanged;
         _window.Deactivated -= OnDeactivated;
@@ -244,14 +248,14 @@ internal sealed class ShortcutHintView : Border
         foreach (var group in _shortcuts.Definitions.Where(d => d.Scope != ShortcutScope.Editor).GroupBy(d => d.Group))
         {
             var section = new StackPanel { Spacing = 3 };
-            section.Children.Add(new TextBlock { Text = group.Key, Classes = { "shortcut-group-title" }, Margin = new Thickness(0, 0, 0, 4) });
+            section.Children.Add(new TextBlock { Text = Services.Impl.LocalizationText.Get(group.Key), Classes = { "shortcut-group-title" }, Margin = new Thickness(0, 0, 0, 4) });
             foreach (var definition in group)
             {
                 var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8,
                     MinHeight = 25 };
-                var name = new TextBlock { Text = definition.Context == null ? definition.Name : $"{definition.Name} · {definition.Context}", TextTrimming = TextTrimming.CharacterEllipsis,
+                var name = new TextBlock { Text = definition.Context == null ? definition.DisplayName : $"{definition.DisplayName} · {definition.DisplayContext}", TextTrimming = TextTrimming.CharacterEllipsis,
                     VerticalAlignment = VerticalAlignment.Center, Classes = { "shortcut-name" } };
-                ToolTip.SetTip(name, definition.Context == null ? definition.Name : $"{definition.Name} · {definition.Context}");
+                ToolTip.SetTip(name, definition.Context == null ? definition.DisplayName : $"{definition.DisplayName} · {definition.DisplayContext}");
                 var key = new ShortcutText { Text = string.Join(" / ", _shortcuts.GetBindings(definition.Id)
                     .Select(b => b.Display)),
                     VerticalAlignment = VerticalAlignment.Center, Classes = { "shortcut-keys" } };

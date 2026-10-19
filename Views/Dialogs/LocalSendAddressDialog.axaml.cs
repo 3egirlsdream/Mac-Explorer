@@ -32,29 +32,29 @@ public partial class LocalSendAddressDialog : DialogWindow
         if (_connected) { Close(true); return; }
         if (!int.TryParse(PortBox.Text, out var port) || port is < 1 or > 65535)
         {
-            StatusText.Text = "端口须为 1–65535。";
+            StatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("端口须为 1–65535。");
             return;
         }
         _connecting = true;
         ConnectButton.IsEnabled = false;
         AddressBox.IsEnabled = false;
         PortBox.IsEnabled = false;
-        StatusText.Text = "正在连接…";
+        StatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("正在连接…");
         try
         {
             var peer = await _service.ConnectByAddressAsync(AddressBox.Text?.Trim() ?? "", port, _closed.Token);
             if (_closed.IsCancellationRequested) return;
             _connected = true;
-            StatusText.Text = $"已连接 {peer.Alias}。重新打开菜单选择设备发送。";
-            ConnectButton.Content = "完成";
-            CancelButton.Content = "关闭";
+            StatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("已连接 {0}。重新打开菜单选择设备发送。", peer.Alias);
+            ConnectButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("完成");
+            CancelButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("关闭");
         }
         catch (OperationCanceledException) when (_closed.IsCancellationRequested) { return; }
         catch (OperationCanceledException)
         {
-            StatusText.Text = _service.Enabled ? "连接超时。" : "LocalSend 已关闭。";
+            StatusText.Text = _service.Enabled ? MacExplorer.Services.Impl.LocalizationText.Get("连接超时。") : MacExplorer.Services.Impl.LocalizationText.Get("LocalSend 已关闭。");
         }
-        catch (Exception ex) { StatusText.Text = "连接失败：" + ex.Message; }
+        catch (Exception ex) { StatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("连接失败：") + ex.Message; }
         finally
         {
             _connecting = false;

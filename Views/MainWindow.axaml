@@ -554,10 +554,10 @@
     <Border x:Name="TaskOverlayPanel"
             IsVisible="False"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
-            Width="356" MaxHeight="432"
+            Width="640" MaxHeight="420"
             Margin="0,0,10,42">
         <Border.RenderTransform>
-            <TranslateTransform X="380" Y="0"/>
+            <TranslateTransform X="664" Y="0"/>
         </Border.RenderTransform>
         <!-- Outer Grid with margin to make room for shadow (same pattern as ContextMenu template) -->
         <Grid Margin="12">
@@ -569,43 +569,32 @@
             <Border Background="{DynamicResource GlassMenuBg}"
                     CornerRadius="12"
                     ClipToBounds="True">
-                <Grid RowDefinitions="Auto,*,Auto" Margin="6">
-                    <!-- Header -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0">
-                        <TextBlock Grid.Column="0" x:Name="TaskPanelTitle"
-                                   Text="{loc:Loc ui.048}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   VerticalAlignment="Center" Margin="0,1,0,0"/>
-                        <Button Grid.Column="1" x:Name="ClearPanelButton"
-                                Classes="ghost compact" Content="{loc:Loc ui.068}"
-                                Click="ClearAllPanelTasks" Margin="0,0,2,0"
-                                FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
-                        <Button Grid.Column="2" x:Name="ClosePanelButton"
-                                Classes="ghost compact"
-                                Width="26" Height="26" Padding="4"
-                                VerticalAlignment="Center" Click="CloseTaskPanel">
-                            <PathIcon Data="{x:Static icons:Icons.Close}"
-                                      Width="10" Height="10"
-                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        </Button>
-                    </Grid>
-
-                    <!-- Task list -->
-                    <ScrollViewer Grid.Row="1" x:Name="TaskListScrollViewer"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Auto"
-                                  MaxHeight="330">
-                        <StackPanel x:Name="TaskItemsPanel" Margin="0,2,0,4" Spacing="0"/>
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                            Padding="16,7,12,7">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem x:Name="CancelAllTasksMenuItem" Header="{loc:Loc tasks.literal.010}" Click="ClearAllPanelTasks"/>
+                                <MenuItem x:Name="ClearFinishedTasksMenuItem" Header="{loc:Loc ui.069}" Click="ClearCompletedPanel"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <TextBlock x:Name="TaskPanelTitle" Text="{loc:Loc tasks.transfers}"
+                                       FontSize="{DynamicResource FontSizeHeading}" FontWeight="{StaticResource FontWeightSemibold}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" x:Name="TaskRunningCountText" Classes="task-meta"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <Button Grid.Column="2" x:Name="ClosePanelButton" Classes="icon-action"
+                                    ToolTip.Tip="{loc:Loc tasks.collapse}" AutomationProperties.Name="{loc:Loc tasks.collapse}"
+                                    Click="CloseTaskPanel">
+                                <PathIcon Data="{x:Static icons:Icons.ChevronDown}" Width="14" Height="14"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" x:Name="TaskListScrollViewer" HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto" MaxHeight="360">
+                        <StackPanel x:Name="TaskItemsPanel"/>
                     </ScrollViewer>
-
-                    <!-- Footer -->
-                    <Grid Grid.Row="2" x:Name="PanelFooter"
-                          IsVisible="False" Margin="0,2,0,0">
-                        <Button x:Name="ClearCompletedButton" Content="{loc:Loc ui.069}"
-                                Classes="ghost compact" FontSize="{DynamicResource FontSizeLabel}"
-                                HorizontalAlignment="Right"
-                                Click="ClearCompletedPanel"/>
-                    </Grid>
                 </Grid>
             </Border>
 	        </Grid>

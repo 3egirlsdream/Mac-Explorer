@@ -170,7 +170,7 @@ public partial class FinderToolbar : UserControl
             {
                 field = ViewModel.SortField.ToString(), ascending = !ViewModel.SortAscending
             });
-            SortDirectionButton.Content = ViewModel.SortAscending ? "升序 ↑" : "降序 ↓";
+            SortDirectionButton.Content = ViewModel.SortAscending ? MacExplorer.Services.Impl.LocalizationText.Get("升序 ↑") : MacExplorer.Services.Impl.LocalizationText.Get("降序 ↓");
         }
         SortDropdown.IsOpen = false;
     }
@@ -289,8 +289,6 @@ public partial class FinderToolbar : UserControl
         CloseDropdowns();
         popup.IsOpen = shouldOpen;
     }
-
-    private void OnManageTags(object? sender, RoutedEventArgs e) => ShowTagManagement(create: false);
 
     private void ShowTagManagement(bool create)
     {

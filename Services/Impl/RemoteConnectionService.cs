@@ -71,6 +71,13 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         return client;
     }
 
+    public Task<SftpClient> LeaseClientAsync(string serverId, CancellationToken ct = default)
+    {
+        var server = _servers.TryGetValue(serverId, out var saved) ? saved
+            : throw new InvalidOperationException(LocalizationText.Get("服务器配置已不存在，请重新连接。"));
+        return ConnectVerifiedAsync(CopyServer(server), true, ct);
+    }
+
     public async Task<SftpClient> GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
     {
         if (_connections.TryGetValue(server.Id, out var existing) && existing.IsConnected

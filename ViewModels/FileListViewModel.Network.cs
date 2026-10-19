@@ -44,8 +44,7 @@ public partial class FileListViewModel
     internal async Task<bool> ConfirmNetworkUnmountAsync()
     {
         if (_topLevelWindow == null) return false;
-        return await new ConfirmDialog(LocalizationText.Get("network.disconnect"), LocalizationText.Get("network.disconnect-confirm"),
-            LocalizationText.Get("network.disconnect")).ShowDialog<bool>(_topLevelWindow);
+        return await new ConfirmDialog(LocalizationText.Get("network.disconnect"),LocalizationText.Get("network.disconnect-confirm"),LocalizationText.Get("network.disconnect")).ShowDialog<bool>(_topLevelWindow);
     }
 
     public async Task DisconnectServerAsync(RemoteServerInfo server)

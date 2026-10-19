@@ -1126,9 +1126,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (!DirectoryAccess.Current.CanAccess(path))
             {
                 if (_topLevelWindow?.StorageProvider is not { } storage)
-                { StatusText = "此位置需要通过系统选择器授权。"; return; }
+                { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("此位置需要通过系统选择器授权。"); return; }
                 var selected = await storage.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
-                    { Title = "选择文件夹以授权访问", AllowMultiple = false });
+                    { Title = MacExplorer.Services.Impl.LocalizationText.Get("选择文件夹以授权访问"), AllowMultiple = false });
                 if (selected.Count == 0) return;
                 path = selected[0].Path.LocalPath;
             }
@@ -1210,7 +1210,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            if (CurrentPath == path) StatusText = $"无法访问: {ex.Message}";
+            if (CurrentPath == path) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法访问: {0}", ex.Message);
         }
 
         if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
@@ -1383,7 +1383,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    if (CurrentPath == path) StatusText = $"无法访问: {ex.Message}";
+                    if (CurrentPath == path) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法访问: {0}", ex.Message);
                 }
             }
         }
@@ -1462,7 +1462,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex)
             {
-                StatusText = $"打开文件失败: {ex.Message}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("打开文件失败: {0}", ex.Message);
             }
             return;
         }
@@ -1488,21 +1488,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex)
             {
-                StatusText = $"打开文件失败: {ex.Message}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("打开文件失败: {0}", ex.Message);
             }
             return;
         }
 
         if (IsTagView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
         {
-            StatusText = $"项目不存在，已刷新: {entry.Name}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("项目不存在，已刷新: {0}", entry.Name);
             await RefreshAsync();
             return;
         }
 
         if (!entry.IsDirectory && !IsTagView && !IsRemoteView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
         {
-            StatusText = $"项目不存在，已刷新: {entry.Name}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("项目不存在，已刷新: {0}", entry.Name);
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             return;
@@ -1589,7 +1589,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (_remoteConnectionService == null || _sftpFileService == null)
         {
-            StatusText = "远程连接服务未初始化";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("远程连接服务未初始化");
             return;
         }
 
@@ -1620,7 +1620,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             {
                 if (IsCurrentDirectoryWork(work))
                 {
-                    StatusText = "服务器未连接";
+                    StatusText = MacExplorer.Services.Impl.LocalizationText.Get("服务器未连接");
                     ApplyEntries([]);
                 }
                 return;
@@ -1641,7 +1641,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             if (IsCurrentDirectoryWork(work))
             {
-                StatusText = $"无法访问远程目录: {ex.Message}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法访问远程目录: {0}", ex.Message);
                 ReadErrorMessage = ex.Message;
                 ApplyEntries([]);
             }
@@ -1675,7 +1675,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (!_remoteConnectionService.IsConnected(serverId))
             {
                 if (IsCurrentDirectoryWork(work))
-                    StatusText = "服务器未连接";
+                    StatusText = MacExplorer.Services.Impl.LocalizationText.Get("服务器未连接");
                 return;
             }
 
@@ -1765,7 +1765,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (!IsCurrentDirectoryWork(work)) return;
             if (!applied)
             {
-                if (StatusText.StartsWith("加载 AI 视图失败:", StringComparison.Ordinal)) ReadErrorMessage = StatusText;
+                if (StatusText.StartsWith(LocalizationText.Get("加载 AI 视图失败:"), StringComparison.Ordinal)) ReadErrorMessage = StatusText;
                 ApplyEntries([]);
             }
             _navigation.UpdateHistoryForSentinelPath(sentinelPath);
@@ -1798,7 +1798,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex)
             {
-                StatusText = $"刷新失败: {ex.Message}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("刷新失败: {0}", ex.Message);
             }
             return;
         }
@@ -1826,7 +1826,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     PromptPasswordAsync
                 );
             }
-            catch (Exception ex) { StatusText = $"刷新失败: {ex.Message}"; }
+            catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("刷新失败: {0}", ex.Message); }
             finally { IsLoading = false; }
             return;
         }
@@ -1850,7 +1850,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 else
                     await _ai.LoadAiCategoryEntriesAsync(info.TagType!, info.TagValue!, entries => { ApplyEntries(entries); ResolveRealEntries(entries); }, msg => StatusText = msg);
             }
-            catch (Exception ex) { StatusText = $"刷新失败: {ex.Message}"; }
+            catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("刷新失败: {0}", ex.Message); }
             finally { IsLoading = false; }
             return;
         }
@@ -1865,7 +1865,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            if (CurrentPath == path) StatusText = $"刷新失败: {ex.Message}";
+            if (CurrentPath == path) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("刷新失败: {0}", ex.Message);
         }
     }
 
@@ -2248,7 +2248,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         actions.Add(new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("剪切"), IconSvg = Icons.Cut, ShortcutId = ShortcutIds.Cut, IsQuickAction = true, Execute = () => { CutSelected(); return Task.CompletedTask; } });
 
         var batchSelection = SelectedEntries.Count > 1 && _selectedEntriesSet.Contains(entry);
-        actions.Add(new ContextMenuAction { Label = batchSelection ? MacExplorer.Services.Impl.LocalizationText.Get("重命名 {0} 项…", SelectedEntries.Count) : "重命名",
+        actions.Add(new ContextMenuAction { Label = batchSelection ? MacExplorer.Services.Impl.LocalizationText.Get("重命名 {0} 项…", SelectedEntries.Count) : MacExplorer.Services.Impl.LocalizationText.Get("重命名"),
             IconSvg = Icons.Rename, ShortcutText = "↩",
             IsEnabled = !batchSelection || CanBatchRename,
             Execute = () => { if (batchSelection) RaiseRequestBatchRename(); else _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
@@ -2474,7 +2474,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         return new ContextMenuAction
         {
-            Label = BuiltInOpenWithActions.RevealInFinderLabel,
+            Label = LocalizationText.Get(BuiltInOpenWithActions.RevealInFinderLabel),
             IconSvg = Icons.Finder,
             LoadIconBase64Async = _openWithAppService == null
                 ? null
@@ -2487,7 +2487,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         return new ContextMenuAction
         {
-            Label = BuiltInOpenWithActions.OpenInTerminalLabel,
+            Label = LocalizationText.Get(BuiltInOpenWithActions.OpenInTerminalLabel),
             IconSvg = Icons.Terminal,
             LoadIconBase64Async = _openWithAppService == null
                 ? null
@@ -2547,7 +2547,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            StatusText = $"准备文件失败: {ex.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("准备文件失败: {0}", ex.Message);
             return [];
         }
     }
@@ -2563,12 +2563,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             return (await _openWithAppService.GetTopLevelAppsAsync())
                 .Where(app => !BuiltInOpenWithActions.IsBuiltIn(app.BundleId))
-                .Select(app => BuildRemoteOpenWithAction(entry, app, $"在 {app.Label} 中打开"))
+                .Select(app => BuildRemoteOpenWithAction(entry, app, LocalizationText.Get("在 {0} 中打开", app.DisplayLabel)))
                 .ToList();
         }
         catch (Exception ex)
         {
-            StatusText = $"准备打开方式失败: {ex.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("准备打开方式失败: {0}", ex.Message);
             return [];
         }
     }
@@ -2589,7 +2589,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 try
                 {
                     var (serverId, remotePath) = VirtualPath.ParseRemotePath(entry.FullPath);
-                    StatusText = $"正在下载 {entry.Name}...";
+                    StatusText = MacExplorer.Services.Impl.LocalizationText.Get("正在下载 {0}...", entry.Name);
                     var localPath = await _remoteFileEditService!.DownloadForEditAsync(remotePath, serverId);
                     _remoteFileEditService.WatchForChanges(localPath, remotePath, serverId);
                     StatusText = "";
@@ -2597,7 +2597,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    StatusText = $"打开失败: {ex.Message}";
+                    StatusText = MacExplorer.Services.Impl.LocalizationText.Get("打开失败: {0}", ex.Message);
                 }
             }
         };
@@ -2758,14 +2758,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var storage = _topLevelWindow?.StorageProvider;
         if (storage == null)
         {
-            StatusText = "无法打开文件夹选择器";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法打开文件夹选择器");
             return;
         }
 
         IsContextMenuVisible = false;
         var folders = await storage.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "移动到",
+            Title = MacExplorer.Services.Impl.LocalizationText.Get("移动到"),
             AllowMultiple = false
         });
         var targetPath = folders.FirstOrDefault()?.Path.LocalPath;
@@ -2780,7 +2780,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var entries = GetContextEntries(entry);
         if (!Directory.Exists(targetPath) || !CanMoveEntriesTo(entries, targetPath))
         {
-            StatusText = "无法移动到这个位置";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法移动到这个位置");
             return;
         }
 
@@ -2799,14 +2799,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var entries = GetContextEntries(entry);
         if (entries.Count == 0 || entries.Any(item => !IsUsableLocalEntry(item)))
         {
-            StatusText = "此项目无法永久删除";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("此项目无法永久删除");
             return;
         }
 
         IsContextMenuVisible = false;
         if (_topLevelWindow == null)
         {
-            StatusText = "无法显示永久删除确认窗口";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法显示永久删除确认窗口");
             return;
         }
 
@@ -2819,7 +2819,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         try { await PermanentlyDeleteCheckedAsync(entries); }
         catch (Exception ex)
         {
-            StatusText = $"永久删除失败: {ex.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("永久删除失败: {0}", ex.Message);
         }
     }
 
@@ -2831,7 +2831,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await _fileService.DeletePermanentlyAsync(item.FullPath);
         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         await LoadDirectoryContentsAsync(forceRefresh: true);
-        StatusText = "已永久删除";
+        StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已永久删除");
     }
 
     private List<ContextMenuAction> BuildTrashBackgroundContextMenu()
@@ -3218,7 +3218,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             Dispatcher.UIThread.Post(() =>
             {
                 if (generation == _metadataLoadGeneration)
-                    StatusText = $"获取元数据失败: {ex.Message}";
+                    StatusText = MacExplorer.Services.Impl.LocalizationText.Get("获取元数据失败: {0}", ex.Message);
             }, DispatcherPriority.Background);
         }
         finally
@@ -3254,7 +3254,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (SelectedEntries.Count == 0) return;
         var entries = NormalizeTreeOperationEntries(SelectedEntries);
         _fileOps.CopySelectedCommand.Execute(entries);
-        StatusText = $"已拷贝 {entries.Count} 项";
+        StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已拷贝 {0} 项", entries.Count);
     }
 
     public async Task CopyPathAsync()
@@ -3267,7 +3267,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (string.IsNullOrWhiteSpace(path)) return;
 
         await _clipboardService.CopyTextAsync(path);
-        StatusText = "已复制路径";
+        StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已复制路径");
     }
 
     [RelayCommand]
@@ -3277,7 +3277,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (SelectedEntries.Count == 0) return;
         var entries = NormalizeTreeOperationEntries(SelectedEntries);
         _fileOps.CutSelectedCommand.Execute(entries);
-        StatusText = $"已剪切 {entries.Count} 项";
+        StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已剪切 {0} 项", entries.Count);
     }
 
     // Paste conflict dialog state
@@ -3339,13 +3339,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = _fileOps.LastOperationResult is { Warnings.Count: > 0 } result
-                ? $"已粘贴 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}" : "已粘贴";
+                ? MacExplorer.Services.Impl.LocalizationText.Get("已粘贴 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings)) : MacExplorer.Services.Impl.LocalizationText.Get("已粘贴");
         }
-        catch (OperationCanceledException) { StatusText = "粘贴已取消，已复制的文件保留在目标目录"; }
+        catch (OperationCanceledException) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴已取消，已复制的文件保留在目标目录"); }
         catch (FileOperationPartialException ex)
         {
             await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = ex.Message + $" 已完成：{string.Join("、", ex.Result.CompletedPaths)}";
+            StatusText = ex.Message + MacExplorer.Services.Impl.LocalizationText.Get(" 已完成：{0}", string.Join("、", ex.Result.CompletedPaths));
         }
         catch (Exception ex)
         {
@@ -3353,10 +3353,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             {
                 await LoadDirectoryContentsAsync(forceRefresh: true);
                 StatusText = result.FailedPaths.Count == 0
-                    ? $"已粘贴 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}"
-                    : $"粘贴未完整完成；已完成：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+                    ? MacExplorer.Services.Impl.LocalizationText.Get("已粘贴 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings))
+                    : MacExplorer.Services.Impl.LocalizationText.Get("粘贴未完整完成；已完成：{0}；{1}", string.Join("、", result.CompletedPaths), ex.Message);
             }
-            else StatusText = $"粘贴失败: {ex.Message}";
+            else StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴失败: {0}", ex.Message);
         }
     }
 
@@ -3369,7 +3369,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var image = _clipboardService?.ReadExternalImage();
             if (image == null)
             {
-                if (IsTargetVisible()) StatusText = "无法读取剪贴板中的图片";
+                if (IsTargetVisible()) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法读取剪贴板中的图片");
                 return;
             }
             await _fileOps.PasteImageAsync(targetPath, image,
@@ -3394,7 +3394,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            if (IsTargetVisible()) StatusText = $"粘贴图片失败: {ex.Message}";
+            if (IsTargetVisible()) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴图片失败: {0}", ex.Message);
         }
     }
 
@@ -3409,13 +3409,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = _fileOps.LastOperationResult is { Warnings.Count: > 0 } result
-                ? $"已粘贴 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}" : "已粘贴";
+                ? MacExplorer.Services.Impl.LocalizationText.Get("已粘贴 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings)) : MacExplorer.Services.Impl.LocalizationText.Get("已粘贴");
         }
-        catch (OperationCanceledException) { StatusText = "粘贴已取消，已复制的文件保留在目标目录"; }
+        catch (OperationCanceledException) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴已取消，已复制的文件保留在目标目录"); }
         catch (FileOperationPartialException ex)
         {
             await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = ex.Message + $" 已完成：{string.Join("、", ex.Result.CompletedPaths)}";
+            StatusText = ex.Message + MacExplorer.Services.Impl.LocalizationText.Get(" 已完成：{0}", string.Join("、", ex.Result.CompletedPaths));
         }
         catch (Exception ex)
         {
@@ -3423,10 +3423,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             {
                 await LoadDirectoryContentsAsync(forceRefresh: true);
                 StatusText = result.FailedPaths.Count == 0
-                    ? $"已粘贴 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}"
-                    : $"粘贴未完整完成；已完成：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+                    ? MacExplorer.Services.Impl.LocalizationText.Get("已粘贴 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings))
+                    : MacExplorer.Services.Impl.LocalizationText.Get("粘贴未完整完成；已完成：{0}；{1}", string.Join("、", result.CompletedPaths), ex.Message);
             }
-            else StatusText = $"粘贴失败: {ex.Message}";
+            else StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴失败: {0}", ex.Message);
         }
     }
 
@@ -3532,7 +3532,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             await DeleteEntriesCheckedAsync(entries);
         }
-        catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
+        catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("删除失败: {0}", ex.Message); }
         finally { _deleteInProgress = false; }
     }
 
@@ -3574,7 +3574,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 }
             );
         }
-        catch (Exception ex) { StatusText = $"创建文件夹失败: {ex.Message}"; }
+        catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("创建文件夹失败: {0}", ex.Message); }
     }
 
     [RelayCommand]
@@ -3605,7 +3605,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 }
             );
         }
-        catch (Exception ex) { StatusText = $"创建文件失败: {ex.Message}"; }
+        catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("创建文件失败: {0}", ex.Message); }
     }
 
     public async Task MoveEntryAsync(FileSystemEntry source, FileSystemEntry targetFolder)
@@ -3618,9 +3618,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         catch (FileOperationPartialException ex)
         {
             await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = $"移动未完整完成；已移动：{string.Join("、", ex.Result.CompletedPaths)}；{ex.InnerException?.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动未完整完成；已移动：{0}；{1}", string.Join("、", ex.Result.CompletedPaths), ex.InnerException?.Message);
         }
-        catch (Exception ex) { StatusText = $"移动失败: {ex.Message}"; }
+        catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动失败: {0}", ex.Message); }
     }
 
     public async Task MoveEntryCheckedAsync(FileSystemEntry source, FileSystemEntry targetFolder)
@@ -3632,7 +3632,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var result = await _fileOps.MoveEntryDetailedAsync(source, targetFolder, msg => StatusText = msg);
         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         await LoadDirectoryContentsAsync(forceRefresh: true);
-        if (result.Warnings.Count > 0) StatusText = $"已移动到 {string.Join("、", result.CompletedPaths)}；{string.Join("；", result.Warnings)}";
+        if (result.Warnings.Count > 0) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已移动到 {0}；{1}", string.Join("、", result.CompletedPaths), string.Join("；", result.Warnings));
         return result;
     }
 
@@ -3648,7 +3648,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var result = await _fileOps.CopyEntriesDetailedAsync([source.FullPath], targetFolder.FullPath);
         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         await LoadDirectoryContentsAsync(forceRefresh: true);
-        if (result.Warnings.Count > 0) StatusText = $"已复制；{string.Join("；", result.Warnings)}";
+        if (result.Warnings.Count > 0) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已复制；{0}", string.Join("；", result.Warnings));
         return result;
     }
 
@@ -3676,21 +3676,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             if (_fileOps.LastOperationResult is { Warnings.Count: > 0 } result)
-                StatusText = $"已移动 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已移动 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings));
         }
         catch (FileOperationPartialException ex)
         {
             await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = $"移动未完整完成；已移动：{string.Join("、", ex.Result.CompletedPaths)}；{ex.InnerException?.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动未完整完成；已移动：{0}；{1}", string.Join("、", ex.Result.CompletedPaths), ex.InnerException?.Message);
         }
         catch (Exception ex)
         {
             if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
             {
                 await LoadDirectoryContentsAsync(forceRefresh: true);
-                StatusText = $"移动未完整完成；已移动：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动未完整完成；已移动：{0}；{1}", string.Join("、", result.CompletedPaths), ex.Message);
             }
-            else StatusText = $"移动失败: {ex.Message}";
+            else StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动失败: {0}", ex.Message);
         }
     }
 
@@ -3712,21 +3712,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
             StatusText = _fileOps.LastOperationResult is { Warnings.Count: > 0 } result
-                ? $"已移动 {result.CompletedPaths.Count} 项；{string.Join("；", result.Warnings)}" : "已移动";
+                ? MacExplorer.Services.Impl.LocalizationText.Get("已移动 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings)) : MacExplorer.Services.Impl.LocalizationText.Get("已移动");
         }
         catch (FileOperationPartialException ex)
         {
             await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = $"移动未完整完成；已移动：{string.Join("、", ex.Result.CompletedPaths)}；{ex.InnerException?.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动未完整完成；已移动：{0}；{1}", string.Join("、", ex.Result.CompletedPaths), ex.InnerException?.Message);
         }
         catch (Exception ex)
         {
             if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
             {
                 await LoadDirectoryContentsAsync(forceRefresh: true);
-                StatusText = $"移动未完整完成；已移动：{string.Join("、", result.CompletedPaths)}；{ex.Message}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动未完整完成；已移动：{0}；{1}", string.Join("、", result.CompletedPaths), ex.Message);
             }
-            else StatusText = $"移动失败: {ex.Message}";
+            else StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动失败: {0}", ex.Message);
         }
         finally
         {
@@ -3819,7 +3819,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            StatusText = $"重命名失败: {ex.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("重命名失败: {0}", ex.Message);
             return false;
         }
     }
@@ -4055,7 +4055,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.IsSearchMode = true;
         _navigation.SearchQuery = entry.SearchQuery;
         ApplyEntries(entry.SearchResults);
-        StatusText = $"搜索 \"{entry.SearchQuery}\" — 找到 {entry.SearchResults.Count} 项";
+        StatusText = MacExplorer.Services.Impl.LocalizationText.Get("搜索 \"{0}\" — 找到 {1} 项", entry.SearchQuery, entry.SearchResults.Count);
     }
 
     // ── Tags ──
@@ -4066,7 +4066,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (_fileTagService == null || !TagPathHelper.TryParse(sentinelPath, out var tag))
         {
-            StatusText = "标签服务未初始化";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("标签服务未初始化");
             return;
         }
 
@@ -4118,7 +4118,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
             ApplyEntries(entries);
             ResolveRealEntries(entries, work);
-            StatusText = $"标签“{tag.Name}” · {entries.Count} 项";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("标签“{0}” · {1} 项", tag.Name, entries.Count);
         }
         catch (OperationCanceledException)
         {
@@ -4126,7 +4126,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             if (!IsCurrentDirectoryWork(work)) return;
-            StatusText = $"加载标签失败: {ex.Message}";
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("加载标签失败: {0}", ex.Message);
             ReadErrorMessage = ex.Message;
             if (showPlaceholder) ApplyEntries([]);
             _logger?.LogError(ex, "Failed to load tag {Tag}", tag.Name);

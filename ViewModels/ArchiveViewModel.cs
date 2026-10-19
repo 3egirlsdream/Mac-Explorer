@@ -176,48 +176,24 @@ public partial class ArchiveViewModel : ObservableObject
             : entry.FullPath;
         var parentDir = Path.GetDirectoryName(archPath) ?? currentPath;
 
-        var taskInfo = _taskManager.AddTask("正在解压...", async () =>
-        {
-            await RunOnUiThreadAsync(refreshCallback);
-        });
-
-        _ = Task.Run(async () =>
-        {
-            try
+        _ = ObserveArchiveTaskAsync(FileTaskContext.RunAsync(_taskManager,
+            new(BackgroundTaskKind.Extract, Services.Impl.LocalizationText.Get("正在解压..."), [archPath], parentDir), async context =>
             {
-                var destDir = createNamedFolder
-                    ? ArchiveExtractionPathHelper.CreateUniqueExtractionDirectory(parentDir, archPath)
-                    : parentDir;
+                var destDir = context.Remember("extract-destination", () => createNamedFolder
+                    ? ArchiveExtractionPathHelper.CreateUniqueExtractionDirectory(parentDir, archPath) : parentDir);
                 var progress = new Progress<ArchiveProgress>(p =>
-                {
-                    _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile, p.OperationLabel);
-                });
-
+                    _taskManager.UpdateProgress(context.Task.Id, p.Percentage, p.CurrentFile));
                 try
                 {
-                    await _archiveService.ExtractAsync(archPath, destDir, progress, taskInfo.Cts.Token);
+                    try { await _archiveService.ExtractAsync(archPath, destDir, progress, context.CancellationToken); }
+                    catch (CryptographicException)
+                    { await HandleExtractPasswordAsync(archPath, destDir, progress, context.Task, promptPassword); }
+                    catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
+                    { await HandleExtractPasswordAsync(archPath, destDir, progress, context.Task, promptPassword); }
+                    return true;
                 }
-                catch (CryptographicException)
-                {
-                    await HandleExtractPasswordAsync(archPath, destDir, progress, taskInfo, promptPassword);
-                }
-                catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
-                {
-                    await HandleExtractPasswordAsync(archPath, destDir, progress, taskInfo, promptPassword);
-                }
-
-                _taskManager.CompleteTask(taskInfo.Id);
-            }
-            catch (OperationCanceledException)
-            {
-                _taskManager.RemoveTask(taskInfo.Id);
-            }
-            catch (Exception ex)
-            {
-                _taskManager.FailTask(taskInfo.Id, ex.Message);
-            }
-        });
-
+                finally { await RunOnUiThreadAsync(refreshCallback); }
+            }));
         return Task.CompletedTask;
     }
 
@@ -354,37 +330,28 @@ public partial class ArchiveViewModel : ObservableObject
 
         var tag = options.Tag;
 
-        var taskInfo = _taskManager.AddTask("正在压缩...", async () =>
-        {
-            // Notify the output directory so other windows/views refresh the file list
-            directoryChangeNotifier?.NotifyChanged([options.OutputDirectory], null);
-            await RunOnUiThreadAsync(refreshCallback);
-        });
-
-        _ = Task.Run(async () =>
-        {
-            try
+        _ = ObserveArchiveTaskAsync(FileTaskContext.RunAsync(_taskManager,
+            new(BackgroundTaskKind.Compress, Services.Impl.LocalizationText.Get("正在压缩..."),
+                options.SourcePaths.ToArray(), options.OutputDirectory, options.OutputFileName), async context =>
             {
                 var progress = new Progress<ArchiveProgress>(p =>
-                {
-                    _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile, p.OperationLabel);
-                });
-                var actualOutputPath = await _archiveService.CompressAsync(options, progress, taskInfo.Cts.Token);
+                    _taskManager.UpdateProgress(context.Task.Id, p.Percentage, p.CurrentFile));
+                var actualOutputPath = await context.StepAsync("archive-output", () =>
+                    _archiveService.CompressAsync(options, progress, context.CancellationToken));
                 if (tag != null && tagService != null)
-                {
-                    await tagService.SetTagAsync([actualOutputPath], tag, true);
-                }
-                _taskManager.CompleteTask(taskInfo.Id);
-            }
-            catch (OperationCanceledException)
-            {
-                _taskManager.RemoveTask(taskInfo.Id);
-            }
-            catch (Exception ex)
-            {
-                _taskManager.FailTask(taskInfo.Id, ex.Message);
-            }
-        });
+                    try { await tagService.SetTagAsync([actualOutputPath], tag, true); }
+                    catch (Exception ex) { context.Warnings.Add(ex.Message); }
+                context.ReportItem(string.Join(";", options.SourcePaths), actualOutputPath, FileTaskItemState.Completed);
+                directoryChangeNotifier?.NotifyChanged([options.OutputDirectory], null);
+                await RunOnUiThreadAsync(refreshCallback);
+                return true;
+            }));
+    }
+
+    private static async Task ObserveArchiveTaskAsync(Task task)
+    {
+        try { await task; }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
     }
 
     public void CancelCompressDialog()

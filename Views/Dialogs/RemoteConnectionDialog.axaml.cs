@@ -271,7 +271,7 @@ public partial class RemoteConnectionDialog : DialogWindow
         {
             var key = _connectionService.GetTrustedHostKey(server.Host, server.Port);
             if (key == null) { ConnectionStatus.Text = LocalizationText.Get("network.no-trust"); return; }
-            var confirm = new ConfirmDialog("撤销主机信任", $"{key.Host}:{key.Port}\n{key.Fingerprint}\n撤销后会断开此主机的连接，下一次连接需要重新核对身份。请先通过独立渠道核实密钥变更。", "撤销信任");
+            var confirm = new ConfirmDialog(MacExplorer.Services.Impl.LocalizationText.Get("撤销主机信任"),MacExplorer.Services.Impl.LocalizationText.Get("{0}:{1}\n{2}\n撤销后会断开此主机的连接，下一次连接需要重新核对身份。请先通过独立渠道核实密钥变更。", key.Host, key.Port, key.Fingerprint),MacExplorer.Services.Impl.LocalizationText.Get("撤销信任"));
             if (!await confirm.ShowDialog<bool>(this)) return;
             _connectionService.ForgetHostKey(server.Host, server.Port);
             ConnectionStatus.Text = LocalizationText.Get("network.trust-revoked");

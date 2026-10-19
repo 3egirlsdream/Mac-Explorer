@@ -161,6 +161,10 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
         var settings = new StartupSettings();
         using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
         using var vm = CreateViewModel(new FakeFileService(root), fileTagService: service, settingsService: settings);
+        var parent = await service.CreateTagAsync("父标签");
+        var child = await service.CreateChildTagAsync("子标签", parent.Name);
+        await service.SetTagAsync([Path.Combine(root, "child.txt")], child, true);
+        foreach (var tag in await service.GetSidebarTagsAsync()) vm.SidebarTags.Add(tag);
         var toolbar = new FinderToolbar { DataContext = vm };
         var window = new Window { Width = 640, Height = 500, Content = toolbar,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
@@ -170,7 +174,15 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
         try
         {
             window.Show(); window.UpdateLayout();
-            toolbar.FindControl<Button>("ManageTagsButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Null(toolbar.FindControl<Control>("ManageTagsButton"));
+            Assert.Null(toolbar.FindControl<Control>("ShowToolbarTagsOption"));
+            var tags = toolbar.FindControl<TagToolbar>("ToolbarTags")!;
+            tags.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-name"))
+                .RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
+            Dispatcher.UIThread.RunJobs();
+            tags.ActiveMenu!.UpdateLayout();
+            tags.ActiveMenu.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CreateTagButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();
             var popup = toolbar.FindControl<Popup>("TagManagementDropdown")!;
             var tree = Assert.Single(toolbar.FindControl<Border>("TagManagementHost")!.GetVisualDescendants().OfType<TagTreePanel>());
@@ -194,7 +206,6 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             var title = Assert.Single(tree.GetVisualDescendants().OfType<TextBlock>(), t => t.Classes.Contains("tag-tree-title"));
             Assert.Equal("Collections", title.Text);
             Assert.True(title.TranslatePoint(default, tree)!.Value.X < create.TranslatePoint(default, tree)!.Value.X);
-            Assert.Equal("Manage tags…", toolbar.FindControl<Button>("ManageTagsButton")!.Content);
             await service.CreateChildTagAsync("子项", input.Text!); Dispatcher.UIThread.RunJobs();
             await tree.RefreshAsync(); tree.UpdateLayout(); window.UpdateLayout();
             var row = tree.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is FileTag t && t.Name == input.Text);

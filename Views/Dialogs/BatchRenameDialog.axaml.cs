@@ -109,7 +109,7 @@ public partial class BatchRenameDialog : DialogWindow
         PhotoSortFallbackCheck.IsChecked = _options.PhotoSortFallbackToModified;
         LoadPresets(); RuleList.SelectedIndex = 0;
         _changing = false; _ready = true;
-        Title = $"批量重命名 · {_entries.Count} 项";
+        Title = MacExplorer.Services.Impl.LocalizationText.Get("批量重命名 · {0} 项", _entries.Count);
         AdaptLayout(); QueuePreview();
     }
 
@@ -183,10 +183,10 @@ public partial class BatchRenameDialog : DialogWindow
                     VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Top };
                 template.Classes.Add("settings-inline-input");
                 template.Bind(TextBox.TextProperty, new Binding(nameof(rule.TemplateText)) { Source = rule, Mode = BindingMode.TwoWay });
-                ToolTip.SetTip(template, "{name} 原名称，{parent} 所在目录，{n} 编号，{taken:yyyyMMdd} 拍摄日期");
-                AutomationProperties.SetName(template, "名称模板");
+                ToolTip.SetTip(template, MacExplorer.Services.Impl.LocalizationText.Get("{0} 原名称，{1} 所在目录，{2} 编号，{3} 拍摄日期", "{name}", "{parent}", "{n}", "{taken:yyyyMMdd}"));
+                AutomationProperties.SetName(template, MacExplorer.Services.Impl.LocalizationText.Get("名称模板"));
                 var templateRow = new StackPanel { Spacing = 2 };
-                templateRow.Children.Add(new TextBlock { Text = "名称模板", Classes = { "rename-heading" } });
+                templateRow.Children.Add(new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("名称模板"), Classes = { "rename-heading" } });
                 templateRow.Children.Add(template);
                 var templateBorder = new Border { Child = templateRow }; templateBorder.Classes.Add("settings-compact-row"); templateBorder.Classes.Add("settings-divider");
                 RuleEditor.Children.Add(templateBorder);
@@ -219,7 +219,7 @@ public partial class BatchRenameDialog : DialogWindow
             EnumField("作用部分", rule, nameof(rule.Target), new[] { "名称", "扩展名", "完整文件名" });
         EnumField("项目类型", rule, nameof(rule.AppliesTo), new[] { "文件与文件夹", "仅文件", "仅文件夹" });
         TextField("文件类型", rule, nameof(rule.FileExtensions), "留空为全部；多个扩展名用逗号分隔，如 jpg,png");
-        var more = new Expander { Header = new TextBlock { Text = "更多选项", Classes = { "rename-heading" }, Margin = new Thickness(12, 4) },
+        var more = new Expander { Header = new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("更多选项"), Classes = { "rename-heading" }, Margin = new Thickness(12, 4) },
             Content = advanced, Padding = new Thickness(12, 4, 12, 4),
             IsExpanded = rule.Target != RenameTarget.Name || rule.AppliesTo != RenameAppliesTo.All || rule.FileExtensions.Length > 0 };
         more.Classes.Add("compact-details"); RuleEditor.Children.Add(more); _fieldHost = RuleEditor;
@@ -335,7 +335,7 @@ public partial class BatchRenameDialog : DialogWindow
         if (!_ready || _changing || _executing || _completed || _rename == null) return;
         _previewCts?.Cancel(); _previewCts = new CancellationTokenSource();
         var token = _previewCts.Token; var version = ++_previewVersion;
-        ApplyButton.IsEnabled = false; _plan = null; StatusButton.Content = "正在更新预览…";
+        ApplyButton.IsEnabled = false; _plan = null; StatusButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("正在更新预览…");
         var request = new BatchRenameRequest { Entries = _entries, Rules = _rules.ToArray(), Options = _options,
             ExcludedPaths = _excluded, ManualNames = _manualNames, CapturedAt = _capturedAt }.Snapshot();
         try
@@ -362,8 +362,8 @@ public partial class BatchRenameDialog : DialogWindow
         var changed = included.Count(i => i.IsChanged && !i.HasError && !i.HasConflict);
         var issues = included.Count(i => i.HasError || i.HasConflict);
         StatusButton.Content = HasNumericErrors ? _numericErrors.First(error => error.Key.IsEffectivelyVisible).Value
-            : $"{included.Length} 项 · {changed} 项变化" + (issues > 0 ? $" · {issues} 项问题" : "");
-        ApplyButton.Content = $"重命名 {changed} 项"; ApplyButton.IsEnabled = _plan.CanExecute && !HasNumericErrors;
+            : MacExplorer.Services.Impl.LocalizationText.Get("{0} 项 · {1} 项变化", included.Length, changed) + (issues > 0 ? MacExplorer.Services.Impl.LocalizationText.Get(" · {0} 项问题", issues) : "");
+        ApplyButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("重命名 {0} 项", changed); ApplyButton.IsEnabled = _plan.CanExecute && !HasNumericErrors;
         ExcludeConflictsButton.IsEnabled = ResolveConflictsButton.IsEnabled = included.Any(i => i.HasConflict);
         ConflictActions.IsVisible = !_completed && included.Any(i => i.HasConflict);
         PhotoSortFallbackCheck.IsVisible = _options.Sort == RenameSort.PhotoTaken
@@ -401,7 +401,7 @@ public partial class BatchRenameDialog : DialogWindow
             StepCombo.SelectedIndex = Math.Clamp(selected, 0, _rules.Count);
         }
         var step = StepCombo.SelectedIndex - 1;
-        PreviewNameHeading.Text = step >= 0 ? $"第 {step + 1} 步结果" : "新名称";
+        PreviewNameHeading.Text = step >= 0 ? MacExplorer.Services.Impl.LocalizationText.Get("第 {0} 步结果", step + 1) : MacExplorer.Services.Impl.LocalizationText.Get("新名称");
         foreach (var row in _rows) row.UpdateSteps(_rules, RuleList.SelectedIndex, step);
     }
     private void OnStatusClick(object? sender, RoutedEventArgs e)
@@ -505,13 +505,13 @@ public partial class BatchRenameDialog : DialogWindow
         var targets = _completed ? _pendingItems : _plan!.Items.ToList();
         if (targets.Count == 0) { Close(true); return; }
         _executing = true; _previewCts?.Cancel(); _executeCts = new CancellationTokenSource();
-        SetEditingEnabled(false); ApplyButton.IsEnabled = false; ApplyButton.Content = "正在重命名…";
-        CancelButton.Content = "停止"; ExecutionProgress.IsVisible = true; ExecutionProgress.Value = 0;
+        SetEditingEnabled(false); ApplyButton.IsEnabled = false; ApplyButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("正在重命名…");
+        CancelButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("停止"); ExecutionProgress.IsVisible = true; ExecutionProgress.Value = 0;
         var acceptingProgress = true;
         try
         {
             var result = await _operation.ExecuteAsync(targets, _executeCts.Token, _historyId,
-                new Progress<BatchRenameProgress>(update => { if (!acceptingProgress) return; ExecutionProgress.Value = update.Percent; StatusButton.Content = $"已处理 {update.CompletedCount}/{update.TotalCount}"; }));
+                new Progress<BatchRenameProgress>(update => { if (!acceptingProgress) return; ExecutionProgress.Value = update.Percent; StatusButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("已处理 {0}/{1}", update.CompletedCount, update.TotalCount); }));
             acceptingProgress = false;
             _historyId = result.HistoryBatchId ?? _historyId;
             foreach (var item in result.SuccessfulItems) _successfulPaths.Add(item.OriginalPath);
@@ -524,24 +524,24 @@ public partial class BatchRenameDialog : DialogWindow
             foreach (var row in _rows)
             {
                 row.ExecutionError = failures.GetValueOrDefault(row.Item.OriginalPath) ?? "";
-                row.StatusText = _successfulPaths.Contains(row.Item.OriginalPath) ? "已重命名"
-                    : _failedPaths.Contains(row.Item.OriginalPath) ? $"失败：{row.ExecutionError}"
-                    : _pendingPaths.Contains(row.Item.OriginalPath) ? "已停止" : row.Item.Status;
+                row.StatusText = _successfulPaths.Contains(row.Item.OriginalPath) ? MacExplorer.Services.Impl.LocalizationText.Get("已重命名")
+                    : _failedPaths.Contains(row.Item.OriginalPath) ? MacExplorer.Services.Impl.LocalizationText.Get("失败：{0}", row.ExecutionError)
+                    : _pendingPaths.Contains(row.Item.OriginalPath) ? MacExplorer.Services.Impl.LocalizationText.Get("已停止") : row.Item.Status;
             }
-            StatusButton.Content = $"成功 {_successfulPaths.Count} 项" + (_pendingItems.Count > 0 ? $" · 未完成 {_pendingItems.Count} 项" : "")
-                + (result.Warnings.Count > 0 ? $" · {result.Warnings.Count} 项同步提示" : "");
+            StatusButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("成功 {0} 项", _successfulPaths.Count) + (_pendingItems.Count > 0 ? MacExplorer.Services.Impl.LocalizationText.Get(" · 未完成 {0} 项", _pendingItems.Count) : "")
+                + (result.Warnings.Count > 0 ? MacExplorer.Services.Impl.LocalizationText.Get(" · {0} 项同步提示", result.Warnings.Count) : "");
             ToolTip.SetTip(StatusButton, string.Join(Environment.NewLine, result.Errors.Concat(result.Warnings)));
             UndoButton.IsVisible = _historyId.HasValue;
             if (_viewModel != null) await _viewModel.RefreshAsync();
         }
-        catch (OperationCanceledException) { StatusButton.Content = "已停止，尚未开始重命名"; }
+        catch (OperationCanceledException) { StatusButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("已停止，尚未开始重命名"); }
         catch (Exception ex) { StatusButton.Content = ex.Message; ToolTip.SetTip(StatusButton, ex.Message); }
         finally
         {
             acceptingProgress = false; _executing = false; ExecutionProgress.IsVisible = false;
-            CancelButton.Content = _completed ? "完成" : "取消";
+            CancelButton.Content = _completed ? MacExplorer.Services.Impl.LocalizationText.Get("完成") : MacExplorer.Services.Impl.LocalizationText.Get("取消");
             CancelButton.IsEnabled = true;
-            if (_completed) { ApplyButton.Content = "重试未完成项"; ApplyButton.IsVisible = _pendingItems.Count > 0; ApplyButton.IsEnabled = true; RefreshRows(); }
+            if (_completed) { ApplyButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("重试未完成项"); ApplyButton.IsVisible = _pendingItems.Count > 0; ApplyButton.IsEnabled = true; RefreshRows(); }
             else { SetEditingEnabled(true); QueuePreview(); }
         }
     }
@@ -559,11 +559,11 @@ public partial class BatchRenameDialog : DialogWindow
         if (undone)
         {
             _historyId = null; UndoButton.IsVisible = false; ApplyButton.IsVisible = false;
-            StatusButton.Content = "已撤销本次重命名";
-            foreach (var row in _rows.Where(r => _successfulPaths.Contains(r.Item.OriginalPath))) row.StatusText = "已恢复原名";
+            StatusButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("已撤销本次重命名");
+            foreach (var row in _rows.Where(r => _successfulPaths.Contains(r.Item.OriginalPath))) row.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已恢复原名");
             if (_viewModel != null) await _viewModel.RefreshAsync();
         }
-        else { StatusButton.Content = "部分项目未能恢复，请检查原名称是否被占用"; UndoButton.IsEnabled = true; }
+        else { StatusButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("部分项目未能恢复，请检查原名称是否被占用"); UndoButton.IsEnabled = true; }
     }
     private void OnCancel(object? sender, RoutedEventArgs e)
     { if (_executing) { _executeCts?.Cancel(); CancelButton.IsEnabled = false; } else Close(_completed); }
@@ -620,11 +620,11 @@ public partial class BatchRenameDialog : DialogWindow
     private async void OnSavePreset(object? sender, RoutedEventArgs e)
     {
         if (_settings == null) return;
-        var dialog = new DialogWindow { Title = "保存预设", Width = 340, Height = 170 };
+        var dialog = new DialogWindow { Title = MacExplorer.Services.Impl.LocalizationText.Get("保存预设"), Width = 340, Height = 170 };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        var name = new TextBox { PlaceholderText = "预设名称" }; name.Classes.Add("settings-inline-input");
-        var save = new Button { Content = "保存" }; save.Classes.Add("primary"); save.Classes.Add("compact");
-        var cancel = new Button { Content = "取消" }; cancel.Classes.Add("secondary"); cancel.Classes.Add("compact");
+        var name = new TextBox { PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("预设名称") }; name.Classes.Add("settings-inline-input");
+        var save = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("保存") }; save.Classes.Add("primary"); save.Classes.Add("compact");
+        var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消") }; cancel.Classes.Add("secondary"); cancel.Classes.Add("compact");
         var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
         actions.Children.Add(cancel); actions.Children.Add(save);
         var body = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Margin = new Thickness(16), RowSpacing = 12 };

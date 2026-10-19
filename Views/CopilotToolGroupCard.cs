@@ -67,9 +67,9 @@ public sealed class CopilotToolGroupCard : Border
         _chevron.Data = Geometry.Parse(_expanded ? Icons.ChevronUp : Icons.ChevronDown);
         var failures = step.Calls.Count(call => call.Failed);
         var pending = step.Calls.Count(call => call.NeedsApproval && !call.Finished);
-        _title.Text = $"工具调用 · {step.Calls.Count} 项 · "
-            + (failures > 0 ? $"{failures} 项失败" : pending > 0 ? "待确认" : finished ? "已完成" : "执行中");
-        AutomationProperties.SetName(_button, $"{_title.Text}，{(_expanded ? "收起" : "展开")}明细");
+        _title.Text = MacExplorer.Services.Impl.LocalizationText.Get("工具调用 · {0} 项 · ", step.Calls.Count)
+            + (failures > 0 ? MacExplorer.Services.Impl.LocalizationText.Get("{0} 项失败", failures) : pending > 0 ? MacExplorer.Services.Impl.LocalizationText.Get("待确认") : finished ? MacExplorer.Services.Impl.LocalizationText.Get("已完成") : MacExplorer.Services.Impl.LocalizationText.Get("执行中"));
+        AutomationProperties.SetName(_button, MacExplorer.Services.Impl.LocalizationText.Get("{0}，{1}明细", _title.Text, (_expanded ? MacExplorer.Services.Impl.LocalizationText.Get("收起") : MacExplorer.Services.Impl.LocalizationText.Get("展开"))));
 
         var signature = JsonSerializer.Serialize(step.Calls);
         if (signature == _lastSignature) return;
@@ -117,7 +117,7 @@ public sealed class CopilotToolGroupCard : Border
         _expanded = !_expanded;
         _detailContainer.IsVisible = _expanded;
         _chevron.Data = Geometry.Parse(_expanded ? Icons.ChevronUp : Icons.ChevronDown);
-        AutomationProperties.SetName(_button, $"{_title.Text}，{(_expanded ? "收起" : "展开")}明细");
+        AutomationProperties.SetName(_button, MacExplorer.Services.Impl.LocalizationText.Get("{0}，{1}明细", _title.Text, (_expanded ? MacExplorer.Services.Impl.LocalizationText.Get("收起") : MacExplorer.Services.Impl.LocalizationText.Get("展开"))));
     }
 
     private static (string Name, string Detail) ToolLabel(CopilotToolCall call)

@@ -100,14 +100,20 @@ public partial class FileOpsViewModel : ObservableObject
             .ToList();
     }
 
-    public async Task PasteAsync(string currentPath, bool overwrite = false)
+    public Task PasteAsync(string currentPath, bool overwrite = false)
+    {
+        var clipboardEntry = _clipboardService?.GetClipboardEntry();
+        var paths = clipboardEntry?.SourcePaths.ToArray() ?? [];
+        var kind = clipboardEntry?.Operation == ClipboardOperation.Cut ? BackgroundTaskKind.Move : BackgroundTaskKind.Copy;
+        return FileTaskContext.RunAsync(_taskManager, new(kind, Services.Impl.LocalizationText.Get("粘贴文件"), paths, currentPath),
+            async _ => { await PasteCoreAsync(currentPath, overwrite, clipboardEntry, paths); return true; });
+    }
+
+    private async Task PasteCoreAsync(string currentPath, bool overwrite, ClipboardEntry? entry, string[] sourcePaths)
     {
         Services.Subscriptions.SubscriptionAccess.RequireAccess();
         LastOperationResult = null;
-        if (_clipboardService == null || !_clipboardService.HasClipboardFiles) return;
-        var entry = _clipboardService.GetClipboardEntry();
-        if (entry == null) return;
-        var sourcePaths = entry.SourcePaths.ToArray();
+        if (_clipboardService == null || entry == null) return;
         if (entry.Operation == ClipboardOperation.Copy)
         {
             try { LastOperationResult = await _operations.CopyDetailedAsync(sourcePaths, currentPath); }
@@ -133,7 +139,8 @@ public partial class FileOpsViewModel : ObservableObject
         {
             foreach (var sourcePath in sourcePaths)
             {
-                await _fileService.MoveAsync(sourcePath, currentPath, overwrite);
+                await FileTaskContext.Current!.StepAsync("paste-cut:" + sourcePath, async () =>
+                { await _fileService.MoveAsync(sourcePath, currentPath, overwrite); return true; });
                 var movedPath = CombineDestinationPath(currentPath, Path.GetFileName(sourcePath));
                 completed.Add(movedPath);
                 // Consume only confirmed moves so a retry cannot move a missing source.
@@ -244,100 +251,46 @@ public partial class FileOpsViewModel : ObservableObject
         if (sourcePaths.Count == 0) return;
         var affectedDirectories = GetAffectedMoveDirectories(entries, targetFolder.FullPath);
 
-        // Selections from search/tag views may span multiple source volumes.
-        bool crossVolume = sourcePaths.Any(path => _fileService.IsCrossVolume(path, targetFolder.FullPath));
-
-        if (!crossVolume || _taskManager == null)
+        await FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Move,
+            Services.Impl.LocalizationText.Get("移动 {0} 项", sourcePaths.Count), sourcePaths, targetFolder.FullPath), async context =>
         {
-            var completed = new List<string>();
-            var warnings = new List<string>();
+            var completed = new List<string>(); var warnings = new List<string>();
             try
             {
                 foreach (var path in sourcePaths)
                 {
-                    if (_fileService.IsCrossVolume(path, targetFolder.FullPath))
-                        await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath);
-                    else
-                        await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
-                    var movedPath = CombineDestinationPath(targetFolder.FullPath, Path.GetFileName(path));
-                    completed.Add(movedPath);
-                    if (_fileTagService != null)
+                    await context.CheckpointAsync();
+                    var output = CombineDestinationPath(targetFolder.FullPath, Path.GetFileName(path));
+                    var replaced = context.Remember("move-replaced:" + output,
+                        () => overwrite && _fileService.ExistsAsync(output).GetAwaiter().GetResult());
+                    await context.StepAsync("move-selection:" + path, async () =>
                     {
-                        try { await _fileTagService.UpdatePathAsync(path, movedPath); }
-                        catch (Exception ex)
+                        if (_fileService.IsCrossVolume(path, targetFolder.FullPath))
+                            await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath,
+                                new FileProgress(p => _taskManager?.UpdateProgress(context.Task.Id, p.Percentage, p.CurrentFile)), context.CancellationToken);
+                        else await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
+                        if (_fileOperationHistoryService != null)
                         {
-                            warnings.Add($"{path}：标签未同步（{ex.Message}）");
-                            _logger?.LogError(ex, "Failed to update moved file tags");
+                            if (replaced) await _fileOperationHistoryService.RecordIrreversibleAsync(output,
+                                Services.Impl.LocalizationText.Get("覆盖操作不可撤销。"));
+                            else await _fileOperationHistoryService.RecordMoveAsync(path, output);
                         }
-                    }
+                        return true;
+                    });
+                    completed.Add(output); context.ReportItem(path, output, FileTaskItemState.Completed);
+                    if (_fileTagService != null)
+                        try { await _fileTagService.UpdatePathAsync(path, output); }
+                        catch (Exception ex) { warnings.Add(ex.Message); }
                 }
                 LastOperationResult = new(completed, [], warnings);
-                if (warnings.Count > 0)
-                    setStatus?.Invoke($"已移动 {completed.Count} 项；{string.Join("；", warnings)}");
+                return true;
             }
             catch (Exception ex)
             {
-                if (completed.Count == 0)
-                {
-                    setStatus?.Invoke($"移动失败: {ex.Message}");
-                    throw;
-                }
-                var result = new FileOperationResult(completed,
-                    sourcePaths.Skip(completed.Count).Take(1).ToArray(), warnings,
+                LastOperationResult = new(completed, sourcePaths.Skip(completed.Count).Take(1).ToArray(), warnings,
                     sourcePaths.Skip(completed.Count + 1).ToArray());
-                LastOperationResult = result;
-                setStatus?.Invoke($"移动未完整完成；已移动：{string.Join("、", completed)}；{ex.Message}");
+                setStatus?.Invoke(Services.Impl.LocalizationText.Get("移动失败: {0}", ex.Message));
                 throw;
-            }
-            finally { _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null); }
-            return;
-        }
-
-        // 跨卷：后台任务 + 进度弹窗
-
-        var taskInfo = _taskManager.AddTask("正在移动...", async () => { });
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                for (var index = 0; index < sourcePaths.Count; index++)
-                {
-                    taskInfo.Cts.Token.ThrowIfCancellationRequested();
-                    var path = sourcePaths[index];
-                    var itemIndex = index;
-                    var progress = new FileProgress(p => _taskManager.UpdateProgress(taskInfo.Id,
-                        (itemIndex * 100d + p.Percentage) / sourcePaths.Count, p.CurrentFile));
-                    if (_fileService.IsCrossVolume(path, targetFolder.FullPath))
-                        await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath,
-                            progress, taskInfo.Cts.Token);
-                    else
-                        await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
-                    // This item has committed. A later cancellation/failure must not
-                    // prevent its metadata from following it to the new location.
-                    if (_fileTagService != null)
-                    {
-                        try { await _fileTagService.UpdatePathAsync(path,
-                            CombineDestinationPath(targetFolder.FullPath, Path.GetFileName(path))); }
-                        catch (Exception ex)
-                        {
-                            _logger?.LogError(ex, "Failed to update moved file tags");
-                            _taskManager.UpdateProgress(taskInfo.Id, (index + 1) * 100d / sourcePaths.Count,
-                                $"{Path.GetFileName(path)} 已移动，标签未同步");
-                        }
-                    }
-                    _taskManager.UpdateProgress(taskInfo.Id, (index + 1) * 100d / sourcePaths.Count,
-                        Path.GetFileName(path));
-                }
-                _taskManager.CompleteTask(taskInfo.Id);
-            }
-            catch (OperationCanceledException)
-            {
-                _taskManager.CancelTask(taskInfo.Id);
-            }
-            catch (Exception ex)
-            {
-                _taskManager.FailTask(taskInfo.Id, ex.Message);
             }
             finally { _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null); }
         });
@@ -400,7 +353,12 @@ public partial class FileOpsViewModel : ObservableObject
             && candidatePath.StartsWith(normalizedAncestor + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
-    public async Task RenameEntryAsync(
+    public Task RenameEntryAsync(FileSystemEntry entry, string newName, bool isAiView, Action<string>? setStatus = null)
+        => FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Rename, Services.Impl.LocalizationText.Get("重命名"),
+            [entry.FullPath], CombineDestinationPath(Path.GetDirectoryName(entry.FullPath) ?? "", newName)),
+            async _ => { await RenameEntryCoreAsync(entry, newName, isAiView, setStatus); return true; });
+
+    private async Task RenameEntryCoreAsync(
         FileSystemEntry entry,
         string newName,
         bool isAiView,
@@ -414,7 +372,8 @@ public partial class FileOpsViewModel : ObservableObject
         try
         {
             var oldPath = entry.FullPath;
-            await _fileService.RenameAsync(oldPath, newName);
+            await FileTaskContext.Current!.StepAsync("inline-rename:" + oldPath, async () =>
+            { await _fileService.RenameAsync(oldPath, newName); return true; });
 
             var dir = Path.GetDirectoryName(oldPath) ?? "";
             var newPath = Path.Combine(dir, newName);
@@ -475,7 +434,11 @@ public partial class FileOpsViewModel : ObservableObject
         }
     }
 
-    public async Task CreateNewFolderAsync(
+    public Task CreateNewFolderAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
+        => FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("新建文件夹"), [], currentPath),
+            async _ => { await CreateNewFolderCoreAsync(currentPath, rawEntries.ToArray(), setStatus, refreshCallback); return true; });
+
+    private async Task CreateNewFolderCoreAsync(
         string currentPath,
         IReadOnlyList<FileSystemEntry> rawEntries,
         Action<string>? setStatus = null,
@@ -486,6 +449,7 @@ public partial class FileOpsViewModel : ObservableObject
         {
             var name = GetUniqueNameInCurrentDir("未命名文件夹", isDirectory: true, rawEntries);
             var fullPath = await _fileService.CreateFolderAsync(currentPath, name);
+            if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
             if (refreshCallback != null)
                 await refreshCallback(Path.GetFileName(fullPath));
         }
@@ -496,7 +460,11 @@ public partial class FileOpsViewModel : ObservableObject
         }
     }
 
-    public async Task CreateNewFileAsync(
+    public Task CreateNewFileAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, string? extension = null, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
+        => FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("新建文件"), [], currentPath),
+            async _ => { await CreateNewFileCoreAsync(currentPath, rawEntries.ToArray(), extension, setStatus, refreshCallback); return true; });
+
+    private async Task CreateNewFileCoreAsync(
         string currentPath,
         IReadOnlyList<FileSystemEntry> rawEntries,
         string? extension = null,
@@ -525,6 +493,7 @@ public partial class FileOpsViewModel : ObservableObject
                 ? await _fileService.CreateFileWithContentAsync(currentPath, name, template)
                 : await _fileService.CreateFileAsync(currentPath, name);
 
+            if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
             if (refreshCallback != null)
                 await refreshCallback(Path.GetFileName(fullPath));
         }
@@ -535,7 +504,11 @@ public partial class FileOpsViewModel : ObservableObject
         }
     }
 
-    public async Task PasteImageAsync(
+    public Task PasteImageAsync(string currentPath, ClipboardImageData image, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
+        => FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("粘贴文件"), [], currentPath),
+            async _ => { await PasteImageCoreAsync(currentPath, image, setStatus, refreshCallback); return true; });
+
+    private async Task PasteImageCoreAsync(
         string currentPath,
         ClipboardImageData image,
         Action<string>? setStatus = null,
@@ -544,6 +517,7 @@ public partial class FileOpsViewModel : ObservableObject
         Services.Subscriptions.SubscriptionAccess.RequireAccess();
         var path = await _fileService.CreateFileWithContentAsync(currentPath,
             $"图片 {DateTime.Now:yyyy-MM-dd HH.mm.ss}{image.Extension}", image.Bytes);
+        if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(path);
         var name = Path.GetFileName(path);
         setStatus?.Invoke($"已粘贴图片：{name}");
         if (refreshCallback != null) await refreshCallback(name);

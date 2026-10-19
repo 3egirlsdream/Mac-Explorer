@@ -120,7 +120,7 @@ public partial class FileDeliveryWindow : AppWindow
             Files.RestoreDeliveryPosition(path, entry.ScrollAnchor, entry.ScrollOffset);
             UpdateToolbar();
         }
-        catch (Exception ex) { StatusText.Text = $"无法访问：{ex.Message}，请重试。"; }
+        catch (Exception ex) { StatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("无法访问：{0}，请重试。", ex.Message); }
         finally { _navigating = false; _navigationGate.Release(); }
     }
 
@@ -139,7 +139,7 @@ public partial class FileDeliveryWindow : AppWindow
             ToolTip.SetTip(button, entry.Location);
             button.Click += async (_, _) => await SelectEntryAsync(entry.Id);
             var menu = new ContextMenu();
-            var remove = new MenuItem { Header = "删除入口" };
+            var remove = new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("删除入口") };
             remove.Click += (_, _) =>
             {
                 menu.Close();
@@ -186,7 +186,7 @@ public partial class FileDeliveryWindow : AppWindow
         LocationBreadcrumb.IsVisible = !EmptyEntries.IsVisible;
         BackButton.IsEnabled = _files.CanGoBack;
         ForwardButton.IsEnabled = _files.CanGoForward;
-        StatusText.Text = EmptyEntries.IsVisible ? "" : string.IsNullOrEmpty(_files.StatusText) ? "选择文件，拖到其他软件即可使用" : _files.StatusText;
+        StatusText.Text = EmptyEntries.IsVisible ? "" : string.IsNullOrEmpty(_files.StatusText) ? MacExplorer.Services.Impl.LocalizationText.Get("选择文件，拖到其他软件即可使用") : _files.StatusText;
         ViewModeIcon.Data = Geometry.Parse(_files.ViewMode switch
         {
             ViewMode.Grid => Icons.Grid,
@@ -231,10 +231,10 @@ public partial class FileDeliveryWindow : AppWindow
     private async void OnAddEntry(object? sender, RoutedEventArgs e)
     {
         if (_addEntryMenu?.IsOpen == true) { _addEntryMenu.Close(); return; }
-        var folders = new MenuItem { Header = "添加文件夹" };
+        var folders = new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("添加文件夹") };
         folders.Click += OnAddFolder;
-        var favorites = new MenuItem { Header = "添加收藏夹" };
-        favorites.Items.Add(new MenuItem { Header = "正在读取…", IsEnabled = false });
+        var favorites = new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("添加收藏夹") };
+        favorites.Items.Add(new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("正在读取…"), IsEnabled = false });
         ContextMenuPopupStyler.Attach(favorites);
         // The shared popup surface reserves 12px for its shadow; leave 2px of visible gap.
         var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedRight, VerticalOffset = -10, HorizontalOffset = 12 };
@@ -255,12 +255,12 @@ public partial class FileDeliveryWindow : AppWindow
                 favorites.Items.Add(item);
             }
             if (favorites.Items.Count == 0)
-                favorites.Items.Add(new MenuItem { Header = "暂无收藏夹", IsEnabled = false });
+                favorites.Items.Add(new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("暂无收藏夹"), IsEnabled = false });
         }
         catch (Exception ex)
         {
             favorites.Items.Clear();
-            favorites.Items.Add(new MenuItem { Header = "无法读取收藏夹", IsEnabled = false });
+            favorites.Items.Add(new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("无法读取收藏夹"), IsEnabled = false });
             StatusText.Text = ex.Message;
         }
     }
@@ -274,7 +274,7 @@ public partial class FileDeliveryWindow : AppWindow
                 ? await StorageProvider.TryGetFolderFromPathAsync(new Uri(_files.CurrentPath)) : null;
             var folders = await StorageProvider.OpenAuthorizedFolderPickerAsync(new()
             {
-                Title = "添加文件速递入口", AllowMultiple = true, SuggestedStartLocation = start
+                Title = MacExplorer.Services.Impl.LocalizationText.Get("添加文件速递入口"), AllowMultiple = true, SuggestedStartLocation = start
             });
             foreach (var folder in folders) _delivery.AddFolder(folder.Path.LocalPath);
         }

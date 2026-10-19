@@ -27,6 +27,7 @@
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
+- 普通边框与分隔线复用全局 `BorderBrush` / `ColorBorder` / `ColorBorderSubtle` / `ColorBorderPrimary` / `ColorDivider`，浅色使用淡灰 `#ECEDEF`、深色使用低反差 `#2E3239`；窗口描边复用 `WindowBorderBrush`，弹窗分组分隔线仍使用 `DialogDividerBrush`。
 - 隐私与主机信任确认复用 `ConfirmDialog` / `DialogWindow`、紧凑全局按钮与设置文字样式；标题栏透明，正文只显示数据接收方、用途或需要核对的指纹，默认聚焦取消。
 - Copilot 对话与输入框复用 `ComponentStyles.axaml` 的 `copilot-*` 样式：助手气泡靠左、用户气泡靠右，过程用左侧细线，工具与确认用轻边框卡片；输入框和卡片使用全局 `RadiusLg`，发送按钮使用全局 `RadiusFull`。
 - Copilot 同轮工具调用收在可展开的 `copilot-tool-card`，思考过程使用 `copilot-thinking-card` 和 Fluent Brain 图标；两者标题复用内容宽度的 `ghost compact copilot-tool-toggle`，展开明细沿左侧细线紧凑缩进，执行时展开，完成后自动收起。用户消息只显示右侧气泡，不显示“你”。
@@ -50,7 +51,7 @@
 - 右键菜单、子菜单、ComboBox 下拉与工具栏弹出面板统一通过 `PopupGlass` / `popup-glass` 使用低折射、轻透明的液态玻璃，复用 `RadiusLg`；菜单 hover 与侧栏共用 `SidebarHoverBrush` / `SidebarHoverOutline`，内容层排除背景采样，原生菜单保留跨窗口边缘弹出。二级及更深菜单通过 `IsSubMenuOpen=True` 状态样式覆盖 Fluent 模板自身的实色背景、边框、圆角与内边距。菜单独立采样可见页面内容，不复用侧栏排除文件内容的背景快照；浅／深色表面底色不透明度统一约 95%，仅保留微弱透底效果，模糊半径为 8。阴影保留 12px 外边距，模糊半径为 3、偏移为 `0,2`；调整时须保证三倍模糊半径、偏移和抗锯齿余量均落在外边距内，阴影层不得被内容裁剪。
 
 - 批量重命名工作台复用 `Assets/BatchRenameStyles.axaml` 的 `rename-list` / `rename-rules` / `rename-step`，参数使用紧凑设置字段行；目标名称变化通过通用 `RenameDiffText` 高亮，预览列表保持虚拟化。
-- 紧凑步进输入统一使用全局 `NumericUpDown.compact`，整块圆角表面与居中文本，原生增减和键盘行为保留；无表面图标操作复用 `Button.icon-action` / `ToggleButton.icon-action`，详情展开复用 `Expander.compact-details`，箭头随展开状态切换。
+- 紧凑步进输入统一使用全局 `NumericUpDown.compact`，整块圆角表面与居中文本，默认始终显示主题边框，聚焦时使用焦点色，原生增减和键盘行为保留；无表面图标操作复用 `Button.icon-action` / `ToggleButton.icon-action`，详情展开复用 `Expander.compact-details`，箭头随展开状态切换。
 
 - Cmd+K 搜索在面板内固定右侧预览，默认尺寸，不显示尺寸选择、标题和路径，复用 `SuperPreviewView` 的纯内容预览及全局主题表面、`RadiusLg`，随结果选中项更新且不抢焦点；每项定位按钮复用 `Button.icon-action` 与 Fluent Location 图标，回车保持原打开操作。
 
@@ -59,8 +60,9 @@
 - 设置入口固定在侧栏底部、位于目录滚动区域之外，复用 Fluent Settings 图标与 `sidebar-item` 的 Border／StackPanel 结构，不嵌套按钮悬停表面；Copilot 通过设置中的启用开关控制，默认关闭，所有窗口同步按钮可见性。
 
 # 多语言
-- 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `LocalizationCatalog` 中的中文与英文，不直接显示硬编码文案。
+- 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `Languages` 目录下简体中文、繁体中文、英文和法语的已发布语言文件，不直接显示硬编码文案。语言列表从 `Languages/*.json` 构建生成，新增语言不修改设置列表；中文原文查询需将 key 加入中文文件的 `literalKeys`。运行时只查内存缓存，不扫描目录或读取 JSON，规则见 `Languages/README.md`。
 - 动态右键菜单在构建时按当前语言取文案；检查语言切换后重新打开菜单的显示，确保中英文均正确，较长英文不裁切，参数占位符保持一致。
+- 代码生成的设置列表订阅语言切换并仅刷新显示文案，不重载配置或覆盖草稿；内置打开方式使用 `OpenWithApp.DisplayLabel`，快捷键使用 `ShortcutDefinition.DisplayName` / `DisplayGroup` / `DisplayContext`，保存的名称及用户自定义名称保持原样。
 
 # 自动测试
 - 日常修改优先运行 `bash Tools/Testing/run-tests.sh fast`，覆盖全部 Unit 和共享组件 UI 冒烟，增量构建加执行目标不超过 15 秒；本轮已构建可追加 `--no-build`，需要验收总时长可追加 `--budget 15`。页面交互用 `ui --area <功能>`，真实网络／原生进程用 `integration --area <功能>`；共享 UI 变化运行 `ui`，发布与测试基础设施变化运行 `full`。不要每次小改动反复跑全量。完整分类、环境和报告见 `Tools/Testing/README.md`。
@@ -107,3 +109,5 @@
 - 网络页面不重复显示正文标题或刷新按钮，刷新复用顶部导航操作，连接服务器使用面包屑右侧的 Fluent 图标按钮并保留本地化提示与无障碍名称。网络页面直接复用 `FastFileList` 的 30px 行、斑马纹、悬停、选中、字体、图标槽位与滚动，表头复用 `FileListHeaderStyles.axaml`；非文件列通过 `DetailTextProvider` 提供，不触发文件缩略图读取或文件操作。状态使用全局 `Border.status-tag` 胶囊标签，操作使用 `secondary compact` 按钮，统一 24px 高度并在行内居中对齐；窄窗口允许横向滚动，错误统一通过 `AppToast` 显示窗口级 toast；Bonjour／WS-Discovery 仅在页面打开时共享运行，系统网络卷与保存的 SMB 连接统一状态，弹出前提示其他应用也会断开。
 
 - 全局 Toast 复用 `AppToast`、`WindowNotificationManager` 与 `Assets/ToastStyles.axaml`，使用轻透毛玻璃表面、`RadiusXl`、圆形 Fluent 状态图标和主次两行文字；状态色仅用于图标区，长文案换行，窄窗口自适应，保留点击与自动关闭行为。
+
+- 文件任务面板与独立任务窗口共用 `FileTaskPanelPresenter`；列表复用全局 `file-task-row` / `task-title` / `task-meta` / `task-percentage` / `task-progress`，任务面板按设计稿使用 `FileTaskIcons` 的统一描边图标（文件夹复制、文档下载／移动、拉链文档、云上传与空心播放／暂停），其余入口仍用 Fluent；中间为名称、传输量和细进度条，右侧固定百分比与 `Button.icon-action`；面板默认宽 640px、任务行最小高 54px；无进度条时名称、状态与图标在单行内居中对齐，窄窗口仅将带进度条的传输量换行，暂停及失败进度复用 `muted` 状态，批量清理与取消放入面板右键菜单，不显示历史入口、统计卡片或详情展开。队列、检查点和撤销记录仅保留在当前进程，清除任务不清除历史，执行中任务仅可取消，不直接移除。

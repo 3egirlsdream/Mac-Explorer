@@ -10,7 +10,7 @@ using System.Threading.Channels;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
-public class MacFileService : IFileService
+public class MacFileService : IFileService, ITrashResultFileService
 {
     private readonly SqliteFileIndex? _iconCache;
     private readonly string _iconCacheDir;
@@ -338,6 +338,12 @@ end tell");
     public Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
         => Task.Run(() => { DirectoryAccess.Current.EnsureAccess(parentPath); return NewFileWriter.WriteAsync(Path.Combine(parentPath, name),
             (stream, token) => stream.WriteAsync(content.AsMemory(), token).AsTask()); });
+
+    public Task<string?> TrashWithResultAsync(string path)
+    {
+        DirectoryAccess.Current.EnsureAccess(path);
+        return Task.Run(() => MacExplorer.Platforms.MacOS.MacSandboxNative.TrashWithResult(path));
+    }
 
     public async Task DeleteAsync(string path, bool moveToTrash = true)
     {

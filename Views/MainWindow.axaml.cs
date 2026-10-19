@@ -117,11 +117,14 @@ public partial class MainWindow : AppWindow
             && _vm?.VisiblePanes.Contains(view.Tab) == true);
         DataContextChanged += OnDataContextChanged;
         Opened += OnOpened;
+        SizeChanged += (_, _) => UpdateTaskPanelWidth();
         Activated += OnActivated;
         Closing += OnClosing;
         Closed += OnClosed;
         Application.Current?.ActualThemeVariantChanged += OnActualThemeVariantChanged;
         _taskManager.TasksChanged += OnTasksChanged;
+        _taskHistory = App.Services.GetService<IFileOperationHistoryService>();
+        if (_taskHistory != null) _taskHistory.HistoryChanged += OnTasksChanged;
         App.Services.GetRequiredService<ISettingsService>().SettingChanged += OnCopilotSettingChanged;
         ApplyCopilotEnabled();
         ApplyAppearanceSettings();
@@ -656,12 +659,12 @@ public partial class MainWindow : AppWindow
         var undone = await historyService.UndoLastAsync();
         if (undone && _vm?.FileList != null)
         {
-            _vm.FileList.StatusText = "已撤销";
+            _vm.FileList.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已撤销");
             await _vm.FileList.RefreshAsync();
         }
         else if (!undone && _vm?.FileList != null)
         {
-            _vm.FileList.StatusText = "没有可撤销的操作";
+            _vm.FileList.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("没有可撤销的操作");
         }
     }
 
@@ -792,6 +795,7 @@ public partial class MainWindow : AppWindow
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
         _taskManager.TasksChanged -= OnTasksChanged;
+        if (_taskHistory != null) _taskHistory.HistoryChanged -= OnTasksChanged;
     }
 
     private void OnActualThemeVariantChanged(object? sender, EventArgs e) => ApplyAppearanceSettings();
@@ -879,10 +883,16 @@ public partial class MainWindow : AppWindow
         return $"目标位置已经包含 {preview}。是否替换？";
     }
 
+    private FileTaskPanelPresenter? _fileTaskPresenter;
+    private IFileOperationHistoryService? _taskHistory;
+    private int _taskRefreshPending;
+
     private void OnTasksChanged()
     {
+        if (Interlocked.Exchange(ref _taskRefreshPending, 1) != 0) return;
         Dispatcher.UIThread.Post(() =>
         {
+            Interlocked.Exchange(ref _taskRefreshPending, 0);
             var tasks = _taskManager.Tasks.ToList();
             var runningCount = tasks.Count(t => t.State == BackgroundTaskState.Running);
 
@@ -913,21 +923,12 @@ public partial class MainWindow : AppWindow
         var tasks = _taskManager.Tasks;
         TaskButton.IsVisible = tasks.Count > 0;
         var running = tasks.Count(t => t.State == BackgroundTaskState.Running);
-        TaskButtonText.Text = running > 0 ? $"后台任务 ({running})" : $"后台任务 ({tasks.Count})";
+        TaskButtonText.Text = Services.Impl.LocalizationText.Get("后台任务 ({0})", running > 0 ? running : tasks.Count);
     }
 
     // ──────────────────────────────────────────────
     //  Task Overlay Panel
     // ──────────────────────────────────────────────
-
-    private static int GetTaskSortOrder(BackgroundTaskInfo task) =>
-        task.State switch
-        {
-            BackgroundTaskState.Running => 0,
-            BackgroundTaskState.Failed => 1,
-            BackgroundTaskState.Completed => 2,
-            _ => 3
-        };
 
     private void ToggleTaskPanel(object? sender, RoutedEventArgs e) => ToggleTaskPanel();
 
@@ -967,15 +968,14 @@ public partial class MainWindow : AppWindow
 
         var transform = (TranslateTransform)TaskOverlayPanel.RenderTransform!;
         var startX = transform.X;
-        var targetX = show ? 0 : 380;
+        var targetX = show ? 0 : TaskOverlayPanel.Width + 24;
         var stopwatch = Stopwatch.StartNew();
 
         if (show)
         {
             TaskOverlayPanel.IsVisible = true;
-            TaskPanelTitle.Text = _taskManager.Tasks.Count > 0
-                ? $"后台任务 ({_taskManager.Tasks.Count(t => t.State == BackgroundTaskState.Running)} 个进行中)"
-                : "后台任务";
+            UpdateTaskPanelWidth();
+            TaskPanelTitle.Text = Services.Impl.LocalizationText.Get("传输任务");
         }
 
         try
@@ -1011,7 +1011,8 @@ public partial class MainWindow : AppWindow
                 await Task.Delay(3000, token);
                 await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    if (_taskPanelMode == PanelMode.Auto)
+                    if (_taskPanelMode == PanelMode.Auto && !_taskManager.Tasks.Any(t => t.IsActive
+                        || t.State == BackgroundTaskState.Failed))
                     {
                         _taskPanelMode = PanelMode.None;
                         await SlideTaskPanelAsync(show: false);
@@ -1031,240 +1032,33 @@ public partial class MainWindow : AppWindow
 
     private void RebuildTaskPanelItems(IReadOnlyList<BackgroundTaskInfo> tasks)
     {
-        var runningCount = tasks.Count(t => t.State == BackgroundTaskState.Running);
-        var completedCount = tasks.Count(t => t.State == BackgroundTaskState.Completed);
-        var failedCount = tasks.Count(t => t.State == BackgroundTaskState.Failed);
-
-        TaskPanelTitle.Text = runningCount > 0
-            ? $"后台任务 ({runningCount} 个进行中)"
-            : tasks.Count > 0 ? "后台任务" : "没有任务";
-
-        ClearPanelButton.IsEnabled = tasks.Count > 0;
-        ClearCompletedButton.IsEnabled = completedCount + failedCount > 0;
-        PanelFooter.IsVisible = completedCount + failedCount > 0;
-
-        TaskItemsPanel.Children.Clear();
-        foreach (var task in tasks.OrderBy(GetTaskSortOrder))
-            TaskItemsPanel.Children.Add(CreateCompactTaskRow(task));
+        TaskPanelTitle.Text = Services.Impl.LocalizationText.Get("传输任务");
+        var running = tasks.Count(t => t.State is BackgroundTaskState.Running or BackgroundTaskState.Pausing);
+        TaskRunningCountText.Text = running > 0 ? Services.Impl.LocalizationText.Get("{0} 项进行中", running) : "";
+        CancelAllTasksMenuItem.IsEnabled = tasks.Any(t => t.IsActive && t.CanCancel);
+        ClearFinishedTasksMenuItem.IsEnabled = tasks.Any(t => t.IsTerminal);
+        if (_fileTaskPresenter == null)
+        {
+            _fileTaskPresenter = new FileTaskPanelPresenter(_taskManager, _taskHistory);
+            TaskItemsPanel.Children.Clear(); TaskItemsPanel.Children.Add(_fileTaskPresenter.View);
+        }
+        _fileTaskPresenter.Refresh();
     }
 
-    private static bool IsUndoableTaskKind(BackgroundTaskKind kind)
-        => kind is BackgroundTaskKind.Move
-            or BackgroundTaskKind.Delete
-            or BackgroundTaskKind.BatchRename;
-
-    private Control CreateCompactTaskRow(BackgroundTaskInfo task)
+    private void UpdateTaskPanelWidth()
     {
-        var row = new Border();
-        row.Classes.Add("task-overlay-row");
-        ToolTip.SetTip(row, task.State == BackgroundTaskState.Failed
-            ? task.ErrorDetail ?? task.ErrorMessage : task.CurrentFile);
-
-        var grid = new Grid { ColumnSpacing = 6, RowSpacing = 2 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition(14, GridUnitType.Pixel));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        if (task.State == BackgroundTaskState.Running
-            || (task.State == BackgroundTaskState.Failed && !string.IsNullOrWhiteSpace(task.ErrorMessage)))
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-
-        // State dot
-        var dot = new Border();
-        dot.Classes.Add("task-state-dot");
-        dot.Classes.Add(task.State switch
-        {
-            BackgroundTaskState.Running => "running",
-            BackgroundTaskState.Completed => "completed",
-            BackgroundTaskState.Failed => "failed",
-            BackgroundTaskState.Cancelled => "failed",
-            _ => "running"
-        });
-        Grid.SetColumn(dot, 0);
-        Grid.SetRow(dot, 0);
-        grid.Children.Add(dot);
-
-        // Label
-        var label = new TextBlock
-        {
-            Text = task.Label,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        label.Classes.Add("task-label");
-        Grid.SetColumn(label, 1);
-        Grid.SetRow(label, 0);
-        grid.Children.Add(label);
-
-        // Status (running: %, completed/failed/cancelled: text)
-        var statusText = new TextBlock
-        {
-            Text = task.State switch
-            {
-                BackgroundTaskState.Running => $"{task.Progress:F0}%",
-                BackgroundTaskState.Completed => "已完成",
-                BackgroundTaskState.Failed => "失败",
-                BackgroundTaskState.Cancelled => "已取消",
-                _ => ""
-            },
-            TextAlignment = TextAlignment.Right
-        };
-        statusText.Classes.Add(task.State == BackgroundTaskState.Running ? "task-percent" : "task-status");
-        Grid.SetColumn(statusText, 2);
-        Grid.SetRow(statusText, 0);
-        grid.Children.Add(statusText);
-
-        // Retry button for failed tasks with retry action
-        if (task.State == BackgroundTaskState.Failed && task.CanRetry)
-        {
-            var retryBtn = new Button
-            {
-                Content = new PathIcon
-                {
-                    Data = Geometry.Parse(Assets.Icons.Refresh),
-                    Width = 10,
-                    Height = 10
-                }
-            };
-            retryBtn.Classes.Add("ghost");
-            retryBtn.Classes.Add("task-row-close");
-            ToolTip.SetTip(retryBtn, "重试");
-            retryBtn.Click += (_, _) => _taskManager.RetryTask(task.Id);
-            Grid.SetColumn(retryBtn, 3);
-            Grid.SetRow(retryBtn, 0);
-            grid.Children.Add(retryBtn);
-        }
-        else if (task.State == BackgroundTaskState.Completed
-                 && IsUndoableTaskKind(task.Kind))
-        {
-            var historyService = App.Services.GetService<IFileOperationHistoryService>();
-            if (historyService != null && historyService.CanUndo)
-            {
-                var undoBtn = new Button
-                {
-                    Content = AppTypography.BindFontSize(new TextBlock { Text = "撤销" }, AppTypography.Meta)
-                };
-                undoBtn.Classes.Add("ghost");
-                undoBtn.Classes.Add("task-row-close");
-                ToolTip.SetTip(undoBtn, "撤销此操作");
-                undoBtn.Click += async (_, _) =>
-                {
-                    await historyService.UndoLastAsync();
-                    if (_vm?.FileList != null)
-                        _vm.FileList.StatusText = "已撤销";
-                };
-                Grid.SetColumn(undoBtn, 3);
-                Grid.SetRow(undoBtn, 0);
-                grid.Children.Add(undoBtn);
-            }
-            else
-            {
-                var spacer = new Border { Width = 0 };
-                Grid.SetColumn(spacer, 3);
-                Grid.SetRow(spacer, 0);
-                grid.Children.Add(spacer);
-            }
-        }
-        else
-        {
-            // Spacer for consistent layout
-            var spacer = new Border { Width = 0 };
-            Grid.SetColumn(spacer, 3);
-            Grid.SetRow(spacer, 0);
-            grid.Children.Add(spacer);
-        }
-
-        // Close/Cancel button
-        var closeBtn = CreateCompactActionButton(task);
-        Grid.SetColumn(closeBtn, 4);
-        Grid.SetRow(closeBtn, 0);
-        grid.Children.Add(closeBtn);
-
-        // Progress bar for running tasks
-        if (task.State == BackgroundTaskState.Running)
-        {
-            var progress = new ProgressBar { Minimum = 0, Maximum = 100, Value = task.Progress };
-            progress.Classes.Add("task-mini");
-            Grid.SetColumn(progress, 1);
-            Grid.SetColumnSpan(progress, 4);
-            Grid.SetRow(progress, 1);
-            grid.Children.Add(progress);
-        }
-        else if (task.State == BackgroundTaskState.Failed
-                 && !string.IsNullOrWhiteSpace(task.ErrorMessage))
-        {
-            var errorText = AppTypography.BindFontSize(new TextBlock
-            {
-                Text = task.ErrorMessage,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                Foreground = Brush.Parse("#E5484D")
-            }, AppTypography.Meta);
-            Grid.SetColumn(errorText, 1);
-            Grid.SetColumnSpan(errorText, 4);
-            Grid.SetRow(errorText, 1);
-            grid.Children.Add(errorText);
-        }
-
-        row.Child = grid;
-        return row;
-    }
-
-    private Button CreateCompactActionButton(BackgroundTaskInfo task)
-    {
-        var button = new Button
-        {
-            Content = new PathIcon
-            {
-                Data = Geometry.Parse(Assets.Icons.Close),
-                Width = 9,
-                Height = 9
-            }
-        };
-        button.Classes.Add("ghost");
-        button.Classes.Add("task-row-close");
-
-        if (task.State == BackgroundTaskState.Running && task.CanCancel)
-        {
-            ToolTip.SetTip(button, "取消任务");
-            button.Click += (_, _) =>
-            {
-                task.Cts.Cancel();
-                _taskManager.CancelTask(task.Id);
-            };
-        }
-        else
-        {
-            ToolTip.SetTip(button, "移除任务");
-            button.Click += (_, _) =>
-            {
-                if (task.State == BackgroundTaskState.Running)
-                    task.Cts.Cancel();
-                _taskManager.RemoveTask(task.Id);
-            };
-        }
-
-        return button;
+        TaskOverlayPanel.Width = Math.Min(640, Math.Max(280, Bounds.Width - 32));
     }
 
     private void ClearAllPanelTasks(object? sender, RoutedEventArgs e)
     {
-        foreach (var task in _taskManager.Tasks.ToList())
-        {
-            if (task.State == BackgroundTaskState.Running)
-                task.Cts.Cancel();
-            _taskManager.RemoveTask(task.Id);
-        }
+        foreach (var task in _taskManager.Tasks.Where(t => t.IsActive && t.CanCancel))
+            _taskManager.CancelTask(task.Id);
     }
 
     private void ClearCompletedPanel(object? sender, RoutedEventArgs e)
     {
-        foreach (var task in _taskManager.Tasks
-                     .Where(t => t.State != BackgroundTaskState.Running)
-                     .ToList())
-        {
-            _taskManager.RemoveTask(task.Id);
-        }
+        foreach (var task in _taskManager.Tasks.Where(t => t.IsTerminal)) _taskManager.RemoveTask(task.Id);
     }
 
     private void OnTabFileDragOver(object? sender, DragEventArgs e)
@@ -1310,7 +1104,7 @@ public partial class MainWindow : AppWindow
             }
             scope.Dispose();
             if (_vm?.FileList != null)
-                _vm.FileList.StatusText = $"无法新建标签页：{ex.Message}";
+                _vm.FileList.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法新建标签页：{0}", ex.Message);
         }
     }
 
@@ -1601,7 +1395,7 @@ public partial class MainWindow : AppWindow
         GlobalSearchResults.IsVisible = false;
         GlobalSearchEmptyHint.IsVisible = true;
         CloseGlobalSearchPreview();
-        GlobalSearchResultCount.Text = $"范围：{GetGlobalSearchScopeDisplay()}";
+        GlobalSearchResultCount.Text = MacExplorer.Services.Impl.LocalizationText.Get("范围：{0}", GetGlobalSearchScopeDisplay());
         Dispatcher.UIThread.Post(() => GlobalSearchBox.Focus());
     }
 
@@ -1637,13 +1431,13 @@ public partial class MainWindow : AppWindow
         if (query.Length == 0)
         {
             GlobalSearchResults.IsVisible = false;
-            GlobalSearchEmptyHint.Text = "输入内容即可搜索已索引的本地文件、常用位置和最近位置";
+            GlobalSearchEmptyHint.Text = MacExplorer.Services.Impl.LocalizationText.Get("输入内容即可搜索已索引的本地文件、常用位置和最近位置");
             GlobalSearchEmptyHint.IsVisible = true;
-            GlobalSearchResultCount.Text = $"范围：{GetGlobalSearchScopeDisplay()}";
+            GlobalSearchResultCount.Text = MacExplorer.Services.Impl.LocalizationText.Get("范围：{0}", GetGlobalSearchScopeDisplay());
             return;
         }
 
-        GlobalSearchEmptyHint.Text = "正在搜索…";
+        GlobalSearchEmptyHint.Text = MacExplorer.Services.Impl.LocalizationText.Get("正在搜索…");
         GlobalSearchEmptyHint.IsVisible = true;
         GlobalSearchResults.IsVisible = false;
 
@@ -1665,10 +1459,10 @@ public partial class MainWindow : AppWindow
             GlobalSearchResults.IsVisible = _globalSearchSuggestions.Count > 0;
             GlobalSearchEmptyHint.IsVisible = _globalSearchSuggestions.Count == 0;
             if (_globalSearchSuggestions.Count == 0)
-                GlobalSearchEmptyHint.Text = "没有找到匹配项";
+                GlobalSearchEmptyHint.Text = MacExplorer.Services.Impl.LocalizationText.Get("没有找到匹配项");
             GlobalSearchResultCount.Text = _globalSearchSuggestions.Count == 0
-                ? "可换用更短的文件名或路径片段"
-                : $"找到 {_globalSearchSuggestions.Count} 项（范围：{GetGlobalSearchScopeDisplay()}）";
+                ? MacExplorer.Services.Impl.LocalizationText.Get("可换用更短的文件名或路径片段")
+                : MacExplorer.Services.Impl.LocalizationText.Get("找到 {0} 项（范围：{1}）", _globalSearchSuggestions.Count, GetGlobalSearchScopeDisplay());
         }
         catch (OperationCanceledException)
         {
@@ -1680,9 +1474,9 @@ public partial class MainWindow : AppWindow
             {
                 _globalSearchSuggestions.Clear();
                 GlobalSearchResults.IsVisible = false;
-                GlobalSearchEmptyHint.Text = "搜索暂时不可用";
+                GlobalSearchEmptyHint.Text = MacExplorer.Services.Impl.LocalizationText.Get("搜索暂时不可用");
                 GlobalSearchEmptyHint.IsVisible = true;
-                GlobalSearchResultCount.Text = "请稍后重试";
+                GlobalSearchResultCount.Text = MacExplorer.Services.Impl.LocalizationText.Get("请稍后重试");
             }
         }
     }
@@ -1734,7 +1528,7 @@ public partial class MainWindow : AppWindow
         }
         catch (Exception ex)
         {
-            _vm.FileList.StatusText = $"打开位置失败: {ex.Message}";
+            _vm.FileList.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("打开位置失败: {0}", ex.Message);
         }
     }
 
@@ -1916,7 +1710,7 @@ public partial class MainWindow : AppWindow
         }
         catch (Exception ex)
         {
-            _vm.FileList.StatusText = $"定位文件失败: {ex.Message}";
+            _vm.FileList.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("定位文件失败: {0}", ex.Message);
         }
     }
 
@@ -1950,7 +1744,7 @@ public partial class MainWindow : AppWindow
         }
         catch (Exception ex)
         {
-            _vm.FileList.StatusText = $"打开文件失败: {ex.Message}";
+            _vm.FileList.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("打开文件失败: {0}", ex.Message);
         }
     }
 

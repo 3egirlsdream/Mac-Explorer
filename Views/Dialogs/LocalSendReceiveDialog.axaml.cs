@@ -19,7 +19,7 @@ public partial class LocalSendReceiveDialog : DialogWindow
         DeviceName.Text = request.Alias;
         ToolTip.SetTip(DeviceName, request.Alias);
         var total = request.Files.Sum(file => file.Size);
-        FileSummary.Text = $"{request.Files.Count} 个文件 · {FormatSize(total)}";
+        FileSummary.Text = MacExplorer.Services.Impl.LocalizationText.Get("{0} 个文件 · {1}", request.Files.Count, FormatSize(total));
         FileNames.ItemsSource = request.Files.Select(file => file.FileName + " · " + FormatSize(file.Size)).ToArray();
         _directory = request.DefaultDirectory;
         UpdateDirectory();
@@ -45,7 +45,7 @@ public partial class LocalSendReceiveDialog : DialogWindow
     {
         var folders = await StorageProvider.OpenAuthorizedFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "选择接收位置", AllowMultiple = false
+            Title = MacExplorer.Services.Impl.LocalizationText.Get("选择接收位置"), AllowMultiple = false
         });
         if (folders.Count == 0) return;
         var path = folders[0].Path.LocalPath;

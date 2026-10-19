@@ -8,7 +8,16 @@ public sealed class BatchRenameOperationService(
     IFileOperationHistoryService history,
     IBackgroundTaskManager tasks)
 {
-    public async Task<BatchRenameResult> ExecuteAsync(
+    public Task<BatchRenameResult> ExecuteAsync(List<BatchRenamePreviewItem> preview,
+        CancellationToken cancellationToken = default, Guid? historyBatchId = null,
+        IProgress<BatchRenameProgress>? uiProgress = null)
+        => FileTaskContext.RunAsync(tasks, new(BackgroundTaskKind.BatchRename,
+            Impl.LocalizationText.Get("批量重命名 {0} 项", preview.Count),
+            preview.SelectMany(i => new[] { i.OriginalPath, i.NewPath }).ToArray(),
+            DisplayName: Impl.LocalizationText.Get("{0} 项", preview.Count)),
+            _ => ExecuteCoreAsync(preview, cancellationToken, historyBatchId, uiProgress), cancellationToken);
+
+    private async Task<BatchRenameResult> ExecuteCoreAsync(
         List<BatchRenamePreviewItem> preview, CancellationToken cancellationToken = default, Guid? historyBatchId = null,
         IProgress<BatchRenameProgress>? uiProgress = null)
     {

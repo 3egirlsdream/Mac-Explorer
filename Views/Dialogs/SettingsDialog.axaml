@@ -39,9 +39,6 @@
                                         <TextBlock Classes="settings-label" Text="{loc:Loc settings.language}" VerticalAlignment="Center"/>
                                         <ComboBox Grid.Column="1" x:Name="LanguageCombo" Width="148" VerticalAlignment="Center"
                                                   AutomationProperties.Name="{loc:Loc ui.031}" SelectionChanged="OnLanguageChanged">
-                                            <ComboBoxItem Content="{loc:Loc language.system}" Tag="system"/>
-                                            <ComboBoxItem Content="{loc:Loc language.zh}" Tag="zh-CN"/>
-                                            <ComboBoxItem Content="{loc:Loc language.en}" Tag="en"/>
                                         </ComboBox>
                                     </Grid>
                                 </Border>
@@ -125,6 +122,16 @@
 
                     <StackPanel Spacing="6">
                         <TextBlock Classes="settings-section-title" Text="{loc:Loc settings.file_operations}"/>
+                        <Border Classes="settings-group settings-row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <TextBlock Classes="settings-label" Text="{loc:Loc tasks.concurrency}"
+                                           VerticalAlignment="Center"/>
+                                <NumericUpDown x:Name="FileTaskConcurrencyInput" Grid.Column="1" Classes="compact"
+                                               Minimum="1" Maximum="4" Increment="1" Width="84"
+                                               ValueChanged="OnFileTaskConcurrencyChanged"
+                                               AutomationProperties.Name="{loc:Loc tasks.concurrency}"/>
+                            </Grid>
+                        </Border>
                         <Border Classes="settings-group">
                             <StackPanel>
                                 <Border Classes="settings-row settings-divider">
@@ -347,6 +354,16 @@
                         <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.155}"/>
                         <Border Classes="settings-group">
                             <StackPanel>
+                                <Border Classes="settings-row settings-divider">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <TextBlock Classes="settings-label" Text="{loc:Loc tags.toolbar-visible}"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ToggleSwitch Grid.Column="1" x:Name="ShowToolbarTagsToggle"
+                                                      Classes="settings-toggle compact"
+                                                      AutomationProperties.Name="{loc:Loc tags.toolbar-visible}"
+                                                      IsChecked="{Binding ShowToolbarTags, Mode=TwoWay}"/>
+                                    </Grid>
+                                </Border>
                                 <Border Classes="settings-row settings-divider">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <StackPanel>

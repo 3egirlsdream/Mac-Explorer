@@ -26,16 +26,16 @@ internal static class SftpPrivateKeyConsent
 
     internal static async Task<(string Passphrase, bool Remember)?> ShowAsync(Window owner, RemoteServerInfo server, CancellationToken ct)
     {
-        var dialog = new DialogWindow { Title = "私钥口令 · " + Path.GetFileName(server.PrivateKeyPath),
+        var dialog = new DialogWindow { Title = MacExplorer.Services.Impl.LocalizationText.Get("私钥口令 · ") + Path.GetFileName(server.PrivateKeyPath),
             Width = 420, MinWidth = 340, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
         dialog.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
             { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
-        var input = new TextBox { PasswordChar = '•', Classes = { "settings-inline-input" }, PlaceholderText = "私钥解密口令" };
-        Avalonia.Automation.AutomationProperties.SetName(input, "私钥解密口令");
-        var remember = new CheckBox { Content = "将私钥口令保存到本机数据库", IsChecked = false };
-        var cancel = new Button { Content = "取消", Classes = { "secondary", "compact" } };
-        var connect = new Button { Content = "连接", Classes = { "primary", "compact" } };
+        var input = new TextBox { PasswordChar = '•', Classes = { "settings-inline-input" }, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("私钥解密口令") };
+        Avalonia.Automation.AutomationProperties.SetName(input, MacExplorer.Services.Impl.LocalizationText.Get("私钥解密口令"));
+        var remember = new CheckBox { Content = MacExplorer.Services.Impl.LocalizationText.Get("将私钥口令保存到本机数据库"), IsChecked = false };
+        var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
+        var connect = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("连接"), Classes = { "primary", "compact" } };
         cancel.Click += (_, _) => dialog.Close();
         connect.Click += (_, _) => dialog.Close((input.Text ?? "", remember.IsChecked == true));
         dialog.Content = new StackPanel { Margin = new Thickness(16), Spacing = 8, Children =

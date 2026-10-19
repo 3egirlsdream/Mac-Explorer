@@ -65,11 +65,11 @@ public sealed class CopilotThinkingCard : Border
             _expanded = false;
         }
         _title.Text = step.Finished
-            ? step.Text == "处理未完成" ? "思考过程 · 已中断" : "思考过程 · 已完成"
-            : "思考过程 · 进行中";
+            ? step.Text == "处理未完成" ? MacExplorer.Services.Impl.LocalizationText.Get("思考过程 · 已中断") : MacExplorer.Services.Impl.LocalizationText.Get("思考过程 · 已完成")
+            : MacExplorer.Services.Impl.LocalizationText.Get("思考过程 · 进行中");
         _detail.Text = step.Text is "思考完成" or "处理未完成"
-            ? "本次未返回思考内容"
-            : string.IsNullOrWhiteSpace(step.Text) ? "正在思考…" : step.Text;
+            ? MacExplorer.Services.Impl.LocalizationText.Get("本次未返回思考内容")
+            : string.IsNullOrWhiteSpace(step.Text) ? MacExplorer.Services.Impl.LocalizationText.Get("正在思考…") : step.Text;
         UpdateDisclosure();
     }
 
@@ -83,6 +83,6 @@ public sealed class CopilotThinkingCard : Border
     {
         _detailContainer.IsVisible = _expanded;
         _chevron.Data = Geometry.Parse(_expanded ? Icons.ChevronUp : Icons.ChevronDown);
-        AutomationProperties.SetName(_button, $"{_title.Text}，{(_expanded ? "收起" : "展开")}明细");
+        AutomationProperties.SetName(_button, MacExplorer.Services.Impl.LocalizationText.Get("{0}，{1}明细", _title.Text, (_expanded ? MacExplorer.Services.Impl.LocalizationText.Get("收起") : MacExplorer.Services.Impl.LocalizationText.Get("展开"))));
     }
 }

@@ -26,12 +26,12 @@ public sealed class PasteTaskPanelTests
             manager.UpdateProgress(task.Id, 37, "/tmp/project/.git/objects/example");
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(37, Assert.Single(panel.GetVisualDescendants().OfType<ProgressBar>()).Value);
-            Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "37%");
+            Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("37%") == true);
 
             manager.CancelTask(task.Id);
             Dispatcher.UIThread.RunJobs();
-            Assert.Empty(panel.GetVisualDescendants().OfType<ProgressBar>());
-            Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "已取消");
+            Assert.Empty(panel.GetVisualDescendants().OfType<ProgressBar>().Where(bar => bar.IsVisible));
+            Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("已取消") == true);
 
             var failed = manager.AddTask("粘贴：复制 1 项", BackgroundTaskKind.Copy);
             const string details = "/tmp/project/unreadable: permission denied";

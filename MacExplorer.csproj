@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>1.0.58</Version>
+    <Version>1.0.59</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="Languages/Markdown/*.json" TargetPath="I18n/CodeWF.Markdown/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="Assets/PrivacyPolicy.txt" LogicalName="MacExplorer.PrivacyPolicy.txt" />
     <AssemblyMetadata Include="PrivacyPolicyUrl" Value="$(PrivacyPolicyUrl)" />
     <AssemblyMetadata Include="AppStoreSubscriptionProductId" Value="$(AppStoreSubscriptionProductId)" Condition="'$(DistributionChannel)' == 'AppStore'" />
@@ -86,6 +87,18 @@
     <PackageReference Include="Svg.Skia" Version="5.0.0" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
+
+  <!-- Language files are discovered at build time. Runtime lookups never read or parse files. -->
+  <Target Name="GenerateLocalizationCatalog" BeforeTargets="BeforeCompile">
+    <PropertyGroup>
+      <_LocalizationCatalog>$(IntermediateOutputPath)LocalizationCatalog.g.cs</_LocalizationCatalog>
+    </PropertyGroup>
+    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/Tools/Localization/generate_catalog.py&quot; &quot;$(MSBuildProjectDirectory)/Languages&quot; &quot;$(_LocalizationCatalog)&quot;" />
+    <ItemGroup>
+      <Compile Include="$(_LocalizationCatalog)" />
+      <FileWrites Include="$(_LocalizationCatalog)" />
+    </ItemGroup>
+  </Target>
 
   <!-- Create macOS .app bundle after build (macOS-only: Avalonia Desktop outputs a raw binary, not a bundle) -->
   <Target Name="ValidateStoreSubmission" BeforeTargets="PrepareForBuild" Condition="'$(StoreSubmission)' == 'true'">

@@ -11,6 +11,8 @@ public interface IRemoteConnectionService
     void ForgetHostKey(string host, int port);
     string? CredentialLoadError { get; }
     void RetryCredentialMigration();
+    Task<SftpClient> LeaseClientAsync(string serverId, CancellationToken ct = default)
+        => Task.FromException<SftpClient>(new NotSupportedException("Independent connections are unavailable"));
     Task<SftpClient> GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default);
     Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default);
     void Disconnect(string serverId);

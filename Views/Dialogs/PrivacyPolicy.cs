@@ -13,19 +13,19 @@ internal static class PrivacyPolicy
         .FirstOrDefault(value => value.Key == "PrivacyPolicyUrl")?.Value;
     internal static Uri? PublishedUri => Uri.TryCreate(ConfiguredUrl, UriKind.Absolute, out var uri)
         && uri.Scheme == Uri.UriSchemeHttps ? uri : null;
-    internal static string Status => PublishedUri == null ? "查看随包隐私政策。" : "查看隐私政策。";
+    internal static string Status => MacExplorer.Services.Impl.LocalizationText.Get(PublishedUri == null ? "查看随包隐私政策。" : "查看隐私政策。");
 
     internal static async Task ShowAsync(Window owner)
     {
         if (PublishedUri is { } uri)
         {
-            if (!await owner.Launcher.LaunchUriAsync(uri)) throw new InvalidOperationException("无法打开隐私政策，请稍后重试。");
+            if (!await owner.Launcher.LaunchUriAsync(uri)) throw new InvalidOperationException(MacExplorer.Services.Impl.LocalizationText.Get("无法打开隐私政策，请稍后重试。"));
             return;
         }
         using var stream = typeof(PrivacyPolicy).Assembly.GetManifestResourceStream("MacExplorer.PrivacyPolicy.txt")!;
         using var reader = new StreamReader(stream);
-        var close = new Button { Content = "关闭", Classes = { "secondary", "compact" }, HorizontalAlignment = HorizontalAlignment.Right };
-        var dialog = new DialogWindow { Title = "隐私政策", Width = 560, Height = 520,
+        var close = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("关闭"), Classes = { "secondary", "compact" }, HorizontalAlignment = HorizontalAlignment.Right };
+        var dialog = new DialogWindow { Title = MacExplorer.Services.Impl.LocalizationText.Get("隐私政策"), Width = 560, Height = 520,
             MinWidth = 360, MinHeight = 300, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
         dialog.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/")) { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });

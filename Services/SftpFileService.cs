@@ -27,9 +27,12 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public void SetCurrentServer(string serverId) => _currentServerId = serverId;
 
-    private SftpClient GetClient()
+    private SftpClient GetClient(string? path = null)
     {
-        var id = _currentServerId ?? throw new InvalidOperationException("No remote server selected");
+        var id = path != null && VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).ServerId
+            : _currentServerId ?? throw new InvalidOperationException("No remote server selected");
+        if (FileTaskContext.Current is { } context)
+            return context.Resource("sftp:" + id, () => _connectionService.LeaseClientAsync(id, context.CancellationToken).GetAwaiter().GetResult());
         return _connectionService.GetClient(id) ?? throw new InvalidOperationException($"Server {id} is not connected");
     }
 
@@ -61,8 +64,8 @@ public class SftpFileService : IRemoteFileService, IDisposable
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         batchSize = Math.Clamp(batchSize, 32, 1024);
-        var client = GetClient();
-        var serverId = GetServerId();
+        var client = GetClient(path);
+        var serverId = VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).ServerId : GetServerId();
         var remotePath = ToRemotePath(path);
 
         var batch = new List<FileSystemEntry>(batchSize);
@@ -83,8 +86,8 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public async Task<FileSystemEntry?> GetEntryAsync(string path)
     {
-        var client = GetClient();
-        var serverId = GetServerId();
+        var client = GetClient(path);
+        var serverId = VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).ServerId : GetServerId();
         var remotePath = VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).RemotePath : path;
         return await Task.Run(() =>
         {
@@ -102,15 +105,15 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public async Task<bool> ExistsAsync(string path)
     {
-        var client = GetClient();
+        var client = GetClient(path);
         var remotePath = ToRemotePath(path);
         return await Task.Run(() => client.Exists(remotePath));
     }
 
     public async Task<string> CreateFolderAsync(string parentPath, string name)
     {
-        var client = GetClient();
-        var serverId = GetServerId();
+        var client = GetClient(parentPath);
+        var serverId = VirtualPath.IsRemotePath(parentPath) ? VirtualPath.ParseRemotePath(parentPath).ServerId : GetServerId();
         return await Task.Run(() =>
         {
             var remoteParent = ToRemotePath(parentPath);
@@ -125,8 +128,8 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public async Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
     {
-        var client = GetClient();
-        var serverId = GetServerId();
+        var client = GetClient(parentPath);
+        var serverId = VirtualPath.IsRemotePath(parentPath) ? VirtualPath.ParseRemotePath(parentPath).ServerId : GetServerId();
         return await Task.Run(() =>
         {
             var remoteParent = ToRemotePath(parentPath);
@@ -146,7 +149,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public async Task DeleteAsync(string path, bool moveToTrash = true)
     {
-        var client = GetClient();
+        var client = GetClient(path);
         var remotePath = ToRemotePath(path);
         await Task.Run(() =>
         {
@@ -200,7 +203,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public async Task RenameAsync(string path, string newName)
     {
-        var client = GetClient();
+        var client = GetClient(path);
         var remotePath = ToRemotePath(path);
         await Task.Run(() =>
         {
@@ -212,7 +215,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public async Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false)
     {
-        var client = GetClient();
+        var client = GetClient(sourcePath);
         var remoteSrc = ToRemotePath(sourcePath);
         var remoteDest = ToRemotePath(destinationDirectory);
         await Task.Run(() =>
@@ -227,7 +230,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public async Task CopyAsync(string sourcePath, string destinationDirectory)
     {
-        var client = GetClient();
+        var client = GetClient(sourcePath);
         var remoteSrc = ToRemotePath(sourcePath);
         var remoteDest = ToRemotePath(destinationDirectory);
         await Task.Run(() =>
@@ -314,7 +317,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
     public async Task MoveWithProgressAsync(IReadOnlyList<string> sourcePaths, string destinationDirectory,
         IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
     {
-        var client = GetClient();
+        var client = GetClient(sourcePaths[0]);
         var remoteDestDir = ToRemotePath(destinationDirectory);
         await Task.Run(() =>
         {

@@ -3,9 +3,9 @@ import WebKit
 import ImageIO
 import UniformTypeIdentifiers
 
-func fail(_ message: String) -> Never {
-    let english = (ProcessInfo.processInfo.environment["MACEXPLORER_CONVERSION_LANGUAGE"] ?? "zh-CN").lowercased().hasPrefix("en")
-    let translations: [String: String] = [
+func fail(_ message: String, detail: String? = nil) -> Never {
+    let language = (ProcessInfo.processInfo.environment["MACEXPLORER_CONVERSION_LANGUAGE"] ?? "zh-CN").lowercased()
+    let english: [String: String] = [
         "无法完成 PDF 排版或写入": "Unable to lay out or write the PDF",
         "未生成有效的 PDF": "No valid PDF was generated",
         "PDF 排版失败": "PDF layout failed",
@@ -19,9 +19,48 @@ func fail(_ message: String) -> Never {
         "无法写入图像": "Unable to write the image",
         "图像写入失败": "Image write failed",
         "无法还原 Word 图片": "Unable to restore the Word image",
-        "不支持的转换模式": "Unsupported conversion mode"
+        "不支持的转换模式": "Unsupported conversion mode",
+        "无法读取 Word 文档（可能已加密或格式损坏）": "Unable to read the Word document (it may be encrypted or damaged)"
     ]
-    fputs((english ? translations[message] ?? message : message) + "\n", stderr)
+    let french: [String: String] = [
+        "无法完成 PDF 排版或写入": "Impossible de mettre en page ou d’écrire le PDF",
+        "未生成有效的 PDF": "Aucun PDF valide n’a été généré",
+        "PDF 排版失败": "Échec de la mise en page du PDF",
+        "PDF 排版进程意外退出": "Le processus de mise en page du PDF s’est arrêté de façon inattendue",
+        "无法读取图像文件": "Impossible de lire le fichier image",
+        "无法解码 WebP 图像": "Impossible de décoder l’image WebP",
+        "图标不包含可读取的图像": "L’icône ne contient aucune image lisible",
+        "缺少输出路径": "Chemin de sortie manquant",
+        "图像尺寸超出限制": "Les dimensions de l’image dépassent la limite",
+        "无法创建图像": "Impossible de créer l’image",
+        "无法写入图像": "Impossible d’écrire l’image",
+        "图像写入失败": "Échec de l’écriture de l’image",
+        "无法还原 Word 图片": "Impossible de restaurer l’image Word",
+        "不支持的转换模式": "Mode de conversion non pris en charge",
+        "无法读取 Word 文档（可能已加密或格式损坏）": "Impossible de lire le document Word (il est peut-être chiffré ou endommagé)"
+    ]
+    let traditional: [String: String] = [
+        "无法完成 PDF 排版或写入": "無法完成 PDF 排版或寫入",
+        "未生成有效的 PDF": "未生成有效的 PDF",
+        "PDF 排版失败": "PDF 排版失敗",
+        "PDF 排版进程意外退出": "PDF 排版程序意外退出",
+        "无法读取图像文件": "無法讀取圖像檔案",
+        "无法解码 WebP 图像": "無法解碼 WebP 圖像",
+        "图标不包含可读取的图像": "圖標不包含可讀取的圖像",
+        "缺少输出路径": "缺少輸出路徑",
+        "图像尺寸超出限制": "圖像尺寸超出限制",
+        "无法创建图像": "無法創建圖像",
+        "无法写入图像": "無法寫入圖像",
+        "图像写入失败": "圖像寫入失敗",
+        "无法还原 Word 图片": "無法還原 Word 圖片",
+        "不支持的转换模式": "不支持的轉換模式",
+        "无法读取 Word 文档（可能已加密或格式损坏）": "無法讀取 Word 文件（可能已加密或格式損壞）"
+    ]
+    let translations = language.hasPrefix("fr") ? french
+        : language.hasPrefix("zh-hant") || ["zh-tw", "zh-hk", "zh-mo"].contains(language) ? traditional
+        : language.hasPrefix("en") ? english : [:]
+    let text = (translations[message] ?? message) + (detail.map { ": " + $0 } ?? "")
+    fputs(text + "\n", stderr)
     exit(1)
 }
 
@@ -173,9 +212,7 @@ if mode == "word-pdf" {
             view.setFrameSize(NSSize(width: width, height: max(1, ceil(manager.usedRect(for: container).height))))
         }
         savePDF(NSPrintOperation(view: view, printInfo: info), output)
-    } catch { fail((ProcessInfo.processInfo.environment["MACEXPLORER_CONVERSION_LANGUAGE"] ?? "zh-CN").lowercased().hasPrefix("en")
-        ? "Unable to read the Word document (it may be encrypted or damaged): \(error.localizedDescription)"
-        : "无法读取 Word 文档（可能已加密或格式损坏）：\(error.localizedDescription)") }
+    } catch { fail("无法读取 Word 文档（可能已加密或格式损坏）", detail: error.localizedDescription) }
 } else if mode == "html-pdf" {
     let printer = HTMLPrinter(input: input, output: output)
     withExtendedLifetime(printer) { application.run() }

@@ -16,7 +16,7 @@ public partial class FileListView
         var path = entry.FullPath; // Capture the clicked file, not a later mutable selection.
         return new ContextMenuAction
         {
-            Label = "编辑",
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("编辑"),
             IconSvg = Assets.Icons.Edit,
             IsQuickAction = true,
             Execute = async () =>
@@ -27,7 +27,7 @@ public partial class FileListView
                 try { await window.OpenMarkdownEditorAsync(path); }
                 catch (Exception ex)
                 {
-                    if (ViewModel != null) ViewModel.StatusText = "无法打开 Markdown 编辑器：" + ex.Message;
+                    if (ViewModel != null) ViewModel.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法打开 Markdown 编辑器：") + ex.Message;
                 }
             }
         };

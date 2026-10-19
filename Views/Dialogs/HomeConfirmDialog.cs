@@ -15,9 +15,9 @@ internal sealed class HomeConfirmDialog : DialogWindow
         panel.Children.Add(new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8,
             HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = new Button { Content = "取消", Classes = { "secondary" } };
+        var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary" } };
         cancel.Click += (_, _) => Close(false);
-        var confirm = new Button { Content = "清空记录", Classes = { "primary" } };
+        var confirm = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("清空记录"), Classes = { "primary" } };
         confirm.Click += (_, _) => Close(true);
         buttons.Children.Add(cancel); buttons.Children.Add(confirm); panel.Children.Add(buttons);
         Content = new Border { Classes = { "home-dialog-surface" }, Child = panel };

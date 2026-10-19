@@ -253,7 +253,7 @@ public partial class SuperPreviewView : UserControl
                 _ignoreSelection = false;
             }
 
-            ItemCountText.Text = _entries.Count == 0 ? "空" : $"{_entries.Count} 项";
+            ItemCountText.Text = _entries.Count == 0 ? MacExplorer.Services.Impl.LocalizationText.Get("空") : MacExplorer.Services.Impl.LocalizationText.Get("{0} 项", _entries.Count);
             if (!_isCompactPreview)
             {
                 if (_selectedEntry != null)
@@ -282,7 +282,7 @@ public partial class SuperPreviewView : UserControl
         {
             if (version == _operationVersion)
             {
-                ItemCountText.Text = "读取失败";
+                ItemCountText.Text = MacExplorer.Services.Impl.LocalizationText.Get("读取失败");
                 ShowPlaceholder($"无法读取内容\n{ex.Message}");
             }
         }
@@ -679,7 +679,7 @@ public partial class SuperPreviewView : UserControl
         PreviewPlaceholder.IsVisible = false;
         FolderSummary.IsVisible = true;
         FolderSummaryTitle.Text = title;
-        FolderSummaryDetails.Text = $"{kind} · {_entries.Count} 项\n{path}";
+        FolderSummaryDetails.Text = MacExplorer.Services.Impl.LocalizationText.Get("{0} · {1} 项\n{2}", MacExplorer.Services.Impl.LocalizationText.Get(kind), _entries.Count, path);
     }
 
     private void ShowPlaceholder(string text)

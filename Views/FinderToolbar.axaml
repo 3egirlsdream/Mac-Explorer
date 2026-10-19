@@ -275,11 +275,6 @@
                             </StackPanel>
                         </Button>
                         <Separator Classes="compact-overflow-item"/>
-                        <CheckBox x:Name="ShowToolbarTagsOption" Content="{loc:Loc tags.toolbar-visible}"
-                                  Margin="8,4" IsChecked="{Binding ShowToolbarTags, Mode=TwoWay}"/>
-                        <Button x:Name="ManageTagsButton" Classes="toolbar-popup-item" Content="{loc:Loc tags.manage}"
-                                HorizontalContentAlignment="Left" Click="OnManageTags"/>
-                        <Separator/>
                         <Button x:Name="BatchRenameButton" Classes="toolbar-popup-item"
                                 controls:ShortcutTip.Command="file.batch-rename"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"

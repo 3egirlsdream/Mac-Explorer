@@ -411,9 +411,15 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
             var rules = dialog.FindControl<ListBox>("RuleList")!; rules.SelectedIndex = 1; dialog.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             var number = dialog.FindControl<StackPanel>("RuleEditor")!.GetVisualDescendants().OfType<NumericUpDown>()
                 .Single(input => AutomationProperties.GetName(input) == "起始编号");
-            var editor = number.GetVisualDescendants().OfType<TextBox>().Single(); editor.Focus();
+            var editor = number.GetVisualDescendants().OfType<TextBox>().Single();
             Assert.Equal(Avalonia.Media.TextAlignment.Center, editor.TextAlignment);
             var surface = number.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "NumericSurface");
+            rules.Focus(); Dispatcher.UIThread.RunJobs();
+            Assert.Equal(new Thickness(1), surface.BorderThickness);
+            var restingBorder = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(surface.BorderBrush).Color;
+            Assert.Equal(Avalonia.Media.Color.Parse(dark ? "#2E3239" : "#ECEDEF"), restingBorder);
+            editor.Focus(); Dispatcher.UIThread.RunJobs();
+            Assert.NotEqual(restingBorder, Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(surface.BorderBrush).Color);
             var background = surface.Background; var bounds = surface.Bounds; var radius = surface.CornerRadius;
             var increase = number.GetVisualDescendants().OfType<RepeatButton>().Single(button => button.Name == "PART_IncreaseButton");
             var point = increase.TranslatePoint(new Point(increase.Bounds.Width / 2, increase.Bounds.Height / 2), dialog)!.Value;

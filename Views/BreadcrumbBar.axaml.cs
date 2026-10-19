@@ -506,7 +506,7 @@ public partial class BreadcrumbBar : UserControl
         DirectoryDropdownList.ItemsSource = null;
         DirectoryDropdownList.SelectedIndex = -1;
         DirectoryDropdownList.IsVisible = false;
-        DirectoryDropdownStatus.Text = "正在加载…";
+        DirectoryDropdownStatus.Text = MacExplorer.Services.Impl.LocalizationText.Get("正在加载…");
         DirectoryDropdownStatus.IsVisible = true;
         DirectoryDropdownPopup.PlacementTarget = button;
         DirectoryDropdownPopup.OverlayInputPassThroughElement = BrowseModePanel;
@@ -527,7 +527,7 @@ public partial class BreadcrumbBar : UserControl
         catch (Exception)
         {
             if (!token.IsCancellationRequested)
-                DirectoryDropdownStatus.Text = "无法读取此目录";
+                DirectoryDropdownStatus.Text = MacExplorer.Services.Impl.LocalizationText.Get("无法读取此目录");
         }
     }
 
@@ -551,7 +551,7 @@ public partial class BreadcrumbBar : UserControl
         DirectoryDropdownList.ItemsSource = directories;
         DirectoryDropdownList.SelectedIndex = -1;
         DirectoryDropdownList.IsVisible = directories.Count > 0;
-        DirectoryDropdownStatus.Text = _directoryEntries.Count == 0 ? "没有子目录" : "没有匹配的目录";
+        DirectoryDropdownStatus.Text = _directoryEntries.Count == 0 ? MacExplorer.Services.Impl.LocalizationText.Get("没有子目录") : MacExplorer.Services.Impl.LocalizationText.Get("没有匹配的目录");
         DirectoryDropdownStatus.IsVisible = directories.Count == 0;
         if (directories.Count > 0)
             DirectoryDropdownList.ScrollIntoView(directories[0]);

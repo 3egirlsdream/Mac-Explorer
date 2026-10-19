@@ -15,17 +15,18 @@ public class BatchRenameService : IBatchRenameService
     private readonly IFileTagService? _fileTagService;
     private readonly ILogger<BatchRenameService>? _logger;
     private readonly IMetadataService? _metadata;
+    private readonly IRatingService? _ratings;
     private readonly ConcurrentDictionary<(string, DateTime), DateTime?> _photoDates = new();
     private readonly SemaphoreSlim _execution = new(1, 1);
 
     public BatchRenameService(IFileService fileService, IFileIndexWriter? fileIndexWriter = null,
         IAiTagService? aiTagService = null, IPinnedFolderService? pinnedFolderService = null,
         IDirectoryChangeNotifier? directoryChangeNotifier = null, IFileTagService? fileTagService = null,
-        ILogger<BatchRenameService>? logger = null, IMetadataService? metadata = null)
+        ILogger<BatchRenameService>? logger = null, IMetadataService? metadata = null, IRatingService? ratings = null)
     {
         _fileService = fileService; _fileIndexWriter = fileIndexWriter; _aiTagService = aiTagService;
         _pinnedFolderService = pinnedFolderService; _directoryChangeNotifier = directoryChangeNotifier;
-        _fileTagService = fileTagService; _logger = logger; _metadata = metadata;
+        _fileTagService = fileTagService; _logger = logger; _metadata = metadata; _ratings = ratings;
     }
 
     public List<BatchRenamePreviewItem> GeneratePreview(IReadOnlyList<FileSystemEntry> entries,
@@ -155,7 +156,7 @@ public class BatchRenameService : IBatchRenameService
         IProgress<BatchRenameProgress>? progress, CancellationToken token)
     {
         var result = new BatchRenameResult { TotalCount = items.Count };
-        var candidates = items.Where(i => i.IsIncluded && i.IsChanged && !i.HasError && !i.HasConflict).ToArray();
+        var candidates = items.Where(i => i.IsIncluded && i.IsChanged && !i.HasError && !i.HasConflict && FileTaskContext.Current?.IsDone("batch-rename:" + i.OriginalPath) != true).ToArray();
         result.SkippedCount = items.Count - candidates.Length;
         // Preflight the complete accepted plan before changing any path.
         foreach (var item in candidates)
@@ -195,6 +196,9 @@ public class BatchRenameService : IBatchRenameService
             // Dependency components limit temporary renames and cancellation latency.
             while (remaining.Count > 0 && !token.IsCancellationRequested)
             {
+                if (FileTaskContext.Current is { } context)
+                    try { await context.CheckpointAsync(); }
+                    catch (OperationCanceledException) { break; }
                 var component = new HashSet<BatchRenamePreviewItem>();
                 var queue = new Queue<BatchRenamePreviewItem>();
                 queue.Enqueue(remaining.First());
@@ -207,6 +211,7 @@ public class BatchRenameService : IBatchRenameService
                 remaining.ExceptWith(component);
                 var group = component.ToArray();
                 var locations = group.ToDictionary(i => i, i => i.OriginalPath);
+                using var atomic = FileTaskContext.Current?.Atomic();
                 try
                 {
                     if (group.Length > 1 || comparer.Equals(group[0].OriginalName, group[0].NewName))
@@ -225,7 +230,9 @@ public class BatchRenameService : IBatchRenameService
                     }
                     await SyncComponentAsync(group, locations, result.Warnings);
                     foreach (var item in group)
-                    { result.SuccessCount++; result.SuccessfulItems.Add(item); affected.Add(item.DirectoryPath); }
+                    { result.SuccessCount++; result.SuccessfulItems.Add(item); affected.Add(item.DirectoryPath);
+                        FileTaskContext.Current?.MarkDone("batch-rename:" + item.OriginalPath);
+                        FileTaskContext.Current?.ReportItem(item.OriginalPath, item.NewPath, FileTaskItemState.Completed); }
                 }
                 catch (Exception ex)
                 {
@@ -293,6 +300,7 @@ public class BatchRenameService : IBatchRenameService
             try { await action(); }
             catch (Exception ex) { warnings.Add($"{Path.GetFileName(newPath)}：文件已改名，信息同步失败：{ex.Message}"); }
         }
+        if (_ratings != null) await Sync(() => _ratings.TransferPathAsync(oldPath, newPath, true));
         if (_fileIndexWriter != null) await Sync(() => _fileIndexWriter.RenameEntryAsync(oldPath, newPath, Path.GetFileName(newPath)));
         if (_aiTagService != null) await Sync(() => _aiTagService.UpdateFilePathAsync(oldPath, newPath));
         if (_fileTagService != null) await Sync(() => _fileTagService.UpdatePathAsync(oldPath, newPath));

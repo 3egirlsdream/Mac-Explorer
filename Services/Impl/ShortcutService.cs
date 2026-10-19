@@ -41,7 +41,7 @@ internal sealed class ShortcutService : IShortcutService, IDisposable
         error = Validate(definition, binding);
         if (error != null) return false;
         var conflict = FindConflict(definition, new[] { binding });
-        if (conflict != null) { error = $"已被“{conflict.Name}”占用"; return false; }
+        if (conflict != null) { error = LocalizationText.Get("已被“{0}”占用", conflict.DisplayName); return false; }
         _overrides[id] = binding;
         Save();
         return true;
@@ -50,9 +50,9 @@ internal sealed class ShortcutService : IShortcutService, IDisposable
     public bool TryReset(string id, out string? error)
     {
         var definition = Definitions.First(d => d.Id == id);
-        if (!definition.IsEditable) { error = "此快捷键不可修改"; return false; }
+        if (!definition.IsEditable) { error = LocalizationText.Get("此快捷键不可修改"); return false; }
         var conflict = FindConflict(definition, definition.Defaults);
-        error = conflict == null ? null : $"默认组合已被“{conflict.Name}”占用";
+        error = conflict == null ? null : LocalizationText.Get("默认组合已被“{0}”占用", conflict.DisplayName);
         if (conflict != null) return false;
         _overrides.Remove(id);
         Save();
@@ -67,13 +67,13 @@ internal sealed class ShortcutService : IShortcutService, IDisposable
 
     private static string? Validate(ShortcutDefinition definition, ShortcutBinding binding)
     {
-        if (!definition.IsEditable) return "此快捷键不可修改";
-        if (!Enum.IsDefined(binding.Key) || binding.Key == Key.None || IsModifier(binding.Key)) return "请按下一个主键";
-        if (binding.Key == Key.Escape) return "Esc 用于取消录制";
-        if (!binding.Modifiers.HasFlag(KeyModifiers.Meta)) return "组合必须包含 Cmd";
+        if (!definition.IsEditable) return LocalizationText.Get("此快捷键不可修改");
+        if (!Enum.IsDefined(binding.Key) || binding.Key == Key.None || IsModifier(binding.Key)) return LocalizationText.Get("请按下一个主键");
+        if (binding.Key == Key.Escape) return LocalizationText.Get("Esc 用于取消录制");
+        if (!binding.Modifiers.HasFlag(KeyModifiers.Meta)) return LocalizationText.Get("组合必须包含 Cmd");
         if ((binding.Modifiers & ~(KeyModifiers.Meta | KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Shift)) != 0)
-            return "不支持此组合";
-        if (IsSystemReserved(binding)) return "此组合由 macOS 使用";
+            return LocalizationText.Get("不支持此组合");
+        if (IsSystemReserved(binding)) return LocalizationText.Get("此组合由 macOS 使用");
         return null;
     }
 

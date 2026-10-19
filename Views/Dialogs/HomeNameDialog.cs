@@ -14,18 +14,18 @@ internal sealed class HomeNameDialog : DialogWindow
         Height = 245;
         var panel = new StackPanel { Spacing = 16 };
         panel.Children.Add(new TextBlock { Text = title, FontSize = 20 });
-        var input = new TextBox { Text = initial, PlaceholderText = "标签名称", MaxLength = 80 };
+        var input = new TextBox { Text = initial, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("标签名称"), MaxLength = 80 };
         panel.Children.Add(input);
         var error = new TextBlock { Classes = { "home-secondary" } };
         panel.Children.Add(error);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8,
             HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = new Button { Content = "取消", Classes = { "secondary" } };
+        var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary" } };
         cancel.Click += (_, _) => Close();
-        var save = new Button { Content = "保存", Classes = { "primary" } };
+        var save = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("保存"), Classes = { "primary" } };
         save.Click += (_, _) =>
         {
-            if (string.IsNullOrWhiteSpace(input.Text)) { error.Text = "请输入标签名称。"; return; }
+            if (string.IsNullOrWhiteSpace(input.Text)) { error.Text = MacExplorer.Services.Impl.LocalizationText.Get("请输入标签名称。"); return; }
             Close(input.Text.Trim());
         };
         buttons.Children.Add(cancel); buttons.Children.Add(save); panel.Children.Add(buttons);

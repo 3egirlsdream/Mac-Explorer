@@ -127,12 +127,76 @@ public sealed class PdfAnalysisTests : IDisposable
         else _tasks.CancelTask(Assert.Single(_tasks.Tasks).Id);
         await running.WaitAsync(TimeSpan.FromSeconds(5), TestToken);
         Assert.False(await _tags.IsFileAnalyzedAsync(entry.FullPath, entry.LastModified.Ticks));
-        Assert.Equal(BackgroundTaskState.Cancelled, Assert.Single(_tasks.Tasks).State);
+        if (source == "task") Assert.Equal(BackgroundTaskState.Cancelled, Assert.Single(_tasks.Tasks).State);
+        else Assert.Empty(_tasks.Tasks);
         vm.IsAiAnalysisEnabled = false;
         vm.IsAiAnalysisEnabled = true;
         extractor.Extract = (_, _) => Task.FromResult(Texts("重试成功"));
         await vm.TriggerImageAnalysisAsync([entry], _root, TestToken);
         Assert.Single(await _tags.SearchByTagAsync("重试"));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task CopyRefreshReplacesImageAnalysisWithoutLeavingAUserCancelledTask()
+    {
+        var original = FileEntry("iis.png");
+        var copy = FileEntry("iis-copy.png");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        var images = new ImageAnalyzer(async (_, ct) =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                entered.SetResult();
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+            return new ImageAnalysisResult();
+        });
+        var vm = new AiViewModel(aiTagService: _tags, taskManager: _tasks, settingsService: _settings,
+            imageAnalysisService: images);
+        var first = vm.TriggerImageAnalysisAsync([original], _root, TestToken);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestToken);
+        var refreshed = vm.TriggerImageAnalysisAsync([original, copy], _root, TestToken);
+        await Task.WhenAll(first, refreshed).WaitAsync(TimeSpan.FromSeconds(5), TestToken);
+        Assert.Equal(BackgroundTaskState.Completed, Assert.Single(_tasks.Tasks).State);
+        Assert.True(await _tags.IsFileAnalyzedAsync(original.FullPath, original.LastModified.Ticks));
+        Assert.True(await _tags.IsFileAnalyzedAsync(copy.FullPath, copy.LastModified.Ticks));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task UserCancellingImageAnalysisKeepsTheCancelledTask()
+    {
+        var entry = FileEntry("user-cancel.png");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var images = new ImageAnalyzer(async (_, ct) =>
+        {
+            entered.SetResult(); await Task.Delay(Timeout.Infinite, ct); return new ImageAnalysisResult();
+        });
+        var vm = new AiViewModel(aiTagService: _tags, taskManager: _tasks, settingsService: _settings,
+            imageAnalysisService: images);
+        var running = vm.TriggerImageAnalysisAsync([entry], _root, TestToken);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestToken);
+        _tasks.CancelTask(Assert.Single(_tasks.Tasks).Id);
+        await running.WaitAsync(TimeSpan.FromSeconds(5), TestToken);
+        Assert.Equal(BackgroundTaskState.Cancelled, Assert.Single(_tasks.Tasks).State);
+        Assert.False(await _tags.IsFileAnalyzedAsync(entry.FullPath, entry.LastModified.Ticks));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task ImageHelperTimeoutIsAFailureRatherThanUserCancellation()
+    {
+        var entry = FileEntry("timeout.png");
+        var images = new ImageAnalyzer((_, _) => throw new TaskCanceledException("helper timed out"));
+        var vm = new AiViewModel(aiTagService: _tags, taskManager: _tasks, settingsService: _settings,
+            imageAnalysisService: images);
+        await vm.TriggerImageAnalysisAsync([entry], _root, TestToken);
+        var task = Assert.Single(_tasks.Tasks);
+        Assert.Equal(BackgroundTaskState.Failed, task.State);
+        Assert.Contains("helper timed out", task.ErrorDetail);
+        Assert.False(await _tags.IsFileAnalyzedAsync(entry.FullPath, entry.LastModified.Ticks));
     }
 
     [Fact]
@@ -235,6 +299,11 @@ public sealed class PdfAnalysisTests : IDisposable
     private FileSystemEntry FileEntry(string name) { var path = Path.Combine(_root, name); File.WriteAllText(path, "fixture"); return Entry(path); }
     private static FileSystemEntry Entry(string path) => new() { FullPath = path, Name = Path.GetFileName(path), Extension = Path.GetExtension(path), LastModified = File.GetLastWriteTime(path) };
     private static IReadOnlyList<RecognizedText> Texts(params string[] values) => values.Select(t => new RecognizedText { Text = t, Confidence = 1 }).ToList();
+    private sealed class ImageAnalyzer(Func<string, CancellationToken, Task<ImageAnalysisResult>> analyze) : IImageAnalysisService
+    {
+        public Task<ImageAnalysisResult> AnalyzeImageAsync(string path, CancellationToken ct = default) => analyze(path, ct);
+        public float ComputeFaceDistance(byte[] first, byte[] second) => 0;
+    }
     private sealed class Extractor(Func<string, CancellationToken, Task<IReadOnlyList<RecognizedText>>> extract) : IPdfTextExtractionService
     {
         public int Calls;

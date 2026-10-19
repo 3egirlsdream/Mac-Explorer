@@ -33,6 +33,14 @@ internal static class MacSandboxNative
         return (scope, Take(path), Take(refreshed), stale);
     }
     internal static void CloseBookmark(IntPtr scope) => me_bookmark_close(scope);
+    internal static string? FileIdentity(string path) => Take(me_file_identity(path));
+    internal static string? TrashWithResult(string path)
+    {
+        var error = Take(me_trash_result(path, out var result));
+        var destination = Take(result);
+        if (error != null) throw new IOException(error);
+        return destination;
+    }
     internal static void Trash(string path)
     {
         var error = Take(me_trash(path));
@@ -66,6 +74,8 @@ internal static class MacSandboxNative
     [DllImport(Library)] private static extern IntPtr me_bookmark_create([MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.I1)] bool explicitScope);
     [DllImport(Library)] private static extern IntPtr me_bookmark_open([MarshalAs(UnmanagedType.LPUTF8Str)] string bookmark, out IntPtr path, out IntPtr refreshed, [MarshalAs(UnmanagedType.I1)] out bool stale);
     [DllImport(Library)] private static extern void me_bookmark_close(IntPtr scope);
+    [DllImport(Library)] private static extern IntPtr me_file_identity([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    [DllImport(Library)] private static extern IntPtr me_trash_result([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out IntPtr result);
     [DllImport(Library)] private static extern IntPtr me_trash([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern void me_string_free(IntPtr pointer);
 }

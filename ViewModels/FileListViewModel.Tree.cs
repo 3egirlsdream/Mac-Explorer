@@ -107,7 +107,7 @@ public partial class FileListViewModel
             branch.RawEntries = snapshot.RawEntries;
             branch.Entries = snapshot.Entries;
             branch.IsLoading = false;
-            if (StatusText.StartsWith("无法展开文件夹:", StringComparison.Ordinal)) StatusText = string.Empty;
+            if (StatusText.StartsWith(Services.Impl.LocalizationText.Get("无法展开文件夹:"), StringComparison.Ordinal)) StatusText = string.Empty;
             if (publishRows) RebuildTreeRows(restoreSelection: true);
         }
         catch (OperationCanceledException) { }
@@ -118,7 +118,7 @@ public partial class FileListViewModel
             {
                 branch.IsLoading = false;
                 branch.HasError = true;
-                StatusText = $"无法展开文件夹: {ex.Message}";
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法展开文件夹: {0}", ex.Message);
                 if (publishRows) RebuildTreeRows();
             }
         }

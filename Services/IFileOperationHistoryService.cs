@@ -7,6 +7,12 @@ namespace MacExplorer.Services;
 /// </summary>
 public interface IFileOperationHistoryService
 {
+    IReadOnlyList<FileOperationRecord> Records => [];
+    event Action? HistoryChanged { add { } remove { } }
+    Task<UndoOperationResult> UndoAsync(Guid id) => Task.FromResult(new UndoOperationResult(false, "", []));
+    void ClearHistory() { }
+    Task RecordCreatedAsync(string path, bool isCopy = false) => Task.CompletedTask;
+    Task RecordIrreversibleAsync(string path, string reason) => Task.CompletedTask;
     /// <summary>Record a rename operation for potential undo.</summary>
     Task RecordRenameAsync(string oldPath, string newPath);
 
@@ -36,12 +42,23 @@ public enum FileOperationKind
     Rename,
     MoveToTrash,
     Move,
-    BatchRename
+    BatchRename,
+    Copy,
+    Create,
+    Irreversible
 }
 
 /// <summary>Represents a recorded file operation that can be undone.</summary>
 public class FileOperationRecord
 {
+    public string? TaskId { get; set; }
+    public string? UnavailableReason { get; set; }
+    public bool IsUndone { get; set; }
+    public bool CanUndo => !IsUndone && UnavailableReason == null;
+    public bool HasUndoableItems => CanUndo || Children.Any(r => r.HasUndoableItems);
+    public List<FileOperationRecord> Children { get; set; } = [];
+    internal Dictionary<string, FileIdentitySnapshot?> RenameSnapshots { get; } = [];
+    internal FileIdentitySnapshot? Snapshot { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public List<BatchRenamePreviewItem> RenameItems { get; set; } = [];
     public FileOperationKind Kind { get; set; }
@@ -49,3 +66,5 @@ public class FileOperationRecord
     public string CurrentPath { get; set; } = "";
     public DateTime Timestamp { get; set; } = DateTime.Now;
 }
+
+public sealed record UndoOperationResult(bool Success, string Message, IReadOnlyList<string> Warnings);

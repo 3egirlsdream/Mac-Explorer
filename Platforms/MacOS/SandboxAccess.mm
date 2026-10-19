@@ -202,6 +202,21 @@ char *me_trash(const char *path) {
         return MEString(error.localizedDescription ?: @"无法移入废纸篓。");
     }
 }
+char *me_trash_result(const char *path, char **result) {
+    @autoreleasepool {
+        NSError *error = nil; NSURL *destination = nil;
+        if ([[NSFileManager defaultManager] trashItemAtURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:path]]
+            resultingItemURL:&destination error:&error]) { *result = MEString(destination.path); return nullptr; }
+        *result = nullptr;
+        return MEString(error.localizedDescription ?: @"无法移入废纸篓。");
+    }
+}
+char *me_file_identity(const char *path) {
+    struct stat status;
+    if (lstat(path, &status) != 0) return nullptr;
+    return MEString([NSString stringWithFormat:@"%llu:%llu:%lld:%ld", (unsigned long long)status.st_dev,
+        (unsigned long long)status.st_ino, (long long)status.st_birthtimespec.tv_sec, status.st_birthtimespec.tv_nsec]);
+}
 bool me_eject_volume(const char *path) {
     @autoreleasepool {
         NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];

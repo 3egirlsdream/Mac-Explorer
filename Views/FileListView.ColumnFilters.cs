@@ -66,10 +66,7 @@ public partial class FileListView
         _filterAnchor = anchor;
         ColumnFilterTitle.Text = field switch
         {
-            SortField.Name => "名称 · 首字母范围",
-            SortField.Modified => "修改日期 · 日期分组",
-            SortField.Size => "大小 · 大小范围",
-            _ => "类型 · 文件后缀"
+            SortField.Name => MacExplorer.Services.Impl.LocalizationText.Get("名称 · 首字母范围"),SortField.Modified => MacExplorer.Services.Impl.LocalizationText.Get("修改日期 · 日期分组"),SortField.Size => MacExplorer.Services.Impl.LocalizationText.Get("大小 · 大小范围"),_ => MacExplorer.Services.Impl.LocalizationText.Get("类型 · 文件后缀")
         };
         RefreshColumnFilterOptions(rebuild: true);
         ColumnFilterPopup.PlacementTarget = anchor;
@@ -111,9 +108,9 @@ public partial class FileListView
                 var check = checks[index];
                 check.IsChecked = option.IsSelected;
                 ((TextBlock)((Grid)check.Content!).Children[1]).Text = option.Count.ToString("N0");
-                AutomationProperties.SetName(check, $"{option.Label}，{option.Count} 项");
+                AutomationProperties.SetName(check, MacExplorer.Services.Impl.LocalizationText.Get("{0}，{1} 项", option.Label, option.Count));
             }
-            ColumnFilterResult.Text = $"显示 {ViewModel.Entries.Count:N0} 项";
+            ColumnFilterResult.Text = MacExplorer.Services.Impl.LocalizationText.Get("显示 {0:N0} 项", ViewModel.Entries.Count);
         }
         finally { _updatingFilterOptions = false; }
     }

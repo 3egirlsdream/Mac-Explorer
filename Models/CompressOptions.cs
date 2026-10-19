@@ -9,6 +9,8 @@ public class CompressOptions
     public ArchiveFormat Format { get; set; } = ArchiveFormat.Zip;
     public CompressionLevel Level { get; set; } = CompressionLevel.Standard;
     public string ArchiveName { get; set; } = string.Empty;
+    public string OutputFileName => ArchiveName + (Format switch
+    { ArchiveFormat.TarGz => ".tar.gz", ArchiveFormat.TarBz2 => ".tar.bz2", _ => ".zip" });
     public string OutputDirectory { get; set; } = string.Empty;
     public IReadOnlyList<string> SourcePaths { get; set; } = [];
     public FileTag? Tag { get; set; }

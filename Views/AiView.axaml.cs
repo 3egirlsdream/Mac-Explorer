@@ -11,10 +11,22 @@ public partial class AiView : UserControl
 {
     private FileListViewModel? _subscribedViewModel;
     private bool _hasSearched;
+    private Services.ILocalizationService? _language;
 
     public AiView()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) =>
+        {
+            _language = Services.Impl.LocalizationService.Current;
+            if (_language != null) _language.LanguageChanged += RefreshLanguage;
+            RefreshLanguage();
+        };
+        DetachedFromVisualTree += (_, _) =>
+        {
+            if (_language != null) _language.LanguageChanged -= RefreshLanguage;
+            _language = null;
+        };
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
@@ -34,6 +46,12 @@ public partial class AiView : UserControl
             _subscribedViewModel.TextTokens.CollectionChanged += OnTextTokensChanged;
             _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
+        UpdateTextTokens();
+        UpdateState();
+    }
+
+    private void RefreshLanguage()
+    {
         UpdateTextTokens();
         UpdateState();
     }
@@ -77,7 +95,7 @@ public partial class AiView : UserControl
                 Margin = new global::Avalonia.Thickness(0, 0, 6, 6),
                 Tag = token.TagValue
             };
-            var description = $"{token.TagValue}，{token.FileCount} 个文件";
+            var description = Services.Impl.LocalizationText.Get("{0}，{1} 个文件", token.TagValue, token.FileCount);
             AutomationProperties.SetName(button, description);
             ToolTip.SetTip(button, description);
             button.Click += async (_, _) =>
@@ -100,16 +118,16 @@ public partial class AiView : UserControl
         if (_hasSearched && ViewModel?.Entries.Count == 0)
         {
             EmptyState.IsVisible = true;
-            EmptyTitle.Text = "未找到匹配结果";
-            EmptyHint.Text = "试试其他关键词";
+            EmptyTitle.Text = MacExplorer.Services.Impl.LocalizationText.Get("未找到匹配结果");
+            EmptyHint.Text = MacExplorer.Services.Impl.LocalizationText.Get("试试其他关键词");
         }
         else
         {
             EmptyState.IsVisible = ViewModel?.TextTokens.Count == 0;
-            EmptyTitle.Text = "还没有可搜索的识别内容";
+            EmptyTitle.Text = MacExplorer.Services.Impl.LocalizationText.Get("还没有可搜索的识别内容");
             EmptyHint.Text = ViewModel?.IsAiAnalysisEnabled == true
-                ? "浏览包含图片与 PDF 的文件夹，完成识别后可在这里搜索文字"
-                : "AI 智能分析已关闭，可在设置中开启后浏览包含图片与 PDF 的文件夹";
+                ? MacExplorer.Services.Impl.LocalizationText.Get("浏览包含图片与 PDF 的文件夹，完成识别后可在这里搜索文字")
+                : MacExplorer.Services.Impl.LocalizationText.Get("AI 智能分析已关闭，可在设置中开启后浏览包含图片与 PDF 的文件夹");
         }
     }
 

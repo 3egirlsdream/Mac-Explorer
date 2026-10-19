@@ -24,11 +24,18 @@ public sealed class LocalizationRegressionTests
     [InlineData("en-GB", AppLanguage.English)]
     [InlineData("en-US", AppLanguage.English)]
     [InlineData("zh-Hans-CN", AppLanguage.ChineseSimplified)]
-    [InlineData("zh-Hant", AppLanguage.ChineseSimplified)]
-    [InlineData("fr-FR", AppLanguage.ChineseSimplified)]
+    [InlineData("zh-Hant", "zh-Hant")]
+    [InlineData("zh-TW", "zh-Hant")]
+    [InlineData("zh-HK", "zh-Hant")]
+    [InlineData("zh-MO", "zh-Hant")]
+    [InlineData("zh-Hant-HK", "zh-Hant")]
+    [InlineData("fr-FR", "fr")]
+    [InlineData("fr-CA", "fr")]
+    [InlineData("fr-BE", "fr")]
+    [InlineData("zz-ZZ", AppLanguage.ChineseSimplified)]
     [InlineData(null, AppLanguage.ChineseSimplified)]
     [Trait("Kind", "Unit")]
-    public void SystemPreferenceMappingUsesTheSupportedLanguages(string? preferred, AppLanguage expected)
+    public void SystemPreferenceMappingUsesTheSupportedLanguages(string? preferred, string expected)
         => Assert.Equal(expected, LocalizationService.MapSystemLanguage(preferred));
 
     [Fact]
@@ -46,7 +53,7 @@ public sealed class LocalizationRegressionTests
         using var reopened = new LocalizationService(settings, () => AppLanguage.English);
         Assert.Equal(AppLanguage.ChineseSimplified, reopened.Language);
         Assert.Equal("zh-CN", reopened.Culture.Name);
-        Assert.Throws<ArgumentOutOfRangeException>(() => reopened.SetLanguage((AppLanguage)99));
+        Assert.Throws<ArgumentOutOfRangeException>(() => reopened.SetLanguage("unsupported-language"));
         Assert.Equal("unknown.key", reopened["unknown.key"]);
     }
 
@@ -79,6 +86,17 @@ public sealed class LocalizationRegressionTests
         Assert.Equal("zh-CN", I18nManager.Instance.Culture.Name);
         first.Close();
         second.Close();
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData("fr", "Copier")]
+    [InlineData("zh-Hant", "複製")]
+    [Trait("Kind", "UI")]
+    public void MarkdownRendererUsesTheSelectedNewLanguage(string code, string expectedCopy)
+    {
+        using var service = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        service.SetLanguage(code);
+        Assert.Equal(expectedCopy, I18nManager.Instance.GetResource("CodeWF.MarkdownL.Copy"));
     }
 
     [Fact]
@@ -124,11 +142,16 @@ public sealed class LocalizationRegressionTests
     [Trait("Kind", "Unit")]
     public void EveryResourceHasMatchingPlaceholderIndicesAndValidCompositeFormat()
     {
-        Assert.Equal(LocalizationCatalog.Zh.Keys.Order(), LocalizationCatalog.En.Keys.Order());
-        foreach (var key in LocalizationCatalog.Zh.Keys)
-            VerifyFormats(LocalizationCatalog.Zh[key], LocalizationCatalog.En[key]);
-        foreach (var entry in LocalizationCatalog.Ui.Values)
-            VerifyFormats(entry.Chinese, entry.English);
+        var chinese = LocalizationCatalog.GetPack(AppLanguage.ChineseSimplified).Strings;
+        var english = LocalizationCatalog.GetPack(AppLanguage.English).Strings;
+        Assert.Equal(chinese.Keys.Order(), english.Keys.Order());
+        foreach (var option in LocalizationCatalog.Languages)
+        {
+            var pack = LocalizationCatalog.GetPack(option.Id);
+            Assert.Equal(pack.CultureName, pack.Culture.Name);
+            foreach (var entry in pack.Strings)
+                VerifyFormats(chinese[entry.Key], entry.Value);
+        }
     }
 
     private static void VerifyFormats(string chinese, string english)
@@ -181,9 +204,27 @@ public sealed class LocalizationRegressionTests
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact(Explicit = true)]
+    [Theory]
+    [InlineData("fr-FR", "Sélectionnez au moins un fichier local.", "Le document Word ne contient pas de corps.")]
+    [InlineData("zh-Hant", "請至少選擇一個本地檔案。", "Word 文件缺少正文。")]
+    [Trait("Kind", "Unit")]
+    public async Task NewConversionLanguagesKeepInvocationCultureAndRestoreTheCaller(string culture, string expectedError, string expectedWarning)
+    {
+        var previous = CultureInfo.CurrentUICulture;
+        var invocation = new PluginInvocation("language", "to-docx", [], "/tmp") { Culture = culture };
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => new ConversionPlugin().PrepareAsync(invocation, TestContext.Current.CancellationToken));
+        Assert.Equal(expectedError, error.Message);
+        using (MacExplorer.Services.Impl.ConversionLocalization.Use(culture))
+            Assert.Equal(expectedWarning, MacExplorer.Services.Impl.ConversionLocalization.Get("Word 文档缺少正文。"));
+        Assert.Equal(previous, CultureInfo.CurrentUICulture);
+    }
+
+    [Theory(Explicit = true)]
+    [InlineData("en-US", "Unable to read the image file", "Unable to decode the WebP image")]
+    [InlineData("fr-FR", "Impossible de lire le fichier image", "Impossible de décoder l’image WebP")]
+    [InlineData("zh-Hant", "無法讀取圖像檔案", "無法解碼 WebP 圖像")]
     [Trait("Kind", "Integration")]
-    public async Task NativeConversionErrorsUseInvocationLanguage()
+    public async Task NativeConversionErrorsUseInvocationLanguage(string culture, string readError, string decodeError)
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-native-language-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -191,9 +232,9 @@ public sealed class LocalizationRegressionTests
         {
             var source = Path.Combine(root, "corrupt.webp");
             await File.WriteAllBytesAsync(source, [0, 1, 2]);
-            var invocation = new PluginInvocation("en", "to-png", [new(source)], root) { Culture = "en-US" };
+            var invocation = new PluginInvocation("en", "to-png", [new(source)], root) { Culture = culture };
             var error = await Assert.ThrowsAsync<IOException>(() => new ConversionPlugin().PrepareAsync(invocation, TestContext.Current.CancellationToken));
-            Assert.Contains(error.Message, new[] { "Unable to read the image file", "Unable to decode the WebP image" });
+            Assert.Contains(error.Message, new[] { readError, decodeError });
         }
         finally { Directory.Delete(root, true); }
     }

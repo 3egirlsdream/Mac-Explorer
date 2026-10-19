@@ -121,9 +121,9 @@ public partial class MainWindow
         CopilotHistoryPane.IsVisible = !CopilotHistoryPane.IsVisible;
         CopilotPanel.Width = CopilotHistoryPane.IsVisible ? 664 : 440;
         AutomationProperties.SetName(CopilotHistoryToggle,
-            CopilotHistoryPane.IsVisible ? "收起历史会话" : "展开历史会话");
+            CopilotHistoryPane.IsVisible ? MacExplorer.Services.Impl.LocalizationText.Get("收起历史会话") : MacExplorer.Services.Impl.LocalizationText.Get("展开历史会话"));
         ToolTip.SetTip(CopilotHistoryToggle,
-            CopilotHistoryPane.IsVisible ? "收起历史会话" : "历史会话");
+            CopilotHistoryPane.IsVisible ? MacExplorer.Services.Impl.LocalizationText.Get("收起历史会话") : MacExplorer.Services.Impl.LocalizationText.Get("历史会话"));
         if (CopilotHistoryPane.IsVisible) RefreshCopilotHistory();
     }
 
@@ -159,7 +159,7 @@ public partial class MainWindow
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch
             };
-            AutomationProperties.SetName(title, $"切换到会话：{session.Title}");
+            AutomationProperties.SetName(title, MacExplorer.Services.Impl.LocalizationText.Get("切换到会话：{0}", session.Title));
             ToolTip.SetTip(title, session.Title);
             title.Click += (_, _) =>
             {
@@ -186,8 +186,8 @@ public partial class MainWindow
                 Content = new PathIcon { Data = Geometry.Parse(Icons.MoreHorizontal), Width = 14, Height = 14 },
                 Classes = { "ghost", "compact", "copilot-history-more" }
             };
-            AutomationProperties.SetName(more, $"{session.Title} 的更多操作");
-            ToolTip.SetTip(more, "更多操作");
+            AutomationProperties.SetName(more, MacExplorer.Services.Impl.LocalizationText.Get("{0} 的更多操作", session.Title));
+            ToolTip.SetTip(more, MacExplorer.Services.Impl.LocalizationText.Get("更多操作"));
             Grid.SetColumn(more, 1);
             var delete = new Button
             {
@@ -198,13 +198,13 @@ public partial class MainWindow
                     Children =
                     {
                         new PathIcon { Data = Geometry.Parse(Icons.Delete), Width = 14, Height = 14 },
-                        new TextBlock { Text = "删除会话", VerticalAlignment = VerticalAlignment.Center }
+                        new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("删除会话"), VerticalAlignment = VerticalAlignment.Center }
                     }
                 },
                 Classes = { "ghost", "compact" },
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            AutomationProperties.SetName(delete, $"删除会话：{session.Title}");
+            AutomationProperties.SetName(delete, MacExplorer.Services.Impl.LocalizationText.Get("删除会话：{0}", session.Title));
             var popup = new Popup
             {
                 Placement = PlacementMode.BottomEdgeAlignedRight,
@@ -387,8 +387,8 @@ public partial class MainWindow
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Top
             };
-            AutomationProperties.SetName(remove, $"移除附件：{name}");
-            ToolTip.SetTip(remove, $"移除附件：{name}");
+            AutomationProperties.SetName(remove, MacExplorer.Services.Impl.LocalizationText.Get("移除附件：{0}", name));
+            ToolTip.SetTip(remove, MacExplorer.Services.Impl.LocalizationText.Get("移除附件：{0}", name));
             remove.Click += (_, _) =>
             {
                 _copilotAttachments.RemoveAll(item => item.Path == attachment.Path);
@@ -396,7 +396,7 @@ public partial class MainWindow
             };
             layout.Children.Add(remove);
         }
-        AutomationProperties.SetName(layout, $"{(attachment.IsDirectory ? "文件夹" : "文件")}附件：{name}");
+        AutomationProperties.SetName(layout, MacExplorer.Services.Impl.LocalizationText.Get("{0}附件：{1}", (attachment.IsDirectory ? MacExplorer.Services.Impl.LocalizationText.Get("文件夹") : MacExplorer.Services.Impl.LocalizationText.Get("文件")), name));
         ToolTip.SetTip(layout, attachment.Path);
         return layout;
     }
@@ -412,7 +412,7 @@ public partial class MainWindow
         };
         foreach (var attachment in attachments)
             items.Children.Add(CreateCopilotAttachmentChip(attachment, removable: false));
-        AutomationProperties.SetName(items, $"本轮附件，共 {attachments.Count} 项");
+        AutomationProperties.SetName(items, MacExplorer.Services.Impl.LocalizationText.Get("本轮附件，共 {0} 项", attachments.Count));
         CopilotTranscript.Children.Add(items);
         ScrollCopilotToEndWhenIdle();
     }
@@ -502,7 +502,7 @@ public partial class MainWindow
         CopilotSendButton.IsEnabled = false;
         CopilotStopButton.IsVisible = true;
         CopilotStopButton.IsEnabled = allowStop;
-        ToolTip.SetTip(CopilotStopButton, allowStop ? "停止生成" : "已确认的文件操作将完成并返回实际结果");
+        ToolTip.SetTip(CopilotStopButton, allowStop ? MacExplorer.Services.Impl.LocalizationText.Get("停止生成") : MacExplorer.Services.Impl.LocalizationText.Get("已确认的文件操作将完成并返回实际结果"));
         var trace = new CopilotRunTrace();
         var traceGate = new object();
         var rendered = new Dictionary<CopilotTraceStep, CopilotStepView>();
@@ -618,8 +618,8 @@ public partial class MainWindow
             ? $"\n发送至：{Copilot.PendingRecipient}"
             : string.Empty;
         CopilotApprovalText.Text = plan == null
-            ? "Copilot 请求执行未识别的操作。请拒绝并重新预览。"
-            : $"{plan.Summary}\n影响：{string.Join("、", plan.AffectedPaths)}{destination}\n{plan.Capability.Confirmation}";
+            ? MacExplorer.Services.Impl.LocalizationText.Get("Copilot 请求执行未识别的操作。请拒绝并重新预览。")
+            : MacExplorer.Services.Impl.LocalizationText.Get("{0}\n影响：{1}{2}\n{3}", plan.Summary, string.Join("、", plan.AffectedPaths), destination, plan.Capability.Confirmation);
         CopilotApproveButton.IsEnabled = plan != null;
         var highRisk = plan?.Capability.Impact is CapabilityImpact.Destructive
             or CapabilityImpact.RunScript or CapabilityImpact.InstallSoftware;
@@ -627,11 +627,7 @@ public partial class MainWindow
         CopilotApproveButton.Classes.Set("danger", highRisk);
         CopilotApproveButton.Content = plan?.Capability.Impact switch
         {
-            CapabilityImpact.DiscloseContent => "允许发送",
-            CapabilityImpact.Destructive => "确认删除",
-            CapabilityImpact.RunScript => "确认运行脚本",
-            CapabilityImpact.InstallSoftware => "确认安装",
-            _ => "确认执行"
+            CapabilityImpact.DiscloseContent => MacExplorer.Services.Impl.LocalizationText.Get("允许发送"),CapabilityImpact.Destructive => MacExplorer.Services.Impl.LocalizationText.Get("确认删除"),CapabilityImpact.RunScript => MacExplorer.Services.Impl.LocalizationText.Get("确认运行脚本"),CapabilityImpact.InstallSoftware => MacExplorer.Services.Impl.LocalizationText.Get("确认安装"),_ => MacExplorer.Services.Impl.LocalizationText.Get("确认执行")
         };
     }
 
@@ -724,7 +720,7 @@ public partial class MainWindow
         var content = new StackPanel { Spacing = 7 };
         content.Children.Add(new TextBlock
         {
-            Text = approved ? "已确认操作" : "已拒绝操作",
+            Text = approved ? MacExplorer.Services.Impl.LocalizationText.Get("已确认操作") : MacExplorer.Services.Impl.LocalizationText.Get("已拒绝操作"),
             Classes = { "copilot-approval-title" }
         });
         content.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap });

@@ -96,6 +96,7 @@ public partial class App : Application
                 if (stoppingPlugins) return;
                 stoppingPlugins = true;
                 _startupUpdateCancellation.Cancel();
+                await Services.GetRequiredService<IBackgroundTaskManager>().ShutdownAsync();
                 try
                 {
                     try { await ((IAsyncDisposable)Services.GetRequiredService<ILocalSendService>()).DisposeAsync(); }
@@ -352,7 +353,8 @@ public partial class App : Application
         services.AddSingleton<IFileService>(sp => new CompositeFileService(
             sp.GetRequiredService<Platforms.MacCatalyst.Services.MacFileService>(),
             sp.GetRequiredService<IRemoteFileService>(),
-            sp.GetService<IBackgroundTaskManager>()));
+            sp.GetService<IBackgroundTaskManager>(), sp.GetRequiredService<IRemoteConnectionService>(),
+            () => sp.GetRequiredService<IFileOperationHistoryService>(), sp.GetRequiredService<IRatingService>()));
         services.AddSingleton<IApplicationLauncherService, Platforms.MacCatalyst.Services.MacApplicationLauncherService>();
         services.AddSingleton<IContextMenuService, Platforms.MacCatalyst.Services.MacContextMenuService>();
         services.AddSingleton<IOpenWithAppService>(sp => new OpenWithAppService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILogger<OpenWithAppService>>()));
@@ -399,7 +401,7 @@ public partial class App : Application
         services.AddSingleton<IGitStatusService>(sp => new Services.Impl.GitStatusService(sp.GetService<ILoggerFactory>()));
         services.AddSingleton<IPinnedFolderService>(sp => new Services.Impl.PinnedFolderService(sp.GetRequiredService<DatabaseConnectionFactory>()));
         services.AddSingleton<IArchiveService, Services.Impl.ArchiveService>();
-        services.AddSingleton<IBackgroundTaskManager>(sp => new Services.Impl.BackgroundTaskManager(sp.GetService<ILoggerFactory>()));
+        services.AddSingleton<IBackgroundTaskManager>(sp => new Services.Impl.BackgroundTaskManager(sp.GetService<ILoggerFactory>(), sp.GetRequiredService<ISettingsService>()));
         services.AddSingleton<IBatchRenameService>(sp => new Services.Impl.BatchRenameService(
             sp.GetRequiredService<IFileService>(),
             sp.GetService<IFileIndexWriter>(),
@@ -407,12 +409,14 @@ public partial class App : Application
             sp.GetService<IPinnedFolderService>(),
             sp.GetService<IDirectoryChangeNotifier>(),
             sp.GetService<IFileTagService>(),
-            sp.GetService<ILogger<Services.Impl.BatchRenameService>>(), sp.GetService<IMetadataService>()));
+            sp.GetService<ILogger<Services.Impl.BatchRenameService>>(), sp.GetService<IMetadataService>(), sp.GetRequiredService<IRatingService>()));
         services.AddSingleton<IFileOperationHistoryService>(sp => new Services.Impl.FileOperationHistoryService(
             sp.GetRequiredService<IFileService>(),
             sp.GetService<IDirectoryChangeNotifier>(),
             sp.GetService<IFileTagService>(),
-            sp.GetService<ILogger<Services.Impl.FileOperationHistoryService>>(), sp.GetRequiredService<IBatchRenameService>()));
+            sp.GetService<ILogger<Services.Impl.FileOperationHistoryService>>(), sp.GetRequiredService<IBatchRenameService>(), sp.GetRequiredService<IBackgroundTaskManager>(),
+            sp.GetService<IAiTagService>(), sp.GetService<IPinnedFolderService>(), sp.GetRequiredService<IRatingService>(),
+            sp.GetService<IFileIndexWriter>()));
         services.AddSingleton<BatchRenameOperationService>();
         services.AddSingleton<NavigationBridge>();
         services.AddSingleton<IAiTagService>(sp => new Services.Impl.AiTagService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILoggerFactory>()));

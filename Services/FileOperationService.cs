@@ -33,7 +33,15 @@ public sealed class FileOperationService(
         }
     }
 
-    public async Task<FileOperationResult> CopyDetailedAsync(
+    public Task<FileOperationResult> CopyDetailedAsync(IReadOnlyList<string> sourcePaths, string destinationDirectory)
+    {
+        var paths = sourcePaths.ToArray();
+        return FileTaskContext.RunAsync(tasks, new(BackgroundTaskKind.Copy,
+            Services.Impl.LocalizationText.Get("复制 {0} 项", paths.Length), paths, destinationDirectory),
+            _ => CopyCoreAsync(paths, destinationDirectory));
+    }
+
+    private async Task<FileOperationResult> CopyCoreAsync(
         IReadOnlyList<string> sourcePaths, string destinationDirectory)
     {
         Subscriptions.SubscriptionAccess.RequireAccess();
@@ -59,10 +67,15 @@ public sealed class FileOperationService(
                     var skipped = skippedCount + itemSkipped;
                     tasks!.UpdateProgress(task.Id,
                         (itemIndex * 100d + value.Percentage) / sourcePaths.Count, value.CurrentFile,
-                        skipped == 0 ? null : $"粘贴：复制 {sourcePaths.Count} 项（已跳过 {skipped} 个运行时通信文件）");
+                        skipped == 0 ? null : Impl.LocalizationText.Get("复制 {0} 项（已跳过 {1} 个运行时通信文件）", sourcePaths.Count, skipped));
                 });
-                var destination = await files.CopyWithProgressAsync(sourcePaths[index],
-                    destinationDirectory, progress, token);
+                var sourcePath = sourcePaths[index];
+                var context = FileTaskContext.Current!;
+                var destination = await context.StepAsync("copy-item:" + sourcePath, () => files.CopyWithProgressAsync(sourcePath,
+                    destinationDirectory, progress, token));
+                if (history != null) await context.StepAsync("copy-history:" + sourcePath, async () =>
+                { await history.RecordCreatedAsync(destination, true); return true; });
+                context.ReportItem(sourcePath, destination, FileTaskItemState.Completed);
                 outputs.Add(destination);
                 skippedCount += itemSkipped;
                 if (tags != null && !VirtualPath.IsRemotePath(destinationDirectory))
@@ -89,11 +102,18 @@ public sealed class FileOperationService(
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            await RecordPartialCopiesAsync(sourcePaths, outputs);
             if (task != null) tasks!.CancelTask(task.Id);
             throw new OperationCanceledException($"复制已取消；已完成：{string.Join("、", outputs)}", token);
         }
         catch (Exception ex)
         {
+            await RecordPartialCopiesAsync(sourcePaths, outputs);
+            if (FileTaskContext.Current is { } context)
+                foreach (var pending in sourcePaths.Skip(outputs.Count))
+                    context.ReportItem(pending, context.Results.FirstOrDefault(i => i.Source == pending)?.Destination,
+                        pending == sourcePaths[outputs.Count] ? FileTaskItemState.Failed : FileTaskItemState.NotAttempted,
+                        pending == sourcePaths[outputs.Count] ? ex.Message : null);
             if (task != null)
                 tasks!.FailTask(task.Id,
                     ex is AggregateException aggregate ? $"复制未完整完成，{aggregate.InnerExceptions.Count} 项失败" : ex.Message,
@@ -106,12 +126,33 @@ public sealed class FileOperationService(
         finally { changes?.NotifyChanged([destinationDirectory], null); }
     }
 
+    private async Task RecordPartialCopiesAsync(IReadOnlyList<string> sources, IReadOnlyList<string> completed)
+    {
+        if (history == null || FileTaskContext.Current is not { } context) return;
+        foreach (var source in sources)
+        {
+            var result = context.Results.FirstOrDefault(i => i.Source == source && i.Destination != null);
+            if (result?.Destination is not { } output || completed.Contains(output) || VirtualPath.IsRemotePath(output)) continue;
+            try { await history.RecordCreatedAsync(output, true); }
+            catch (Exception ex) { context.Warnings.Add(ex.Message); }
+        }
+    }
+
     private sealed class FileProgress(Action<FileOperationProgress> report) : IProgress<FileOperationProgress>
     {
         public void Report(FileOperationProgress value) => report(value);
     }
 
-    public async Task DeleteToTrashAsync(IReadOnlyList<FileSystemEntry> entries,
+    public Task DeleteToTrashAsync(IReadOnlyList<FileSystemEntry> entries,
+        string currentPath, Action<string>? setStatus = null, FileListViewModel? refreshedViewModel = null)
+    {
+        var captured = entries.ToArray();
+        return FileTaskContext.RunAsync(tasks, new(BackgroundTaskKind.Delete,
+            Services.Impl.LocalizationText.Get("删除 {0} 项", captured.Length), captured.Select(e => e.FullPath).ToArray()),
+            async _ => { await DeleteCoreAsync(captured, currentPath, setStatus, refreshedViewModel); return true; });
+    }
+
+    private async Task DeleteCoreAsync(IReadOnlyList<FileSystemEntry> entries,
         string currentPath, Action<string>? setStatus = null,
         FileListViewModel? refreshedViewModel = null)
     {
@@ -125,11 +166,12 @@ public sealed class FileOperationService(
         {
             foreach (var path in paths)
             {
-                await files.DeleteAsync(path, moveToTrash: true);
+                var trashed = await FileTaskContext.Current!.StepAsync("delete-item:" + path, () => FileTrash.MoveAsync(files, path));
+                FileTaskContext.Current.ReportItem(path, trashed, FileTaskItemState.Completed);
                 deletedPaths.Add(path);
                 if (history != null)
                 {
-                    try { await history.RecordTrashAsync(path, ""); }
+                    try { await history.RecordTrashAsync(path, trashed ?? ""); }
                     catch (Exception ex)
                     {
                         metadataFailures++;
@@ -159,7 +201,12 @@ public sealed class FileOperationService(
             {
                 foreach (var path in deletedPaths)
                 {
-                    try { await tags.DeletePathAsync(path); }
+                    try
+                    {
+                        var result = FileTaskContext.Current?.Results.FirstOrDefault(r => r.Source == path);
+                        if (result?.Destination is { } trashPath) await tags.UpdatePathAsync(path, trashPath);
+                        else await tags.DeletePathAsync(path);
+                    }
                     catch (Exception ex)
                     {
                         metadataFailures++;
@@ -184,7 +231,12 @@ public sealed class FileOperationService(
         Action<string>? setStatus = null)
         => MoveCoreAsync(source, targetFolder, setStatus, throwOnMetadataFailure: false);
 
-    private async Task<FileOperationResult> MoveCoreAsync(FileSystemEntry source, FileSystemEntry targetFolder,
+    private Task<FileOperationResult> MoveCoreAsync(FileSystemEntry source, FileSystemEntry targetFolder,
+        Action<string>? setStatus, bool throwOnMetadataFailure)
+        => FileTaskContext.RunAsync(tasks, new(BackgroundTaskKind.Move, Services.Impl.LocalizationText.Get("移动文件"),
+            [source.FullPath], targetFolder.FullPath), _ => MoveItemCoreAsync(source, targetFolder, setStatus, throwOnMetadataFailure));
+
+    private async Task<FileOperationResult> MoveItemCoreAsync(FileSystemEntry source, FileSystemEntry targetFolder,
         Action<string>? setStatus, bool throwOnMetadataFailure)
     {
         Subscriptions.SubscriptionAccess.RequireAccess();
@@ -195,7 +247,9 @@ public sealed class FileOperationService(
         var warnings = new List<string>();
         try
         {
-            await files.MoveAsync(source.FullPath, targetFolder.FullPath);
+            await FileTaskContext.Current!.StepAsync("move-item:" + source.FullPath, async () =>
+            { await files.MoveAsync(source.FullPath, targetFolder.FullPath); return true; });
+            FileTaskContext.Current.ReportItem(source.FullPath, movedPath, FileTaskItemState.Completed);
         }
         catch (Exception ex)
         {

@@ -802,8 +802,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         var first = _service.DiscoveryCoordinator;
         await Task.WhenAll(Enumerable.Range(0, 40).Select(_ => Task.Run(() =>
             _service.OnNetworkAddressChanged(null, EventArgs.Empty))));
-        for (var attempt = 0; attempt < 50 && ReferenceEquals(first, _service.DiscoveryCoordinator); attempt++)
-            await Task.Delay(20);
+        await TestTime.WaitUntilAsync(() => _service.DiscoveryCoordinator is { } current
+            && !ReferenceEquals(first, current));
         Assert.True(first!.IsCompleted);
         Assert.NotSame(first, _service.DiscoveryCoordinator);
         await Task.WhenAll(Enumerable.Range(0, 40).Select(_ => Task.Run(() =>

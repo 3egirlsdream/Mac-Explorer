@@ -15,6 +15,8 @@ public interface IFileService
     Task<string> CreateFileAsync(string parentPath, string name);
     Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content);
     Task DeleteAsync(string path, bool moveToTrash = true);
+    async Task<string?> TrashWithResultAsync(string path)
+    { await DeleteAsync(path, true); return null; }
     Task RenameAsync(string path, string newName);
     Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false);
     Task CopyAsync(string sourcePath, string destinationDirectory);

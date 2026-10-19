@@ -438,7 +438,7 @@ public partial class AiViewModel : ObservableObject
                             await _aiTagService!.SaveAnalysisResultAsync(file.Path, file.ModifiedTicks, result, token);
                         }
                     }
-                    catch (OperationCanceledException) { throw; }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested || !AnalysisEnabled) { throw; }
                     catch (Exception ex)
                     {
                         failures.Enqueue($"{Path.GetFileName(file.Path)}：{ex.Message}");
@@ -454,7 +454,13 @@ public partial class AiViewModel : ObservableObject
             if (failures.IsEmpty) _taskManager.CompleteTask(task.Id);
             else _taskManager.FailTask(task.Id, $"{title}：{failures.Count} 个文件失败", string.Join(Environment.NewLine, failures));
         }
-        catch (OperationCanceledException) { _taskManager.CancelTask(task.Id); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested || !AnalysisEnabled)
+        {
+            var userCancelled = task.Cts.IsCancellationRequested;
+            _taskManager.CancelTask(task.Id);
+            // Directory refresh/navigation replaces automatic work without a user cancellation.
+            if (!userCancelled) _taskManager.RemoveTask(task.Id);
+        }
         catch (Exception ex) { _taskManager.FailTask(task.Id, ex.Message); }
     }
 

@@ -46,15 +46,85 @@ class Server(paramiko.ServerInterface):
     def check_channel_request(self, kind, chanid):
         return paramiko.OPEN_SUCCEEDED if kind == "session" else paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
+storage = os.path.join(root, "remote-files")
+os.makedirs(storage, exist_ok=True)
+fixture_file = os.path.join(storage, "fixture.txt")
+if not os.path.exists(fixture_file):
+    with open(fixture_file, "w", encoding="utf-8") as fixture:
+        fixture.write("fixture")
+
 class Files(paramiko.SFTPServerInterface):
+    def local(self, path):
+        candidate = os.path.realpath(os.path.join(storage, path.lstrip("/")))
+        if os.path.commonpath([candidate, os.path.realpath(storage)]) != os.path.realpath(storage):
+            raise PermissionError("Outside isolated fixture")
+        return candidate
+
     def list_folder(self, path):
-        item = paramiko.SFTPAttributes()
-        item.filename = "fixture.txt"
-        item.st_size = 7
-        item.st_mode = 0o100644
-        return [item]
+        try:
+            result = []
+            for name in os.listdir(self.local(path)):
+                item = paramiko.SFTPAttributes.from_stat(os.lstat(os.path.join(self.local(path), name)))
+                item.filename = name
+                result.append(item)
+            return result
+        except OSError as error:
+            return paramiko.SFTPServer.convert_errno(error.errno)
+
+    def stat(self, path):
+        try:
+            return paramiko.SFTPAttributes.from_stat(os.stat(self.local(path)))
+        except OSError as error:
+            return paramiko.SFTPServer.convert_errno(error.errno)
+
+    def lstat(self, path):
+        return self.stat(path)
+
+    def open(self, path, flags, attr):
+        try:
+            descriptor = os.open(self.local(path), flags, 0o600)
+            mode = "r+b" if flags & os.O_RDWR else "wb" if flags & os.O_WRONLY else "rb"
+            stream = os.fdopen(descriptor, mode)
+            handle = paramiko.SFTPHandle(flags)
+            handle.readfile = stream
+            handle.writefile = stream
+            return handle
+        except OSError as error:
+            return paramiko.SFTPServer.convert_errno(error.errno)
+
+    def remove(self, path):
+        try:
+            os.remove(self.local(path))
+            return paramiko.SFTP_OK
+        except OSError as error:
+            return paramiko.SFTPServer.convert_errno(error.errno)
+
+    def mkdir(self, path, attr):
+        try:
+            os.mkdir(self.local(path))
+            return paramiko.SFTP_OK
+        except OSError as error:
+            return paramiko.SFTPServer.convert_errno(error.errno)
+
+    def rmdir(self, path):
+        try:
+            os.rmdir(self.local(path))
+            return paramiko.SFTP_OK
+        except OSError as error:
+            return paramiko.SFTPServer.convert_errno(error.errno)
+
+    def rename(self, oldpath, newpath):
+        try:
+            if os.path.exists(self.local(newpath)):
+                return paramiko.SFTP_FAILURE
+            os.rename(self.local(oldpath), self.local(newpath))
+            return paramiko.SFTP_OK
+        except OSError as error:
+            return paramiko.SFTPServer.convert_errno(error.errno)
+
     def canonicalize(self, path):
-        return "/"
+        import posixpath
+        return posixpath.normpath("/" + path.lstrip("/"))
 
 listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

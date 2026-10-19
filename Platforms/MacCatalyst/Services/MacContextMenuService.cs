@@ -124,7 +124,7 @@ public class MacContextMenuService : IContextMenuService
             var configuredApp = app;
             actions.Add(new ContextMenuAction
             {
-                Label = $"在 {configuredApp.Label} 中打开",
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("在 {0} 中打开", configuredApp.DisplayLabel),
                 IconSvg = Icons.Open,
                 LoadIconBase64Async = () => _openWithService.GetAppIconBase64Async(configuredApp.BundleId),
                 Execute = () => _launcher.OpenFileWithAppAsync(path, configuredApp.BundleId)

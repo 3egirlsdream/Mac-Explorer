@@ -1,170 +1,22 @@
 <controls:ToolWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:MacExplorer.Controls"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
-        xmlns:icons="using:MacExplorer.Assets"
         x:Class="MacExplorer.Views.Dialogs.TaskPanel"
-        ExtendContentToTop="True" Title="{loc:Loc ui.048}" Width="420" Height="480" MinWidth="380" MinHeight="360"
+        ExtendContentToTop="True" Title="{loc:Loc tasks.transfers}"
+        Width="640" Height="360" MinWidth="320" MinHeight="220"
         WindowStartupLocation="CenterOwner">
-
-    <controls:ToolWindow.Styles>
-        <!-- ── Stat card ── -->
-        <Style Selector="Border.task-summary">
-            <Setter Property="Background" Value="{DynamicResource DialogGroupBrush}"/>
-            <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Padding" Value="12,8"/>
-        </Style>
-        <Style Selector="TextBlock.task-stat-value">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-        <Style Selector="TextBlock.task-stat-label">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-        </Style>
-
-        <!-- ── Task row ── -->
-        <Style Selector="Border.task-row">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-            <Setter Property="Padding" Value="10,8"/>
-        </Style>
-        <Style Selector="Border.task-row:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-
-        <!-- ── Typography ── -->
-        <Style Selector="TextBlock.task-title">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-        <Style Selector="TextBlock.task-meta">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-        </Style>
-        <Style Selector="TextBlock.task-progress-text">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-        </Style>
-        <Style Selector="TextBlock.task-state-pill">
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        </Style>
-
-        <!-- ── State dot ── -->
-        <Style Selector="Border.task-dot">
-            <Setter Property="Width" Value="8"/>
-            <Setter Property="Height" Value="8"/>
-            <Setter Property="CornerRadius" Value="999"/>
-            <Setter Property="VerticalAlignment" Value="Top"/>
-            <Setter Property="Margin" Value="0,5,0,0"/>
-        </Style>
-        <Style Selector="Border.task-dot.running">
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-        </Style>
-        <Style Selector="Border.task-dot.completed">
-            <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
-        </Style>
-        <Style Selector="Border.task-dot.failed">
-            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
-        </Style>
-
-        <!-- ── Close button ── -->
-        <Style Selector="Button.task-icon-button">
-            <Setter Property="MinWidth" Value="24"/>
-            <Setter Property="Width" Value="24"/>
-            <Setter Property="MinHeight" Value="24"/>
-            <Setter Property="Height" Value="24"/>
-            <Setter Property="Padding" Value="5"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        </Style>
-        <Style Selector="Button.task-icon-button PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-        </Style>
-        <Style Selector="Button.task-icon-button:pointerover PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-
-        <!-- ── Progress bar ── -->
-        <Style Selector="ProgressBar.task-progress">
-            <Setter Property="Height" Value="3"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
-        </Style>
-    </controls:ToolWindow.Styles>
-
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16" RowSpacing="10">
-        <!-- Header -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                <TextBlock x:Name="TaskSummaryText" Text="{loc:Loc ui.535}"
-                           FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"
-                           VerticalAlignment="Center"/>
-            </StackPanel>
-            <Button x:Name="ClearAllButton" Grid.Column="1"
-                    Content="{loc:Loc ui.536}" Classes="ghost compact"
-                    Click="ClearAllTasks"/>
-        </Grid>
-
-        <!-- Stat pills -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="6">
-            <Border Grid.Column="0" Classes="task-summary">
-                <StackPanel Spacing="1">
-                    <TextBlock x:Name="RunningCountText" Text="0" Classes="task-stat-value"/>
-                    <TextBlock Text="{loc:Loc ui.537}" Classes="task-stat-label"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="1" Classes="task-summary">
-                <StackPanel Spacing="1">
-                    <TextBlock x:Name="CompletedCountText" Text="0" Classes="task-stat-value"/>
-                    <TextBlock Text="{loc:Loc ui.538}" Classes="task-stat-label"/>
-                </StackPanel>
-            </Border>
-            <Border x:Name="FailedStat" Grid.Column="2" Classes="task-summary">
-                <StackPanel Spacing="1">
-                    <TextBlock x:Name="FailedCountText" Text="0" Classes="task-stat-value"/>
-                    <TextBlock Text="{loc:Loc ui.539}" Classes="task-stat-label"/>
-                </StackPanel>
-            </Border>
-        </Grid>
-
-        <!-- Task list -->
-        <Grid Grid.Row="2">
-            <Border x:Name="EmptyPlaceholder"
-                    Background="Transparent"
-                    Padding="24">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
-                    <PathIcon Data="{x:Static icons:Icons.Info}" Width="34" Height="34"
-                              Foreground="{DynamicResource TextMutedBrush}"
-                              HorizontalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc ui.540}" FontSize="{DynamicResource FontSizeBodyLarge}" FontWeight="{StaticResource FontWeightSemibold}"
-                               HorizontalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="{loc:Loc ui.541}"
-                               FontSize="{DynamicResource FontSizeLabel}"
-                               HorizontalAlignment="Center"
-                               Foreground="{DynamicResource TextMutedBrush}"/>
-                </StackPanel>
-            </Border>
-
-            <ScrollViewer x:Name="TaskListScroll"
-                          HorizontalScrollBarVisibility="Disabled"
-                          VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="3" x:Name="TaskItemsPanel"/>
-            </ScrollViewer>
-        </Grid>
-
-        <!-- Footer -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-            <Button x:Name="ClearCompletedButton"
-                    Grid.Column="1"
-                    Content="{loc:Loc ui.069}"
-                    Classes="ghost compact"
-                    Click="ClearCompleted"/>
-        </Grid>
+    <Grid RowDefinitions="Auto,*">
+        <Grid.ContextMenu>
+            <ContextMenu>
+                <MenuItem x:Name="CancelAllTasksMenuItem" Header="{loc:Loc tasks.literal.010}" Click="ClearAllTasks"/>
+                <MenuItem x:Name="ClearFinishedTasksMenuItem" Header="{loc:Loc ui.069}" Click="ClearCompleted"/>
+            </ContextMenu>
+        </Grid.ContextMenu>
+        <TextBlock x:Name="TaskRunningCountText" Margin="16,4,16,8" Grid.Row="0" Classes="task-meta"/>
+        <ScrollViewer x:Name="TaskListScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="TaskItemsPanel"/>
+        </ScrollViewer>
     </Grid>
 </controls:ToolWindow>

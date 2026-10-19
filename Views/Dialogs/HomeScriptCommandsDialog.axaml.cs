@@ -24,7 +24,7 @@ public partial class HomeScriptCommandsDialog : DialogWindow
         InitializeComponent();
         _path = path;
         _workspace = workspace;
-        Title = $"脚本命令 · {Path.GetFileName(path)}";
+        Title = MacExplorer.Services.Impl.LocalizationText.Get("脚本命令 · {0}", Path.GetFileName(path));
         var commands = workspace.GetCommands(path);
         foreach (var command in commands) AddRow(command);
         if (commands.Count == 0) AddRow(HomeScriptCommand.Create(path));
@@ -34,11 +34,11 @@ public partial class HomeScriptCommandsDialog : DialogWindow
     private void AddRow(HomeScriptCommand command)
     {
         if (_rows.Count >= 32) return;
-        var name = new TextBox { Text = command.Name, PlaceholderText = "命令名称", MaxLength = 80,
+        var name = new TextBox { Text = command.Name, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("命令名称"), MaxLength = 80,
             Classes = { "settings-inline-input" } };
         var body = new TextBox { Text = command.Command, Classes = { "multiline", "settings-command-editor" },
             MaxLength = 16384 };
-        var directory = new TextBox { Text = command.WorkingDirectory, PlaceholderText = "脚本所在文件夹",
+        var directory = new TextBox { Text = command.WorkingDirectory, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("脚本所在文件夹"),
             Classes = { "settings-inline-input" } };
         var shell = new ComboBox { ItemsSource = Shells, SelectedItem = command.Shell, MinWidth = 110,
             Classes = { "settings-inline-input" } };
@@ -49,14 +49,14 @@ public partial class HomeScriptCommandsDialog : DialogWindow
             SelectionBoxItemTemplate = new FuncDataTemplate<HomeScriptMenuIcon>((kind, _) => CreateMenuIconOption(kind, false)),
             ItemTemplate = new FuncDataTemplate<HomeScriptMenuIcon>((kind, _) => CreateMenuIconOption(kind, true))
         };
-        AutomationProperties.SetName(name, "命令名称");
-        AutomationProperties.SetName(body, "命令内容");
-        AutomationProperties.SetName(directory, "工作目录");
-        AutomationProperties.SetName(shell, "执行 Shell");
-        AutomationProperties.SetName(menuIcon, "右键菜单图标");
-        ToolTip.SetTip(body, "使用 \"$SCRIPT\" 引用脚本，\"$SCRIPT_DIR\" 引用所在文件夹。命令在默认终端中执行。");
-        ToolTip.SetTip(directory, "工作目录，留空使用脚本所在文件夹");
-        ToolTip.SetTip(shell, "执行 Shell");
+        AutomationProperties.SetName(name, MacExplorer.Services.Impl.LocalizationText.Get("命令名称"));
+        AutomationProperties.SetName(body, MacExplorer.Services.Impl.LocalizationText.Get("命令内容"));
+        AutomationProperties.SetName(directory, MacExplorer.Services.Impl.LocalizationText.Get("工作目录"));
+        AutomationProperties.SetName(shell, MacExplorer.Services.Impl.LocalizationText.Get("执行 Shell"));
+        AutomationProperties.SetName(menuIcon, MacExplorer.Services.Impl.LocalizationText.Get("右键菜单图标"));
+        ToolTip.SetTip(body, MacExplorer.Services.Impl.LocalizationText.Get("使用 \"$SCRIPT\" 引用脚本，\"$SCRIPT_DIR\" 引用所在文件夹。命令在默认终端中执行。"));
+        ToolTip.SetTip(directory, MacExplorer.Services.Impl.LocalizationText.Get("工作目录，留空使用脚本所在文件夹"));
+        ToolTip.SetTip(shell, MacExplorer.Services.Impl.LocalizationText.Get("执行 Shell"));
         var content = new StackPanel();
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 4 };
         header.Children.Add(menuIcon);
@@ -67,8 +67,8 @@ public partial class HomeScriptCommandsDialog : DialogWindow
             Content = new PathIcon { Data = Geometry.Parse(Assets.Icons.Subtract), Width = 14, Height = 14 },
             Classes = { "ghost", "compact", "icon" }
         };
-        AutomationProperties.SetName(remove, "移除命令");
-        ToolTip.SetTip(remove, "移除命令");
+        AutomationProperties.SetName(remove, MacExplorer.Services.Impl.LocalizationText.Get("移除命令"));
+        ToolTip.SetTip(remove, MacExplorer.Services.Impl.LocalizationText.Get("移除命令"));
         Grid.SetColumn(remove, 2); header.Children.Add(remove);
         content.Children.Add(new Border { Classes = { "settings-compact-row", "settings-divider" }, Child = header });
         content.Children.Add(new Border { Classes = { "settings-divider-row" }, Child = body });

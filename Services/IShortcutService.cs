@@ -16,7 +16,7 @@ internal sealed record ShortcutBinding(Key Key, KeyModifiers Modifiers)
         (Modifiers.HasFlag(KeyModifiers.Meta) ? "⌘" : "") + KeyDisplay;
     public string KeyDisplay => Key switch
         {
-            Key.Back => "⌫", Key.Delete => "⌦", Key.Enter => "↩", Key.Space => "空格",
+            Key.Back => "⌫", Key.Delete => "⌦", Key.Enter => "↩", Key.Space => Impl.LocalizationText.Get("空格"),
             Key.Tab => "Tab", Key.Escape => "Esc", Key.Up => "↑", Key.Down => "↓",
             Key.Left => "←", Key.Right => "→", Key.OemOpenBrackets => "[", Key.OemCloseBrackets => "]",
             Key.OemComma => ",", Key.OemPeriod => ".", Key.OemMinus => "−", Key.OemPlus => "=",
@@ -28,7 +28,12 @@ internal sealed record ShortcutBinding(Key Key, KeyModifiers Modifiers)
 }
 
 internal sealed record ShortcutDefinition(string Id, string Name, string Group, ShortcutScope Scope,
-    IReadOnlyList<ShortcutBinding> Defaults, bool IsEditable = true, string? Context = null);
+    IReadOnlyList<ShortcutBinding> Defaults, bool IsEditable = true, string? Context = null)
+{
+    public string DisplayName => Impl.LocalizationText.Get(Name);
+    public string DisplayGroup => Impl.LocalizationText.Get(Group);
+    public string? DisplayContext => Context is null ? null : Impl.LocalizationText.Get(Context);
+}
 
 internal interface IShortcutService
 {

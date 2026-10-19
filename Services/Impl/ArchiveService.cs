@@ -10,6 +10,8 @@ namespace MacExplorer.Services.Impl;
 
 public class ArchiveService : IArchiveService
 {
+    private readonly IBackgroundTaskManager? _tasks;
+    public ArchiveService(IBackgroundTaskManager? tasks = null) { _tasks = tasks; }
     private static readonly HashSet<string> ArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         // Container aliases are routed through SharpCompress. The parser still
@@ -149,7 +151,16 @@ public class ArchiveService : IArchiveService
         });
     }
 
-    public async Task ExtractAsync(
+    public Task ExtractAsync(string archivePath, string destinationPath, IProgress<ArchiveProgress>? progress = null,
+        CancellationToken ct = default, string? password = null)
+        => FileTaskContext.RunAsync(_tasks, new(BackgroundTaskKind.Extract, LocalizationText.Get("正在解压..."),
+            [archivePath], destinationPath), async context =>
+            {
+                await ExtractCoreAsync(archivePath, destinationPath, progress, context.CancellationToken, password);
+                return true;
+            }, ct);
+
+    private async Task ExtractCoreAsync(
         string archivePath, string destinationPath,
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken ct = default,
@@ -174,8 +185,11 @@ public class ArchiveService : IArchiveService
                     rootNames.Add(rootName);
             }
 
-            var renameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var rootName in rootNames)
+            var renameMap = FileTaskContext.Current?.Remember("extract-map:" + archivePath + ":" + destinationPath,
+                () => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
+                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var rootMapReady = FileTaskContext.Current?.IsDone("extract-map:" + archivePath + ":" + destinationPath) == true;
+            foreach (var rootName in rootMapReady ? Enumerable.Empty<string>() : rootNames)
             {
                 var targetPath = Path.Combine(destinationPath, rootName);
                 if (File.Exists(targetPath) || Directory.Exists(targetPath))
@@ -196,15 +210,19 @@ public class ArchiveService : IArchiveService
                 }
             }
 
+            FileTaskContext.Current?.MarkDone("extract-map:" + archivePath + ":" + destinationPath);
             var totalEntries = archive.Entries.Count(e => !e.IsDirectory);
             var processed = 0;
+            if (FileTaskContext.Current is { } taskContext) taskContext.Task.TotalItems = archive.Entries.Count();
 
             foreach (var entry in archive.Entries)
             {
                 ct.ThrowIfCancellationRequested();
+                FileTaskContext.Checkpoint();
                 if (entry.Key == null) continue;
 
                 var entryPath = NormalizePath(entry.Key);
+                ValidateExtractionPath(destinationPath, entryPath);
 
                 // Apply rename map to root segment
                 if (renameMap.Count > 0)
@@ -219,11 +237,12 @@ public class ArchiveService : IArchiveService
                     }
                 }
 
-                var fullDest = Path.Combine(destinationPath, entryPath);
+                var fullDest = ValidateExtractionPath(destinationPath, entryPath);
 
                 if (entry.IsDirectory)
                 {
                     Directory.CreateDirectory(fullDest);
+                    FileTaskContext.Current?.ReportItem(entryPath, fullDest, FileTaskItemState.Completed);
                     continue;
                 }
 
@@ -231,9 +250,21 @@ public class ArchiveService : IArchiveService
                 if (parentDir != null)
                     Directory.CreateDirectory(parentDir);
 
-                using var entryStream = entry.OpenEntryStream();
-                using var fileStream = File.Create(fullDest);
-                entryStream.CopyTo(fileStream);
+                var context = FileTaskContext.Current;
+                var key = "extract-entry:" + archivePath + ":" + fullDest;
+                if (context?.IsDone(key) == true) { processed++; continue; }
+                var temporary = fullDest + "." + (context?.Task.Id ?? Guid.NewGuid().ToString("N")) + ".fkfinder-tmp";
+                var temporaryOwned = false;
+                try
+                {
+                    using (var entryStream = entry.OpenEntryStream())
+                    using (var fileStream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
+                    { temporaryOwned = true; entryStream.CopyTo(fileStream); }
+                    File.Move(temporary, fullDest, false);
+                    context?.MarkDone(key);
+                    context?.ReportItem(entryPath, fullDest, FileTaskItemState.Completed);
+                }
+                finally { if (temporaryOwned) TryDeleteFile(temporary); }
 
                 processed++;
                 progress?.Report(new ArchiveProgress
@@ -282,7 +313,13 @@ public class ArchiveService : IArchiveService
         });
     }
 
-    public async Task<string> CompressAsync(
+    public Task<string> CompressAsync(CompressOptions options, IProgress<ArchiveProgress>? progress = null,
+        CancellationToken ct = default)
+        => FileTaskContext.RunAsync(_tasks, new(BackgroundTaskKind.Compress, LocalizationText.Get("正在压缩..."),
+            options.SourcePaths.ToArray(), options.OutputDirectory, options.OutputFileName), context =>
+                CompressCoreAsync(options, progress, context.CancellationToken), ct);
+
+    private async Task<string> CompressCoreAsync(
         CompressOptions options,
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken ct = default)
@@ -291,16 +328,9 @@ public class ArchiveService : IArchiveService
         foreach (var source in options.SourcePaths) DirectoryAccess.Current.EnsureAccess(source);
         return await Task.Run(() =>
         {
-            var ext = options.Format switch
-            {
-                ArchiveFormat.Zip => ".zip",
-                ArchiveFormat.TarGz => ".tar.gz",
-                ArchiveFormat.TarBz2 => ".tar.bz2",
-                _ => ".zip"
-            };
-
-            var outputPath = Path.Combine(options.OutputDirectory, options.ArchiveName + ext);
-            outputPath = GetUniqueFilePath(outputPath);
+            var outputPath = Path.Combine(options.OutputDirectory, options.OutputFileName);
+            outputPath = FileTaskContext.Current?.Remember("compress-output", () => GetUniqueFilePath(outputPath))
+                ?? GetUniqueFilePath(outputPath);
 
             var (archiveType, compressionType) = options.Format switch
             {
@@ -316,6 +346,7 @@ public class ArchiveService : IArchiveService
             foreach (var sourcePath in options.SourcePaths)
             {
                 ct.ThrowIfCancellationRequested();
+                FileTaskContext.Checkpoint();
                 if (File.Exists(sourcePath))
                 {
                     var relative = GetUniqueRelativePath(Path.GetFileName(sourcePath), usedRelativePaths);
@@ -332,7 +363,7 @@ public class ArchiveService : IArchiveService
                 }
             }
 
-            var tempPath = outputPath + ".fkfinder-tmp";
+            var tempPath = outputPath + "." + (FileTaskContext.Current?.Task.Id ?? Guid.NewGuid().ToString("N")) + ".fkfinder-tmp";
 
             // SharpZipLib writes WinZip AES; SharpCompress retains existing archive reading.
             if (options.Format == ArchiveFormat.Zip && !string.IsNullOrEmpty(options.Password))
@@ -341,6 +372,7 @@ public class ArchiveService : IArchiveService
                 return outputPath;
             }
 
+            var temporaryOwned = false;
             try
             {
                 var writerOptions = new WriterOptions(compressionType)
@@ -348,15 +380,20 @@ public class ArchiveService : IArchiveService
                     ArchiveEncoding = CreateUtf8ArchiveEncoding()
                 };
 
-                using (var stream = File.Create(tempPath))
+                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write))
                 using (var writer = WriterFactory.OpenWriter(stream, archiveType, writerOptions))
                 {
+                    temporaryOwned = true;
                     var total = filesToCompress.Count;
                     for (int i = 0; i < total; i++)
                     {
                         ct.ThrowIfCancellationRequested();
+                        FileTaskContext.Checkpoint();
                         var (fullPath, relativePath) = filesToCompress[i];
+                        CheckCompressionSource(fullPath);
                         writer.Write(relativePath, fullPath);
+                        CheckCompressionSource(fullPath);
+                        FileTaskContext.Current?.ReportItem(fullPath, outputPath, FileTaskItemState.Completed);
 
                         progress?.Report(new ArchiveProgress
                         {
@@ -368,12 +405,12 @@ public class ArchiveService : IArchiveService
                     }
                 }
 
-                File.Move(tempPath, outputPath, overwrite: true);
+                File.Move(tempPath, outputPath, overwrite: false);
                 return outputPath;
             }
             catch
             {
-                TryDeleteFile(tempPath);
+                if (temporaryOwned) TryDeleteFile(tempPath);
                 throw;
             }
         }, ct);
@@ -387,17 +424,21 @@ public class ArchiveService : IArchiveService
         IProgress<ArchiveProgress>? progress,
         CancellationToken ct)
     {
+        var temporaryOwned = false;
         try
         {
-            using (var stream = File.Create(tempPath))
+            using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write))
             using (var zip = new ICSharpCode.SharpZipLib.Zip.ZipOutputStream(stream) { Password = password })
             {
+                temporaryOwned = true;
                 var buffer = new byte[64 * 1024];
                 var total = files.Count;
                 for (int i = 0; i < total; i++)
                 {
                     ct.ThrowIfCancellationRequested();
+                    FileTaskContext.Checkpoint();
                     var (fullPath, relativePath) = files[i];
+                    CheckCompressionSource(fullPath);
                     using var input = File.OpenRead(fullPath);
                     zip.PutNextEntry(new ICSharpCode.SharpZipLib.Zip.ZipEntry(relativePath.Replace('\\', '/'))
                     {
@@ -410,6 +451,7 @@ public class ArchiveService : IArchiveService
                     while ((read = input.Read(buffer)) > 0)
                     {
                         ct.ThrowIfCancellationRequested();
+                        FileTaskContext.Checkpoint();
                         zip.Write(buffer, 0, read);
                         copied += read;
                         progress?.Report(new ArchiveProgress { IsActive = true,
@@ -417,6 +459,8 @@ public class ArchiveService : IArchiveService
                             CurrentFile = relativePath, OperationLabel = "正在压缩..." });
                     }
                     zip.CloseEntry();
+                    CheckCompressionSource(fullPath);
+                    FileTaskContext.Current?.ReportItem(fullPath, outputPath, FileTaskItemState.Completed);
 
                     progress?.Report(new ArchiveProgress
                     {
@@ -428,15 +472,16 @@ public class ArchiveService : IArchiveService
                 }
 
                 ct.ThrowIfCancellationRequested();
+                FileTaskContext.Checkpoint();
                 zip.Finish();
             }
 
             ct.ThrowIfCancellationRequested();
-            File.Move(tempPath, outputPath, overwrite: true);
+            File.Move(tempPath, outputPath, overwrite: false);
         }
         catch
         {
-            TryDeleteFile(tempPath);
+            if (temporaryOwned) TryDeleteFile(tempPath);
             throw;
         }
     }
@@ -496,6 +541,28 @@ public class ArchiveService : IArchiveService
             if (!string.IsNullOrWhiteSpace(temporaryPath))
                 TryDeleteFile(temporaryPath);
         }
+    }
+
+    private static void CheckCompressionSource(string path)
+    {
+        var file = new FileInfo(path);
+        var stamp = (file.Length, file.LastWriteTimeUtc, FileIdentitySnapshot.Capture(path, false));
+        if (FileTaskContext.Current is { } context && context.Remember("compress-source:" + path, () => stamp) != stamp)
+            throw new IOException(LocalizationText.Get("源项目已变化，请重新创建任务。"));
+    }
+
+    private static string ValidateExtractionPath(string directory, string entry)
+    {
+        var root = Path.GetFullPath(directory).TrimEnd('/') + "/";
+        var target = Path.GetFullPath(Path.Combine(directory, entry));
+        if (Path.IsPathRooted(entry) || !target.StartsWith(root, StringComparison.Ordinal))
+            throw new IOException(LocalizationText.Get("压缩包包含越界路径。"));
+        var realRoot = OperatingSystem.IsMacOS() ? Platforms.MacOS.MacSandboxNative.RealPath(directory) : Path.GetFullPath(directory);
+        var realTarget = OperatingSystem.IsMacOS() ? Platforms.MacOS.MacSandboxNative.RealPath(target) : target;
+        if (!realTarget.StartsWith(realRoot.TrimEnd('/') + "/", StringComparison.Ordinal))
+            throw new IOException(LocalizationText.Get("压缩包包含越界路径。"));
+        DirectoryAccess.Current.EnsureAccess(target);
+        return target;
     }
 
     private static string NormalizePath(string path)

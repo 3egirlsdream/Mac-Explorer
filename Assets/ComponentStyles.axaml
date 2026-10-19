@@ -75,7 +75,7 @@
                 <ControlTemplate>
                     <DataValidationErrors>
                         <Border Name="NumericSurface" Background="{TemplateBinding Background}"
-                            BorderThickness="1" BorderBrush="Transparent" CornerRadius="{TemplateBinding CornerRadius}">
+                            BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}" CornerRadius="{TemplateBinding CornerRadius}">
                             <ButtonSpinner Name="PART_Spinner" Theme="{StaticResource CompactSpinnerTheme}"
                                 AllowSpin="{TemplateBinding AllowSpin}" ShowButtonSpinner="{TemplateBinding ShowButtonSpinner}"
                                 IsTabStop="False">
@@ -527,6 +527,43 @@
     </Style>
     <Style Selector="ToggleButton.icon-action:checked">
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.file-task-row">
+        <Setter Property="Padding" Value="16,10,12,10"/>
+        <Setter Property="MinHeight" Value="54"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+    <Style Selector="TextBlock.task-title">
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.task-meta">
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.task-percentage">
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="MinWidth" Value="36"/>
+    </Style>
+    <Style Selector="TextBlock.task-percentage.state">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="ProgressBar.task-progress">
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Height" Value="3"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+    </Style>
+    <Style Selector="ProgressBar.task-progress.muted">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
     <Style Selector="Expander.compact-details">
         <Setter Property="Theme" Value="{StaticResource CompactDetailsExpanderTheme}"/>

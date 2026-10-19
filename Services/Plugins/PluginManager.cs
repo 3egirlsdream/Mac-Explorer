@@ -6,9 +6,9 @@ namespace MacExplorer.Services.Plugins;
 public sealed record InstalledPlugin(PluginManifest Manifest, string Directory, bool Enabled, bool BuiltIn,
     bool Running, bool Removed, string? LastError, string? LogPath, bool FromMarket = false)
 {
-    public string Status => Removed ? (Running ? "等待任务结束后卸载" : "已卸载") : !Enabled ? "已禁用" : Running ? "正在运行" : "已启用";
+    public string Status => Removed ? (Running ? Impl.LocalizationText.Get("等待任务结束后卸载") : Impl.LocalizationText.Get("已卸载")) : !Enabled ? Impl.LocalizationText.Get("已禁用") : Running ? Impl.LocalizationText.Get("正在运行") : Impl.LocalizationText.Get("已启用");
     public string SupportedTypes => string.Join("、", Manifest.Commands.SelectMany(c =>
-        c.Match.Extensions.Concat(c.Match.FileNames).Concat(c.Match.TextFiles ? new[] { "文本文件" } : [])).Distinct());
+        c.Match.Extensions.Concat(c.Match.FileNames).Concat(c.Match.TextFiles ? new[] { Impl.LocalizationText.Get("文本文件") } : [])).Distinct());
 }
 
 public sealed partial class PluginManager : IAsyncDisposable

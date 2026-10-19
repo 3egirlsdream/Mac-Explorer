@@ -190,7 +190,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
                 if (storage?.CanSave != true) throw new IOException(LocalizationText.Get("当前环境不支持选择保存位置。"));
                 var file = await storage.SaveAuthorizedFilePickerAsync(new FilePickerSaveOptions
                 {
-                    Title = "Markdown 另存为",
+                    Title = MacExplorer.Services.Impl.LocalizationText.Get("Markdown 另存为"),
                     SuggestedFileName = Path.GetFileName(document.FilePath),
                     DefaultExtension = "md",
                     ShowOverwritePrompt = true,

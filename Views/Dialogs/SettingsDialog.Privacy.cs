@@ -36,12 +36,12 @@ public partial class SettingsDialog
             if (allowed == PhotoConsent.Enabled) return;
             if (allowed)
             {
-                var confirm = new ConfirmDialog("允许照片地点联网解析", "照片 GPS 经纬度会发送给 Apple 的地理编码服务，用于转换为地点名称。可随时在设置中关闭。本地坐标、OCR 和其他分析无需此授权；已有记录不会自动重分析。", "允许", "取消");
+                var confirm = new ConfirmDialog(MacExplorer.Services.Impl.LocalizationText.Get("允许照片地点联网解析"),MacExplorer.Services.Impl.LocalizationText.Get("照片 GPS 经纬度会发送给 Apple 的地理编码服务，用于转换为地点名称。可随时在设置中关闭。本地坐标、OCR 和其他分析无需此授权；已有记录不会自动重分析。"),MacExplorer.Services.Impl.LocalizationText.Get("允许"),MacExplorer.Services.Impl.LocalizationText.Get("取消"));
                 allowed = await confirm.ShowDialog<bool>(this);
             }
             PhotoConsent.SetAllowed(allowed);
             PhotoLocationToggle.IsChecked = allowed;
-            PhotoLocationStatus.Text = allowed ? "已允许；仅后续需要分析的照片可联网解析。" : "已关闭；后续请求使用本地坐标。已有结果保留。";
+            PhotoLocationStatus.Text = allowed ? MacExplorer.Services.Impl.LocalizationText.Get("已允许；仅后续需要分析的照片可联网解析。") : MacExplorer.Services.Impl.LocalizationText.Get("已关闭；后续请求使用本地坐标。已有结果保留。");
         }
         catch (Exception ex) { PhotoLocationToggle.IsChecked = PhotoConsent.Enabled; PhotoLocationStatus.Text = ex.Message; }
         finally { _changingPhotoConsent = false; }
@@ -56,7 +56,7 @@ public partial class SettingsDialog
         }
         catch (Exception ex)
         {
-            CopilotConsentStatus.Text = $"撤回未能保存：{ex.Message} 当前会话已停止后续分享；请修复存储后重试，避免重启后恢复旧许可。";
+            CopilotConsentStatus.Text = MacExplorer.Services.Impl.LocalizationText.Get("撤回未能保存：{0} 当前会话已停止后续分享；请修复存储后重试，避免重启后恢复旧许可。", ex.Message);
         }
     }
 
