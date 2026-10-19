@@ -95,3 +95,5 @@
 
 - 应用内弹窗统一使用 `DialogContentBrush` / `DialogGroupBrush` / `DialogDividerBrush`：浅色正文白色、分组 #F8F8F8、分割线 #EEEEEE，深色使用对应主题表面。`DialogWindow` 默认 `ExtendContentToTop`，取消独立标题栏，红黄绿按钮覆盖顶部，普通内容预留 44px；两栏窗口启用 `FullHeightContent`，侧栏灰色与分界线贯穿顶部，并自行预留按钮空间。主窗口保持原标题栏模式。
 - 远程配置使用左侧服务器列表与右侧详情，类型参数独立放入 `ServiceParametersHost`；当前仅支持 SFTP。切换保留窗口内草稿，仅保存或连接成功后持久化，连接期间禁用配置编辑与列表操作。
+
+- 全局 Toast 复用 `AppToast`、`WindowNotificationManager` 与 `Assets/ToastStyles.axaml`，使用轻透毛玻璃表面、`RadiusXl`、圆形 Fluent 状态图标和主次两行文字；状态色仅用于图标区，长文案换行，窄窗口自适应，保留点击与自动关闭行为。

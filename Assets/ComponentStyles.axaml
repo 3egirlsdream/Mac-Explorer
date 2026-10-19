@@ -1000,4 +1000,5 @@
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
 
+    <StyleInclude Source="avares://MacExplorer/Assets/ToastStyles.axaml"/>
 </Styles>

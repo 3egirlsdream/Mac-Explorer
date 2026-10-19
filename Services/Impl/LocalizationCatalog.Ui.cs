@@ -7,6 +7,7 @@ internal static partial class LocalizationCatalog
     internal static readonly IReadOnlyDictionary<string, (string Chinese, string English)> Ui =
         new Dictionary<string, (string, string)>(StringComparer.Ordinal)
         {
+            ["toast.error"] = ("操作失败", "Operation failed"),
             ["remote.type"] = ("服务类型", "Service type"),
             ["remote.add"] = ("新增", "Add"),
             ["remote.connecting"] = ("连接中…", "Connecting…"),

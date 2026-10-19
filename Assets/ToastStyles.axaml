@@ -1,0 +1,131 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:icons="using:MacExplorer.Assets"
+        xmlns:converters="using:Avalonia.Data.Converters"
+        xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="ToastSurfaceColor">#DCFAFCFF</Color>
+                    <SolidColorBrush x:Key="ToastBorderBrush" Color="#E6FFFFFF"/>
+                    <Color x:Key="ToastShadowColor">#240F233F</Color>
+                    <SolidColorBrush x:Key="ToastSuccessBrush" Color="#20A844"/>
+                    <SolidColorBrush x:Key="ToastSuccessSurfaceBrush" Color="#1920B64B"/>
+                    <SolidColorBrush x:Key="ToastErrorBrush" Color="#E52636"/>
+                    <SolidColorBrush x:Key="ToastErrorSurfaceBrush" Color="#18FF3B4D"/>
+                    <SolidColorBrush x:Key="ToastWarningBrush" Color="#CE7900"/>
+                    <SolidColorBrush x:Key="ToastWarningSurfaceBrush" Color="#1AF5A623"/>
+                    <SolidColorBrush x:Key="ToastInfoBrush" Color="#007AFF"/>
+                    <SolidColorBrush x:Key="ToastInfoSurfaceBrush" Color="#18007AFF"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="ToastSurfaceColor">#EB292D35</Color>
+                    <SolidColorBrush x:Key="ToastBorderBrush" Color="#20FFFFFF"/>
+                    <Color x:Key="ToastShadowColor">#50000000</Color>
+                    <SolidColorBrush x:Key="ToastSuccessBrush" Color="#65D884"/>
+                    <SolidColorBrush x:Key="ToastSuccessSurfaceBrush" Color="#2465D884"/>
+                    <SolidColorBrush x:Key="ToastErrorBrush" Color="#FF7582"/>
+                    <SolidColorBrush x:Key="ToastErrorSurfaceBrush" Color="#24FF7582"/>
+                    <SolidColorBrush x:Key="ToastWarningBrush" Color="#FFC266"/>
+                    <SolidColorBrush x:Key="ToastWarningSurfaceBrush" Color="#24FFC266"/>
+                    <SolidColorBrush x:Key="ToastInfoBrush" Color="#65ADFF"/>
+                    <SolidColorBrush x:Key="ToastInfoSurfaceBrush" Color="#2465ADFF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <ControlTheme x:Key="{x:Type NotificationCard}" TargetType="NotificationCard">
+                <Setter Property="Width" Value="400"/>
+                <Setter Property="MaxWidth" Value="{Binding $parent[WindowNotificationManager].Bounds.Width}"/>
+                <Setter Property="CornerRadius" Value="{DynamicResource RadiusXl}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="ContentTemplate">
+                    <DataTemplate DataType="INotification">
+                        <StackPanel Spacing="3" ToolTip.Tip="{Binding Message}">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                FontSize="{DynamicResource FontSizeBodyLarge}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                                IsVisible="{Binding Title, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"/>
+                            <TextBlock Text="{Binding Message}" FontSize="{DynamicResource FontSizeBody}"
+                                Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
+                                MaxLines="5" TextTrimming="CharacterEllipsis"
+                                IsVisible="{Binding Message, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </Setter>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Grid Margin="16,12,16,16">
+                            <glass:LiquidGlassSurface Classes="toast-glass" CornerRadius="{TemplateBinding CornerRadius}"
+                                CaptureForeground="True" IsHitTestVisible="False"/>
+                            <Border Background="Transparent" BorderBrush="{DynamicResource ToastBorderBrush}" BorderThickness="1"
+                                    CornerRadius="{TemplateBinding CornerRadius}" Padding="16,14"
+                                    glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"
+                                    glass:LiquidGlassBackdrop.IsExcludedFromForegroundCapture="True">
+                                <Grid ColumnDefinitions="44,14,*" MinHeight="48">
+                                    <Border Name="PART_StatusBadge" Width="44" Height="44" CornerRadius="22"
+                                            VerticalAlignment="Center" Background="{DynamicResource ToastInfoSurfaceBrush}">
+                                        <PathIcon Name="PART_StatusIcon" Width="24" Height="24"
+                                            Foreground="{DynamicResource ToastInfoBrush}" Data="{x:Static icons:Icons.Info}"/>
+                                    </Border>
+                                    <ContentPresenter Name="PART_ContentPresenter" Grid.Column="2"
+                                        VerticalAlignment="Center" Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:success /template/ Border#PART_StatusBadge">
+                    <Setter Property="Background" Value="{DynamicResource ToastSuccessSurfaceBrush}"/>
+                </Style>
+                <Style Selector="^:success /template/ PathIcon#PART_StatusIcon">
+                    <Setter Property="Foreground" Value="{DynamicResource ToastSuccessBrush}"/>
+                    <Setter Property="Data" Value="{x:Static icons:Icons.CheckmarkCircleGeometry}"/>
+                </Style>
+                <Style Selector="^:warning /template/ Border#PART_StatusBadge">
+                    <Setter Property="Background" Value="{DynamicResource ToastWarningSurfaceBrush}"/>
+                </Style>
+                <Style Selector="^:warning /template/ PathIcon#PART_StatusIcon">
+                    <Setter Property="Foreground" Value="{DynamicResource ToastWarningBrush}"/>
+                    <Setter Property="Data" Value="{x:Static icons:Icons.WarningGeometry}"/>
+                </Style>
+                <Style Selector="^:error /template/ Border#PART_StatusBadge">
+                    <Setter Property="Background" Value="{DynamicResource ToastErrorSurfaceBrush}"/>
+                </Style>
+                <Style Selector="^:error /template/ PathIcon#PART_StatusIcon">
+                    <Setter Property="Foreground" Value="{DynamicResource ToastErrorBrush}"/>
+                    <Setter Property="Data" Value="{x:Static icons:Icons.ErrorCircleGeometry}"/>
+                </Style>
+                <Style Selector="^[IsClosing=True]">
+                    <Style.Animations>
+                        <Animation Duration="0:0:0.16" FillMode="Forward">
+                            <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1"/></KeyFrame>
+                            <KeyFrame Cue="100%">
+                                <Setter Property="Opacity" Value="0"/>
+                                <Setter Property="IsClosed" Value="True"/>
+                            </KeyFrame>
+                        </Animation>
+                    </Style.Animations>
+                </Style>
+            </ControlTheme>
+        </ResourceDictionary>
+    </Styles.Resources>
+    <Style Selector="WindowNotificationManager">
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+    <Style Selector="glass|LiquidGlassSurface.toast-glass">
+        <Setter Property="TintColor" Value="Transparent"/>
+        <Setter Property="SurfaceColor" Value="{DynamicResource ToastSurfaceColor}"/>
+        <Setter Property="BackdropOpacity" Value="1"/>
+        <Setter Property="BlurRadius" Value="16"/>
+        <Setter Property="RefractionAmount" Value="0"/>
+        <Setter Property="HighlightOpacity" Value="0"/>
+        <Setter Property="Vibrancy" Value="1"/>
+        <Setter Property="DepthEffect" Value="False"/>
+        <Setter Property="ChromaticAberration" Value="False"/>
+        <Setter Property="InnerShadowEnabled" Value="False"/>
+        <Setter Property="ShadowRadius" Value="4"/>
+        <Setter Property="ShadowOffset" Value="0,3"/>
+        <Setter Property="ShadowColor" Value="{DynamicResource ToastShadowColor}"/>
+    </Style>
+</Styles>
