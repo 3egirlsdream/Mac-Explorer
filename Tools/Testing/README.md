@@ -34,7 +34,7 @@ bash Tools/Testing/run-tests.sh stress
 
 完整页面 UI、Integration、Stress 和 Manual 用例为显式测试。直接 `dotnet test` 默认只运行所属项目的非显式用例；推荐使用统一入口，确保两个测试程序集都被运行。发布 CI 使用 `full`。
 
-`MacExplorer.UnitTests` 通过显式编译列表收纳不使用 dispatcher、全局语言服务或共享应用状态的测试，最多 4 个集合并行。其余测试保持串行和 Avalonia PerTest 隔离。不要直接对 UI 程序集打开集合并行或改成 PerAssembly。
+`MacExplorer.UnitTests` 通过显式编译列表收纳不使用 dispatcher、全局语言服务或共享应用状态的测试，最多 4 个集合并行。其余测试保持串行和 Avalonia PerTest 隔离。异步 Avalonia 用例在测试入口保存 `TestContext.Current.CancellationToken`，并传给等待与子进程，避免等待过程中重新读取已释放的测试上下文。不要直接对 UI 程序集打开集合并行或改成 PerAssembly。
 
 旧 `FileListViewModelCreateTests` 的测试已按文件拆成各功能类，创建方法与替身复用 `FileListViewModelTestBase`。使用 `Area` 筛选需要考虑调用链；共享主题或输入样式变化应运行 `ui`，LocalSend/插件/native 改动应运行对应 `integration`，发布或公共基础设施变化运行 `full`。
 

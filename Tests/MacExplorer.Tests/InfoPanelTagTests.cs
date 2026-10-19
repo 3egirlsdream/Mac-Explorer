@@ -27,14 +27,15 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
     [InlineData(false, true)]
     public async Task InfoPanelRemovesCustomTagsFromFinderAndKeepsOtherTags(bool dark, bool lastTag)
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
 
         var directory = Path.Combine(Path.GetTempPath(), "fkfinder-info-tags-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "标签测试.srt");
-        await File.WriteAllTextAsync(path, "subtitle", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(path, "subtitle", cancellationToken);
         var originalTags = lastTag ? new[] { "待删除" } : new[] { "红色", "待删除", "保留" };
-        await SeedFinderTagsAsync(path, originalTags);
+        await SeedFinderTagsAsync(path, originalTags, cancellationToken);
 
         using var vm = CreateViewModel(new FakeFileService(directory));
         vm.SelectedEntries.Add(new FileSystemEntry
@@ -60,7 +61,7 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
             var chips = panel.FindControl<WrapPanel>("CustomTagsPanel")!;
             for (var attempt = 0; attempt < 200 && !HasTagToRemove(); attempt++)
             {
-                await Task.Delay(25, TestContext.Current.CancellationToken);
+                await Task.Delay(25, cancellationToken);
                 Dispatcher.UIThread.RunJobs();
             }
             Dispatcher.UIThread.RunJobs();
@@ -110,7 +111,7 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
                 FileMetadata metadata;
                 do
                 {
-                    await Task.Delay(50, TestContext.Current.CancellationToken);
+                    await Task.Delay(50, cancellationToken);
                     Dispatcher.UIThread.RunJobs();
                     metadata = await metadataService.GetMetadataAsync(path);
                     if (metadata.Tags.Order().SequenceEqual(expected.Order())) break;
@@ -122,7 +123,7 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
                 var expectedCustom = expected.Where(tag => tag != "红色").ToArray();
                 for (var attempt = 0; attempt < 200 && !DisplayedCustomTags().SequenceEqual(expectedCustom); attempt++)
                 {
-                    await Task.Delay(25, TestContext.Current.CancellationToken);
+                    await Task.Delay(25, cancellationToken);
                     Dispatcher.UIThread.RunJobs();
                 }
             }
@@ -139,7 +140,7 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
 
 public abstract partial class FileListViewModelTestBase
 {
-    protected static async Task SeedFinderTagsAsync(string path, string[] tags)
+    protected static async Task SeedFinderTagsAsync(string path, string[] tags, CancellationToken cancellationToken)
     {
         var plist = new XDocument(new XElement("plist", new XAttribute("version", "1.0"),
             new XElement("array", tags.Select(tag => new XElement("string", tag)))));
@@ -147,7 +148,7 @@ public abstract partial class FileListViewModelTestBase
         foreach (var argument in new[] { "-w", "com.apple.metadata:_kMDItemUserTags", plist.ToString(), path })
             start.ArgumentList.Add(argument);
         using var process = Process.Start(start)!;
-        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
         Assert.Equal(0, process.ExitCode);
     }
 
