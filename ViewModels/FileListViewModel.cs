@@ -47,6 +47,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private readonly IOpenWithAppService? _openWithAppService;
     private readonly IFileTagService? _fileTagService;
     private readonly ILocalSendService? _localSendService;
+    private readonly IAirDropService? _airDropService;
+    private static readonly Lazy<Bitmap> AirDropIcon = new(() =>
+        new Bitmap(AssetLoader.Open(new Uri("avares://MacExplorer/Assets/airdrop-logo.png"))));
     private static readonly Lazy<Bitmap> LocalSendIcon = new(() =>
         new Bitmap(AssetLoader.Open(new Uri("avares://MacExplorer/Assets/localsend-logo.png"))));
     private FileListColumnLayoutService _columnLayoutService;
@@ -495,7 +498,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IBackgroundTaskManager? conversionTaskManager = null,
         MacExplorer.Copilot.IAppCapabilityRegistry? appCapabilities = null,
         ILocalSendService? localSendService = null,
-        ILocalizationService? localizationService = null)
+        ILocalizationService? localizationService = null,
+        IAirDropService? airDropService = null)
     {
         _localizationService = localizationService ?? LocalizationService.Current;
         if (_localizationService != null) _localizationService.LanguageChanged += OnInterfaceLanguageChanged;
@@ -537,6 +541,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _conversionTaskManager = conversionTaskManager;
         _appCapabilities = appCapabilities;
         _localSendService = localSendService;
+        _airDropService = airDropService;
         _columnLayoutService = new FileListColumnLayoutService(settingsService);
 
         // Initialize sidebar names with cheap defaults. macOS localized names are
@@ -628,6 +633,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private int _locationStatusGeneration;
     private Task<IReadOnlyList<DriveSpaceSnapshot>>? _driveSpaceTask;
+    private static readonly object DriveEnumerationGate = new();
 
     private void RefreshLocationStatus()
     {
@@ -727,7 +733,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         DriveInfo[] drives;
         try
         {
-            drives = DriveInfo.GetDrives();
+            // macOS mount enumeration uses a shared native buffer across file-list instances.
+            lock (DriveEnumerationGate) drives = DriveInfo.GetDrives();
         }
         catch
         {
@@ -2218,7 +2225,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             && contextEntries.All(IsUsableLocalEntry);
 
         actions.Add(BuildMoveToContextMenuAction(entry, canUseLocalFileTools));
-        if (canUseLocalFileTools && !IsTrashActive && !IsBrowseOnly && _localSendService?.Enabled == true
+        if (canUseLocalFileTools && !IsTrashActive && !IsBrowseOnly
             && contextEntries.All(item => Path.IsPathFullyQualified(item.FullPath)))
         {
             var paths = contextEntries.Select(item => item.FullPath).ToArray();
@@ -2233,7 +2240,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     IconSvg = Icons.Desktop,
                     Execute = () =>
                     {
-                        _ = _localSendService.SendAsync(device, paths);
+                        _ = _localSendService!.SendAsync(device, paths);
                         return Task.CompletedTask;
                     }
                 }).ToList();
@@ -2250,7 +2257,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     Execute = async () =>
                     {
                         if (_topLevelWindow is { IsVisible: true } owner)
-                            await new LocalSendAddressDialog(_localSendService).ShowDialog<bool>(owner);
+                            await new LocalSendAddressDialog(_localSendService!).ShowDialog<bool>(owner);
                     }
                 });
                 items.Add(new ContextMenuAction
@@ -2260,13 +2267,22 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 });
                 return items;
             }
-            actions.Add(new ContextMenuAction
-            {
-                Label = MacExplorer.Services.Impl.LocalizationText.Get("发送"),
-                IconSvg = Icons.Send,
-                SubItems =
-                [
-                    new ContextMenuAction
+            var sendItems = new List<ContextMenuAction>();
+            if (_airDropService?.IsSupported == true)
+                sendItems.Add(new ContextMenuAction
+                {
+                    Label = LocalizationText.Get("airdrop.send"),
+                    IconImage = AirDropIcon.Value,
+                    Tag = "airdrop-send",
+                    Execute = () =>
+                    {
+                        // Let the context menu close before AppKit presents its sharing sheet.
+                        Dispatcher.UIThread.Post(() => _ = SendAirDropAsync(paths));
+                        return Task.CompletedTask;
+                    }
+                });
+            if (_localSendService?.Enabled == true)
+                sendItems.Add(new ContextMenuAction
                     {
                         Label = "LocalSend",
                         IconImage = LocalSendIcon.Value,
@@ -2282,9 +2298,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                             { return LocalSendItems([], false, stopped: true); }
                         }
-                    }
-                ]
-            });
+                    });
+            if (sendItems.Count > 0)
+                actions.Add(new ContextMenuAction
+                {
+                    Label = LocalizationText.Get("发送"),
+                    IconSvg = Icons.Send,
+                    SubItems = sendItems
+                });
         }
 
         actions.Add(new ContextMenuAction

@@ -7,6 +7,12 @@ internal static partial class LocalizationCatalog
     internal static readonly IReadOnlyDictionary<string, (string Chinese, string English)> Ui =
         new Dictionary<string, (string, string)>(StringComparer.Ordinal)
         {
+            ["airdrop.send"] = ("隔空投送", "AirDrop"),
+            ["airdrop.unavailable"] = ("隔空投送暂不可用，请检查系统隔空投送设置。", "AirDrop is unavailable. Check the system AirDrop settings."),
+            ["airdrop.invalid-files"] = ("无法发送所选项目，请检查文件是否存在且可读取。", "Unable to send the selected items. Check that the files exist and are readable."),
+            ["airdrop.no-window"] = ("请从当前窗口重新打开隔空投送。", "Reopen AirDrop from the current window."),
+            ["airdrop.busy"] = ("请先完成或取消当前的隔空投送。", "Finish or cancel the current AirDrop session first."),
+            ["airdrop.failed"] = ("隔空投送失败：{0}", "AirDrop failed: {0}"),
             ["toast.error"] = ("操作失败", "Operation failed"),
             ["remote.type"] = ("服务类型", "Service type"),
             ["remote.add"] = ("新增", "Add"),
@@ -786,7 +792,7 @@ internal static class LocalizationText
     {
         var culture = LocalizationService.Current?.Culture ?? CultureInfo.GetCultureInfo("zh-CN");
         var text = LocalizationCatalog.LiteralKeys.TryGetValue(chinese, out var key)
-            ? LocalizationCatalog.Get(key, culture) : chinese;
+            ? LocalizationCatalog.Get(key, culture) : LocalizationCatalog.Get(chinese, culture);
         return arguments.Length == 0 ? text : string.Format(culture, text, arguments);
     }
 }

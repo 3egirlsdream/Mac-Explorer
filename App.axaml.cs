@@ -338,6 +338,7 @@ public partial class App : Application
         services.AddSingleton<ILocalizationService, Services.Impl.LocalizationService>();
         services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddSingleton<ILocalSendService, Services.Impl.LocalSendService>();
+        services.AddSingleton<IAirDropService, Platforms.MacOS.MacAirDropService>();
         services.AddSingleton<Copilot.CopilotSettings>();
         services.AddSingleton<Copilot.CopilotCredentialStore>();
         services.AddSingleton<Copilot.CopilotStore>();
@@ -429,7 +430,7 @@ public partial class App : Application
                 sp.GetService<IRemoteFileEditService>(), sp.GetService<IOpenWithAppService>(),
                 sp.GetService<IFileTagService>(), sp.GetService<Services.Plugins.PluginManager>(),
                 sp.GetService<IBackgroundTaskManager>(), sp.GetRequiredService<Copilot.IAppCapabilityRegistry>(),
-                sp.GetService<ILocalSendService>());
+                sp.GetService<ILocalSendService>(), airDropService: sp.GetRequiredService<IAirDropService>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());
             return viewModel;
         });

@@ -1175,7 +1175,8 @@ public abstract partial class FileListViewModelTestBase
         IOpenWithAppService? openWithAppService = null,
         IBackgroundTaskManager? backgroundTaskManager = null,
         bool browseOnly = false, IQuickLookService? quickLookService = null,
-        ILocalSendService? localSendService = null, ISearchService? searchService = null)
+        ILocalSendService? localSendService = null, ISearchService? searchService = null,
+        IAirDropService? airDropService = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1210,7 +1211,7 @@ public abstract partial class FileListViewModelTestBase
             openWithAppService: openWithAppService,
             pluginManager: pluginManager,
             conversionTaskManager: backgroundTaskManager, quickLookService: quickLookService,
-            localSendService: localSendService) { IsBrowseOnly = browseOnly };
+            localSendService: localSendService, airDropService: airDropService) { IsBrowseOnly = browseOnly };
     }
 
     protected sealed class StaleRenamedDisplayNames(string renamedPath) : IDisplayNameService
