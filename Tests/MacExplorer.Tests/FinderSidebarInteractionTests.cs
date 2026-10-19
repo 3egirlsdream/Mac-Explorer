@@ -14,7 +14,6 @@ using Avalonia.VisualTree;
 using MacExplorer.Models;
 using MacExplorer.Views;
 using Xunit;
-using AssetIcons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.Tests;
 
@@ -23,98 +22,24 @@ namespace MacExplorer.Tests;
 public sealed class FinderSidebarInteractionTests
 {
     [AvaloniaFact(Explicit = true)]
-    public void SectionHeaderRevealsChevronsOnHoverAndKeepsTagCreationDiscoverable()
+    public void SidebarKeepsAiChevronAndMovesTagManagementOutOfSidebar()
     {
         var sidebar = new FinderSidebarView();
         AddApplicationStyles(sidebar);
-        var window = new Window
+        var window = new Window { Width = 280, Height = 700, Content = sidebar };
+        try
         {
-            Width = 280,
-            Height = 700,
-            Content = sidebar
-        };
-
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-
-        var aiHeader = sidebar.FindControl<Grid>("AiSectionHeader")!;
-        var tagsHeader = sidebar.FindControl<Grid>("TagsSectionHeader")!;
-        var aiChevron = sidebar.FindControl<PathIcon>("AiChevron")!;
-        var tagsChevron = sidebar.FindControl<PathIcon>("TagsChevron")!;
-        var addTagButton = sidebar.FindControl<Button>("AddTagBtn")!;
-
-        Assert.NotNull(aiHeader.Background);
-        Assert.NotNull(tagsHeader.Background);
-        Assert.Equal(0.65, aiChevron.Opacity);
-        Assert.Equal(0.65, tagsChevron.Opacity);
-        Assert.Equal(1, addTagButton.Opacity);
-
-        MoveToEmptyHeaderSpace(window, tagsHeader);
-
-        Assert.True(tagsHeader.IsPointerOver);
-        Assert.Equal(1, tagsChevron.Opacity);
-        Assert.Equal(1, addTagButton.Opacity);
-        Assert.Equal(0.65, aiChevron.Opacity);
-
-        window.Close();
-    }
-
-    [AvaloniaFact(Explicit = true)]
-    public void TagCreateAndRenameUseTheItemRowAsTheOnlyEditor()
-    {
-        var tag = new FileTag("项目资料", FileTagCatalog.CustomTagColor, FileTagKind.Custom);
-        var sidebar = new FinderSidebarView();
-        AddApplicationStyles(sidebar);
-        var tagItems = sidebar.FindControl<ItemsControl>("TagItems")!;
-        var tagTemplate = Assert.IsAssignableFrom<IDataTemplate>(tagItems.ItemTemplate);
-        var existingRow = Assert.IsAssignableFrom<Border>(tagTemplate.Build(tag));
-        existingRow.DataContext = tag;
-        sidebar.FindControl<StackPanel>("TagsPanel")!.Children.Insert(1, existingRow);
-
-        var window = new Window
-        {
-            Width = 280,
-            Height = 700,
-            Content = sidebar
-        };
-        window.Show();
-        sidebar.FindControl<StackPanel>("TagsPanel")!.IsVisible = true;
-        Dispatcher.UIThread.RunJobs();
-
-        AssertTagContentIsVerticallyCentered(existingRow);
-
-        var renameButton = existingRow.GetVisualDescendants()
-            .OfType<Button>()
-            .Single(button => Equals(ToolTip.GetTip(button), "重命名"));
-
-        renameButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        Dispatcher.UIThread.RunJobs();
-
-        AssertTagRowIsEditing(existingRow, "项目资料");
-        Assert.False(sidebar.FindControl<Border>("NewTagEditorRow")!.IsVisible);
-
-        sidebar.FindControl<Button>("AddTagBtn")!
-            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        Dispatcher.UIThread.RunJobs();
-
-        Assert.False(existingRow.GetVisualDescendants()
-            .OfType<TextBox>()
-            .Single(textBox => textBox.Classes.Contains("tag-name-editor"))
-            .IsVisible);
-        Assert.Equal(2, existingRow.GetVisualDescendants()
-            .OfType<Button>()
-            .Count(button => button.Classes.Contains("tag-normal-action") && button.IsVisible));
-
-        var newRow = sidebar.FindControl<Border>("NewTagEditorRow")!;
-        Assert.True(newRow.IsVisible);
-        Assert.Single(newRow.GetVisualDescendants().OfType<PathIcon>(),
-            pathIcon => pathIcon.Classes.Contains("sidebar-icon"));
-        Assert.Equal("新标签", sidebar.FindControl<TextBox>("NewTagInput")!.Text);
-        AssertTagEditorMatchesFileRenameStyle(newRow);
-        AssertTagContentIsVerticallyCentered(newRow);
-        AssertSingleConfirmButton(newRow);
-
-        window.Close();
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            var header = sidebar.FindControl<Grid>("AiSectionHeader")!;
+            var chevron = sidebar.FindControl<PathIcon>("AiChevron")!;
+            Assert.NotNull(header.Background);
+            Assert.Equal(0.65, chevron.Opacity);
+            MoveToEmptyHeaderSpace(window, header);
+            Assert.True(header.IsPointerOver); Assert.Equal(1, chevron.Opacity);
+            Assert.Null(sidebar.FindControl<Control>("TagsSectionHeader"));
+            Assert.Null(sidebar.FindControl<Control>("TagItems"));
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact(Explicit = true)]
@@ -206,82 +131,6 @@ public sealed class FinderSidebarInteractionTests
             new Uri("avares://MacExplorer/Assets/Styles.axaml")));
         sidebar.Styles.Add((Styles)AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
-    }
-
-    private static void AssertTagRowIsEditing(Border row, string expectedText)
-    {
-        var editor = row.GetVisualDescendants()
-            .OfType<TextBox>()
-            .Single(textBox => textBox.Classes.Contains("tag-name-editor"));
-        var label = row.GetVisualDescendants()
-            .OfType<TextBlock>()
-            .Single(text => text.Classes.Contains("tag-name-label"));
-
-        Assert.True(editor.IsVisible);
-        Assert.Equal(expectedText, editor.Text);
-        Assert.False(label.IsVisible);
-        Assert.DoesNotContain(row.GetVisualDescendants().OfType<Button>(),
-            button => button.Classes.Contains("tag-normal-action") && button.IsVisible);
-        AssertTagEditorMatchesFileRenameStyle(row);
-        AssertTagContentIsVerticallyCentered(row);
-        AssertSingleConfirmButton(row);
-    }
-
-    private static void AssertTagEditorMatchesFileRenameStyle(Border row)
-    {
-        var editor = row.GetVisualDescendants()
-            .OfType<TextBox>()
-            .Single(textBox => textBox.Classes.Contains("tag-name-editor"));
-
-        Assert.Contains("inline-rename-editor", editor.Classes);
-        Assert.Equal(22, editor.Height);
-        Assert.Equal(72, editor.MinWidth);
-        Assert.Equal(new Thickness(0), editor.BorderThickness);
-        Assert.Equal(new CornerRadius(4), editor.CornerRadius);
-        Assert.Equal(global::Avalonia.Layout.HorizontalAlignment.Left, editor.HorizontalAlignment);
-        Assert.Equal(global::Avalonia.Layout.VerticalAlignment.Center, editor.VerticalAlignment);
-        Assert.Equal(global::Avalonia.Layout.VerticalAlignment.Center, editor.VerticalContentAlignment);
-        Assert.Null(editor.FocusAdorner);
-    }
-
-    private static void AssertTagContentIsVerticallyCentered(Border row)
-    {
-        var content = row.GetVisualDescendants()
-            .OfType<Grid>()
-            .Single(grid => grid.Classes.Contains("tag-row-content"));
-        var icon = content.Children
-            .OfType<PathIcon>()
-            .Single(pathIcon => pathIcon.Classes.Contains("sidebar-icon"));
-        var textControl = content.Children
-            .Where(control => control.IsVisible)
-            .Single(control => control is TextBlock { Classes: var classes }
-                                   && classes.Contains("tag-name-label")
-                               || control is TextBox { Classes: var editorClasses }
-                                   && editorClasses.Contains("tag-name-editor"));
-        var iconCenter = icon.TranslatePoint(new Point(0, icon.Bounds.Height / 2), content);
-        var textCenter = textControl.TranslatePoint(
-            new Point(0, textControl.Bounds.Height / 2),
-            content);
-
-        Assert.NotNull(iconCenter);
-        Assert.NotNull(textCenter);
-        Assert.InRange(Math.Abs(iconCenter.Value.Y - textCenter.Value.Y), 0, 0.5);
-    }
-
-    private static void AssertSingleConfirmButton(Border row)
-    {
-        var visibleButtons = row.GetVisualDescendants()
-            .OfType<Button>()
-            .Where(button => button.IsVisible)
-            .ToArray();
-        var confirmButton = Assert.Single(visibleButtons);
-        Assert.Contains("tag-confirm-action", confirmButton.Classes);
-        var confirmIcon = Assert.Single(confirmButton.GetVisualDescendants().OfType<PathIcon>());
-        Assert.Equal(
-            StreamGeometry.Parse(AssetIcons.Checkmark).Bounds,
-            confirmIcon.Data?.Bounds);
-        Assert.DoesNotContain(confirmButton.GetVisualDescendants().OfType<TextBlock>(),
-            textBlock => textBlock.Text == "\u2713");
     }
 
 }

@@ -19,7 +19,7 @@ internal sealed class PluginTestEnvironment : IDisposable
         }
     }
     public static string Configuration => AppContext.BaseDirectory.Contains("/Release/") ? "Release" : "Debug";
-    public static string ApplicationOutput => Environment.GetEnvironmentVariable("MACEXPLORER_TEST_APP_OUTPUT") ?? Path.Combine(Repository, "bin", Configuration, "net10.0", "osx-arm64", "Mac Explorer.app", "Contents", "MacOS");
+    public static string ApplicationOutput => Environment.GetEnvironmentVariable("MACEXPLORER_TEST_APP_OUTPUT") ?? Path.Combine(Repository, "bin", Configuration, "net10.0", "osx-arm64", DistributionChannel.IsAppStore ? "文件资源管理器.app" : "Mac Explorer.app", "Contents", "MacOS");
     public static string BundledPackage => Path.Combine(ApplicationOutput, "..", "Resources", "BundledPlugins", "FileConversion.mexplug");
     public string Root { get; } = Path.Combine(Path.GetTempPath(), "fkfinder-plugin-test-" + Guid.NewGuid().ToString("N"));
     public MemorySettings Settings { get; } = new();

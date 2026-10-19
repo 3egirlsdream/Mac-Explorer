@@ -7,6 +7,8 @@ namespace MacExplorer.Services;
 public static class VirtualPath
 {
     /// <summary>Application home view.</summary>
+    public const string Network = "__network__";
+
     public const string Home = "__home__";
 
     /// <summary>Prefix for AI view paths: __ai:face:123, __ai:categories, etc.</summary>

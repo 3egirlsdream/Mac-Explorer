@@ -128,7 +128,7 @@
                                     IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
                                 <PathIcon Data="{x:Static icons:Icons.Up}"/>
                             </Button>
-                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.refresh"
+                            <Button x:Name="RefreshButton" Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.refresh"
                                     AutomationProperties.Name="{loc:Loc ui.344}" Click="RefreshView">
                                 <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
                             </Button>
@@ -139,6 +139,11 @@
                                              HorizontalAlignment="Stretch"
                                              VerticalAlignment="Center"/>
 
+                        <Button Grid.Column="2" x:Name="ConnectServerButton" Classes="workspace-nav-button" VerticalAlignment="Center"
+                                IsVisible="{Binding FileList.IsNetworkPage}" Click="OnConnectNetworkServer"
+                                ToolTip.Tip="{loc:Loc network.connect}" AutomationProperties.Name="{loc:Loc network.connect}">
+                            <PathIcon Data="{x:Static icons:Icons.PlugConnected}"/>
+                        </Button>
                         <Grid Grid.Column="2" x:Name="SearchControls">
                             <Button x:Name="SearchToggleButton" Classes="workspace-nav-button"
                                     IsVisible="False" Click="OnTogglePageSearch"
@@ -234,6 +239,7 @@
                                         <Grid x:Name="WorkspaceContentRoot">
                                             <local:FileListView x:Name="FileListControl" DataContext="{Binding FileList}"/>
                                             <local:HomeView x:Name="HomeViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
+                                            <local:NetworkView x:Name="NetworkViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
                                             <local:AiView x:Name="AiViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
                                         </Grid>
                                     </SplitView.Content>

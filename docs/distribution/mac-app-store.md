@@ -34,7 +34,7 @@ dotnet build MacExplorer.csproj -c Debug -r osx-arm64 \
 
 官网 Release 构建默认生成 DMG；Store 不生成 DMG。托管程序集位于 `Contents/Resources/Managed`，原生库位于 `Contents/Frameworks`，原生帮助程序位于 `Contents/MacOS`。`sign-app.sh` 逐个签名原生文件，最后签名并校验主包。
 
-包内分类为工具（`public.app-category.utilities`），版权沿用官网的 `© 2026 Mac Explorer`。`MacOSBuildNumber` 独立控制 `CFBundleVersion`，默认兼容现有版本号；每次实际上传需传入更大的构建号，例如 `-p:MacOSBuildNumber=51`。商店构建在签名前递归清除 quarantine，包审计检查分类、版权、构建号和 quarantine。
+包内分类为工具（`public.app-category.utilities`），商店版权为 `© 2026 文件资源管理器`（官网渠道保持原名称）。`MacOSBuildNumber` 独立控制 `CFBundleVersion`，默认兼容现有版本号；每次实际上传需传入更大的构建号，例如 `-p:MacOSBuildNumber=51`。商店构建在签名前递归清除 quarantine，包审计检查分类、版权、构建号和 quarantine。
 
 目录授权根的规范路径在恢复或重新授权时计算；每个访问目标仍实时解析符号链接，不缓存文件访问的允许结果。helper 对已知输入／输出只传所需授权，并复用对应的隐式书签；撤销、恢复和重新授权会替换或移除缓存。没有显式路径的既有内置转换仍传递当前授权集合，保持转换兼容。
 
@@ -45,9 +45,9 @@ dotnet build MacExplorer.csproj -c Debug -r osx-arm64 \
 官网 Bundle ID 为 `com.thankful.top.macexplorer`，商店正式 Bundle ID 为 `com.thankful.top.macexplorer.store`，已配置于 `Tools/Distribution/release-config.json` 与项目默认值。测试构建通过 `AppStoreBundleId` 覆盖为 `.store.qa` 标识；正式构建使用默认标识。正式 Release 构建还需要 `MacOSSigningIdentity`、`MacOSTeamIdentifier` 和 `AppStoreProvisioningProfile`；设置 `StoreSubmission=true` 可在构建前检查正式标识与公开隐私政策。
 
 ```sh
-python3 Tools/Distribution/verify-bundle.py '/absolute/path/Mac Explorer.app' AppStore
+python3 Tools/Distribution/verify-bundle.py '/absolute/path/文件资源管理器.app' AppStore
 bash Tools/Distribution/prepare-store-pkg.sh \
-  '/absolute/path/Mac Explorer.app' '/absolute/path/MacExplorer.pkg' \
+  '/absolute/path/文件资源管理器.app' '/absolute/path/MacExplorer.pkg' \
   'Mac Installer Distribution: Your Name (TEAM_ID)'
 ```
 
@@ -63,7 +63,7 @@ bash Tools/Distribution/prepare-store-pkg.sh \
 
 历史结果保留于 [初始实现](archive/mac-app-store.md)、[渠道复核](archive/mac-app-store-review.md)、[隐私复核](archive/privacy-security-review.md)及 [可靠性复核](archive/reliability-release-review.md)。正式商店签名、账号/profile 和成功 PKG 流程仍需具备相应资源后验收；Intel 运行测试按用户要求不执行。
 
-正式提交前还需填写 App Privacy 标签、截图、年龄分级、支持信息、审核操作说明和加密出口合规资料。数据库凭据持久化、局域网拒绝／恢复、实际 SFTP 服务、外置磁盘弹出及生产签名 Sandbox 必须单独验收。付费解锁／订阅只有采用该商业模式时才接入 StoreKit；当前不新增收费机制。
+正式提交前还需填写 App Privacy 标签、截图、年龄分级、支持信息、审核操作说明和加密出口合规资料。数据库凭据持久化、局域网拒绝／恢复、实际 SFTP 服务、外置磁盘弹出及生产签名 Sandbox 必须单独验收。商店版采用 StoreKit 年度自动续订订阅解锁全部功能；下载本身不包含永久使用权。价格与试用资格由 App Store 返回，参见 [年度订阅配置](../../Tools/Distribution/SUBSCRIPTIONS.md)。
 
 ## 2026-10-01 适配验证
 
@@ -74,3 +74,9 @@ arm64 两渠道 Release 构建通过，各 75 项定向回归通过（0 失败�
 授权回归确认 100 次访问只解析 100 个目标，重复 10 次 helper 启动只创建一次对应隐式书签，撤销后拒绝继续使用。每个目标仍实时校验，缓存和并发门控保持不变。本次未测量两渠道的端到端性能差值，不能据此承诺固定的性能损耗比例。构建仍有既有警告，完整套件和生产环境验收未在本次重跑。
 
 随后按用户要求将 Git 从固定关闭改为检测可用性。两渠道各 78 项定向回归通过，包含 Git 候选探测、真实仓库的修改／未跟踪／忽略状态、拒绝访问已缓存的未授权仓库、失败读取后的重试，以及阻止外部 filter 和 partial clone 查询；Store 查询没有运行 fsmonitor hook，也没有更新索引。新 Store QA 原生实例在用户选择的临时测试目录中显示 `M` 和 `?` 标记。未安装 Git／候选执行失败通过替身测试覆盖，本次没有卸载系统 Git，也没有完成生产签名或全部安装布局的实机验收。
+
+## 2026-10-16 审核整改
+
+商店基础包名为 `文件资源管理器.app`，`en.lproj` 显示 `文件资源管理器`，`zh-Hans.lproj` 显示 `文件资源管理器`；App Store Connect 使用现有中文主语言名称「文件资源管理器」，其他地区回退该名称；本轮新增英文记录因后台名称占用校验已撤销。官网渠道和所有 Bundle Identifier、StoreKit 商品 ID、可执行文件名、数据路径保持原值。应用菜单使用自己的关于页面，退出菜单携带应用名称，不再使用框架 About Avalonia 页面。现有 Xcode 默认 scheme 仍用于官网开发；商店构建使用上述 `DistributionChannel=AppStore` 流程。
+
+本次上架文案、截图要求和审核回复草稿见 [审核整改交付](../../Tools/Distribution/AppStoreMetadata/README.md)。本地修改不会自动更新 App Store Connect，也不会替换已上传的旧构建。

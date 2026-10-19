@@ -25,6 +25,16 @@ internal static class FileTagSchema
             INSERT OR IGNORE INTO tag_definitions(name)
                 SELECT DISTINCT tag FROM file_tags;
             """);
+        bool migrateHierarchy;
+        using (var columns = connection.CreateCommand())
+        {
+            columns.Transaction = transaction;
+            columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('tag_definitions') WHERE name = 'parent_name'";
+            migrateHierarchy = Convert.ToInt32(columns.ExecuteScalar()) == 0;
+        }
+        if (migrateHierarchy)
+            Execute(connection, transaction, "ALTER TABLE tag_definitions ADD COLUMN parent_name TEXT COLLATE NOCASE");
+        Execute(connection, transaction, "CREATE INDEX IF NOT EXISTS idx_tag_definitions_parent ON tag_definitions(parent_name, sort_order)");
         var names = new List<string>();
         using (var command = connection.CreateCommand())
         {
@@ -55,6 +65,20 @@ internal static class FileTagSchema
             Execute(connection, transaction,
                 "INSERT INTO tag_definitions(name, color_id) VALUES (@name, @color) ON CONFLICT(name) DO UPDATE SET color_id = excluded.color_id",
                 ("@name", tag.Name), ("@color", tag.ColorId));
+        if (migrateHierarchy)
+        {
+            // Freeze the former presentation order before enabling manual sibling ordering.
+            Execute(connection, transaction, """
+                WITH ordered AS (
+                    SELECT d.name, ROW_NUMBER() OVER (ORDER BY d.is_pinned DESC,
+                        CASE WHEN d.is_pinned = 1 THEN d.sort_order ELSE 0 END,
+                        CASE d.name WHEN '红色' THEN 0 WHEN '橙色' THEN 1 WHEN '黄色' THEN 2
+                            WHEN '绿色' THEN 3 WHEN '蓝色' THEN 4 WHEN '紫色' THEN 5 WHEN '灰色' THEN 6 ELSE 7 END,
+                        CASE WHEN d.is_pinned = 1 THEN 0 ELSE (SELECT COUNT(*) FROM file_tags f WHERE f.tag = d.name COLLATE NOCASE) END DESC,
+                        d.name COLLATE NOCASE) - 1 AS position FROM tag_definitions d)
+                UPDATE tag_definitions SET sort_order = (SELECT position FROM ordered WHERE ordered.name = tag_definitions.name);
+                """);
+        }
         ownedTransaction?.Commit();
     }
 

@@ -21,10 +21,6 @@ namespace MacExplorer.Views;
 
 public partial class FinderSidebarView : UserControl
 {
-    private FileTag? _editingTag;
-    private Border? _activeTagEditorRow;
-    private TextBox? _activeTagInput;
-    private bool _isCommittingTagEdit;
     private Border? _folderDropTarget;
     private string? _folderDropPath;
     private IDisposable? _folderHoverTimer;
@@ -123,10 +119,8 @@ public partial class FinderSidebarView : UserControl
         if (_subscribedViewModel != null)
         {
             _subscribedViewModel.PinnedFolders.CollectionChanged -= OnSidebarTagChanged;
-            _subscribedViewModel.SidebarTags.CollectionChanged -= OnSidebarTagChanged;
             _subscribedViewModel.ExternalVolumes.CollectionChanged -= OnSidebarTagChanged;
             _subscribedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-            _subscribedViewModel.NewTagRequested -= OnNewTagRequested;
         }
 
         base.OnDataContextChanged(e);
@@ -134,10 +128,8 @@ public partial class FinderSidebarView : UserControl
         {
             _subscribedViewModel = ViewModel;
             _subscribedViewModel.PinnedFolders.CollectionChanged += OnSidebarTagChanged;
-            _subscribedViewModel.SidebarTags.CollectionChanged += OnSidebarTagChanged;
             _subscribedViewModel.ExternalVolumes.CollectionChanged += OnSidebarTagChanged;
             _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
-            _subscribedViewModel.NewTagRequested += OnNewTagRequested;
             UpdateActiveStates();
             UpdateChevronState();
             RefreshRemoteServersList();
@@ -168,11 +160,6 @@ public partial class FinderSidebarView : UserControl
         {
             UpdateChevronState();
         }
-        else if (e.PropertyName == nameof(FileListViewModel.IsTagsSectionCollapsed))
-        {
-            UpdateChevronState();
-        }
-
         else if (e.PropertyName == nameof(FileListViewModel.ExternalVolumes))
         {
             // Handled by binding
@@ -183,7 +170,6 @@ public partial class FinderSidebarView : UserControl
     {
         if (ViewModel == null) return;
         UpdateChevron(AiChevron, !ViewModel.IsAiSectionCollapsed);
-        UpdateChevron(TagsChevron, !ViewModel.IsTagsSectionCollapsed);
     }
 
     private static void UpdateChevron(PathIcon? chevron, bool expanded)
@@ -207,11 +193,6 @@ public partial class FinderSidebarView : UserControl
         if (ViewModel == null) return;
         if (RemoteServersList.ItemsSource is IEnumerable<RemoteServerInfo> servers)
             foreach (var server in servers) server.RefreshLocalizedText();
-        var hasTags = ViewModel.SidebarTags.Count > 0;
-        TagsSectionTitle.Text = MacExplorer.Services.Impl.LocalizationText.Get("标签");
-        TagsSectionHeader.Margin = new Thickness(0, hasTags ? 16 : 8, 0, 2);
-        AutomationProperties.SetName(TagsSectionHeader, MacExplorer.Services.Impl.LocalizationText.Get(hasTags ? "展开或收起标签" : "添加标签"));
-        TagsChevron.IsVisible = hasTags;
         var current = ViewModel.CurrentPath;
         var home = ViewModel.HomeDirectory;
 
@@ -224,6 +205,7 @@ public partial class FinderSidebarView : UserControl
         ToggleClass(VolumeItem, current == "/");
         ToggleClass(ApplicationsItem, current == "/Applications");
         ToggleClass(TrashItem, ViewModel.IsTrashActive);
+        ToggleClass(NetworkItem, ViewModel.IsNetworkPage);
 
         ToggleClass(AiPeopleItem, ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.People);
         ToggleClass(AiCategoriesItem, ViewModel.IsAiView && ViewModel.AiViewMode == AiViewMode.Categories);
@@ -280,11 +262,6 @@ public partial class FinderSidebarView : UserControl
         if (e.Source is Grid header && ViewModel != null)
         {
             if (header == AiSectionHeader) ViewModel.ToggleAiCollapsedCommand.Execute(null);
-            else if (header == TagsSectionHeader)
-            {
-                if (ViewModel.SidebarTags.Count == 0) StartNewTag(sender, e);
-                else ViewModel.ToggleTagsCollapsedCommand.Execute(null);
-            }
             else return;
             e.Handled = true;
             return;
@@ -325,7 +302,7 @@ public partial class FinderSidebarView : UserControl
             await ViewModel.NavigateToCommand.ExecuteAsync(path);
         else if (aiMode.HasValue)
             await ViewModel.NavigateToAiViewAsync(aiMode.Value);
-        else if (border.Tag is FileTag tag && !ReferenceEquals(border, _activeTagEditorRow))
+        else if (border.Tag is FileTag tag)
             await ViewModel.NavigateToTagAsync(tag);
         else if (border.Tag is RemoteServerInfo server)
         {
@@ -344,12 +321,6 @@ public partial class FinderSidebarView : UserControl
     private void OnToggleAiCollapsed(object? sender, PointerPressedEventArgs e)
     {
         ViewModel?.ToggleAiCollapsedCommand.Execute(null);
-    }
-
-    private void OnToggleTagsCollapsed(object? sender, PointerPressedEventArgs e)
-    {
-        if (ViewModel?.SidebarTags.Count == 0) StartNewTag(sender, e);
-        else ViewModel?.ToggleTagsCollapsedCommand.Execute(null);
     }
 
     private async void OnPinnedFolderPressed(object? sender, PointerPressedEventArgs e)
@@ -515,12 +486,19 @@ public partial class FinderSidebarView : UserControl
         base.OnAttachedToVisualTree(e);
         if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
             language.LanguageChanged += UpdateActiveStates;
+        var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
+        if (coordinator != null) coordinator.Changed += OnConnectionsChanged;
+        RefreshRemoteServersList();
         UpdateActiveStates();
     }
+
+    private void OnConnectionsChanged() => Dispatcher.UIThread.Post(RefreshRemoteServersList);
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         ClearFolderDropTarget();
+        var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
+        if (coordinator != null) coordinator.Changed -= OnConnectionsChanged;
         if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
             language.LanguageChanged -= UpdateActiveStates;
         base.OnDetachedFromVisualTree(e);
@@ -532,19 +510,6 @@ public partial class FinderSidebarView : UserControl
     {
         if (sender is not Border { Tag: VolumeInfo vol } || ViewModel == null) return;
         await ViewModel.NavigateToCommand.ExecuteAsync(vol.Path);
-        UpdateActiveStates();
-    }
-
-    private async void OnTagPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        if (ReferenceEquals(sender, _activeTagEditorRow))
-        {
-            e.Handled = true;
-            return;
-        }
-        if (sender is not Border { Tag: FileTag col } || ViewModel == null) return;
-        await ViewModel.NavigateToTagAsync(col);
         UpdateActiveStates();
     }
 
@@ -563,181 +528,6 @@ public partial class FinderSidebarView : UserControl
             await ViewModel.EjectVolumeCommand.ExecuteAsync(vol);
     }
 
-    // ── Tag management ──
-
-    private void StartNewTag(object? sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        EndTagEditUi();
-        _editingTag = null;
-        if (ViewModel?.IsTagsSectionCollapsed == true)
-            ViewModel.IsTagsSectionCollapsed = false;
-
-        NewTagEditorRow.IsVisible = true;
-        _activeTagEditorRow = NewTagEditorRow;
-        _activeTagInput = NewTagInput;
-        NewTagInput.Text = MacExplorer.Services.Impl.LocalizationText.Get("新标签");
-        FocusTagInput(NewTagInput);
-    }
-
-    private void OnTagEditorLostFocus(object? sender, RoutedEventArgs e)
-    {
-        if (sender is TextBox input && ReferenceEquals(input, _activeTagInput))
-            _ = CommitTagEditAsync();
-    }
-
-    private async void OnTagEditorKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            e.Handled = true;
-            await CommitTagEditAsync();
-        }
-        else if (e.Key == Key.Escape)
-        {
-            e.Handled = true;
-            CancelTagEdit();
-        }
-    }
-
-    private async void CommitTagEdit(object? sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        await CommitTagEditAsync();
-    }
-
-    private async System.Threading.Tasks.Task CommitTagEditAsync()
-    {
-        if (_isCommittingTagEdit || _activeTagInput == null) return;
-
-        _isCommittingTagEdit = true;
-        var name = _activeTagInput.Text?.Trim();
-        var tag = _editingTag;
-        EndTagEditUi();
-
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(name) && ViewModel != null)
-            {
-                if (tag == null)
-                    await ViewModel.CreateTagAsync(name);
-                else
-                    await ViewModel.RenameTagAsync(tag, name);
-            }
-        }
-        finally
-        {
-            _isCommittingTagEdit = false;
-        }
-    }
-
-    private void RenameTag(object? sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        if (sender is not Button { Tag: FileTag { IsCustom: true } tag } button) return;
-
-        var row = button.GetVisualAncestors()
-            .OfType<Border>()
-            .FirstOrDefault(border => border.Classes.Contains("tag-row"));
-        if (row == null) return;
-
-        CancelTagEdit();
-        _editingTag = tag;
-        _activeTagEditorRow = row;
-        _activeTagInput = FindTagRowControl<TextBox>(row, "tag-name-editor");
-        if (_activeTagInput == null)
-        {
-            CancelTagEdit();
-            return;
-        }
-
-        SetTagRowEditing(row, true);
-        _activeTagInput.Text = tag.Name;
-        FocusTagInput(_activeTagInput);
-    }
-
-    private void CancelTagEdit()
-    {
-        ViewModel?.CancelNewTag();
-        EndTagEditUi();
-    }
-
-    private void EndTagEditUi()
-    {
-        var editingTag = _editingTag;
-        var editorRow = _activeTagEditorRow;
-        // Hiding the focused editor raises LostFocus synchronously; clear ownership first so Escape cannot commit.
-        _editingTag = null;
-        _activeTagEditorRow = null;
-        _activeTagInput = null;
-        if (editingTag != null && editorRow != null)
-            SetTagRowEditing(editorRow, false);
-        NewTagEditorRow.IsVisible = false;
-        NewTagInput.Text = "";
-    }
-
-    private static void SetTagRowEditing(Border row, bool editing)
-    {
-        var nameLabel = FindTagRowControl<TextBlock>(row, "tag-name-label");
-        var nameEditor = FindTagRowControl<TextBox>(row, "tag-name-editor");
-        var confirmButton = FindTagRowControl<Button>(row, "tag-confirm-action");
-
-        if (nameLabel != null) nameLabel.IsVisible = !editing;
-        if (nameEditor != null) nameEditor.IsVisible = editing;
-        if (confirmButton != null) confirmButton.IsVisible = editing;
-
-        foreach (var action in row.GetVisualDescendants()
-                     .OfType<Button>()
-                     .Where(button => button.Classes.Contains("tag-normal-action")))
-        {
-            action.IsVisible = !editing && row.Tag is FileTag { IsCustom: true };
-        }
-    }
-
-    private static T? FindTagRowControl<T>(Border row, string className)
-        where T : Control
-    {
-        return row.GetVisualDescendants()
-            .OfType<T>()
-            .FirstOrDefault(control => control.Classes.Contains(className));
-    }
-
-    private static void FocusTagInput(TextBox input)
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (!input.IsVisible) return;
-            input.Focus();
-            input.SelectAll();
-        }, DispatcherPriority.Input);
-    }
-
-    private void DeleteTag(object? sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        if (sender is Button { Tag: FileTag tag })
-            ViewModel?.ShowTagDeleteConfirmDialog(tag);
-    }
-
-    private void OnNewTagRequested() => StartNewTag(this, new RoutedEventArgs());
-
-    private void OnTagDragOver(object? sender, DragEventArgs e)
-    {
-        ClearFolderDropTarget();
-        var paths = GetDroppedPaths(e.DataTransfer);
-        e.DragEffects = paths.Length > 0 && paths.All(Services.Impl.FileTagService.IsSupportedPath)
-            ? DragDropEffects.Copy : DragDropEffects.None;
-        e.Handled = true;
-    }
-
-    private async void OnTagDrop(object? sender, DragEventArgs e)
-    {
-        ClearFolderDropTarget();
-        if (sender is not Border { Tag: FileTag tag } || ViewModel == null) return;
-        e.Handled = true;
-        await ViewModel.SetFileTagAsync(GetDroppedPaths(e.DataTransfer), tag, true);
-    }
-
     // ── Remote Server ──
 
     private async void OnAddRemoteServer(object? sender, RoutedEventArgs e)
@@ -752,7 +542,8 @@ public partial class FinderSidebarView : UserControl
         var result = await dialog.ShowDialog<RemoteServerInfo?>(window);
         if (result != null && dialog.Connected && ViewModel != null)
         {
-            await ViewModel.ConnectToServerAsync(result);
+            if (dialog.NavigationPath != null) await ViewModel.NavigateToAsync(dialog.NavigationPath);
+            else await ViewModel.ConnectToServerAsync(result);
             RefreshRemoteServersList();
         }
     }
@@ -764,11 +555,11 @@ public partial class FinderSidebarView : UserControl
         RefreshRemoteServersList();
     }
 
-    private void OnDisconnectRemoteServer(object? sender, RoutedEventArgs e)
+    private async void OnDisconnectRemoteServer(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
         if (sender is not Button { Tag: RemoteServerInfo server }) return;
-        ViewModel?.DisconnectServer(server.Id);
+        if (ViewModel != null) await ViewModel.DisconnectServerAsync(server);
         RefreshRemoteServersList();
     }
 
@@ -785,9 +576,13 @@ public partial class FinderSidebarView : UserControl
         var servers = connectionService.GetSavedServers();
         foreach (var server in servers)
         {
-            server.IsConnected = connectionService.IsConnected(server.Id);
+            server.IsConnected = App.Services?.GetService<IServerConnectionCoordinator>()?.IsConnected(server) ?? connectionService.IsConnected(server.Id);
         }
 
+        var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
+        servers = servers.Where(server => server.ServiceType != RemoteServiceType.Smb
+            || coordinator?.GetMountedVolume(server) is not { } mounted
+            || ViewModel?.ExternalVolumes.Any(v => v.Path == mounted.Path) != true).ToArray();
         var hasServers = servers.Count > 0;
         RemoteServersHeader.IsVisible = hasServers;
         RemoteServersList.IsVisible = hasServers;

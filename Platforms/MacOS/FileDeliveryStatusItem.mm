@@ -109,7 +109,10 @@ void MacExplorerDeliveryCreate(DeliveryCallback callback)
     delivery.callback = callback;
     delivery.item = [NSStatusBar.systemStatusBar statusItemWithLength:NSSquareStatusItemLength];
     delivery.item.button.image = DeliveryMenuBarImage();
-    delivery.item.button.toolTip = @"文件速递 · Mac Explorer";
+    NSString *appName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"]
+        ?: [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleName"]
+        ?: NSProcessInfo.processInfo.processName;
+    delivery.item.button.toolTip = [@"文件速递 · " stringByAppendingString:appName];
     [delivery.item.button setAccessibilityLabel:@"文件速递"];
     delivery.item.button.target = delivery;
     delivery.item.button.action = @selector(toggle:);

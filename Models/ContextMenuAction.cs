@@ -3,6 +3,7 @@ namespace MacExplorer.Models;
 public class ContextMenuAction
 {
     public string Label { get; init; } = string.Empty;
+    public IReadOnlyList<string>? TagTreePaths { get; init; }
     public string? ToolTip { get; init; }
     public string IconSvg { get; init; } = string.Empty;
     public string? IconColor { get; init; }

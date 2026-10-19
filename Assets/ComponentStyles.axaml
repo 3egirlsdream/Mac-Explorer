@@ -547,6 +547,12 @@
     </Style>
 
     <!-- Search/filter tags keep their label and count in separate, centered regions. -->
+    <Style Selector="Border.status-tag">
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+    </Style>
     <Style Selector="Button.tag-chip">
         <Setter Property="MinHeight" Value="28"/>
         <Setter Property="MaxWidth" Value="280"/>
@@ -999,6 +1005,83 @@
         <Style Selector="Button.workspace-nav-button:pointerover">
             <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
+
+    <!-- Shared nested tag navigation and assignment surfaces. -->
+    <Style Selector="ListBox.tag-suggestions ListBoxItem">
+        <Setter Property="MinHeight" Value="30"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Border.tag-toolbar-item">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
+    </Style>
+    <Style Selector="Border.tag-toolbar-item.active, Border.tag-tree-row.active">
+        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
+    </Style>
+    <Style Selector="Border.tag-tree-row">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.tag-tree-row:pointerover, Border.tag-tree-row:focus-within, Border.tag-tree-row.drop-inside">
+        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource SidebarHoverOutline}"/>
+    </Style>
+    <Style Selector="Border.tag-tree-row.drop-before">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="0,2,0,0"/>
+    </Style>
+    <Style Selector="Border.tag-tree-row.drop-after">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,2"/>
+    </Style>
+    <Style Selector="Button.tag-toolbar-name">
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
+    </Style>
+    <Style Selector="Button.tag-tree-name, Button.tag-tree-arrow">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="PART_ContentPresenter" Background="Transparent"
+                    Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                    VerticalContentAlignment="Center"/>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.tag-tree-name:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     Button.tag-tree-name:pressed /template/ ContentPresenter#PART_ContentPresenter,
+                     Button.tag-tree-name:focus /template/ ContentPresenter#PART_ContentPresenter,
+                     Button.tag-tree-arrow:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     Button.tag-tree-arrow:pressed /template/ ContentPresenter#PART_ContentPresenter,
+                     Button.tag-tree-arrow:focus /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BoxShadow" Value="0 0 0 0 Transparent"/>
+    </Style>
+    <Style Selector="Button.tag-tree-arrow">
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.tag-tree-empty">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.tag-tree-error">
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+        <Setter Property="Margin" Value="8,4"/>
+    </Style>
+    <Style Selector="PathIcon.tag-tree-check">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.tag-tree-partial">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
 
     <StyleInclude Source="avares://MacExplorer/Assets/ToastStyles.axaml"/>
 </Styles>

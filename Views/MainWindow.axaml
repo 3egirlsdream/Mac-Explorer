@@ -13,7 +13,7 @@
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="MacExplorer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel" x:CompileBindings="False"
-        Title="{Binding FileList.CurrentLocationTitle, FallbackValue='Mac Explorer'}"
+        Title="{Binding FileList.CurrentLocationTitle}"
         Width="1280" Height="800"
         MinWidth="1000" MinHeight="680">
 

@@ -70,6 +70,8 @@ jobs:
             -class MacExplorer.Tests.PrivacySecurityFollowupTests -class MacExplorer.Tests.SecurityDialogTests \
             -class MacExplorer.Tests.LocalSendServiceTests -class MacExplorer.Tests.LocalSendReviewTests \
             -class MacExplorer.Tests.FileListLoadingPipelineTests \
+            -class MacExplorer.Tests.NetworkServiceTests -class MacExplorer.Tests.NetworkLifecycleTests \
+            -class MacExplorer.Tests.NetworkNavigationTests \
             "${channel_selectors[@]}" \
             > "$RUNNER_TEMP/tests-$CHANNEL.log" 2>&1 || test_status=$?
           cat "$RUNNER_TEMP/tests-$CHANNEL.log"
@@ -79,7 +81,9 @@ jobs:
         env:
           CHANNEL: ${{ matrix.channel }}
         run: |
-          app=$(find "$RUNNER_TEMP/build-$CHANNEL/bin/MacExplorer" -type d -name 'Mac Explorer.app' | head -n 1)
+          bundle_name='Mac Explorer.app'
+          if [[ "$CHANNEL" == AppStore ]]; then bundle_name='文件资源管理器.app'; fi
+          app=$(find "$RUNNER_TEMP/build-$CHANNEL/bin/MacExplorer" -type d -name "$bundle_name" | head -n 1)
           test -n "$app"
           python3 Tools/Distribution/verify-bundle.py "$app" "$CHANNEL" > "$RUNNER_TEMP/bundle-$CHANNEL.json"
           python3 Tools/Distribution/verify-notices.py "$app" > "$RUNNER_TEMP/notices-$CHANNEL.json"

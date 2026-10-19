@@ -42,7 +42,7 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
     {
         try
         {
-            if (DistributionChannel.IsAppStore)
+            if (OperatingSystem.IsMacOS())
                 return await Task.Run(() => Platforms.MacOS.MacSandboxNative.EjectVolume(volumePath));
             var psi = new System.Diagnostics.ProcessStartInfo
             {
@@ -62,29 +62,15 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
         catch { return false; }
     }
 
-    public bool IsExternalVolume(string path) => path.StartsWith("/Volumes/", StringComparison.Ordinal);
+    public bool IsExternalVolume(string path) => ExternalVolumes.Any(volume => DirectoryAccess.IsWithin(path, volume.Path));
 
     private void RefreshVolumes()
     {
         try
         {
-            var volumes = new List<VolumeInfo>();
-            if (Directory.Exists("/Volumes"))
-            {
-                foreach (var dir in Directory.GetDirectories("/Volumes"))
-                {
-                    var name = Path.GetFileName(dir);
-                    if (!ShouldShowInSidebar(name))
-                        continue;
-                    volumes.Add(new VolumeInfo
-                    {
-                        Path = dir,
-                        DisplayName = name,
-                        IsExternal = true,
-                        IsRemovable = true
-                    });
-                }
-            }
+            var volumes = OperatingSystem.IsMacOS()
+                ? Platforms.MacOS.MacNetworkNative.GetVolumes().Where(v => ShouldShowInSidebar(v.DisplayName)).ToList()
+                : new List<VolumeInfo>();
 
             string[] removed;
             var changed = false;
@@ -92,7 +78,7 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
             {
                 var previousPaths = _externalVolumes.Select(volume => volume.Path).ToHashSet(StringComparer.Ordinal);
                 var currentPaths = volumes.Select(volume => volume.Path).ToHashSet(StringComparer.Ordinal);
-                changed = !previousPaths.SetEquals(currentPaths);
+                changed = !previousPaths.SetEquals(currentPaths) || !_externalVolumes.Select(v => (v.Path, v.SourceUrl)).SequenceEqual(volumes.Select(v => (v.Path, v.SourceUrl)));
                 removed = previousPaths.Except(currentPaths, StringComparer.Ordinal).ToArray();
                 _externalVolumes = volumes.AsReadOnly();
             }

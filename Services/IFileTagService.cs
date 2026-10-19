@@ -8,6 +8,8 @@ public interface IFileTagService
     event EventHandler<TagRenamedEventArgs>? TagRenamed;
 
     Task<FileTag> CreateTagAsync(string name, CancellationToken cancellationToken = default);
+    Task<FileTag> CreateChildTagAsync(string name, string? parentName, CancellationToken cancellationToken = default);
+    Task MoveTagAsync(FileTag tag, string? parentName, int index, CancellationToken cancellationToken = default);
     Task RenameTagAsync(FileTag tag, string newName, CancellationToken cancellationToken = default);
     Task DeleteTagAsync(FileTag tag, CancellationToken cancellationToken = default);
     Task SetTagColorAsync(FileTag tag, int colorId, CancellationToken cancellationToken = default);

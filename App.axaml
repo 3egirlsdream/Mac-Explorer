@@ -4,7 +4,6 @@
              xmlns:local="using:MacExplorer"
              xmlns:views="using:MacExplorer.Views"
              xmlns:converters="using:MacExplorer.Converters"
-             Name="Mac Explorer"
              RequestedThemeVariant="Default">
 
     <Application.Resources>

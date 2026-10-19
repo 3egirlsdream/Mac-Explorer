@@ -55,7 +55,7 @@
                                 <Image Source="/Assets/appicon.ico" Width="28" Height="28"/>
                                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                                     <TextBlock Text="{loc:Loc ui.072}" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeCaption}"
+                                    <TextBlock Text="{loc:Loc app.name}" FontSize="{DynamicResource FontSizeCaption}" TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </StackPanel>
                             </Grid>

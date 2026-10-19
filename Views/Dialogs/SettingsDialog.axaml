@@ -758,7 +758,7 @@
                                 <Image Source="/Assets/appicon.ico" VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-                                <TextBlock Text="MacExplorer" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{loc:Loc app.name}" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
                                 <Border Background="{DynamicResource ColorBgHover}" CornerRadius="20" Padding="12,4" HorizontalAlignment="Left">
                                     <TextBlock x:Name="AboutVersion" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Border>
@@ -811,7 +811,7 @@
                             </Grid>
                         </Border>
                     </Border>
-                    <TextBlock Text="Copyright 2024-2026 MacExplorer" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}"/>
+                    <TextBlock Text="{loc:Loc app.copyright}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}"/>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>

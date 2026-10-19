@@ -123,6 +123,8 @@ public sealed class BatchRenameServiceTests
         public event EventHandler? TagsChanged { add { } remove { } }
         public event EventHandler<TagRenamedEventArgs>? TagRenamed { add { } remove { } }
         public Task<FileTag> CreateTagAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<FileTag> CreateChildTagAsync(string name, string? parentName, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task MoveTagAsync(FileTag tag, string? parentName, int index, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task RenameTagAsync(FileTag tag, string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeleteTagAsync(FileTag tag, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task SetTagColorAsync(FileTag tag, int color, CancellationToken cancellationToken = default) => throw new NotSupportedException();

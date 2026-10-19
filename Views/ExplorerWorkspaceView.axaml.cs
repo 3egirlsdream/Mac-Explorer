@@ -122,6 +122,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         if (e.PropertyName is nameof(FileListViewModel.IsHomePage)
             or nameof(FileListViewModel.IsAiView)
+            or nameof(FileListViewModel.IsNetworkPage)
             or nameof(FileListViewModel.AiViewMode))
         {
             UpdateContentVisibility();
@@ -149,17 +150,20 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         var fileList = _tab?.FileList;
         var showAiSearch = fileList?.IsAiView == true && fileList.AiViewMode == AiViewMode.TextSearch;
-        FileListControl.IsVisible = fileList != null && !fileList.IsHomePage && !showAiSearch;
+        FileListControl.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage && !showAiSearch;
         HomeViewControl.IsVisible = fileList?.IsHomePage == true;
         WorkspaceSurface.Classes.Set("home", fileList?.IsHomePage == true);
         AiViewControl.IsVisible = showAiSearch;
+        NetworkViewControl.IsVisible = fileList?.IsNetworkPage == true;
+        StatusBar.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
+        ToolbarSurface.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
         UpdatePageSearchPresentation();
     }
 
     private void UpdateInfoPanelVisibility()
     {
         var fileList = _tab?.FileList;
-        var canShow = fileList != null && !fileList.IsHomePage && !fileList.IsAiView;
+        var canShow = fileList != null && !fileList.IsHomePage && !fileList.IsAiView && !fileList.IsNetworkPage;
         InfoDrawer.IsPaneOpen = canShow && fileList!.IsInfoPanelVisible;
     }
 
@@ -254,6 +258,12 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private void UpdatePageSearchPresentation()
     {
         var isHome = _tab?.FileList.IsHomePage == true;
+        if (_tab?.FileList.IsNetworkPage == true)
+        {
+            SearchToggleButton.IsVisible = SearchHost.IsVisible = false;
+            BreadcrumbControl.IsVisible = true;
+            return;
+        }
         var expanded = !isHome && IsCompact && _isPageSearchExpanded;
         Grid.SetColumn(SearchControls, expanded ? 1 : 2);
         Grid.SetColumnSpan(SearchControls, expanded ? 2 : 1);
@@ -493,6 +503,12 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         if (_tab?.FileList != null)
             await _tab.FileList.NavigateUpAsync();
+    }
+
+    private async void OnConnectNetworkServer(object? sender, RoutedEventArgs e)
+    {
+        ActivateWorkspace();
+        await NetworkViewControl.ConnectServerAsync();
     }
 
     private async void RefreshView(object? sender, RoutedEventArgs e)

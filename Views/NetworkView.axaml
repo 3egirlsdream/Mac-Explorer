@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:MacExplorer.Controls" x:Class="MacExplorer.Views.NetworkView">
+    <UserControl.Styles>
+        <StyleInclude Source="avares://MacExplorer/Assets/FileListHeaderStyles.axaml"/>
+    </UserControl.Styles>
+    <Grid RowDefinitions="*,Auto" Background="{DynamicResource ColorBgContent}">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <Grid MinWidth="900" RowDefinitions="Auto,*" x:Name="TableSurface">
+                <Border Classes="file-list-header" Background="{DynamicResource ColorBgContent}" BorderBrush="{DynamicResource ColorDivider}"
+                        BorderThickness="0,0,0,1" Margin="0,0,0,6" Height="38" Padding="13,0">
+                    <Grid x:Name="ColumnHeaders"/>
+                </Border>
+                <Grid Grid.Row="1">
+                    <ScrollViewer x:Name="RowsHost" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <loc:FastFileList x:Name="ServersList"
+                            Background="{DynamicResource ColorBgContent}" Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextMutedBrush}"
+                            AlternateRow="{DynamicResource FileListAlternateRowBrush}" Hover="{DynamicResource InteractionHoverBrush}"
+                            Selected="{DynamicResource InteractionSelectedBrush}" SelectedHover="{DynamicResource InteractionSelectedHoverBrush}"
+                            FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightLight}"
+                            DetailFontSize="{DynamicResource FontSizeLabel}" RowCornerRadius="{DynamicResource InteractionCornerRadius}"
+                            Muted="{DynamicResource TextMutedBrush}" Divider="{DynamicResource ColorDivider}" FocusRing="{DynamicResource FocusRingBrush}"
+                            SelectionOutline="{DynamicResource SelectionOutlineShadow}" FocusOutline="{DynamicResource FocusOutlineShadow}"
+                            AutomationProperties.Name="{loc:Loc network.title}"/>
+                    </ScrollViewer>
+                    <Canvas x:Name="RowActions" ClipToBounds="True"/>
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+        <TextBlock Grid.Row="1" x:Name="DiscoveryStatus" Margin="12,6" Text="{loc:Loc network.searching}" Foreground="{DynamicResource TextMutedBrush}" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap"/>
+    </Grid>
+</UserControl>

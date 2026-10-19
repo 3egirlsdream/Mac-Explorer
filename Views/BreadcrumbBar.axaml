@@ -108,7 +108,7 @@
                                 <Button Classes="breadcrumb-button breadcrumb-label"
                                         Click="OnSegmentClicked"
                                         Tag="{Binding FullPath}"
-                                        ToolTip.Tip="{Binding FullPath}">
+                                        ToolTip.Tip="{Binding ToolTip}">
                                     <TextBlock Classes="breadcrumb-segment-label" Text="{Binding DisplayName}"
                                                FontSize="{DynamicResource FontSizeLabel}"
                                                TextTrimming="CharacterEllipsis"
@@ -158,7 +158,7 @@
                              AutomationProperties.Name="{loc:Loc ui.435}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="models:BreadcrumbSegment">
-                                <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding FullPath}"
+                                <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding ToolTip}"
                                            FontSize="{DynamicResource FontSizeBody}"
                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                            TextTrimming="CharacterEllipsis"/>

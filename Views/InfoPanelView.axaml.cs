@@ -161,6 +161,7 @@ public partial class InfoPanelView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        CloseTagSuggestions();
         CancelQueuedPanelUpdate();
         CancelPanelLoad();
         if (_subscribedViewModel != null)
@@ -183,12 +184,15 @@ public partial class InfoPanelView : UserControl
 
     private void OnTransientInteractionStarted()
     {
+        CloseTagSuggestions();
         CancelQueuedPanelUpdate();
         CancelPanelLoad();
     }
 
     private void OnSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
+        CloseTagSuggestions();
+        TagInput.Text = "";
         if (ViewModel?.IsSelectionPreviewSuppressed == true)
         {
             CancelQueuedPanelUpdate();
@@ -261,6 +265,11 @@ public partial class InfoPanelView : UserControl
         }
 
         var entry = viewModel.SelectedEntries[0];
+        if (_currentFilePath != entry.FullPath)
+        {
+            CloseTagSuggestions();
+            TagInput.Text = "";
+        }
         _currentFilePath = entry.FullPath;
 
         DetailsPanel.IsVisible = !_isPreviewExpanded;
@@ -859,6 +868,8 @@ public partial class InfoPanelView : UserControl
 
     private void ClearPanel()
     {
+        CloseTagSuggestions();
+        TagInput.Text = "";
         CancelQueuedPanelUpdate();
         _currentFilePath = null;
         DetailsPanel.IsVisible = false;
@@ -1021,6 +1032,7 @@ public partial class InfoPanelView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        CloseTagSuggestions();
         if (_language != null) _language.LanguageChanged -= RefreshLocalizedDetails;
         _language = null;
         if (_fileTagService != null) _fileTagService.TagsChanged -= OnFileTagsChanged;
@@ -1031,7 +1043,10 @@ public partial class InfoPanelView : UserControl
     private void OnFileTagsChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
     {
         if (_currentFilePath != null && ViewModel?.IsInfoPanelVisible == true)
+        {
             _ = RefreshTagsAsync(_currentFilePath);
+            _ = RefreshTagSuggestionsAsync();
+        }
     });
 
     private void UpdateTagsFromMetadata(string filePath, IReadOnlyList<string> finderTags)
@@ -1060,6 +1075,7 @@ public partial class InfoPanelView : UserControl
         foreach (var tag in tags.Distinct(StringComparer.OrdinalIgnoreCase))
             if (!FileTagCatalog.TryGetFinderColor(tag, out _))
                 CustomTagsPanel.Children.Add(CreateTagChip(tag, filePath));
+        _ = RefreshTagSuggestionsAsync();
     }
 
     private async Task ApplyTagChangeAsync(string path, string name, bool applied)
@@ -1171,19 +1187,15 @@ public partial class InfoPanelView : UserControl
         _ = ApplyTagChangeAsync(filePath, tagName, _selectedSystemTags.Contains(tagName));
     }
 
-    private void OnTagInputKeyDown(object? sender, global::Avalonia.Input.KeyEventArgs e)
+    private void AddTag(string? name = null)
     {
-        if (e.Key == global::Avalonia.Input.Key.Enter)
-            AddTag();
-    }
-
-    private void AddTag()
-    {
-        var text = TagInput.Text?.Trim();
+        var text = FileTagCatalog.NormalizeName(name ?? TagInput.Text);
         if (string.IsNullOrEmpty(text) || ViewModel == null) return;
         if (ViewModel.SelectedEntries.Count != 1) return;
 
         var filePath = ViewModel.SelectedEntries[0].FullPath;
+        if (filePath != _currentFilePath) return;
+        CloseTagSuggestions();
         if (GetDisplayedFinderTags().Contains(text, StringComparer.OrdinalIgnoreCase))
         {
             TagInput.Text = "";
@@ -1193,7 +1205,12 @@ public partial class InfoPanelView : UserControl
         TagInput.Text = "";
 
         // Add to UI immediately
-        CustomTagsPanel.Children.Add(CreateTagChip(text, filePath));
+        if (FileTagCatalog.TryGetFinderColor(text, out _))
+        {
+            _selectedSystemTags.Add(text);
+            UpdateSystemTagCheckmarks();
+        }
+        else CustomTagsPanel.Children.Add(CreateTagChip(text, filePath));
         _ = ApplyTagChangeAsync(filePath, text, true);
     }
 

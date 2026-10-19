@@ -24,8 +24,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public const double RowHeight = 30;
     private const double Inset = 13;
     private const double IconSlot = 22;
-    private const double TreeStep = 16;
-    private const double TreeDisclosureWidth = 16;
+    internal const double TreeStep = 16;
+    internal const double TreeDisclosureWidth = 16;
     private const int TextCacheLimit = 1024;
 
     public static readonly StyledProperty<IBrush?> BackgroundProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Background));
@@ -78,6 +78,10 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public BoxShadows FocusOutline { get => GetValue(FocusOutlineProperty); set => SetValue(FocusOutlineProperty, value); }
     public CornerRadius RowCornerRadius { get => GetValue(RowCornerRadiusProperty); set => SetValue(RowCornerRadiusProperty, value); }
 
+    // Non-file locations reuse row geometry and painting without requesting file images.
+    internal Func<FileSystemEntry, IReadOnlyList<string>>? DetailTextProvider { get; set; }
+    internal Geometry? DetailIcon { get; set; }
+    internal IReadOnlyList<double>? DetailColumnWidths { get; set; }
     private IReadOnlyList<FileSystemEntry> _rows = Array.Empty<FileSystemEntry>();
     private IReadOnlyList<FileTreeRow> _treeRows = [];
     private readonly Dictionary<string, int> _indices = new(StringComparer.Ordinal);
@@ -352,7 +356,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     public int IndexOf(FileSystemEntry entry) => _indices.GetValueOrDefault(entry.FullPath, -1);
     public int IndexOfPath(string path) => _indices.GetValueOrDefault(path, -1);
-    internal double ListRowRight => Inset + IconSlot + _columns.Total;
+    internal double ListRowRight => Inset + IconSlot + (DetailColumnWidths?.Sum() ?? _columns.Total);
 
     public int RowIndexAt(Point point)
     {
@@ -537,7 +541,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             var (first, end) = VisibleRange;
             var visible = IsEffectivelyVisible && !IsLoading ? Enumerable.Range(first, end - first).Select(i => _rows[i]).ToArray() : [];
             ObserveRows(visible);
-            _images.UpdateVisible(visible, FileThumbnailSizing.GetPixelSize(IsGrid ? 56 : 18, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1),
+            _images.UpdateVisible(DetailTextProvider == null ? visible : [], FileThumbnailSizing.GetPixelSize(IsGrid ? 56 : 18, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1),
                 IsGrid ? 128 : 48, IsGrid && _folderCoversEnabled);
         }, DispatcherPriority.Background);
     }
@@ -657,6 +661,21 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 DrawTreeDisclosure(context, index);
             var iconRect = new Rect(Inset + TreeIndent(index) + 2, row.Y + 6, 18, 18);
             DrawIcon(context, entry, iconRect);
+            if (DetailTextProvider != null && DetailColumnWidths is { } widths)
+            {
+                var values = DetailTextProvider(entry);
+                var x = Inset + IconSlot;
+                for (var column = 0; column < Math.Min(values.Count, widths.Count); column++)
+                {
+                    var value = Format(values[column], column == 0 ? FontSize : DetailFontSize,
+                        column == 0 ? Foreground : Secondary, Math.Max(1, widths[column] - 16));
+                    value.Draw(context, new Point(Math.Round(x + (column == 0 ? 8 : 0)),
+                        row.Y + Math.Round((RowHeight - Math.Ceiling(value.Height)) / 2)));
+                    value.Release();
+                    x += widths[column];
+                }
+                continue;
+            }
             var text = Texts(entry, index);
             if (entry.FullPath != EditingPath) DrawText(text.Name, NameX(index));
             var modifiedX = Inset + IconSlot + _columns.Name;
@@ -702,6 +721,13 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private void DrawIcon(DrawingContext context, FileSystemEntry entry, Rect bounds)
     {
+        if (DetailIcon != null)
+        {
+            using var detailTransform = context.PushTransform(Matrix.CreateScale(bounds.Width / 24, bounds.Height / 24)
+                * Matrix.CreateTranslation(bounds.X, bounds.Y));
+            context.DrawGeometry(Secondary, null, DetailIcon);
+            return;
+        }
         var image = _images.Get(entry, IsGrid && _folderCoversEnabled, out var isThumbnail);
         if (image != null)
         {

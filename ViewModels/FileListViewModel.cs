@@ -14,6 +14,7 @@ using MacExplorer.Services.Impl;
 using Microsoft.Extensions.Logging;
 using Avalonia.Platform;
 using Avalonia.Media.Imaging;
+using Microsoft.Extensions.DependencyInjection;
 using AppIcons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.ViewModels;
@@ -229,7 +230,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var breadcrumbTitle = Breadcrumbs.LastOrDefault()?.DisplayName;
             return !string.IsNullOrWhiteSpace(breadcrumbTitle)
                 ? breadcrumbTitle
-                : IsHomePage ? MacExplorer.Services.Impl.LocalizationText.Get("首页") : "Mac Explorer";
+                : IsHomePage ? MacExplorer.Services.Impl.LocalizationText.Get("首页") : AppBranding.Name;
         }
     }
     public string HomeDirectory => _fileService.HomeDirectory;
@@ -246,6 +247,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public string GetLocationIcon(string location)
     {
+        if (location == VirtualPath.Network) return AppIcons.Network;
         if (TagPathHelper.IsTagPath(location)) return AppIcons.Tag;
         var path = location == "/" ? "/" : location.TrimEnd('/');
         var item = SidebarFavorites.Concat(SidebarLocations).Concat(SidebarAiItems)
@@ -253,7 +255,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (!string.IsNullOrWhiteSpace(item?.IconData)) return item.IconData;
         if (path == "/Applications") return AppIcons.Apps;
         if (path == _fileService.TrashDirectory || path == VirtualPath.SystemTrash) return AppIcons.Trash;
-        if (ExternalVolumes.Any(volume => volume.Path == path)) return AppIcons.ExternalDrive;
+        if (ExternalVolumes.FirstOrDefault(volume => string.Equals(path, volume.Path.TrimEnd('/'), StringComparison.Ordinal)) is { } volume) return volume.IconData;
         return AppIcons.Folder;
     }
 
@@ -971,6 +973,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (e.PropertyName == nameof(NavigationViewModel.CurrentPath))
         {
+            OnPropertyChanged(nameof(IsNetworkPage));
             OnTreeLocationChanged();
             ClearFileListFilters();
             StatusText = string.Empty;
@@ -1134,6 +1137,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (_navigation.IsSearchMode)
             _search.Reset();
 
+        if (path == VirtualPath.Network)
+        {
+            NavigateToNetwork();
+            return;
+        }
+
         if (VirtualPath.IsHomePath(path))
         {
             GoHome();
@@ -1256,6 +1265,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateUpAsync()
     {
         if (IsHomePage) return;
+        if (IsNetworkPage) { GoHome(); return; }
 
         if (IsTagView)
         {
@@ -1329,7 +1339,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
 
             var path = _navigation.CurrentPath;
-            if (ArchivePathHelper.IsArchivePath(path))
+            if (path == VirtualPath.Network)
+            {
+                NavigateToNetwork();
+            }
+            else if (ArchivePathHelper.IsArchivePath(path))
             {
                 await NavigateToArchiveAsync(path);
             }
@@ -1687,13 +1701,18 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (_remoteConnectionService == null) return;
         try
         {
-            await _remoteConnectionService.ConnectAsync(server);
-            var remotePath = VirtualPath.BuildRemotePath(server.Id, server.DefaultPath);
-            await NavigateToAsync(remotePath);
+            var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
+            if (coordinator != null) await NavigateToAsync(await coordinator.ConnectAsync(server));
+            else
+            {
+                await _remoteConnectionService.GetOrConnectAsync(server);
+                await NavigateToAsync(VirtualPath.BuildRemotePath(server.Id, server.DefaultPath));
+            }
         }
         catch (Exception ex)
         {
-            StatusText = $"连接失败: {ex.Message}";
+            NetworkError = null;
+            StatusText = NetworkError = LocalizationText.Get("network.connect-error", ex.Message);
         }
     }
 
@@ -1763,6 +1782,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task RefreshAsync()
     {
         if (IsHomePage) return;
+        if (IsNetworkPage)
+        {
+            App.Services?.GetService<INetworkDiscoveryService>()?.Refresh();
+            return;
+        }
 
         if (IsRemoteView)
         {
@@ -2171,6 +2195,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             Execute = () => OpenEntryCommand.ExecuteAsync(entry)
         });
 
+        if (entry.IsDirectory && !entry.IsApplication && entry.IconKey != "app-bundle")
+        {
+            actions.Add(new ContextMenuAction
+            {
+                Label = MacExplorer.Services.Impl.LocalizationText.Get("在新页签中打开"),
+                Execute = () => _topLevelWindow is MacExplorer.Views.MainWindow mainWindow
+                    ? mainWindow.OpenNewTabAsync(entry.FullPath)
+                    : Task.CompletedTask
+            });
+        }
+
         if (_contextMenuService != null && includeDynamicActions)
         {
             var openWith = isRemote
@@ -2344,14 +2379,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             Execute = () => _clipboardService?.CopyTextAsync(entry.FullPath) ?? Task.CompletedTask
         });
 
-        if (IsSearchMode && !_search.WasHomePageBeforeSearch && !entry.IsVirtual && !isRemote
+        if (!entry.IsVirtual && !isRemote && Path.IsPathFullyQualified(entry.FullPath)
+            && (IsTagView || (IsSearchMode && !_search.WasHomePageBeforeSearch
             && Path.IsPathFullyQualified(CurrentPath) && Path.IsPathFullyQualified(SearchScopePath)
-            && Path.IsPathFullyQualified(entry.FullPath)
             && !string.Equals(Path.GetDirectoryName(entry.FullPath),
                 Path.TrimEndingDirectorySeparator(SearchScopePath), StringComparison.Ordinal)
             && entry.FullPath.StartsWith(Path.EndsInDirectorySeparator(SearchScopePath)
                     ? SearchScopePath : SearchScopePath + Path.DirectorySeparatorChar,
-                StringComparison.Ordinal))
+                StringComparison.Ordinal))))
         {
             actions.Add(new ContextMenuAction
             {
@@ -3263,7 +3298,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task PasteAsync()
     {
-        if (IsBrowseOnly) return;
+        if (IsBrowseOnly || IsNetworkPage) return;
         if (_clipboardService == null) return;
 
         if (CurrentTag is { } tag)
@@ -3276,7 +3311,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (IsArchiveView || IsHomePage || string.IsNullOrWhiteSpace(_navigation.CurrentPath)) return;
+        if (IsArchiveView || IsHomePage || IsNetworkPage || string.IsNullOrWhiteSpace(_navigation.CurrentPath)) return;
 
         var kind = _clipboardService.GetPasteKind();
         if (kind == ClipboardPasteKind.None) return;
@@ -3515,7 +3550,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task CreateNewFolderAsync()
     {
-        if (IsBrowseOnly) return;
+        if (IsBrowseOnly || IsNetworkPage) return;
         try
         {
             var rawEntries = Entries.ToList();
@@ -3545,7 +3580,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task CreateNewFileAsync(string? extension = null)
     {
-        if (IsBrowseOnly) return;
+        if (IsBrowseOnly || IsNetworkPage) return;
         try
         {
             var rawEntries = Entries.ToList();
@@ -4145,9 +4180,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly) return;
         if (_volumeMonitorService == null) return;
+        if (vol.IsNetwork && !await ConfirmNetworkUnmountAsync()) return;
+        NetworkError = null;
         var success = await _volumeMonitorService.EjectVolumeAsync(vol.Path);
         if (!success)
-            StatusText = $"无法弹出「{vol.DisplayName}」，请关闭正在使用的文件后重试";
+            StatusText = NetworkError = LocalizationText.Get("network.eject-error", vol.DisplayName);
     }
 
     [RelayCommand]
@@ -4214,16 +4251,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            var wasNetworkVolume = ExternalVolumes.Any(v => v.IsNetwork && DirectoryAccess.IsWithin(CurrentPath, v.Path));
             RefreshExternalVolumes();
             RefreshLocationStatus();
 
             // If currently browsing a removed volume, navigate home
-            if (!string.IsNullOrEmpty(CurrentPath) && CurrentPath.StartsWith("/Volumes/", StringComparison.Ordinal))
+            if (wasNetworkVolume || (!string.IsNullOrEmpty(CurrentPath) && CurrentPath.StartsWith("/Volumes/", StringComparison.Ordinal)))
             {
                 var stillMounted = ExternalVolumes.Any(v =>
-                    CurrentPath.StartsWith(v.Path, StringComparison.Ordinal));
+                    DirectoryAccess.IsWithin(CurrentPath, v.Path));
                 if (!stillMounted)
-                    _ = NavigateToAsync("/");
+                    _ = NavigateToAsync(wasNetworkVolume ? VirtualPath.Network : "/");
             }
         });
     }

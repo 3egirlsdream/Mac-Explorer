@@ -1,4 +1,7 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
+using MacExplorer.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia;
 using Avalonia.Headless;
@@ -52,24 +55,17 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
             var submenu = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "标签");
             submenu.IsSubMenuOpen = true;
             Dispatcher.UIThread.RunJobs();
-            var red = Assert.Single(submenu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == tag.Name);
-            Assert.Equal(isChecked, red.IsChecked);
-            Assert.Equal(MenuItemToggleType.CheckBox, red.ToggleType);
-            var icon = Assert.IsType<PathIcon>(red.Icon);
+            var popup = Assert.Single(submenu.GetTemplateDescendants().OfType<Avalonia.Controls.Primitives.Popup>());
+            var tree = Assert.Single(popup.Child!.GetVisualDescendants().OfType<TagTreePanel>());
+            await tree.RefreshAsync(); tree.UpdateLayout();
+            var row = Assert.Single(tree.GetVisualDescendants().OfType<Border>(), b => b.Tag is FileTag { Name: "红色" });
+            var icon = Assert.Single(row.GetVisualDescendants().OfType<PathIcon>(), i => i.Width == 14);
             Assert.Equal(Avalonia.Media.Color.Parse(tag.ColorHex), Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(icon.Foreground).Color);
-            Assert.True(icon.IsEffectivelyVisible);
-            Assert.True(icon.Bounds.Width > 0 && icon.Bounds.Height > 0);
-            var newTag = Assert.Single(submenu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "新建标签…");
-            var newTagIcon = Assert.IsType<PathIcon>(newTag.Icon);
-            Assert.Equal(newTagIcon.TranslatePoint(default, newTag)!.Value.X, icon.TranslatePoint(default, red)!.Value.X, 2);
-            var redHeader = red.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
-                .Single(p => p.Name == "PART_HeaderPresenter");
-            var newTagHeader = newTag.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
-                .Single(p => p.Name == "PART_HeaderPresenter");
-            Assert.Equal(newTagHeader.TranslatePoint(default, newTag)!.Value.X, redHeader.TranslatePoint(default, red)!.Value.X, 2);
+            Assert.Equal(isChecked, Assert.Single(row.GetVisualDescendants().OfType<PathIcon>(), t => t.Classes.Contains("tag-tree-check")).IsVisible);
+            Assert.NotNull(tree.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Name == "CreateTagButton"));
             menu.Close();
         }
-        finally { window.Close(); root.Delete(true); }
+        finally { view.DismissContextMenu(); window.Close(); root.Delete(true); }
     }
 
     [AvaloniaFact(Explicit = true)]
@@ -153,43 +149,32 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
     }
 
     [AvaloniaFact(Explicit = true)]
-    public async Task SidebarCreatesEmptyTagWithEnterAndCancelsWithEscape()
+    public async Task TreeCreatesEmptyTagWithEnterAndCancelsWithEscape()
     {
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-tag-editor-" + Guid.NewGuid().ToString("N"));
         using var tags = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
         using var vm = CreateViewModel(new FakeFileService(root), fileTagService: tags);
-        var sidebar = new FinderSidebarView { DataContext = vm };
+        var sidebar = new TagTreePanel(vm);
         var theme = new FluentTheme();
         Application.Current!.Styles.Insert(0, theme);
         var window = new Window { Content = sidebar, Width = 280, Height = 760 };
         try
         {
             window.Show();
-            sidebar.FindControl<Button>("AddTagBtn")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            sidebar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CreateTagButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();
-            var input = sidebar.FindControl<TextBox>("NewTagInput")!;
+            var input = sidebar.GetVisualDescendants().OfType<TextBox>().Single();
             input.Text = "空项目";
             input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
             Assert.Single(await tags.GetSidebarTagsAsync(), t => t.Name == "空项目" && t.ItemCount == 0);
-            sidebar.FindControl<Button>("AddTagBtn")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            sidebar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CreateTagButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();
             input.Text = "不要创建";
             input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
             Assert.DoesNotContain(await tags.GetSidebarTagsAsync(), t => t.Name == "不要创建");
             Dispatcher.UIThread.RunJobs();
-            Assert.True(sidebar.FindControl<ItemsControl>("TagItems")!.IsVisible);
-            Assert.True(sidebar.FindControl<ItemsControl>("TagItems")!.ItemCount >= 8);
-            window.UpdateLayout();
-            Dispatcher.UIThread.RunJobs();
-            var row = sidebar.FindControl<ItemsControl>("TagItems")!.GetVisualDescendants().OfType<Border>()
-                .Single(b => b.Tag is FileTag { Name: "空项目" });
-            var point = row.TranslatePoint(new Point(40, row.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(point, MouseButton.Right);
-            window.MouseUp(point, MouseButton.Right);
-            Dispatcher.UIThread.RunJobs();
-            Assert.Null(row.ContextMenu);
-            Assert.Null(sidebar.FindControl<Control>("CollectionsSectionHeader"));
-
+            window.UpdateLayout(); await sidebar.RefreshAsync();
+            var row = sidebar.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is FileTag { Name: "空项目" });
             var path = Path.Combine(root, "drop.txt");
             await File.WriteAllTextAsync(path, "original");
             var tag = Assert.IsType<FileTag>(row.Tag);

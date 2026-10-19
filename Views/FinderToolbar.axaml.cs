@@ -40,6 +40,8 @@ public partial class FinderToolbar : UserControl
     public FinderToolbar()
     {
         InitializeComponent();
+        ToolbarTags.Opening += CloseDropdowns;
+        ToolbarTags.NewTagRequested += () => ShowTagManagement(create: true);
         DataContextChanged += OnDataContextChanged;
         SubscribeToViewModel(ViewModel);
         SyncViewModeToggles();
@@ -270,6 +272,8 @@ public partial class FinderToolbar : UserControl
         NewDropdown.IsOpen = false;
         SortDropdown.IsOpen = false;
         MoreDropdown.IsOpen = false;
+        TagManagementDropdown.IsOpen = false;
+        ToolbarTags.CloseDropdown();
     }
 
     public void ToggleMenu(ToolbarMenuKind kind)
@@ -286,8 +290,26 @@ public partial class FinderToolbar : UserControl
         popup.IsOpen = shouldOpen;
     }
 
+    private void OnManageTags(object? sender, RoutedEventArgs e) => ShowTagManagement(create: false);
+
+    private void ShowTagManagement(bool create)
+    {
+        CloseDropdowns();
+        if (ViewModel == null) return;
+        var tree = new MacExplorer.Controls.TagTreePanel(ViewModel);
+        tree.CloseRequested += () => TagManagementDropdown.IsOpen = false;
+        tree.NavigationRequested += () => TagManagementDropdown.IsOpen = false;
+        TagManagementHost.Child = tree;
+        TagManagementDropdown.IsOpen = true;
+        if (create) tree.BeginCreateTag();
+    }
+
     public bool TryCloseDropdown()
     {
+        if (TagManagementDropdown.IsOpen || ToolbarTags.IsDropdownOpen)
+        {
+            TagManagementDropdown.IsOpen = false; ToolbarTags.CloseDropdown(); MoreBtn.Focus(); return true;
+        }
         if (MoreDropdown.IsOpen)
         {
             MoreDropdown.IsOpen = false;
@@ -315,7 +337,9 @@ public partial class FinderToolbar : UserControl
     public void CloseDropdownsFromPointerSource(object? source)
     {
         var visual = source as Visual;
-        if (IsInsideVisual(visual, NewBtn)
+        if (ToolbarTags.ContainsSource(visual)
+            || IsInsideVisual(visual, TagManagementDropdown.Child as Visual)
+            || IsInsideVisual(visual, NewBtn)
             || IsInsideVisual(visual, SortButton)
             || IsInsideVisual(visual, MoreBtn)
             || IsInsideVisual(visual, NewDropdown.Child as Visual)
@@ -357,7 +381,8 @@ public partial class FinderToolbar : UserControl
         var result = await dialog.ShowDialog<RemoteServerInfo?>(window);
         if (result != null && dialog.Connected && ViewModel != null)
         {
-            await ViewModel.ConnectToServerAsync(result);
+            if (dialog.NavigationPath != null) await ViewModel.NavigateToAsync(dialog.NavigationPath);
+            else await ViewModel.ConnectToServerAsync(result);
         }
     }
 

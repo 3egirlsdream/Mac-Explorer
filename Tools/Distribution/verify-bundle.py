@@ -16,6 +16,18 @@ errors = []
 if info.get('DistributionChannel') != channel: errors.append('Bundle channel metadata does not match requested channel')
 if not info.get('PrivacyPolicyURL', '').startswith('https://'): errors.append('Missing HTTPS privacy policy URL')
 if channel == 'AppStore':
+    if app.name != '文件资源管理器.app': errors.append('App Store bundle must be named 文件资源管理器.app')
+    if any(info.get(key) != '文件资源管理器' for key in ['CFBundleName', 'CFBundleDisplayName']):
+        errors.append('App Store base display names must match the English listing: 文件资源管理器')
+    for locale, name in [('zh-Hans', '文件资源管理器'), ('en', '文件资源管理器')]:
+        strings = app / 'Contents/Resources' / (locale + '.lproj') / 'InfoPlist.strings'
+        if not strings.is_file():
+            errors.append('Missing localized App Store name: ' + locale)
+        else:
+            content = strings.read_text(encoding='utf-16')
+            for key in ['CFBundleName', 'CFBundleDisplayName']:
+                if f'"{key}" = "{name}";' not in content:
+                    errors.append('Mismatched localized App Store name: ' + locale + '/' + key)
     if not (app / 'Contents/Frameworks/libMacExplorerStoreKit.dylib').is_file(): errors.append('Missing StoreKit 2 bridge')
     else:
         exports = subprocess.check_output(['nm', '-gU', str(app / 'Contents/Frameworks/libMacExplorerStoreKit.dylib')], text=True)

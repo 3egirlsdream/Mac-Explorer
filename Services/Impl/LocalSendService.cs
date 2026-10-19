@@ -99,10 +99,10 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     public bool Enabled => !_disableRequested && _settings.Get(ILocalSendService.EnabledKey, true);
     public string Alias
     {
-        get => _settings.Get(ILocalSendService.AliasKey, "Mac Explorer · " + Environment.MachineName);
+        get => _settings.Get(ILocalSendService.AliasKey, AppBranding.Name + " · " + Environment.MachineName);
         set
         {
-            _settings.Set(ILocalSendService.AliasKey, string.IsNullOrWhiteSpace(value) ? "Mac Explorer · " + Environment.MachineName : value.Trim());
+            _settings.Set(ILocalSendService.AliasKey, string.IsNullOrWhiteSpace(value) ? AppBranding.Name + " · " + Environment.MachineName : value.Trim());
             lock (_discoveryLock)
             {
                 if (_discovery is { } state)
@@ -190,7 +190,7 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         {
             await StopCoreAsync();
             _lastError = ex is System.Net.Sockets.SocketException or UnauthorizedAccessException
-                ? "无法使用本地网络，请在系统设置中允许 Mac Explorer 访问本地网络后重试。" : ex.Message;
+                ? LocalizationText.Get("app.localsend_network_error", AppBranding.Name) : ex.Message;
             throw;
         }
         finally { _lifecycle.Release(); }

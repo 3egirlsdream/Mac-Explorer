@@ -645,7 +645,8 @@ public partial class MainWindow : AppWindow
         using var modalBlock = BlockModalParentInteraction();
         var result = await dialog.ShowDialog<RemoteServerInfo?>(this);
         if (result != null && dialog.Connected)
-            await _vm.FileList.ConnectToServerAsync(result);
+            if (dialog.NavigationPath != null) await _vm.FileList.NavigateToAsync(dialog.NavigationPath);
+            else await _vm.FileList.ConnectToServerAsync(result);
     }
 
     private async Task UndoLastOperationAsync()
@@ -834,7 +835,7 @@ public partial class MainWindow : AppWindow
             }
             else if (vm.IsTagDeleteConfirmDialogVisible)
             {
-                var confirmed = await ShowConfirmationAsync("删除标签", $"确定要删除标签“{vm.PendingDeleteTagName}”吗？这会移除文件上的该标签，原始文件不会被删除。", "删除");
+                var confirmed = await ShowConfirmationAsync("删除标签", vm.TagDeleteConfirmation, "删除");
                 if (confirmed) await vm.ConfirmDeleteTagAsync();
                 else vm.CancelTagDeleteConfirmDialog();
             }
@@ -1279,12 +1280,12 @@ public partial class MainWindow : AppWindow
         await ExecuteWindowCapabilityAsync("ui.new-tab", "{}");
     }
 
-    private async Task AddTabAsync(bool select = true)
+    private async Task AddTabAsync(bool select = true, string? directoryPath = null)
     {
         if (_vm == null)
             return;
 
-        var sourcePath = _vm.FileList.CurrentPath;
+        var sourcePath = directoryPath ?? _vm.FileList.CurrentPath;
         var scope = App.Services.CreateScope();
         ExplorerTabViewModel? tab = null;
         try
@@ -1296,7 +1297,7 @@ public partial class MainWindow : AppWindow
             // Finder opens a new tab at the current ordinary folder. Special
             // views start at Home because their virtual state cannot be safely
             // reconstructed from a filesystem path alone.
-            if (!string.IsNullOrWhiteSpace(sourcePath) && Directory.Exists(sourcePath))
+            if (directoryPath != null || (!string.IsNullOrWhiteSpace(sourcePath) && Directory.Exists(sourcePath)))
                 await fileList.NavigateToAsync(sourcePath);
         }
         catch (Exception ex)
@@ -1313,10 +1314,10 @@ public partial class MainWindow : AppWindow
         }
     }
 
-    public async Task OpenNewTabAsync()
+    public async Task OpenNewTabAsync(string? directoryPath = null)
     {
         var before = _vm?.Tabs.Count ?? 0;
-        await AddTabAsync();
+        await AddTabAsync(directoryPath: directoryPath);
         if (_vm == null || _vm.Tabs.Count <= before)
             throw new InvalidOperationException(_vm?.FileList.StatusText ?? "无法新建标签页。");
     }
@@ -1969,23 +1970,20 @@ public partial class MainWindow : AppWindow
 
     internal void ShowUpdateAvailableToast(VersionInfo version)
     {
-        _notifications ??= new WindowNotificationManager(this)
-        {
-            Position = NotificationPosition.BottomRight,
-            MaxItems = 1
-        };
-        // The template replaces the manager's item collection; apply it before the first message.
-        _notifications.ApplyTemplate();
+        _notifications = MacExplorer.Controls.AppToast.For(this);
         _notifications.Show(new Notification(
             $"发现新版本 {version.Version}", "点击查看更新内容并前往更新。",
             NotificationType.Information, TimeSpan.FromSeconds(15),
             onClick: () => _ = OpenSettingsAsync(version)));
     }
 
-    private async Task OpenSettingsAsync(VersionInfo? availableVersion = null)
+    internal void ShowAbout() => _ = OpenSettingsAsync(showAbout: true);
+
+    private async Task OpenSettingsAsync(VersionInfo? availableVersion = null, bool showAbout = false)
     {
         if (_settingsDialog?.IsVisible == true)
         {
+            if (showAbout) _settingsDialog.ShowAbout();
             if (availableVersion != null)
                 _settingsDialog.ShowAvailableUpdate(availableVersion);
             _settingsDialog.Activate();
@@ -1996,6 +1994,7 @@ public partial class MainWindow : AppWindow
         {
             DataContext = _vm?.FileList
         };
+        if (showAbout) dialog.ShowAbout();
         if (availableVersion != null)
             dialog.ShowAvailableUpdate(availableVersion);
 

@@ -13,7 +13,8 @@ public sealed record FileTag(
     int ItemCount = 0,
     int ColorId = 0,
     bool IsPinned = false,
-    int SortOrder = 0)
+    int SortOrder = 0,
+    string? ParentName = null)
 {
     [System.Text.Json.Serialization.JsonIgnore]
     public string DisplayName => IsFinderColor ? MacExplorer.Services.Impl.LocalizationText.Get(FileTagCatalog.FinderColors.FirstOrDefault(tag => tag.ColorId == ColorId)?.Name ?? Name) : Name;

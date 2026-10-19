@@ -317,11 +317,19 @@
                         </StackPanel>
                     </Border>
 
+                    <Border x:Name="NetworkItem" Classes="sidebar-item" Tag="__network__"
+                            ToolTip.Tip="{loc:Loc network.title}" AutomationProperties.Name="{loc:Loc network.title}" PointerPressed="OnSidebarItemPressed">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Network}" Classes="sidebar-icon"/>
+                            <TextBlock Text="{loc:Loc network.title}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- External volumes -->
                     <ItemsControl x:Name="ExternalVolumesControl"
                                   Classes="sidebar-items rail-secondary"
                                   ItemsSource="{Binding ExternalVolumes}"
-                                  IsVisible="{Binding ExternalVolumes, Converter={StaticResource IsNotEmpty}}">
+                                  IsVisible="{Binding ExternalVolumes.Count, Converter={StaticResource IsNotEmpty}}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:VolumeInfo">
                                 <Border Classes="sidebar-item"
@@ -329,8 +337,7 @@
                                         PointerPressed="OnVolumePressed">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
-                                            <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                                      Classes="sidebar-icon"/>
+                                            <PathIcon Data="{Binding IconData}" Classes="sidebar-icon"/>
                                             <TextBlock Text="{Binding DisplayName}"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center"/>
@@ -411,8 +418,7 @@
                                         </Grid>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Background="Transparent"
                                                     Margin="0">
-                                            <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                                      Classes="sidebar-icon"/>
+                                            <PathIcon Data="{Binding IconData}" Classes="sidebar-icon"/>
                                             <StackPanel Margin="6,0,0,0">
                                                 <TextBlock Text="{Binding DisplayName}"
                                                            VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"
@@ -437,129 +443,6 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-
-                    <!-- ═══ 标签 Tags ═══ -->
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
-                          x:Name="TagsSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="{loc:Loc ui.317}"
-                          PointerPressed="OnToggleTagsCollapsed">
-                        <TextBlock Grid.Column="0" x:Name="TagsSectionTitle" Text="{loc:Loc ui.322}"
-                                   Classes="sidebar-section-title"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   Padding="18,4,0,4"
-                                   Cursor="Hand"/>
-                        <Button Grid.Column="2"
-                                x:Name="AddTagBtn" Opacity="1" IsHitTestVisible="True"
-                                Classes="ghost sidebar-header-action"
-                                Background="Transparent" BorderThickness="0"
-                                Padding="4" Margin="0,2,6,2"
-                                PointerPressed="OnUnpinPointerPressed"
-                                Click="StartNewTag"
-                                ToolTip.Tip="{loc:Loc ui.321}" AutomationProperties.Name="{loc:Loc ui.321}">
-                            <PathIcon Data="{x:Static icons:Icons.Plus}"
-                                      Width="10" Height="10"
-                                      Foreground="{DynamicResource TextMutedBrush}"/>
-                        </Button>
-                        <PathIcon Grid.Column="3" Data="{x:Static icons:Icons.ChevronRight}"
-                                  Classes="sidebar-header-reveal"
-                                  Width="10" Height="10"
-                                  Foreground="{DynamicResource TextSubtleBrush}"
-                                  Margin="0,4,12,4"
-                                  x:Name="TagsChevron"/>
-                    </Grid>
-
-                    <StackPanel Classes="rail-secondary" IsVisible="{Binding !IsTagsSectionCollapsed}"
-                                x:Name="TagsPanel">
-
-                        <!-- Tag list -->
-                        <ItemsControl x:Name="TagItems"
-                                      Classes="sidebar-items"
-                                      ItemsSource="{Binding SidebarTags}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:FileTag">
-                                    <Border Classes="sidebar-item tag-row"
-                                            Tag="{Binding}"
-                                            PointerPressed="OnTagPressed" DragDrop.AllowDrop="True"
-                                            DragDrop.DragOver="OnTagDragOver" DragDrop.Drop="OnTagDrop">
-                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto"
-                                              Classes="tag-row-content"
-                                              Background="Transparent"
-                                              VerticalAlignment="Center">
-                                            <PathIcon Data="{x:Static icons:Icons.Tag}"
-                                                      Classes="sidebar-icon" Foreground="{Binding ColorHex}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}"
-                                                       Classes="tag-name-label" TextTrimming="CharacterEllipsis"
-                                                       Margin="8,0,0,0"
-                                                       VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
-                                            <TextBox Grid.Column="1"
-                                                     Classes="inline-rename-editor tag-name-editor"
-                                                     Tag="{Binding}"
-                                                     IsVisible="False"
-                                                     Margin="8,0,4,0"
-                                                     MinWidth="72"
-                                                     HorizontalAlignment="Left"
-                                                     VerticalAlignment="Center"
-                                                     FontSize="{DynamicResource FontSizeBody}"
-                                                     KeyDown="OnTagEditorKeyDown"
-                                                     LostFocus="OnTagEditorLostFocus"/>
-                                            <Button AutomationProperties.Name="{loc:Loc ui.325}" Grid.Column="2" Tag="{Binding}"
-                                                    Classes="ghost sidebar-item-action tag-normal-action"
-                                                    ToolTip.Tip="{loc:Loc ui.325}"
-                                                    PointerPressed="OnUnpinPointerPressed"
-                                                    Click="RenameTag" IsVisible="{Binding IsCustom}">
-                                                <PathIcon Data="{x:Static icons:Icons.Rename}" Width="12" Height="12"/>
-                                            </Button>
-                                            <Button AutomationProperties.Name="{loc:Loc ui.006}" Grid.Column="3" Tag="{Binding}"
-                                                    Classes="ghost sidebar-item-action tag-normal-action"
-                                                    ToolTip.Tip="{loc:Loc ui.006}"
-                                                    PointerPressed="OnUnpinPointerPressed"
-                                                    Click="DeleteTag" IsVisible="{Binding IsCustom}">
-                                                <PathIcon Data="{x:Static icons:Icons.Delete}" Width="12" Height="12"/>
-                                            </Button>
-                                            <Button AutomationProperties.Name="{loc:Loc ui.323}" Grid.Column="2" Grid.ColumnSpan="2"
-                                                    Classes="ghost sidebar-inline-confirm tag-confirm-action"
-                                                    IsVisible="False"
-                                                    Tag="{Binding}"
-                                                    ToolTip.Tip="{loc:Loc ui.323}"
-                                                    PointerPressed="OnUnpinPointerPressed"
-                                                    Click="CommitTagEdit">
-                                                <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
-                                            </Button>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <!-- New tag uses the same complete row as existing items. -->
-                        <Border x:Name="NewTagEditorRow"
-                                Classes="sidebar-item tag-row"
-                                IsVisible="False">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
-                                  Classes="tag-row-content"
-                                  Background="Transparent"
-                                  VerticalAlignment="Center">
-                                <PathIcon Data="{x:Static icons:Icons.Tag}"
-                                          Classes="sidebar-icon"/>
-                                <TextBox x:Name="NewTagInput"
-                                         Grid.Column="1"
-                                         Classes="inline-rename-editor tag-name-editor"
-                                         Margin="8,0,4,0"
-                                         MinWidth="72"
-                                         HorizontalAlignment="Left"
-                                         VerticalAlignment="Center"
-                                         FontSize="{DynamicResource FontSizeBody}"
-                                         KeyDown="OnTagEditorKeyDown"
-                                         LostFocus="OnTagEditorLostFocus"/>
-                                <Button AutomationProperties.Name="{loc:Loc ui.323}" Grid.Column="2" Grid.ColumnSpan="2"
-                                        Classes="ghost sidebar-inline-confirm tag-confirm-action"
-                                        ToolTip.Tip="{loc:Loc ui.323}"
-                                        PointerPressed="OnUnpinPointerPressed"
-                                        Click="CommitTagEdit">
-                                    <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </StackPanel>
 
                     <!-- ═══ AI 智能 AI ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"

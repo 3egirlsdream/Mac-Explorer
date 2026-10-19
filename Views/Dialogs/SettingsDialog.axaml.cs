@@ -943,6 +943,8 @@ public partial class SettingsDialog : DialogWindow
         }
     }
 
+    internal void ShowAbout() => SettingsTabs.SelectedItem = AboutTab;
+
     internal void ShowAvailableUpdate(VersionInfo version)
     {
         SettingsTabs.SelectedItem = AboutTab;

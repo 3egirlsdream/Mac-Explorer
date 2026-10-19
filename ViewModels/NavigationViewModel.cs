@@ -390,6 +390,10 @@ public partial class NavigationViewModel : ObservableObject
         {
             segments.Add(new BreadcrumbSegment { Name = "首页", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("首页"), FullPath = VirtualPath.Home, HasDropdown = false });
         }
+        else if (path == VirtualPath.Network)
+        {
+            segments.Add(new BreadcrumbSegment { DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("network.title"), FullPath = path });
+        }
         else if (TagPathHelper.TryParse(CurrentPath, out var currentTag))
         {
             segments.Add(new BreadcrumbSegment { Name = "标签", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("标签"), FullPath = "", HasDropdown = false });

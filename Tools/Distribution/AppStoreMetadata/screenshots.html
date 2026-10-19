@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文件资源管理器 · App Store 截图</title>
+<style>
+  * { box-sizing: border-box; cursor: none; }
+  body { position: relative; margin: 0; width: 1440px; height: 900px; overflow: hidden; background: #f7f7f8;
+    color: #1d1d1f; font-family: "Helvetica Neue", "PingFang SC", sans-serif; }
+  header { height: 92px; padding: 12px 120px 10px; display: flex; align-items: center; justify-content: space-between; }
+  .product { font-size: 14px; color: #6e6e73; margin: 0 0 3px; }
+  h1 { font-size: 29px; line-height: 1.2; letter-spacing: -.6px; margin: 0; font-weight: 600; }
+  .english { font-size: 15px; margin: 3px 0 0; color: #6e6e73; }
+  .purchase { position: absolute; right: 24px; bottom: 15px; text-align: right; opacity: .64; color: #35353b; }
+  .purchase strong { display: block; font-size: 16px; line-height: 1.45; font-weight: 400; }
+  .purchase span { display: block; font-size: 12px; line-height: 1.5; color: inherit; }
+  figure { width: 1200px; height: 750px; margin: 0 auto; }
+  img { display: block; width: 1200px; height: 750px; object-fit: contain; border-radius: 12px;
+    box-shadow: 0 3px 12px #00000012; }
+</style>
+<header>
+  <div><p class="product">文件资源管理器</p><h1 id="title"></h1><p class="english" id="english"></p></div>
+  <div class="purchase"><strong>全部功能需年度订阅 · App 内购买</strong>
+    <span>Annual subscription required · In-app purchase</span></div>
+</header>
+<figure><img id="screen" alt="文件资源管理器真实应用界面"></figure>
+<script>
+  const screens = [
+    ['01-文件列表', '浏览与整理文件', 'Browse and organize files'],
+    ['04-双栏工作区', '并排管理文件夹', 'Manage folders side by side'],
+    ['05-深色四栏工作区', '多个目录，一览清晰', 'Work across multiple folders'],
+    ['09-批量重命名', '预览后，批量重命名', 'Preview changes before renaming'],
+    ['08-首页收藏', '常用文件，随手可达', 'Keep frequent files within reach'],
+    ['06-文档即时预览', '直接预览文档', 'Preview documents in place'],
+    ['02-缩略图浏览', '直观浏览图片', 'Browse images with thumbnails'],
+    ['11-订阅页', '订阅与恢复购买', 'Subscription and Restore Purchases'],
+  ];
+  const index = Number(new URLSearchParams(location.search).get('screen') || 0);
+  const selected = screens[index] || screens[0];
+  document.getElementById('title').textContent = selected[1];
+  document.getElementById('english').textContent = selected[2];
+  document.getElementById('screen').src = '../sources/' + selected[0] + (index === 7 ? '.jpg' : '.png');
+</script>
+</html>

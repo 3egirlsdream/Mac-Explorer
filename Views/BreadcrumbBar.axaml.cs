@@ -49,6 +49,7 @@ public partial class BreadcrumbBar : UserControl
 
     public void FocusPathInput()
     {
+        if (ViewModel?.IsNetworkPage == true) return;
         CloseDirectoryDropdown();
         CloseHiddenBreadcrumbs();
         if (ViewModel?.IsHomePage == true)

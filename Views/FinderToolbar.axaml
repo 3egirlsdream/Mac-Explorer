@@ -31,16 +31,7 @@
     </UserControl.Styles>
 
     <Border Classes="finder-toolbar">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4" Margin="0,0">
-
-            <!-- New button + Dropdown Popup -->
-            <Button Grid.Column="0" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.021}"
-                    AutomationProperties.Name="{loc:Loc ui.021}" x:Name="NewBtn" Click="ToggleNewDropdown">
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Plus}"/>
-                    <TextBlock Classes="compact-label" Text="{loc:Loc ui.021}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Button>
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4" Margin="0,0">
 
             <!-- New dropdown popup -->
             <Popup x:Name="NewDropdown" Placement="BottomEdgeAlignedLeft" PlacementTarget="NewBtn"
@@ -69,30 +60,42 @@
                 </Border>
             </Popup>
 
-            <Separator Grid.Column="1" Classes="toolbar-separator toolbar-regular-action"/>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.021}"
+                        AutomationProperties.Name="{loc:Loc ui.021}" x:Name="NewBtn" Click="ToggleNewDropdown">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Plus}"/>
+                        <TextBlock Classes="compact-label" Text="{loc:Loc ui.021}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Separator Classes="toolbar-separator toolbar-regular-action"/>
 
-            <!-- Clipboard -->
-            <Button Grid.Column="2" x:Name="CutButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.cut" AutomationProperties.Name="{loc:Loc ui.007}" Click="CutSelected">
-                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
-            </Button>
-            <Button Grid.Column="3" x:Name="CopyButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.copy" AutomationProperties.Name="{loc:Loc ui.012}" Click="CopySelected">
-                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
-            </Button>
-            <Button Grid.Column="4" x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="{loc:Loc ui.026}" Click="PasteItems">
-                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
-            </Button>
-            <Button Grid.Column="5" x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{loc:Loc ui.024}" Click="DeleteSelected">
-                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
-            </Button>
+                <!-- Clipboard -->
+                <Button x:Name="CutButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.cut" AutomationProperties.Name="{loc:Loc ui.007}" Click="CutSelected">
+                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
+                </Button>
+                <Button x:Name="CopyButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.copy" AutomationProperties.Name="{loc:Loc ui.012}" Click="CopySelected">
+                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
+                </Button>
+                <Button x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="{loc:Loc ui.026}" Click="PasteItems">
+                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
+                </Button>
+                <Button x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{loc:Loc ui.024}" Click="DeleteSelected">
+                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
+                </Button>
 
-            <Button Grid.Column="6" x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="{loc:Loc ui.029}" Click="GoHome">
-                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
-            </Button>
+                <Button x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="{loc:Loc ui.029}" Click="GoHome">
+                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
+                </Button>
+            </StackPanel>
 
-            <Border Grid.Column="7" MinWidth="12"/>
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                <Separator Classes="toolbar-separator" IsVisible="{Binding #ToolbarTags.IsVisible}"/>
+                <controls:TagToolbar Grid.Column="1" x:Name="ToolbarTags"/>
+            </Grid>
 
             <!-- View mode toggle -->
-            <Grid Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented three">
+            <Grid Grid.Column="2" Grid.ColumnSpan="2" Classes="view-mode-segmented three">
                 <Path Data="{DynamicResource ViewModeTrackThreeGeometry}"
                       Fill="{DynamicResource ViewModeToggleBg}" IsHitTestVisible="False"/>
                 <StackPanel Orientation="Horizontal" Margin="2">
@@ -111,10 +114,10 @@
                 </StackPanel>
             </Grid>
 
-            <Separator Grid.Column="10" Classes="toolbar-separator toolbar-regular-action"/>
+            <Separator Grid.Column="4" Classes="toolbar-separator toolbar-regular-action"/>
 
             <!-- Sort & Group -->
-            <Button Grid.Column="11" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="{loc:Loc ui.017}" AutomationProperties.Name="{loc:Loc ui.017}" Click="ToggleSortDropdown">
+            <Button Grid.Column="5" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="{loc:Loc ui.017}" AutomationProperties.Name="{loc:Loc ui.017}" Click="ToggleSortDropdown">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.SortUpDown}"/>
                     <TextBlock Classes="compact-label" Text="{loc:Loc ui.015}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
@@ -204,15 +207,20 @@
             </Popup>
 
             <!-- Info panel toggle -->
-            <Button Grid.Column="13" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.002}" AutomationProperties.Name="{loc:Loc ui.002}" Click="ToggleInfoPanel">
+            <Button Grid.Column="7" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.002}" AutomationProperties.Name="{loc:Loc ui.002}" Click="ToggleInfoPanel">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Info}"/>
             </Button>
 
             <!-- More button -->
-            <Button Grid.Column="14" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.022}"
+            <Button Grid.Column="8" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.022}"
                     AutomationProperties.Name="{loc:Loc ui.022}" x:Name="MoreBtn" Click="ToggleMoreDropdown">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.MoreHorizontal}"/>
             </Button>
+
+            <Popup x:Name="TagManagementDropdown" Placement="BottomEdgeAlignedRight" PlacementTarget="MoreBtn"
+                   IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False">
+                <Border x:Name="TagManagementHost" Classes="toolbar-popup"/>
+            </Popup>
 
             <!-- More dropdown popup -->
             <Popup x:Name="MoreDropdown" Placement="BottomEdgeAlignedRight" PlacementTarget="MoreBtn"
@@ -267,6 +275,11 @@
                             </StackPanel>
                         </Button>
                         <Separator Classes="compact-overflow-item"/>
+                        <CheckBox x:Name="ShowToolbarTagsOption" Content="{loc:Loc tags.toolbar-visible}"
+                                  Margin="8,4" IsChecked="{Binding ShowToolbarTags, Mode=TwoWay}"/>
+                        <Button x:Name="ManageTagsButton" Classes="toolbar-popup-item" Content="{loc:Loc tags.manage}"
+                                HorizontalContentAlignment="Left" Click="OnManageTags"/>
+                        <Separator/>
                         <Button x:Name="BatchRenameButton" Classes="toolbar-popup-item"
                                 controls:ShortcutTip.Command="file.batch-rename"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"

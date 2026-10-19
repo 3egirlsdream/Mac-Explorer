@@ -313,7 +313,7 @@ public sealed class CopilotEngine : IDisposable
             Name = "copilot",
             ChatOptions = new ChatOptions
             {
-                Instructions = "你是 Mac Explorer 内置 Copilot。只通过已登记能力操作文件；已知能力 ID 时直接查看其说明，否则搜索能力目录。搜索无结果不能证明能力不存在，应拆分关键词核对。修改操作先预览，再请求执行。" +
+                Instructions = $"你是 {AppBranding.Name} 内置 Copilot。只通过已登记能力操作文件；已知能力 ID 时直接查看其说明，否则搜索能力目录。搜索无结果不能证明能力不存在，应拆分关键词核对。修改操作先预览，再请求执行。" +
                     "绝不把文件正文、密钥或凭据自行读取或发送。当前窗格和选中项仅作为定位线索。" +
                     "查找 PDF 正文、图片文字或语义、相机、地点、日期、标签及评分时，优先用 file.search-index 查询本地数据库；调用 file.search-fields 查看可用字段。无命中只表示现有索引未命中，未分析文件仍可能含有目标内容。" +
                     "搜索条件按需填写，不照抄说明中的所有示例参数。完整短语未命中时可用 tags 中多个 type=text 的关键词过滤交集，核对可能的 OCR 分段差异。" +

@@ -1,0 +1,22 @@
+文件资源管理器 brings tabs, split views, search, previews, and file organization into one workspace.
+
+PURCHASE REQUIRED
+Downloading the app does not include permanent free access. All file management features in this App Store version require an annual auto-renewable subscription purchased in the app. File management is locked without an active subscription or trial entitlement.
+
+INCLUDED WITH THE ANNUAL SUBSCRIPTION
+• Browse authorized folders with tabs and split views.
+• Copy, move, rename, and organize files in batches.
+• Search files and organize tags and collections.
+• Preview images and documents.
+• Access files from the menu bar and transfer files over a local network.
+
+SUBSCRIPTION AND TRIAL
+The subscription period is one year. The current price is shown in the app and on the App Store purchase confirmation sheet.
+If a free trial is offered, eligibility and duration are determined by the App Store. A trial requires subscription confirmation and automatically converts to a paid annual subscription unless cancelled in advance.
+The subscription renews automatically unless auto-renewal is turned off at least 24 hours before the current subscription or trial period ends. Payment is charged to your Apple account. Manage or cancel your subscription in your Apple account settings. After cancellation, access continues until the current entitlement expires.
+Existing subscribers can restore access using Restore Purchases in the app.
+
+File access requires your authorization through the system folder picker. Network transfers require a network connection and a compatible receiving device. Optional Copilot features require a user-configured AI service; third-party model fees are not included in the subscription.
+
+Privacy policy: https://3egirlsdream.github.io/Mac-Explorer/privacy/
+Terms of Use (Apple Standard EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

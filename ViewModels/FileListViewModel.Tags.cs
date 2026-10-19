@@ -7,7 +7,25 @@ namespace MacExplorer.ViewModels;
 
 public partial class FileListViewModel
 {
+    internal IFileTagService? FileTagService => _fileTagService;
     public event Action? NewTagRequested;
+    public bool ShowToolbarTags
+    {
+        get => _settingsService?.Get("show_toolbar_tags", true) ?? _showToolbarTags;
+        set
+        {
+            if (ShowToolbarTags == value) return;
+            _showToolbarTags = value;
+            _settingsService?.Set("show_toolbar_tags", value);
+            OnPropertyChanged();
+        }
+    }
+    private bool _showToolbarTags = true;
+
+    public string TagDeleteConfirmation => MacExplorer.Services.Impl.LocalizationText.Get(
+        "确定要删除标签“{0}”及其 {1} 个自定义子标签吗？这会移除文件上的这些标签，原始文件保留。系统颜色标签将移回顶层。",
+        PendingDeleteTagName, FileTagTree.Descendants(SidebarTags, PendingDeleteTagName).Count(t => t.IsCustom));
+
     private IReadOnlyList<string> _newTagPaths = [];
 
     private void OnTagRenamed(object? sender, TagRenamedEventArgs e)
@@ -48,8 +66,8 @@ public partial class FileListViewModel
         {
             var result = await _fileTagService.SetTagAsync(paths, tag, applied);
             StatusText = result.PendingFiles > 0
-                ? $"标签已保存，{result.PendingFiles} 个文件等待同步 Finder"
-                : applied ? $"已添加标签“{tag.Name}”" : $"已移除标签“{tag.Name}”";
+                ? MacExplorer.Services.Impl.LocalizationText.Get("标签已保存，{0} 个文件等待同步 Finder", result.PendingFiles)
+                : applied ? MacExplorer.Services.Impl.LocalizationText.Get("已添加标签“{0}”", tag.DisplayName) : MacExplorer.Services.Impl.LocalizationText.Get("已移除标签“{0}”", tag.DisplayName);
         });
     }
 
@@ -58,7 +76,7 @@ public partial class FileListViewModel
         if (IsBrowseOnly || _fileTagService == null) return;
         try { await action(); }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { StatusText = $"标签操作失败：{ex.Message}"; }
+        catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("标签操作失败：{0}", ex.Message); }
     }
 
     private async Task<ContextMenuAction> BuildTagsContextMenuAsync(FileSystemEntry entry)
@@ -85,8 +103,8 @@ public partial class FileListViewModel
                 Execute = () => SetFileTagAsync(paths, tag, !all)
             };
         }).ToList();
-        actions.Add(ContextMenuAction.Separator);
-        actions.Add(new ContextMenuAction
+        actions.Insert(0, ContextMenuAction.Separator);
+        actions.Insert(0, new ContextMenuAction
         {
             Label = MacExplorer.Services.Impl.LocalizationText.Get("新建标签…"), IconSvg = Icons.Plus,
             Execute = () =>
@@ -96,6 +114,6 @@ public partial class FileListViewModel
                 return Task.CompletedTask;
             }
         });
-        return new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("标签"), IconSvg = Icons.Tag, SubItems = actions };
+        return new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("标签"), IconSvg = Icons.Tag, SubItems = actions, TagTreePaths = paths };
     }
 }

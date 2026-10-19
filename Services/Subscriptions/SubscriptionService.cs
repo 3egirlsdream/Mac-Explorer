@@ -1,4 +1,5 @@
 using System.Reflection;
+using MacExplorer.Services.Impl;
 using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Subscriptions;
@@ -141,7 +142,7 @@ public sealed class SubscriptionService : IDisposable
                 catch (Exception ex) when (!_lifetime.IsCancellationRequested)
                 {
                     _logger?.LogDebug(ex, "StoreKit product lookup failed");
-                    ProductError = "暂时无法加载订阅价格，请重试。";
+                    ProductError = LocalizationText.Get("subscription.load_error");
                 }
                 catch (OperationCanceledException) { }
                 if (!_disposed) Changed?.Invoke();
@@ -152,7 +153,7 @@ public sealed class SubscriptionService : IDisposable
     public Task PurchaseAsync() => RunActionAsync(async token =>
     {
         var result = await _store.PurchaseAsync(token);
-        ActionMessage = result switch { PurchaseOutcome.Pending => "购买等待批准，批准后将自动解锁。", PurchaseOutcome.Cancelled => "已取消购买。", _ => null };
+        ActionMessage = result switch { PurchaseOutcome.Pending => LocalizationText.Get("subscription.pending"), PurchaseOutcome.Cancelled => LocalizationText.Get("subscription.cancelled"), _ => null };
         if (result == PurchaseOutcome.Purchased) { await RefreshAfterCurrentAsync(); await LoadProductAsync(); }
     });
     public Task RestoreAsync() => RunActionAsync(async token => { await _store.RestoreAsync(token); await RefreshAfterCurrentAsync(); await LoadProductAsync(); });
@@ -164,13 +165,13 @@ public sealed class SubscriptionService : IDisposable
         ActionMessage = null; Changed?.Invoke();
         try { await action(_lifetime.Token); }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (Exception) { ActionMessage = "操作未完成，请检查 App Store 账户或网络后重试。"; }
+        catch (Exception) { ActionMessage = LocalizationText.Get("subscription.action_error"); }
         finally { Interlocked.Exchange(ref _action, 0); if (!_disposed) Changed?.Invoke(); }
     }
 
     public void RequireAccess()
     {
-        if (IsLocked) throw new InvalidOperationException("订阅未生效，请先订阅或恢复购买。");
+        if (IsLocked) throw new InvalidOperationException(LocalizationText.Get("subscription.locked"));
     }
 
     public void Dispose()

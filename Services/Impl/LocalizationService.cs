@@ -150,7 +150,7 @@ internal static partial class LocalizationCatalog
     {
         ["language.system"] = "跟随系统", ["language.zh"] = "简体中文", ["language.en"] = "English",
         ["language.label"] = "语言", ["language.section"] = "语言",
-        ["settings.general"] = "通用", ["settings.general.description"] = "让 MacExplorer 更贴合你的日常使用习惯。",
+        ["settings.general"] = "通用", ["settings.general.description"] = "调整日常文件管理偏好。",
         ["settings.system"] = "系统", ["settings.language"] = "显示语言",
         ["settings.default_manager"] = "设为默认文件管理器",
         ["settings.default_manager.description"] = "通过系统打开文件夹及兼容应用的「在 Finder 中显示」时使用 MacExplorer。更改后需重启电脑。",
@@ -186,7 +186,7 @@ internal static partial class LocalizationCatalog
     {
         ["language.system"] = "Follow system", ["language.zh"] = "简体中文", ["language.en"] = "English",
         ["language.label"] = "Language", ["language.section"] = "Language",
-        ["settings.general"] = "General", ["settings.general.description"] = "Make MacExplorer fit your daily workflow.",
+        ["settings.general"] = "General", ["settings.general.description"] = "Adjust your everyday file management preferences.",
         ["settings.system"] = "System", ["settings.language"] = "Display language",
         ["settings.default_manager"] = "Set as default file manager",
         ["settings.default_manager.description"] = "Use MacExplorer when opening folders from the system and compatible apps. Restart your computer after changing this setting.",
@@ -222,6 +222,10 @@ internal static partial class LocalizationCatalog
 
     public static string Get(string key, CultureInfo culture)
     {
+        if (key == "app.name") return AppBranding.GetName(culture);
+        if (key == "app.copyright") return "© 2024–2026 " + AppBranding.GetName(culture);
+        if (App.TryGetValue(key, out var app))
+            return culture.Name.StartsWith("en", StringComparison.OrdinalIgnoreCase) ? app.English : app.Chinese;
         if (Ui.TryGetValue(key, out var ui))
             return culture.Name.StartsWith("en", StringComparison.OrdinalIgnoreCase) ? ui.English : ui.Chinese;
         if (culture.Name.StartsWith("en", StringComparison.OrdinalIgnoreCase))

@@ -181,7 +181,7 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
             """);
         SqliteSchema.Initialize(_db);
         SqliteSchema.Initialize(_db);
-        Assert.Equal(10, Scalar("SELECT MAX(version) FROM schema_version"));
+        Assert.Equal(SqliteSchema.CurrentVersion, Scalar("SELECT MAX(version) FROM schema_version"));
         Assert.Single(await _index.SearchByNameAsync("migration"));
         Assert.Equal(0, Scalar("SELECT count(*) FROM fts_audit"));
         Execute("UPDATE files SET size=100;");

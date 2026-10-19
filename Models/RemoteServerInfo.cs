@@ -20,8 +20,11 @@ public class RemoteServerInfo : INotifyPropertyChanged
     public bool RememberPrivateKeyPassphrase { get; set; }
     public string PrivateKeyPath { get; set; } = "";
     public string DefaultPath { get; set; } = "/";
+    public string ShareName { get; set; } = "";
+    public string Domain { get; set; } = "";
+    public DateTimeOffset? LastConnectedAt { get; set; }
 
-    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? $"{Username}@{Host}" : Name;
+    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? (string.IsNullOrWhiteSpace(Username) ? Host : $"{Username}@{Host}") : Name;
     public string ConnectionString => $"{Username}@{Host}:{Port}";
 
     public bool IsConnected
@@ -60,5 +63,6 @@ public enum RemoteAuthMethod
 
 public enum RemoteServiceType
 {
-    Sftp
+    Sftp = 0,
+    Smb = 1
 }

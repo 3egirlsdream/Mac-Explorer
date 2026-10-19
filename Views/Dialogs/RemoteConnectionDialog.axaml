@@ -55,14 +55,15 @@
                         <Border Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="NameBox" Classes="settings-inline-input" Watermark="{loc:Loc ui.513}" AutomationProperties.Name="{loc:Loc ui.514}"/>
+                                <TextBox Grid.Column="1" x:Name="NameBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc ui.513}" AutomationProperties.Name="{loc:Loc ui.514}"/>
                             </Grid>
                         </Border>
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc remote.type}" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Column="1" x:Name="ServiceTypeBox" Classes="settings-inline-input" SelectedIndex="0" AutomationProperties.Name="{loc:Loc remote.type}">
+                                <ComboBox Grid.Column="1" x:Name="ServiceTypeBox" Classes="settings-inline-input" SelectedIndex="0" SelectionChanged="OnServiceTypeChanged" AutomationProperties.Name="{loc:Loc remote.type}">
                                     <ComboBoxItem Content="SFTP"/>
+                                    <ComboBoxItem Content="SMB"/>
                                 </ComboBox>
                             </Grid>
                         </Border>
@@ -75,7 +76,7 @@
                             <StackPanel>
                                 <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                     <TextBlock Classes="settings-label" Text="{loc:Loc ui.515}" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" x:Name="HostBox" Classes="settings-inline-input" Watermark="{loc:Loc ui.516}" AutomationProperties.Name="{loc:Loc ui.515}"/>
+                                    <TextBox Grid.Column="1" x:Name="HostBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc ui.516}" AutomationProperties.Name="{loc:Loc ui.515}"/>
                                 </Grid>
                                 <TextBlock x:Name="HostError" IsVisible="False" Text="{loc:Loc ui.517}" TextWrapping="Wrap"
                                            Foreground="{DynamicResource DangerBrush}"/>
@@ -84,20 +85,20 @@
                         <Border Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.497}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="PortBox" Classes="settings-inline-input" Watermark="22" AutomationProperties.Name="{loc:Loc ui.497}"/>
+                                <TextBox Grid.Column="1" x:Name="PortBox" Classes="settings-inline-input" PlaceholderText="22" AutomationProperties.Name="{loc:Loc ui.497}"/>
                             </Grid>
                         </Border>
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.518}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="UsernameBox" Classes="settings-inline-input" Watermark="root" AutomationProperties.Name="{loc:Loc ui.518}"/>
+                                <TextBox Grid.Column="1" x:Name="UsernameBox" Classes="settings-inline-input" PlaceholderText="root" AutomationProperties.Name="{loc:Loc ui.518}"/>
                             </Grid>
                         </Border>
                     </StackPanel>
                 </Border>
                 <Border Classes="settings-group">
                     <StackPanel>
-                        <Border Classes="settings-row settings-divider">
+                        <Border x:Name="AuthMethodPanel" Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.519}" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
@@ -136,11 +137,24 @@
                         </Border>
                     </StackPanel>
                 </Border>
+                <Border x:Name="SmbParameters" Classes="settings-group" IsVisible="False">
+                    <StackPanel>
+                        <Border Classes="settings-row settings-divider"><Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                            <TextBlock Classes="settings-label" Text="{loc:Loc network.share}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" x:Name="ShareBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc network.choose-share}" AutomationProperties.Name="{loc:Loc network.share}"/>
+                        </Grid></Border>
+                        <Border Classes="settings-row"><Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                            <TextBlock Classes="settings-label" Text="{loc:Loc network.domain}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" x:Name="DomainBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc network.optional}" AutomationProperties.Name="{loc:Loc network.domain}"/>
+                        </Grid></Border>
+                    </StackPanel>
+                </Border>
                 </StackPanel>
+                <Button x:Name="SystemConnectButton" Classes="ghost compact" IsVisible="False" Content="{loc:Loc network.system-connect}" Click="OnSystemConnect"/>
                 <StackPanel x:Name="AuxiliaryActions" Orientation="Horizontal" Spacing="8">
                     <Button Classes="ghost compact" Content="{loc:Loc ui.530}" Click="OnRetryCredentials"
                             ToolTip.Tip="{loc:Loc ui.531}"/>
-                    <Button Classes="ghost compact" Content="{loc:Loc ui.532}" Click="OnForgetHostKey"
+                    <Button x:Name="ForgetHostKeyButton" Classes="ghost compact" Content="{loc:Loc ui.532}" Click="OnForgetHostKey"
                             ToolTip.Tip="{loc:Loc ui.533}"/>
                 </StackPanel>
             </StackPanel>

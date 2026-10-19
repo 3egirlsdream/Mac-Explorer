@@ -281,4 +281,35 @@ public sealed class SubscriptionTests
         finally { first.Close(); second.Close(); }
     }
 
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
+    public async Task PurchaseDisclosureAndStorePriceFollowLanguageAndTrialEligibility()
+    {
+        using var language = new Services.Impl.LocalizationService(new PluginTestEnvironment.MemorySettings(), () => Services.AppLanguage.ChineseSimplified);
+        var store = new Store();
+        using var service = new SubscriptionService(store, true);
+        var view = new SubscriptionView(service);
+        var window = new Window { Width = 440, Height = 760, Content = view };
+        try
+        {
+            window.Show();
+            service.Start();
+            await Task.WhenAll(service.RefreshAsync(), service.LoadProductAsync());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("App 内购买", view.FindControl<TextBlock>("StatusText")!.Text);
+            language.SetLanguage(Services.AppLanguage.English);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("in-app purchase", view.FindControl<TextBlock>("StatusText")!.Text);
+            Assert.Equal("¥9.90 / year", view.FindControl<TextBlock>("PriceText")!.Text);
+            Assert.Contains("7-day free trial", view.FindControl<TextBlock>("TermsText")!.Text);
+            store.ReadProduct = _ => Task.FromResult(new SubscriptionProduct("$2.99", false, 0));
+            await service.LoadProductAsync();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("$2.99 / year", view.FindControl<TextBlock>("PriceText")!.Text);
+            Assert.Equal("Subscribe", view.FindControl<Button>("SubscribeButton")!.Content);
+            Assert.DoesNotContain("free", view.FindControl<TextBlock>("TermsText")!.Text);
+        }
+        finally { window.Close(); }
+    }
+
 }

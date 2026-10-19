@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.Themes.Fluent;
 using Avalonia.VisualTree;
 using MacExplorer.Controls;
 using MacExplorer.Models;
@@ -180,7 +181,8 @@ public sealed class DialogSettingsAppearanceTests
                 Assert.True(dialog.FindControl<Button>("SaveButton")!.IsEnabled);
                 Assert.True(dialog.FindControl<Border>("SavedServersPanel")!.IsEnabled);
                 Assert.Equal("connection.test", dialog.FindControl<TextBox>("HostBox")!.Text);
-                Assert.Contains("fixture connection failure", dialog.FindControl<TextBlock>("ConnectionStatus")!.Text);
+                dialog.UpdateLayout();
+                Assert.Contains(dialog.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("fixture connection failure") == true);
             }
             Assert.Empty(fixture.Service.GetSavedServers());
         }
@@ -204,6 +206,44 @@ public sealed class DialogSettingsAppearanceTests
             var saved = Assert.Single(fixture.Service.GetSavedServers());
             Assert.Equal(dialog.Result!.Id, saved.Id);
             Assert.Equal(RemoteServiceType.Sftp, saved.ServiceType);
+        }
+        finally { dialog.Close(); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false, 640)]
+    [InlineData(true, 640)]
+    [InlineData(false, 900)]
+    [InlineData(true, 900)]
+    [Trait("Area", "Network")]
+    public void SmbParametersAndProtocolDraftsRemainUsableAtBothSizes(bool dark, int width)
+    {
+        using var fixture = new RemoteFixture();
+        var dialog = new RemoteConnectionDialog(new RemoteServerInfo { ServiceType = RemoteServiceType.Smb, Host = "nas.local", Port = 445,
+            Username = "fixture", ShareName = "共享 Files", Domain = "WORKGROUP" })
+            { Width = width, Height = 680, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        dialog.Show(); Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Assert.True(dialog.FindControl<Border>("SmbParameters")!.IsVisible);
+            Assert.False(dialog.FindControl<Border>("AuthMethodPanel")!.IsVisible);
+            Assert.Equal("445", dialog.FindControl<TextBox>("PortBox")!.Text);
+            dialog.FindControl<TextBox>("ShareBox")!.Text = "long shared folder 中文";
+            var type = dialog.FindControl<ComboBox>("ServiceTypeBox")!;
+            type.SelectedIndex = 0;
+            Assert.Equal("22", dialog.FindControl<TextBox>("PortBox")!.Text);
+            type.SelectedIndex = 1;
+            Assert.Equal("long shared folder 中文", dialog.FindControl<TextBox>("ShareBox")!.Text);
+            Assert.Equal("WORKGROUP", dialog.FindControl<TextBox>("DomainBox")!.Text);
+            dialog.UpdateLayout();
+            foreach (var name in new[] { "SaveButton", "ConnectButton" })
+            {
+                var button = dialog.FindControl<Button>(name)!;
+                var point = button.TranslatePoint(default, dialog)!.Value;
+                Assert.True(point.X >= 0 && point.X + button.Bounds.Width <= dialog.ClientSize.Width);
+                Assert.True(point.Y + button.Bounds.Height <= dialog.ClientSize.Height);
+            }
+            Assert.Empty(fixture.Service.GetSavedServers());
         }
         finally { dialog.Close(); }
     }
@@ -246,10 +286,12 @@ public sealed class DialogSettingsAppearanceTests
         private readonly string _root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "dialog-" + Guid.NewGuid().ToString("N"));
         private readonly IServiceProvider _previous = App.Services;
         private readonly ServiceProvider _provider;
+        private readonly FluentTheme _theme = new();
         public RemoteConnectionService Service { get; }
         public PendingRemoteService? Pending { get; }
         public RemoteFixture(bool pendingConnection = false)
         {
+            Application.Current!.Styles.Insert(0, _theme);
             Directory.CreateDirectory(_root);
             Service = new RemoteConnectionService(Path.Combine(_root, "servers.json"), new PrivacySecurityFollowupTests.MemoryCredentials());
             Pending = pendingConnection ? new PendingRemoteService(Service) : null;
@@ -259,6 +301,7 @@ public sealed class DialogSettingsAppearanceTests
         public void Dispose()
         {
             typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _previous);
+            Application.Current!.Styles.Remove(_theme);
             _provider.Dispose(); Service.Dispose(); Directory.Delete(_root, true);
         }
     }

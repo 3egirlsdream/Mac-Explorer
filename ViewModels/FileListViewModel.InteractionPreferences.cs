@@ -39,6 +39,11 @@ public partial class FileListViewModel
 
     private void OnSettingsChanged(string key)
     {
+        if (key == "show_toolbar_tags" && !_disposed)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (!_disposed) OnPropertyChanged(nameof(ShowToolbarTags)); });
+            return;
+        }
         if (key != FolderPhotoCoverSettingKey || _disposed) return;
         if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
             OnPropertyChanged(nameof(ShowFolderPhotoCovers));

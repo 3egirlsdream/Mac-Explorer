@@ -79,8 +79,10 @@
         <key>NSAllowsArbitraryLoads</key>
         <true/>
     </dict>
+    <key>NSBonjourServices</key>
+    <array><string>_smb._tcp</string></array>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>发现附近的 LocalSend 设备并在你确认后收发文件。</string>
+    <string>发现附近的共享电脑和 LocalSend 设备，并在你确认后连接共享或收发文件。</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>按你的操作指令与 Finder 配合处理文件及废纸篓。</string>
 </dict>

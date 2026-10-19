@@ -48,6 +48,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     public async Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
     {
+        if (server.ServiceType != RemoteServiceType.Sftp) throw new InvalidOperationException("Use the connection coordinator for SMB.");
         Disconnect(server.Id);
 
         var candidate = CopyServer(server);
@@ -169,7 +170,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
     private static RemoteServerInfo CopyServer(RemoteServerInfo server) => new RemoteServerInfo
         {
             Id = server.Id, ServiceType = server.ServiceType, Name = server.Name, Host = server.Host, Port = server.Port, Username = server.Username,
-            DefaultPath = server.DefaultPath, AuthMethod = server.AuthMethod, Password = server.Password,
+            LastConnectedAt = server.LastConnectedAt, DefaultPath = server.DefaultPath, ShareName = server.ShareName, Domain = server.Domain, AuthMethod = server.AuthMethod, Password = server.Password,
             PrivateKeyPath = server.PrivateKeyPath, PrivateKeyPassphrase = server.PrivateKeyPassphrase,
             RememberPrivateKeyPassphrase = server.RememberPrivateKeyPassphrase
     };

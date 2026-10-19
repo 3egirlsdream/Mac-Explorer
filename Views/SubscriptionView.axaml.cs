@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using MacExplorer.Services.Subscriptions;
+using MacExplorer.Services.Impl;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Views;
@@ -29,12 +30,14 @@ public partial class SubscriptionView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         _service ??= App.Services?.GetService<SubscriptionService>();
+        if (LocalizationService.Current is { } language) language.LanguageChanged += OnChanged;
         if (_service == null) return;
         _service.Changed += OnChanged;
         Update();
     }
     protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
     {
+        if (LocalizationService.Current is { } language) language.LanguageChanged -= OnChanged;
         if (_service != null) _service.Changed -= OnChanged;
         base.OnDetachedFromVisualTree(e);
     }
@@ -42,13 +45,13 @@ public partial class SubscriptionView : UserControl
     private void Update()
     {
         if (_service == null) return;
-        StatusText.Text = _service.Snapshot.State == SubscriptionState.VerificationFailed ? "暂时无法验证订阅" : "年度会员 · 解锁全部功能";
+        StatusText.Text = _service.Snapshot.State == SubscriptionState.VerificationFailed ? LocalizationText.Get("subscription.unverified") : LocalizationText.Get("subscription.required");
         var product = _service.Product;
-        PriceText.Text = product == null ? (_service.ProductError == null ? "正在获取 App Store 价格…" : "订阅价格暂不可用") : $"{product.Price} / 年";
+        PriceText.Text = product == null ? LocalizationText.Get(_service.ProductError == null ? "subscription.loading_price" : "subscription.no_price") : LocalizationText.Get("subscription.yearly_price", product.Price);
         TermsText.Text = product?.TrialEligible == true
-            ? $"免费试用 {product.TrialDays} 天，之后按 {product.Price}/年自动续订。可在 Apple 账户中取消。"
-            : "年度自动续订，可在 Apple 账户中取消。取消后仍可使用至当前有效期结束。";
-        SubscribeButton.Content = product?.TrialEligible == true ? $"免费试用 {product.TrialDays} 天" : "订阅";
+            ? LocalizationText.Get("subscription.trial_terms", product.TrialDays, product.Price)
+            : LocalizationText.Get("subscription.renewal_terms");
+        SubscribeButton.Content = product?.TrialEligible == true ? LocalizationText.Get("subscription.trial_button", product.TrialDays) : LocalizationText.Get("subscription.subscribe");
         SubscribeButton.IsEnabled = product != null && !_service.IsBusy;
         RestoreButton.IsEnabled = RetryButton.IsEnabled = ManageButton.IsEnabled = !_service.IsBusy;
         MessageText.Text = _service.ActionMessage ?? _service.ProductError;

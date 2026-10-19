@@ -146,12 +146,14 @@ public sealed class SecurityDialogTests
             dialog.FindControl<TextBox>("HostBox")!.Text = "edited.test";
             Directory.CreateDirectory(config + ".tmp");
             dialog.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.Contains("保存失败", dialog.FindControl<TextBlock>("ConnectionStatus")!.Text);
+            Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
+            Assert.Contains(dialog.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("保存失败") == true);
             Assert.Equal("edited.test", dialog.FindControl<TextBox>("HostBox")!.Text);
             Assert.Equal("original.test", service.GetSavedServers().Single(server => server.Id == "fixture").Host);
             credentials.FailDelete = true;
             dialog.FindControl<Button>("DeleteButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.Contains("删除失败", dialog.FindControl<TextBlock>("ConnectionStatus")!.Text);
+            Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
+            Assert.Contains(dialog.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("删除失败") == true);
             Assert.Equal("edited.test", dialog.FindControl<TextBox>("HostBox")!.Text);
             Assert.Equal(2, service.GetSavedServers().Count);
             var save = dialog.FindControl<Button>("SaveButton")!;

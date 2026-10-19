@@ -2,6 +2,7 @@
              xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:models="using:MacExplorer.Models"
              xmlns:icons="using:MacExplorer.Assets"
              x:Class="MacExplorer.Views.InfoPanelView"
              x:DataType="vm:FileListViewModel"
@@ -160,8 +161,32 @@
                     <Border Margin="0,2,0,0">
                         <TextBox x:Name="TagInput" AutomationProperties.Name="{loc:Loc ui.372}"
                                  PlaceholderText="{loc:Loc ui.582}"
+                                 TextChanged="OnTagInputTextChanged" GotFocus="OnTagInputGotFocus"
+                                 LostFocus="OnTagInputLostFocus"
                                  KeyDown="OnTagInputKeyDown"/>
                     </Border>
+                    <Popup x:Name="TagSuggestionsPopup" PlacementTarget="{Binding #TagInput}"
+                           Placement="BottomEdgeAlignedLeft" HorizontalOffset="-12" VerticalOffset="-10"
+                           IsLightDismissEnabled="False" WindowManagerAddShadowHint="False">
+                        <Border x:Name="TagSuggestionsSurface" Classes="context-submenu-surface">
+                            <ListBox x:Name="TagSuggestions" Classes="omnibox-suggestions tag-suggestions"
+                                     MaxHeight="240" KeyDown="OnTagInputKeyDown" LostFocus="OnTagInputLostFocus"
+                                     Tapped="OnTagSuggestionTapped"
+                                     AutomationProperties.Name="{loc:Loc tags.matches}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:FileTag">
+                                        <Grid ColumnDefinitions="16,*" ColumnSpacing="8" Background="Transparent"
+                                              ToolTip.Tip="{Binding Name}">
+                                            <PathIcon Data="{x:Static icons:Icons.Tag}" Width="14" Height="14"
+                                                      Foreground="{Binding ColorHex}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                       FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Popup>
                 </StackPanel>
 
                 <!-- Quick Actions -->

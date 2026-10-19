@@ -32,7 +32,10 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
         MacExplorer.Services.Markdown.MarkdownLocalization.Register();
         Services = ConfigureServices();
-        Services.GetRequiredService<ILocalizationService>();
+        var language = Services.GetRequiredService<ILocalizationService>();
+        Name = AppBranding.Name;
+        if (OperatingSystem.IsMacOS())
+            NativeMenu.SetMenu(this, Platforms.MacOS.ApplicationMenu.Create(language, ShowAbout));
         Services.GetRequiredService<IThemeService>().Initialize();
         Services.GetRequiredService<IInteractionStyleService>().Initialize();
         Services.GetRequiredService<ITypographyService>().Initialize();
@@ -134,6 +137,27 @@ public partial class App : Application
             mainWindow.Activate();
         }
 
+#if DEBUG
+        if (RuntimePaths.TestRoot is { } smokeRoot && Environment.GetEnvironmentVariable("MACEXPLORER_NETWORK_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(async () =>
+            {
+                try
+                {
+                    if (smokeWindow.DataContext is MainWindowViewModel model)
+                        await model.FileList.NavigateToAsync(VirtualPath.Network);
+                    await Task.Delay(8000);
+                    var discovery = Services.GetRequiredService<INetworkDiscoveryService>();
+                    Console.Error.WriteLine($"Network smoke: {discovery.Servers.Count} servers, error={discovery.Error}");
+                    File.WriteAllText(Path.Combine(smokeRoot, "network-smoke.json"),
+                        System.Text.Json.JsonSerializer.Serialize(new { discovery.Servers, discovery.Error }));
+                }
+                catch (Exception ex) { Console.Error.WriteLine(ex); }
+            }, TimeSpan.FromSeconds(1));
+        }
+#endif
+
         if (OperatingSystem.IsMacOS())
         {
             Services.GetRequiredService<FileDeliveryController>().Initialize();
@@ -152,6 +176,18 @@ public partial class App : Application
     private static Window? LocalSendOwner()
         => _desktop?.Windows.OfType<MainWindow>().LastOrDefault(window => window.IsActive && window.IsVisible)
            ?? _desktop?.Windows.OfType<MainWindow>().LastOrDefault(window => window.IsVisible);
+
+    private static void ShowAbout()
+    {
+        var owner = LocalSendOwner();
+        if (owner is MainWindow mainWindow) mainWindow.ShowAbout();
+        else
+        {
+            var dialog = new SettingsDialog();
+            dialog.ShowAbout();
+            dialog.Show();
+        }
+    }
 
     private static Task<LocalSendReceiveDecision> ShowLocalSendReceiveAsync(
         LocalSendIncomingRequest request, System.Threading.CancellationToken cancellationToken)
@@ -307,6 +343,9 @@ public partial class App : Application
             sp.GetService<ILogger<Services.Impl.RemoteConnectionService>>())
             { ConfirmHostKeyAsync = Views.Dialogs.SftpHostKeyConsent.ConfirmAsync,
                 RequestPrivateKeyPassphraseAsync = Views.Dialogs.SftpPrivateKeyConsent.RequestAsync });
+        services.AddSingleton<ISmbMountService, SmbMountService>();
+        services.AddSingleton<IServerConnectionCoordinator, ServerConnectionCoordinator>();
+        services.AddSingleton<INetworkDiscoveryService, NetworkDiscoveryService>();
         services.AddSingleton<SftpFileService>();
         services.AddSingleton<IRemoteFileService>(sp => sp.GetRequiredService<SftpFileService>());
         services.AddSingleton<IRemoteFileEditService, Services.Impl.RemoteFileEditService>();

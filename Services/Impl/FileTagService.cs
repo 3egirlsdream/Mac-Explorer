@@ -34,7 +34,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
     public async Task<IReadOnlyList<FileTag>> GetSidebarTagsAsync(CancellationToken cancellationToken = default)
     {
         await _connectionLock.WaitAsync(cancellationToken);
-        try { return ReadDefinitions(); }
+        try { return ReadDefinitions().OrderByDescending(tag => tag.IsPinned).ToArray(); }
         finally { _connectionLock.Release(); }
     }
 
@@ -42,9 +42,9 @@ public sealed class FileTagService : IFileTagService, IDisposable
     {
         using var command = _connection.CreateCommand();
         command.CommandText = """
-            SELECT d.name, d.color_id, d.is_pinned, d.sort_order, COUNT(f.file_path)
+            SELECT d.name, d.color_id, d.is_pinned, d.sort_order, COUNT(f.file_path), d.parent_name
             FROM tag_definitions d LEFT JOIN file_tags f ON f.tag = d.name COLLATE NOCASE
-            GROUP BY d.name ORDER BY d.is_pinned DESC, d.sort_order, d.name COLLATE NOCASE
+            GROUP BY d.name ORDER BY d.sort_order, d.name COLLATE NOCASE
             """;
         var result = new List<FileTag>();
         using var reader = command.ExecuteReader();
@@ -55,29 +55,65 @@ public sealed class FileTagService : IFileTagService, IDisposable
             var colorId = system ? color.ColorId : reader.GetInt32(1);
             result.Add(new FileTag(name, FileTagCatalog.ColorHex(colorId),
                 system ? FileTagKind.FinderColor : FileTagKind.Custom,
-                reader.GetInt32(4), colorId, reader.GetInt32(2) != 0, reader.GetInt32(3)));
+                reader.GetInt32(4), colorId, reader.GetInt32(2) != 0, reader.GetInt32(3), reader.IsDBNull(5) ? null : reader.GetString(5)));
         }
-        return result.OrderByDescending(t => t.IsPinned).ThenBy(t => t.IsPinned ? t.SortOrder : 0)
-            .ThenBy(t => t.IsFinderColor ? 0 : 1)
-            .ThenBy(t => t.IsFinderColor ? FileTagCatalog.FinderColors.ToList().FindIndex(c => c.Name == t.Name) : 0)
-            .ThenByDescending(t => t.IsPinned ? 0 : t.ItemCount).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return result;
     }
 
-    public async Task<FileTag> CreateTagAsync(string name, CancellationToken cancellationToken = default)
+    public Task<FileTag> CreateTagAsync(string name, CancellationToken cancellationToken = default) =>
+        CreateChildTagAsync(name, null, cancellationToken);
+
+    public async Task<FileTag> CreateChildTagAsync(string name, string? parentName, CancellationToken cancellationToken = default)
     {
         name = ValidateName(name);
         FileTag created;
         await _connectionLock.WaitAsync(cancellationToken);
         try
         {
-            if (ReadDefinitions().Any(t => SameName(t.Name, name))) throw new InvalidOperationException($"标签“{name}”已存在");
-            EnsureDefinition(name);
+            var definitions = ReadDefinitions();
+            if (definitions.Any(t => SameName(t.Name, name))) throw new InvalidOperationException(LocalizationText.Get("标签“{0}”已存在", name));
+            var parent = ResolveParent(definitions, parentName);
+            using (var transaction = _connection.BeginTransaction())
+            {
+                Execute("UPDATE tag_definitions SET sort_order = sort_order + 1 WHERE parent_name IS @parent COLLATE NOCASE", transaction,
+                    ("@parent", (object?)parent ?? DBNull.Value));
+                Execute("INSERT INTO tag_definitions(name, parent_name, sort_order) VALUES (@name, @parent, 0)", transaction,
+                    ("@name", name), ("@parent", (object?)parent ?? DBNull.Value));
+                transaction.Commit();
+            }
             created = ReadDefinitions().Single(t => SameName(t.Name, name));
         }
         finally { _connectionLock.Release(); }
         TagsChanged?.Invoke(this, EventArgs.Empty);
         return created;
     }
+
+    public async Task MoveTagAsync(FileTag tag, string? parentName, int index, CancellationToken cancellationToken = default)
+    {
+        await _connectionLock.WaitAsync(cancellationToken);
+        try
+        {
+            var definitions = ReadDefinitions();
+            var current = definitions.Single(t => SameName(t.Name, tag.Name));
+            var parent = ResolveParent(definitions, parentName);
+            for (var ancestor = parent; ancestor != null; ancestor = definitions.Single(t => SameName(t.Name, ancestor)).ParentName)
+                if (SameName(current.Name, ancestor)) throw new InvalidOperationException(LocalizationText.Get("不能将标签移入自身或子标签"));
+            var siblings = definitions.Where(t => SameParent(t.ParentName, parent) && !SameName(t.Name, current.Name)).ToList();
+            siblings.Insert(Math.Clamp(index, 0, siblings.Count), current);
+            using var transaction = _connection.BeginTransaction();
+            for (var i = 0; i < siblings.Count; i++)
+                Execute("UPDATE tag_definitions SET parent_name = @parent, sort_order = @order WHERE name = @name COLLATE NOCASE", transaction,
+                    ("@parent", (object?)parent ?? DBNull.Value), ("@order", i), ("@name", siblings[i].Name));
+            transaction.Commit();
+        }
+        finally { _connectionLock.Release(); }
+        TagsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static bool SameParent(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    private static string? ResolveParent(IReadOnlyList<FileTag> definitions, string? parentName) => parentName == null ? null :
+        definitions.FirstOrDefault(t => SameName(t.Name, parentName))?.Name
+            ?? throw new InvalidOperationException(LocalizationText.Get("父标签不存在"));
 
     public async Task<IReadOnlyList<string>> FindFilePathsAsync(FileTag tag, CancellationToken cancellationToken = default)
     {
@@ -86,7 +122,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
         {
             try { paths.UnionWith(await _finderTagQueryService.FindFilePathsAsync(tag, cancellationToken)); }
             catch (OperationCanceledException) { throw; }
-            catch (Exception ex) { throw new IOException($"无法查询 Finder 标签“{tag.Name}”，请重试", ex); }
+            catch (Exception ex) { throw new IOException(LocalizationText.Get("无法查询 Finder 标签“{0}”，请重试", tag.Name), ex); }
         }
         await _connectionLock.WaitAsync(cancellationToken);
         try
@@ -140,7 +176,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
         var name = ValidateName(tag.Name);
         var paths = filePaths.Where(IsSupportedPath).Distinct(StringComparer.Ordinal).ToArray();
         if (paths.Length != filePaths.Distinct(StringComparer.Ordinal).Count())
-            throw new InvalidOperationException("仅支持本地文件和文件夹的标签");
+            throw new InvalidOperationException(LocalizationText.Get("仅支持本地文件和文件夹的标签"));
         await _connectionLock.WaitAsync(cancellationToken);
         try
         {
@@ -160,17 +196,18 @@ public sealed class FileTagService : IFileTagService, IDisposable
         RequireCustom(tag);
         newName = ValidateName(newName);
         if (tag.Name == newName) return;
-        if (FileTagCatalog.TryGetFinderColor(newName, out _)) throw new InvalidOperationException("系统颜色标签名称不能用于重命名");
+        if (FileTagCatalog.TryGetFinderColor(newName, out _)) throw new InvalidOperationException(LocalizationText.Get("系统颜色标签名称不能用于重命名"));
         var paths = await FindFilePathsAsync(tag, cancellationToken);
         await _connectionLock.WaitAsync(cancellationToken);
         try
         {
             if (ReadDefinitions().Any(t => SameName(t.Name, newName) && !SameName(t.Name, tag.Name)))
-                throw new InvalidOperationException($"标签“{newName}”已存在");
+                throw new InvalidOperationException(LocalizationText.Get("标签“{0}”已存在", newName));
             paths = paths.Concat(ReadPaths("SELECT file_path FROM file_tags WHERE tag = @tag COLLATE NOCASE", ("@tag", tag.Name))).Distinct().ToArray();
             using var transaction = _connection.BeginTransaction();
             var colorId = ReadColor(tag.Name, transaction);
             Execute("UPDATE tag_definitions SET name = @new WHERE name = @old COLLATE NOCASE", transaction, ("@new", newName), ("@old", tag.Name));
+            Execute("UPDATE tag_definitions SET parent_name = @new WHERE parent_name = @old COLLATE NOCASE", transaction, ("@new", newName), ("@old", tag.Name));
             foreach (var path in paths)
             {
                 QueueChange(path, tag.Name, false, 0, transaction);
@@ -187,20 +224,44 @@ public sealed class FileTagService : IFileTagService, IDisposable
     public async Task DeleteTagAsync(FileTag tag, CancellationToken cancellationToken = default)
     {
         RequireCustom(tag);
-        var paths = await FindFilePathsAsync(tag, cancellationToken);
+        // Resolve native-only memberships before taking the database gate for the transaction.
+        var snapshot = await GetSidebarTagsAsync(cancellationToken);
+        var subtree = FileTagTree.Descendants(snapshot, tag.Name).Prepend(tag).ToArray();
+        var pathsByTag = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var custom in subtree.Where(t => t.IsCustom))
+            pathsByTag[custom.Name] = await FindFilePathsAsync(custom, cancellationToken);
+        var allPaths = new HashSet<string>(StringComparer.Ordinal);
         await _connectionLock.WaitAsync(cancellationToken);
         try
         {
-            paths = paths.Concat(ReadPaths("SELECT file_path FROM file_tags WHERE tag = @tag COLLATE NOCASE", ("@tag", tag.Name))).Distinct().ToArray();
+            // A concurrent hierarchy edit must not leave a partially deleted tree.
+            var currentTree = FileTagTree.Descendants(ReadDefinitions(), tag.Name).Prepend(tag).ToArray();
+            if (!currentTree.Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(subtree.Select(t => t.Name)))
+                throw new InvalidOperationException(LocalizationText.Get("标签层级已变化，请重试"));
+            var indexed = pathsByTag.ToDictionary(pair => pair.Key,
+                pair => pair.Value.Concat(ReadPaths("SELECT file_path FROM file_tags WHERE tag = @tag COLLATE NOCASE", ("@tag", pair.Key))).Distinct().ToArray(),
+                StringComparer.OrdinalIgnoreCase);
             using var transaction = _connection.BeginTransaction();
-            foreach (var path in paths) QueueChange(path, tag.Name, false, 0, transaction);
-            Execute("DELETE FROM tag_definitions WHERE name = @tag COLLATE NOCASE", transaction, ("@tag", tag.Name));
+            foreach (var node in currentTree)
+            {
+                if (node.IsFinderColor)
+                {
+                    Execute("UPDATE tag_definitions SET parent_name = NULL, sort_order = (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM tag_definitions WHERE parent_name IS NULL) WHERE name = @tag", transaction, ("@tag", node.Name));
+                    continue;
+                }
+                foreach (var path in indexed[node.Name])
+                {
+                    QueueChange(path, node.Name, false, 0, transaction);
+                    allPaths.Add(path);
+                }
+                Execute("DELETE FROM tag_definitions WHERE name = @tag COLLATE NOCASE", transaction, ("@tag", node.Name));
+            }
             transaction.Commit();
         }
         finally { _connectionLock.Release(); }
-        TagRenamed?.Invoke(this, new TagRenamedEventArgs(tag.Name, null));
+        foreach (var name in pathsByTag.Keys) TagRenamed?.Invoke(this, new TagRenamedEventArgs(name, null));
         TagsChanged?.Invoke(this, EventArgs.Empty);
-        await SyncPathsAsync(paths, cancellationToken);
+        await SyncPathsAsync(allPaths.ToArray(), cancellationToken);
     }
 
     public async Task SetTagColorAsync(FileTag tag, int colorId, CancellationToken cancellationToken = default)
@@ -228,8 +289,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
         try
         {
             Execute("""
-                UPDATE tag_definitions SET is_pinned = @pinned,
-                    sort_order = CASE WHEN @pinned = 1 THEN (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM tag_definitions) ELSE sort_order END
+                UPDATE tag_definitions SET is_pinned = @pinned
                 WHERE name = @tag COLLATE NOCASE
                 """, null, ("@tag", tag.Name), ("@pinned", pinned ? 1 : 0));
         }
@@ -463,13 +523,13 @@ public sealed class FileTagService : IFileTagService, IDisposable
     private static string ValidateName(string name)
     {
         name = FileTagCatalog.NormalizeName(name);
-        if (name.Length == 0 || name.Any(char.IsControl)) throw new InvalidOperationException("标签名称不能为空或包含控制字符");
+        if (name.Length == 0 || name.Any(char.IsControl)) throw new InvalidOperationException(LocalizationText.Get("标签名称不能为空或包含控制字符"));
         return name;
     }
     private static void RequireCustom(FileTag tag)
     {
         if (tag.IsFinderColor || FileTagCatalog.TryGetFinderColor(tag.Name, out _))
-            throw new InvalidOperationException("系统颜色标签不能重命名、删除或改色");
+            throw new InvalidOperationException(LocalizationText.Get("系统颜色标签不能重命名、删除或改色"));
     }
     public void Dispose() { _connection.Dispose(); _connectionLock.Dispose(); _retryLock.Dispose(); }
 }

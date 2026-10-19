@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>1.0.57</Version>
+    <Version>1.0.58</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -100,8 +100,8 @@
     <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ImageAnalysisHelper.swift' '$(OutputPath)MacExplorer.ImageAnalysis' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework Vision -framework CoreLocation -framework PDFKit -framework AppKit" />
   </Target>
 
-  <Target Name="BuildMacOSNativeDragHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))" Inputs="Platforms/MacOS/AirDropBridge.mm;Platforms/MacOS/NativeFileDrag.mm;Platforms/MacOS/FileDeliveryStatusItem.mm;Platforms/MacOS/KeyboardMonitor.mm;Platforms/MacOS/FolderIcon.mm;Platforms/MacOS/SandboxAccess.mm;Platforms/MacOS/DocumentPreview.mm;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)libMacExplorerNativeDrag.dylib">
-    <Exec Command="clang++ -fobjc-arc -dynamiclib -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) 'Platforms/MacOS/AirDropBridge.mm' 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' 'Platforms/MacOS/SandboxAccess.mm' 'Platforms/MacOS/DocumentPreview.mm' -framework AppKit -framework Foundation -framework Security -framework Quartz -framework CoreServices -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
+  <Target Name="BuildMacOSNativeDragHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx'))" Inputs="Platforms/MacOS/AirDropBridge.mm;Platforms/MacOS/NativeFileDrag.mm;Platforms/MacOS/FileDeliveryStatusItem.mm;Platforms/MacOS/KeyboardMonitor.mm;Platforms/MacOS/FolderIcon.mm;Platforms/MacOS/SandboxAccess.mm;Platforms/MacOS/DocumentPreview.mm;Platforms/MacOS/NetworkBridge.mm;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)libMacExplorerNativeDrag.dylib">
+    <Exec Command="clang++ -fobjc-arc -dynamiclib -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) 'Platforms/MacOS/AirDropBridge.mm' 'Platforms/MacOS/NativeFileDrag.mm' 'Platforms/MacOS/FileDeliveryStatusItem.mm' 'Platforms/MacOS/KeyboardMonitor.mm' 'Platforms/MacOS/FolderIcon.mm' 'Platforms/MacOS/SandboxAccess.mm' 'Platforms/MacOS/DocumentPreview.mm' 'Platforms/MacOS/NetworkBridge.mm' -framework Network -framework NetFS -framework AppKit -framework Foundation -framework Security -framework Quartz -framework CoreServices -o '$(OutputPath)libMacExplorerNativeDrag.dylib'" />
   </Target>
 
   <Target Name="PackageBuiltInPlugins" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="'$(SkipMacOSBundle)' != 'true'">
@@ -132,7 +132,8 @@
   <Target Name="CreateMacOSBundle" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(SkipMacOSBundle)' != 'true'">
     <Error Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreBundleId)' == ''" Text="Set AppStoreBundleId explicitly; website identity is preserved." />
     <PropertyGroup>
-      <_AppBundleName>Mac Explorer.app</_AppBundleName>
+      <_AppBundleName Condition="'$(DistributionChannel)' == 'Website'">Mac Explorer.app</_AppBundleName>
+      <_AppBundleName Condition="'$(DistributionChannel)' == 'AppStore'">文件资源管理器.app</_AppBundleName>
       <_AppBundleDir>$(OutputPath)$(_AppBundleName)</_AppBundleDir>
       <_MacOSDir>$(_AppBundleDir)/Contents/MacOS</_MacOSDir>
       <_ResourcesDir>$(_AppBundleDir)/Contents/Resources</_ResourcesDir>
@@ -151,6 +152,7 @@
     <!-- Copy executable -->
     <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)" AppHostDestinationPath="$(_MacOSDir)/$(AssemblyName)"
                    AppBinaryName="../Resources/Managed/$(AssemblyName).dll" IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')" Condition="'$(DistributionChannel)' == 'Website'" />
+    <Exec Command="python3 Tools/Distribution/configure-apphost-uuid.py '$(_MacOSDir)/$(AssemblyName)' '$(ApplicationId)' '$(TargetPath)'" Condition="'$(DistributionChannel)' == 'Website'" />
     <Exec Command="clang++ -fobjc-arc -std=c++17 -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) Platforms/MacOS/StoreLauncher.mm -framework AppKit -o '$(_MacOSDir)/$(AssemblyName)'" Condition="'$(DistributionChannel)' == 'AppStore'" />
 
     <!-- Copy Info.plist -->
@@ -160,6 +162,7 @@
 
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleIdentifier $(ApplicationId)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :LSMinimumSystemVersion $(MacOSMinimumVersion)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
+    <Exec Command="python3 Tools/Distribution/configure-bundle-branding.py '$(_AppBundleDir)' '$(DistributionChannel)'" />
     <!-- Copy icon -->
     <Copy SourceFiles="$(_IconSource)" DestinationFolder="$(_ResourcesDir)" Condition="Exists('$(_IconSource)')" />
 

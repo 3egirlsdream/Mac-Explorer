@@ -58,6 +58,10 @@
 
 - 设置入口固定在侧栏底部、位于目录滚动区域之外，复用 Fluent Settings 图标与 `sidebar-item` 的 Border／StackPanel 结构，不嵌套按钮悬停表面；Copilot 通过设置中的启用开关控制，默认关闭，所有窗口同步按钮可见性。
 
+# 多语言
+- 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `LocalizationCatalog` 中的中文与英文，不直接显示硬编码文案。
+- 动态右键菜单在构建时按当前语言取文案；检查语言切换后重新打开菜单的显示，确保中英文均正确，较长英文不裁切，参数占位符保持一致。
+
 # 自动测试
 - 日常修改优先运行 `bash Tools/Testing/run-tests.sh fast`，覆盖全部 Unit 和共享组件 UI 冒烟，增量构建加执行目标不超过 15 秒；本轮已构建可追加 `--no-build`，需要验收总时长可追加 `--budget 15`。页面交互用 `ui --area <功能>`，真实网络／原生进程用 `integration --area <功能>`；共享 UI 变化运行 `ui`，发布与测试基础设施变化运行 `full`。不要每次小改动反复跑全量。完整分类、环境和报告见 `Tools/Testing/README.md`。
 - `MacExplorer.UnitTests` 仅收纳明确无全局应用状态的可并行测试；其余测试保持串行与 Avalonia PerTest 隔离。普通 `dotnet test` 默认不运行显式 UI／集成／压力用例，发布 CI 必须通过统一入口运行 `full`，同时覆盖两个程序集。
@@ -93,7 +97,13 @@
 
 - 搜索清除按钮复用全局 `Button.search-clear-btn`，尺寸 15×15px（30px 输入框高度的一半），10px Fluent 关闭图标居中。
 
+- 信息面板的标签搜索复用 `context-submenu-surface` / `PopupGlass` 与 `omnibox-suggestions tag-suggestions`，使用 30px 紧凑候选行；仅匹配尚未添加的自定义标签，支持点击、方向键及回车添加，Escape 关闭，切换文件时清空搜索。
+
 - 应用内弹窗统一使用 `DialogContentBrush` / `DialogGroupBrush` / `DialogDividerBrush`：浅色正文白色、分组 #F8F8F8、分割线 #EEEEEE，深色使用对应主题表面。`DialogWindow` 默认 `ExtendContentToTop`，取消独立标题栏，红黄绿按钮覆盖顶部，普通内容预留 44px；两栏窗口启用 `FullHeightContent`，侧栏灰色与分界线贯穿顶部，并自行预留按钮空间。主窗口保持原标题栏模式。
-- 远程配置使用左侧服务器列表与右侧详情，类型参数独立放入 `ServiceParametersHost`；当前仅支持 SFTP。切换保留窗口内草稿，仅保存或连接成功后持久化，连接期间禁用配置编辑与列表操作。
+- 远程配置使用左侧服务器列表与右侧详情，类型参数独立放入 `ServiceParametersHost`；支持 SFTP 与 macOS 系统挂载 SMB。切换保留窗口内草稿，仅保存或连接成功后持久化，连接期间禁用配置编辑与列表操作。
+
+- 嵌套标签统一复用 `TagTreePanel`、`TagToolbar` 与 `TagMenuHeader`，样式集中在 `ComponentStyles.axaml` 的 `tag-tree-*` / `tag-toolbar-*`；工具栏标签使用左图标右名称及 8px 水平内边距，悬停使用普通递归级联菜单、点击打开文件列表，菜单展开后由原生菜单交互管理关闭，不在移出按钮时关闭，树面板的名称与展开箭头独立操作；管理及文件标签菜单显示全部标签，工具栏仅显示有文件的分支并将溢出标签收进三点菜单。标签菜单复用连续整行悬停表面，行内按钮不单独绘制背景；展开区与文件列表共用 16px 点击宽度、12px Fluent 箭头及 30px 行高；二级菜单顶部左侧显示标题、右侧仅保留 Fluent Star Add 新建标签图标按钮。
+
+- 网络页面不重复显示正文标题或刷新按钮，刷新复用顶部导航操作，连接服务器使用面包屑右侧的 Fluent 图标按钮并保留本地化提示与无障碍名称。网络页面直接复用 `FastFileList` 的 30px 行、斑马纹、悬停、选中、字体、图标槽位与滚动，表头复用 `FileListHeaderStyles.axaml`；非文件列通过 `DetailTextProvider` 提供，不触发文件缩略图读取或文件操作。状态使用全局 `Border.status-tag` 胶囊标签，操作使用 `secondary compact` 按钮，统一 24px 高度并在行内居中对齐；窄窗口允许横向滚动，错误统一通过 `AppToast` 显示窗口级 toast；Bonjour／WS-Discovery 仅在页面打开时共享运行，系统网络卷与保存的 SMB 连接统一状态，弹出前提示其他应用也会断开。
 
 - 全局 Toast 复用 `AppToast`、`WindowNotificationManager` 与 `Assets/ToastStyles.axaml`，使用轻透毛玻璃表面、`RadiusXl`、圆形 Fluent 状态图标和主次两行文字；状态色仅用于图标区，长文案换行，窄窗口自适应，保留点击与自动关闭行为。

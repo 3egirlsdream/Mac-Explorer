@@ -40,6 +40,8 @@ public class IsNotEmptyConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        if (value is int count)
+            return count > 0;
         if (value is ICollection col)
             return col.Count > 0;
         return false;

@@ -17,6 +17,11 @@
             </Setter>
         </ControlTheme>
     </Styles.Resources>
+    <Style Selector="TextBlock.file-list-column-caption">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+    </Style>
     <Style Selector="Button.file-header-button">
         <Setter Property="Theme" Value="{StaticResource FileHeaderButtonTheme}"/>
         <Setter Property="Height" Value="28"/>
