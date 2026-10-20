@@ -1,0 +1,105 @@
+name: Bug 反馈 / Bug report
+description: 报告异常，请提供环境、详细复现步骤及预期与实际结果。 / Report a bug with steps to reproduce.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请一条 Issue 只描述一个问题，标题写清受影响的功能与异常。可使用中文或英文填写。
+        Describe one bug per issue and name the affected feature in the title. Chinese and English are welcome.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 提交前检查 / Before submitting
+      options:
+        - label: 我已搜索现有 Issue，未发现相同问题。 / I searched existing issues and found no duplicate.
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述 / Description
+      description: 哪个功能出现了什么异常？ / Which feature is affected, and what went wrong?
+      placeholder: 请具体描述，避免只写“不能用”或“有问题”。 / Describe the problem beyond "it does not work".
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本 / App version
+      description: 请从应用的“关于”窗口复制完整版本号。 / Copy the full version number from About.
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS 版本 / macOS version
+      description: 请从“关于本机”填写完整系统版本。 / Enter the full system version from About This Mac.
+      placeholder: 例如 / e.g. macOS 15.6.1
+    validations:
+      required: true
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: 芯片类型 / Processor
+      options:
+        - Apple Silicon（M 系列 / M series）
+        - Intel
+        - 不确定 / Unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: distribution
+    attributes:
+      label: 安装来源 / Installation source
+      options:
+        - 官网或 GitHub Release / Website or GitHub Release
+        - Mac App Store
+        - 本地构建 / Local build
+        - 其他或不确定 / Other or unsure
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 详细复现步骤 / Steps to reproduce
+      description: 从打开应用开始，写清入口、点击顺序、输入内容、相关设置及文件类型。偶发问题请描述发生前的操作。 / List the entry point, actions, inputs, settings and file types; describe what preceded intermittent bugs.
+      placeholder: |
+        1. 打开应用，进入…… / Open the app and go to…
+        2. 使用……类型文件，设置…… / Use a … file with … settings
+        3. 点击……，输入…… / Click … and enter…
+        4. 出现…… / Observe…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果 / Expected behavior
+      description: 完成上述步骤后，正确的结果应该是什么？ / What should happen after these steps?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果 / Actual behavior
+      description: 实际发生了什么？如有报错，请复制完整错误信息。 / What actually happened? Include the full error message, if any.
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 发生频率 / Frequency
+      options:
+        - 每次都能复现 / Every time
+        - 经常发生 / Often
+        - 偶尔发生 / Sometimes
+        - 仅发生一次 / Happened once
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: 截图、录屏与日志 / Screenshots, recordings and logs
+      description: 可拖入截图、录屏、日志或可公开的最小示例文件；请隐去账号、密钥及私人信息。 / Attach screenshots, recordings, logs or a minimal sample, with secrets and personal data removed.
+    validations:
+      required: false

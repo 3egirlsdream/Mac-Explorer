@@ -1,0 +1,61 @@
+name: 功能需求 / Feature request
+description: 提出新功能或改进，请说明使用场景、需求详情与验收标准。 / Describe a feature, its use case and acceptance criteria.
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请一条 Issue 只描述一个独立需求，标题写清希望新增或改进的功能。可使用中文或英文填写。
+        Describe one feature per issue and name the requested change in the title. Chinese and English are welcome.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 提交前检查 / Before submitting
+      options:
+        - label: 我已搜索现有 Issue，未发现相同需求。 / I searched existing issues and found no duplicate.
+          required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 使用场景与问题 / Use case and problem
+      description: 你要完成什么任务？现在如何操作，哪里不方便？ / What are you trying to do, how do you do it today, and what is difficult?
+      placeholder: 请给出一个实际使用例子及受影响的用户或工作流程。 / Give a concrete example and explain who or which workflow is affected.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: 需求详情 / Requested behavior
+      description: 说明功能入口、操作步骤、输入内容与输出结果；如有边界情况也请列出。 / Describe where the feature belongs, its steps, inputs, outputs and relevant edge cases.
+      placeholder: |
+        入口 / Entry point:
+        操作步骤 / User actions:
+        期望结果 / Result:
+        边界情况（如有） / Edge cases, if any:
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准 / Acceptance criteria
+      description: 用可检查的结果说明“做到什么才算完成”，避免只写“更好用”。 / List observable results that define when the request is complete.
+      placeholder: |
+        1. 当……时，可以…… / When …, I can…
+        2. 执行……后，显示或生成…… / After …, the app shows or produces…
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案与补充约束 / Alternatives and constraints
+      description: 目前的替代做法、参考产品、兼容要求或不需要覆盖的范围。 / Current workarounds, references, compatibility needs or out-of-scope behavior.
+    validations:
+      required: false
+  - type: textarea
+    id: attachments
+    attributes:
+      label: 示例与设计参考 / Examples and references
+      description: 可附截图、草图、录屏或示例文件，帮助说明需求。 / Attach screenshots, sketches, recordings or sample files to illustrate the request.
+    validations:
+      required: false
