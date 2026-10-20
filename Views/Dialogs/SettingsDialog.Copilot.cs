@@ -28,7 +28,7 @@ public partial class SettingsDialog
 
     private void OnCopilotEnabledChanged(object? sender, RoutedEventArgs e)
     {
-        CopilotConnection.Enabled = CopilotEnabledToggle.IsChecked == true;
+        if (!_initializing) CopilotConnection.Enabled = CopilotEnabledToggle.IsChecked == true;
     }
 
     private void SaveCopilotConnection(object? sender, RoutedEventArgs e)

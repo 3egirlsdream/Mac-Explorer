@@ -171,7 +171,10 @@ public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
         await using var fixture = await TabCacheFixture.CreateAsync();
         var first = fixture.Model.SelectedTab!;
         var old = fixture.Workspaces[first];
-        var preview = old.FindControl<InfoPanelView>("InfoPanelControl")!;
+        first.FileList.IsPreviewPaneVisible = true;
+        first.FileList.IsInfoPanelVisible = true;
+        Dispatcher.UIThread.RunJobs();
+        var preview = Assert.IsType<InfoPanelView>(old.FindControl<ContentControl>("InfoPanelHost")!.Content);
         var release = new TaskCompletionSource();
         typeof(InfoPanelView).GetField("_previewLoadTask", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(preview, release.Task);

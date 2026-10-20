@@ -265,6 +265,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         return !string.IsNullOrEmpty(path) && Directory.Exists(path) ? path : null;
     }
 
+    internal void PrepareInitialDirectoryView()
+    {
+        // Navigation still owns history, access checks and loading; skip an unused home surface.
+        if (string.IsNullOrEmpty(CurrentPath)) _navigation.IsHomePage = false;
+    }
+
     // Archive state forwarded
     public bool IsArchiveView => _navigation.IsArchiveView;
     public string? CurrentArchivePath => _navigation.CurrentArchivePath;

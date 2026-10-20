@@ -8,7 +8,7 @@
                    Width="560" Height="395.979797" CanResize="False" CanMaximize="False"
                    ShowInTaskbar="False" ShowActivated="False" WindowDecorations="None">
 
-    <Border CornerRadius="{DynamicResource RadiusLg}" ClipToBounds="True" Background="{DynamicResource DialogContentBrush}">
+    <Border CornerRadius="{DynamicResource RadiusXl}" ClipToBounds="True" Background="{DynamicResource DialogContentBrush}">
         <Grid>
             <Grid RowDefinitions="Auto,Auto,*,Auto">
                 <Grid ColumnDefinitions="*,Auto" Margin="12,8,8,0" ColumnSpacing="4">

@@ -208,7 +208,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase
             Assert.True(connectPoint.X >= breadcrumbPoint.X + breadcrumb.Bounds.Width);
             Assert.InRange(Math.Abs(breadcrumbPoint.Y + breadcrumb.Bounds.Height / 2 - connectPoint.Y - connect.Bounds.Height / 2), 0, 1);
             Assert.True(connectPoint.X + connect.Bounds.Width <= window.ClientSize.Width);
-            var network = workspace.FindControl<NetworkView>("NetworkViewControl")!;
+            var network = Assert.IsType<NetworkView>(workspace.FindControl<ContentControl>("NetworkViewHost")!.Content);
             Assert.DoesNotContain(network.GetVisualDescendants().OfType<Button>(), button => button.Content is string);
             var reads = files.EnumerateDirectoryCallCount;
             var refresh = workspace.FindControl<Button>("RefreshButton")!;

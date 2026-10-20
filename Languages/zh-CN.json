@@ -1299,7 +1299,13 @@
     "ui.runtime.291": "{0}，{1} 个文件",
     "ui.runtime.292": "压缩包目录",
     "ui.runtime.293": "文件夹内容",
-    "ui.runtime.294": "转为 "
+    "ui.runtime.294": "转为 ",
+    "archive.unsupported_method": "此压缩包使用了暂不支持的压缩方法。",
+    "archive.invalid_data": "压缩包已损坏或格式不受支持。",
+    "archive.links_unsupported": "暂不支持解压归档中的符号链接或硬链接。",
+    "archive.entry_missing": "归档中未找到文件：{0}",
+    "archive.encryption_unsupported": "暂不支持此格式的加密归档。",
+    "archive.volumes_unsupported": "暂不支持此格式的分卷归档。"
   },
   "literalKeys": [
     "tasks.literal.000",

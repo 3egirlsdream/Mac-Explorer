@@ -80,7 +80,6 @@ public partial class SettingsDialog : DialogWindow
         _ownsLocalizationService = localizationService == null;
         _localizationService = localizationService ?? new Services.Impl.LocalizationService(settingsService);
         InitializeComponent();
-        FileTaskConcurrencyInput.Value = settingsService.Get("FileTaskConcurrency", 2);
         _defaultAppService = defaultAppService;
         _settingsService = settingsService;
         _themeService = themeService;
@@ -91,9 +90,13 @@ public partial class SettingsDialog : DialogWindow
         _globalSearchScopeService = globalSearchScopeService
             ?? new Services.Impl.GlobalSearchScopeService(settingsService);
         _localSendService = localSendService;
-        ShortcutSettingsHost.Content = new ShortcutSettingsView(Services.Impl.ShortcutService.Resolve());
         _localizationService.LanguageChanged += RefreshLanguage;
+        PluginSettingsTab.IsVisible = !DistributionChannel.IsAppStore;
+        SettingsTabs.SelectionChanged += OnSettingsPageChanged;
+        SettingsTabs.SelectedIndex = 0;
+        AddHandler(WindowOpenedEvent, (_, _) => { _pagesReady = true; EnsureSelectedPage(); });
         Opened += OnOpened;
+        _initializing = false;
         Closed += (_, _) =>
         {
             _localizationService.LanguageChanged -= RefreshLanguage;
@@ -102,33 +105,7 @@ public partial class SettingsDialog : DialogWindow
         };
     }
 
-    private async void OnOpened(object? sender, EventArgs e)
-    {
-        LoadCopilotSettings();
-        LoadPrivacySettings();
-        if (DistributionChannel.IsAppStore)
-        {
-            SubscriptionSettings.IsVisible = true;
-            DefaultManagerRow.IsVisible = false;
-            UpdateButton.IsVisible = false;
-            PluginSettingsTab.IsVisible = false;
-            DirectoryAccessGroup.IsVisible = true;
-            RenderDirectoryAccess();
-        }
-        LoadSettings();
-        if (!Design.IsDesignMode
-            && Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: MainWindow }
-            && _localSendService?.Enabled == true)
-        {
-            try { await _localSendService.StartAsync(); }
-            catch { }
-            UpdateLocalSendStatus();
-        }
-        await InitializePluginsAsync();
-        await _openWithService.RemoveUnavailableAppsAsync();
-        await LoadOpenWithAppsAsync();
-        _initializing = false;
-    }
+    private void OnOpened(object? sender, EventArgs e) => EnsureSelectedPage();
 
     private void RenderDirectoryAccess()
     {
@@ -186,70 +163,57 @@ public partial class SettingsDialog : DialogWindow
 
     private void LoadSettings()
     {
+        var initializing = _initializing;
         _initializing = true;
-        _interactionStyleService.Initialize();
-        LoadInteractionStyleSettings();
-        LoadSearchLocations();
-        FileDeliveryToggle.IsChecked = _settingsService.Get(Services.Impl.FileDeliveryService.EnabledKey, true);
-        if (_localSendService != null)
+        try
         {
-            LocalSendEnabledToggle.IsChecked = _localSendService.Enabled;
-            LocalSendAliasBox.Text = _localSendService.Alias;
-            LocalSendDirectoryText.Text = _localSendService.ReceiveDirectory;
-            ToolTip.SetTip(LocalSendDirectoryText, _localSendService.ReceiveDirectory);
-            UpdateLocalSendStatus();
+            FileTaskConcurrencyInput.Value = _settingsService.Get("FileTaskConcurrency", 2);
+            FileDeliveryToggle.IsChecked = _settingsService.Get(Services.Impl.FileDeliveryService.EnabledKey, true);
+            RefreshLanguageOptions();
+            LoadPrivacySettings();
+            if (DistributionChannel.IsAppStore)
+            {
+                DefaultManagerRow.IsVisible = false;
+                DirectoryAccessGroup.IsVisible = true;
+                RenderDirectoryAccess();
+            }
+            if (ViewModel == null) return;
+            DefaultManagerToggle.IsChecked = DistributionChannel.SupportsSystemIntegration && _defaultAppService.IsDefaultFolderHandler();
+            AiAnalysisToggle.IsChecked = ViewModel.IsAiAnalysisEnabled;
+            ConfirmBeforeTrashToggle.IsChecked = ViewModel.ConfirmBeforeTrash;
+            DoubleClickEmptyAreaGoUpToggle.IsChecked = ViewModel.DoubleClickEmptyAreaGoUp;
         }
-        FolderPhotoCoversToggle.IsChecked = _settingsService.Get(FileListViewModel.FolderPhotoCoverSettingKey, false);
-
-        RefreshLanguageOptions();
-
-        if (ViewModel == null) return;
-
-        DefaultManagerToggle.IsChecked = DistributionChannel.SupportsSystemIntegration && _defaultAppService.IsDefaultFolderHandler();
-        AiAnalysisToggle.IsChecked = ViewModel.IsAiAnalysisEnabled;
-        HideSystemFilesToggle.IsChecked = ViewModel.HideSystemFiles;
-        HideDotFilesToggle.IsChecked = ViewModel.HideDotFiles;
-        HideDotFoldersToggle.IsChecked = ViewModel.HideDotFolders;
-        ConfirmBeforeTrashToggle.IsChecked = ViewModel.ConfirmBeforeTrash;
-        DoubleClickEmptyAreaGoUpToggle.IsChecked = ViewModel.DoubleClickEmptyAreaGoUp;
-        UsernameSettingLabel.Text = ViewModel.UserName;
-
-        _sidebarToggles.Clear();
-        foreach (var toggle in PanelSidebar.GetLogicalDescendants().OfType<ToggleSwitch>())
-        {
-            if (toggle.Tag is not string key) continue;
-            _sidebarToggles[key] = toggle;
-            toggle.IsChecked = _settingsService.Get(key, true);
-        }
-
-        var themeMode = _settingsService.Get("theme_mode", "system");
-        ThemeModeCombo.SelectedIndex = themeMode switch { "light" => 1, "dark" => 2, _ => 0 };
-        TypographyPresetCombo.SelectedIndex = _typographyService.CurrentPreset switch
-        {
-            FontSizePreset.Small => 0,
-            FontSizePreset.Large => 2,
-            _ => 1
-        };
-
-        AboutVersion.Text = _localizationService.Get("settings.version", _appUpdateService.CurrentVersion);
+        finally { _initializing = initializing; }
     }
 
     private void RefreshLanguage()
     {
-        // Update only language-dependent controls so unfinished settings edits survive.
         var initializing = _initializing;
         _initializing = true;
-        RefreshLanguageOptions();
-        _initializing = initializing;
-        AboutVersion.Text = _localizationService.Get("settings.version", _appUpdateService.CurrentVersion);
-        RefreshCopilotConsent();
-        PrivacyPolicyStatus.Text = PrivacyPolicy.Status;
-        UpdateLocalSendStatus();
-        InteractionSelectedTokenText.Text = Services.Impl.LocalizationText.Get("正在设置：{0}（{1}）", GetInteractionTokenName(_selectedInteractionToken), GetInteractionThemeName(_editingInteractionTheme));
-        RebuildConfiguredApps();
-        if (_installedAppsLoaded) RebuildInstalledApps();
-        if (_plugins != null) RenderPlugins();
-        if (DistributionChannel.IsAppStore) RenderDirectoryAccess();
+        try
+        {
+            if (IsPageLoaded("general"))
+            {
+                RefreshLanguageOptions();
+                if (DistributionChannel.IsAppStore) RenderDirectoryAccess();
+            }
+            if (IsPageLoaded("about"))
+            {
+                AboutVersion.Text = _localizationService.Get("settings.version", _appUpdateService.CurrentVersion);
+                PrivacyPolicyStatus.Text = PrivacyPolicy.Status;
+            }
+            if (IsPageLoaded("copilot")) RefreshCopilotConsent();
+            if (IsPageLoaded("send")) UpdateLocalSendStatus();
+            if (IsPageLoaded("appearance"))
+                InteractionSelectedTokenText.Text = Services.Impl.LocalizationText.Get("正在设置：{0}（{1}）", GetInteractionTokenName(_selectedInteractionToken), GetInteractionThemeName(_editingInteractionTheme));
+            if (IsPageLoaded("openwith"))
+            {
+                RebuildConfiguredApps();
+                if (_installedAppsLoaded) RebuildInstalledApps();
+            }
+            if (_plugins != null) RenderPlugins();
+        }
+        finally { _initializing = initializing; }
     }
 
     private void RefreshLanguageOptions()
@@ -768,7 +732,9 @@ public partial class SettingsDialog : DialogWindow
 
     private async System.Threading.Tasks.Task LoadOpenWithAppsAsync()
     {
-        _openWithApps = await _openWithService.GetAllAsync();
+        var apps = await _openWithService.GetAllAsync();
+        if (_updateCancellation.IsCancellationRequested) return;
+        _openWithApps = apps;
         RebuildConfiguredApps();
     }
 
@@ -962,11 +928,16 @@ public partial class SettingsDialog : DialogWindow
         }
     }
 
-    internal void ShowAbout() => SettingsTabs.SelectedItem = AboutTab;
+    internal void ShowAbout()
+    {
+        SettingsTabs.SelectedItem = AboutTab;
+        EnsureSelectedPage();
+    }
 
     internal void ShowAvailableUpdate(VersionInfo version)
     {
         SettingsTabs.SelectedItem = AboutTab;
+        EnsureSelectedPage();
         if (_updateState is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing)
             return;
         DisplayAvailableUpdate(version);

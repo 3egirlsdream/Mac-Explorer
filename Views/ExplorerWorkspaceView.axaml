@@ -216,8 +216,8 @@
                                                     PointerPressed="OnInfoPanelResizePressed"
                                                     PointerMoved="OnInfoPanelResizeMoved"
                                                     PointerReleased="OnInfoPanelResizeReleased"/>
-                                            <local:InfoPanelView Grid.Column="1" x:Name="InfoPanelControl"
-                                                                 DataContext="{Binding FileList}"/>
+                                            <ContentControl Grid.Column="1" x:Name="InfoPanelHost" DataContext="{Binding FileList}"
+                                                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                                             <Border Grid.Column="1" x:Name="InactivePreviewPlaceholder"
                                                     Classes="inactive-preview-placeholder"
                                                     IsVisible="True"
@@ -238,9 +238,12 @@
                                     <SplitView.Content>
                                         <Grid x:Name="WorkspaceContentRoot">
                                             <local:FileListView x:Name="FileListControl" DataContext="{Binding FileList}"/>
-                                            <local:HomeView x:Name="HomeViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
-                                            <local:NetworkView x:Name="NetworkViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
-                                            <local:AiView x:Name="AiViewControl" DataContext="{Binding FileList}" IsVisible="False"/>
+                                            <ContentControl x:Name="HomeViewHost" DataContext="{Binding FileList}" IsVisible="False"
+                                                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                                            <ContentControl x:Name="NetworkViewHost" DataContext="{Binding FileList}" IsVisible="False"
+                                                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                                            <ContentControl x:Name="AiViewHost" DataContext="{Binding FileList}" IsVisible="False"
+                                                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                                         </Grid>
                                     </SplitView.Content>
                                 </SplitView>

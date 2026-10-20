@@ -1,7 +1,6 @@
 using System.Text;
 using MacExplorer.Indexing;
 using MacExplorer.Models;
-using SharpCompress.Archives;
 using SharpCompress.Common;
 using SharpCompress.Readers;
 using SharpCompress.Writers;
@@ -12,33 +11,27 @@ public class ArchiveService : IArchiveService
 {
     private readonly IBackgroundTaskManager? _tasks;
     public ArchiveService(IBackgroundTaskManager? tasks = null) { _tasks = tasks; }
-    private static readonly HashSet<string> ArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // Container aliases are routed through SharpCompress. The parser still
-        // validates the actual file contents before the preview exposes it.
-        ".zip", ".zipx", ".cbz", ".jar", ".war", ".ear", ".apk", ".xpi", ".vsix",
-        ".rar", ".7z", ".tar", ".gz", ".gzip", ".tgz", ".taz", ".bz2", ".bzip2",
-        ".tbz", ".tbz2", ".tb2", ".xz", ".txz", ".zst", ".zstd", ".tzst"
-    };
-
-    public bool IsArchiveFile(string filePath)
-    {
-        var ext = Path.GetExtension(filePath);
-        return !string.IsNullOrEmpty(ext) && ArchiveExtensions.Contains(ext);
-    }
+    public bool IsArchiveFile(string filePath) => ArchiveFormats.IsArchive(filePath);
 
     public bool IsEncrypted(string archivePath)
     {
         DirectoryAccess.Current.EnsureAccess(archivePath);
         try
         {
-            using var preparedArchive = PrepareArchive(archivePath);
-            using var archive = OpenArchive(preparedArchive.Path, null);
-            var firstFile = archive.Entries.FirstOrDefault(e => !e.IsDirectory);
-            if (firstFile == null) return false;
-
-            using var stream = firstFile.OpenEntryStream();
-            _ = stream.ReadByte();
+            using var archive = OpenArchive(archivePath, null);
+            while (archive.MoveNext())
+            {
+                if (archive.Entry.IsEncrypted) return true;
+                if (archive.Entry.IsDirectory) continue;
+                using var stream = archive.OpenEntryStream();
+                try { _ = stream.ReadByte(); }
+                finally { archive.StopReading(); }
+                return false;
+            }
+            return false;
+        }
+        catch (SharpCompress.Common.CryptographicException ex) when (IsUnsupportedEncryption(ex))
+        {
             return false;
         }
         catch (SharpCompress.Common.CryptographicException)
@@ -59,22 +52,23 @@ public class ArchiveService : IArchiveService
         string archivePath, string internalPath = "", string? password = null)
     {
         DirectoryAccess.Current.EnsureAccess(archivePath);
-        return Task.Run(() =>
+        return ReadArchiveAsync(() =>
         {
-            using var preparedArchive = PrepareArchive(archivePath);
-            using var archive = OpenArchive(preparedArchive.Path, password);
+            using var archive = OpenArchive(archivePath, password);
 
             var normalizedPrefix = NormalizePath(internalPath);
             if (!string.IsNullOrEmpty(normalizedPrefix) && !normalizedPrefix.EndsWith('/'))
                 normalizedPrefix += "/";
 
             var allKeys = new HashSet<string>();
-            var entryMap = new Dictionary<string, IArchiveEntry>();
+            var entryMap = new Dictionary<string, ArchiveReadEntry>();
 
-            foreach (var entry in archive.Entries)
+            while (archive.MoveNext())
             {
-                if (entry.Key == null) continue;
+                var entry = archive.Entry;
                 var key = NormalizePath(entry.Key);
+                if (key.Length == 0) continue;
+                if (entry.IsDirectory) key = key.TrimEnd('/') + "/";
                 allKeys.Add(key);
                 entryMap[key] = entry;
             }
@@ -98,7 +92,7 @@ public class ArchiveService : IArchiveService
                     var modified = DateTime.Now;
                     if (entryMap.TryGetValue(key, out var archEntry))
                     {
-                        size = archEntry.Size;
+                        size = archEntry.Size ?? 0;
                         modified = archEntry.LastModifiedTime ?? DateTime.Now;
                     }
                     children[childName] = (isDir, size, modified);
@@ -168,148 +162,160 @@ public class ArchiveService : IArchiveService
     {
         DirectoryAccess.Current.EnsureAccess(archivePath);
         DirectoryAccess.Current.EnsureAccess(destinationPath);
-        await Task.Run(() =>
+        await ReadArchiveAsync(() =>
         {
-            using var preparedArchive = PrepareArchive(archivePath);
-            using var archive = OpenArchive(preparedArchive.Path, password);
-
-            // Build rename map for root-level entries that conflict with existing items
-            var rootNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var entry in archive.Entries)
+            var context = FileTaskContext.Current;
+            if (context != null) context.Task.IsIndeterminate = true;
+            progress?.Report(new ArchiveProgress { IsActive = true, IsIndeterminate = true,
+                CurrentFile = Path.GetFileName(archivePath), OperationLabel = LocalizationText.Get("正在解压...") });
+            CheckCompressionSource(archivePath);
+            var metadata = new List<ArchiveReadEntry>();
+            using (var scan = OpenArchive(archivePath, password, ct))
             {
-                if (entry.Key == null) continue;
-                var normalized = NormalizePath(entry.Key);
-                var firstSlash = normalized.IndexOf('/');
-                var rootName = firstSlash >= 0 ? normalized[..firstSlash] : normalized;
-                if (!string.IsNullOrEmpty(rootName))
-                    rootNames.Add(rootName);
-            }
-
-            var renameMap = FileTaskContext.Current?.Remember("extract-map:" + archivePath + ":" + destinationPath,
-                () => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
-                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var rootMapReady = FileTaskContext.Current?.IsDone("extract-map:" + archivePath + ":" + destinationPath) == true;
-            foreach (var rootName in rootMapReady ? Enumerable.Empty<string>() : rootNames)
-            {
-                var targetPath = Path.Combine(destinationPath, rootName);
-                if (File.Exists(targetPath) || Directory.Exists(targetPath))
+                while (scan.MoveNext())
                 {
-                    var counter = 2;
-                    string newName;
-                    var nameWithoutExt = Path.GetFileNameWithoutExtension(rootName);
-                    var ext = Path.GetExtension(rootName);
-                    do
-                    {
-                        newName = string.IsNullOrEmpty(ext)
-                            ? $"{rootName} {counter}"
-                            : $"{nameWithoutExt} {counter}{ext}";
-                        counter++;
-                    } while (File.Exists(Path.Combine(destinationPath, newName))
-                          || Directory.Exists(Path.Combine(destinationPath, newName)));
-                    renameMap[rootName] = newName;
+                    ct.ThrowIfCancellationRequested();
+                    FileTaskContext.Checkpoint();
+                    var entry = scan.Entry with { Key = NormalizePath(scan.Entry.Key) };
+                    if (entry.Key.Length == 0) continue;
+                    ValidateEntry(destinationPath, entry, resolveLinks: false);
+                    metadata.Add(entry);
                 }
             }
+            CheckCompressionSource(archivePath);
 
-            FileTaskContext.Current?.MarkDone("extract-map:" + archivePath + ":" + destinationPath);
-            var totalEntries = archive.Entries.Count(e => !e.IsDirectory);
+            var rootNames = metadata.Select(e => e.Key.Split('/')[0]).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var mapKey = "extract-map:" + archivePath + ":" + destinationPath;
+            var renameMap = context?.Remember(mapKey, () => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
+                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (context?.IsDone(mapKey) != true)
+            {
+                renameMap.Clear();
+                var reservedNames = new HashSet<string>(rootNames, StringComparer.OrdinalIgnoreCase);
+                foreach (var rootName in rootNames)
+                {
+                    if (!PathExists(Path.Combine(destinationPath, rootName))) continue;
+                    var name = Path.GetFileNameWithoutExtension(rootName);
+                    var extension = Path.GetExtension(rootName);
+                    var counter = 2;
+                    string renamed;
+                    do { renamed = $"{name} {counter++}{extension}"; }
+                    while (reservedNames.Contains(renamed) || PathExists(Path.Combine(destinationPath, renamed)));
+                    renameMap[rootName] = renamed;
+                    reservedNames.Add(renamed);
+                }
+                context?.MarkDone(mapKey);
+            }
+
+            var totalEntries = metadata.Count(e => !e.IsDirectory);
             var processed = 0;
-            if (FileTaskContext.Current is { } taskContext) taskContext.Task.TotalItems = archive.Entries.Count();
-
-            foreach (var entry in archive.Entries)
+            var outputPaths = context?.Remember(mapKey + ":paths", () => BuildExtractionPaths(destinationPath, metadata, renameMap))
+                ?? BuildExtractionPaths(destinationPath, metadata, renameMap);
+            var entryIndex = 0;
+            if (context != null) context.Task.TotalItems = metadata.Count;
+            using var archive = OpenArchive(archivePath, password, ct);
+            while (archive.MoveNext())
             {
                 ct.ThrowIfCancellationRequested();
                 FileTaskContext.Checkpoint();
-                if (entry.Key == null) continue;
-
-                var entryPath = NormalizePath(entry.Key);
-                ValidateExtractionPath(destinationPath, entryPath);
-
-                // Apply rename map to root segment
-                if (renameMap.Count > 0)
-                {
-                    var firstSlash = entryPath.IndexOf('/');
-                    var rootSegment = firstSlash >= 0 ? entryPath[..firstSlash] : entryPath;
-                    if (renameMap.TryGetValue(rootSegment, out var newRoot))
-                    {
-                        entryPath = firstSlash >= 0
-                            ? newRoot + entryPath[firstSlash..]
-                            : newRoot;
-                    }
-                }
-
+                var entry = archive.Entry with { Key = NormalizePath(archive.Entry.Key) };
+                if (entry.Key.Length == 0) continue;
+                ValidateEntry(destinationPath, entry, resolveLinks: false);
+                if (entryIndex >= metadata.Count || entry.Key != metadata[entryIndex].Key
+                    || entry.IsDirectory != metadata[entryIndex].IsDirectory || entry.Size != metadata[entryIndex].Size)
+                    throw new IOException(LocalizationText.Get("源项目已变化，请重新创建任务。"));
+                var entryPath = Path.GetRelativePath(destinationPath, outputPaths[entryIndex++]);
                 var fullDest = ValidateExtractionPath(destinationPath, entryPath);
-
                 if (entry.IsDirectory)
                 {
                     Directory.CreateDirectory(fullDest);
-                    FileTaskContext.Current?.ReportItem(entryPath, fullDest, FileTaskItemState.Completed);
+                    context?.ReportItem(entry.Key, fullDest, FileTaskItemState.Completed);
                     continue;
                 }
 
-                var parentDir = Path.GetDirectoryName(fullDest);
-                if (parentDir != null)
-                    Directory.CreateDirectory(parentDir);
-
-                var context = FileTaskContext.Current;
+                Directory.CreateDirectory(Path.GetDirectoryName(fullDest)!);
                 var key = "extract-entry:" + archivePath + ":" + fullDest;
                 if (context?.IsDone(key) == true) { processed++; continue; }
                 var temporary = fullDest + "." + (context?.Task.Id ?? Guid.NewGuid().ToString("N")) + ".fkfinder-tmp";
                 var temporaryOwned = false;
+                void Report(long copied, bool complete)
+                {
+                    var indeterminate = entry.Size == null && !complete;
+                    var fraction = complete ? 1 : entry.Size > 0 ? Math.Min((double)copied / entry.Size.Value, 0.999) : 0;
+                    var percentage = totalEntries > 0 ? (processed + fraction) / totalEntries * 100 : 0;
+                    if (context != null) context.Task.IsIndeterminate = indeterminate;
+                    progress?.Report(new ArchiveProgress { IsActive = true, Percentage = percentage,
+                        IsIndeterminate = indeterminate, CurrentFile = entryPath,
+                        OperationLabel = LocalizationText.Get("正在解压...") });
+                }
                 try
                 {
-                    using (var entryStream = entry.OpenEntryStream())
+                    Report(0, false);
+                    using (var entryStream = archive.OpenEntryStream())
                     using (var fileStream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
-                    { temporaryOwned = true; entryStream.CopyTo(fileStream); }
+                    {
+                        temporaryOwned = true;
+                        try
+                        {
+                            var copied = CopyEntry(entryStream, fileStream, ct, copied => Report(copied, false));
+                            if (entry.Size is { } expected && copied != expected)
+                                throw new InvalidDataException("Archive entry size mismatch.");
+                        }
+                        catch { archive.StopReading(); throw; }
+                    }
+                    ct.ThrowIfCancellationRequested();
+                    FileTaskContext.Checkpoint();
+                    CheckCompressionSource(archivePath);
                     File.Move(temporary, fullDest, false);
                     context?.MarkDone(key);
-                    context?.ReportItem(entryPath, fullDest, FileTaskItemState.Completed);
+                    context?.ReportItem(entry.Key, fullDest, FileTaskItemState.Completed);
+                    Report(0, true);
                 }
                 finally { if (temporaryOwned) TryDeleteFile(temporary); }
-
                 processed++;
-                progress?.Report(new ArchiveProgress
-                {
-                    IsActive = true,
-                    Percentage = totalEntries > 0 ? (double)processed / totalEntries * 100 : 0,
-                    CurrentFile = entryPath,
-                    OperationLabel = "正在解压..."
-                });
             }
+            if (entryIndex != metadata.Count)
+                throw new IOException(LocalizationText.Get("源项目已变化，请重新创建任务。"));
+            if (context != null) context.Task.IsIndeterminate = false;
+            progress?.Report(new ArchiveProgress { IsActive = true, Percentage = 100,
+                OperationLabel = LocalizationText.Get("正在解压...") });
+            return true;
         }, ct);
     }
 
-    public async Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey, string? password = null)
+    public Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey, string? password = null)
     {
         DirectoryAccess.Current.EnsureAccess(archivePath);
-        return await Task.Run(() =>
+        return ReadArchiveAsync(() =>
         {
-            var tempBase = Path.Combine(Path.GetTempPath(), "MacExplorer-archive-temp");
-            var sessionDir = Path.Combine(tempBase, Guid.NewGuid().ToString("N")[..8]);
+            var sessionDir = Path.Combine(Path.GetTempPath(), "MacExplorer-archive-temp", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(sessionDir);
-
-            var normalizedKey = NormalizePath(entryKey);
-            if (normalizedKey.EndsWith('/'))
-                normalizedKey = normalizedKey[..^1];
-
-            using var preparedArchive = PrepareArchive(archivePath);
-            using var archive = OpenArchive(preparedArchive.Path, password);
-
-            foreach (var entry in archive.Entries)
+            try
             {
-                if (entry.Key == null || entry.IsDirectory) continue;
-                var key = NormalizePath(entry.Key);
-                if (key == normalizedKey || key == normalizedKey + "/")
+                var normalizedKey = NormalizePath(entryKey).TrimEnd('/');
+                using var archive = OpenArchive(archivePath, password);
+                while (archive.MoveNext())
                 {
-                    var fileName = Path.GetFileName(entry.Key);
-                    var destFile = Path.Combine(sessionDir, fileName);
-                    using var entryStream = entry.OpenEntryStream();
-                    using var fileStream = File.Create(destFile);
-                    entryStream.CopyTo(fileStream);
+                    var entry = archive.Entry with { Key = NormalizePath(archive.Entry.Key) };
+                    if (entry.IsDirectory || entry.Key.TrimEnd('/') != normalizedKey) continue;
+                    ValidateEntry(sessionDir, entry);
+                    var destFile = ValidateExtractionPath(sessionDir, Path.GetFileName(entry.Key));
+                    using (var entryStream = archive.OpenEntryStream())
+                    using (var fileStream = new FileStream(destFile, FileMode.CreateNew, FileAccess.Write))
+                    {
+                        try
+                        {
+                            var copied = CopyEntry(entryStream, fileStream, default);
+                            if (entry.Size is { } expected && copied != expected)
+                                throw new InvalidDataException("Archive entry size mismatch.");
+                        }
+                        catch { archive.StopReading(); throw; }
+                    }
                     return destFile;
                 }
+                throw new FileNotFoundException(LocalizationText.Get("archive.entry_missing", entryKey));
             }
-
-            throw new FileNotFoundException($"归档中未找到文件: {entryKey}");
+            catch { Directory.Delete(sessionDir, recursive: true); throw; }
         });
     }
 
@@ -486,61 +492,95 @@ public class ArchiveService : IArchiveService
         }
     }
 
-    private static IArchive OpenArchive(string archivePath, string? password)
-    {
-        var options = new ReaderOptions
+    private static ArchiveReadSession OpenArchive(string archivePath, string? password, CancellationToken ct = default)
+        => ArchiveReadSession.Open(archivePath, new ReaderOptions
         {
-            ArchiveEncoding = CreateUtf8ArchiveEncoding()
-        };
-        if (!string.IsNullOrEmpty(password))
-            options.Password = password;
+            ArchiveEncoding = CreateUtf8ArchiveEncoding(),
+            Password = password,
+            LeaveStreamOpen = false
+        }, ct);
 
-        return ArchiveFactory.OpenArchive(archivePath, options);
+    private static Task<T> ReadArchiveAsync<T>(Func<T> read, CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            try { return read(); }
+            catch (SharpCompress.Common.CryptographicException ex) when (IsUnsupportedEncryption(ex))
+            { throw new NotSupportedException(LocalizationText.Get("archive.encryption_unsupported"), ex); }
+            catch (MultiVolumeExtractionException ex)
+            { throw new NotSupportedException(LocalizationText.Get("archive.volumes_unsupported"), ex); }
+            catch (NotSupportedException ex)
+            { throw new NotSupportedException(LocalizationText.Get("archive.unsupported_method"), ex); }
+            catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException
+                || ex is SharpCompressException and not SharpCompress.Common.CryptographicException and not ReaderCancelledException
+                    && !ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
+            { throw new InvalidDataException(LocalizationText.Get("archive.invalid_data"), ex); }
+        }, ct);
+
+    private static bool IsUnsupportedEncryption(Exception ex)
+        => ex.Message.Contains("currently not supported", StringComparison.OrdinalIgnoreCase);
+
+    private static long CopyEntry(Stream source, Stream destination, CancellationToken ct, Action<long>? report = null)
+    {
+        var buffer = new byte[64 * 1024];
+        long copied = 0;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            FileTaskContext.Checkpoint();
+            var read = source.Read(buffer);
+            if (read == 0) break;
+            destination.Write(buffer, 0, read);
+            copied += read;
+            report?.Invoke(copied);
+        }
+        return copied;
     }
 
-    private static PreparedArchive PrepareArchive(string archivePath)
+    private static void ValidateEntry(string destination, ArchiveReadEntry entry, bool resolveLinks = true)
     {
-        if (!IsTarGZip(archivePath))
-            return new PreparedArchive(archivePath, null);
-
-        // The TAR reader needs a seekable stream, while gzip streams are
-        // sequential. Expand only the TAR payload into a private temporary
-        // file and remove it immediately after the archive operation finishes.
-        var temporaryPath = Path.Combine(
-            Path.GetTempPath(),
-            $"MacExplorer-targz-{Guid.NewGuid():N}.tar");
-        try
-        {
-            using var source = File.OpenRead(archivePath);
-            using var gzip = new System.IO.Compression.GZipStream(
-                source,
-                System.IO.Compression.CompressionMode.Decompress);
-            using var destination = File.Create(temporaryPath);
-            gzip.CopyTo(destination);
-            return new PreparedArchive(temporaryPath, temporaryPath);
-        }
-        catch
-        {
-            TryDeleteFile(temporaryPath);
-            throw;
-        }
+        ValidateExtractionPath(destination, entry.Key, resolveLinks);
+        if (!string.IsNullOrEmpty(entry.LinkTarget))
+            throw new IOException(LocalizationText.Get("archive.links_unsupported"));
     }
 
-    private static bool IsTarGZip(string path)
-        => path.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".tar.gzip", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".taz", StringComparison.OrdinalIgnoreCase);
+    private static bool PathExists(string path) => File.Exists(path) || Directory.Exists(path);
 
-    private sealed class PreparedArchive(string path, string? temporaryPath) : IDisposable
+    private static string[] BuildExtractionPaths(string destination, List<ArchiveReadEntry> entries, Dictionary<string, string> roots)
     {
-        public string Path { get; } = path;
-
-        public void Dispose()
+        var paths = entries.Select(entry =>
         {
-            if (!string.IsNullOrWhiteSpace(temporaryPath))
-                TryDeleteFile(temporaryPath);
+            var slash = entry.Key.IndexOf('/');
+            var root = slash >= 0 ? entry.Key[..slash] : entry.Key;
+            var path = roots.TryGetValue(root, out var renamed)
+                ? renamed + (slash >= 0 ? entry.Key[slash..] : "") : entry.Key;
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(destination, path)));
+        }).ToArray();
+        var reserved = paths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < paths.Length; i++)
+        {
+            if (entries[i].IsDirectory) directories.Add(paths[i]);
+            for (var parent = Path.GetDirectoryName(paths[i]); parent != null && parent != Path.GetFullPath(destination);
+                 parent = Path.GetDirectoryName(parent))
+                directories.Add(parent);
         }
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < paths.Length; i++)
+        {
+            if (entries[i].IsDirectory) continue;
+            if (!directories.Contains(paths[i]) && used.Add(paths[i])) continue;
+            var parent = Path.GetDirectoryName(paths[i])!;
+            var name = Path.GetFileNameWithoutExtension(paths[i]);
+            var extension = Path.GetExtension(paths[i]);
+            var counter = 2;
+            string candidate;
+            do { candidate = Path.Combine(parent, $"{name} {counter++}{extension}"); }
+            while (reserved.Contains(candidate) || PathExists(candidate));
+            paths[i] = candidate;
+            reserved.Add(candidate);
+            used.Add(candidate);
+        }
+        return paths;
     }
 
     private static void CheckCompressionSource(string path)
@@ -551,12 +591,14 @@ public class ArchiveService : IArchiveService
             throw new IOException(LocalizationText.Get("源项目已变化，请重新创建任务。"));
     }
 
-    private static string ValidateExtractionPath(string directory, string entry)
+    private static string ValidateExtractionPath(string directory, string entry, bool resolveLinks = true)
     {
         var root = Path.GetFullPath(directory).TrimEnd('/') + "/";
         var target = Path.GetFullPath(Path.Combine(directory, entry));
-        if (Path.IsPathRooted(entry) || !target.StartsWith(root, StringComparison.Ordinal))
+        if (Path.IsPathRooted(entry) || entry.Length > 1 && entry[1] == ':'
+            || !target.StartsWith(root, StringComparison.Ordinal))
             throw new IOException(LocalizationText.Get("压缩包包含越界路径。"));
+        if (!resolveLinks) return target;
         var realRoot = OperatingSystem.IsMacOS() ? Platforms.MacOS.MacSandboxNative.RealPath(directory) : Path.GetFullPath(directory);
         var realTarget = OperatingSystem.IsMacOS() ? Platforms.MacOS.MacSandboxNative.RealPath(target) : target;
         if (!realTarget.StartsWith(realRoot.TrimEnd('/') + "/", StringComparison.Ordinal))
@@ -567,7 +609,9 @@ public class ArchiveService : IArchiveService
 
     private static string NormalizePath(string path)
     {
-        return path.Replace('\\', '/');
+        var normalized = path.Replace('\\', '/');
+        while (normalized.StartsWith("./", StringComparison.Ordinal)) normalized = normalized[2..];
+        return normalized == "." ? "" : normalized;
     }
 
     private static void TryDeleteFile(string path)

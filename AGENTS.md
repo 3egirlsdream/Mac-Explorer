@@ -27,15 +27,15 @@
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
-- 普通边框与分隔线复用全局 `BorderBrush` / `ColorBorder` / `ColorBorderSubtle` / `ColorBorderPrimary` / `ColorDivider`，浅色使用淡灰 `#ECEDEF`、深色使用低反差 `#2E3239`；窗口描边复用 `WindowBorderBrush`，弹窗分组分隔线仍使用 `DialogDividerBrush`。
 - 隐私与主机信任确认复用 `ConfirmDialog` / `DialogWindow`、紧凑全局按钮与设置文字样式；标题栏透明，正文只显示数据接收方、用途或需要核对的指纹，默认聚焦取消。
 - Copilot 对话与输入框复用 `ComponentStyles.axaml` 的 `copilot-*` 样式：助手气泡靠左、用户气泡靠右，过程用左侧细线，工具与确认用轻边框卡片；输入框和卡片使用全局 `RadiusLg`，发送按钮使用全局 `RadiusFull`。
 - Copilot 同轮工具调用收在可展开的 `copilot-tool-card`，思考过程使用 `copilot-thinking-card` 和 Fluent Brain 图标；两者标题复用内容宽度的 `ghost compact copilot-tool-toggle`，展开明细沿左侧细线紧凑缩进，执行时展开，完成后自动收起。用户消息只显示右侧气泡，不显示“你”。
 - Copilot 历史列表复用全局 `copilot-history-row` / `copilot-history-title` / `copilot-history-more` 样式；悬停、聚焦和当前会话统一使用主题选中色。默认收起，展开按钮使用 `copilot-history-toggle`，关闭按钮使用居中的 `copilot-close`。
 - Copilot 附件区复用全局 `copilot-attachment-drop-zone` 和 `copilot-attachment-chip`；输入区与对话列表中的短附件标签统一使用 `RadiusSm` 和四边等距内边距，附件行与输入框留 4px 间距。右上角的红色圆形移除按钮仅在悬停或键盘聚焦时显示，悬停不变色。拖入文件或文件夹只记录路径，发送后清空暂存区，历史消息只显示只读附件标签。
 - 紧凑设置中的文字选项复用全局 `segmented-control` 容器和 `segment-btn` 按钮，等宽居中排布，选中项追加 `active`，使用主题选中色而非主要操作按钮色。
-- 设置页复用 `SettingsStyles.axaml` 的紧凑导航、分组和字段行，页面背景与工具栏统一使用 `TitleBarBackgroundBrush`；正文与说明分别使用主文字和次级文字资源。紧凑开关统一使用全局 `ToggleSwitch.compact`，轨道 36×20、滑块 16px，保留原生交互与焦点。
+- 设置页通过全局 `LazyTabItem.PageTemplate` 在首次进入时创建页面并缓存，首个页面在窗口首次布局前完成；插件、打开方式和快捷键按页面加载，语言切换仅刷新已创建页并保留草稿。设置页复用 `SettingsStyles.axaml` 的紧凑导航、分组和字段行，页面背景与工具栏统一使用 `TitleBarBackgroundBrush`；正文与说明分别使用主文字和次级文字资源。紧凑开关统一使用全局 `ToggleSwitch.compact`，轨道 36×20、滑块 16px，保留原生交互与焦点。
 - 主窗口顶部标题／标签栏统一复用 `TitleBarBackgroundBrush`，浅色主题使用浅雾灰 `#F7F7F8`，与白色内容区柔和衔接；采用上述紧凑设置风格的对话框使用透明标题栏，与窗口表面一体。
+- 文件工作区的首页、网络、AI 页面及右侧信息面板首次使用时创建并在当前页签内复用，隐藏时同步停止页面可见性相关工作；新窗口目标为目录时先准备目录视图，不创建随后会被替换的默认首页。
 - 首页收藏夹与图标格样式集中在 `Assets/HomeStyles.axaml`，颜色复用全局动态主题资源；文件展示复用 `HomeFileImage` 与文件列表缩略图服务，异步按可见范围加载，无法预览时回退 `FileEntryToIconConverter`。
 - 收藏夹最右下角 Fluent Resize 图标在悬停或聚焦时显示，可拖拽缩放，行列数显示在提示中，也可聚焦后用方向键调整；收藏关系统一经 `IFileTagService` 操作，不复制或移动原文件。
 
@@ -59,6 +59,8 @@
 
 - 设置入口固定在侧栏底部、位于目录滚动区域之外，复用 Fluent Settings 图标与 `sidebar-item` 的 Border／StackPanel 结构，不嵌套按钮悬停表面；Copilot 通过设置中的启用开关控制，默认关闭，所有窗口同步按钮可见性。
 
+- macOS 所有应用窗口统一继承 `AppWindow`，外沿由 `AppWindow.WindowOutline` 绘制 0.5px 细线，复用 `WindowBorderBrush`（浅色 `#E8E8E8`、深色 `#3A3D42`）；`MacWindowChrome` 统一关闭带深色外圈的原生阴影并保留窗口交互能力，通过 `WindowShadow.mm` 的不接收输入的原生附属层绘制轻柔外阴影（18px 模糊、向下 4px，激活 16%／未激活 10% 黑色），排除窗口内部并随移动、缩放、最小化及关闭同步；主窗口、对话框、任务窗口与文件速递共用该实现，隐藏后重显及浮动层级变化同步更新；最大化和全屏隐藏描边与轻阴影，勿通过内部 `ColorBorder*` 调整窗口外框。首次显示前通过基类 `WindowOpenedEvent` 初始化外观，关闭原生开窗动画和内容渲染层的隐式几何／纹理动画，首帧按最终尺寸铺满，不从中心扩散。显示前仅做轻量动画准备，显示后的外观更新合并执行；渲染层按实例初始化一次，阴影仅在尺寸、圆角或激活强度变化时重绘。
+
 # 多语言
 - 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `Languages` 目录下简体中文、繁体中文、英文和法语的已发布语言文件，不直接显示硬编码文案。语言列表从 `Languages/*.json` 构建生成，新增语言不修改设置列表；中文原文查询需将 key 加入中文文件的 `literalKeys`。运行时只查内存缓存，不扫描目录或读取 JSON，规则见 `Languages/README.md`。
 - 动态右键菜单在构建时按当前语言取文案；检查语言切换后重新打开菜单的显示，确保中英文均正确，较长英文不裁切，参数占位符保持一致。
@@ -81,7 +83,7 @@
 
 - 侧栏实际目录项拖放高亮复用 `SidebarHoverBrush` / `SidebarHoverOutline`；悬停 600ms 进入目录，松手按最终位置移动本地文件，固定区空白处保留添加快捷入口。
 
-- 文件速递面板样式集中在 `Assets/FileDeliveryStyles.axaml`，复用 `AppWindow`、`DialogContentBrush`、`RadiusLg` 和全局按钮，使用覆盖顶部的红黄绿按钮；面板宽高比为 √2:1，使用主题边框及原生窗口阴影；导航按钮复用全局 `workspace-nav-button`，路径复用 `BreadcrumbBar`，页签统一高度、行高及透明边框占位，选中不改变文字位置；右侧加号通过两级菜单添加目录／收藏夹，下拉可见表面距按钮 2px；右键页签删除入口，不删除原目录或收藏。顶部入口使用紧凑标签，共享文件列表以 `IsBrowseOnly` 模式承载，仅浏览、预览和复制拖出，偏好独立保存。
+- 文件速递面板样式集中在 `Assets/FileDeliveryStyles.axaml`，复用 `AppWindow`、`DialogContentBrush`、`RadiusLg` 和全局按钮，使用覆盖顶部的红黄绿按钮；面板宽高比为 √2:1，外框圆角、主题描边与轻阴影统一继承 `AppWindow`，不叠加独立描边或系统阴影；导航按钮复用全局 `workspace-nav-button`，路径复用 `BreadcrumbBar`，页签统一高度、行高及透明边框占位，选中不改变文字位置；右侧加号通过两级菜单添加目录／收藏夹，下拉可见表面距按钮 2px；右键页签删除入口，不删除原目录或收藏。顶部入口使用紧凑标签，共享文件列表以 `IsBrowseOnly` 模式承载，仅浏览、预览和复制拖出，偏好独立保存。
 
 - 快捷键设置复用紧凑设置字段行，Cmd 使用 `shortcut-fixed-key`，附加修饰键使用可切换的 `shortcut-modifier`，Control 直接显示文字，修饰键宽度随内容自适应；主键通过 `shortcut-binding shortcut-main-key` 点击录制，错误使用 `shortcut-error`；提示浮层复用窗口 `WindowOverlayHost`、`PopupGlass` 和全局 `shortcut-hint` / `shortcut-group-title` / `shortcut-name` / `shortcut-keys` 样式，不抢键盘焦点；命令按钮通过全局 `ShortcutTip.Command` 自动同步快捷键提示。
 
@@ -110,4 +112,4 @@
 
 - 全局 Toast 复用 `AppToast`、`WindowNotificationManager` 与 `Assets/ToastStyles.axaml`，使用轻透毛玻璃表面、`RadiusXl`、圆形 Fluent 状态图标和主次两行文字；状态色仅用于图标区，长文案换行，窄窗口自适应，保留点击与自动关闭行为。
 
-- 文件任务面板与独立任务窗口共用 `FileTaskPanelPresenter`；列表复用全局 `file-task-row` / `task-title` / `task-meta` / `task-percentage` / `task-progress`，任务面板按设计稿使用 `FileTaskIcons` 的统一描边图标（文件夹复制、文档下载／移动、拉链文档、云上传与空心播放／暂停），其余入口仍用 Fluent；中间为名称、传输量和细进度条，右侧固定百分比与 `Button.icon-action`；面板默认宽 640px、任务行最小高 54px；无进度条时名称、状态与图标在单行内居中对齐，窄窗口仅将带进度条的传输量换行，暂停及失败进度复用 `muted` 状态，批量清理与取消放入面板右键菜单，不显示历史入口、统计卡片或详情展开。队列、检查点和撤销记录仅保留在当前进程，清除任务不清除历史，执行中任务仅可取消，不直接移除。
+- 文件任务面板与独立任务窗口共用 `FileTaskPanelPresenter`；列表复用全局 `file-task-row` / `task-title` / `task-meta` / `task-percentage` / `task-progress`，任务面板按设计稿使用 `FileTaskIcons` 的统一描边图标（文件夹复制、文档下载／移动、拉链文档、云上传与空心播放／暂停），其余入口仍用 Fluent；中间为名称、传输量和细进度条，右侧固定百分比与 `Button.icon-action`；面板默认宽 640px、任务行最小高 54px；无进度条时名称、状态与图标在单行内居中对齐，窄窗口仅将带进度条的传输量换行，暂停及失败进度复用 `muted` 状态，批量清理与取消放入面板右键菜单，不显示历史入口、统计卡片或详情展开。队列、检查点和撤销记录仅保留在当前进程，清除任务不清除历史，执行中任务仅可取消，不直接移除。 单文件解压缺少原始大小时使用不确定进度条与状态文字，不显示百分比；暂停时停止不确定动画。

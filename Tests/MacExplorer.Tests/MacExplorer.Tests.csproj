@@ -25,6 +25,7 @@
     <Content Include="TestData/generated-orientation-6.dng" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/generated-monochrome.dng" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/legacy-dotnetzip-aes256.zip" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="TestData/Archives/*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/gps-ocr-fixture.jpg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/sftp-loopback.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

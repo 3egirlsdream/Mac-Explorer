@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
+using Avalonia.Styling;
 
 namespace MacExplorer.Platforms.MacOS;
 
@@ -13,10 +14,23 @@ internal static class MacWindowChrome
     // NSVisualEffectMaterialHUDWindow provides the continuous window material.
     private const nint NsVisualEffectMaterialHudWindow = 13;
     private const nint NsVisualEffectBlendingModeBehindWindow = 0;
+    private const nuint NsWindowStyleTitled = 1;
+    private const nuint NsWindowStyleTexturedBackground = 1 << 8;
+    private const nuint NsWindowStyleFullScreen = 1 << 14;
     private const nuint NsViewWidthSizable = 2;
     private const nuint NsViewHeightSizable = 16;
     private static readonly Dictionary<IntPtr, IntPtr> VisualEffectViews = [];
     private static readonly object VisualEffectViewsLock = new();
+
+    public static void PrepareToShow(TopLevel topLevel)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var nsView = GetNSView(topLevel);
+        if (nsView == IntPtr.Zero) return;
+        try { me_window_chrome_prepare(nsView); }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+    }
 
     public static void MakeTransparent(TopLevel topLevel)
     {
@@ -32,6 +46,22 @@ internal static class MacWindowChrome
             var nsWindow = SendIntPtr(nsView, "window");
             if (nsWindow == IntPtr.Zero)
                 return;
+
+            if (topLevel is Controls.AppWindow window)
+            {
+                me_window_chrome_prepare(nsView);
+                // WindowServer adds a dark rim even to borderless windows with a shadow.
+                // AppWindow supplies the themed outline; retain resize and modal behavior.
+                var styleMask = (nuint)SendIntPtr(nsWindow, "styleMask");
+                if ((styleMask & NsWindowStyleFullScreen) == 0 && (styleMask & NsWindowStyleTitled) != 0)
+                    SendUnsignedInteger(nsWindow, "setStyleMask:",
+                        styleMask & ~(NsWindowStyleTitled | NsWindowStyleTexturedBackground));
+                SendBool(nsWindow, "setHasShadow:", false);
+                var radius = topLevel.TryFindResource("RadiusXl", out var value) && value is CornerRadius corners
+                    ? corners.TopLeft : 14;
+                me_window_shadow_update(nsView, radius,
+                    window.IsVisible && window.WindowState == WindowState.Normal);
+            }
 
             var clearColor = SendIntPtr(GetClass("NSColor"), "clearColor");
             var clearCgColor = clearColor == IntPtr.Zero ? IntPtr.Zero : SendIntPtr(clearColor, "CGColor");
@@ -77,7 +107,13 @@ internal static class MacWindowChrome
             if (contentView == IntPtr.Zero)
                 return;
 
-            var effectView = GetOrCreateVisualEffectView(nsView, contentView);
+            IntPtr effectView;
+            if (enabled)
+                effectView = GetOrCreateVisualEffectView(nsView, contentView);
+            else
+            {
+                lock (VisualEffectViewsLock) VisualEffectViews.TryGetValue(nsView, out effectView);
+            }
             if (effectView != IntPtr.Zero)
             {
                 SendDouble(effectView, "setAlphaValue:", Math.Clamp(alpha, 0, 1));
@@ -255,6 +291,13 @@ internal static class MacWindowChrome
 
     [DllImport(NativeDragLibrary)]
     private static extern int MacExplorerCurrentLeftMouseClickCount();
+
+    [DllImport(NativeDragLibrary)]
+    private static extern void me_window_chrome_prepare(IntPtr nsView);
+
+    [DllImport(NativeDragLibrary)]
+    private static extern void me_window_shadow_update(IntPtr nsView, double cornerRadius,
+        [MarshalAs(UnmanagedType.I1)] bool enabled);
 
     [DllImport(LibObjC)]
     private static extern IntPtr sel_registerName(string name);

@@ -19,6 +19,7 @@ public class AppWindow : Window
     private ShortcutHintController? _shortcutHints;
     private SubscriptionService? _subscription;
     private Grid? _subscriptionHost;
+    private bool _nativeChromeRefreshPending;
     internal bool IsShortcutHintVisible => _shortcutHints?.IsVisible == true;
 
     public static readonly StyledProperty<bool> ExtendContentToTopProperty =
@@ -81,12 +82,16 @@ public class AppWindow : Window
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         TransparencyBackgroundFallback = Brushes.Transparent;
 
+        // WindowOpenedEvent runs before the initial layout and native Show, including ShowDialog.
+        AddHandler(WindowOpenedEvent, (_, _) => MacWindowChrome.PrepareToShow(this));
+
         Opened += (_, _) =>
         {
             _subscription ??= SubscriptionAccess.Current;
             if (_subscription != null) _subscription.Changed += OnSubscriptionChanged;
             UpdateSubscription();
             ApplyNativeWindowChrome();
+            UpdateLayout();
             UpdateWindowPseudoClasses();
             _shortcutHints ??= new ShortcutHintController(this, Shortcuts);
         };
@@ -95,7 +100,7 @@ public class AppWindow : Window
             if (_subscription != null) _subscription.Changed -= OnSubscriptionChanged;
             _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this);
         };
-        Activated += (_, _) => { UpdateWindowPseudoClasses(); if (_subscription != null) _ = _subscription.RefreshAsync(); };
+        Activated += (_, _) => { RequestNativeWindowChrome(); UpdateWindowPseudoClasses(); if (_subscription != null) _ = _subscription.RefreshAsync(); };
         Deactivated += (_, _) => UpdateWindowPseudoClasses();
         KeyDown += OnWindowKeyDown;
         AddHandler(KeyDownEvent, (_, e) =>
@@ -143,7 +148,21 @@ public class AppWindow : Window
         }
     }
 
-    public void ApplyNativeWindowChrome() => MacWindowChrome.MakeTransparent(this);
+    public void ApplyNativeWindowChrome()
+    {
+        _nativeChromeRefreshPending = false;
+        MacWindowChrome.MakeTransparent(this);
+    }
+
+    private void RequestNativeWindowChrome()
+    {
+        if (_nativeChromeRefreshPending) return;
+        _nativeChromeRefreshPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_nativeChromeRefreshPending) ApplyNativeWindowChrome();
+        });
+    }
 
     public void ToggleFullScreen()
     {
@@ -170,6 +189,11 @@ public class AppWindow : Window
             if (WindowState is WindowState.Normal or WindowState.Maximized)
                 _stateBeforeFullScreen = WindowState;
             UpdateWindowPseudoClasses();
+            RequestNativeWindowChrome();
+        }
+        else if (change.Property == IsVisibleProperty)
+        {
+            RequestNativeWindowChrome();
         }
         else if (change.Property == IsModalInteractionBlockedProperty
             || change.Property == ExtendContentToTopProperty || change.Property == FullHeightContentProperty)

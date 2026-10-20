@@ -24,6 +24,47 @@ public sealed class DialogSettingsAppearanceTests
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    public void AllWindowKindsInheritOneOutlineWithoutChangingContentInsets(bool dark)
+    {
+        foreach (var window in new AppWindow[] { new AppWindow(), new DialogWindow(), new ToolWindow(),
+                     new AppWindow { Classes = { "file-delivery" }, ExtendContentToTop = true } })
+        {
+            var body = new Border();
+            window.Content = body;
+            window.Width = 440;
+            window.Height = 260;
+            window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var borders = window.GetVisualDescendants().OfType<Border>().ToArray();
+                var frame = borders.Single(x => x.Name == "WindowFrame");
+                var outline = borders.Single(x => x.Name == "WindowOutline");
+                Assert.Equal(new Thickness(0), frame.BorderThickness);
+                Assert.Equal(new Thickness(0.5), outline.BorderThickness);
+                Assert.Equal(frame.CornerRadius, outline.CornerRadius);
+                Assert.False(outline.IsHitTestVisible);
+                Assert.Equal(Color.Parse(dark ? "#3A3D42" : "#E8E8E8"), ((ISolidColorBrush)outline.BorderBrush!).Color);
+                Assert.Equal(0, body.TranslatePoint(default, window)!.Value.X);
+                if (window.ExtendContentToTop)
+                    Assert.Equal(44, body.TranslatePoint(default, window)!.Value.Y);
+                foreach (var state in new[] { WindowState.Maximized, WindowState.FullScreen })
+                {
+                    window.WindowState = state;
+                    Assert.False(outline.IsVisible);
+                    Assert.Equal(new CornerRadius(0), frame.CornerRadius);
+                }
+                window.WindowState = WindowState.Normal;
+                Assert.Equal(new CornerRadius(14), frame.CornerRadius);
+            }
+            finally { window.Close(); }
+        }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
     public void FullHeightDialogKeepsSurfacesToTopAndChromeTransparent(bool dark)
     {
         var rail = new Border { Width = 220, BorderThickness = new Thickness(0, 0, 1, 0) };

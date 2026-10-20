@@ -139,6 +139,11 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_OPEN_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.WindowOpenSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot is { } smokeRoot && Environment.GetEnvironmentVariable("MACEXPLORER_NETWORK_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -276,11 +281,14 @@ public partial class App : Application
     private static MainWindow CreateWindow(string? path, bool isPrimary, MainWindow? source = null)
     {
         var scope = Services.CreateScope();
-        var window = new MainWindow
-        {
-            DataContext = scope.ServiceProvider.GetRequiredService<MainWindowViewModel>(),
-            InitialNavigationPath = path,
-        };
+        var window = new MainWindow { InitialNavigationPath = path };
+        var model = scope.ServiceProvider.GetRequiredService<MainWindowViewModel>();
+        var navigation = Services.GetRequiredService<NavigationBridge>();
+        var initialPath = path ?? (navigation.PendingQuickAccessFocus ? null : model.FileList.GetRestorableDirectoryPath());
+        if (!string.IsNullOrEmpty(initialPath) && Path.IsPathFullyQualified(initialPath)
+            && (!DistributionChannel.IsAppStore || DirectoryAccess.Current.CanAccess(initialPath)))
+            model.FileList.PrepareInitialDirectoryView();
+        window.DataContext = model;
         window.AttachScope(scope);
         Services.GetRequiredService<WindowPlacementService>().Prepare(window, isPrimary, source);
         return window;

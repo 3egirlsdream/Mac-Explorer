@@ -1202,6 +1202,7 @@ public abstract partial class FileListViewModelTestBase
             writer,
             new IndexConfiguration(),
             settingsService: settingsService,
+            archiveService: archiveService,
             launcherService: launcherService,
             contextMenuService: contextMenuService,
             thumbnailService: thumbnailService,

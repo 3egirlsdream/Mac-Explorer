@@ -33,6 +33,12 @@
                                     IsVisible="False"/>
                             <Grid x:Name="SubscriptionHost" Grid.RowSpan="2" IsVisible="False"
                                   chrome:WindowDecorationProperties.ElementRole="User"/>
+                            <Border x:Name="WindowOutline" Grid.RowSpan="2"
+                                    IsHitTestVisible="False"
+                                    IsVisible="{OnPlatform Default=False, macOS=True}"
+                                    BorderBrush="{DynamicResource WindowBorderBrush}"
+                                    BorderThickness="0.5"
+                                    CornerRadius="{DynamicResource RadiusXl}"/>
                         </Grid>
                         </VisualLayerManager>
                     </Border>
@@ -58,6 +64,9 @@
             <Style Selector="^:maximized /template/ Border#WindowFrame, ^:fullscreen /template/ Border#WindowFrame">
                 <Setter Property="CornerRadius" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+            <Style Selector="^:maximized /template/ Border#WindowOutline, ^:fullscreen /template/ Border#WindowOutline">
+                <Setter Property="IsVisible" Value="False"/>
             </Style>
             <Style Selector="^:modal-blocked /template/ Border#ModalTitleBarHitShield">
                 <Setter Property="IsVisible" Value="True"/>

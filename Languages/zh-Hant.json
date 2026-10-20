@@ -1306,6 +1306,12 @@
     "ui.runtime.291": "{0}，{1} 個檔案",
     "ui.runtime.292": "壓縮包目錄",
     "ui.runtime.293": "資料夾內容",
-    "ui.runtime.294": "轉為 "
+    "ui.runtime.294": "轉為 ",
+    "archive.unsupported_method": "此壓縮檔使用了暫不支援的壓縮方法。",
+    "archive.invalid_data": "壓縮檔已損毀或格式不受支援。",
+    "archive.links_unsupported": "暫不支援解壓縮封存中的符號連結或硬連結。",
+    "archive.entry_missing": "封存中找不到檔案：{0}",
+    "archive.encryption_unsupported": "暫不支援此格式的加密封存。",
+    "archive.volumes_unsupported": "暫不支援此格式的分卷封存。"
   }
 }

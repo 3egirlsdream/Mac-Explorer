@@ -1300,6 +1300,12 @@
     "ui.runtime.291": "{0}, {1} files",
     "ui.runtime.292": "Archive folder",
     "ui.runtime.293": "Folder contents",
-    "ui.runtime.294": "Convert to "
+    "ui.runtime.294": "Convert to ",
+    "archive.unsupported_method": "This archive uses an unsupported compression method.",
+    "archive.invalid_data": "The archive is damaged or its format is not supported.",
+    "archive.links_unsupported": "Extracting symbolic or hard links from archives is not supported.",
+    "archive.entry_missing": "File not found in archive: {0}",
+    "archive.encryption_unsupported": "Encrypted archives in this format are not supported.",
+    "archive.volumes_unsupported": "Multi-volume archives in this format are not supported."
   }
 }

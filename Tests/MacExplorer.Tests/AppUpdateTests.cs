@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.LogicalTree;
 using System.Diagnostics;
 using System.Net;
@@ -11,6 +12,8 @@ using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.Views.Dialogs;
 using Xunit;
+using MacExplorer.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Tests;
 
@@ -71,6 +74,7 @@ public sealed class AppUpdateTests
             Width = 780,
             RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light
         };
+        using var settingsServices = new SettingsTestServices(settings);
         // Exercise the real general-settings page without starting plugins and account services.
         dialog.Opened -= (EventHandler)Delegate.CreateDelegate(typeof(EventHandler), dialog, "OnOpened");
         typeof(SettingsDialog).GetMethod("LoadSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
@@ -80,6 +84,11 @@ public sealed class AppUpdateTests
         dialog.Show();
         try
         {
+            SelectPage(dialog, "send");
+            SelectPage(dialog, "openwith");
+            Dispatcher.UIThread.RunJobs();
+            SelectPage(dialog, "about");
+            SelectPage(dialog, "general");
             var configured = new List<OpenWithApp>
             {
                 new() { BundleId = BuiltInOpenWithActions.RevealInFinderBundleId, Label = "在 Finder 中显示", IsTopLevel = true },
@@ -134,6 +143,7 @@ public sealed class AppUpdateTests
         };
         var dialog = new SettingsDialog(new DefaultAppServiceStub(), new SettingsServiceStub(), new ThemeServiceStub(),
             new TypographyServiceStub(), new OpenWithAppServiceStub(), service, localizationService: language);
+        dialog.ShowAbout();
         var button = dialog.FindControl<Button>("UpdateButton")!;
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Assert.Equal("检查更新", button.Content);
@@ -179,6 +189,8 @@ public sealed class AppUpdateTests
         dialog.ShowAvailableUpdate(new VersionInfo { Version = "2.0.0", Memo = "更新内容" });
 
         Assert.Same(dialog.FindControl<TabItem>("AboutTab"), dialog.FindControl<TabControl>("SettingsTabs")!.SelectedItem);
+        Assert.Equal("about", Assert.Single(dialog.FindControl<TabControl>("SettingsTabs")!.Items
+            .OfType<LazyTabItem>().Where(page => page.IsContentLoaded)).PageKey);
         Assert.Equal("立即更新", dialog.FindControl<Button>("UpdateButton")!.Content);
         Assert.Contains("2.0.0", dialog.FindControl<TextBlock>("UpdateStatus")!.Text);
         Assert.Equal("更新内容", dialog.FindControl<TextBlock>("ChangelogText")!.Text);
@@ -240,6 +252,7 @@ public sealed class AppUpdateTests
             new TypographyServiceStub(),
             new OpenWithAppServiceStub(),
             updateService, localizationService: language);
+        dialog.ShowAbout();
         var updateButton = dialog.FindControl<Button>("UpdateButton")!;
         var updateStatus = dialog.FindControl<TextBlock>("UpdateStatus")!;
 
@@ -256,6 +269,75 @@ public sealed class AppUpdateTests
         updateButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(2, updateService.InstallAttempts);
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Kind", "UI")]
+    [Trait("Area", "Window")]
+    public void SettingsPagesAreBuiltOnDemandAndKeepDraftsAndControls(bool dark)
+    {
+        var settings = new SettingsServiceStub();
+        using var services = new SettingsTestServices(settings);
+        using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
+        var dialog = new SettingsDialog(new DefaultAppServiceStub(), settings, new ThemeServiceStub(),
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), new FailingUpdateService(), localizationService: language)
+            { Width = 780, Height = 540,
+                RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light };
+        var theme = new Avalonia.Themes.Fluent.FluentTheme();
+        Avalonia.Application.Current!.Styles.Insert(0, theme);
+        var tabs = dialog.FindControl<TabControl>("SettingsTabs")!;
+        var pages = tabs.Items.OfType<LazyTabItem>().ToArray();
+        Assert.Equal(11, pages.Length);
+        Assert.All(pages, page => Assert.False(page.IsContentLoaded));
+        Assert.Null(dialog.FindControl<ContentControl>("ShortcutSettingsHost"));
+        dialog.Show();
+        try
+        {
+            Assert.Equal("general", Assert.Single(pages.Where(p => p.IsContentLoaded)).PageKey);
+            SelectPage(dialog, "send");
+            var draft = dialog.FindControl<TextBox>("LocalSendAliasBox")!;
+            draft.Text = "unfinished alias";
+            SelectPage(dialog, "general");
+            SelectPage(dialog, "send");
+            Assert.Same(draft, dialog.FindControl<TextBox>("LocalSendAliasBox"));
+            Assert.Equal("unfinished alias", draft.Text);
+            Assert.Equal(2, pages.Count(p => p.IsContentLoaded));
+            Assert.False(pages.Single(p => p.PageKey == "plugins").IsContentLoaded);
+            Assert.False(pages.Single(p => p.PageKey == "shortcuts").IsContentLoaded);
+            dialog.UpdateLayout();
+            var body = Assert.IsAssignableFrom<Control>(tabs.SelectedContent);
+            var origin = body.TranslatePoint(default, dialog)!.Value;
+            Assert.True(body.Bounds.Width > 0 && body.Bounds.Height > 0);
+            Assert.InRange(origin.X + body.Bounds.Width, 1, dialog.ClientSize.Width);
+            Assert.InRange(origin.Y + body.Bounds.Height, 1, dialog.ClientSize.Height);
+            var lastHeader = pages[^1];
+            Assert.True(lastHeader.TranslatePoint(default, dialog)!.Value.Y + lastHeader.Bounds.Height <= dialog.ClientSize.Height);
+        }
+        finally { dialog.Close(); Avalonia.Application.Current!.Styles.Remove(theme); }
+    }
+
+    private static void SelectPage(SettingsDialog dialog, string key) =>
+        dialog.FindControl<TabControl>("SettingsTabs")!.SelectedItem =
+            dialog.FindControl<TabControl>("SettingsTabs")!.Items.OfType<LazyTabItem>().Single(p => p.PageKey == key);
+
+    private sealed class SettingsTestServices : IDisposable
+    {
+        private readonly IServiceProvider _previous = App.Services;
+        private readonly ServiceProvider _provider;
+        private readonly string _root = Path.Combine(Path.GetTempPath(), "settings-lazy-" + Guid.NewGuid().ToString("N"));
+        public SettingsTestServices(ISettingsService settings)
+        {
+            _provider = new ServiceCollection().AddSingleton(new PhotoLocationConsent(settings, Path.Combine(_root, "consent"))).BuildServiceProvider();
+            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _provider);
+        }
+        public void Dispose()
+        {
+            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _previous);
+            _provider.Dispose();
+            Directory.Delete(_root, true);
+        }
     }
 
     private static async Task<string> RunProcessAsync(

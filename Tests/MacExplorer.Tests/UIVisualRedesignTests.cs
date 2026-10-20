@@ -20,6 +20,51 @@ namespace MacExplorer.Tests;
 [Trait("Area", "UIVisualRedesign")]
 public sealed class UIVisualRedesignViewModelTests : FileListViewModelTestBase
 {
+    [AvaloniaFact(Explicit = true)]
+    public async Task InitialDirectorySkipsUnusedPagesAndNavigationStillLoadsNormally()
+    {
+        var root = Directory.CreateTempSubdirectory("fkfinder-initial-directory-");
+        try
+        {
+            var files = new FakeFileService(root.FullName);
+            files.Seed(new() { FullPath = Path.Combine(root.FullName, "fixture.txt"), Name = "fixture.txt" });
+            var navigation = new NavigationViewModel(files);
+            using var vm = CreateViewModel(files, navigation: navigation);
+            vm.PrepareInitialDirectoryView();
+            Assert.False(vm.IsHomePage);
+            Assert.Empty(vm.CurrentPath);
+            Assert.Equal(0, files.EnumerateDirectoryCallCount);
+            using var tab = new ExplorerTabViewModel(vm);
+            using var workspace = new ExplorerWorkspaceView { DataContext = tab };
+            foreach (var name in new[] { "HomeViewHost", "NetworkViewHost", "AiViewHost", "InfoPanelHost" })
+                Assert.Null(workspace.FindControl<ContentControl>(name)!.Content);
+            await vm.NavigateToAsync(files.HomeDirectory);
+            Assert.Contains(vm.Entries, entry => entry.Name == "fixture.txt");
+            Assert.False(vm.CanGoBack);
+        }
+        finally { root.Delete(true); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    public void WorkspaceCreatesHomeOnDemandAndReusesItAfterNavigatingAway()
+    {
+        var files = new FakeFileService("/tmp/FKFinderLazyHome");
+        var navigation = new NavigationViewModel(files) { IsHomePage = false };
+        using var vm = CreateViewModel(files, navigation: navigation);
+        using var tab = new ExplorerTabViewModel(vm);
+        using var workspace = new ExplorerWorkspaceView { DataContext = tab };
+        var host = workspace.FindControl<ContentControl>("HomeViewHost")!;
+        Assert.Null(host.Content);
+        navigation.IsHomePage = true;
+        var home = Assert.IsType<HomeView>(host.Content);
+        Assert.True(home.IsVisible);
+        navigation.IsHomePage = false;
+        Assert.False(home.IsVisible);
+        navigation.IsHomePage = true;
+        Assert.Same(home, host.Content);
+        Assert.True(home.IsVisible);
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData(1000)]
     [InlineData(1280)]
@@ -35,7 +80,7 @@ public sealed class UIVisualRedesignViewModelTests : FileListViewModelTestBase
         Dispatcher.UIThread.RunJobs();
         try
         {
-            var home = workspace.FindControl<HomeView>("HomeViewControl")!;
+            var home = Assert.IsType<HomeView>(workspace.FindControl<ContentControl>("HomeViewHost")!.Content);
             var centralInput = home.FindControl<TextBox>("HomeSearchBox")!;
             var navigationRow = workspace.FindControl<Grid>("NavigationRow")!;
             Assert.False(navigationRow.IsVisible);

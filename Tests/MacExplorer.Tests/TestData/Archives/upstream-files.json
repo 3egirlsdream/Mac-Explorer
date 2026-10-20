@@ -1,0 +1,15 @@
+{
+  "test.exe": {
+    "sha256": "8557928804f57ecc340b3bb38b095a3607474ec8deb0076f316fcfe02b562106",
+    "size": 45056
+  },
+  "test.jpg": {
+    "sha256": "b251c7501fb0f55dd4a92feabe0a6f5733bc40a02679498155fae9b30138fc53",
+    "size": 40372
+  },
+  "тест.txt": {
+    "sha256": "1a3de4e51eb2f58672e42443b0e8ea618ba464931166539498ff2ab77eec3838",
+    "size": 15044,
+    "sha256_lf": "1a3de4e51eb2f58672e42443b0e8ea618ba464931166539498ff2ab77eec3838"
+  }
+}

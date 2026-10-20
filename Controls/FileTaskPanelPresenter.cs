@@ -56,11 +56,12 @@ internal sealed class FileTaskPanelPresenter
             row.Metrics.IsVisible = ShowProgress(task) && !string.IsNullOrEmpty(row.Metrics.Text);
             var percentage = DisplayProgress(task);
             row.Percentage.Text = task.State == BackgroundTaskState.Waiting ? LocalizationText.Get("等待开始")
-                : ShowProgress(task) ? $"{percentage:F0}%" : StateText(task);
+                : ShowProgress(task) && !task.IsIndeterminate ? $"{percentage:F0}%" : StateText(task);
             row.Progress.Value = percentage;
+            row.Progress.IsIndeterminate = task.IsIndeterminate && task.State == BackgroundTaskState.Running;
             row.Progress.IsVisible = ShowProgress(task);
             row.Percentage.IsVisible = true;
-            row.Percentage.Classes.Set("state", !ShowProgress(task));
+            row.Percentage.Classes.Set("state", !ShowProgress(task) || task.IsIndeterminate);
             row.Arrange();
             ToolTip.SetTip(row.View, task.ErrorDetail ?? task.ErrorMessage ?? task.CurrentFile);
             ToolTip.SetTip(row.Metrics, task.State == BackgroundTaskState.Running && task.Remaining is { } remaining
@@ -156,24 +157,24 @@ internal sealed class FileTaskPanelPresenter
             border.ContextMenu.Items.Add(MenuAction("上移", () => _tasks.MoveTask(task.Id, -1)));
             border.ContextMenu.Items.Add(MenuAction("下移", () => _tasks.MoveTask(task.Id, 1)));
         }
-        var layout = (Wide: false, Progress: false);
+        var layout = (Wide: false, Progress: false, Indeterminate: false);
         var arranged = false;
         void ArrangeRow()
         {
             var wide = border.Bounds.Width >= 540;
             var hasProgress = ShowProgress(task);
-            if (arranged && layout == (wide, hasProgress)) return;
-            arranged = true; layout = (wide, hasProgress);
+            if (arranged && layout == (wide, hasProgress, task.IsIndeterminate)) return;
+            arranged = true; layout = (wide, hasProgress, task.IsIndeterminate);
             grid.RowDefinitions = new(hasProgress ? "Auto,Auto,Auto" : "Auto");
             grid.ColumnSpacing = wide ? 16 : 10;
-            grid.ColumnDefinitions = new(wide ? hasProgress ? "38,*,Auto,56,72" : "38,*,Auto,Auto,72" : "28,*,Auto,64");
+            grid.ColumnDefinitions = new(wide ? hasProgress && !task.IsIndeterminate ? "38,*,Auto,56,72" : "38,*,Auto,Auto,72" : "28,*,Auto,64");
             Grid.SetRowSpan(icon, hasProgress ? 3 : 1);
             Grid.SetRowSpan(actions, hasProgress ? 3 : 1);
             Grid.SetColumn(actions, wide ? 4 : 3);
             Grid.SetColumn(percentage, wide ? 3 : 2);
             Grid.SetRow(percentage, 0); Grid.SetColumnSpan(percentage, 1);
             percentage.HorizontalAlignment = HorizontalAlignment.Right;
-            percentage.MaxWidth = wide ? double.PositiveInfinity : hasProgress ? 42 : 90;
+            percentage.MaxWidth = wide ? double.PositiveInfinity : hasProgress && !task.IsIndeterminate ? 42 : 90;
             Grid.SetColumn(metrics, wide ? 2 : 1); Grid.SetRow(metrics, hasProgress && !wide ? 1 : 0);
             Grid.SetColumnSpan(metrics, wide || !hasProgress ? 1 : 2);
             metrics.Margin = wide ? new Thickness(0, 0, 8, 0) : new Thickness(0, 3, 0, 0);
@@ -273,6 +274,7 @@ internal sealed class FileTaskPanelPresenter
                 (task.ErrorDetail ?? task.ErrorMessage ?? "").Contains(word, StringComparison.OrdinalIgnoreCase)))
             return LocalizationText.Get("连接已断开");
         return LocalizationText.Get(task.State switch {
+            BackgroundTaskState.Running => "进行中",
             BackgroundTaskState.Waiting => "等待开始", BackgroundTaskState.Pausing => "正在暂停",
             BackgroundTaskState.Paused => "已暂停", BackgroundTaskState.Cancelling => "正在取消",
             BackgroundTaskState.Cancelled => "已取消", BackgroundTaskState.NeedsAttention => "需要处理",

@@ -1,9 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.Media;
+using MacExplorer.Controls;
 
 namespace MacExplorer.Views;
 
-public class LiquidGlassDemoWindow : Window
+public class LiquidGlassDemoWindow : AppWindow
 {
     public LiquidGlassDemoWindow()
     {

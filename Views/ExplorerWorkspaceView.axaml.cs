@@ -52,11 +52,33 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         AddHandler(GotFocusEvent, OnWorkspaceGotFocus,
             RoutingStrategies.Bubble, handledEventsToo: true);
         SizeChanged += OnWorkspaceSizeChanged;
-        InfoPanelControl.PreviewExpandedChanged += OnPreviewExpandedChanged;
     }
 
     public ExplorerTabViewModel? Tab => DataContext as ExplorerTabViewModel;
     public FileListView FileListView => FileListControl;
+    private InfoPanelView? _infoPanel;
+    private InfoPanelView InfoPanelControl
+    {
+        get
+        {
+            if (_infoPanel != null) return _infoPanel;
+            _infoPanel = LoadPage<InfoPanelView>(InfoPanelHost, "InfoPanelControl");
+            _infoPanel.PreviewExpandedChanged += OnPreviewExpandedChanged;
+            _infoPanel.RestorePreviewExpanded(_tab?.IsPreviewExpanded == true);
+            if (IsLivePreviewEnabled) _ = _infoPanel.SetLivePreviewStateAsync(true, _activationGeneration);
+            return _infoPanel;
+        }
+    }
+    private HomeView HomeViewControl => LoadPage<HomeView>(HomeViewHost, "HomeViewControl");
+    private NetworkView NetworkViewControl => LoadPage<NetworkView>(NetworkViewHost, "NetworkViewControl");
+
+    private static T LoadPage<T>(ContentControl host, string name) where T : Control, new()
+    {
+        if (host.Content is T page) return page;
+        var created = new T { Name = name };
+        host.Content = created;
+        return created;
+    }
     public bool IsDetaching { get; private set; }
     internal bool IsDisposed => _disposed;
 
@@ -106,7 +128,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             _tab.PropertyChanged += OnTabPropertyChanged;
             _tab.FileList.PropertyChanged += OnFileListPropertyChanged;
             _normalPreviewWidth = _tab.InfoPanelWidth;
-            InfoPanelControl.RestorePreviewExpanded(_tab.IsPreviewExpanded);
+            _infoPanel?.RestorePreviewExpanded(_tab.IsPreviewExpanded);
         }
 
         RefreshState();
@@ -153,10 +175,16 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         var fileList = _tab?.FileList;
         var showAiSearch = fileList?.IsAiView == true && fileList.AiViewMode == AiViewMode.TextSearch;
         FileListControl.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage && !showAiSearch;
-        HomeViewControl.IsVisible = fileList?.IsHomePage == true;
+        HomeViewHost.IsVisible = fileList?.IsHomePage == true;
+        if (HomeViewHost.IsVisible) _ = HomeViewControl;
+        if (HomeViewHost.Content is Control home) home.IsVisible = HomeViewHost.IsVisible;
         WorkspaceSurface.Classes.Set("home", fileList?.IsHomePage == true);
-        AiViewControl.IsVisible = showAiSearch;
-        NetworkViewControl.IsVisible = fileList?.IsNetworkPage == true;
+        AiViewHost.IsVisible = showAiSearch;
+        if (AiViewHost.IsVisible) LoadPage<AiView>(AiViewHost, "AiViewControl");
+        if (AiViewHost.Content is Control ai) ai.IsVisible = AiViewHost.IsVisible;
+        NetworkViewHost.IsVisible = fileList?.IsNetworkPage == true;
+        if (NetworkViewHost.IsVisible) _ = NetworkViewControl;
+        if (NetworkViewHost.Content is Control network) network.IsVisible = NetworkViewHost.IsVisible;
         StatusBar.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
         ToolbarSurface.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
         UpdatePageSearchPresentation();
@@ -166,6 +194,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         var fileList = _tab?.FileList;
         var canShow = fileList != null && !fileList.IsHomePage && !fileList.IsAiView && !fileList.IsNetworkPage;
+        if (canShow && fileList!.IsInfoPanelVisible) _ = InfoPanelControl;
         InfoDrawer.IsPaneOpen = canShow && fileList!.IsInfoPanelVisible;
     }
 
@@ -355,6 +384,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         _activationGeneration = activationGeneration;
         IsLivePreviewEnabled = enabled;
         InactivePreviewPlaceholder.IsVisible = !enabled;
+        if (_infoPanel == null && _tab?.FileList.IsInfoPanelVisible != true) return;
         await InfoPanelControl.SetLivePreviewStateAsync(enabled, activationGeneration);
     }
 
@@ -588,7 +618,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             return;
         _disposed = true;
         SizeChanged -= OnWorkspaceSizeChanged;
-        InfoPanelControl.PreviewExpandedChanged -= OnPreviewExpandedChanged;
+        if (_infoPanel != null) _infoPanel.PreviewExpandedChanged -= OnPreviewExpandedChanged;
         if (_tab != null)
         {
             _tab.PropertyChanged -= OnTabPropertyChanged;

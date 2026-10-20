@@ -62,7 +62,7 @@
                     <SolidColorBrush x:Key="DialogDividerBrush" Color="#EEEEEE"/>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F4F6"/>
                     <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#F7F7F8"/>
-                    <SolidColorBrush x:Key="WindowBorderBrush" Color="#10000000"/>
+                    <SolidColorBrush x:Key="WindowBorderBrush" Color="#E8E8E8"/>
                     <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#F3F4F6"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#FFFFFF"/>
@@ -123,7 +123,7 @@
                     <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#565D67"/>
                     <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocusedPressed" Color="#565D67"/>
                     <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FFFFFF"/>
-                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#ECEDEF"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#E1E4E9"/>
                     <BoxShadows x:Key="ComboBoxDropDownShadow">0 4 16 -8 #26000000</BoxShadows>
                     <Thickness x:Key="ComboBoxDropdownBorderThickness">1</Thickness>
                     <Thickness x:Key="ComboBoxDropdownBorderPadding">6</Thickness>
@@ -149,7 +149,7 @@
                     <SolidColorBrush x:Key="TextSubtleBrush" Color="#737A86"/>
                     <SolidColorBrush x:Key="TextDisabledBrush" Color="#A0A5AF"/>
                     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
-                    <SolidColorBrush x:Key="BorderBrush" Color="#ECEDEF"/>
+                    <SolidColorBrush x:Key="BorderBrush" Color="#E1E4E9"/>
                     <SolidColorBrush x:Key="BorderStrongBrush" Color="#7C8491"/>
                     <SolidColorBrush x:Key="AccentBrush" Color="#2463D4"/>
                     <SolidColorBrush x:Key="AccentHoverBrush" Color="#1F56BA"/>
@@ -173,11 +173,11 @@
                     <SolidColorBrush x:Key="ColorAccentHover" Color="#1F56BA"/>
                     <SolidColorBrush x:Key="ColorAccentLight" Color="#E5EEFC"/>
                     <SolidColorBrush x:Key="ColorAccentMedium" Color="#2A3B82F6"/>
-                    <SolidColorBrush x:Key="ColorBorder" Color="#ECEDEF"/>
+                    <SolidColorBrush x:Key="ColorBorder" Color="#E1E4E9"/>
                     <SolidColorBrush x:Key="ColorBorderStrong" Color="#7C8491"/>
-                    <SolidColorBrush x:Key="ColorBorderSubtle" Color="#ECEDEF"/>
-                    <SolidColorBrush x:Key="ColorBorderPrimary" Color="#ECEDEF"/>
-                    <SolidColorBrush x:Key="ColorDivider" Color="#ECEDEF"/>
+                    <SolidColorBrush x:Key="ColorBorderSubtle" Color="#E1E4E9"/>
+                    <SolidColorBrush x:Key="ColorBorderPrimary" Color="#E1E4E9"/>
+                    <SolidColorBrush x:Key="ColorDivider" Color="#E1E4E9"/>
                     <SolidColorBrush x:Key="ColorDanger" Color="#BF3B43"/>
                     <SolidColorBrush x:Key="ColorWarning" Color="#946200"/>
                     <SolidColorBrush x:Key="ColorSuccess" Color="#23784D"/>
@@ -228,7 +228,7 @@
                     <SolidColorBrush x:Key="DialogDividerBrush" Color="#343942"/>
                     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#17191D"/>
                     <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#202329"/>
-                    <SolidColorBrush x:Key="WindowBorderBrush" Color="#16000000"/>
+                    <SolidColorBrush x:Key="WindowBorderBrush" Color="#3A3D42"/>
                     <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#17191D"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#1B1D21"/>
                     <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#292D34"/>
@@ -287,7 +287,7 @@
                     <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#B8BEC8"/>
                     <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocusedPressed" Color="#B8BEC8"/>
                     <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#292D34"/>
-                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#2E3239"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#343942"/>
                     <BoxShadows x:Key="ComboBoxDropDownShadow">0 4 16 -8 #70000000</BoxShadows>
                     <Thickness x:Key="ComboBoxDropdownBorderThickness">1</Thickness>
                     <Thickness x:Key="ComboBoxDropdownBorderPadding">6</Thickness>
@@ -313,7 +313,7 @@
                     <SolidColorBrush x:Key="TextSubtleBrush" Color="#8E98A8"/>
                     <SolidColorBrush x:Key="TextDisabledBrush" Color="#686F7C"/>
                     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
-                    <SolidColorBrush x:Key="BorderBrush" Color="#2E3239"/>
+                    <SolidColorBrush x:Key="BorderBrush" Color="#343942"/>
                     <SolidColorBrush x:Key="BorderStrongBrush" Color="#A4AAB5"/>
                     <SolidColorBrush x:Key="AccentBrush" Color="#8AB4FF"/>
                     <SolidColorBrush x:Key="AccentHoverBrush" Color="#A3C4FF"/>
@@ -336,11 +336,11 @@
                     <SolidColorBrush x:Key="ColorAccentHover" Color="#A3C4FF"/>
                     <SolidColorBrush x:Key="ColorAccentLight" Color="#283E61"/>
                     <SolidColorBrush x:Key="ColorAccentMedium" Color="#405B9BFF"/>
-                    <SolidColorBrush x:Key="ColorBorder" Color="#2E3239"/>
+                    <SolidColorBrush x:Key="ColorBorder" Color="#343942"/>
                     <SolidColorBrush x:Key="ColorBorderStrong" Color="#A4AAB5"/>
-                    <SolidColorBrush x:Key="ColorBorderSubtle" Color="#2E3239"/>
-                    <SolidColorBrush x:Key="ColorBorderPrimary" Color="#2E3239"/>
-                    <SolidColorBrush x:Key="ColorDivider" Color="#2E3239"/>
+                    <SolidColorBrush x:Key="ColorBorderSubtle" Color="#343942"/>
+                    <SolidColorBrush x:Key="ColorBorderPrimary" Color="#343942"/>
+                    <SolidColorBrush x:Key="ColorDivider" Color="#343942"/>
                     <SolidColorBrush x:Key="ColorDanger" Color="#FF8D94"/>
                     <SolidColorBrush x:Key="ColorWarning" Color="#EBC16A"/>
                     <SolidColorBrush x:Key="ColorSuccess" Color="#7AC99A"/>

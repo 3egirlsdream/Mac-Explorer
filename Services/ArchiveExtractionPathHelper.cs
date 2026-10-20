@@ -4,25 +4,8 @@ internal static class ArchiveExtractionPathHelper
 {
     private static readonly object CreateDirectoryLock = new();
 
-    private static readonly string[] CompoundExtensions =
-    [
-        ".tar.gz",
-        ".tar.bz2",
-        ".tar.xz",
-        ".tar.zst"
-    ];
-
     internal static string GetArchiveFolderName(string archivePath)
-    {
-        var fileName = Path.GetFileName(archivePath);
-        foreach (var extension in CompoundExtensions)
-        {
-            if (fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
-                return EnsureFolderName(fileName[..^extension.Length]);
-        }
-
-        return EnsureFolderName(Path.GetFileNameWithoutExtension(fileName));
-    }
+        => EnsureFolderName(ArchiveFormats.RemoveExtension(archivePath));
 
     internal static string CreateUniqueExtractionDirectory(string parentPath, string archivePath)
     {

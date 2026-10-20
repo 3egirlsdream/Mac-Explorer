@@ -36,6 +36,7 @@ public class BackgroundTaskInfo
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public string Label { get; set; } = "";
     public double Progress { get; set; }
+    public bool IsIndeterminate { get; internal set; }
     public string CurrentFile { get; set; } = "";
     public BackgroundTaskState State { get; set; } = BackgroundTaskState.Running;
     public BackgroundTaskKind Kind { get; set; } = BackgroundTaskKind.Generic;

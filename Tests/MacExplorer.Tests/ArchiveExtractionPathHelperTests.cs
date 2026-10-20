@@ -13,6 +13,14 @@ public sealed class ArchiveExtractionPathHelperTests
     [InlineData("Project.TAR.BZ2", "Project")]
     [InlineData("Project.tar.xz", "Project")]
     [InlineData("Project.tgz", "Project")]
+    [InlineData("Project.tar.lz", "Project")]
+    [InlineData("Project.TAR.Z", "Project")]
+    [InlineData("Project.tar.gzip", "Project")]
+    [InlineData("Project.tar.bzip2", "Project")]
+    [InlineData("Project.tar.zstd", "Project")]
+    [InlineData("Project.tlz", "Project")]
+    [InlineData("Project.Z", "Project")]
+    [InlineData("Project.arj", "Project")]
     public void GetArchiveFolderName_RemovesArchiveExtension(string fileName, string expected)
     {
         var archivePath = Path.Combine("/tmp", fileName);

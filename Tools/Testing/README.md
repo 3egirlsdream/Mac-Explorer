@@ -58,3 +58,17 @@ LocalSend 的发现时钟与网络重连延迟使用注入的 `TimeProvider`。�
 - 主要慢场景：LocalSend 重试 35.89 → 0.67 秒，8 台设备上限 10.35 → 0.44 秒；RAW 排队 3.19 → 0.14 秒；动画循环 3.80 → 0.01 秒；插件带子进程崩溃 5.22 → 0.39 秒。
 
 以上为单机样本，运行时间会受编译缓存和机器负载影响。15 秒适用于日常执行及缓存增量流程；首次构建、产品重编译和真实原生全量检查不能保证在 15 秒内。
+
+## 窗口首开与设置按需加载验收
+
+macOS Debug 构建完成后，用独立配置运行真实窗口检查：
+
+```bash
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_WINDOW_OPEN_SMOKE=1 bash Tools/Testing/run-isolated.sh \
+  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+该入口仅在 Debug 且设置了 `MACEXPLORER_TEST_ROOT` 时生效；依次打开设置、确认、压缩、任务、远程连接、重命名、图片转换、删除、密码、LocalSend、首页编辑、新主窗口和文件速递，不执行文件操作。报告写入终端打印的临时目录 `window-open-smoke.json`，随后退出。设置首开必须仅创建一个页面，逐页进入后检查延迟内容已创建；每个窗口显示调用返回时，外框必须已经铺满客户端区域。
+
+`constructMs` 是构造耗时，`showMs` 包括构造和同步显示，`commitMs` 记录首轮合成提交在渲染线程应用后的时间，不等同于显示器实际呈现时间。首次与再次打开分别记录，不以单机毫秒阈值作为跨机器单元测试断言；配合保留四周外沿的原生录屏，检查没有白边或中心扩散。浅／深色和窄窗口通过 UI 检查补充覆盖。

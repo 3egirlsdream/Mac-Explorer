@@ -25,7 +25,10 @@ internal sealed class MacFileDeliveryStatusItem : IDisposable
     public void Place(Window window)
     {
         if (window.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle handle)
+        {
             MacExplorerDeliveryPlace(handle.NSView);
+            MacWindowChrome.MakeTransparent(window);
+        }
     }
 
     public bool ContainsPoint(Avalonia.Point point) => MacExplorerDeliveryContainsPoint(point.X, point.Y) != 0;

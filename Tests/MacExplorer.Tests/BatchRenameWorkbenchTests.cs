@@ -417,7 +417,7 @@ public sealed class BatchRenameWorkbenchTests(ITestOutputHelper output)
             rules.Focus(); Dispatcher.UIThread.RunJobs();
             Assert.Equal(new Thickness(1), surface.BorderThickness);
             var restingBorder = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(surface.BorderBrush).Color;
-            Assert.Equal(Avalonia.Media.Color.Parse(dark ? "#2E3239" : "#ECEDEF"), restingBorder);
+            Assert.Equal(Avalonia.Media.Color.Parse(dark ? "#343942" : "#E1E4E9"), restingBorder);
             editor.Focus(); Dispatcher.UIThread.RunJobs();
             Assert.NotEqual(restingBorder, Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(surface.BorderBrush).Color);
             var background = surface.Background; var bounds = surface.Bounds; var radius = surface.CornerRadius;

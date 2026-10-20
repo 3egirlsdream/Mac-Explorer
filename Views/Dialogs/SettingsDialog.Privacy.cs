@@ -12,8 +12,6 @@ public partial class SettingsDialog
     private void LoadPrivacySettings()
     {
         PhotoLocationToggle.IsChecked = PhotoConsent.Enabled;
-        PrivacyPolicyStatus.Text = PrivacyPolicy.Status;
-        RefreshCopilotConsent();
     }
 
     private void RefreshCopilotConsent()

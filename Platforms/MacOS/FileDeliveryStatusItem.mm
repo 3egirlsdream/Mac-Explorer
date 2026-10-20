@@ -142,7 +142,6 @@ void MacExplorerDeliveryPlace(void* viewHandle)
     window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces
         | NSWindowCollectionBehaviorFullScreenAuxiliary | NSWindowCollectionBehaviorIgnoresCycle;
     window.hidesOnDeactivate = NO;
-    window.hasShadow = YES;
     NSRect button = [delivery.item.button.window convertRectToScreen:delivery.item.button.frame];
     NSScreen* screen = delivery.item.button.window.screen ?: NSScreen.mainScreen;
     NSRect bounds = screen.visibleFrame;
