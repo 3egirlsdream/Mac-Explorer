@@ -1,5 +1,5 @@
 name: Bug 反馈 / Bug report
-description: 报告异常，请提供环境、详细复现步骤及预期与实际结果。 / Report a bug with steps to reproduce.
+description: 报告异常，请提供问题描述、环境与详细复现步骤。 / Report a bug with its description, environment and steps to reproduce.
 title: "[Bug] "
 labels: [bug]
 body:
@@ -69,20 +69,6 @@ body:
         2. 使用……类型文件，设置…… / Use a … file with … settings
         3. 点击……，输入…… / Click … and enter…
         4. 出现…… / Observe…
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: 预期结果 / Expected behavior
-      description: 完成上述步骤后，正确的结果应该是什么？ / What should happen after these steps?
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: 实际结果 / Actual behavior
-      description: 实际发生了什么？如有报错，请复制完整错误信息。 / What actually happened? Include the full error message, if any.
     validations:
       required: true
   - type: dropdown
