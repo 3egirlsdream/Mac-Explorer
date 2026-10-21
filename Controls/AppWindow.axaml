@@ -61,6 +61,14 @@
             <Style Selector="^:extended-content:full-height-content /template/ ContentPresenter#WindowContent">
                 <Setter Property="Margin" Value="0"/>
             </Style>
+            <Style Selector="^:titlebar-hidden /template/ local|WindowTitleBar#WindowTitleBar">
+                <Setter Property="IsVisible" Value="False"/>
+            </Style>
+            <Style Selector="^:titlebar-hidden /template/ ContentPresenter#WindowContent">
+                <Setter Property="Grid.Row" Value="0"/>
+                <Setter Property="Grid.RowSpan" Value="2"/>
+                <Setter Property="Margin" Value="0"/>
+            </Style>
             <Style Selector="^:maximized /template/ Border#WindowFrame, ^:fullscreen /template/ Border#WindowFrame">
                 <Setter Property="CornerRadius" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>

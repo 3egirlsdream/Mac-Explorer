@@ -9,6 +9,55 @@ namespace MacExplorer.Tests;
 [Trait("Area", "FileTasks")]
 public sealed class FileTaskQueueTests
 {
+    [Fact]
+    public async Task CompletedTaskKeepsItsSummaryWithoutRetainingCapturedDataOrCheckpoints()
+    {
+        var manager = new BackgroundTaskManager();
+        var (references, context) = CompleteWithCapturedData(manager);
+        for (var i = 0; i < 10 && references.Any(reference => reference.IsAlive); i++)
+        {
+            await Task.Delay(1);
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        }
+        Assert.All(references, reference => Assert.False(reference.IsAlive));
+        var summary = Assert.Single(manager.Tasks);
+        Assert.Same(summary, context.Task);
+        Assert.Equal(BackgroundTaskState.Completed, summary.State);
+        Assert.False(summary.CanRetry);
+        Assert.Single(summary.Items);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static (WeakReference[] References, FileTaskContext Context) CompleteWithCapturedData(BackgroundTaskManager manager)
+    {
+        var capture = new byte[1024 * 1024];
+        var checkpoint = new byte[1024 * 1024];
+        var result = new byte[1024 * 1024];
+        FileTaskContext? retained = null;
+        manager.RunAsync(Request("/tmp/task-tests/retention"), context =>
+        {
+            retained = context;
+            context.Remember("state", () => checkpoint);
+            context.ReportItem("source", "destination", FileTaskItemState.Completed);
+            GC.KeepAlive(capture);
+            return Task.FromResult(result);
+        }).GetAwaiter().GetResult();
+        return ([new(capture), new(checkpoint), new(result)], retained!);
+    }
+
+    [Fact]
+    public void FinishedTaskSummariesHaveABoundWhileFailuresRemainActionable()
+    {
+        var manager = new BackgroundTaskManager();
+        var failed = manager.AddTask("failed", BackgroundTaskKind.Copy, retryAction: () => Task.CompletedTask);
+        manager.FailTask(failed.Id, "retry me");
+        for (var i = 0; i < BackgroundTaskManager.CompletedTaskLimit + 10; i++)
+            manager.CompleteTask(manager.AddTask("completed").Id);
+        Assert.Equal(BackgroundTaskManager.CompletedTaskLimit + 1, manager.Tasks.Count);
+        Assert.Contains(failed, manager.Tasks);
+        Assert.True(failed.CanRetry);
+    }
+
     private static TaskCompletionSource Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
     private static Task Await(Task task) => task.WaitAsync(TimeSpan.FromSeconds(8));
     private static FileTaskRequest Request(string path) => new(BackgroundTaskKind.Copy, "copy", [path]);

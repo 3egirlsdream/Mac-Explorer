@@ -5,6 +5,7 @@ namespace MacExplorer.Services.Impl;
 
 public sealed class FileOperationHistoryService : IFileOperationHistoryService
 {
+    internal const int HistoryLimit = 100;
     private readonly IFileService _files;
     private readonly IDirectoryChangeNotifier? _changes;
     private readonly IFileTagService? _tags;
@@ -72,6 +73,7 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
             }
             if (FileTaskContext.Current is { } context) context.Task.HistoryId = parent.Id;
         }
+        TrimHistory();
         Changed();
     }
 
@@ -91,6 +93,7 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
             if (!_records.Contains(record)) _records.Add(record);
             if (FileTaskContext.Current is { } context) context.Task.HistoryId = record.Id;
         }
+        TrimHistory();
         Changed(); return Task.FromResult<Guid?>(record.Id);
     }
     public async Task<bool> UndoBatchAsync(Guid batchId) => (await UndoAsync(batchId)).Success;
@@ -100,6 +103,27 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
         return record != null && (await UndoAsync(record.Id)).Success;
     }
     public void ClearHistory() { lock (_lock) _records.Clear(); Changed(); }
+
+    private void TrimHistory()
+    {
+        FileOperationRecord[] candidates;
+        lock (_lock)
+        {
+            if (_records.Count <= HistoryLimit) return;
+            candidates = _records.ToArray();
+        }
+        // Snapshot the task manager outside the history lock; never split an active undo group.
+        var active = _tasks?.Tasks.Where(task => task.IsActive).Select(task => task.Id).ToHashSet() ?? [];
+        if (FileTaskContext.Current is { } context) active.Add(context.Task.Id);
+        lock (_lock)
+        {
+            foreach (var record in candidates)
+            {
+                if (_records.Count <= HistoryLimit) break;
+                if (record.TaskId == null || !active.Contains(record.TaskId)) _records.Remove(record);
+            }
+        }
+    }
 
     private static IEnumerable<string> Paths(FileOperationRecord record) =>
         new[] { record.OriginalPath, record.CurrentPath }.Where(p => p.Length > 0)

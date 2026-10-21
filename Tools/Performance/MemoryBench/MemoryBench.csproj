@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../MacExplorer.csproj" />
+  </ItemGroup>
+  <Target Name="BundleMemoryBenchmark" AfterTargets="Build">
+    <MSBuild Projects="../../../MacExplorer.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">
+      <Output TaskParameter="TargetOutputs" ItemName="_HostAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_HostDirectory>@(_HostAssembly->'%(RootDir)%(Directory)')</_HostDirectory>
+      <_BenchApp>$(TargetDir)MemoryBench.app</_BenchApp>
+    </PropertyGroup>
+    <ItemGroup>
+      <_NativeFiles Include="$(_HostDirectory)*.dylib;$(_HostDirectory)MacExplorer.Thumbnail;$(_HostDirectory)MacExplorer.ImageAnalysis" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_NativeFiles)" DestinationFolder="$(TargetDir)" />
+    <ItemGroup><_BenchFiles Include="$(TargetDir)*" /></ItemGroup>
+    <RemoveDir Directories="$(_BenchApp)" />
+    <MakeDir Directories="$(_BenchApp)/Contents/MacOS" />
+    <Copy SourceFiles="@(_BenchFiles)" DestinationFolder="$(_BenchApp)/Contents/MacOS" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/Info.plist" DestinationFolder="$(_BenchApp)/Contents" />
+    <Exec Command="codesign --force --deep --sign - &quot;$(_BenchApp)&quot;" />
+  </Target>
+</Project>

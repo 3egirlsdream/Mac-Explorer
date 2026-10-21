@@ -928,6 +928,19 @@ public partial class SettingsDialog : DialogWindow
         }
     }
 
+    private async void OnFeedback(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!await Launcher.LaunchUriAsync(new Uri("https://github.com/3egirlsdream/Mac-Explorer/issues/new/choose")))
+                AppToast.ShowError(this, _localizationService["settings.feedback.open_failed"]);
+        }
+        catch (Exception)
+        {
+            AppToast.ShowError(this, _localizationService["settings.feedback.open_failed"]);
+        }
+    }
+
     internal void ShowAbout()
     {
         SettingsTabs.SelectedItem = AboutTab;

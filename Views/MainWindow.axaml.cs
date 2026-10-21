@@ -1047,7 +1047,7 @@ public partial class MainWindow : AppWindow
 
     private void UpdateTaskPanelWidth()
     {
-        TaskOverlayPanel.Width = Math.Min(640, Math.Max(280, Bounds.Width - 32));
+        TaskOverlayPanel.Width = Math.Min(560, Math.Max(280, Bounds.Width - 32));
     }
 
     private void ClearAllPanelTasks(object? sender, RoutedEventArgs e)
@@ -1135,9 +1135,14 @@ public partial class MainWindow : AppWindow
         if (_vm == null || _vm.Tabs.Count <= 1 || !_vm.Tabs.Contains(tab))
             return;
 
+        var header = TabList.ContainerFromItem(tab);
+        var releaseHeader = Platforms.MacOS.MacAutomationLifetime.Capture(header, tab);
         var release = DetachWorkspaceAsync(tab, "tab-close");
         if (_vm.RemoveTab(tab) != true)
             return;
+        if (header is ContentControl content) content.Content = null;
+        if (header != null) header.DataContext = null;
+        releaseHeader?.Invoke();
         await release;
         await Task.WhenAll(_workspaceDetachTasks.Where(pair => ReferenceEquals(pair.Key.Tab, tab))
             .Select(pair => pair.Value).ToArray());
@@ -1146,6 +1151,8 @@ public partial class MainWindow : AppWindow
         tab.FileList.Dispose();
         if (_tabScopes.Remove(tab, out var scope))
             scope?.Dispose();
+        await Dispatcher.UIThread.InvokeAsync(Platforms.MacOS.MacAutomationLifetime.ReleaseDetached,
+            DispatcherPriority.Background);
     }
 
     private void TogglePaneLayoutPopup(object? sender, RoutedEventArgs e)
@@ -1338,11 +1345,13 @@ public partial class MainWindow : AppWindow
         if (!_workspaceViews.Remove(tab, out var workspace))
             return Task.CompletedTask;
 
+        var releaseNative = Platforms.MacOS.MacAutomationLifetime.Capture(workspace);
         _workspaceRecency.Remove(tab);
         if (workspace.IsVisible) workspace.FileListView.SaveTabViewState(tab);
         workspace.MarkDetaching();
         workspace.IsVisible = false;
         PaneLayoutRoot.Children.Remove(workspace);
+        releaseNative?.Invoke();
         workspace.WorkspaceActivated -= OnWorkspaceActivated;
         var task = DetachWorkspaceCoreAsync(workspace, reason);
         _workspaceDetachTasks.Add(workspace, task);

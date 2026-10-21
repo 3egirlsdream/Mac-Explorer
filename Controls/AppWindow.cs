@@ -9,6 +9,7 @@ using MacExplorer.Services.Impl;
 using Avalonia.Interactivity;
 using MacExplorer.Services.Subscriptions;
 using Avalonia.Threading;
+using Avalonia.Platform;
 
 namespace MacExplorer.Controls;
 
@@ -20,7 +21,17 @@ public class AppWindow : Window
     private SubscriptionService? _subscription;
     private Grid? _subscriptionHost;
     private bool _nativeChromeRefreshPending;
+    private ITopLevelImpl? _nativeLifetime;
     internal bool IsShortcutHintVisible => _shortcutHints?.IsVisible == true;
+
+    public static readonly StyledProperty<bool> ShowTitleBarProperty =
+        AvaloniaProperty.Register<AppWindow, bool>(nameof(ShowTitleBar), true);
+
+    public bool ShowTitleBar
+    {
+        get => GetValue(ShowTitleBarProperty);
+        set => SetValue(ShowTitleBarProperty, value);
+    }
 
     public static readonly StyledProperty<bool> ExtendContentToTopProperty =
         AvaloniaProperty.Register<AppWindow, bool>(nameof(ExtendContentToTop));
@@ -87,6 +98,8 @@ public class AppWindow : Window
 
         Opened += (_, _) =>
         {
+            MacAutomationLifetime.Prepare();
+            _nativeLifetime = PlatformImpl;
             _subscription ??= SubscriptionAccess.Current;
             if (_subscription != null) _subscription.Changed += OnSubscriptionChanged;
             UpdateSubscription();
@@ -99,6 +112,14 @@ public class AppWindow : Window
         {
             if (_subscription != null) _subscription.Changed -= OnSubscriptionChanged;
             _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this);
+            MacAutomationLifetime.Release(this);
+            var closedPlatform = _nativeLifetime;
+            _nativeLifetime = null;
+            Dispatcher.UIThread.Post(() =>
+            {
+                MacAutomationLifetime.ReleaseClosedCallbacks(closedPlatform);
+                MacAutomationLifetime.ReleaseDetached();
+            }, DispatcherPriority.Background);
         };
         Activated += (_, _) => { RequestNativeWindowChrome(); UpdateWindowPseudoClasses(); if (_subscription != null) _ = _subscription.RefreshAsync(); };
         Deactivated += (_, _) => UpdateWindowPseudoClasses();
@@ -196,7 +217,8 @@ public class AppWindow : Window
             RequestNativeWindowChrome();
         }
         else if (change.Property == IsModalInteractionBlockedProperty
-            || change.Property == ExtendContentToTopProperty || change.Property == FullHeightContentProperty)
+            || change.Property == ExtendContentToTopProperty || change.Property == FullHeightContentProperty
+            || change.Property == ShowTitleBarProperty)
         {
             UpdateWindowPseudoClasses();
         }
@@ -214,6 +236,7 @@ public class AppWindow : Window
 
     private void UpdateWindowPseudoClasses()
     {
+        PseudoClasses.Set(":titlebar-hidden", !ShowTitleBar);
         PseudoClasses.Set(":extended-content", ExtendContentToTop);
         PseudoClasses.Set(":full-height-content", FullHeightContent);
         PseudoClasses.Set(":normal", WindowState == WindowState.Normal);

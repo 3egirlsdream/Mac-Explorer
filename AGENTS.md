@@ -27,6 +27,7 @@
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
+- 关于页产品信息使用透明的 `settings-about-card`，更新、隐私与反馈入口复用 `settings-group` / `settings-row` 和 `secondary compact`；反馈群文字与二维码并排，二维码通过 `CroppedBitmap` 展示原图码面与白色边距，不缩放整张海报。
 - 隐私与主机信任确认复用 `ConfirmDialog` / `DialogWindow`、紧凑全局按钮与设置文字样式；标题栏透明，正文只显示数据接收方、用途或需要核对的指纹，默认聚焦取消。
 - Copilot 对话与输入框复用 `ComponentStyles.axaml` 的 `copilot-*` 样式：助手气泡靠左、用户气泡靠右，过程用左侧细线，工具与确认用轻边框卡片；输入框和卡片使用全局 `RadiusLg`，发送按钮使用全局 `RadiusFull`。
 - Copilot 同轮工具调用收在可展开的 `copilot-tool-card`，思考过程使用 `copilot-thinking-card` 和 Fluent Brain 图标；两者标题复用内容宽度的 `ghost compact copilot-tool-toggle`，展开明细沿左侧细线紧凑缩进，执行时展开，完成后自动收起。用户消息只显示右侧气泡，不显示“你”。
@@ -59,7 +60,7 @@
 
 - 设置入口固定在侧栏底部、位于目录滚动区域之外，复用 Fluent Settings 图标与 `sidebar-item` 的 Border／StackPanel 结构，不嵌套按钮悬停表面；Copilot 通过设置中的启用开关控制，默认关闭，所有窗口同步按钮可见性。
 
-- macOS 所有应用窗口统一继承 `AppWindow`，外沿由 `AppWindow.WindowOutline` 绘制 0.5px 细线，复用 `WindowBorderBrush`（浅色 `#E8E8E8`、深色 `#3A3D42`）；`MacWindowChrome` 统一关闭带深色外圈的原生阴影并保留窗口交互能力，通过 `WindowShadow.mm` 的不接收输入的原生附属层绘制轻柔外阴影（18px 模糊、向下 4px，激活 16%／未激活 10% 黑色），排除窗口内部并随移动、缩放、最小化及关闭同步；主窗口、对话框、任务窗口与文件速递共用该实现，隐藏后重显及浮动层级变化同步更新；最大化和全屏隐藏描边与轻阴影，勿通过内部 `ColorBorder*` 调整窗口外框。首次显示前通过基类 `WindowOpenedEvent` 初始化外观，关闭原生开窗动画和内容渲染层的隐式几何／纹理动画，首帧按最终尺寸铺满，不从中心扩散。显示前仅做轻量动画准备，显示后的外观更新合并执行；渲染层按实例初始化一次，阴影仅在尺寸、圆角或激活强度变化时重绘。
+- macOS 所有应用窗口统一继承 `AppWindow`，外沿由 `AppWindow.WindowOutline` 绘制 0.5px 细线，复用 `WindowBorderBrush`（浅色 `#E8E8E8`、深色 `#3A3D42`）；`MacWindowChrome` 统一关闭带深色外圈的原生阴影并保留窗口交互能力，通过 `WindowShadow.mm` 的不接收输入的原生附属层绘制轻柔外阴影（18px 模糊、向下 4px，激活 16%／未激活 10% 黑色），排除窗口内部并随移动、缩放、最小化及关闭同步；主窗口、对话框、任务窗口与文件速递共用该实现，隐藏后重显及浮动层级变化同步更新；阴影附属层允许越过菜单栏及屏幕边缘，不受可见区域约束，保持与主体外框对齐；最大化和全屏隐藏描边与轻阴影，勿通过内部 `ColorBorder*` 调整窗口外框。首次显示前通过基类 `WindowOpenedEvent` 初始化外观，关闭原生开窗动画和内容渲染层的隐式几何／纹理动画，首帧按最终尺寸铺满，不从中心扩散。显示前仅做轻量动画准备，显示后的外观更新合并执行；渲染层按实例初始化一次，阴影仅在尺寸、圆角或激活强度变化时重绘。
 
 - GitHub Pages 官网正文使用本地托管的 `Montserrat, system-ui, sans-serif`，中文回退系统字体；软件界面展示保留系统默认字体，复用 `docs/landing.css` 的按钮、分区与亮色网格主题，真实界面展示统一经 `replica-stage` 按当前截图的 1280×800 等比缩放，首屏默认文件列表与右键菜单并随视口剩余高度完整显示，正文仅介绍产品功能；底部开源与插件入口复用 `community-section` 的居中介绍和并排胶囊按钮；文案在 `docs/locales` 四语文件维护，由 `Tools/Website/build.py` 生成独立静态语言页面。
 
@@ -85,7 +86,7 @@
 
 - 侧栏实际目录项拖放高亮复用 `SidebarHoverBrush` / `SidebarHoverOutline`；悬停 600ms 进入目录，松手按最终位置移动本地文件，固定区空白处保留添加快捷入口。
 
-- 文件速递面板样式集中在 `Assets/FileDeliveryStyles.axaml`，复用 `AppWindow`、`DialogContentBrush`、`RadiusLg` 和全局按钮，使用覆盖顶部的红黄绿按钮；面板宽高比为 √2:1，外框圆角、主题描边与轻阴影统一继承 `AppWindow`，不叠加独立描边或系统阴影；导航按钮复用全局 `workspace-nav-button`，路径复用 `BreadcrumbBar`，页签统一高度、行高及透明边框占位，选中不改变文字位置；右侧加号通过两级菜单添加目录／收藏夹，下拉可见表面距按钮 2px；右键页签删除入口，不删除原目录或收藏。顶部入口使用紧凑标签，共享文件列表以 `IsBrowseOnly` 模式承载，仅浏览、预览和复制拖出，偏好独立保存。
+- 文件速递面板样式集中在 `Assets/FileDeliveryStyles.axaml`，复用 `AppWindow`、`DialogContentBrush`、`RadiusLg` 和全局按钮，通过 `ShowTitleBar=False` 隐藏红黄绿按钮与标题栏占位；面板宽高比为 √2:1，外框圆角、主题描边与轻阴影统一继承 `AppWindow`，不叠加独立描边或系统阴影；导航按钮复用全局 `workspace-nav-button`，路径复用 `BreadcrumbBar`，页签统一高度、行高及透明边框占位，选中不改变文字位置；右侧加号通过两级菜单添加目录／收藏夹，下拉可见表面距按钮 2px；右键页签删除入口，不删除原目录或收藏。顶部入口使用紧凑标签，共享文件列表以 `IsBrowseOnly` 模式承载，仅浏览、预览和复制拖出，偏好独立保存；原生拖拽激活保护在首次显示前注册，收到原生 `mouseDragged:` 时先阻止窗口前置，再进入 Avalonia／预览生成，首次及后续拖出均不激活主窗口，普通点击行为保留。
 
 - 快捷键设置复用紧凑设置字段行，Cmd 使用 `shortcut-fixed-key`，附加修饰键使用可切换的 `shortcut-modifier`，Control 直接显示文字，修饰键宽度随内容自适应；主键通过 `shortcut-binding shortcut-main-key` 点击录制，错误使用 `shortcut-error`；提示浮层复用窗口 `WindowOverlayHost`、`PopupGlass` 和全局 `shortcut-hint` / `shortcut-group-title` / `shortcut-name` / `shortcut-keys` 样式，不抢键盘焦点；命令按钮通过全局 `ShortcutTip.Command` 自动同步快捷键提示。
 
@@ -114,4 +115,6 @@
 
 - 全局 Toast 复用 `AppToast`、`WindowNotificationManager` 与 `Assets/ToastStyles.axaml`，使用轻透毛玻璃表面、`RadiusXl`、圆形 Fluent 状态图标和主次两行文字；状态色仅用于图标区，长文案换行，窄窗口自适应，保留点击与自动关闭行为。
 
-- 文件任务面板与独立任务窗口共用 `FileTaskPanelPresenter`；列表复用全局 `file-task-row` / `task-title` / `task-meta` / `task-percentage` / `task-progress`，任务面板按设计稿使用 `FileTaskIcons` 的统一描边图标（文件夹复制、文档下载／移动、拉链文档、云上传与空心播放／暂停），其余入口仍用 Fluent；中间为名称、传输量和细进度条，右侧固定百分比与 `Button.icon-action`；面板默认宽 640px、任务行最小高 54px；无进度条时名称、状态与图标在单行内居中对齐，窄窗口仅将带进度条的传输量换行，暂停及失败进度复用 `muted` 状态，批量清理与取消放入面板右键菜单，不显示历史入口、统计卡片或详情展开。队列、检查点和撤销记录仅保留在当前进程，清除任务不清除历史，执行中任务仅可取消，不直接移除。 单文件解压缺少原始大小时使用不确定进度条与状态文字，不显示百分比；暂停时停止不确定动画。
+- 文件任务面板与独立任务窗口共用 `FileTaskPanelPresenter`；列表复用全局 `file-task-row` / `task-title` / `task-meta` / `task-percentage` / `task-progress`，任务面板按设计稿使用 `FileTaskIcons` 的统一描边图标（文件夹复制、文档下载／移动、拉链文档、云上传与空心播放／暂停），其余入口仍用 Fluent；中间为名称、传输量和细进度条，右侧固定百分比与 `Button.icon-action`；面板默认宽 560px、任务行最小高 54px；无进度条时名称、状态与图标在单行内居中对齐，窄窗口仅将带进度条的传输量换行，暂停及失败进度复用 `muted` 状态，批量清理与取消放入面板右键菜单，不显示历史入口、统计卡片或详情展开。队列、检查点和撤销记录仅保留在当前进程，清除任务不清除历史，执行中任务仅可取消，不直接移除。 单文件解压缺少原始大小时使用不确定进度条与状态文字，不显示百分比；暂停时停止不确定动画。
+
+- 内存生命周期：永久移除工作区及关闭窗口时通过 `MacAutomationLifetime` 解除 Avalonia macOS 原生无障碍节点循环，包含页签标题、装饰层光标及焦点框；关闭窗口后解绑原生输入根与回调，隐藏或短暂切换不释放；`AutomationLifetime.mm` 为固定版本补齐无障碍子节点遍历的 COM 引用释放，升级 Avalonia 后核对接口 ABI 并运行 `Tools/Performance/MemoryBench` 验证关闭对象归零及重复操作后的内存增长。成功／取消任务释放执行上下文，失败任务保留重试状态；完成摘要和撤销分组各保留最近 100 条，进行中的撤销分组不淘汰。共享位图以弱引用缓存，不释放仍被绑定的图片；`MemoryCacheMaintenance` 每 30 秒清理闲置超过 60 秒的缓存，首页已租用预览及当前可见缩略图继续保留。

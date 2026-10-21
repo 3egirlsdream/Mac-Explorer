@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 using Avalonia.Media.Imaging;
@@ -16,7 +15,7 @@ namespace MacExplorer.Services.Impl;
 /// </summary>
 public static class SvgIconCache
 {
-    private static readonly ConcurrentDictionary<string, Bitmap> Cache = new();
+    private static readonly WeakBitmapCache Cache = new(8L * 1024 * 1024);
 
     /// <summary>Clear all cached bitmaps (e.g. on theme change).</summary>
     public static void Clear() => Cache.Clear();
@@ -125,14 +124,17 @@ public static class SvgIconCache
         canvas.DrawPicture(svgImage.Picture);
         canvas.Flush();
 
-        using var data = surface.Snapshot().Encode(SKEncodedImageFormat.Png, 100);
-        return new Bitmap(data.AsStream());
+        using var image = surface.Snapshot();
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var encoded = data.AsStream();
+        return new Bitmap(encoded);
     }
 
     private static Bitmap CreateEmptyBitmap(int size)
     {
         using var bmp = new SKBitmap(size, size);
         using var data = bmp.Encode(SKEncodedImageFormat.Png, 100);
-        return new Bitmap(data.AsStream());
+        using var encoded = data.AsStream();
+        return new Bitmap(encoded);
     }
 }

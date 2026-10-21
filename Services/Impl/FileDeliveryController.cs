@@ -100,6 +100,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
     {
         _window!.Width = 560;
         _window.Height = _window.Width / Math.Sqrt(2);
+        _statusItem?.Prepare(_window);
         _window!.Show();
         _statusItem?.Place(_window);
         _window.FileList.Focus();

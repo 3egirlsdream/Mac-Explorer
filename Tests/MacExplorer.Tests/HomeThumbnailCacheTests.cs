@@ -11,6 +11,24 @@ namespace MacExplorer.Tests;
 public sealed class HomeThumbnailCacheTests
 {
     [AvaloniaFact(Explicit = true)]
+    public async Task IdleTrimmingReleasesUnusedPreviewsButKeepsLeasedImages()
+    {
+        using var cache = new HomeThumbnailCache();
+        var file = new FileSystemEntry { FullPath = "/tmp/leased.png" };
+        var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        using var lease = await cache.AcquireAsync(file, 48,
+            (_, _, _) => Task.FromResult<ThumbnailResult?>(new(png, "preview.png")), default);
+        cache.TrimMemory(DateTime.UtcNow.AddMinutes(1));
+        using (var second = cache.TryAcquire(file, 48))
+        {
+            Assert.NotNull(second);
+            Assert.Same(lease.Bitmap, second.Bitmap);
+        }
+        lease.Dispose();
+        cache.TrimMemory(DateTime.UtcNow.AddMinutes(1));
+        Assert.Null(cache.TryAcquire(file, 48));
+    }
+    [AvaloniaFact(Explicit = true)]
     public async Task ExpandedFolderReusesDecodedPreviewWithoutCallingProviderAgain()
     {
         using var cache = new HomeThumbnailCache();

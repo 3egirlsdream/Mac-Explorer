@@ -6,9 +6,9 @@ using MacExplorer.Services.Impl;
 namespace MacExplorer.Controls;
 
 /// <summary>Viewport requests and owned thumbnails; no disk work or decoding in Render.</summary>
-internal sealed class FastFileListImages
+internal sealed class FastFileListImages : IIdleMemoryCache
 {
-    private const long MaxBytes = 32L * 1024 * 1024;
+    private const long MaxBytes = 16L * 1024 * 1024;
     private static readonly SemaphoreSlim DecodeGate = new(4);
     private readonly Dictionary<ImageKey, CancellationTokenSource> _requests = [];
     private readonly Dictionary<ImageKey, DateTime> _failed = [];
@@ -22,6 +22,9 @@ internal sealed class FastFileListImages
     private int _lifetime;
     private long _bytes;
     private CancellationTokenSource? _coverSchedule;
+    private DateTime _lastVisibleUse = DateTime.UtcNow;
+
+    public FastFileListImages() => MemoryCacheMaintenance.Register(this);
 
     public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? ThumbnailProvider { get; set; }
     public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? FolderCoverProvider { get; set; }
@@ -38,6 +41,7 @@ internal sealed class FastFileListImages
         var key = ImageKey.ForView(entry, _pixelSize, folderCoversEnabled && FolderCoverProvider != null);
         if (_cache.TryGetValue(key, out var node))
         {
+            node.Value.LastUsed = DateTime.UtcNow;
             isThumbnail = !entry.IsDirectory;
             _lru.Remove(node);
             _lru.AddFirst(node);
@@ -55,6 +59,7 @@ internal sealed class FastFileListImages
         var nextVisible = entries.Select(e => ImageKey.ForView(e, pixelSize, loadCovers)).ToHashSet();
         var viewportChanged = !_visible.SetEquals(nextVisible);
         _visible = nextVisible;
+        if (_visible.Count > 0) _lastVisibleUse = DateTime.UtcNow;
         if (viewportChanged && _coverSchedule != null)
         {
             _coverSchedule.Cancel();
@@ -273,6 +278,16 @@ internal sealed class FastFileListImages
         _bytes = 0;
     }
 
+    public void TrimMemory(DateTime unusedBefore)
+    {
+        foreach (var node in _cache.Values.Where(n => !_visible.Contains(n.Value.Key) && n.Value.LastUsed < unusedBefore).ToArray())
+        {
+            _cache.Remove(node.Value.Key); _lru.Remove(node); _bytes -= node.Value.Bytes;
+            node.Value.Bitmap.Dispose();
+        }
+        if (_visible.Count == 0 && _lastVisibleUse < unusedBefore) { _types.Clear(); _failed.Clear(); }
+    }
+
     private readonly record struct TypeKey(string Icon, string Extension, bool IsDirectory, int Pixels)
     {
         public static TypeKey For(FileSystemEntry e, int pixels) => new(e.DetailsIconSource.IconKey, e.Extension, e.IsFolder, pixels);
@@ -286,5 +301,8 @@ internal sealed class FastFileListImages
             folderCoversEnabled && e.IsFolder && e.IsReadable && !e.IsSymbolicLink && !e.IsVirtual
                 && System.IO.Path.IsPathFullyQualified(e.FullPath));
     }
-    private sealed record CachedImage(ImageKey Key, Bitmap Bitmap, long Bytes);
+    private sealed record CachedImage(ImageKey Key, Bitmap Bitmap, long Bytes)
+    {
+        public DateTime LastUsed = DateTime.UtcNow;
+    }
 }

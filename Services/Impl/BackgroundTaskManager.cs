@@ -5,6 +5,7 @@ namespace MacExplorer.Services.Impl;
 
 public sealed class BackgroundTaskManager : IBackgroundTaskManager
 {
+    internal const int CompletedTaskLimit = 100;
     private sealed class Entry
     {
         public required BackgroundTaskInfo Info;
@@ -63,9 +64,9 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         {
             if (_stopping) throw new InvalidOperationException(LocalizationText.Get("应用正在退出，无法添加任务。"));
             _tasks.Add(info); _queue.Add(entry);
+            entry.Registration = cancellationToken.Register(() => CancelTask(info.Id));
             Schedule();
         }
-        entry.Registration = cancellationToken.Register(() => CancelTask(info.Id));
         RaiseTasksChanged();
         return (T)(await entry.Completion.Task)!;
     }
@@ -125,11 +126,25 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
                 info.ErrorDetail ??= failure?.ToString();
             }
             else { info.State = BackgroundTaskState.Completed; info.Progress = 100; callback = info.OnCompleted; }
+            if (info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+            {
+                info.CanRetry = false;
+                info.OnCompleted = null;
+                info.RetryAction = null;
+            }
+        }
+        if (entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+            entry.Context.ReleaseExecutionState();
+        lock (_lock)
+        {
             entry.Slot = entry.Claimed = entry.Executing = false;
             entry.Resume = null;
             entry.Registration.Unregister();
+            if (entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+                _queue.Remove(entry);
             if (failure != null) entry.Completion.TrySetException(failure);
             else entry.Completion.TrySetResult(result);
+            TrimCompletedTasks();
             Schedule();
         }
         RaiseTasksChanged();
@@ -196,7 +211,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         lock (_lock) { _stopping = true; pending = _queue.Select(e => e.Completion.Task).ToArray(); }
         foreach (var task in Tasks.Where(t => t.IsActive)) CancelTask(task.Id);
         try { await System.Threading.Tasks.Task.WhenAll(pending); } catch { /* Each operation retains its own outcome. */ }
-        foreach (var entry in _queue.ToArray()) entry.Context.Cleanup();
+        foreach (var entry in _queue.ToArray()) entry.Context.ReleaseExecutionState();
     }
 
     public BackgroundTaskInfo AddTask(string label, Func<Task>? onCompleted = null)
@@ -228,6 +243,8 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
             var task = _tasks.Find(t => t.Id == taskId);
             if (task == null || task.IsQueuedFileTask || task.IsTerminal) return;
             task.State = BackgroundTaskState.Completed; task.Progress = 100; callback = task.OnCompleted;
+            task.OnCompleted = null; task.RetryAction = null; task.CanRetry = false;
+            TrimCompletedTasks();
         }
         RaiseTasksChanged(); if (callback != null) _ = InvokeCallbackAsync(callback);
     }
@@ -245,6 +262,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
     public void CancelTask(string taskId)
     {
         CancellationTokenSource? cts;
+        FileTaskContext? release = null;
         lock (_lock)
         {
             var task = _tasks.Find(t => t.Id == taskId);
@@ -252,10 +270,17 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
             cts = task.Cts;
             var entry = _queue.Find(e => e.Info == task);
             task.State = entry?.Executing == true ? BackgroundTaskState.Cancelling : BackgroundTaskState.Cancelled;
-            if (entry != null && !entry.Executing) { entry.Claimed = entry.Slot = false; entry.Completion.TrySetCanceled(); }
+            if (entry != null && !entry.Executing)
+            {
+                entry.Claimed = entry.Slot = false; entry.Registration.Unregister();
+                entry.Completion.TrySetCanceled(); _queue.Remove(entry); release = entry.Context;
+                task.OnCompleted = null; task.RetryAction = null; task.CanRetry = false;
+            }
+            if (entry == null) { task.OnCompleted = null; task.RetryAction = null; task.CanRetry = false; }
         }
         cts.Cancel();
-        lock (_lock) Schedule();
+        release?.ReleaseExecutionState();
+        lock (_lock) { TrimCompletedTasks(); Schedule(); }
         RaiseTasksChanged();
     }
     public void RetryTask(string taskId)
@@ -266,6 +291,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
             var task = _tasks.Find(t => t.Id == taskId);
             if (task == null || task.State is not (BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention) || !task.CanRetry || _stopping) return;
             var entry = _queue.Find(e => e.Info == task);
+            if (entry?.Executing == true) return;
             task.ErrorMessage = task.ErrorDetail = null;
             if (entry != null)
             {
@@ -279,6 +305,15 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         RaiseTasksChanged(); if (legacy != null) _ = InvokeCallbackAsync(legacy);
     }
     public void MinimizeTask(string taskId) { }
+    private void TrimCompletedTasks()
+    {
+        foreach (var task in _tasks.Where(t => t.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+                     .Where(t => !_queue.Any(e => e.Info == t && e.Executing))
+                     .SkipLast(CompletedTaskLimit).ToArray())
+        {
+            _tasks.Remove(task);
+        }
+    }
     public void RemoveTask(string taskId)
     {
         FileTaskContext? context = null;
@@ -287,11 +322,12 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         {
             var task = _tasks.Find(t => t.Id == taskId);
             if (task == null || !task.IsTerminal) return;
+            if (_queue.Any(e => e.Info == task && e.Executing)) return;
             context = _queue.Find(e => e.Info == task)?.Context;
             _tasks.Remove(task); _queue.RemoveAll(e => e.Info == task); removed = task;
         }
         if (removed != null)
-            _ = System.Threading.Tasks.Task.Run(() => { context?.Cleanup(); removed.Cts.Dispose(); });
+            _ = System.Threading.Tasks.Task.Run(() => { context?.ReleaseExecutionState(); removed.Cts.Dispose(); });
         RaiseTasksChanged();
     }
     private async Task InvokeCallbackAsync(Func<Task> action)

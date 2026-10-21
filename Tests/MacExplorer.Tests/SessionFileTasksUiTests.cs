@@ -30,6 +30,7 @@ public sealed class SessionFileTasksUiTests
 
     [AvaloniaTheory(Explicit = true)]
     [InlineData(320)]
+    [InlineData(560)]
     [InlineData(640)]
     public void RowsWithoutProgressKeepNamesStatusAndActionsOnOneCenteredLine(int width)
     {
@@ -67,6 +68,8 @@ public sealed class SessionFileTasksUiTests
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false, 320)]
     [InlineData(true, 320)]
+    [InlineData(false, 560)]
+    [InlineData(true, 560)]
     [InlineData(false, 640)]
     [InlineData(true, 640)]
     public void TransferRowsKeepMetricsProgressAndActionsAlignedInBothLayouts(bool dark, int width)

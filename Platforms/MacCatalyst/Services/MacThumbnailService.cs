@@ -6,7 +6,7 @@ using MacExplorer.Services;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
-public class MacThumbnailService : IThumbnailService
+public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
 {
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -48,7 +48,7 @@ public class MacThumbnailService : IThumbnailService
     };
 
     private const int MaxMemoryEntries = 300;
-    private const long MaxMemoryBytes = 64L * 1024 * 1024;
+    private const long MaxMemoryBytes = 32L * 1024 * 1024;
     private const long DefaultMaxDiskBytes = 256L * 1024 * 1024;
     private const double DefaultDiskTargetRatio = 0.8;
     private static readonly TimeSpan GenerationTimeout = TimeSpan.FromSeconds(5);
@@ -70,6 +70,8 @@ public class MacThumbnailService : IThumbnailService
     private readonly long _maxDiskBytes;
     private readonly long _targetDiskBytes;
     private long _memoryBytes;
+    private readonly object _memorySync = new();
+    private long _lastMemoryAccess = DateTime.UtcNow.Ticks;
 
     public MacThumbnailService() : this(
         Path.Combine(
@@ -100,6 +102,7 @@ public class MacThumbnailService : IThumbnailService
         _maxDiskBytes = maxDiskBytes;
         _targetDiskBytes = Math.Max(1, (long)(maxDiskBytes * targetRatio));
         Directory.CreateDirectory(_diskCacheDirectory);
+        MemoryCacheMaintenance.Register(this);
     }
 
     public bool IsImageFile(string extension) =>
@@ -146,6 +149,7 @@ public class MacThumbnailService : IThumbnailService
         bool manageGenerationGate = true)
     {
         ct.ThrowIfCancellationRequested();
+        Interlocked.Exchange(ref _lastMemoryAccess, DateTime.UtcNow.Ticks);
         if (rememberFailure && IsFailedThumbnail(cacheKey)) return null;
         var cachePath = GetCachePath(cacheKey);
         if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes) && File.Exists(cachePath))
@@ -815,19 +819,36 @@ public class MacThumbnailService : IThumbnailService
 
     private void AddToMemory(string key, byte[] bytes)
     {
-        if (!_memoryCache.TryAdd(key, bytes)) return;
-        _cacheOrder.Enqueue(key);
-        Interlocked.Add(ref _memoryBytes, bytes.LongLength);
-
-        while (_memoryCache.Count > MaxMemoryEntries || Interlocked.Read(ref _memoryBytes) > MaxMemoryBytes)
+        lock (_memorySync)
         {
-            if (!_cacheOrder.TryDequeue(out var oldest)) break;
-            RemoveFromMemory(oldest);
+            Interlocked.Exchange(ref _lastMemoryAccess, DateTime.UtcNow.Ticks);
+            if (!_memoryCache.TryAdd(key, bytes)) return;
+            _cacheOrder.Enqueue(key);
+            Interlocked.Add(ref _memoryBytes, bytes.LongLength);
+
+            while (_memoryCache.Count > MaxMemoryEntries || Interlocked.Read(ref _memoryBytes) > MaxMemoryBytes)
+            {
+                if (!_cacheOrder.TryDequeue(out var oldest)) break;
+                RemoveFromMemory(oldest);
+            }
+        }
+    }
+
+    public void TrimMemory(DateTime unusedBefore)
+    {
+        lock (_memorySync)
+        {
+            if (Interlocked.Read(ref _lastMemoryAccess) >= unusedBefore.Ticks) return;
+            _memoryCache.Clear();
+            _cacheOrder.Clear();
+            Interlocked.Exchange(ref _memoryBytes, 0);
+            _failedThumbnails.Clear();
         }
     }
 
     private void RemoveFromMemory(string key)
     {
+        lock (_memorySync)
         if (_memoryCache.TryRemove(key, out var removed))
             Interlocked.Add(ref _memoryBytes, -removed.LongLength);
     }

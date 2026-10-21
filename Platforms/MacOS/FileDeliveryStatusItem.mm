@@ -44,6 +44,15 @@ static void ConfigureDeliveryDragActivation(NSView* view)
         class_addMethod(deliveryViewClass, @selector(shouldDelayWindowOrderingForEvent:),
             imp_implementationWithBlock(^BOOL(id self, NSEvent* event) { return YES; }),
             method_getTypeEncoding(method));
+        Method dragged = class_getInstanceMethod(object_getClass(view), @selector(mouseDragged:));
+        IMP forwardDragged = method_getImplementation(dragged);
+        class_addMethod(deliveryViewClass, @selector(mouseDragged:),
+            imp_implementationWithBlock(^(NSView* self, NSEvent* event) {
+                // Cold preview/render initialization may pump a mouse-up before the
+                // managed handler reaches beginDraggingSession. Suppress ordering first.
+                [NSApp preventWindowOrdering];
+                ((void (*)(id, SEL, NSEvent*))forwardDragged)(self, @selector(mouseDragged:), event);
+            }), method_getTypeEncoding(dragged));
         objc_registerClassPair(deliveryViewClass);
     });
     object_setClass(view, deliveryViewClass);
@@ -131,13 +140,21 @@ extern "C" __attribute__((visibility("default")))
 void MacExplorerDeliveryDestroy() { delivery.callback = NULL; delivery = nil; }
 
 extern "C" __attribute__((visibility("default")))
+void MacExplorerDeliveryPrepare(void* viewHandle)
+{
+    NSView* view = (__bridge NSView*)viewHandle;
+    if (!view.window) return;
+    delivery.panel = view.window;
+    ConfigureDeliveryDragActivation(view);
+}
+
+extern "C" __attribute__((visibility("default")))
 void MacExplorerDeliveryPlace(void* viewHandle)
 {
     NSView* view = (__bridge NSView*)viewHandle;
     NSWindow* window = view.window;
     if (!window || !delivery.item.button.window) return;
-    delivery.panel = window;
-    ConfigureDeliveryDragActivation(view);
+    MacExplorerDeliveryPrepare(viewHandle);
     window.level = NSFloatingWindowLevel;
     window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces
         | NSWindowCollectionBehaviorFullScreenAuxiliary | NSWindowCollectionBehaviorIgnoresCycle;

@@ -62,6 +62,10 @@ static const CGFloat MEWindowShadowMargin = 40;
 @interface MEWindowShadowWindow : NSWindow
 @end
 @implementation MEWindowShadowWindow
+- (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen *)screen {
+    // Decorative margins may cross the menu bar; clamping moves the shadow off its owner.
+    return frameRect;
+}
 - (BOOL)canBecomeKeyWindow { return NO; }
 - (BOOL)canBecomeMainWindow { return NO; }
 @end

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -120,6 +121,36 @@ public sealed class AppWindowTests
         Assert.Equal(relativePosition, host.TranslatePoint(default, window));
         popup.IsOpen = false;
         window.Close();
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HidingTitleBarFillsWindowAndRestoresNormalLayout(bool extended)
+    {
+        var window = new AppWindow { Width = 480, Height = 320, ExtendContentToTop = extended };
+        window.Show();
+        try
+        {
+            var titleBar = window.GetVisualDescendants().OfType<WindowTitleBar>().Single();
+            var content = window.GetVisualDescendants().OfType<ContentPresenter>()
+                .Single(control => control.Name == "WindowContent");
+            Assert.True(titleBar.IsVisible);
+
+            window.ShowTitleBar = false;
+            window.UpdateLayout();
+            Assert.False(titleBar.IsVisible);
+            Assert.Equal(default, content.Margin);
+            Assert.Equal(window.ClientSize, content.Bounds.Size);
+            Assert.Equal(0, content.Bounds.Y);
+
+            window.ShowTitleBar = true;
+            window.UpdateLayout();
+            Assert.True(titleBar.IsVisible);
+            Assert.Equal(44, titleBar.Bounds.Height);
+            Assert.Equal(window.ClientSize.Height - 44, content.Bounds.Height);
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact(Explicit = true)]

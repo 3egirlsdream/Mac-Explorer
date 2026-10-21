@@ -4,7 +4,7 @@
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.TaskPanel"
         ExtendContentToTop="True" Title="{loc:Loc tasks.transfers}"
-        Width="640" Height="360" MinWidth="320" MinHeight="220"
+        Width="560" Height="360" MinWidth="320" MinHeight="220"
         WindowStartupLocation="CenterOwner">
     <Grid RowDefinitions="Auto,*">
         <Grid.ContextMenu>

@@ -4,7 +4,7 @@
                    xmlns:views="using:MacExplorer.Views"
                    xmlns:icons="using:MacExplorer.Assets"
                    x:Class="MacExplorer.Views.FileDeliveryWindow"
-                   ExtendContentToTop="True" Classes="file-delivery" Title="{loc:Loc ui.552}"
+                   ExtendContentToTop="True" ShowTitleBar="False" Classes="file-delivery" Title="{loc:Loc ui.552}"
                    Width="560" Height="395.979797" CanResize="False" CanMaximize="False"
                    ShowInTaskbar="False" ShowActivated="False" WindowDecorations="None">
 

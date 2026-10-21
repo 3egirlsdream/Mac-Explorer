@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="using:MacExplorer.Assets"
+        xmlns:imaging="using:Avalonia.Media.Imaging"
         xmlns:avconv="using:Avalonia.Data.Converters"
         xmlns:loc="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.SettingsDialog"
@@ -811,22 +812,14 @@
             <controls:LazyTabItem.PageTemplate>
                 <ControlTemplate>
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel x:Name="PanelAbout" Classes="settings-page">
-                            <StackPanel Classes="settings-header">
-                                <TextBlock Classes="settings-title" Text="{loc:Loc ui.151}"/>
-                                <TextBlock Classes="settings-description" Text="{loc:Loc ui.235}"/>
-                            </StackPanel>
+                        <StackPanel x:Name="PanelAbout" Classes="settings-page" Spacing="12">
                             <Border Classes="settings-about-card">
-                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                    <Border Width="76" Height="76" CornerRadius="10" ClipToBounds="True">
-                                        <Image Source="/Assets/appicon.ico" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-                                        <TextBlock Text="{loc:Loc app.name}" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                        <Border Background="{DynamicResource ColorBgHover}" CornerRadius="20" Padding="12,4" HorizontalAlignment="Left">
-                                            <TextBlock x:Name="AboutVersion" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        </Border>
-                                        <TextBlock Text="{loc:Loc ui.138}" Classes="settings-description"/>
+                                <Grid ColumnDefinitions="64,*" ColumnSpacing="16">
+                                    <Image Source="/Assets/appicon.ico" Width="64" Height="64" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="{loc:Loc app.name}" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="AboutVersion" Classes="settings-description"/>
+                                        <TextBlock Text="{loc:Loc ui.138}" Classes="settings-description" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -835,11 +828,29 @@
                                 <StackPanel>
                                     <Border Classes="settings-row settings-divider">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                            <StackPanel>
+                                            <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.250}"/>
-                                                <TextBlock x:Name="UpdateStatus" Classes="settings-description"/>
+                                                <TextBlock x:Name="UpdateStatus" Classes="settings-description" TextWrapping="Wrap"
+                                                           IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
                                             </StackPanel>
-                                            <Button Grid.Column="1" x:Name="UpdateButton" VerticalAlignment="Center" Classes="primary about-update-btn" Content="{loc:Loc ui.220}" Click="OnUpdateButtonClick"/>
+                                            <Button Grid.Column="1" x:Name="UpdateButton" VerticalAlignment="Center" Classes="secondary compact" Content="{loc:Loc ui.220}" Click="OnUpdateButtonClick"/>
+                                        </Grid>
+                                    </Border>
+                                    <Border Classes="settings-row settings-divider">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.267}"/>
+                                                <TextBlock x:Name="PrivacyPolicyStatus" Classes="settings-description" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Classes="secondary compact" VerticalAlignment="Center" Content="{loc:Loc ui.217}" Click="OnPrivacyPolicy"/>
+                                        </Grid>
+                                    </Border>
+                                    <Border Classes="settings-row">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc settings.feedback}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                            <Button Grid.Column="1" x:Name="FeedbackButton" Classes="secondary compact"
+                                                    Content="{loc:Loc settings.feedback.github}" ToolTip.Tip="{loc:Loc settings.feedback.github.tip}"
+                                                    AutomationProperties.Name="{loc:Loc settings.feedback.github.tip}" Click="OnFeedback"/>
                                         </Grid>
                                     </Border>
                                 </StackPanel>
@@ -856,16 +867,20 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Classes="settings-group">
-                                <Border Classes="settings-row">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                        <StackPanel>
-                                            <TextBlock Classes="settings-label" Text="{loc:Loc ui.267}"/>
-                                            <TextBlock x:Name="PrivacyPolicyStatus" Classes="settings-description" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.217}" Click="OnPrivacyPolicy"/>
-                                    </Grid>
-                                </Border>
+                            <Border Classes="settings-group" Padding="16">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+                                    <StackPanel Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Classes="settings-label" Text="{loc:Loc settings.feedback.group}" TextWrapping="Wrap"/>
+                                        <TextBlock Classes="settings-description" Text="{loc:Loc settings.feedback.group.qrcode}" TextWrapping="Wrap"/>
+                                        <TextBlock Classes="settings-description" Text="{loc:Loc settings.feedback.group.number}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Image Grid.Column="1" x:Name="FeedbackGroupQrCode" Width="180" Height="180" Stretch="Uniform"
+                                           AutomationProperties.Name="{loc:Loc settings.feedback.group.qrcode}">
+                                        <Image.Source>
+                                            <imaging:CroppedBitmap Source="/Assets/FeedbackGroup.jpg" SourceRect="184,728,916,916"/>
+                                        </Image.Source>
+                                    </Image>
+                                </Grid>
                             </Border>
                             <Border x:Name="SubscriptionSettings" IsVisible="False" Classes="settings-group">
                                 <Border Classes="settings-row">

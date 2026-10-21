@@ -73,8 +73,8 @@
             <Setter Property="Padding" Value="0"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem">
-            <Setter Property="MinWidth" Value="150"/>
-            <Setter Property="MaxWidth" Value="260"/>
+            <Setter Property="MinWidth" Value="180"/>
+            <Setter Property="MaxWidth" Value="280"/>
             <Setter Property="Height" Value="40"/>
             <Setter Property="Padding" Value="0"/>
             <!-- Chromium overlaps adjacent tab slots so the active tab's
@@ -554,7 +554,7 @@
     <Border x:Name="TaskOverlayPanel"
             IsVisible="False"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
-            Width="640" MaxHeight="420"
+            Width="560" MaxHeight="420"
             Margin="0,0,10,42">
         <Border.RenderTransform>
             <TranslateTransform X="664" Y="0"/>

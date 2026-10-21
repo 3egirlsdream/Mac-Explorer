@@ -5,12 +5,13 @@ using MacExplorer.Services;
 namespace MacExplorer.Controls;
 
 /// <summary>One dashboard's decoded thumbnails, shared with its folder sheet. UI-thread owned.</summary>
-public sealed class HomeThumbnailCache : IDisposable
+public sealed class HomeThumbnailCache : IDisposable, IIdleMemoryCache
 {
     private static readonly SemaphoreSlim LoadGate = new(3);
     private readonly Dictionary<Key, Entry> _entries = [];
     private bool _disposed;
     private long _clock;
+    public HomeThumbnailCache() => MemoryCacheMaintenance.Register(this);
     private readonly record struct Key(string Path, long Size, DateTime Modified, string? Source, int Pixels)
     {
         public static Key For(FileSystemEntry entry, int pixels)
@@ -23,6 +24,7 @@ public sealed class HomeThumbnailCache : IDisposable
         public readonly CancellationTokenSource Cancellation = new();
         public int Users;
         public long Used;
+        public DateTime LastUsed = DateTime.UtcNow;
     }
     public sealed class Lease : IDisposable
     {
@@ -36,6 +38,7 @@ public sealed class HomeThumbnailCache : IDisposable
     {
         if (_disposed || !_entries.TryGetValue(Key.For(file, pixels), out var entry) || entry.Loading?.IsCompleted != true) return null;
         entry.Users++; entry.Used = ++_clock;
+        entry.LastUsed = DateTime.UtcNow;
         return new Lease(entry.Bitmap, () => Release(entry));
     }
 
@@ -50,6 +53,7 @@ public sealed class HomeThumbnailCache : IDisposable
             _entries.Add(key, entry);
         }
         entry.Users++; entry.Used = ++_clock;
+        entry.LastUsed = DateTime.UtcNow;
         entry.Loading ??= LoadAsync(entry, file, pixels, provider);
         try
         {
@@ -93,7 +97,7 @@ public sealed class HomeThumbnailCache : IDisposable
     {
         entry.Users--;
         if (entry.Users == 0 && (entry.Loading?.IsCompleted != true || _disposed)) Remove(entry);
-        while (_entries.Count > 128)
+        while (_entries.Count > 64 || _entries.Values.Sum(e => e.Bitmap is { } bitmap ? (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4 : 0) > 8L * 1024 * 1024)
         {
             var oldest = _entries.Values.Where(e => e.Users == 0).MinBy(e => e.Used);
             if (oldest == null) break;
@@ -116,5 +120,10 @@ public sealed class HomeThumbnailCache : IDisposable
         if (_disposed) return;
         _disposed = true;
         foreach (var entry in _entries.Values.Where(e => e.Users == 0).ToArray()) Remove(entry);
+    }
+
+    public void TrimMemory(DateTime unusedBefore)
+    {
+        foreach (var entry in _entries.Values.Where(e => e.Users == 0 && e.LastUsed < unusedBefore).ToArray()) Remove(entry);
     }
 }

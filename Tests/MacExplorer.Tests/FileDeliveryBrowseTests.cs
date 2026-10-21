@@ -1,7 +1,11 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
+using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.Views;
@@ -33,6 +37,13 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
             await window.ResumeAsync();
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             Assert.Single(window.FindControl<StackPanel>("EntryTabs")!.Children);
+            Assert.False(window.GetVisualDescendants().OfType<WindowTitleBar>().Single().IsVisible);
+            var content = window.GetVisualDescendants().OfType<ContentPresenter>()
+                .Single(control => control.Name == "WindowContent");
+            Assert.Equal(default, content.Margin);
+            Assert.Equal(window.ClientSize.Width, content.Bounds.Width, 0);
+            Assert.Equal(window.ClientSize.Height, content.Bounds.Height, 0);
+            Assert.Equal(0, content.Bounds.Y);
             Assert.Single(panelVm.Entries);
             Assert.Empty(mainVm.Entries);
             Assert.DoesNotContain("无法访问", window.FindControl<TextBlock>("StatusText")!.Text ?? "");

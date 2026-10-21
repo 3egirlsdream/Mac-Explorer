@@ -8,7 +8,7 @@ public sealed class FileTaskContext
     private static readonly AsyncLocal<FileTaskContext?> Ambient = new();
     public static FileTaskContext? Current => Ambient.Value;
     private readonly Dictionary<string, object?> _checkpoints = new(StringComparer.Ordinal);
-    private readonly Func<Task>? _pause;
+    private Func<Task>? _pause;
     private int _atomicDepth;
     private readonly Dictionary<string, Action> _cleanup = new();
     internal void RegisterCleanup(string key, Action cleanup) => _cleanup.TryAdd(key, cleanup);
@@ -18,6 +18,16 @@ public sealed class FileTaskContext
             try { action(); } catch (Exception ex) { Warnings.Add(ex.Message); }
         _cleanup.Clear();
     }
+    internal void ReleaseExecutionState()
+    {
+        Cleanup();
+        DisposeResources();
+        _checkpoints.Clear();
+        Results.Clear();
+        Warnings.Clear();
+        _pause = null;
+        _changed = null;
+    }
     internal IDisposable Atomic()
     {
         _atomicDepth++;
@@ -25,7 +35,7 @@ public sealed class FileTaskContext
     }
     private sealed class AtomicScope(FileTaskContext context) : IDisposable
     { public void Dispose() => context._atomicDepth--; }
-    private readonly Action? _changed;
+    private Action? _changed;
     public BackgroundTaskInfo Task { get; }
     public CancellationToken CancellationToken => Task.Cts.Token;
     public List<FileTaskItemResult> Results { get; } = [];
@@ -43,14 +53,25 @@ public sealed class FileTaskContext
     {
         var previous = Ambient.Value;
         Ambient.Value = this;
-        try { return await action(this); }
+        var succeeded = false;
+        try
+        {
+            var result = await action(this);
+            succeeded = Task.ErrorMessage == null;
+            return result;
+        }
         finally
         {
-            if (CancellationToken.IsCancellationRequested) Cleanup();
-            foreach (var resource in _resources.Values)
-                try { resource.Dispose(); } catch (Exception ex) { Warnings.Add(ex.Message); }
-            _resources.Clear(); Publish(); Ambient.Value = previous;
+            if (succeeded || CancellationToken.IsCancellationRequested) Cleanup();
+            DisposeResources(); Publish(); Ambient.Value = previous;
         }
+    }
+
+    private void DisposeResources()
+    {
+        foreach (var resource in _resources.Values)
+            try { resource.Dispose(); } catch (Exception ex) { Warnings.Add(ex.Message); }
+        _resources.Clear();
     }
 
     internal static async Task<T> RunUnmanagedAsync<T>(Func<FileTaskContext, Task<T>> action, CancellationToken token)

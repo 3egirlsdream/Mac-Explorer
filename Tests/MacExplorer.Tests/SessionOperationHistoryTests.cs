@@ -9,6 +9,38 @@ namespace MacExplorer.Tests;
 [Trait("Area", "FileTasks")]
 public sealed class SessionOperationHistoryTests : IDisposable
 {
+    [Fact]
+    public async Task HistoryRetainsOnlyTheMostRecentOperationGroups()
+    {
+        var history = new FileOperationHistoryService(_files);
+        for (var i = 0; i < FileOperationHistoryService.HistoryLimit + 10; i++)
+            await history.RecordIrreversibleAsync("/tmp/history-" + i, "deleted");
+        Assert.Equal(FileOperationHistoryService.HistoryLimit, history.Records.Count);
+        Assert.Equal("/tmp/history-10", history.Records[0].OriginalPath);
+    }
+
+    [Fact]
+    public async Task HistoryLimitDoesNotSplitAnOperationThatIsStillRunning()
+    {
+        var manager = new BackgroundTaskManager();
+        var history = new FileOperationHistoryService(_files, tasks: manager);
+        var entered = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var operation = manager.RunAsync(new(MacExplorer.Models.BackgroundTaskKind.Copy, "active", []), async _ =>
+        {
+            await history.RecordIrreversibleAsync("/tmp/active-history", "test");
+            entered.SetResult(); await release.Task; return true;
+        });
+        await entered.Task;
+        try
+        {
+            for (var i = 0; i < FileOperationHistoryService.HistoryLimit; i++)
+                await history.RecordIrreversibleAsync("/tmp/later-history-" + i, "test");
+            Assert.Contains(history.Records, record => record.OriginalPath == "/tmp/active-history");
+            Assert.Equal(FileOperationHistoryService.HistoryLimit, history.Records.Count);
+        }
+        finally { release.SetResult(); await operation; }
+    }
     private readonly string _root = Path.Combine(Path.GetTempPath(), "fk-session-history-" + Guid.NewGuid().ToString("N"));
     private readonly MacFileService _files = new();
     private string PathAt(string name) { Directory.CreateDirectory(_root); return Path.Combine(_root, name); }

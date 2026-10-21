@@ -106,6 +106,20 @@ int main() {
         dialog.level = NSFloatingWindowLevel;
         me_window_shadow_update((__bridge void *)dialog.contentView, 14, true);
         assert(dialogShadow.window.level == NSFloatingWindowLevel);
+        // A menu-bar panel leaves less room above it than the shadow margin.
+        // The decoration must extend off-screen instead of being pushed down by AppKit.
+        NSRect panelFrame = dialog.frame;
+        panelFrame.origin.y = NSMaxY(dialog.screen.visibleFrame) - panelFrame.size.height - 6;
+        [dialog setFrame:panelFrame display:YES];
+        me_window_shadow_update((__bridge void *)dialog.contentView, 14, true);
+        Pump();
+        assert(NSEqualRects(dialogShadow.window.frame, NSInsetRect(dialog.frame, -40, -40)));
+        [dialog orderOut:nil];
+        Pump();
+        [dialog orderFront:nil];
+        me_window_shadow_update((__bridge void *)dialog.contentView, 14, true);
+        Pump();
+        assert(NSEqualRects(dialogShadow.window.frame, NSInsetRect(dialog.frame, -40, -40)));
         [owner removeChildWindow:dialog];
         [dialog close];
         assert(!dialogShadow.window.isVisible && !objc_getAssociatedObject(dialog, &MEWindowShadowKey));

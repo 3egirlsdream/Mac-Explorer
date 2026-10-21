@@ -22,6 +22,12 @@ internal sealed class MacFileDeliveryStatusItem : IDisposable
         MacExplorerDeliveryCreate(_callback);
     }
 
+    public void Prepare(Window window)
+    {
+        if (window.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle handle)
+            MacExplorerDeliveryPrepare(handle.NSView);
+    }
+
     public void Place(Window window)
     {
         if (window.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle handle)
@@ -36,6 +42,7 @@ internal sealed class MacFileDeliveryStatusItem : IDisposable
 
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryCreate(StatusCallback callback);
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryDestroy();
+    [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryPrepare(IntPtr view);
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryPlace(IntPtr view);
     [DllImport("MacExplorerNativeDrag")] private static extern int MacExplorerDeliveryContainsPoint(double x, double y);
 }

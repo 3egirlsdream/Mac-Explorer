@@ -27,8 +27,8 @@ namespace MacExplorer.Views;
 
 public partial class FileListView : UserControl
 {
-    private static readonly ByteLruCache MenuIconCache = new(8L * 1024 * 1024);
-    private static readonly BitmapLruCache EntryImageCache = new(96L * 1024 * 1024);
+    private static readonly ByteLruCache MenuIconCache = new(4L * 1024 * 1024);
+    private static readonly WeakBitmapCache EntryImageCache = new(32L * 1024 * 1024);
 
     // Icon bindings re-evaluate on any entry property change, so converters must never
     // touch the disk; they only serve cache hits populated by the async loader below.
@@ -38,78 +38,27 @@ public partial class FileListView : UserControl
     private FileListColumnWidths? _lastAppliedColumnWidths;
     private bool _anyCutApplied;
 
-    private sealed class BitmapLruCache
-    {
-        private readonly long _maxBytes;
-        private readonly object _sync = new();
-        private readonly Dictionary<string, LinkedListNode<(string Key, Bitmap Bitmap, long Bytes)>> _entries = new(StringComparer.Ordinal);
-        private readonly LinkedList<(string Key, Bitmap Bitmap, long Bytes)> _lru = new();
-        private long _bytes;
-
-        public BitmapLruCache(long maxBytes) => _maxBytes = maxBytes;
-
-        public bool TryGet(string key, out Bitmap? bitmap)
-        {
-            lock (_sync)
-            {
-                if (!_entries.TryGetValue(key, out var node))
-                {
-                    bitmap = null;
-                    return false;
-                }
-                _lru.Remove(node);
-                _lru.AddFirst(node);
-                bitmap = node.Value.Bitmap;
-                return true;
-            }
-        }
-
-        public void Add(string key, Bitmap bitmap)
-        {
-            lock (_sync)
-            {
-                if (_entries.TryGetValue(key, out var existing))
-                {
-                    _lru.Remove(existing);
-                    _entries.Remove(key);
-                    _bytes -= existing.Value.Bytes;
-                    if (!ReferenceEquals(existing.Value.Bitmap, bitmap)) existing.Value.Bitmap.Dispose();
-                }
-
-                var bytes = Math.Max(1L, (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4);
-                var node = _lru.AddFirst((key, bitmap, bytes));
-                _entries[key] = node;
-                _bytes += bytes;
-
-                while (_bytes > _maxBytes && _lru.Last is { } last)
-                {
-                    _lru.RemoveLast();
-                    _entries.Remove(last.Value.Key);
-                    _bytes -= last.Value.Bytes;
-                    last.Value.Bitmap.Dispose();
-                }
-            }
-        }
-    }
-
-    internal sealed class ByteLruCache
+    internal sealed class ByteLruCache : IIdleMemoryCache
     {
         private readonly long _maxBytes;
         private readonly object _sync = new();
         private readonly Dictionary<string, LinkedListNode<(string Key, byte[] Bytes)>> _entries = new(StringComparer.Ordinal);
         private readonly LinkedList<(string Key, byte[] Bytes)> _lru = new();
         private long _bytes;
+        private DateTime _lastUsed = DateTime.UtcNow;
 
         public ByteLruCache(long maxBytes)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
             _maxBytes = maxBytes;
+            MemoryCacheMaintenance.Register(this);
         }
 
         public byte[] GetOrAdd(string key, Func<byte[]> valueFactory)
         {
             lock (_sync)
             {
+                _lastUsed = DateTime.UtcNow;
                 if (_entries.TryGetValue(key, out var cached))
                 {
                     _lru.Remove(cached);
@@ -121,6 +70,7 @@ public partial class FileListView : UserControl
             var created = valueFactory();
             lock (_sync)
             {
+                _lastUsed = DateTime.UtcNow;
                 if (_entries.TryGetValue(key, out var cached))
                 {
                     _lru.Remove(cached);
@@ -144,6 +94,15 @@ public partial class FileListView : UserControl
         internal int Count
         {
             get { lock (_sync) return _entries.Count; }
+        }
+
+        public void TrimMemory(DateTime unusedBefore)
+        {
+            lock (_sync)
+            {
+                if (_lastUsed >= unusedBefore) return;
+                _entries.Clear(); _lru.Clear(); _bytes = 0;
+            }
         }
 
         internal long ByteCount
