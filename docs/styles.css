@@ -18,9 +18,7 @@
   --shadow: 0 32px 64px -24px #26395735, 0 4px 14px #2639570c;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --wrap: 1160px;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC",
-    "Helvetica Neue", sans-serif;
+  font-family: "Montserrat", system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

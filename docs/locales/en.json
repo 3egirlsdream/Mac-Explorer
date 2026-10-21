@@ -1,0 +1,159 @@
+{
+  "name": "English",
+  "title": "Mac Explorer — Open-source Mac File Manager for macOS",
+  "description": "Mac Explorer is an open-source Mac file manager with tabs, split panes, collections, batch rename, PDF and image text search, previews, SFTP and LocalSend. Download for Apple Silicon and Intel on macOS 14 or later.",
+  "skip": "Skip to content",
+  "features": "Features",
+  "download": "Download",
+  "docs": "Developer docs",
+  "menu": "Navigation menu",
+  "language": "Language",
+  "eyebrow": "MADE FOR macOS · FREE & OPEN SOURCE",
+  "platform": "macOS 14+ · Apple Silicon & Intel",
+  "silicon": "Download for Apple Silicon",
+  "intel": "Download for Intel",
+  "faqTitle": "A few things before you start",
+  "faqs": [
+    [
+      "What is Mac Explorer?",
+      "Mac Explorer is an open-source Mac file manager for macOS. It brings tabs, split panes, tags, collections, file previews and search into one window."
+    ],
+    [
+      "Which Macs are supported?",
+      "Requires macOS 14 or later, on Apple Silicon or Intel."
+    ],
+    [
+      "How do the website and App Store editions differ?",
+      "The website edition is free and open source, with plugins, scripts and terminal actions. The App Store edition uses a subscription and system folder authorization. See its store listing for features and pricing."
+    ],
+    [
+      "Are my files and search data uploaded?",
+      "File indexes, tags and image recognition results stay on your Mac. Optional location lookup, user-configured AI services and file transfers connect to the corresponding services or selected devices. See the privacy policy for details."
+    ]
+  ],
+  "endTitle": "Help improve Mac Explorer",
+  "endText": "Found a bug or have a feature in mind? Open an issue on GitHub. To build your own plugin, start with the SDK.",
+  "privacy": "Privacy policy",
+  "feedback": "Feedback",
+  "source": "Source code",
+  "license": "Free & open source · GPL-3.0-or-later",
+  "footerLine": "A file manager made for macOS.",
+  "tagline": "File management. Made effortless.",
+  "intro": "A file manager made for macOS. Browse, find, organize and share, all in one window.",
+  "get": "Download for macOS",
+  "downloadOptions": "Choose your Mac chip",
+  "browserAlt": "Mac Explorer 1.0.60 file list and context menu with editing, moving, sharing and file conversion actions",
+  "capabilities": [
+    {
+      "label": "01 / BROWSE & ORGANIZE",
+      "title": "Multiple folders. One workspace.",
+      "intro": "Bring files, folders and projects into a view that works for you.",
+      "items": [
+        [
+          "panel-left",
+          "Tabs and split panes",
+          "Open folders side by side in horizontal, vertical, three-pane or four-pane layouts. Each tab keeps its own location and view."
+        ],
+        [
+          "grid",
+          "Three ways to browse",
+          "Switch between list, icon and tree views. Narrow your files with grouping, sorting and column filters."
+        ],
+        [
+          "tag",
+          "Tags, collections and ratings",
+          "Organize with nested tags and star ratings. Resize and expand home collections without moving the original files."
+        ],
+        [
+          "info",
+          "Details at a glance",
+          "Inspect sizes, dates, image dimensions, camera information and photo metadata. Calculate and copy local SHA-256 hashes."
+        ]
+      ]
+    },
+    {
+      "label": "02 / SEARCH & PREVIEW",
+      "title": "A small clue. The right file.",
+      "intro": "Find what matters and see what’s inside without switching windows.",
+      "items": [
+        [
+          "search",
+          "Global and content search",
+          "Press ⌘ K to find filenames, indexed PDF content and image OCR text. Preview a result or jump straight to its folder."
+        ],
+        [
+          "scan",
+          "On-device image analysis",
+          "Browse photos by people, recognized text, scenes, dates and locations. Name groups of people, with image recognition on your device."
+        ],
+        [
+          "eye",
+          "Quick previews and Markdown",
+          "Press Space to preview images, PDFs, documents, media and archives. Edit Markdown and see the formatted result."
+        ],
+        [
+          "text-edit",
+          "Batch rename workspace",
+          "Combine replacements, numbering, dates, templates and regular expressions. Preview names, check conflicts, save presets and undo a completed batch."
+        ]
+      ]
+    },
+    {
+      "label": "03 / PROCESS & TRANSFER",
+      "title": "Keep your file work together.",
+      "intro": "From local operations to remote folders, stay in your flow.",
+      "items": [
+        [
+          "archive",
+          "Archives and format conversion",
+          "Browse and extract ZIP, TAR, 7Z and other supported archives. Create archives, convert supported documents to Word or PDF, and convert or resize images."
+        ],
+        [
+          "list",
+          "A queue for file tasks",
+          "Copy, move, transfer and extract in the background. Track progress, and pause, resume, cancel or retry supported tasks."
+        ],
+        [
+          "server",
+          "SFTP, SMB and network discovery",
+          "Manage SFTP files and upload edits automatically. Mount SMB shares through macOS, and discover servers from the network page."
+        ],
+        [
+          "share",
+          "LocalSend and AirDrop",
+          "Send files and folders from the context menu. Check the device and file list before receiving, or share selected items with AirDrop."
+        ]
+      ]
+    },
+    {
+      "label": "04 / YOUR WORKFLOW",
+      "title": "Make it work your way.",
+      "intro": "Keep everyday actions close, and make repetitive work easier.",
+      "items": [
+        [
+          "folder",
+          "Menu bar file delivery",
+          "Reach Downloads, Desktop, custom folders and collections from the menu bar. Browse, preview and drag copies into other apps."
+        ],
+        [
+          "sparkle",
+          "Copilot file assistant",
+          "Use natural language to find files, organize selections, prepare renames or convert files. Review the plan before changes or content sharing."
+        ],
+        [
+          "code",
+          "Plugins and shell commands",
+          "The website edition supports a plugin market, local plugin packages and home scripts, with custom icons, shells and working directories."
+        ],
+        [
+          "settings",
+          "Appearance and shortcuts",
+          "Choose light or dark, glass surfaces and layout density. Customize shortcuts, hold ⌘ for hints, and switch between four interface languages."
+        ]
+      ]
+    }
+  ],
+  "communitySource": "View on GitHub",
+  "pluginSdk": "Plugin SDK",
+  "publishPlugin": "Publish a plugin"
+}

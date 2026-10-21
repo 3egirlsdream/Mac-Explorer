@@ -24,7 +24,7 @@ try {
     copy.append(document.querySelector("h1").cloneNode(true));
     const summary = document.createElement("p");
     summary.textContent =
-      "浏览、整理、查找、处理。\n为 macOS 打造的开源文件工作台。";
+      "文件管理，得心应手。\n为 macOS 打造的开源文件资源管理器。";
     copy.append(summary);
     const tags = document.createElement("div");
     tags.className = "social-tags";
@@ -36,10 +36,14 @@ try {
     copy.append(tags);
     const stage = document.createElement("div");
     stage.className = "social-stage";
-    stage.append(document.querySelector(".app-window").cloneNode(true));
+    stage.append(
+      document
+        .querySelector('[data-panel="browser"] .replica-stage')
+        .cloneNode(true),
+    );
     const caption = document.createElement("p");
     caption.className = "social-caption";
-    caption.textContent = "MAC EXPLORER  /  界面示意";
+    caption.textContent = "MAC EXPLORER  /  Mac 文件资源管理器";
     card.append(copy, stage, caption);
     document.body.replaceChildren(card);
   });
@@ -56,7 +60,8 @@ try {
     .social-tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:25px; }
     .social-tags span { font-size:11px; padding:5px 9px; background:#fff; border:1px solid #e6e9ee; border-radius:5px; }
     .social-stage { position:absolute; left:496px; top:140px; width:645px; }
-    .social-stage .app-window { width:1040px; max-width:none; transform:scale(.62); transform-origin:top left; box-shadow:0 30px 70px -20px #26395745; }
+    .social-stage .replica-stage { width:1040px; max-width:none; transform:scale(.62); transform-origin:top left; border-radius:12px; border:1px solid #dce3ee; box-shadow:0 30px 70px -20px #26395745; }
+    .social-stage .replica { --replica-scale:0.8125; }
     .social-caption { position:absolute; right:60px; bottom:47px; color:#606a79; font-size:10px; letter-spacing:2px; }
   `,
   });

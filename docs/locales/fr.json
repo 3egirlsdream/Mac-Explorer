@@ -1,0 +1,159 @@
+{
+  "name": "Français",
+  "title": "Mac Explorer — Gestionnaire de fichiers Mac libre pour macOS",
+  "description": "Mac Explorer est un gestionnaire de fichiers Mac libre : onglets, volets multiples, collections, renommage par lots, recherche PDF et OCR, aperçu, SFTP et LocalSend. Pour Apple Silicon et Intel, dès macOS 14.",
+  "skip": "Aller au contenu",
+  "features": "Fonctions",
+  "download": "Télécharger",
+  "docs": "Documentation",
+  "menu": "Menu de navigation",
+  "language": "Langue",
+  "eyebrow": "POUR macOS · GRATUIT ET LIBRE",
+  "platform": "macOS 14+ · Apple Silicon et Intel",
+  "silicon": "Télécharger pour Apple Silicon",
+  "intel": "Télécharger pour Intel",
+  "faqTitle": "Quelques réponses avant de commencer",
+  "faqs": [
+    [
+      "Qu’est-ce que Mac Explorer ?",
+      "Mac Explorer est un gestionnaire de fichiers Mac libre pour macOS. Il réunit onglets, volets multiples, étiquettes, collections, aperçus et recherche dans une seule fenêtre."
+    ],
+    [
+      "Quels Mac sont compatibles ?",
+      "Compatible avec macOS 14 ou ultérieur, sur Apple Silicon et Intel."
+    ],
+    [
+      "Quelle différence avec l’édition App Store ?",
+      "L’édition du site est gratuite et libre, avec extensions, scripts et terminal. L’édition App Store utilise un abonnement et les autorisations système pour les dossiers. Consultez sa fiche pour les fonctions et tarifs."
+    ],
+    [
+      "Mes fichiers et données sont-ils envoyés ?",
+      "Les index, étiquettes et résultats de reconnaissance d’images restent sur votre Mac. La géolocalisation facultative, les services d’IA configurés et les transferts contactent les services ou appareils choisis. Consultez la politique de confidentialité."
+    ]
+  ],
+  "endTitle": "Contribuer à Mac Explorer",
+  "endText": "Un bug ou une idée de fonction ? Ouvrez une issue sur GitHub. Pour créer votre propre extension, commencez par le SDK.",
+  "privacy": "Confidentialité",
+  "feedback": "Signaler un problème",
+  "source": "Code source",
+  "license": "Gratuit et libre · GPL-3.0-or-later",
+  "footerLine": "Un gestionnaire de fichiers conçu pour macOS.",
+  "tagline": "La gestion de fichiers, en toute simplicité.",
+  "intro": "Un gestionnaire de fichiers pour macOS. Explorer, trouver, organiser et partager dans une seule fenêtre.",
+  "get": "Télécharger pour macOS",
+  "downloadOptions": "Choisir la puce du Mac",
+  "browserAlt": "Liste de fichiers et menu contextuel de Mac Explorer 1.0.60 : édition, déplacement, partage et conversion",
+  "capabilities": [
+    {
+      "label": "01 / EXPLORER ET ORGANISER",
+      "title": "Plusieurs dossiers. Un espace de travail.",
+      "intro": "Affichez vos fichiers et projets comme vous le souhaitez.",
+      "items": [
+        [
+          "panel-left",
+          "Onglets et volets multiples",
+          "Ouvrez plusieurs dossiers dans des dispositions horizontales, verticales, à trois ou quatre volets. Chaque onglet garde son emplacement et sa vue."
+        ],
+        [
+          "grid",
+          "Trois façons de parcourir",
+          "Passez de la liste aux icônes ou à l’arborescence. Affinez vos fichiers avec le regroupement, le tri et les filtres de colonnes."
+        ],
+        [
+          "tag",
+          "Étiquettes, collections et notes",
+          "Classez avec des étiquettes imbriquées et des étoiles. Redimensionnez et déployez les collections sans déplacer les fichiers originaux."
+        ],
+        [
+          "info",
+          "Les détails en un regard",
+          "Consultez tailles, dates, dimensions, appareil photo et métadonnées. Calculez et copiez les empreintes SHA-256 des fichiers locaux."
+        ]
+      ]
+    },
+    {
+      "label": "02 / RECHERCHER ET PRÉVISUALISER",
+      "title": "Un petit indice. Le bon fichier.",
+      "intro": "Trouvez vos fichiers et voyez leur contenu sans changer de fenêtre.",
+      "items": [
+        [
+          "search",
+          "Recherche globale et de contenu",
+          "Appuyez sur ⌘ K pour rechercher noms, texte PDF indexé et texte OCR des images. Prévisualisez un résultat ou ouvrez son dossier."
+        ],
+        [
+          "scan",
+          "Analyse d’images sur l’appareil",
+          "Parcourez les photos par personnes, texte reconnu, scènes, dates et lieux. Nommez les groupes de personnes ; la reconnaissance reste sur l’appareil."
+        ],
+        [
+          "eye",
+          "Aperçus et édition Markdown",
+          "Appuyez sur Espace pour voir images, PDF, documents, médias et archives. Modifiez le Markdown et consultez le résultat mis en forme."
+        ],
+        [
+          "text-edit",
+          "Renommage par lots",
+          "Combinez remplacement, numérotation, dates, modèles et expressions régulières. Prévisualisez, détectez les conflits, enregistrez les réglages et annulez un lot terminé."
+        ]
+      ]
+    },
+    {
+      "label": "03 / TRAITER ET TRANSFÉRER",
+      "title": "Réunissez vos tâches sur les fichiers.",
+      "intro": "Des opérations locales aux dossiers distants, gardez le fil.",
+      "items": [
+        [
+          "archive",
+          "Archives et conversion",
+          "Parcourez et extrayez ZIP, TAR, 7Z et les formats pris en charge. Créez des archives, convertissez des documents en Word ou PDF et redimensionnez des images."
+        ],
+        [
+          "list",
+          "File de tâches",
+          "Copiez, déplacez, transférez et extrayez en arrière-plan. Suivez la progression ; suspendez, reprenez, annulez ou relancez les tâches compatibles."
+        ],
+        [
+          "server",
+          "SFTP, SMB et découverte réseau",
+          "Gérez les fichiers SFTP et renvoyez les modifications automatiquement. Montez les partages SMB via macOS et découvrez les serveurs sur la page réseau."
+        ],
+        [
+          "share",
+          "LocalSend et AirDrop",
+          "Envoyez fichiers et dossiers depuis le menu contextuel. Vérifiez l’appareil et la liste avant réception, ou partagez via AirDrop."
+        ]
+      ]
+    },
+    {
+      "label": "04 / À VOTRE FAÇON",
+      "title": "Un outil qui suit votre rythme.",
+      "intro": "Gardez les actions courantes à portée de main et simplifiez les tâches répétitives.",
+      "items": [
+        [
+          "folder",
+          "Fichiers dans la barre des menus",
+          "Accédez aux téléchargements, au bureau, aux dossiers et collections depuis la barre des menus. Parcourez, prévisualisez et glissez des copies vers d’autres apps."
+        ],
+        [
+          "sparkle",
+          "Assistant de fichiers Copilot",
+          "Trouvez des fichiers, organisez une sélection, préparez un renommage ou convertissez en langage naturel. Validez le plan avant modification ou partage de contenu."
+        ],
+        [
+          "code",
+          "Extensions et commandes Shell",
+          "L’édition du site propose un catalogue d’extensions, des paquets locaux et des scripts d’accueil avec icône, Shell et dossier de travail personnalisés."
+        ],
+        [
+          "settings",
+          "Apparence et raccourcis",
+          "Choisissez le thème clair ou sombre, le verre et la densité. Personnalisez les raccourcis, maintenez ⌘ pour l’aide et utilisez l’une des quatre langues."
+        ]
+      ]
+    }
+  ],
+  "communitySource": "Voir sur GitHub",
+  "pluginSdk": "SDK des extensions",
+  "publishPlugin": "Publier une extension"
+}
