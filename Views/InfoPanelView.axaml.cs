@@ -55,6 +55,7 @@ public partial class InfoPanelView : UserControl
     private readonly IFileTagService? _fileTagService;
     private CancellationTokenSource? _panelLoadCts;
     private string? _currentFilePath;
+    private string? _renderedTagPath;
     private readonly HashSet<string> _selectedSystemTags = new(StringComparer.OrdinalIgnoreCase);
     private const int PreviewSelectionDebounceMs = 120;
     private bool _isPreviewExpanded;
@@ -872,6 +873,7 @@ public partial class InfoPanelView : UserControl
         TagInput.Text = "";
         CancelQueuedPanelUpdate();
         _currentFilePath = null;
+        _renderedTagPath = null;
         DetailsPanel.IsVisible = false;
         SelectedFileName.Text = string.Empty;
         SelectedFileSummary.Text = string.Empty;
@@ -1070,11 +1072,17 @@ public partial class InfoPanelView : UserControl
 
     private void RenderTags(string filePath, IReadOnlyList<string> tags)
     {
-        CustomTagsPanel.Children.Clear();
+        var customTags = tags.Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(tag => !FileTagCatalog.TryGetFinderColor(tag, out _)).ToArray();
+        var displayed = GetDisplayedFinderTags().Where(tag => !FileTagCatalog.TryGetFinderColor(tag, out _));
+        // Metadata can refresh between pointer press and release; preserve unchanged buttons and focus.
+        if (_renderedTagPath != filePath || !customTags.SequenceEqual(displayed, StringComparer.Ordinal))
+        {
+            CustomTagsPanel.Children.Clear();
+            foreach (var tag in customTags) CustomTagsPanel.Children.Add(CreateTagChip(tag, filePath));
+            _renderedTagPath = filePath;
+        }
         UpdateSystemTagSelection(tags);
-        foreach (var tag in tags.Distinct(StringComparer.OrdinalIgnoreCase))
-            if (!FileTagCatalog.TryGetFinderColor(tag, out _))
-                CustomTagsPanel.Children.Add(CreateTagChip(tag, filePath));
         _ = RefreshTagSuggestionsAsync();
     }
 
