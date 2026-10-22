@@ -1743,8 +1743,9 @@ public partial class FileListView : UserControl
     private void OnDragOver(object? sender, DragEventArgs e)
     {
         if (ViewModel?.IsBrowseOnly == true) { e.DragEffects = DragDropEffects.None; e.Handled = true; return; }
-        var paths = GetDroppedPaths(e.DataTransfer);
-        if (paths.Length == 0 || ViewModel == null || ViewModel.IsHomePage || ViewModel.IsArchiveView)
+        var incomingContent = Platforms.MacOS.MacNativeFileDrop.HasIncomingContent;
+        var paths = incomingContent ? [] : GetDroppedPaths(e.DataTransfer);
+        if ((!incomingContent && paths.Length == 0) || ViewModel == null || ViewModel.IsHomePage || ViewModel.IsArchiveView)
         {
             ClearDragOverVisual();
             e.DragEffects = DragDropEffects.None;
@@ -1756,7 +1757,7 @@ public partial class FileListView : UserControl
         {
             _dragOverTargetEntry = null;
             ClearDragOverVisual();
-            e.DragEffects = paths.All(Services.Impl.FileTagService.IsSupportedPath) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.DragEffects = !incomingContent && paths.All(Services.Impl.FileTagService.IsSupportedPath) ? DragDropEffects.Copy : DragDropEffects.None;
             e.Handled = true;
             return;
         }
@@ -1769,7 +1770,8 @@ public partial class FileListView : UserControl
             // Keep drag-over free of file-system I/O (network mounts can block).
             // Existence is checked once, at the final drop position.
             || !VirtualPath.IsRemotePath(targetDirectory) && !Path.IsPathFullyQualified(targetDirectory)
-            ? DragDropEffects.None : FileDropPolicy.GetEffect(paths, targetDirectory);
+            ? DragDropEffects.None : incomingContent
+                ? GetIncomingContentEffect(targetDirectory, e.DragEffects) : FileDropPolicy.GetEffect(paths, targetDirectory, e.DragEffects);
         if (effect == DragDropEffects.None)
         {
             ClearDragOverVisual();
@@ -1793,6 +1795,7 @@ public partial class FileListView : UserControl
     private async void OnDrop(object? sender, DragEventArgs e)
     {
         if (ViewModel?.IsBrowseOnly == true) { e.DragEffects = DragDropEffects.None; e.Handled = true; return; }
+        var allowedEffects = e.DragEffects;
         // Re-hit-test the release position. A previously hovered folder must not
         // receive files after the pointer has moved onto blank space or another tab.
         var target = FindDropTarget(e);
@@ -1805,6 +1808,21 @@ public partial class FileListView : UserControl
         if (viewModel.IsHomePage || viewModel.IsArchiveView || viewModel.IsRemoteLocationDisconnected) return;
         try
         {
+            // File promises must be called in synchronously while AppKit's drop
+            // pasteboard is current, before any await or file lookup.
+            if (Platforms.MacOS.MacNativeFileDrop.HasIncomingContent)
+            {
+                var directory = target?.FullPath ?? viewModel.CurrentPath;
+                if (target == null && viewModel.IsTagView
+                    || viewModel.IsDirectoryLoading || FastListActive && FastList.IsLoading
+                    || target?.IsWritable == false || GetIncomingContentEffect(directory, allowedEffects) == DragDropEffects.None
+                    || !Directory.Exists(directory)) return;
+                if (TopLevel.GetTopLevel(this) is Window window
+                    && Platforms.MacOS.MacNativeFileDrop.Receive(window, directory))
+                    e.DragEffects = DragDropEffects.Copy;
+                return;
+            }
+            using var sourceAccess = Platforms.MacOS.MacNativeFileDrop.AcquireAccess();
             var paths = GetDroppedPaths(e.DataTransfer);
             if (paths.Length == 0) return;
 
@@ -1818,7 +1836,7 @@ public partial class FileListView : UserControl
             if (viewModel.IsDirectoryLoading || FastListActive && FastList.IsLoading) return;
             var targetDirectory = target?.FullPath ?? viewModel.CurrentPath;
             if (target?.IsWritable == false || !VirtualPath.IsRemotePath(targetDirectory) && !Directory.Exists(targetDirectory)) return;
-            var effect = FileDropPolicy.GetEffect(paths, targetDirectory);
+            var effect = FileDropPolicy.GetEffect(paths, targetDirectory, allowedEffects);
             if (effect == DragDropEffects.None) return;
             e.DragEffects = effect;
             if (effect == DragDropEffects.Copy)
@@ -1860,6 +1878,10 @@ public partial class FileListView : UserControl
         }
     }
 
+    internal static DragDropEffects GetIncomingContentEffect(string directory, DragDropEffects allowedEffects)
+        => Path.IsPathFullyQualified(directory) && !VirtualPath.IsRemotePath(directory)
+            ? allowedEffects & DragDropEffects.Copy : DragDropEffects.None;
+
     private FileSystemEntry? FindDropTarget(DragEventArgs e)
         => FastList.EntryAt(e.GetPosition(FastList)) is { IsDirectory: true } directory ? directory : null;
 
@@ -1867,10 +1889,11 @@ public partial class FileListView : UserControl
 
     internal static string[] GetDroppedPaths(IDataTransfer data)
     {
-        return data.TryGetFiles()?
+        var paths = data.TryGetFiles()?
             .Select(item => Path.TrimEndingDirectorySeparator(item.Path.LocalPath))
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToArray() ?? [];
+        return paths.Length > 0 ? paths : Platforms.MacOS.MacNativeFileDrop.GetIncomingPaths();
     }
 
     private void OnEmptyAreaPressed(object? sender, PointerPressedEventArgs e)

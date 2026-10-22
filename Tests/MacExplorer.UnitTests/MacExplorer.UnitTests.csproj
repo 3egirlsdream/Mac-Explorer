@@ -24,6 +24,7 @@
     <Compile Include="../MacExplorer.Tests/PaneLayoutIconTests.cs" Link="PaneLayoutIconTests.cs" />
     <Compile Include="../MacExplorer.Tests/ReviewSearchVisibilityTests.cs" Link="ReviewSearchVisibilityTests.cs" />
     <Compile Include="../MacExplorer.Tests/ReviewHashBudgetTests.cs" Link="ReviewHashBudgetTests.cs" />
+    <Compile Include="../MacExplorer.Tests/FileDropFolderAccessTests.cs" Link="FileDropFolderAccessTests.cs" />
     <Compile Include="../MacExplorer.Tests/TestCulture.cs" Link="TestCulture.cs" />
   </ItemGroup>
 </Project>

@@ -97,7 +97,7 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
             Point RowPoint(Border target) => target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), sidebar)!.Value;
             DragEventArgs Raise(Avalonia.Interactivity.RoutedEvent<DragEventArgs> evt, Point point)
             {
-                var args = new DragEventArgs(evt, data, sidebar, point, KeyModifiers.None);
+                var args = new DragEventArgs(evt, data, sidebar, point, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
                 sidebar.RaiseEvent(args);
                 return args;
             }
@@ -152,7 +152,7 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
                     point = list.TranslatePoint(list.RowBounds(list.IndexOfPath(child)).Center, surface)!.Value;
                     expectedTarget = child;
                 }
-                drop = new DragEventArgs(DragDrop.DropEvent, data, surface, point, KeyModifiers.None);
+                drop = new DragEventArgs(DragDrop.DropEvent, data, surface, point, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
                 surface.RaiseEvent(drop);
             }
             else
@@ -218,12 +218,12 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
             using var data = new DataTransfer();
             data.Add(DataTransferItem.CreateFile(Assert.IsAssignableFrom<IStorageItem>(
                 await window.StorageProvider.TryGetFileFromPathAsync(new Uri(source)))));
-            sidebar.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, data, sidebar, point, KeyModifiers.None));
+            sidebar.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, data, sidebar, point, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move });
             if (hoverFirst)
                 await WaitForIssue11Async(() => vm.CurrentPath == Path.GetDirectoryName(target) && !vm.IsDirectoryLoading);
             Assert.True(File.Exists(source));
             Assert.False(File.Exists(target));
-            var drop = new DragEventArgs(DragDrop.DropEvent, data, sidebar, point, KeyModifiers.None);
+            var drop = new DragEventArgs(DragDrop.DropEvent, data, sidebar, point, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             sidebar.RaiseEvent(drop);
             await WaitForIssue11Async(() => File.Exists(target) && !File.Exists(source) && !vm.IsDirectoryLoading);
             if (hoverFirst)

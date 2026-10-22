@@ -99,6 +99,7 @@ public class AppWindow : Window
         Opened += (_, _) =>
         {
             MacAutomationLifetime.Prepare();
+            MacNativeFileDrop.Enable(this);
             _nativeLifetime = PlatformImpl;
             _subscription ??= SubscriptionAccess.Current;
             if (_subscription != null) _subscription.Changed += OnSubscriptionChanged;
@@ -110,6 +111,7 @@ public class AppWindow : Window
         };
         Closed += (_, _) =>
         {
+            MacNativeFileDrop.Disable(this);
             if (_subscription != null) _subscription.Changed -= OnSubscriptionChanged;
             _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this);
             MacAutomationLifetime.Release(this);

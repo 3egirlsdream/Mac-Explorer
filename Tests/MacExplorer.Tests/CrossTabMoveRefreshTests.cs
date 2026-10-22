@@ -81,7 +81,7 @@ public sealed class CrossTabMoveRefreshViewModelTests : FileListViewModelTestBas
             transfer.Add(DataTransferItem.CreateFile(Assert.IsAssignableFrom<IStorageItem>(
                 await window.StorageProvider.TryGetFileFromPathAsync(new Uri(sourcePath)))));
             var drop = new DragEventArgs(DragDrop.DropEvent, transfer, surface,
-                new Point(40, surface.Bounds.Height - 40), KeyModifiers.None);
+                new Point(40, surface.Bounds.Height - 40), KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             surface.RaiseEvent(drop);
 
             await WaitForIssue11Async(() => !File.Exists(sourcePath)

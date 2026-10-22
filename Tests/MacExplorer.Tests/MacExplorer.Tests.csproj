@@ -41,6 +41,7 @@
     <Compile Remove="PaneLayoutIconTests.cs" />
     <Compile Remove="ReviewSearchVisibilityTests.cs" />
     <Compile Remove="ReviewHashBudgetTests.cs" />
+    <Compile Remove="FileDropFolderAccessTests.cs" />
   </ItemGroup>
   <Target Name="CopyHostNativeTestDependencies" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <MSBuild Projects="../../MacExplorer.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">

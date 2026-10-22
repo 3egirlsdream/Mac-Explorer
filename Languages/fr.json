@@ -1313,6 +1313,13 @@
     "archive.links_unsupported": "L’extraction des liens symboliques ou physiques des archives n’est pas prise en charge.",
     "archive.entry_missing": "Fichier introuvable dans l’archive : {0}",
     "archive.encryption_unsupported": "Les archives chiffrées dans ce format ne sont pas prises en charge.",
-    "archive.volumes_unsupported": "Les archives multivolumes dans ce format ne sont pas prises en charge."
+    "archive.volumes_unsupported": "Les archives multivolumes dans ce format ne sont pas prises en charge.",
+    "允许读取附件文件夹": "Autoriser l’accès au dossier des pièces jointes",
+    "macOS 阻止读取此附件。请选择“{0}”文件夹并授权，将继续保存。授权包括其子文件夹，后续拖入可复用此授权。": "macOS bloque l’accès à cette pièce jointe. Choisissez le dossier « {0} » pour autoriser l’accès et poursuivre l’enregistrement. L’autorisation inclut ses sous-dossiers et pourra être réutilisée lors des prochains dépôts.",
+    "授权并保存": "Autoriser et enregistrer",
+    "请选择包含“{0}”的文件夹。": "Choisissez un dossier contenant « {0} ».",
+    "未能启用文件夹授权，请重新选择包含此附件的文件夹。": "Impossible d’activer l’accès au dossier. Sélectionnez à nouveau le dossier contenant cette pièce jointe.",
+    "本次授权已启用，但无法记住此文件夹：{0}": "L’accès est autorisé pour cette session, mais le dossier n’a pas pu être mémorisé : {0}",
+    "无法继续保存拖入的文件。": "Impossible de poursuivre l’enregistrement du fichier déposé."
   }
 }

@@ -366,6 +366,7 @@ public partial class FinderSidebarView : UserControl
 
     private void OnSidebarDragOver(object? sender, DragEventArgs e)
     {
+        var allowedEffects = e.DragEffects;
         var paths = GetDroppedPaths(e.DataTransfer);
         var row = FindSidebarDropRow(e);
         var targetPath = GetSidebarFolderPath(row);
@@ -373,7 +374,7 @@ public partial class FinderSidebarView : UserControl
         e.DragEffects = DragDropEffects.None;
         if (targetPath != null)
         {
-            e.DragEffects = FileDropPolicy.GetEffect(paths, targetPath);
+            e.DragEffects = FileDropPolicy.GetEffect(paths, targetPath, allowedEffects);
             if (e.DragEffects != DragDropEffects.None)
             {
                 if (_folderDropTarget != row || _folderDropPath != targetPath)
@@ -414,6 +415,7 @@ public partial class FinderSidebarView : UserControl
 
     private async void OnSidebarDrop(object? sender, DragEventArgs e)
     {
+        var allowedEffects = e.DragEffects;
         var row = FindSidebarDropRow(e);
         var targetPath = GetSidebarFolderPath(row);
         ClearFolderDropTarget();
@@ -421,12 +423,13 @@ public partial class FinderSidebarView : UserControl
         e.DragEffects = DragDropEffects.None;
         var viewModel = ViewModel;
         if (viewModel == null) return;
+        using var sourceAccess = Platforms.MacOS.MacNativeFileDrop.AcquireAccess();
         var paths = GetDroppedPaths(e.DataTransfer).Distinct(StringComparer.Ordinal).ToArray();
         try
         {
             if (targetPath != null)
             {
-                var effect = FileDropPolicy.GetEffect(paths, targetPath);
+                var effect = FileDropPolicy.GetEffect(paths, targetPath, allowedEffects);
                 if (effect == DragDropEffects.None || !Directory.Exists(targetPath)) return;
                 if (effect == DragDropEffects.Copy)
                 {

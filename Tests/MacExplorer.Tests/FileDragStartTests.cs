@@ -139,7 +139,7 @@ public sealed class FileDragStartViewModelTests : FileListViewModelTestBase
             data.Add(DataTransferItem.CreateFile(Assert.IsAssignableFrom<IStorageItem>(
                 await window.StorageProvider.TryGetFolderFromPathAsync(new Uri(source + "/")))));
             var drop = new DragEventArgs(DragDrop.DropEvent, data, surface,
-                new Point(40, surface.Bounds.Height - 40), KeyModifiers.None);
+                new Point(40, surface.Bounds.Height - 40), KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             surface.RaiseEvent(drop);
             await WaitForIssue11Async(() => !Directory.Exists(source));
             Assert.Equal("folder drag", await File.ReadAllTextAsync(Path.Combine(target, "source", "nested.txt")));

@@ -312,18 +312,18 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
             var storage = await window.StorageProvider.TryGetFileFromPathAsync(new Uri(file));
             transfer.Add(DataTransferItem.CreateFile(Assert.IsAssignableFrom<IStorageItem>(storage)));
             RenderIssue11(window);
-            var over = new DragEventArgs(DragDrop.DragOverEvent, transfer, row, center, KeyModifiers.None);
+            var over = new DragEventArgs(DragDrop.DragOverEvent, transfer, row, center, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             row.RaiseEvent(over);
             Assert.Same(first, vm.FileList); // modal/overlay guard
             canActivate = true;
-            row.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, transfer, row, center, KeyModifiers.None));
+            row.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, transfer, row, center, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move });
             Dispatcher.UIThread.RunJobs();
             Assert.Same(target, tabs.SelectedItem);
             Assert.Same(target, vm.SelectedTab);
             Assert.Same(second, vm.FileList);
             Assert.Same(target, Assert.Single(vm.VisiblePanes));
             Assert.Equal(file, Assert.Single(first.SelectedEntries).FullPath);
-            var drop = new DragEventArgs(DragDrop.DropEvent, transfer, row, center, KeyModifiers.None);
+            var drop = new DragEventArgs(DragDrop.DropEvent, transfer, row, center, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             row.RaiseEvent(drop);
             Assert.True(drop.Handled);
             Assert.Equal(DragDropEffects.None, drop.DragEffects);
@@ -334,7 +334,7 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
             vm.SelectedTab = vm.Tabs[0];
             using var text = new DataTransfer();
             text.Add(DataTransferItem.CreateText("not a file"));
-            row.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, text, row, center, KeyModifiers.None));
+            row.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, text, row, center, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move });
             Assert.Same(first, vm.FileList);
         }
         finally { window.Close(); Directory.Delete(root, true); }
@@ -383,18 +383,18 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
                 return list.TranslatePoint(list.RowBounds(list.IndexOfPath(child)).Center, surface)!.Value;
             }
             var folderPoint = GetFolderPoint();
-            var over = new DragEventArgs(DragDrop.DragOverEvent, data, surface, folderPoint, modifiers);
+            var over = new DragEventArgs(DragDrop.DragOverEvent, data, surface, folderPoint, modifiers) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             surface.RaiseEvent(over);
             Assert.Equal(DragDropEffects.Move, over.DragEffects);
             Assert.Empty(files.MoveRequests);
             Assert.Empty(files.CopyRequests);
             RenderIssue11(window);
             var release = onFolder ? folderPoint : new Point(40, surface.Bounds.Height - 40);
-            var finalOver = new DragEventArgs(DragDrop.DragOverEvent, data, surface, release, modifiers);
+            var finalOver = new DragEventArgs(DragDrop.DragOverEvent, data, surface, release, modifiers) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             surface.RaiseEvent(finalOver);
             var noOp = sameDirectory && !onFolder;
             Assert.Equal(noOp ? DragDropEffects.None : DragDropEffects.Move, finalOver.DragEffects);
-            var drop = new DragEventArgs(DragDrop.DropEvent, data, surface, release, modifiers);
+            var drop = new DragEventArgs(DragDrop.DropEvent, data, surface, release, modifiers) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             surface.RaiseEvent(drop);
             if (noOp)
             {

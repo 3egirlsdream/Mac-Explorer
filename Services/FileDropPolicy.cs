@@ -4,7 +4,8 @@ namespace MacExplorer.Services;
 
 internal static class FileDropPolicy
 {
-    internal static DragDropEffects GetEffect(IReadOnlyList<string> sources, string targetDirectory)
+    internal static DragDropEffects GetEffect(IReadOnlyList<string> sources, string targetDirectory,
+        DragDropEffects allowedEffects = DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link)
     {
         if (sources.Count == 0 || string.IsNullOrWhiteSpace(targetDirectory)) return DragDropEffects.None;
         if (!VirtualPath.IsRemotePath(targetDirectory) && !Path.IsPathFullyQualified(targetDirectory)) return DragDropEffects.None;
@@ -12,12 +13,15 @@ internal static class FileDropPolicy
 
         // Preserve SFTP transfers as copies; only purely local drops move files.
         if (VirtualPath.IsRemotePath(targetDirectory) || sources.Any(VirtualPath.IsRemotePath))
-            return DragDropEffects.Copy;
+            return allowedEffects & DragDropEffects.Copy;
 
         // Releasing in the source directory is a no-op, including after switching tabs.
         if (sources.All(source => IsSameDestination(source, targetDirectory)))
             return DragDropEffects.None;
-        return DragDropEffects.Move;
+        // Chat apps export temporary files as copy-only drags. AppKit rejects a
+        // move response when the source does not offer it, so no drop follows.
+        return allowedEffects.HasFlag(DragDropEffects.Move) ? DragDropEffects.Move
+            : allowedEffects & DragDropEffects.Copy;
     }
 
     internal static bool IsSameDestination(string source, string targetDirectory)

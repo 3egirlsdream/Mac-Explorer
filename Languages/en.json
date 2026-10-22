@@ -1313,6 +1313,13 @@
     "archive.links_unsupported": "Extracting symbolic or hard links from archives is not supported.",
     "archive.entry_missing": "File not found in archive: {0}",
     "archive.encryption_unsupported": "Encrypted archives in this format are not supported.",
-    "archive.volumes_unsupported": "Multi-volume archives in this format are not supported."
+    "archive.volumes_unsupported": "Multi-volume archives in this format are not supported.",
+    "允许读取附件文件夹": "Allow access to the attachment folder",
+    "macOS 阻止读取此附件。请选择“{0}”文件夹并授权，将继续保存。授权包括其子文件夹，后续拖入可复用此授权。": "macOS blocked access to this attachment. Choose the “{0}” folder to allow access and continue saving. Access includes its subfolders and can be reused for future drops.",
+    "授权并保存": "Allow and save",
+    "请选择包含“{0}”的文件夹。": "Choose a folder that contains “{0}”.",
+    "未能启用文件夹授权，请重新选择包含此附件的文件夹。": "Could not enable folder access. Choose the folder containing this attachment again.",
+    "本次授权已启用，但无法记住此文件夹：{0}": "Access is enabled for this session, but the folder could not be remembered: {0}",
+    "无法继续保存拖入的文件。": "Could not continue saving the dropped file."
   }
 }
