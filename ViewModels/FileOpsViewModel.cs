@@ -434,93 +434,95 @@ public partial class FileOpsViewModel : ObservableObject
         }
     }
 
-    public Task CreateNewFolderAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
-        => FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("新建文件夹"), [], currentPath),
-            async _ => { await CreateNewFolderCoreAsync(currentPath, rawEntries.ToArray(), setStatus, refreshCallback); return true; });
-
-    private async Task CreateNewFolderCoreAsync(
-        string currentPath,
-        IReadOnlyList<FileSystemEntry> rawEntries,
-        Action<string>? setStatus = null,
-        Func<string, Task>? refreshCallback = null)
+    public async Task CreateNewFolderAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
+        var entries = rawEntries.ToArray();
+        string fullPath;
         try
         {
-            var name = GetUniqueNameInCurrentDir("未命名文件夹", isDirectory: true, rawEntries);
-            var fullPath = await _fileService.CreateFolderAsync(currentPath, name);
-            if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
-            if (refreshCallback != null)
-                await refreshCallback(Path.GetFileName(fullPath));
+            fullPath = await FileTaskContext.RunAsync(_taskManager,
+                new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("新建文件夹"), [], currentPath),
+                _ => CreateNewFolderCoreAsync(currentPath, entries));
         }
         catch (Exception ex)
         {
             setStatus?.Invoke($"创建文件夹失败: {ex.Message}");
             throw;
         }
+        // Refresh, selection and inline rename belong to the caller's UI context.
+        if (refreshCallback != null) await refreshCallback(Path.GetFileName(fullPath));
     }
 
-    public Task CreateNewFileAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, string? extension = null, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
-        => FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("新建文件"), [], currentPath),
-            async _ => { await CreateNewFileCoreAsync(currentPath, rawEntries.ToArray(), extension, setStatus, refreshCallback); return true; });
-
-    private async Task CreateNewFileCoreAsync(
-        string currentPath,
-        IReadOnlyList<FileSystemEntry> rawEntries,
-        string? extension = null,
-        Action<string>? setStatus = null,
-        Func<string, Task>? refreshCallback = null)
+    private async Task<string> CreateNewFolderCoreAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries)
     {
         Services.Subscriptions.SubscriptionAccess.RequireAccess();
+        var name = GetUniqueNameInCurrentDir("未命名文件夹", isDirectory: true, rawEntries);
+        var fullPath = await _fileService.CreateFolderAsync(currentPath, name);
+        if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
+        return fullPath;
+    }
+
+    public async Task CreateNewFileAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, string? extension = null, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
+    {
+        var entries = rawEntries.ToArray();
+        string fullPath;
         try
         {
-            var ext = extension ?? ".txt";
-            var baseName = ext.ToLowerInvariant() switch
-            {
-                ".docx" => "未命名文稿.docx",
-                ".xlsx" => "未命名表格.xlsx",
-                ".pptx" => "未命名演示文稿.pptx",
-                ".pages" => "未命名文稿.pages",
-                ".numbers" => "未命名表格.numbers",
-                ".key" => "未命名演示文稿.key",
-                ".txt" => "未命名.txt",
-                _ => $"未命名{ext}"
-            };
-            var name = GetUniqueNameInCurrentDir(baseName, isDirectory: false, rawEntries);
-
-            var template = FileTemplateProvider.GetTemplate(ext);
-            var fullPath = template != null
-                ? await _fileService.CreateFileWithContentAsync(currentPath, name, template)
-                : await _fileService.CreateFileAsync(currentPath, name);
-
-            if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
-            if (refreshCallback != null)
-                await refreshCallback(Path.GetFileName(fullPath));
+            fullPath = await FileTaskContext.RunAsync(_taskManager,
+                new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("新建文件"), [], currentPath),
+                _ => CreateNewFileCoreAsync(currentPath, entries, extension));
         }
         catch (Exception ex)
         {
             setStatus?.Invoke($"创建文件失败: {ex.Message}");
             throw;
         }
+        if (refreshCallback != null) await refreshCallback(Path.GetFileName(fullPath));
     }
 
-    public Task PasteImageAsync(string currentPath, ClipboardImageData image, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
-        => FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("粘贴文件"), [], currentPath),
-            async _ => { await PasteImageCoreAsync(currentPath, image, setStatus, refreshCallback); return true; });
+    private async Task<string> CreateNewFileCoreAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, string? extension)
+    {
+        Services.Subscriptions.SubscriptionAccess.RequireAccess();
+        var ext = extension ?? ".txt";
+        var baseName = ext.ToLowerInvariant() switch
+        {
+            ".docx" => "未命名文稿.docx",
+            ".xlsx" => "未命名表格.xlsx",
+            ".pptx" => "未命名演示文稿.pptx",
+            ".pages" => "未命名文稿.pages",
+            ".numbers" => "未命名表格.numbers",
+            ".key" => "未命名演示文稿.key",
+            ".txt" => "未命名.txt",
+            _ => $"未命名{ext}"
+        };
+        var name = GetUniqueNameInCurrentDir(baseName, isDirectory: false, rawEntries);
 
-    private async Task PasteImageCoreAsync(
-        string currentPath,
-        ClipboardImageData image,
-        Action<string>? setStatus = null,
-        Func<string, Task>? refreshCallback = null)
+        var template = FileTemplateProvider.GetTemplate(ext);
+        var fullPath = template != null
+            ? await _fileService.CreateFileWithContentAsync(currentPath, name, template)
+            : await _fileService.CreateFileAsync(currentPath, name);
+
+        if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
+        return fullPath;
+    }
+
+    public async Task PasteImageAsync(string currentPath, ClipboardImageData image, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
+    {
+        var path = await FileTaskContext.RunAsync(_taskManager,
+            new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("粘贴文件"), [], currentPath),
+            _ => PasteImageCoreAsync(currentPath, image));
+        var name = Path.GetFileName(path);
+        setStatus?.Invoke($"已粘贴图片：{name}");
+        if (refreshCallback != null) await refreshCallback(name);
+    }
+
+    private async Task<string> PasteImageCoreAsync(string currentPath, ClipboardImageData image)
     {
         Services.Subscriptions.SubscriptionAccess.RequireAccess();
         var path = await _fileService.CreateFileWithContentAsync(currentPath,
             $"图片 {DateTime.Now:yyyy-MM-dd HH.mm.ss}{image.Extension}", image.Bytes);
         if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(path);
-        var name = Path.GetFileName(path);
-        setStatus?.Invoke($"已粘贴图片：{name}");
-        if (refreshCallback != null) await refreshCallback(name);
+        return path;
     }
 
     public async Task<bool> IsFolderPinnedAsync(string path)

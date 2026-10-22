@@ -1187,6 +1187,7 @@ public abstract partial class FileListViewModelTestBase
         var writer = new FakeFileIndexWriter();
         var fileOps = new FileOpsViewModel(
             fileService: fileService,
+            taskManager: backgroundTaskManager,
             directoryChangeNotifier: directoryChangeNotifier);
 
         return new FileListViewModel(

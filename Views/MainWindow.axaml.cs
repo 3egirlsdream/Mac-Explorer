@@ -8,6 +8,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Chrome;
 using Avalonia.Controls.Notifications;
@@ -15,6 +16,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Rendering.Composition;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -787,6 +789,7 @@ public partial class MainWindow : AppWindow
             Application.Current.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         _taskPanelAnimCts?.Cancel();
         _autoCloseTimerCts?.Cancel();
+        _taskRefreshTimer?.Dispose();
         _globalSearchCts?.Cancel();
         _globalSearchCts?.Dispose();
         _globalSearchCts = null;
@@ -886,36 +889,46 @@ public partial class MainWindow : AppWindow
     private FileTaskPanelPresenter? _fileTaskPresenter;
     private IFileOperationHistoryService? _taskHistory;
     private int _taskRefreshPending;
+    private IDisposable? _taskRefreshTimer;
 
     private void OnTasksChanged()
     {
         if (Interlocked.Exchange(ref _taskRefreshPending, 1) != 0) return;
         Dispatcher.UIThread.Post(() =>
         {
-            Interlocked.Exchange(ref _taskRefreshPending, 0);
-            var tasks = _taskManager.Tasks.ToList();
-            var runningCount = tasks.Count(t => t.State == BackgroundTaskState.Running);
+            if (_shutdownStarted) return;
+            _taskRefreshTimer = DispatcherTimer.RunOnce(RefreshTaskUi, TimeSpan.FromMilliseconds(50), DispatcherPriority.Background);
+        }, DispatcherPriority.Background);
+    }
 
-            UpdateTaskButton();
+    private void RefreshTaskUi()
+    {
+        _taskRefreshTimer = null;
+        Interlocked.Exchange(ref _taskRefreshPending, 0);
+        if (_shutdownStarted) return;
+        var tasks = _taskManager.Tasks.ToList();
+        var runningCount = tasks.Count(t => t.State == BackgroundTaskState.Running);
+
+        UpdateTaskButton();
+        if (TaskOverlayPanel.IsVisible && !_isTaskPanelAnimating)
             RebuildTaskPanelItems(tasks);
 
-            // Auto-open when first task starts running
-            if (runningCount > 0 && _previousRunningTaskCount == 0
-                && _taskPanelMode == PanelMode.None)
-            {
-                _taskPanelMode = PanelMode.Auto;
-                _ = SlideTaskPanelAsync(show: true);
-            }
+        // Auto-open when first task starts running
+        if (runningCount > 0 && _previousRunningTaskCount == 0
+            && _taskPanelMode == PanelMode.None)
+        {
+            _taskPanelMode = PanelMode.Auto;
+            _ = SlideTaskPanelAsync(show: true);
+        }
 
-            // Auto-close when all tasks complete (Auto mode only, after delay)
-            if (runningCount == 0 && _previousRunningTaskCount > 0
-                && _taskPanelMode == PanelMode.Auto)
-            {
-                StartAutoCloseTimer();
-            }
+        // Auto-close when all tasks complete (Auto mode only, after delay)
+        if (runningCount == 0 && _previousRunningTaskCount > 0
+            && _taskPanelMode == PanelMode.Auto)
+        {
+            StartAutoCloseTimer();
+        }
 
-            _previousRunningTaskCount = runningCount;
-        });
+        _previousRunningTaskCount = runningCount;
     }
 
     private void UpdateTaskButton()
@@ -945,7 +958,6 @@ public partial class MainWindow : AppWindow
         else
         {
             _taskPanelMode = PanelMode.Manual;
-            RebuildTaskPanelItems(_taskManager.Tasks.ToList());
             _ = SlideTaskPanelAsync(show: true);
         }
     }
@@ -963,40 +975,47 @@ public partial class MainWindow : AppWindow
         _taskPanelAnimCts?.Cancel();
         _taskPanelAnimCts?.Dispose();
         _taskPanelAnimCts = new CancellationTokenSource();
-        var token = _taskPanelAnimCts.Token;
+        var animationCts = _taskPanelAnimCts;
+        var token = animationCts.Token;
         _isTaskPanelAnimating = true;
-
-        var transform = (TranslateTransform)TaskOverlayPanel.RenderTransform!;
-        var startX = transform.X;
-        var targetX = show ? 0 : TaskOverlayPanel.Width + 24;
-        var stopwatch = Stopwatch.StartNew();
-
-        if (show)
-        {
-            TaskOverlayPanel.IsVisible = true;
-            UpdateTaskPanelWidth();
-            TaskPanelTitle.Text = Services.Impl.LocalizationText.Get("传输任务");
-        }
-
+        CompositionVisual? visual = null;
         try
         {
-            while (true)
+            if (show)
             {
-                token.ThrowIfCancellationRequested();
-                var progress = Math.Min(1, stopwatch.Elapsed.TotalMilliseconds / TaskPanelAnimDurationMs);
-                var eased = 1 - Math.Pow(1 - progress, 3);
-                transform.X = startX + (targetX - startX) * eased;
-                if (progress >= 1) break;
-                await Task.Delay(16, token);
+                UpdateTaskPanelWidth();
+                RebuildTaskPanelItems(_taskManager.Tasks);
+                TaskOverlayPanel.IsVisible = true;
+                TaskOverlayPanel.UpdateLayout();
             }
-            transform.X = targetX;
+            TaskOverlayPanel.IsHitTestVisible = show;
+            visual = ElementComposition.GetElementVisual(TaskOverlayPanel);
+            if (visual != null)
+            {
+                var distance = TaskOverlayPanel.Width + 24;
+                var animation = visual.Compositor.CreateVector3DKeyFrameAnimation();
+                animation.Duration = TimeSpan.FromMilliseconds(TaskPanelAnimDurationMs);
+                animation.InsertKeyFrame(0, new Vector3D(show ? distance : 0, 0, 0));
+                animation.InsertKeyFrame(1, new Vector3D(show ? 0 : distance, 0, 0), new CubicEaseOut());
+                // Translation runs on the compositor without per-frame UI/layout updates.
+                visual.Translation = new Vector3D(show ? 0 : distance, 0, 0);
+                visual.StartAnimation(nameof(CompositionVisual.Translation), animation);
+                await visual.Compositor.RequestCommitAsync().WaitAsync(token);
+                await Task.Delay(animation.Duration, token);
+            }
+            if (!show) TaskOverlayPanel.IsVisible = false;
         }
-        catch (OperationCanceledException) { }
-
-        if (!show)
-            TaskOverlayPanel.IsVisible = false;
-
-        _isTaskPanelAnimating = false;
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        finally
+        {
+            if (ReferenceEquals(_taskPanelAnimCts, animationCts))
+            {
+                visual?.StopAnimation(nameof(CompositionVisual.Translation));
+                _isTaskPanelAnimating = false;
+                if (show && !token.IsCancellationRequested && !_shutdownStarted)
+                    RebuildTaskPanelItems(_taskManager.Tasks);
+            }
+        }
     }
 
     private void StartAutoCloseTimer()
@@ -1032,7 +1051,7 @@ public partial class MainWindow : AppWindow
 
     private void RebuildTaskPanelItems(IReadOnlyList<BackgroundTaskInfo> tasks)
     {
-        TaskPanelTitle.Text = Services.Impl.LocalizationText.Get("传输任务");
+        TaskPanelTitle.Text = Services.Impl.LocalizationText.Get("tasks.transfers");
         var running = tasks.Count(t => t.State is BackgroundTaskState.Running or BackgroundTaskState.Pausing);
         TaskRunningCountText.Text = running > 0 ? Services.Impl.LocalizationText.Get("{0} 项进行中", running) : "";
         CancelAllTasksMenuItem.IsEnabled = tasks.Any(t => t.IsActive && t.CanCancel);
@@ -1042,7 +1061,7 @@ public partial class MainWindow : AppWindow
             _fileTaskPresenter = new FileTaskPanelPresenter(_taskManager, _taskHistory);
             TaskItemsPanel.Children.Clear(); TaskItemsPanel.Children.Add(_fileTaskPresenter.View);
         }
-        _fileTaskPresenter.Refresh();
+        else _fileTaskPresenter.Refresh();
     }
 
     private void UpdateTaskPanelWidth()

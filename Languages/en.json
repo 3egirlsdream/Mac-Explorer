@@ -1004,7 +1004,7 @@
     "tasks.copy-skipped": "Copy {0} items ({1} runtime communication files skipped)",
     "tasks.finish-before-undo": "Finish or cancel this task first.",
     "task.reorder": "Reorder",
-    "tasks.transfers": "Transfers",
+    "tasks.transfers": "Tasks",
     "tasks.running-count": "{0} in progress",
     "tasks.waiting-start": "Waiting to start",
     "tasks.collapse": "Collapse tasks",

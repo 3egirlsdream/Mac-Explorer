@@ -1010,7 +1010,7 @@
     "tasks.copy-skipped": "複製 {0} 項（已跳過 {1} 個運行時通信檔案）",
     "tasks.finish-before-undo": "請先完成或取消該任務。",
     "task.reorder": "調整順序",
-    "tasks.transfers": "傳輸任務",
+    "tasks.transfers": "任務",
     "tasks.running-count": "{0} 項進行中",
     "tasks.waiting-start": "等待開始",
     "tasks.collapse": "收起任務",

@@ -1,0 +1,276 @@
+{
+  "before": [
+    {
+      "count": 2,
+      "busy": false,
+      "elapsedMs": 2306.7618,
+      "cpuMs": 3437.347,
+      "layouts": 5,
+      "uiTransformChanges": 127,
+      "frameCallbacks": 194,
+      "frameCallbackP95Ms": 15.9369,
+      "frameCallbackMaxMs": 438.9375,
+      "CapturesStarted": 28,
+      "RendererInvalidations": 61
+    },
+    {
+      "count": 2,
+      "busy": true,
+      "elapsedMs": 2277.0718,
+      "cpuMs": 3431.918,
+      "layouts": 268,
+      "uiTransformChanges": 122,
+      "frameCallbacks": 178,
+      "frameCallbackP95Ms": 15.4405,
+      "frameCallbackMaxMs": 100.3185,
+      "CapturesStarted": 40,
+      "RendererInvalidations": 81
+    },
+    {
+      "count": 100,
+      "busy": false,
+      "elapsedMs": 2810.7022,
+      "cpuMs": 4150.486,
+      "layouts": 5,
+      "uiTransformChanges": 127,
+      "frameCallbacks": 363,
+      "frameCallbackP95Ms": 13.575,
+      "frameCallbackMaxMs": 538.4476,
+      "CapturesStarted": 49,
+      "RendererInvalidations": 119
+    },
+    {
+      "count": 100,
+      "busy": true,
+      "elapsedMs": 4112.607,
+      "cpuMs": 3374.835,
+      "layouts": 160,
+      "uiTransformChanges": 83,
+      "frameCallbacks": 98,
+      "frameCallbackP95Ms": 116.9389,
+      "frameCallbackMaxMs": 902.8113,
+      "CapturesStarted": 23,
+      "RendererInvalidations": 40
+    }
+  ],
+  "after": [
+    {
+      "count": 2,
+      "busy": false,
+      "elapsedMs": 2285.1844,
+      "cpuMs": 3544.493,
+      "layouts": 5,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        235.4737,
+        226.1793,
+        220.3827,
+        231.6757,
+        225.8182
+      ],
+      "closingTimes": [
+        224.8601,
+        227.2647,
+        228.2462,
+        226.5846,
+        236.4589
+      ],
+      "frameCallbacks": 142,
+      "frameCallbackP95Ms": 16.6288,
+      "frameCallbackMaxMs": 157.582,
+      "CapturesStarted": 5,
+      "RendererInvalidations": 5
+    },
+    {
+      "count": 2,
+      "busy": true,
+      "elapsedMs": 2441.3941,
+      "cpuMs": 3648.706,
+      "layouts": 10,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        355.9169,
+        227.1857,
+        225.5625,
+        221.4072,
+        227.088
+      ],
+      "closingTimes": [
+        232.245,
+        226.9423,
+        275.64,
+        224.1238,
+        225.2438
+      ],
+      "frameCallbacks": 158,
+      "frameCallbackP95Ms": 16.7265,
+      "frameCallbackMaxMs": 182.2753,
+      "CapturesStarted": 10,
+      "RendererInvalidations": 10
+    },
+    {
+      "count": 100,
+      "busy": false,
+      "elapsedMs": 6318.0305,
+      "cpuMs": 3235.354,
+      "layouts": 5,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        2637.3343,
+        225.647,
+        229.2887,
+        1085.619,
+        225.372
+      ],
+      "closingTimes": [
+        1003.5457,
+        228.9208,
+        231.9531,
+        224.1985,
+        226.096
+      ],
+      "frameCallbacks": 140,
+      "frameCallbackP95Ms": 17.578,
+      "frameCallbackMaxMs": 1769.4473,
+      "CapturesStarted": 5,
+      "RendererInvalidations": 5
+    },
+    {
+      "count": 100,
+      "busy": true,
+      "elapsedMs": 2838.2718,
+      "cpuMs": 2827.804,
+      "layouts": 10,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        231.7154,
+        226.976,
+        786.7016,
+        225.9875,
+        225.8516
+      ],
+      "closingTimes": [
+        232.5941,
+        225.4277,
+        230.066,
+        225.7393,
+        227.1855
+      ],
+      "frameCallbacks": 149,
+      "frameCallbackP95Ms": 16.847,
+      "frameCallbackMaxMs": 689.3871,
+      "CapturesStarted": 10,
+      "RendererInvalidations": 10
+    }
+  ],
+  "afterRepeat": [
+    {
+      "count": 2,
+      "busy": false,
+      "elapsedMs": 2261.7215,
+      "cpuMs": 3849.788,
+      "layouts": 5,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        225.1102,
+        225.921,
+        228.6624,
+        228.2787,
+        227.6197
+      ],
+      "closingTimes": [
+        227.9836,
+        228.1733,
+        223.3095,
+        224.7502,
+        220.6567
+      ],
+      "frameCallbacks": 159,
+      "frameCallbackP95Ms": 16.7047,
+      "frameCallbackMaxMs": 25.2807,
+      "CapturesStarted": 7,
+      "RendererInvalidations": 7
+    },
+    {
+      "count": 2,
+      "busy": true,
+      "elapsedMs": 2267.5105,
+      "cpuMs": 3551.428,
+      "layouts": 10,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        227.5932,
+        226.8908,
+        226.8385,
+        228.0647,
+        226.7309
+      ],
+      "closingTimes": [
+        227.0259,
+        225.925,
+        226.6174,
+        224.5277,
+        227.255
+      ],
+      "frameCallbacks": 166,
+      "frameCallbackP95Ms": 16.7813,
+      "frameCallbackMaxMs": 40.5004,
+      "CapturesStarted": 10,
+      "RendererInvalidations": 10
+    },
+    {
+      "count": 100,
+      "busy": false,
+      "elapsedMs": 2263.7474,
+      "cpuMs": 2930.212,
+      "layouts": 5,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        226.2889,
+        225.0722,
+        226.7996,
+        226.7655,
+        226.0691
+      ],
+      "closingTimes": [
+        221.6972,
+        228.1952,
+        226.5567,
+        228.275,
+        227.954
+      ],
+      "frameCallbacks": 156,
+      "frameCallbackP95Ms": 16.8702,
+      "frameCallbackMaxMs": 60.1277,
+      "CapturesStarted": 5,
+      "RendererInvalidations": 5
+    },
+    {
+      "count": 100,
+      "busy": true,
+      "elapsedMs": 6224.8153,
+      "cpuMs": 2769.456,
+      "layouts": 9,
+      "uiTransformChanges": 0,
+      "openingTimes": [
+        223.12,
+        1000.7933,
+        1238.7181,
+        239.9681,
+        226.5047
+      ],
+      "closingTimes": [
+        1937.0827,
+        501.1605,
+        239.5372,
+        226.8927,
+        390.9893
+      ],
+      "frameCallbacks": 216,
+      "frameCallbackP95Ms": 41.1395,
+      "frameCallbackMaxMs": 1730.865,
+      "CapturesStarted": 38,
+      "RendererInvalidations": 64
+    }
+  ]
+}

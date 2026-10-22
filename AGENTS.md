@@ -116,5 +116,6 @@
 - 全局 Toast 复用 `AppToast`、`WindowNotificationManager` 与 `Assets/ToastStyles.axaml`，使用轻透毛玻璃表面、`RadiusXl`、圆形 Fluent 状态图标和主次两行文字；状态色仅用于图标区，长文案换行，窄窗口自适应，保留点击与自动关闭行为。
 
 - 文件任务面板与独立任务窗口共用 `FileTaskPanelPresenter`；列表复用全局 `file-task-row` / `task-title` / `task-meta` / `task-percentage` / `task-progress`，任务面板按设计稿使用 `FileTaskIcons` 的统一描边图标（文件夹复制、文档下载／移动、拉链文档、云上传与空心播放／暂停），其余入口仍用 Fluent；中间为名称、传输量和细进度条，右侧固定百分比与 `Button.icon-action`；面板默认宽 560px、任务行最小高 54px；无进度条时名称、状态与图标在单行内居中对齐，窄窗口仅将带进度条的传输量换行，暂停及失败进度复用 `muted` 状态，批量清理与取消放入面板右键菜单，不显示历史入口、统计卡片或详情展开。队列、检查点和撤销记录仅保留在当前进程，清除任务不清除历史，执行中任务仅可取消，不直接移除。 单文件解压缺少原始大小时使用不确定进度条与状态文字，不显示百分比；暂停时停止不确定动画。
+- 任务面板标题统一为“任务”；开合通过合成线程的 `CompositionVisual.Translation` 动画执行，不在 UI 线程逐帧更新坐标。进度通知按 50ms 合并，隐藏时不刷新列表，开合期间保留列表并在结束后同步最新状态；面板排除侧栏玻璃背景采样。
 
 - 内存生命周期：永久移除工作区及关闭窗口时通过 `MacAutomationLifetime` 解除 Avalonia macOS 原生无障碍节点循环，包含页签标题、装饰层光标及焦点框；关闭窗口后解绑原生输入根与回调，隐藏或短暂切换不释放；`AutomationLifetime.mm` 为固定版本补齐无障碍子节点遍历的 COM 引用释放，升级 Avalonia 后核对接口 ABI 并运行 `Tools/Performance/MemoryBench` 验证关闭对象归零及重复操作后的内存增长。成功／取消任务释放执行上下文，失败任务保留重试状态；完成摘要和撤销分组各保留最近 100 条，进行中的撤销分组不淘汰。共享位图以弱引用缓存，不释放仍被绑定的图片；`MemoryCacheMaintenance` 每 30 秒清理闲置超过 60 秒的缓存，首页已租用预览及当前可见缩略图继续保留。

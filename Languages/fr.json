@@ -1004,7 +1004,7 @@
     "tasks.copy-skipped": "Copier {0} éléments ({1} fichiers de communication d’exécution ignorés)",
     "tasks.finish-before-undo": "Terminez ou annulez d’abord cette tâche.",
     "task.reorder": "Réordonner",
-    "tasks.transfers": "Transferts",
+    "tasks.transfers": "Tâches",
     "tasks.running-count": "{0} en cours",
     "tasks.waiting-start": "En attente de démarrage",
     "tasks.collapse": "Réduire les tâches",

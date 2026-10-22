@@ -553,12 +553,10 @@
     <!-- Task overlay panel — bottom-right overlay (before DialogHost so dialogs paint above it) -->
     <Border x:Name="TaskOverlayPanel"
             IsVisible="False"
+            glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Width="560" MaxHeight="420"
             Margin="0,0,10,42">
-        <Border.RenderTransform>
-            <TranslateTransform X="664" Y="0"/>
-        </Border.RenderTransform>
         <!-- Outer Grid with margin to make room for shadow (same pattern as ContextMenu template) -->
         <Grid Margin="12">
             <!-- Shadow layer — full-size, not clipped -->

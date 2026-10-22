@@ -1,5 +1,15 @@
 # FastFileList 原生基准
 
+任务面板开合基准使用 `--tasks-only`，同样通过隔离启动器运行：
+
+```sh
+bash Tools/Testing/run-isolated.sh Tools/Performance/FastListBench/bin/Debug/net10.0/osx-arm64/FastListBench.app/Contents/MacOS/FastListBench /private/tmp/fkfinder-task-panel-results --tasks-only
+```
+
+默认只填入 2 个已完成任务，进度负载每 50ms 更新一次，每组预热后开合 3 次。只有显式追加 `--tasks-stress` 才测 2／100 项、每 8ms 更新进度和每组开合 5 次；此前这组压力测试曾伴随整机鼠标短暂无响应，根因尚未定位，不应反复运行。
+
+单次开合或预热返回后若总耗时超过 500ms，停止后续轮次并以失败退出；这个检测不能阻止首次停顿，只用于避免继续施压。测量阶段停止时保留已采集的部分数据。`task-panel-results.json` 记录整段耗时、进程 CPU、面板布局次数、UI 线程位移修改次数、玻璃采样次数及 `RequestAnimationFrame` 回调间隔。回调间隔不代表 GPU 呈现 FPS；测量时不要同时运行构建或其他基准。`FASTLIST_BENCH_KEEP_OPEN=1` 仅在成功完成后保留测试窗口。
+
 真实目录导航基准使用完整 `App`、主窗口、目录枚举、SQLite 搜索索引和原生缩略图服务：
 
 ```sh

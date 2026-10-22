@@ -34,14 +34,17 @@ internal static class Program
         TreeOnly = args.Contains("--tree-only", StringComparer.Ordinal);
         FolderCoverOnly = args.Contains("--folder-cover-only", StringComparer.Ordinal);
         Directory.CreateDirectory(OutputDirectory);
-        if (args.Contains("--navigation-only", StringComparer.Ordinal) || args.Contains("--scroll-only", StringComparer.Ordinal))
+        if (args.Contains("--navigation-only", StringComparer.Ordinal) || args.Contains("--scroll-only", StringComparer.Ordinal)
+            || args.Contains("--tasks-only", StringComparer.Ordinal))
         {
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MACEXPLORER_TEST_ROOT")))
                 throw new InvalidOperationException("Run native checks through Tools/Testing/run-isolated.sh.");
             AppBuilder.Configure<MacExplorer.App>().UsePlatformDetect()
                 .AfterSetup(_ => Dispatcher.UIThread.Post(async () =>
                 {
-                    if (args.Contains("--scroll-only", StringComparer.Ordinal)) await ScrollPerformance.RunAsync(OutputDirectory);
+                    if (args.Contains("--tasks-only", StringComparer.Ordinal))
+                        await TaskPanelPerformance.RunAsync(OutputDirectory, args.Contains("--tasks-stress", StringComparer.Ordinal));
+                    else if (args.Contains("--scroll-only", StringComparer.Ordinal)) await ScrollPerformance.RunAsync(OutputDirectory);
                     else await NavigationPerformance.RunAsync(OutputDirectory);
                 }))
                 .StartWithClassicDesktopLifetime([]);
