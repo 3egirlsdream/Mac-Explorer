@@ -627,6 +627,56 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
 
     [Fact(Explicit = true)]
     [Trait("Kind", "Integration")]
+    public async Task VerifiedHttpsInfoAppearsWhileRegistrationIsBlockedAndStaysOnlineAfterTimeout()
+    {
+        var token = TestContext.Current.CancellationToken;
+        using var rsa = RSA.Create(2048);
+        var request = new CertificateRequest("CN=LocalSend busy peer", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var fingerprint = Convert.ToHexString(SHA256.HashData(certificate.RawData));
+        var registration = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var info = new { alias = "Busy peer", version = "2.1", fingerprint };
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(certificate)));
+        await using var app = builder.Build();
+        app.MapGet("/api/localsend/v2/info", () => Results.Json(info));
+        app.MapPost("/api/localsend/v2/register", async (HttpContext context) =>
+        {
+            registration.TrySetResult();
+            try { await Task.Delay(Timeout.InfiniteTimeSpan, context.RequestAborted); }
+            finally { cancelled.TrySetResult(); }
+            return Results.Json(info);
+        });
+        await app.StartAsync(token);
+        var port = new Uri(Assert.Single(app.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!.Addresses)).Port;
+        using var inbound = await _client.PostAsJsonAsync(Url("register"),
+            new { alias = "Busy peer", version = "2.1", fingerprint, port, protocol = "https" }, token);
+        var visible = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var discovery = _service.DiscoverAsync(stop.Token, peers =>
+        {
+            if (peers.Any(peer => peer.Fingerprint == fingerprint)) visible.TrySetResult();
+        });
+        try
+        {
+            await registration.Task.WaitAsync(TimeSpan.FromSeconds(3), token);
+            await visible.Task.WaitAsync(TimeSpan.FromSeconds(1), token);
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(6), token);
+            var afterTimeout = await _service.DiscoverAsync(token);
+            Assert.Contains(afterTimeout, peer => peer.Fingerprint == fingerprint);
+        }
+        finally
+        {
+            stop.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => discovery);
+            await _service.SetEnabledAsync(false);
+        }
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task BackgroundScanKeepsConcurrencyWhilePeerRegistrationIsSlow()
     {
         var registered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -664,7 +714,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
             Volatile.Write(ref observing, 1);
             await scanned.Task.WaitAsync(TimeSpan.FromSeconds(3));
             Assert.False(release.Task.IsCompleted);
-            Assert.InRange(_service.DiscoveryStats.PeakTcp, 8, 16);
+            Assert.InRange(_service.DiscoveryStats.PeakTcp, 16, LocalSendService.TcpScanConcurrency);
             Console.WriteLine($"Background scan during slow registration: {count} probes, peak TCP {_service.DiscoveryStats.PeakTcp}");
         }
         finally
@@ -675,6 +725,74 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         var stopped = _service.DiscoveryStats.UnknownProbes;
         await Task.Delay(100);
         Assert.Equal(stopped, _service.DiscoveryStats.UnknownProbes);
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task BackgroundScanAdvancesPastSlowLastAddressOfFormerBatch()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var advanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _service.TcpProbeOverride = async (address, _, _) =>
+        {
+            if (address == "10.9.8.64")
+            {
+                blocked.TrySetResult();
+                await release.Task.WaitAsync(token);
+            }
+            if (address == "10.9.8.65") advanced.TrySetResult();
+            return false;
+        };
+        _service.ScanSubnet = "10.9.8.0/24";
+        _service.ScanInterfacesOverride = () => [new LocalSendService.ScanInterface("127.0.0.1", 32, "test")];
+        await _service.RejoinDiscoveryAsync();
+        try
+        {
+            await blocked.Task.WaitAsync(TimeSpan.FromSeconds(3), token);
+            await advanced.Task.WaitAsync(TimeSpan.FromSeconds(2), token);
+            Assert.False(release.Task.IsCompleted);
+        }
+        finally
+        {
+            release.TrySetResult();
+            await _service.SetEnabledAsync(false);
+        }
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task RefreshPreservesActiveRoundWithoutRepeatingFastAddresses()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var visited = new System.Collections.Concurrent.ConcurrentDictionary<string, int>();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var progressed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _service.TcpProbeOverride = (address, _, _) =>
+        {
+            visited.AddOrUpdate(address, 1, (_, count) => count + 1);
+            if (address == "10.9.8.70") started.TrySetResult();
+            if (address == "10.9.8.180") progressed.TrySetResult();
+            return Task.FromResult(false);
+        };
+        _service.ScanSubnet = "10.9.8.0/24";
+        _service.ScanInterfacesOverride = () => [new LocalSendService.ScanInterface("127.0.0.1", 32, "test")];
+        await _service.RejoinDiscoveryAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(3), token);
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var discover = _service.DiscoverAsync(stop.Token, _ => { });
+        try
+        {
+            await progressed.Task.WaitAsync(TimeSpan.FromSeconds(4), token);
+            Assert.All(visited, entry => Assert.Equal(1, entry.Value));
+        }
+        finally
+        {
+            stop.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => discover);
+            await _service.SetEnabledAsync(false);
+        }
     }
 
     [Fact(Explicit = true)]
@@ -738,17 +856,68 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
 
     [Fact(Explicit = true)]
     [Trait("Kind", "Integration")]
+    public async Task SlowVerificationLeavesTcpWorkersAvailableAndStopDrainsQueue()
+    {
+        var token = TestContext.Current.CancellationToken;
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var progressed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _service.TcpProbeOverride = (address, _, _) =>
+        {
+            if (address == "127.0.0.2") progressed.TrySetResult();
+            return Task.FromResult(address == "127.0.0.1");
+        };
+        var addresses = Enumerable.Repeat("127.0.0.1", 16).Append("127.0.0.2").ToArray();
+        var scan = _service.ScanAddressesAsync(addresses, port, token);
+        using var first = await listener.AcceptTcpClientAsync(token).AsTask().WaitAsync(TimeSpan.FromSeconds(3), token);
+        using var second = await listener.AcceptTcpClientAsync(token).AsTask().WaitAsync(TimeSpan.FromSeconds(3), token);
+        try
+        {
+            await progressed.Task.WaitAsync(TimeSpan.FromSeconds(3), token);
+            Assert.Equal(2, _service.DiscoveryStats.PeakHttp);
+            Assert.False(scan.IsCompleted);
+        }
+        finally
+        {
+            await _service.SetEnabledAsync(false);
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan);
+        Assert.Equal(0, _service.DiscoveryInFlightCount);
+        Assert.Equal(0, _service.ListeningPort);
+        Assert.Equal(0, _service.DiscoveryUdpPort);
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task TcpTimeoutRetriesOnceButClosedPortsAreNotRepeated()
+    {
+        var attempts = new System.Collections.Concurrent.ConcurrentDictionary<string, int>();
+        _service.TcpProbeOverride = async (address, _, token) =>
+        {
+            var count = attempts.AddOrUpdate(address, 1, (_, previous) => previous + 1);
+            if (address == "127.0.0.2" && count == 1)
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return false;
+        };
+        await _service.ScanAddressesAsync(["127.0.0.2", "127.0.0.3"], 65001, TestContext.Current.CancellationToken);
+        Assert.Equal(2, attempts["127.0.0.2"]);
+        Assert.Equal(1, attempts["127.0.0.3"]);
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task UnknownProbeRateAndConcurrencyStayWithinBudget()
     {
-        var addresses = Enumerable.Range(1, 96).Select(index => $"127.0.0.{index}").ToArray();
+        var addresses = Enumerable.Range(1, 700).Select(index => $"127.0.{index / 256}.{index % 256}").ToArray();
         var scan = _service.ScanAddressesAsync(addresses, 65001, TestContext.Current.CancellationToken);
         await Task.Delay(1000);
         var firstSecond = _service.DiscoveryStats.UnknownProbes;
-        Assert.InRange(firstSecond, 1, 64);
+        Assert.InRange(firstSecond, 1, LocalSendService.TcpScanProbesPerSecond + 1);
         await scan;
         var stats = _service.DiscoveryStats;
         Console.WriteLine($"LocalSend probes: firstSecond={firstSecond}, total={stats.UnknownProbes}, peakTcp={stats.PeakTcp}, peakHttp={stats.PeakHttp}");
-        Assert.InRange(stats.PeakTcp, 1, 16);
+        Assert.InRange(stats.PeakTcp, 1, LocalSendService.TcpScanConcurrency);
         Assert.InRange(stats.PeakHttp, 0, 4);
     }
 

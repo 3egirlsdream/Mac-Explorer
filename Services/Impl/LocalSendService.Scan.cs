@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading.Channels;
 using MacExplorer.Services;
 using Microsoft.Extensions.Logging;
 
@@ -247,7 +248,7 @@ public sealed partial class LocalSendService
         }
     }
 
-    private async Task<bool> TcpPortOpenAsync(string address, int port, CancellationToken cancellationToken)
+    private async Task<bool?> TcpPortOpenAsync(string address, int port, CancellationToken cancellationToken)
     {
         await _tcpProbeGate.WaitAsync(cancellationToken);
         RecordPeak(ref _peakTcp, Interlocked.Increment(ref _tcpInFlight));
@@ -264,7 +265,8 @@ public sealed partial class LocalSendService
                 return true;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-            catch (Exception ex) when (ex is SocketException or OperationCanceledException) { return false; }
+            catch (OperationCanceledException) { return null; }
+            catch (SocketException ex) { return ex.SocketErrorCode == SocketError.TimedOut ? null : false; }
         }
         finally
         {
@@ -273,20 +275,60 @@ public sealed partial class LocalSendService
         }
     }
 
-    private async Task ScanCandidatesAsync(DiscoveryState state, IEnumerable<string> addresses, int port,
+    private Task ScanCandidatesAsync(DiscoveryState state, IEnumerable<string> addresses, int port,
         TimeSpan verifyTimeout, CancellationToken cancellationToken)
     {
-        await Parallel.ForEachAsync(addresses,
-                new ParallelOptions { MaxDegreeOfParallelism = 16, CancellationToken = cancellationToken },
-                async (address, token) =>
-                {
-                    await RateLimitUnknownAsync(state, token);
-                    if (!await TcpPortOpenAsync(address, port, token)) return;
-                    using var attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    attempt.CancelAfter(verifyTimeout);
-                    try { await ConnectByAddressCoreAsync(state, address, port, attempt.Token); }
-                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-                    catch (Exception ex) { _logger?.LogDebug(ex, "LocalSend scan skipped {Address}", address); }
-                });
+        return ScanCandidatesAsync(state, EnumerateAsync(), port, verifyTimeout, cancellationToken);
+
+        async IAsyncEnumerable<string> EnumerateAsync()
+        {
+            foreach (var address in addresses) yield return address;
+            await Task.CompletedTask;
+        }
+    }
+
+    private async Task ScanCandidatesAsync(DiscoveryState state, IAsyncEnumerable<string> addresses, int port,
+        TimeSpan verifyTimeout, CancellationToken cancellationToken, bool discoveryOnly = false)
+    {
+        var openAddresses = Channel.CreateBounded<string>(new BoundedChannelOptions(16)
+        {
+            SingleWriter = false, SingleReader = false, FullMode = BoundedChannelFullMode.Wait
+        });
+        var probing = ProbeAsync();
+        var verifying = Parallel.ForEachAsync(openAddresses.Reader.ReadAllAsync(cancellationToken),
+            new ParallelOptions { MaxDegreeOfParallelism = 2, CancellationToken = cancellationToken },
+            async (address, token) =>
+            {
+                using var attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
+                attempt.CancelAfter(verifyTimeout);
+                try { await ConnectByAddressCoreAsync(state, address, port, attempt.Token, discoveryOnly); }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                catch (Exception ex) { _logger?.LogDebug(ex, "LocalSend scan skipped {Address}", address); }
+            });
+        await Task.WhenAll(probing, verifying);
+
+        async Task ProbeAsync()
+        {
+            Exception? error = null;
+            try
+            {
+                await Parallel.ForEachAsync(addresses,
+                    new ParallelOptions { MaxDegreeOfParallelism = TcpScanConcurrency, CancellationToken = cancellationToken },
+                    async (address, token) =>
+                    {
+                        await RateLimitUnknownAsync(state, token);
+                        var open = await TcpPortOpenAsync(address, port, token);
+                        if (open == null)
+                        {
+                            // One paced retry covers a lost SYN or a phone waking its radio.
+                            await RateLimitUnknownAsync(state, token);
+                            open = await TcpPortOpenAsync(address, port, token);
+                        }
+                        if (open == true) await openAddresses.Writer.WriteAsync(address, token);
+                    });
+            }
+            catch (Exception ex) { error = ex; throw; }
+            finally { openAddresses.Writer.TryComplete(error); }
+        }
     }
 }

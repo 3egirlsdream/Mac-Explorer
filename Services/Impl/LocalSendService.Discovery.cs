@@ -277,13 +277,13 @@ public sealed partial class LocalSendService
     }
 
     private async Task<LocalSendDevice> ConnectByAddressCoreAsync(DiscoveryState state, string address, int port,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool discoveryOnly = false)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, state.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         await _httpProbeGate.WaitAsync(timeout.Token);
         RecordPeak(ref _peakHttp, Interlocked.Increment(ref _httpInFlight));
-        try { return await ConnectByAddressUnderGateAsync(state, address, port, timeout.Token); }
+        try { return await ConnectByAddressUnderGateAsync(state, address, port, timeout.Token, discoveryOnly); }
         finally
         {
             Interlocked.Decrement(ref _httpInFlight);
@@ -292,7 +292,7 @@ public sealed partial class LocalSendService
     }
 
     private async Task<LocalSendDevice> ConnectByAddressUnderGateAsync(DiscoveryState state, string address, int port,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool discoveryOnly)
     {
         var attemptStarted = UtcNow;
         string? certificateFingerprint = null;
@@ -323,6 +323,11 @@ public sealed partial class LocalSendService
             throw new InvalidOperationException("不能连接到本机 LocalSend。");
 
         var peer = new LocalSendDevice(info.Alias, info.Fingerprint, address, port, "https");
+        if (discoveryOnly)
+        {
+            RememberVerifiedPeer(peer, state, cancellationToken, attemptStarted);
+            return peer;
+        }
         using var client = CreatePeerClient(peer);
         using var registration = new HttpRequestMessage(HttpMethod.Post, PeerUri(peer, "register"))
         { Content = JsonContent.Create(SelfInfo(), options: Json) };
@@ -342,6 +347,7 @@ public sealed partial class LocalSendService
     private async Task<bool> ProbePeerAsync(DiscoveryState state, LocalSendDevice peer, CancellationToken cancellationToken)
     {
         var attemptStarted = UtcNow;
+        var infoVerified = false;
         try
         {
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(4), _timeProvider);
@@ -351,10 +357,26 @@ public sealed partial class LocalSendService
             try
             {
                 using var client = CreatePeerClient(peer);
+                if (peer.Protocol == "https")
+                {
+                    using var status = await client.GetAsync(PeerUri(peer, "info"),
+                        HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+                    if (status.IsSuccessStatusCode)
+                    {
+                        await status.Content.LoadIntoBufferAsync(DiscoveryResponseLimit, timeout.Token);
+                        var current = await status.Content.ReadFromJsonAsync<PeerInfo>(Json, timeout.Token);
+                        if (current == null || string.IsNullOrWhiteSpace(current.Alias)
+                            || current.Version is null || !current.Version.StartsWith("2.", StringComparison.Ordinal)
+                            || !string.Equals(current.Fingerprint, peer.Fingerprint, StringComparison.OrdinalIgnoreCase)) return false;
+                        peer = peer with { Alias = current.Alias };
+                        RememberVerifiedPeer(peer, state, timeout.Token, attemptStarted);
+                        infoVerified = true;
+                    }
+                }
                 using var registration = new HttpRequestMessage(HttpMethod.Post, PeerUri(peer, "register"))
                 { Content = JsonContent.Create(SelfInfo(), options: Json) };
                 using var response = await client.SendAsync(registration, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-                if (!response.IsSuccessStatusCode) return false;
+                if (!response.IsSuccessStatusCode) return infoVerified;
                 await response.Content.LoadIntoBufferAsync(DiscoveryResponseLimit, timeout.Token);
                 var info = await response.Content.ReadFromJsonAsync<PeerInfo>(Json, timeout.Token);
                 if (info == null || !ValidPeerFingerprint(peer.Protocol, info.Fingerprint)
@@ -374,7 +396,7 @@ public sealed partial class LocalSendService
             }
         }
         catch (Exception ex)
-        { _logger?.LogDebug(ex, "LocalSend peer registration failed at {Address}", peer.Address); return false; }
+        { _logger?.LogDebug(ex, "LocalSend peer registration failed at {Address}", peer.Address); return infoVerified; }
     }
 
     private async Task<IResult> RegisterAsync(HttpContext context)
