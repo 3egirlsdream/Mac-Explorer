@@ -31,7 +31,9 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly SemaphoreSlim _httpProbeGate = new(4, 4);
-    private readonly SemaphoreSlim _tcpProbeGate = new(16, 16);
+    internal const int TcpScanConcurrency = 16;
+    internal const int TcpScanProbesPerSecond = 64;
+    private readonly SemaphoreSlim _tcpProbeGate = new(TcpScanConcurrency, TcpScanConcurrency);
     private readonly object _discoveryLock = new();
     private readonly Dictionary<string, (LocalSendDevice Device, DateTime Seen)> _peers = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _historyLock = new();
@@ -147,8 +149,7 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
             lock (_discoveryLock)
             {
                 if (_discovery is not { } state) return;
-                state.ScanVersion++;
-                state.ScanBatchCancellation?.Cancel();
+                state.ScanCancellation?.Cancel();
                 state.WakeScan();
             }
         }
