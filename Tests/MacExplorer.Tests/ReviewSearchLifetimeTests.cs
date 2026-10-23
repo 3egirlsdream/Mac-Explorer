@@ -284,6 +284,33 @@ public sealed class ReviewSearchLifetimeTests
         Assert.Equal(visible, Assert.Single(found).Path);
     }
 
+    [Theory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HiddenFoldersAreIndexedOnDemandWithoutLosingExplicitOrGlobalResults(bool explicitScope)
+    {
+        using var db = new Database();
+        var hidden = Directory.CreateDirectory(Path.Combine(db.Root, ".package-cache", "nested")).FullName;
+        var privateFile = Path.Combine(hidden, "hidden-report.txt");
+        var visible = Path.Combine(db.Root, "visible-report.txt");
+        await File.WriteAllTextAsync(privateFile, "hidden");
+        await File.WriteAllTextAsync(visible, "visible");
+        var changes = new Changes();
+        await using var indexer = new SearchIndexer(db.Catalog, new() { DatabasePath = db.PathName }, new Pinyin(), changes);
+        indexer.EnsureRoot(db.Root);
+        Assert.Equal(SearchIndexPhase.Ready, (await WaitSettled(indexer, db.Root)).Phase);
+        var all = new SearchOptions(HideDotFiles: false, HideDotFolders: false);
+        Assert.Equal(visible, Assert.Single(await db.Catalog.SearchAsync(db.Root, SearchQuery.Parse("report"), all, 10, false)).Path);
+        var requested = explicitScope ? hidden : db.Root;
+        Assert.True(indexer.EnsureRoot(requested, includeHiddenFolders: !explicitScope));
+        Assert.Equal(SearchIndexPhase.Ready, (await WaitSettled(indexer, requested)).Phase);
+        Assert.Equal(privateFile, Assert.Single(await db.Catalog.SearchAsync(requested, SearchQuery.Parse("hidden-report"), all, 10, false)).Path);
+        Assert.Equal(2, (await db.Catalog.SearchAsync(db.Root, SearchQuery.Parse("report"), all, 10, false)).Count);
+        Assert.Equal(visible, Assert.Single(await db.Catalog.SearchAsync(db.Root, SearchQuery.Parse("report"), new(), 10, false)).Path);
+        Assert.False(indexer.EnsureRoot(requested, includeHiddenFolders: !explicitScope));
+        Assert.Equal(explicitScope ? 2 : 1, changes.Starts);
+    }
+
     [Fact(Explicit = true)]
     public async Task ConcurrentDisposeCallsJoinTheSameWorkerAndDisposeWatchOnce()
     {

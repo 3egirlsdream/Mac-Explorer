@@ -36,6 +36,14 @@ sealed class Program
         if (OperatingSystem.IsMacOS())
             WaitForMacDisplayLinkAsync().GetAwaiter().GetResult();
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        // The UI, task workers and search indexer have stopped. Compact only here;
+        // an online VACUUM would stall foreground configuration/tag writes.
+        if (RuntimePaths.TestRoot == null)
+        {
+            App.CloseDatabaseConnections();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Services.Impl.DatabaseSpaceMaintenance.Reclaim(RuntimePaths.DatabasePath, compact: true);
+        }
     }
 
     private static async Task WaitForMacDisplayLinkAsync()

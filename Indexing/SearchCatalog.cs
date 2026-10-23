@@ -124,6 +124,11 @@ public sealed partial class SearchCatalog
                 predicates.Add("e.id IN (SELECT rowid FROM search_names WHERE search_names MATCH @fts)");
                 command.Parameters.AddWithValue("@fts", expression);
             }
+            if (fts && query.GetTrigramExpression(options.UsePinyin, pathsOnly: true) is { } pathExpression)
+            {
+                predicates.Add("e.parent_id IN (SELECT rowid FROM search_paths WHERE search_paths MATCH @pathFts)");
+                command.Parameters.AddWithValue("@pathFts", pathExpression);
+            }
             if (ai && results.Count > 0)
             {
                 var excluded = results.Select((entry, i) =>
@@ -140,8 +145,8 @@ public sealed partial class SearchCatalog
             // Scope, hidden paths, literal %, _, quotes, extension, and ALL terms are
             // evaluated before LIMIT. FTS is never allowed to decide final membership.
             var source = ai
-                ? $"(SELECT DISTINCT file_path FROM ai_tags WHERE {ScopePredicate("file_path")}) tagged JOIN search_entries e ON e.path=tagged.file_path"
-                : "search_entries e";
+                ? $"(SELECT DISTINCT file_path FROM ai_tags WHERE {ScopePredicate("file_path")}) tagged JOIN search_entry_details e ON e.path=tagged.file_path"
+                : "search_entry_details e";
             command.CommandText = $"""
                 SELECT {Columns} FROM {source}
                 WHERE {string.Join(" AND ", predicates)}
@@ -161,12 +166,12 @@ public sealed partial class SearchCatalog
     }, ct);
 
     public const string UpsertSql = """
-        INSERT INTO search_entries(path,name,parent_path,extension,extension_key,name_key,initials_key,parent_key,
+        INSERT INTO search_entries(path,name,parent_id,extension,extension_key,name_key,initials_key,
             size,is_directory,is_hidden,created_ticks,modified_ticks,is_symbolic_link,scan_id)
-        VALUES(@path,@name,@parent,@ext,@extKey,@nameKey,@initials,@parentKey,@size,@dir,@hidden,@created,@modified,@link,@scan)
-        ON CONFLICT(path) DO UPDATE SET name=excluded.name,parent_path=excluded.parent_path,
+        VALUES(@path,@name,@parentId,@ext,@extKey,@nameKey,@initials,@size,@dir,@hidden,@created,@modified,@link,@scan)
+        ON CONFLICT(path) DO UPDATE SET name=excluded.name,parent_id=excluded.parent_id,
             extension=excluded.extension,extension_key=excluded.extension_key,name_key=excluded.name_key,
-            initials_key=excluded.initials_key,parent_key=excluded.parent_key,size=excluded.size,
+            initials_key=excluded.initials_key,size=excluded.size,
             is_directory=excluded.is_directory,is_hidden=excluded.is_hidden,created_ticks=excluded.created_ticks,
             modified_ticks=excluded.modified_ticks,is_symbolic_link=excluded.is_symbolic_link,scan_id=excluded.scan_id
         """;
@@ -178,22 +183,36 @@ public sealed partial class SearchCatalog
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = UpsertSql;
-            foreach (var name in new[] { "@path", "@name", "@parent", "@ext", "@extKey", "@nameKey", "@initials", "@parentKey", "@scan" })
+            foreach (var name in new[] { "@path", "@name", "@ext", "@extKey", "@nameKey", "@initials", "@scan" })
                 command.Parameters.Add(name, SqliteType.Text);
-            foreach (var name in new[] { "@size", "@dir", "@hidden", "@created", "@modified", "@link" })
+            foreach (var name in new[] { "@parentId", "@size", "@dir", "@hidden", "@created", "@modified", "@link" })
                 command.Parameters.Add(name, SqliteType.Integer);
             command.Prepare();
+            using var parent = connection.CreateCommand();
+            parent.Transaction = transaction;
+            parent.CommandText = """
+                INSERT INTO search_directories(path,parent_key) VALUES(@path,@key) ON CONFLICT(path) DO NOTHING;
+                SELECT id FROM search_directories WHERE path=@path COLLATE BINARY;
+                """;
+            parent.Parameters.Add("@path", SqliteType.Text);
+            parent.Parameters.Add("@key", SqliteType.Text);
+            var parents = new Dictionary<string, long>(StringComparer.Ordinal);
             foreach (var entry in entries)
             {
                 ct.ThrowIfCancellationRequested();
                 command.Parameters["@path"].Value = entry.Path;
                 command.Parameters["@name"].Value = entry.Name;
-                command.Parameters["@parent"].Value = entry.ParentPath;
+                if (!parents.TryGetValue(entry.ParentPath, out var parentId))
+                {
+                    parent.Parameters["@path"].Value = entry.ParentPath;
+                    parent.Parameters["@key"].Value = entry.ParentKey;
+                    parents[entry.ParentPath] = parentId = (long)parent.ExecuteScalar()!;
+                }
+                command.Parameters["@parentId"].Value = parentId;
                 command.Parameters["@ext"].Value = entry.Extension;
                 command.Parameters["@extKey"].Value = SearchQuery.Fold(entry.Extension.TrimStart('.'));
                 command.Parameters["@nameKey"].Value = entry.NameKey;
                 command.Parameters["@initials"].Value = entry.InitialsKey;
-                command.Parameters["@parentKey"].Value = entry.ParentKey;
                 command.Parameters["@size"].Value = entry.Size;
                 command.Parameters["@dir"].Value = entry.IsDirectory ? 1 : 0;
                 command.Parameters["@hidden"].Value = entry.IsHidden ? 1 : 0;
@@ -217,7 +236,7 @@ public sealed partial class SearchCatalog
             using (var command = connection.CreateCommand())
             {
                 command.Transaction = transaction;
-                command.CommandText = "SELECT path FROM search_entries WHERE parent_path=@parent AND scan_id<>@scan AND is_directory=1";
+                command.CommandText = "SELECT path FROM search_entries WHERE parent_id=(SELECT id FROM search_directories WHERE path=@parent) AND scan_id<>@scan AND is_directory=1";
                 command.Parameters.AddWithValue("@parent", directory);
                 command.Parameters.AddWithValue("@scan", scanId);
                 using var reader = command.ExecuteReader();
@@ -234,7 +253,7 @@ public sealed partial class SearchCatalog
             using (var command = connection.CreateCommand())
             {
                 command.Transaction = transaction;
-                command.CommandText = "DELETE FROM search_entries WHERE parent_path=@parent AND scan_id<>@scan";
+                command.CommandText = "DELETE FROM search_entries WHERE parent_id=(SELECT id FROM search_directories WHERE path=@parent) AND scan_id<>@scan";
                 command.Parameters.AddWithValue("@parent", directory);
                 command.Parameters.AddWithValue("@scan", scanId);
                 command.ExecuteNonQuery();

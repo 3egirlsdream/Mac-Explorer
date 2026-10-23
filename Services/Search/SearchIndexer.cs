@@ -60,6 +60,7 @@ public sealed class SearchIndexer : IAsyncDisposable
         public TaskCompletionSource<bool> Changed = NewSignal();
         public IDisposable? Watcher;
         public bool Queued, Started, RestartWatcher;
+        public bool IncludeHiddenFolders;
         public ulong ObservedId, Checkpoint;
         public DateTimeOffset LastAttempt;
         public long LastProgressTick;
@@ -73,19 +74,27 @@ public sealed class SearchIndexer : IAsyncDisposable
         previous.TrySetResult(true);
     }
 
-    public void EnsureRoot(string directory)
+    public bool EnsureRoot(string directory, bool includeHiddenFolders = false)
     {
         _access.EnsureAccess(directory);
         var root = SearchPath.Normalize(directory);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            var coverageChanged = false;
             var state = FindState(root);
             if (state == null)
             {
-                state = new(root);
+                state = new(root) { IncludeHiddenFolders = includeHiddenFolders };
+                coverageChanged = true;
                 _roots.Add(root, state);
                 AddDirty(state, root, recursive: true);
+            }
+            else if (includeHiddenFolders && !state.IncludeHiddenFolders)
+            {
+                state.IncludeHiddenFolders = true;
+                coverageChanged = true;
+                AddDirty(state, state.Root, recursive: true);
             }
             // Partial coverage with a working watcher must not rescan on every
             // query. A failed watcher, however, has no events with which to recover.
@@ -94,6 +103,7 @@ public sealed class SearchIndexer : IAsyncDisposable
                      (state.Status.Phase == SearchIndexPhase.Unavailable || state.Watcher == null) &&
                      _timeProvider.GetUtcNow() - state.LastAttempt > TimeSpan.FromSeconds(30))
                 AddDirty(state, state.Root, recursive: true);
+            return coverageChanged;
         }
     }
 
@@ -121,7 +131,7 @@ public sealed class SearchIndexer : IAsyncDisposable
 
     // Reuse an ancestor watch only if its indexing policy actually covers the requested directory.
     private RootState? FindState(string root) => _roots.Values
-        .Where(state => SearchPath.IsWithin(root, state.Root) && CanDescend(state.Root, root))
+        .Where(state => SearchPath.IsWithin(root, state.Root) && CanDescend(state, root))
         .OrderByDescending(state => state.Root.Length).FirstOrDefault();
 
     private void AddDirty(RootState state, string directory, bool recursive)
@@ -160,8 +170,8 @@ public sealed class SearchIndexer : IAsyncDisposable
             }
             if (!SearchPath.IsWithin(change.Path, state.Root)) return;
             var parent = Path.GetDirectoryName(change.Path);
-            if (parent != null && CanDescend(state.Root, parent)) AddDirty(state, parent, false);
-            if (change.IsDirectory && CanDescend(state.Root, change.Path)) AddDirty(state, change.Path, true);
+            if (parent != null && CanDescend(state, parent)) AddDirty(state, parent, false);
+            if (change.IsDirectory && CanDescend(state, change.Path)) AddDirty(state, change.Path, true);
         }
     }
 
@@ -250,7 +260,7 @@ public sealed class SearchIndexer : IAsyncDisposable
                     }
                     foreach (var item in pending)
                     {
-                        if (!CanDescend(state.Root, item.Key)) continue;
+                        if (!CanDescend(state, item.Key)) continue;
                         unavailable |= await ScanAsync(state, item.Key, item.Value, ct).ConfigureAwait(false);
                     }
                     // Only acknowledge the event IDs captured WITH this work batch, and only
@@ -375,7 +385,7 @@ public sealed class SearchIndexer : IAsyncDisposable
                             SearchQuery.Fold(name), _pinyin.GetInitials(name), SearchQuery.Fold(current),
                             isDirectory || isLink ? 0 : ((FileInfo)entry).Length, isDirectory,
                             attrs.HasFlag(FileAttributes.Hidden), entry.CreationTimeUtc.Ticks, entry.LastWriteTimeUtc.Ticks, isLink));
-                        if (recursive && isDirectory && !isLink && CanDescend(state.Root, entry.FullName))
+                        if (recursive && isDirectory && !isLink && CanDescend(state, entry.FullName))
                             children.Add(entry.FullName);
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -437,6 +447,12 @@ public sealed class SearchIndexer : IAsyncDisposable
     }
 
     public bool CanDescend(string root, string directory)
+        => CanDescend(root, directory, includeHiddenFolders: false);
+
+    private bool CanDescend(RootState state, string directory)
+        => CanDescend(state.Root, directory, state.IncludeHiddenFolders);
+
+    private bool CanDescend(string root, string directory, bool includeHiddenFolders)
     {
         if (root == directory) return true; // Explicit scopes can opt into otherwise excluded locations.
         if (!SearchPath.IsWithin(directory, root)) return false;
@@ -446,6 +462,7 @@ public sealed class SearchIndexer : IAsyncDisposable
         if (userLibrary != root && SearchPath.IsWithin(userLibrary, root) && SearchPath.IsWithin(directory, userLibrary)) return false;
         var relative = directory[SearchPath.Prefix(root).Length..];
         return !relative.Split(Path.DirectorySeparatorChar).Any(segment => ExcludedNames.Contains(segment)
+            || (!includeHiddenFolders && segment.StartsWith('.'))
             || segment.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)
             || Packages.Contains(Path.GetExtension(segment)));
     }

@@ -61,7 +61,9 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
             yield break;
         }
         var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
-        _indexer.EnsureRoot(root);
+        var coverageChanged = _indexer.EnsureRoot(root, includeHiddenFolders: !options.HideDotFolders);
+        while (coverageChanged && _indexer.Observe(root) is var observation && observation.Status.IsBusy)
+            await observation.Changed.WaitAsync(cancellationToken).ConfigureAwait(false);
         var entries = await _catalog.SearchAsync(root, query, options, maxResults,
             _settings?.Get("SearchIncludeAiTags", true) ?? true, cancellationToken).ConfigureAwait(false);
         foreach (var entry in entries)
@@ -102,7 +104,7 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
         }
         var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
         var includeAi = _settings?.Get("SearchIncludeAiTags", true) ?? true;
-        _indexer.EnsureRoot(root);
+        _indexer.EnsureRoot(root, includeHiddenFolders: !options.HideDotFolders);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();

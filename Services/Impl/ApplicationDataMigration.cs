@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using MacExplorer.Indexing;
 
 namespace MacExplorer.Services.Impl;
 
@@ -36,10 +37,30 @@ internal static class ApplicationDataMigration
         Directory.CreateDirectory(RuntimePaths.DataDirectory);
         Directory.CreateDirectory(RuntimePaths.CacheDirectory);
         Directory.CreateDirectory(RuntimePaths.LogDirectory);
-        if (RuntimePaths.TestRoot != null || DistributionChannel.IsAppStore
-            || Environment.GetEnvironmentVariable("MACEXPLORER_DB_PATH") != null) return;
-        // Fail rather than silently create an empty profile after a failed upgrade.
-        CopyDatabaseIfAbsent(Path.Combine(RuntimePaths.HomeDirectory, "Documents", "MacExplorer", "index.db"),
-            RuntimePaths.DatabasePath);
+        if (RuntimePaths.TestRoot == null && !DistributionChannel.IsAppStore
+            && Environment.GetEnvironmentVariable("MACEXPLORER_DB_PATH") == null)
+        {
+            // Fail rather than silently create an empty profile after a failed upgrade.
+            CopyDatabaseIfAbsent(Path.Combine(RuntimePaths.HomeDirectory, "Documents", "MacExplorer", "index.db"),
+                RuntimePaths.DatabasePath);
+        }
+        PrepareSearchStorage(RuntimePaths.DatabasePath);
+    }
+
+    internal static void PrepareSearchStorage(string path)
+    {
+        if (!File.Exists(path)) return;
+        using (var connection = DatabaseSpaceMaintenance.Open(path))
+        {
+            if (DatabaseSpaceMaintenance.Scalar(connection,
+                    "SELECT count(*) FROM pragma_table_info('search_entries') WHERE name='parent_path'") == 0) return;
+            // A first upgrade can rewrite a large index. Finish it before any windows,
+            // settings writers or background workers exist, never behind an interactive UI.
+            DatabaseSpaceMaintenance.Configure(connection);
+            SearchSchema.Initialize(connection);
+        }
+        // Reclamation is best effort: a busy reader or a failed VACUUM must not
+        // turn a committed, usable schema upgrade into an application startup failure.
+        DatabaseSpaceMaintenance.Reclaim(path, compact: true);
     }
 }

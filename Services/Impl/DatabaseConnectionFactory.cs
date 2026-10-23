@@ -36,6 +36,7 @@ public class DatabaseConnectionFactory
             cmd.CommandText = "PRAGMA busy_timeout=5000;";
             cmd.ExecuteNonQuery();
             EnsureWalInitialized(conn);
+            DatabaseSpaceMaintenance.Configure(conn);
             return conn;
         }
         catch { conn.Dispose(); throw; }

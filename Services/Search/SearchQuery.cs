@@ -66,19 +66,20 @@ public sealed record SearchQuery(
     }
 
     /// <summary>Only a candidate filter. SQL still applies all literal predicates before LIMIT.</summary>
-    public string? GetTrigramExpression(bool usePinyin)
+    public string? GetTrigramExpression(bool usePinyin, bool pathsOnly = false)
     {
         static bool HasTrigram(string text) => text.EnumerateRunes().Take(3).Count() == 3;
         static string Quote(string text) => "\"" + text.Replace("\"", "\"\"") + "\"";
         var clauses = new List<string>();
-        foreach (var term in NameTerms.Where(HasTrigram))
+        foreach (var term in (pathsOnly ? Array.Empty<string>() : NameTerms).Where(HasTrigram))
         {
             var literal = Quote(term);
             clauses.Add(usePinyin
                 ? $"(name_key : {literal} OR initials_key : {literal})"
                 : $"name_key : {literal}");
         }
-        clauses.AddRange(PathTerms.Where(HasTrigram).Select(term => $"parent_key : {Quote(term)}"));
+        if (pathsOnly)
+            clauses.AddRange(PathTerms.Where(HasTrigram).Select(term => $"parent_key : {Quote(term)}"));
         return clauses.Count == 0 ? null : string.Join(" AND ", clauses);
     }
 }

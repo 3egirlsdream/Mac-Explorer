@@ -103,7 +103,11 @@ public partial class App : Application
                     finally
                     {
                         try { await Services.GetRequiredService<SearchIndexer>().DisposeAsync(); }
-                        finally { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
+                        finally
+                        {
+                            try { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
+                            finally { await Services.GetRequiredService<ApplicationStorageMaintenance>().DisposeAsync(); }
+                        }
                     }
                 }
                 finally { pluginsStopped = true; desktop.Shutdown(); }
@@ -234,6 +238,7 @@ public partial class App : Application
         if (DistributionChannel.IsAppStore)
             Dispatcher.UIThread.Post(() => Services.GetRequiredService<Services.Subscriptions.SubscriptionService>().Start(), DispatcherPriority.ApplicationIdle);
         _ = Task.Run(CheckStartupUpdateAsync);
+        Services.GetRequiredService<ApplicationStorageMaintenance>().Start();
         DispatcherTimer.RunOnce(() =>
         {
             if (_startupUpdateCancellation.IsCancellationRequested) return;
@@ -331,6 +336,11 @@ public partial class App : Application
         return Path.GetFullPath(localPath);
     }
 
+    internal static void CloseDatabaseConnections()
+    {
+        (Services?.GetService(typeof(SqliteFileIndex)) as IDisposable)?.Dispose();
+    }
+
     private static IServiceProvider ConfigureServices()
     {
         DirectoryAccess.PrepareSandboxTestProfile();
@@ -343,6 +353,7 @@ public partial class App : Application
                 logger: sp.GetService<ILogger<Services.Subscriptions.SubscriptionService>>()));
         var indexConfig = new IndexConfiguration();
         services.AddSingleton(indexConfig);
+        services.AddSingleton(_ => new ApplicationStorageMaintenance());
         services.AddSingleton(sp => new DatabaseConnectionFactory(indexConfig.DatabasePath));
         services.AddSingleton<SqliteFileIndex>(sp => new SqliteFileIndex(indexConfig.DatabasePath, sp.GetRequiredService<DatabaseConnectionFactory>()));
         services.AddSingleton<IFileIndex>(sp => sp.GetRequiredService<SqliteFileIndex>());

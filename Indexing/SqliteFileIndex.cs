@@ -71,6 +71,7 @@ public class SqliteFileIndex : IFileIndex, IFileIndexWriter, IDisposable
             }
 
             SqliteSchema.Initialize(conn);
+            DatabaseSpaceMaintenance.Configure(conn);
             return conn;
         }
         catch (Exception ex)
