@@ -1,6 +1,7 @@
 using MacExplorer.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 namespace MacExplorer.Services.Impl;
 
@@ -20,9 +21,9 @@ public class AiTagService : IAiTagService
 
     // ── Analysis status ──
 
-    public async Task<bool> IsFileAnalyzedAsync(string filePath, long fileModifiedTicks)
+    public async Task<bool> IsFileAnalyzedAsync(string filePath, long fileModifiedTicks, CancellationToken ct = default)
     {
-        using var connectionLock = await AcquireConnectionAsync();
+        using var connectionLock = await AcquireConnectionAsync(ct);
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT file_modified_at, analysis_version FROM ai_analysis_status WHERE file_path = @path
@@ -34,12 +35,13 @@ public class AiTagService : IAiTagService
     }
 
     public async Task<IReadOnlyList<(string Path, long ModifiedTicks)>> GetUnanalyzedFilesAsync(
-        IReadOnlyList<string> filePaths, IReadOnlyList<long> modifiedTicks)
+        IReadOnlyList<string> filePaths, IReadOnlyList<long> modifiedTicks, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(filePaths);
         ArgumentNullException.ThrowIfNull(modifiedTicks);
         if (filePaths.Count != modifiedTicks.Count)
             throw new ArgumentException("Each file path must have a corresponding modified time.", nameof(modifiedTicks));
+        ct.ThrowIfCancellationRequested();
         if (filePaths.Count == 0) return [];
 
         // Own the inputs before handing work to another thread. Microsoft.Data.Sqlite
@@ -48,11 +50,12 @@ public class AiTagService : IAiTagService
         var times = modifiedTicks.ToArray();
         return await Task.Run(async () =>
         {
-            using var connectionLock = await AcquireConnectionAsync().ConfigureAwait(false);
+            using var connectionLock = await AcquireConnectionAsync(ct).ConfigureAwait(false);
             var result = new List<(string Path, long ModifiedTicks)>();
             const int batchSize = 256;
             for (var offset = 0; offset < paths.Length; offset += batchSize)
             {
+                ct.ThrowIfCancellationRequested();
                 var count = Math.Min(batchSize, paths.Length - offset);
                 var analyzed = new Dictionary<string, (long Mtime, int Version)>(count, StringComparer.Ordinal);
                 using (var cmd = _connection.CreateCommand())
@@ -77,10 +80,10 @@ public class AiTagService : IAiTagService
                 }
             }
             return (IReadOnlyList<(string Path, long ModifiedTicks)>)result;
-        }).ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<string>> GetAnalyzedPathsInDirectoryAsync(string parentPath)
+    public async Task<IReadOnlyList<string>> GetAnalyzedPathsInDirectoryAsync(string parentPath, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(parentPath);
         var prefix = parentPath.EndsWith('/') ? parentPath : parentPath + "/";
@@ -89,7 +92,7 @@ public class AiTagService : IAiTagService
         var prefixEnd = prefix[..^1] + "0";
         return await Task.Run(async () =>
         {
-            using var connectionLock = await AcquireConnectionAsync().ConfigureAwait(false);
+            using var connectionLock = await AcquireConnectionAsync(ct).ConfigureAwait(false);
             var paths = new List<string>();
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
@@ -102,17 +105,20 @@ public class AiTagService : IAiTagService
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
+            {
+                ct.ThrowIfCancellationRequested();
                 paths.Add(reader.GetString(0));
+            }
             return (IReadOnlyList<string>)paths;
-        }).ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
     }
 
     // ── Save & delete ──
 
-    public Task<IReadOnlyList<string>?> GetCachedTextAsync(string filePath, long modifiedTicks,
+    public Task<TextContentPage?> GetCachedTextPageAsync(string filePath, long modifiedTicks, long offset,
         CancellationToken ct = default) => Task.Run(async () =>
     {
-        using var connectionLock = await AcquireConnectionAsync().ConfigureAwait(false);
+        using var connectionLock = await AcquireConnectionAsync(ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         using var status = _connection.CreateCommand();
         status.CommandText = "SELECT 1 FROM ai_analysis_status WHERE file_path=@path AND file_modified_at=@modified AND analysis_version>=@version";
@@ -120,23 +126,30 @@ public class AiTagService : IAiTagService
         status.Parameters.AddWithValue("@modified", modifiedTicks);
         status.Parameters.AddWithValue("@version", CurrentAnalysisVersion);
         if (status.ExecuteScalar() == null) return null;
-        var texts = new List<string>();
         using var command = _connection.CreateCommand();
         // Insertion order preserves PDF page / OCR reading order, independent of confidence.
-        command.CommandText = "SELECT tag_value FROM ai_tags WHERE file_path=@path AND tag_type='text' ORDER BY id";
+        command.CommandText = "SELECT id FROM ai_tags WHERE file_path=@path AND tag_type='text' ORDER BY id";
         command.Parameters.AddWithValue("@path", filePath);
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
+        return TextContentPage.Read(OpenSegments(), offset, ct);
+
+        IEnumerable<TextReader> OpenSegments()
         {
-            ct.ThrowIfCancellationRequested();
-            texts.Add(reader.GetString(0));
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                ct.ThrowIfCancellationRequested();
+                // SQLite incremental blob I/O also supports TEXT columns. Avoid GetString,
+                // which would allocate an entire PDF line even for a small requested page.
+                using var blob = new SqliteBlob(_connection, "ai_tags", "tag_value", reader.GetInt64(0), readOnly: true);
+                using var text = new StreamReader(blob, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
+                yield return text;
+            }
         }
-        return (IReadOnlyList<string>)texts;
     }, ct);
 
     public async Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result, CancellationToken ct = default)
     {
-        using var connectionLock = await AcquireConnectionAsync();
+        using var connectionLock = await AcquireConnectionAsync(ct);
         using var transaction = _connection.BeginTransaction();
         try
         {
@@ -345,16 +358,19 @@ public class AiTagService : IAiTagService
 
     // ── Tag queries ──
 
-    public async Task<IReadOnlyList<AiTag>> GetTagsForFileAsync(string filePath)
+    public async Task<IReadOnlyList<AiTag>> GetTagsForFileAsync(string filePath, bool includeText = true)
     {
         using var connectionLock = await AcquireConnectionAsync();
         var tags = new List<AiTag>();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT id, file_path, tag_type, tag_value, confidence, created_at
-            FROM ai_tags WHERE file_path = @path ORDER BY confidence DESC
+            FROM ai_tags WHERE file_path = @path
+              AND (@includeText OR tag_type NOT IN ('text', 'text_summary'))
+            ORDER BY confidence DESC
             """;
         cmd.Parameters.AddWithValue("@path", filePath);
+        cmd.Parameters.AddWithValue("@includeText", includeText);
 
         using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -825,9 +841,9 @@ public class AiTagService : IAiTagService
 
     // ── Private helpers ──
 
-    private async Task<ConnectionLockLease> AcquireConnectionAsync()
+    private async Task<ConnectionLockLease> AcquireConnectionAsync(CancellationToken ct = default)
     {
-        await _connectionLock.WaitAsync();
+        await _connectionLock.WaitAsync(ct);
         return new ConnectionLockLease(_connectionLock);
     }
 

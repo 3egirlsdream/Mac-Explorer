@@ -33,7 +33,7 @@ public sealed class PdfAnalysisService(IPdfTextExtractionService extractor, IAiT
             {
                 token.ThrowIfCancellationRequested();
                 // Another tab may have finished while this request waited for the gate.
-                if (await tags.IsFileAnalyzedAsync(path, modifiedTicks).ConfigureAwait(false)) return;
+                if (await tags.IsFileAnalyzedAsync(path, modifiedTicks, token).ConfigureAwait(false)) return;
                 EnsureUnchanged(path, modifiedTicks);
                 var texts = await extractor.ExtractAsync(path, progress, token).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();

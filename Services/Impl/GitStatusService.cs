@@ -5,8 +5,16 @@ using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
 
-public class GitStatusService : IGitStatusService, IDisposable
+public class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache, IMemoryDiagnosticSource
 {
+    internal const int CacheEntryLimit = 16;
+    internal const long CacheByteLimit = 8L * 1024 * 1024;
+    private readonly object _cacheSync = new();
+    private bool _disposed;
+    private static long Size(GitRepoStatus status) => 128L + status.RepoRoot.Length * 2L
+        + status.FileStatuses.Keys.Sum(path => 80L + path.Length * 2L);
+    MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
+    { lock (_cacheSync) return new("git-status", _cache.Count, _cache.Values.Sum(Size)); }
     internal static readonly string[] StoreGitCandidates =
     [
         "/Library/Developer/CommandLineTools/usr/bin/git",
@@ -24,6 +32,7 @@ public class GitStatusService : IGitStatusService, IDisposable
     public GitStatusService(ILoggerFactory? loggerFactory = null)
     {
         _logger = loggerFactory?.CreateLogger<GitStatusService>();
+        MemoryCacheMaintenance.Register(this); MemoryDiagnostics.Register(this);
     }
 
     public Task<GitRepoStatus?> GetRepoStatusAsync(string directoryPath)
@@ -51,8 +60,12 @@ public class GitStatusService : IGitStatusService, IDisposable
                 LastUpdated = DateTime.UtcNow
             };
 
-            _cache[repoRoot] = result;
-            WatchRepo(repoRoot);
+            lock (_cacheSync)
+            {
+                if (_disposed) return result;
+                CacheStatus(result);
+                WatchRepo(repoRoot);
+            }
             return result;
         }
         catch (Exception ex)
@@ -281,6 +294,26 @@ public class GitStatusService : IGitStatusService, IDisposable
 
     public void InvalidateCache(string repoRoot) => _cache.TryRemove(repoRoot, out _);
 
+    internal void CacheStatus(GitRepoStatus result)
+    {
+        lock (_cacheSync)
+        {
+            _cache[result.RepoRoot] = result;
+            var bytes = _cache.Values.Sum(Size);
+            foreach (var oldest in _cache.Values.OrderBy(status => status.LastUpdated).ToArray())
+            {
+                if (_cache.Count <= CacheEntryLimit && bytes <= CacheByteLimit) break;
+                if (_cache.TryRemove(oldest.RepoRoot, out _)) bytes -= Size(oldest);
+            }
+        }
+    }
+
+    public void TrimMemory(DateTime unusedBefore)
+    {
+        lock (_cacheSync)
+            foreach (var (key, status) in _cache.Where(pair => pair.Value.LastUpdated < unusedBefore)) _cache.TryRemove(key, out _);
+    }
+
     private void WatchRepo(string repoRoot)
     {
         if (_watchedRepo == repoRoot) return;
@@ -308,5 +341,5 @@ public class GitStatusService : IGitStatusService, IDisposable
     private static bool IsInsideGitDir(string fullPath) =>
         fullPath.Contains("/.git/", StringComparison.Ordinal) || fullPath.EndsWith("/.git", StringComparison.Ordinal);
 
-    public void Dispose() { _watcher?.Dispose(); _cache.Clear(); }
+    public void Dispose() { lock (_cacheSync) { _disposed = true; _watcher?.Dispose(); _cache.Clear(); } }
 }

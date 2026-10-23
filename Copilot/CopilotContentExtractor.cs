@@ -3,6 +3,7 @@ using System.IO.Compression;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using MacExplorer.Services;
+using MacExplorer.Models;
 
 namespace MacExplorer.Copilot;
 
@@ -10,7 +11,7 @@ namespace MacExplorer.Copilot;
 public sealed class CopilotContentExtractor(
     IPdfTextExtractionService pdf, IImageAnalysisService images, IAiTagService? aiTags = null)
 {
-    public const int MaxPageUtf8Bytes = 50 * 1024;
+    public const int MaxPageUtf8Bytes = TextContentPage.MaxUtf8Bytes;
     public const long MaxDocumentBytes = 25 * 1024 * 1024;
     public const long MaxOfficeExpandedBytes = 32 * 1024 * 1024;
     public const int MaxOfficeCharacters = 1_000_000;
@@ -59,25 +60,37 @@ public sealed class CopilotContentExtractor(
             && aiTags != null)
         {
             var modified = File.GetLastWriteTime(path).Ticks;
-            var cached = await aiTags.GetCachedTextAsync(path, modified, cancellationToken).ConfigureAwait(false);
+            var cached = await aiTags.GetCachedTextPageAsync(path, modified, offset, cancellationToken).ConfigureAwait(false);
             if (cached != null && File.GetLastWriteTime(path).Ticks == modified)
             {
-                var text = string.Join("\n", cached);
-                if (offset > text.Length) throw new ArgumentOutOfRangeException(nameof(offset), "起始字符位置超出文件末尾。");
-                return Slice(text.AsSpan((int)offset), offset, false) with { Source = "analysis-database" };
+                return new Page(cached.Text, offset, cached.NextOffset, cached.HasMore) { Source = "analysis-database" };
             }
         }
         if (new FileInfo(path).Length > MaxDocumentBytes)
             throw new IOException("非文本文件超过 25 MB，请先缩小范围。");
+        if (extension == ".pdf")
+        {
+            var texts = await pdf.ExtractAsync(path, ct: cancellationToken).ConfigureAwait(false);
+            var page = TextContentPage.Read(OpenSegments(texts), offset, cancellationToken);
+            return new(page.Text, offset, page.NextOffset, page.HasMore);
+        }
         var content = extension switch
         {
-            ".pdf" => string.Join("\n", (await pdf.ExtractAsync(path, ct: cancellationToken)).Select(item => item.Text)),
             ".png" or ".jpg" or ".jpeg" or ".heic" or ".tif" or ".tiff" =>
                 string.Join("\n", (await images.AnalyzeImageAsync(path, cancellationToken)).RecognizedTexts.Select(item => item.Text)),
             _ => await Task.Run(() => ExtractOffice(path, extension, cancellationToken), cancellationToken)
         };
         if (offset > content.Length) throw new ArgumentOutOfRangeException(nameof(offset), "起始字符位置超出文件末尾。");
         return Slice(content.AsSpan((int)offset), offset, false);
+    }
+
+    private static IEnumerable<TextReader> OpenSegments(IEnumerable<RecognizedText> texts)
+    {
+        foreach (var text in texts)
+        {
+            using var reader = new StringReader(text.Text);
+            yield return reader;
+        }
     }
 
     private static Page Slice(ReadOnlySpan<char> content, long offset, bool hasUnreadText)

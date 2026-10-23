@@ -6,7 +6,7 @@ using MacExplorer.Services;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
-public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
+public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryDiagnosticSource
 {
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -47,6 +47,9 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
         ".vob", ".ts", ".m2v", ".dmg", ".iso"
     };
 
+    MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
+    { lock (_memorySync) return new("thumbnail-bytes", _memoryCache.Count, _memoryBytes); }
+
     private const int MaxMemoryEntries = 300;
     private const long MaxMemoryBytes = 32L * 1024 * 1024;
     private const long DefaultMaxDiskBytes = 256L * 1024 * 1024;
@@ -57,7 +60,9 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
     private static readonly SemaphoreSlim RawDecodeGate = new(1, 1);
     internal event Action? RawDecodeQueued;
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
-    private readonly ConcurrentQueue<string> _cacheOrder = new();
+    private readonly LinkedList<string> _cacheOrder = new();
+    private readonly Dictionary<string, LinkedListNode<string>> _cacheNodes = new(StringComparer.Ordinal);
+    internal int CacheOrderCount { get { lock (_memorySync) return _cacheOrder.Count; } }
     private readonly ConcurrentDictionary<string, DateTime> _failedThumbnails = new();
     // Bound native process work independently from cache publication/maintenance.
     private readonly SemaphoreSlim _generationGate;
@@ -103,6 +108,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
         _targetDiskBytes = Math.Max(1, (long)(maxDiskBytes * targetRatio));
         Directory.CreateDirectory(_diskCacheDirectory);
         MemoryCacheMaintenance.Register(this);
+        MemoryDiagnostics.Register(this);
     }
 
     public bool IsImageFile(string extension) =>
@@ -130,7 +136,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
 
         // Version image entries: old caches could contain undecodable RAW source bytes.
         var isImage = IsImageFile(extension);
-        var cacheKey = $"{(isImage ? "image-v2:" : "")}{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
+        var cacheKey = $"{(isImage ? "image-v3:" : "")}{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
         return await GetOrCreateThumbnailAsync(cacheKey,
             (outputPath, token) => GenerateThumbnailAsync(filePath, outputPath, maxPixelSize, token),
             rememberFailure: true, ct,
@@ -364,16 +370,19 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
         foreach (var key in _memoryCache.Keys.Where(key => key.Contains(filePath, StringComparison.Ordinal)))
             RemoveFromMemory(key);
         foreach (var key in _failedThumbnails.Keys.Where(key => key.StartsWith(filePath + ":", StringComparison.Ordinal)
-            || key.StartsWith("image-v2:" + filePath + ":", StringComparison.Ordinal)))
+            || key.StartsWith("image-v3:" + filePath + ":", StringComparison.Ordinal)))
             _failedThumbnails.TryRemove(key, out _);
     }
 
     public void ClearCache()
     {
-        _memoryCache.Clear();
-        _failedThumbnails.Clear();
-        Interlocked.Exchange(ref _memoryBytes, 0);
-        while (_cacheOrder.TryDequeue(out _)) { }
+        lock (_memorySync)
+        {
+            _memoryCache.Clear();
+            _failedThumbnails.Clear();
+            Interlocked.Exchange(ref _memoryBytes, 0);
+            _cacheOrder.Clear(); _cacheNodes.Clear();
+        }
     }
 
     private async Task<byte[]?> GenerateThumbnailAsync(
@@ -496,16 +505,12 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
         var info = new FileInfo(sourcePath);
         if (info.Length > 10 * 1024 * 1024) return null;
 
-        var sourceBytes = await File.ReadAllBytesAsync(sourcePath, ct);
-        using var sourceStream = new SkiaSharp.SKMemoryStream(sourceBytes);
-        using var codec = SkiaSharp.SKCodec.Create(sourceStream);
-        // Skia can read a DNG's TIFF container without rendering its sensor data
-        // as a correctly oriented, developed photo. Let LibRaw handle that case.
-        if (codec == null || codec.EncodedFormat == SkiaSharp.SKEncodedImageFormat.Dng) return null;
-        using var decoded = SkiaSharp.SKBitmap.Decode(sourceBytes);
-        if (decoded == null) return null;
-        await WriteCacheFileAtomicallyAsync(cachePath, sourceBytes, ct);
-        return sourceBytes;
+        var sourceBytes = await BoundedImageDecoder.ReadSourceAsync(sourcePath, ct);
+        if (sourceBytes == null) return null;
+        var normalized = BoundedImageDecoder.DecodePng(sourceBytes, maxPixelSize, ct);
+        if (normalized == null) return null;
+        await WriteCacheFileAtomicallyAsync(cachePath, normalized, ct);
+        return normalized;
     }
 
     private async Task<byte[]?> GenerateQuickLookThumbnailAsync(
@@ -617,7 +622,11 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
             var stderr = process.StandardError.ReadToEndAsync(ct);
             await process.WaitForExitAsync(ct);
             await Task.WhenAll(stdout, stderr);
-            if (process.ExitCode != 0 || !File.Exists(generatedPath)) return null;
+            if (process.ExitCode != 0 || !File.Exists(generatedPath))
+            {
+                MemoryDiagnostics.Record("image.helper_failed", new { backend = "thumbnail-helper", process.ExitCode, maxPixelSize });
+                return null;
+            }
 
             PromoteTemporaryFile(generatedPath, cachePath);
             var bytes = await File.ReadAllBytesAsync(cachePath, ct);
@@ -626,6 +635,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
         }
         catch (OperationCanceledException)
         {
+            MemoryDiagnostics.Record("image.helper_cancelled", new { backend = "thumbnail-helper", maxPixelSize });
             if (process != null) TryKillProcess(process);
             throw;
         }
@@ -823,13 +833,13 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
         {
             Interlocked.Exchange(ref _lastMemoryAccess, DateTime.UtcNow.Ticks);
             if (!_memoryCache.TryAdd(key, bytes)) return;
-            _cacheOrder.Enqueue(key);
+            _cacheNodes[key] = _cacheOrder.AddLast(key);
             Interlocked.Add(ref _memoryBytes, bytes.LongLength);
 
             while (_memoryCache.Count > MaxMemoryEntries || Interlocked.Read(ref _memoryBytes) > MaxMemoryBytes)
             {
-                if (!_cacheOrder.TryDequeue(out var oldest)) break;
-                RemoveFromMemory(oldest);
+                if (_cacheOrder.First is not { } oldest) break;
+                RemoveFromMemory(oldest.Value);
             }
         }
     }
@@ -840,7 +850,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
         {
             if (Interlocked.Read(ref _lastMemoryAccess) >= unusedBefore.Ticks) return;
             _memoryCache.Clear();
-            _cacheOrder.Clear();
+            _cacheOrder.Clear(); _cacheNodes.Clear();
             Interlocked.Exchange(ref _memoryBytes, 0);
             _failedThumbnails.Clear();
         }
@@ -849,8 +859,10 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache
     private void RemoveFromMemory(string key)
     {
         lock (_memorySync)
-        if (_memoryCache.TryRemove(key, out var removed))
-            Interlocked.Add(ref _memoryBytes, -removed.LongLength);
+        {
+            if (_memoryCache.TryRemove(key, out var removed)) Interlocked.Add(ref _memoryBytes, -removed.LongLength);
+            if (_cacheNodes.Remove(key, out var node)) _cacheOrder.Remove(node);
+        }
     }
 
     private static void TryDelete(string path)

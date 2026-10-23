@@ -16,18 +16,28 @@ public sealed class NavigationHistoryEntry
     public string? SearchRootPath { get; set; }
     public bool WasHomePageBeforeSearch { get; set; }
     public IReadOnlyList<FileSystemEntry> SearchResults { get; set; } = [];
+    public bool HasSearchResultsSnapshot { get; internal set; } = true;
+    internal long SearchSnapshotBytes { get; set; }
     public string? SelectedEntryPath { get; set; }
     public string? SelectedEntryName { get; set; }
     public double? SelectedEntryViewportY { get; set; }
     public double? SelectedEntryScrollOffsetY { get; set; }
 }
 
-public partial class NavigationViewModel : ObservableObject
+public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSource
 {
     private readonly IFileService _fileService;
     private readonly IFrequentFolderService? _frequentFolderService;
     private readonly IFSEventsWatcher? _fsEventsWatcher;
     private readonly IDisplayNameService? _displayNameService;
+
+    internal const int HistoryLimit = 100;
+    internal const int SearchSnapshotLimit = 8;
+    internal const long SearchSnapshotByteLimit = 4L * 1024 * 1024;
+    internal int HistoryCount => _historyStack.Count;
+    internal int SearchSnapshotCount => _historyStack.Count(e => e.IsSearchMode && e.HasSearchResultsSnapshot);
+    internal long SearchSnapshotBytes => _historyStack.Sum(e => e.SearchSnapshotBytes);
+    MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState() => new("search-history", HistoryCount, SearchSnapshotBytes);
 
     // Navigation history
     private readonly List<NavigationHistoryEntry> _historyStack = [];
@@ -102,6 +112,7 @@ public partial class NavigationViewModel : ObservableObject
         IFSEventsWatcher? fsEventsWatcher = null,
         IDisplayNameService? displayNameService = null)
     {
+        MemoryDiagnostics.Register(this);
         _fileService = fileService;
         _frequentFolderService = frequentFolderService;
         _fsEventsWatcher = fsEventsWatcher;
@@ -118,6 +129,7 @@ public partial class NavigationViewModel : ObservableObject
         _localizedNames.Remove(oldPath);
         // Spotlight can briefly return the old display name after a rename.
         _localizedNames[newPath] = Path.GetFileName(newPath);
+        TrimDictionary(_localizedNames);
     }
 
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView)
@@ -159,7 +171,7 @@ public partial class NavigationViewModel : ObservableObject
         // Save selected entry for current path before navigating away
         // Coordinated with ApplyEntries restore logic
         if (!string.IsNullOrEmpty(CurrentPath))
-            _pathSelectedEntries[CurrentPath] = null; // Will be set by coordinator if needed
+            SaveSelectedEntryForPath(CurrentPath, null); // Will be set by coordinator if needed
 
         // Record history for back/forward navigation
         if (!_isNavigatingHistory)
@@ -254,6 +266,7 @@ public partial class NavigationViewModel : ObservableObject
         {
             UpdateSearchHistoryEntry(current, query, searchRootPath, wasHomePageBeforeSearch, searchResults);
             TrimForwardHistory();
+            TrimHistory();
             NotifyHistoryChanged();
             return;
         }
@@ -265,16 +278,17 @@ public partial class NavigationViewModel : ObservableObject
             IsSearchMode = true,
             SearchQuery = query,
             SearchRootPath = searchRootPath,
-            WasHomePageBeforeSearch = wasHomePageBeforeSearch,
-            SearchResults = searchResults.ToArray()
+            WasHomePageBeforeSearch = wasHomePageBeforeSearch
         };
+        SetSearchSnapshot(entry, searchResults);
         PushHistoryEntry(entry);
     }
 
     public void UpdateCurrentSearchResults(IReadOnlyList<FileSystemEntry> searchResults)
     {
-        if (CurrentHistoryEntry is { IsSearchMode: true } entry)
-            entry.SearchResults = searchResults.ToArray();
+        if (CurrentHistoryEntry is not { IsSearchMode: true } entry) return;
+        SetSearchSnapshot(entry, searchResults);
+        TrimHistory();
     }
 
     public void SaveCurrentHistorySelection(
@@ -292,7 +306,7 @@ public partial class NavigationViewModel : ObservableObject
         entry.SelectedEntryScrollOffsetY = selectedEntryScrollOffsetY;
 
         if (!entry.IsSearchMode && !string.IsNullOrEmpty(entry.Path))
-            _pathSelectedEntries[entry.Path] = selectedEntryName;
+            SaveSelectedEntryForPath(entry.Path, selectedEntryName);
     }
 
     public void RemoveCurrentSearchHistory()
@@ -327,7 +341,10 @@ public partial class NavigationViewModel : ObservableObject
     public void SaveSelectedEntryForPath(string path, string? entryName)
     {
         if (!string.IsNullOrEmpty(path))
+        {
             _pathSelectedEntries[path] = entryName;
+            TrimDictionary(_pathSelectedEntries);
+        }
     }
 
     private static NavigationHistoryEntry CreatePathHistoryEntry(string path)
@@ -339,6 +356,7 @@ public partial class NavigationViewModel : ObservableObject
 
         _historyStack.Add(entry);
         _historyIndex = _historyStack.Count - 1;
+        TrimHistory();
         NotifyHistoryChanged();
     }
 
@@ -360,11 +378,63 @@ public partial class NavigationViewModel : ObservableObject
         entry.SearchQuery = query;
         entry.SearchRootPath = searchRootPath;
         entry.WasHomePageBeforeSearch = wasHomePageBeforeSearch;
-        entry.SearchResults = searchResults.ToArray();
+        SetSearchSnapshot(entry, searchResults);
         entry.SelectedEntryPath = null;
         entry.SelectedEntryName = null;
         entry.SelectedEntryViewportY = null;
         entry.SelectedEntryScrollOffsetY = null;
+    }
+
+    private static void TrimDictionary<T>(Dictionary<string, T> entries)
+    {
+        while (entries.Count > HistoryLimit * 4) entries.Remove(entries.Keys.First());
+    }
+
+    private void TrimHistory()
+    {
+        if (_historyStack.Count > HistoryLimit)
+        {
+            var remove = _historyStack.Count - HistoryLimit;
+            _historyStack.RemoveRange(0, remove);
+            _historyIndex -= remove;
+        }
+        var snapshots = _historyStack.Where(e => e.IsSearchMode && e.HasSearchResultsSnapshot).ToList();
+        var bytes = SearchSnapshotBytes;
+        var evicted = 0;
+        // Prefer keeping the displayed search, even while going back through old history.
+        foreach (var entry in snapshots.OrderBy(e => ReferenceEquals(e, CurrentHistoryEntry)))
+        {
+            if (snapshots.Count - evicted <= SearchSnapshotLimit && bytes <= SearchSnapshotByteLimit) break;
+            bytes -= entry.SearchSnapshotBytes;
+            entry.SearchResults = [];
+            entry.SearchSnapshotBytes = 0;
+            entry.HasSearchResultsSnapshot = false;
+            evicted++;
+        }
+        if (evicted > 0) MemoryDiagnostics.Record("search.history_trimmed", new { evicted, history = HistoryCount, snapshotBytes = bytes });
+    }
+
+    private static void SetSearchSnapshot(NavigationHistoryEntry entry, IReadOnlyList<FileSystemEntry> results)
+    {
+        entry.SearchResults = [];
+        entry.SearchSnapshotBytes = 0;
+        entry.HasSearchResultsSnapshot = false;
+        if (results.Count > 500) return;
+        var bytes = results.Sum(file => 256L + 2L * (file.FullPath.Length + file.Name.Length + file.Extension.Length + file.IconKey.Length
+            + (file.IconUrl?.Length ?? 0) + (file.ThumbnailUrl?.Length ?? 0) + (file.VirtualFolderType?.Length ?? 0) + (file.VirtualFolderKey?.Length ?? 0)));
+        if (bytes > SearchSnapshotByteLimit) return;
+        // Do not retain the original item's event handlers (and through them an old UI tree).
+        entry.SearchResults = results.Select(file => new FileSystemEntry
+        {
+            FullPath = file.FullPath, Name = file.Name, IsDirectory = file.IsDirectory, Size = file.Size,
+            LastModified = file.LastModified, Created = file.Created, Extension = file.Extension,
+            IsHidden = file.IsHidden, IsSymbolicLink = file.IsSymbolicLink, IsReadable = file.IsReadable, IsWritable = file.IsWritable,
+            IconKey = file.IconKey, IconUrl = file.IconUrl, ThumbnailUrl = file.ThumbnailUrl,
+            IsVirtual = file.IsVirtual, VirtualFolderType = file.VirtualFolderType, VirtualFolderKey = file.VirtualFolderKey,
+            VirtualItemCount = file.VirtualItemCount, GitStatus = file.GitStatus, HasGitChanges = file.HasGitChanges
+        }).ToArray();
+        entry.SearchSnapshotBytes = bytes;
+        entry.HasSearchResultsSnapshot = true;
     }
 
     private void ApplyHistoryEntry(NavigationHistoryEntry entry)
@@ -491,6 +561,7 @@ public partial class NavigationViewModel : ObservableObject
         {
             for (var i = 0; i < pending.Length; i++)
                 _localizedNames[pending[i].FullPath] = string.IsNullOrWhiteSpace(names[i]) ? pending[i].DisplayName : names[i];
+            TrimDictionary(_localizedNames);
             if (!ReferenceEquals(Breadcrumbs, breadcrumbs)) return;
             Breadcrumbs = new ObservableCollection<BreadcrumbSegment>(breadcrumbs.Select(segment => new BreadcrumbSegment
             {

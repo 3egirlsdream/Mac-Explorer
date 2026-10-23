@@ -5,6 +5,10 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "task.retry_state_released": "L’état de reprise a expiré ou dépassé la limite de mémoire et a été libéré. Créez une nouvelle tâche pour continuer.",
+    "analysis.more_failures": "L’analyse a échoué pour {0} fichiers supplémentaires.",
+    "content.offset_out_of_range": "La position de départ dépasse la fin du fichier.",
+    "pdf.invalid_result": "L’analyseur PDF a renvoyé un résultat non valide.",
     "language.system": "Suivre le système",
     "language.zh": "简体中文",
     "language.en": "English",

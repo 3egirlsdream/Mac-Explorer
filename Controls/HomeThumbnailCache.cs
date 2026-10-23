@@ -5,13 +5,16 @@ using MacExplorer.Services;
 namespace MacExplorer.Controls;
 
 /// <summary>One dashboard's decoded thumbnails, shared with its folder sheet. UI-thread owned.</summary>
-public sealed class HomeThumbnailCache : IDisposable, IIdleMemoryCache
+public sealed class HomeThumbnailCache : IDisposable, IIdleMemoryCache, IMemoryDiagnosticSource
 {
     private static readonly SemaphoreSlim LoadGate = new(3);
     private readonly Dictionary<Key, Entry> _entries = [];
     private bool _disposed;
     private long _clock;
-    public HomeThumbnailCache() => MemoryCacheMaintenance.Register(this);
+    public HomeThumbnailCache() { MemoryCacheMaintenance.Register(this); MemoryDiagnostics.Register(this); }
+    MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState() => new("home-images", _entries.Count,
+        _entries.Values.Sum(e => e.Bitmap is { } b ? (long)b.PixelSize.Width * b.PixelSize.Height * 4 : 0),
+        _entries.Values.Count(e => e.Loading?.IsCompleted == false));
     private readonly record struct Key(string Path, long Size, DateTime Modified, string? Source, int Pixels)
     {
         public static Key For(FileSystemEntry entry, int pixels)
@@ -80,8 +83,7 @@ public sealed class HomeThumbnailCache : IDisposable, IIdleMemoryCache
                     var result = await provider(file, pixels, token).ConfigureAwait(false);
                     token.ThrowIfCancellationRequested();
                     if (result?.Bytes is not { Length: > 0 } bytes) return null;
-                    using var stream = new MemoryStream(bytes);
-                    return Bitmap.DecodeToWidth(stream, pixels);
+                    return BoundedImageDecoder.Decode(bytes, pixels, token);
                 }, token);
             }
             finally { LoadGate.Release(); }

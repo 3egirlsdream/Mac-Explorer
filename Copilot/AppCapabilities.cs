@@ -247,7 +247,7 @@ public sealed class AppCapabilityRegistry(
                 var image = details?.ImageInfo;
                 var analysis = aiTags != null && File.Exists(path)
                     && await aiTags.IsFileAnalyzedAsync(path, File.GetLastWriteTime(path).Ticks)
-                    ? (await aiTags.GetTagsForFileAsync(path)).Where(t => t.TagType is not ("text" or "text_summary"))
+                    ? (await aiTags.GetTagsForFileAsync(path, includeText: false))
                         .Take(100).Select(t => new { t.TagType, t.TagValue, t.Confidence }).ToArray() : null;
                 return new(true, "已读取文件信息与现有元数据（不含正文）", new
                 {

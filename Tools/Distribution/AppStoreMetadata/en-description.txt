@@ -1,22 +1,39 @@
-文件资源管理器 brings tabs, split views, search, previews, and file organization into one workspace.
-
 PURCHASE REQUIRED
-Downloading the app does not include permanent free access. All file management features in this App Store version require an annual auto-renewable subscription purchased in the app. File management is locked without an active subscription or trial entitlement.
+Downloading the app does not include permanent free access. All file management features require an annual auto-renewable in-app subscription. File management is locked without an active subscription or trial entitlement. All features below are included in the annual subscription.
 
-INCLUDED WITH THE ANNUAL SUBSCRIPTION
-• Browse authorized folders with tabs and split views.
-• Copy, move, rename, and organize files in batches.
-• Search files and organize tags and collections.
-• Preview images and documents.
-• Access files from the menu bar and transfer files over a local network.
+文件资源管理器 brings file browsing, search, previews, organization and transfers into one macOS workspace.
+
+TABS AND SPLIT VIEWS
+Browse multiple folders with tabs, horizontal or vertical splits, and a four-pane layout. Each tab keeps its own navigation history, sorting and view. Jump to folders using breadcrumbs or a path.
+
+VIEWS, COLLECTIONS AND NESTED TAGS
+Switch between list, grid and tree views. Filter and group files by type, date or size. Organize files with collections and nested tags while keeping them in their original locations.
+
+SEARCH AND PREVIEWS
+Search authorized folders using file information and previously generated OCR and image analysis. Press Space to preview images, PDF, text and system-supported documents. Command-K search includes a side preview. Read PDFs as continuous pages fitted to width; Office previews use system Quick Look.
+
+BATCH RENAME AND TASKS
+Combine replacement, numbering, dates and name templates, preview changes and check conflicts. Save presets and undo batches. Track copying, moving, deletion, compression, extraction and SFTP transfers in a compact task panel, with pause, resume, cancel or retry where supported. Queues and undo records last for the current app process.
+
+ARCHIVES AND NETWORK FILES
+Browse and extract ZIP, 7z, RAR, TAR and other formats; create ZIP archives. Support depends on the format, compression method, encryption and multipart layout. Discover network servers, view mounted volumes, mount SMB shares through macOS, and manage remote files over SFTP.
+
+TRANSFERS AND EVERYDAY TOOLS
+Transfer files to compatible devices over reachable networks using LocalSend, or send files using system AirDrop. Drag files and images from WeChat, authorizing the attachment folder when required. Access folders and collections from the menu bar. On-device image analysis helps organize photos using text, faces, scenes and metadata; place-name lookup is optional and online.
+
+OPTIONAL COPILOT
+Find and organize files using natural language with your own compatible AI endpoint, model and API key. Third-party model fees are separate. Consent is requested before connecting, with separate approval before sharing file contents or modifying files.
+
+BUILT FOR macOS
+Light and dark themes, customizable shortcuts, and Simplified Chinese, Traditional Chinese, English and French interfaces. Lazy loading and idle cache cleanup reduce resource accumulation during extended use.
+
+YOU CONTROL FILE ACCESS
+Authorize files and folders through the system picker and revoke access in settings. Configuration, indexes and conversation history are stored locally. Optional network features follow your settings and permissions.
+
+For Apple Silicon Macs running macOS 14.0 or later. Preview formats depend on system support.
 
 SUBSCRIPTION AND TRIAL
-The subscription period is one year. The current price is shown in the app and on the App Store purchase confirmation sheet.
-If a free trial is offered, eligibility and duration are determined by the App Store. A trial requires subscription confirmation and automatically converts to a paid annual subscription unless cancelled in advance.
-The subscription renews automatically unless auto-renewal is turned off at least 24 hours before the current subscription or trial period ends. Payment is charged to your Apple account. Manage or cancel your subscription in your Apple account settings. After cancellation, access continues until the current entitlement expires.
-Existing subscribers can restore access using Restore Purchases in the app.
+The subscription period is one year. Price is shown in the app and on the App Store confirmation sheet. If offered, trial eligibility and duration are determined by the App Store. Trials require confirmation and convert to a paid annual subscription unless cancelled. Auto-renewal must be turned off at least 24 hours before the current subscription or trial ends. Payment is charged to your Apple account. Manage or cancel in Apple account settings; access continues until the current entitlement expires. Existing subscribers can use Restore Purchases.
 
-File access requires your authorization through the system folder picker. Network transfers require a network connection and a compatible receiving device. Optional Copilot features require a user-configured AI service; third-party model fees are not included in the subscription.
-
-Privacy policy: https://3egirlsdream.github.io/Mac-Explorer/privacy/
+Privacy: https://3egirlsdream.github.io/Mac-Explorer/privacy/
 Terms of Use (Apple Standard EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

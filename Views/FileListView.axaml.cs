@@ -424,22 +424,13 @@ public partial class FileListView : UserControl
         {
             if (EntryImageCache.TryGet(source, out cachedBitmap)) return cachedBitmap;
 
-            var bitmap = await System.Threading.Tasks.Task.Run(() =>
+            var bitmap = await System.Threading.Tasks.Task.Run(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    if (source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var comma = source.IndexOf(',');
-                        if (comma < 0) return null;
-                        using var dataStream = new MemoryStream(Convert.FromBase64String(source[(comma + 1)..]));
-                        return new Bitmap(dataStream);
-                    }
-
-                    if (!File.Exists(source)) return null;
-                    using var fileStream = File.OpenRead(source);
-                    return new Bitmap(fileStream);
+                    var bytes = await BoundedImageDecoder.ReadSourceAsync(source, cancellationToken).ConfigureAwait(false);
+                    return bytes == null ? null : BoundedImageDecoder.Decode(bytes, 256, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -1145,11 +1136,12 @@ public partial class FileListView : UserControl
                 var payload = iconBase64.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && comma >= 0
                     ? iconBase64[(comma + 1)..]
                     : iconBase64;
+                if (payload.Length > BoundedImageDecoder.MaxEncodedBytes / 3 * 4) return null;
                 var bytes = MenuIconCache.GetOrAdd(payload, () => Convert.FromBase64String(payload));
-                using var stream = new MemoryStream(bytes, writable: false);
-                return new Bitmap(stream);
+                return BoundedImageDecoder.Decode(bytes, 128);
             });
 
+            if (bitmap == null) return;
             if (requestVersion != _menuRequestVersion)
             {
                 bitmap.Dispose();

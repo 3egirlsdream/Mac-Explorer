@@ -1,4 +1,8 @@
-# 2026-10-16 App Store 审核整改
+# App Store 元数据
+
+当前更新为 `1.0.62 (2026102301)`，提交记录见 [1.0.62 发布记录](1.0.62-release.md)。中文介绍、推广文本和按数字顺序排列的更新日志分别保存在本目录；英文介绍为同步维护的本地文案，后台沿用现有简体中文商店本地化。
+
+## 2026-10-16 App Store 审核整改
 
 对应 Submission ID `1bb9a55c-48b1-40c8-a052-0dfc48e1c613`，原审核构建 `1.0 (2026100803)`。
 
@@ -11,7 +15,7 @@
 | 宣传文本 | 全部文件管理功能需年度订阅（App 内购买）。多标签、分栏、搜索与预览帮助整理文件。价格和试用资格以 App Store 显示为准。 | All file management features require an annual in-app subscription. Organize files with tabs, split views, search, and previews. Price and trial eligibility vary. |
 | 描述 | [中文完整描述](zh-Hans-description.txt) | [英文完整描述](en-description.txt) |
 
-描述、宣传文本、副标题、截图、预览视频和订阅商品展示名称需要一起核对。已有其他商店本地化时，逐一同步名称和付费说明；不能留下旧 Mac Explorer 名称或暗示永久免费。本仓库实际界面只提供简体中文、英文，商店包也只声明这两个本地化。
+描述、宣传文本、副标题、截图、预览视频和订阅商品展示名称需要一起核对。已有其他商店本地化时，逐一同步名称和付费说明；不能留下旧 Mac Explorer 名称或暗示永久免费。当前应用界面提供简体中文、繁体中文、英文和法语；商店包的系统名称本地化仍声明简体中文与英文，商店产品页面沿用简体中文主语言。
 
 订阅商品 ID 保持 `001`，商店 Bundle Identifier 保持 `com.thankful.top.macexplorer.store`。保留现有订阅组和应用记录，不创建替代应用。订阅商品展示名称建议为「文件资源管理器年度订阅」/「文件资源管理器 Annual Subscription」，说明全部功能需购买年度自动续订订阅。不要把有资格限制的试用写成所有用户必有的优惠。
 

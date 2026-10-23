@@ -4,6 +4,10 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "task.retry_state_released": "重试状态已到期或超过内存保留上限，已释放；如需继续，请重新创建任务。",
+    "analysis.more_failures": "另有 {0} 个文件分析失败。",
+    "content.offset_out_of_range": "起始字符位置超出文件末尾。",
+    "pdf.invalid_result": "PDF 分析程序返回了无效结果。",
     "language.system": "跟随系统",
     "language.zh": "简体中文",
     "language.en": "English",

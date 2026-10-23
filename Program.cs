@@ -27,6 +27,7 @@ sealed class Program
             return;
         }
 
+        using var memoryDiagnostics = Services.MemoryDiagnostics.Start(RuntimePaths.LogDirectory);
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
         // Avalonia's macOS render timer is backed by CVDisplayLink. macOS can

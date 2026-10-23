@@ -481,7 +481,7 @@ public partial class InfoPanelView : UserControl
             var bitmap = await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return CreatePreviewBitmap(bytes, extension, requestedPixels);
+                return CreatePreviewBitmap(bytes, extension, requestedPixels, cancellationToken);
             }, cancellationToken).ConfigureAwait(false);
 
             string? badge = null;
@@ -614,10 +614,10 @@ public partial class InfoPanelView : UserControl
         var width = svgImage.Picture.CullRect.Width;
         var height = svgImage.Picture.CullRect.Height;
         var scale = Math.Min(maxSize / width, maxSize / height);
-        if (scale <= 0) scale = 1;
+        if (!float.IsFinite(scale) || scale <= 0) throw new InvalidDataException("Invalid SVG dimensions.");
 
-        var renderWidth = (int)(width * scale);
-        var renderHeight = (int)(height * scale);
+        var renderWidth = Math.Max(1, (int)(width * scale));
+        var renderHeight = Math.Max(1, (int)(height * scale));
 
         using var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(renderWidth, renderHeight));
         var canvas = surface.Canvas;
@@ -626,7 +626,8 @@ public partial class InfoPanelView : UserControl
         canvas.DrawPicture(svgImage.Picture);
         canvas.Flush();
 
-        using var encoded = surface.Snapshot().Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        using var snapshot = surface.Snapshot();
+        using var encoded = snapshot.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
         return new global::Avalonia.Media.Imaging.Bitmap(encoded.AsStream());
     }
 
@@ -739,48 +740,14 @@ public partial class InfoPanelView : UserControl
     private static global::Avalonia.Media.Imaging.Bitmap CreatePreviewBitmap(
         byte[] bytes,
         string extension,
-        int maxPixelSize)
+        int maxPixelSize,
+        CancellationToken cancellationToken)
     {
         if (extension.Equals(".svg", StringComparison.OrdinalIgnoreCase))
             return RenderSvgToBitmap(bytes, maxPixelSize);
 
-        using var decoded = SkiaSharp.SKBitmap.Decode(bytes);
-        if (decoded == null || decoded.Width <= 0 || decoded.Height <= 0)
-        {
-            using var stream = new MemoryStream(bytes);
-            return new global::Avalonia.Media.Imaging.Bitmap(stream);
-        }
-
-        var longestEdge = Math.Max(decoded.Width, decoded.Height);
-        if (longestEdge <= maxPixelSize)
-        {
-            using var stream = new MemoryStream(bytes);
-            return new global::Avalonia.Media.Imaging.Bitmap(stream);
-        }
-
-        var scale = maxPixelSize / (double)longestEdge;
-        var targetWidth = Math.Max(1, (int)Math.Round(decoded.Width * scale));
-        var targetHeight = Math.Max(1, (int)Math.Round(decoded.Height * scale));
-        using var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(
-            targetWidth,
-            targetHeight,
-            SkiaSharp.SKColorType.Bgra8888,
-            SkiaSharp.SKAlphaType.Premul));
-        var canvas = surface.Canvas;
-        canvas.Clear(SkiaSharp.SKColors.Transparent);
-        using var paint = new SkiaSharp.SKPaint
-        {
-            IsAntialias = true
-        };
-        using var image = SkiaSharp.SKImage.FromBitmap(decoded);
-        canvas.DrawImage(
-            image,
-            new SkiaSharp.SKRect(0, 0, targetWidth, targetHeight),
-            new SkiaSharp.SKSamplingOptions(SkiaSharp.SKFilterMode.Linear, SkiaSharp.SKMipmapMode.Linear),
-            paint);
-        canvas.Flush();
-        using var encoded = surface.Snapshot().Encode(SkiaSharp.SKEncodedImageFormat.Png, 90);
-        return new global::Avalonia.Media.Imaging.Bitmap(encoded.AsStream());
+        return BoundedImageDecoder.Decode(bytes, maxPixelSize, cancellationToken)
+            ?? throw new InvalidDataException("Image exceeds preview decode limits or is unsupported.");
     }
 
     private sealed class PreviewLoadResult : IDisposable
@@ -825,17 +792,7 @@ public partial class InfoPanelView : UserControl
         string thumbnailUrl,
         CancellationToken cancellationToken)
     {
-        return Task.Run(async () =>
-        {
-            const string base64Prefix = "data:image/png;base64,";
-            if (thumbnailUrl.StartsWith(base64Prefix, StringComparison.OrdinalIgnoreCase))
-                return Convert.FromBase64String(thumbnailUrl[base64Prefix.Length..]);
-
-            if (File.Exists(thumbnailUrl))
-                return await File.ReadAllBytesAsync(thumbnailUrl, cancellationToken);
-
-            return null;
-        }, cancellationToken);
+        return Task.Run(() => BoundedImageDecoder.ReadSourceAsync(thumbnailUrl, cancellationToken), cancellationToken);
     }
 
     private static async Task<byte[]?> TryReadSmallOriginalImageAsync(

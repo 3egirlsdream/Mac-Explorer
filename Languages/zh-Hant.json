@@ -11,6 +11,10 @@
     "zh-CHT"
   ],
   "strings": {
+    "task.retry_state_released": "重試狀態已到期或超過記憶體保留上限，已釋放；如需繼續，請重新建立任務。",
+    "analysis.more_failures": "另有 {0} 個檔案分析失敗。",
+    "content.offset_out_of_range": "起始字元位置超出檔案末尾。",
+    "pdf.invalid_result": "PDF 分析程式傳回了無效結果。",
     "language.system": "跟隨系統",
     "language.zh": "简体中文",
     "language.en": "English",

@@ -5,12 +5,12 @@ namespace MacExplorer.Services;
 public interface IAiTagService : IDisposable
 {
     // Analysis status
-    Task<bool> IsFileAnalyzedAsync(string filePath, long fileModifiedTicks);
+    Task<bool> IsFileAnalyzedAsync(string filePath, long fileModifiedTicks, CancellationToken ct = default);
     Task<IReadOnlyList<(string Path, long ModifiedTicks)>> GetUnanalyzedFilesAsync(
-        IReadOnlyList<string> filePaths, IReadOnlyList<long> modifiedTicks);
-    Task<IReadOnlyList<string>> GetAnalyzedPathsInDirectoryAsync(string parentPath);
-    Task<IReadOnlyList<string>?> GetCachedTextAsync(string filePath, long modifiedTicks,
-        CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>?>(null);
+        IReadOnlyList<string> filePaths, IReadOnlyList<long> modifiedTicks, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetAnalyzedPathsInDirectoryAsync(string parentPath, CancellationToken ct = default);
+    Task<TextContentPage?> GetCachedTextPageAsync(string filePath, long modifiedTicks, long offset,
+        CancellationToken ct = default) => Task.FromResult<TextContentPage?>(null);
 
     // Save & delete
     Task SaveAnalysisResultAsync(string filePath, long fileModifiedTicks, ImageAnalysisResult result, CancellationToken ct = default);
@@ -20,7 +20,7 @@ public interface IAiTagService : IDisposable
     Task UpdateFilePathAsync(string oldPath, string newPath);
 
     // Tag queries
-    Task<IReadOnlyList<AiTag>> GetTagsForFileAsync(string filePath);
+    Task<IReadOnlyList<AiTag>> GetTagsForFileAsync(string filePath, bool includeText = true);
     Task<IReadOnlyList<string>> SearchByTagAsync(string tagValue, string? tagType = null, int limit = 200);
     Task<IReadOnlyList<AiCategory>> SearchCategoriesAsync(string query, int limit = 5);
     Task<IReadOnlyList<AiCategory>> GetPopularTextTagsAsync(int limit = 40, int minLength = 2);

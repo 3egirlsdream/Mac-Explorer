@@ -32,6 +32,7 @@ internal static class Program
             throw new InvalidOperationException("Run through Tools/Testing/run-isolated.sh.");
         Output = Path.GetFullPath(args.FirstOrDefault() ?? "outputs/memory-benchmark");
         Directory.CreateDirectory(Output);
+        using var diagnostics = MacExplorer.Services.MemoryDiagnostics.Start(Path.Combine(Output, "diagnostics"));
         foreach (var name in new[] { "samples.json", "verification.json", "error.txt" }) File.Delete(Path.Combine(Output, name));
         AppBuilder.Configure<MacExplorer.App>().UsePlatformDetect()
             .AfterSetup(_ => Dispatcher.UIThread.Post(async () => await RunAsync()))
@@ -49,6 +50,7 @@ internal static class Program
         using var process = Process.GetCurrentProcess();
         var gc = GC.GetGCMemoryInfo();
         var sample = new { phase, pid = process.Id, utc = DateTime.UtcNow,
+            physicalFootprintMiB = MacExplorer.Services.MemoryDiagnostics.ReadPhysicalFootprint() / 1048576.0,
             rssMiB = process.WorkingSet64 / 1048576.0, managedMiB = GC.GetTotalMemory(false) / 1048576.0,
             committedMiB = gc.TotalCommittedBytes / 1048576.0, heapMiB = gc.HeapSizeBytes / 1048576.0 };
         Samples.Add(sample);

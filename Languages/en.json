@@ -5,6 +5,10 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "task.retry_state_released": "Retry state expired or exceeded the memory retention limit and was released. Create a new task to continue.",
+    "analysis.more_failures": "Analysis failed for {0} additional files.",
+    "content.offset_out_of_range": "The starting character offset is beyond the end of the file.",
+    "pdf.invalid_result": "The PDF analyzer returned an invalid result.",
     "language.system": "Follow system",
     "language.zh": "简体中文",
     "language.en": "English",

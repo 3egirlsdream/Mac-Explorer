@@ -6,7 +6,7 @@ using MacExplorer.Services.Impl;
 namespace MacExplorer.Controls;
 
 /// <summary>Viewport requests and owned thumbnails; no disk work or decoding in Render.</summary>
-internal sealed class FastFileListImages : IIdleMemoryCache
+internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSource
 {
     private const long MaxBytes = 16L * 1024 * 1024;
     private static readonly SemaphoreSlim DecodeGate = new(4);
@@ -24,7 +24,8 @@ internal sealed class FastFileListImages : IIdleMemoryCache
     private CancellationTokenSource? _coverSchedule;
     private DateTime _lastVisibleUse = DateTime.UtcNow;
 
-    public FastFileListImages() => MemoryCacheMaintenance.Register(this);
+    public FastFileListImages() { MemoryCacheMaintenance.Register(this); MemoryDiagnostics.Register(this); }
+    public MemoryDiagnosticState GetMemoryState() => new("file-list-images", _cache.Count, _bytes, _requests.Count);
 
     public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? ThumbnailProvider { get; set; }
     public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? FolderCoverProvider { get; set; }
@@ -178,22 +179,10 @@ internal sealed class FastFileListImages : IIdleMemoryCache
                 token.ThrowIfCancellationRequested();
                 if (bytes is not { Length: > 0 } && !string.IsNullOrEmpty(key.Source))
                 {
-                    if (key.Source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var comma = key.Source.IndexOf(',');
-                        if (comma >= 0) bytes = Convert.FromBase64String(key.Source[(comma + 1)..]);
-                    }
-                    else if (File.Exists(key.Source)) bytes = await File.ReadAllBytesAsync(key.Source, token).ConfigureAwait(false);
+                    bytes = await BoundedImageDecoder.ReadSourceAsync(key.Source, token).ConfigureAwait(false);
                 }
                 if (bytes is not { Length: > 0 }) return null;
-                await DecodeGate.WaitAsync(token).ConfigureAwait(false);
-                try
-                {
-                    token.ThrowIfCancellationRequested();
-                    using var stream = new MemoryStream(bytes);
-                    return Bitmap.DecodeToWidth(stream, key.Pixels);
-                }
-                finally { DecodeGate.Release(); }
+                return BoundedImageDecoder.Decode(bytes, key.Pixels, token);
             }, token);
             if (token.IsCancellationRequested || !_requests.TryGetValue(key, out var active)
                 || !ReferenceEquals(active, cancellation) || !_visible.Contains(key)) return;

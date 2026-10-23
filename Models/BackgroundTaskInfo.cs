@@ -44,6 +44,9 @@ public class BackgroundTaskInfo
     public string? ErrorDetail { get; set; }
     public bool CanCancel { get; set; } = true;
     public bool CanRetry { get; set; }
+    internal bool HasCompactSummary { get; set; }
+    internal DateTime? FailedAtUtc { get; set; }
+    internal long RetainedRetryBytes { get; set; }
     public Func<Task>? RetryAction { get; set; }
     public bool IsDismissedByUser { get; set; }
     public CancellationTokenSource Cts { get; set; } = new();

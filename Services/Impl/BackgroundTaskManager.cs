@@ -3,9 +3,19 @@ using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
 
-public sealed class BackgroundTaskManager : IBackgroundTaskManager
+public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryCache, IMemoryDiagnosticSource
 {
     internal const int CompletedTaskLimit = 100;
+    internal const int FailedRetryLimit = 8;
+    internal const long FailedRetryByteLimit = 32L * 1024 * 1024;
+    internal static readonly TimeSpan FailedRetryLifetime = TimeSpan.FromMinutes(15);
+    private int _finishing;
+    private int _releasingContexts;
+    private int _maintenancePending;
+    MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
+    {
+        lock (_lock) return new("file-tasks", _tasks.Count, _tasks.Sum(t => t.RetainedRetryBytes), _queue.Count(e => e.Executing) + Volatile.Read(ref _releasingContexts));
+    }
     private sealed class Entry
     {
         public required BackgroundTaskInfo Info;
@@ -43,6 +53,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
     }
     public BackgroundTaskManager(ILoggerFactory? loggerFactory = null, ISettingsService? settings = null)
     {
+        MemoryCacheMaintenance.Register(this); MemoryDiagnostics.Register(this);
         _logger = loggerFactory?.CreateLogger<BackgroundTaskManager>(); _settings = settings;
         _maxConcurrency = Math.Clamp(settings?.Get("FileTaskConcurrency", 2) ?? 2, 1, 4);
     }
@@ -77,7 +88,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         if (_stopping) return;
         foreach (var entry in _queue.Where(e => e.Info.State == BackgroundTaskState.Waiting).ToArray())
         {
-            if (_queue.Count(e => e.Slot) >= _maxConcurrency) break;
+            if (_queue.Count(e => e.Slot) + _finishing >= _maxConcurrency) break;
             if (_queue.Any(other => other != entry && other.Claimed && Conflicts(other, entry))) continue;
             entry.Slot = entry.Claimed = true;
             entry.Info.State = BackgroundTaskState.Running;
@@ -112,6 +123,8 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         object? result = null; Exception? failure = null;
         try { result = await entry.Execute(); }
         catch (Exception ex) { failure = ex; }
+        var retainedBytes = failure != null || entry.Info.ErrorMessage != null
+            ? entry.Context.EstimateRetainedBytes(FailedRetryByteLimit) : 0;
         Func<Task>? callback = null;
         lock (_lock)
         {
@@ -122,8 +135,10 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
             {
                 info.State = failure is IOException or UnauthorizedAccessException or Renci.SshNet.Common.SshException
                     ? BackgroundTaskState.NeedsAttention : BackgroundTaskState.Failed;
-                info.ErrorMessage ??= failure?.Message;
-                info.ErrorDetail ??= failure?.ToString();
+                info.ErrorMessage = Shorten(info.ErrorMessage ?? failure?.Message, 4096);
+                info.ErrorDetail = Shorten(info.ErrorDetail ?? failure?.ToString(), 8192);
+                info.FailedAtUtc = DateTime.UtcNow;
+                info.RetainedRetryBytes = retainedBytes;
             }
             else { info.State = BackgroundTaskState.Completed; info.Progress = 100; callback = info.OnCompleted; }
             if (info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
@@ -134,19 +149,30 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
             }
         }
         if (entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+        {
+            entry.Info.RetainedRetryBytes = 0;
             entry.Context.ReleaseExecutionState();
+        }
         lock (_lock)
         {
+            _finishing++;
             entry.Slot = entry.Claimed = entry.Executing = false;
             entry.Resume = null;
             entry.Registration.Unregister();
             if (entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
                 _queue.Remove(entry);
+            TrimCompletedTasks();
+        }
+        TrimFailedTasks(DateTime.UtcNow);
+        lock (_lock)
+        {
+            _finishing--;
             if (failure != null) entry.Completion.TrySetException(failure);
             else entry.Completion.TrySetResult(result);
-            TrimCompletedTasks();
             Schedule();
         }
+        MemoryDiagnostics.Record("task.finished", new { kind = entry.Info.Kind.ToString(), state = entry.Info.State.ToString(),
+            exception = failure?.GetType().Name, items = entry.Info.TotalItems, retainedBytes, retry = entry.Info.CanRetry });
         RaiseTasksChanged();
         if (callback != null) await InvokeCallbackAsync(callback);
     }
@@ -254,9 +280,14 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         {
             var task = _tasks.Find(t => t.Id == taskId);
             if (task == null || task.IsTerminal) return;
-            task.ErrorMessage = error; task.ErrorDetail = errorDetail;
-            if (!task.IsQueuedFileTask) { task.State = BackgroundTaskState.Failed; task.CanRetry = task.RetryAction != null; }
+            task.ErrorMessage = Shorten(error, 4096); task.ErrorDetail = Shorten(errorDetail, 8192);
+            if (!task.IsQueuedFileTask)
+            {
+                task.State = BackgroundTaskState.Failed; task.CanRetry = task.RetryAction != null;
+                task.FailedAtUtc = DateTime.UtcNow;
+            }
         }
+        TrimFailedTasks(DateTime.UtcNow, deferCleanup: true);
         RaiseTasksChanged();
     }
     public void CancelTask(string taskId)
@@ -280,6 +311,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         }
         cts.Cancel();
         release?.ReleaseExecutionState();
+        if (release != null) release.Task.RetainedRetryBytes = 0;
         lock (_lock) { TrimCompletedTasks(); Schedule(); }
         RaiseTasksChanged();
     }
@@ -291,8 +323,9 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
             var task = _tasks.Find(t => t.Id == taskId);
             if (task == null || task.State is not (BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention) || !task.CanRetry || _stopping) return;
             var entry = _queue.Find(e => e.Info == task);
-            if (entry?.Executing == true) return;
+            if (entry != null && (entry.Executing || !entry.Completion.Task.IsCompleted)) return;
             task.ErrorMessage = task.ErrorDetail = null;
+            task.FailedAtUtc = null; task.RetainedRetryBytes = 0;
             if (entry != null)
             {
                 entry.Completion = NewCompletion();
@@ -313,7 +346,98 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager
         {
             _tasks.Remove(task);
         }
+        foreach (var task in _tasks.Where(t => t.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+                     .Where(t => !_queue.Any(e => e.Info == t && e.Executing))) CompactSummary(task);
     }
+    public void TrimMemory(DateTime unusedBefore)
+    {
+        if (Interlocked.Exchange(ref _maintenancePending, 1) != 0) return;
+        // Cleanup can touch owned temporary files or a disconnected remote server.
+        // Never perform that work on the UI/maintenance dispatcher.
+        using var flow = ExecutionContext.IsFlowSuppressed() ? default : ExecutionContext.SuppressFlow();
+        _ = System.Threading.Tasks.Task.Run(() =>
+        {
+            try { TrimFailedTasks(DateTime.UtcNow); }
+            finally { Volatile.Write(ref _maintenancePending, 0); }
+        });
+    }
+
+    internal void TrimFailedTasks(DateTime now, bool deferCleanup = false)
+    {
+        var release = new List<FileTaskContext>();
+        var evicted = 0;
+        lock (_lock)
+        {
+            var failures = _tasks.Where(t => t.State is BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention)
+                .Where(t => !_queue.Any(e => e.Info == t && e.Executing)).OrderByDescending(t => t.FailedAtUtc).ToArray();
+            long bytes = 0;
+            var kept = 0;
+            foreach (var task in failures)
+            {
+                if (task.CanRetry && kept < FailedRetryLimit && bytes + task.RetainedRetryBytes <= FailedRetryByteLimit
+                    && task.FailedAtUtc is { } failed && now - failed < FailedRetryLifetime)
+                { kept++; bytes += task.RetainedRetryBytes; continue; }
+                var entry = _queue.Find(e => e.Info == task);
+                if (entry == null && !task.CanRetry)
+                {
+                    task.OnCompleted = null; task.RetryAction = null;
+                    CompactSummary(task);
+                    continue;
+                }
+                if (entry != null)
+                {
+                    _queue.Remove(entry); entry.Registration.Unregister();
+                    release.Add(entry.Context);
+                }
+                task.CanRetry = false; task.CanCancel = false;
+                task.RetryAction = null; task.OnCompleted = null;
+                task.RetainedRetryBytes = 0;
+                task.State = BackgroundTaskState.Failed;
+                task.ErrorDetail = Shorten(task.ErrorDetail ?? task.ErrorMessage, 4096) + "\n" + LocalizationText.Get("task.retry_state_released");
+                CompactSummary(task);
+                evicted++;
+            }
+            foreach (var old in failures.Where(t => !t.CanRetry).Skip(CompletedTaskLimit)) _tasks.Remove(old);
+        }
+        if (release.Count > 0)
+        {
+            Interlocked.Add(ref _releasingContexts, release.Count);
+            void Release()
+            {
+                try { foreach (var context in release) context.ReleaseExecutionState(); }
+                finally { Interlocked.Add(ref _releasingContexts, -release.Count); }
+            }
+            if (deferCleanup)
+            {
+                using var flow = ExecutionContext.IsFlowSuppressed() ? default : ExecutionContext.SuppressFlow();
+                _ = System.Threading.Tasks.Task.Run(Release);
+            }
+            else Release();
+        }
+        if (evicted > 0)
+        {
+            MemoryDiagnostics.Record("task.retry_state_released", new { count = evicted, retainedLimit = FailedRetryLimit, byteLimit = FailedRetryByteLimit });
+            RaiseTasksChanged();
+        }
+    }
+
+    private static string? Shorten(string? value, int length) => value?.Length > length ? value[..length] : value;
+    private static void CompactSummary(BackgroundTaskInfo task)
+    {
+        if (task.HasCompactSummary) return;
+        task.HasCompactSummary = true;
+        task.Items = task.Items.Take(100).Select(item => new FileTaskItemResult(
+            Shorten(item.Source, 4096)!, Shorten(item.Destination, 4096), item.State, Shorten(item.Error, 1024))).ToArray();
+        task.Warnings = task.Warnings.Take(20).Select(warning => Shorten(warning, 1024)!).ToArray();
+        task.ErrorMessage = Shorten(task.ErrorMessage, 4096);
+        task.CurrentFile = Shorten(task.CurrentFile, 4096)!;
+        task.Label = Shorten(task.Label, 1024)!;
+        if (task.Request is { } request) task.Request = request with {
+            Sources = request.Sources.Count == 1 ? [Shorten(request.Sources[0], 4096)!] : [], Label = task.Label,
+            Destination = Shorten(request.Destination, 4096),
+            DisplayName = Shorten(request.DisplayName ?? (request.Sources.Count > 1 ? LocalizationText.Get("{0} 项", request.Sources.Count) : null), 1024) };
+    }
+
     public void RemoveTask(string taskId)
     {
         FileTaskContext? context = null;

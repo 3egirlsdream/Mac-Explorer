@@ -205,6 +205,30 @@ public sealed class AiAnalysisQueryPerformanceTests : IDisposable
         transaction.Commit();
     }
 
+    [Fact]
+    public async Task CancelledAnalysisQueriesLeaveTheConnectionQueueBeforeTheWriterFinishes()
+    {
+        using var service = new AiTagService(_factory);
+        var gate = (SemaphoreSlim)typeof(AiTagService)
+            .GetField("_connectionLock", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(service)!;
+        await gate.WaitAsync(TestContext.Current.CancellationToken);
+        using var cancellation = new CancellationTokenSource();
+        try
+        {
+            Task[] queries = [
+                service.IsFileAnalyzedAsync("/photos/book.pdf", 10, cancellation.Token),
+                service.GetUnanalyzedFilesAsync(["/photos/book.pdf"], [10], cancellation.Token),
+                service.GetAnalyzedPathsInDirectoryAsync("/photos", cancellation.Token),
+                service.GetCachedTextPageAsync("/photos/book.pdf", 10, 0, cancellation.Token),
+                service.SaveAnalysisResultAsync("/photos/book.pdf", 10, new(), cancellation.Token)
+            ];
+            cancellation.Cancel();
+            foreach (var query in queries)
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => query.WaitAsync(TimeSpan.FromSeconds(2)));
+        }
+        finally { gate.Release(); }
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
 }

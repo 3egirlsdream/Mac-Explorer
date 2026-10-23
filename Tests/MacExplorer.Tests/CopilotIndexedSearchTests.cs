@@ -221,6 +221,45 @@ public sealed class CopilotIndexedSearchTests : IDisposable
         command.Parameters.AddWithValue("@path", path);
         command.ExecuteNonQuery();
     }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task LargeCachedPdfPagesDoNotMaterializeTheWholeBodyOrMetadataText()
+    {
+        var path = FileAt("large-body.pdf");
+        await Analyze(path, new string('中', 1_000_000));
+        var extractor = new CopilotContentExtractor(null!, null!, _tags);
+        await extractor.ExtractPageAsync(path, cancellationToken: Token); // warm serializer/runtime paths
+        var allocated = GC.GetTotalAllocatedBytes(true);
+        var page = await extractor.ExtractPageAsync(path, 500_000, Token);
+        Assert.True(GC.GetTotalAllocatedBytes(true) - allocated < 1_048_576,
+            "A small content page allocated more than 1 MiB for a large cached body.");
+        Assert.Equal("analysis-database", page.Source);
+        Assert.True(page.HasMore);
+        Assert.Equal(new string('中', CopilotContentExtractor.MaxPageUtf8Bytes / 3), page.Text);
+        Assert.Equal(500_000 + page.Text.Length, page.NextOffset);
+        Assert.Empty(await _tags.GetTagsForFileAsync(path, includeText: false));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => extractor.ExtractPageAsync(path, long.MaxValue, Token));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task CachedPagesPreserveEmptyRowsUnicodeAndExactEndOffsets()
+    {
+        var path = FileAt("unicode.pdf");
+        var firstLine = new string('a', CopilotContentExtractor.MaxPageUtf8Bytes - 1) + "😀";
+        await Analyze(path, "", firstLine, "", "末页");
+        var extractor = new CopilotContentExtractor(null!, null!, _tags);
+        var text = "\n" + firstLine + "\n\n末页";
+        var first = await extractor.ExtractPageAsync(path, cancellationToken: Token);
+        var second = await extractor.ExtractPageAsync(path, first.NextOffset, Token);
+        Assert.Equal(text, first.Text + second.Text);
+        Assert.True(first.HasMore);
+        Assert.False(second.HasMore);
+        var end = await extractor.ExtractPageAsync(path, text.Length, Token);
+        Assert.Equal("", end.Text);
+        Assert.False(end.HasMore);
+    }
     private sealed class CountingPdf : IPdfTextExtractionService
     {
         public int Calls { get; private set; }

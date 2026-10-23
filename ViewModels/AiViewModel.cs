@@ -373,12 +373,12 @@ public partial class AiViewModel : ObservableObject
                 && (ImageExtensionsForAi.Contains(e.Extension) || IsPdf(e.FullPath))).ToList();
             var toAnalyze = await _aiTagService.GetUnanalyzedFilesAsync(
                 candidates.Select(e => e.FullPath).ToList(),
-                candidates.Select(e => e.LastModified.Ticks).ToList());
+                candidates.Select(e => e.LastModified.Ticks).ToList(), token);
             token.ThrowIfCancellationRequested();
 
             // Use all directory entries: filtered listings must not erase existing PDF tags.
             var currentPaths = new HashSet<string>(entries.Select(e => e.FullPath), StringComparer.Ordinal);
-            var analyzedPaths = await _aiTagService.GetAnalyzedPathsInDirectoryAsync(currentPath);
+            var analyzedPaths = await _aiTagService.GetAnalyzedPathsInDirectoryAsync(currentPath, token);
             var deletedPaths = analyzedPaths.Where(p => !currentPaths.Contains(p) && !File.Exists(p)).ToList();
             token.ThrowIfCancellationRequested();
             if (deletedPaths.Count > 0)
@@ -408,6 +408,9 @@ public partial class AiViewModel : ObservableObject
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, task.Cts.Token);
         var token = linked.Token;
         var failures = new ConcurrentQueue<string>();
+        const int failureSamples = 20;
+        const int maxErrorCharacters = 2000;
+        var failed = 0;
         var completed = 0;
         try
         {
@@ -441,7 +444,14 @@ public partial class AiViewModel : ObservableObject
                     catch (OperationCanceledException) when (token.IsCancellationRequested || !AnalysisEnabled) { throw; }
                     catch (Exception ex)
                     {
-                        failures.Enqueue($"{Path.GetFileName(file.Path)}：{ex.Message}");
+                        // Task history survives the batch. Keep a bounded diagnostic sample,
+                        // rather than every file's potentially large parser error.
+                        if (Interlocked.Increment(ref failed) <= failureSamples)
+                        {
+                            var message = ex.Message.Length > maxErrorCharacters
+                                ? ex.Message[..maxErrorCharacters] + "…" : ex.Message;
+                            failures.Enqueue($"{Path.GetFileName(file.Path)}：{message}");
+                        }
                         _logger?.LogWarning(ex, "Analysis failed for {Path}", file.Path);
                     }
                     var count = Interlocked.Increment(ref completed);
@@ -451,8 +461,14 @@ public partial class AiViewModel : ObservableObject
             await Task.WhenAll(workers);
             token.ThrowIfCancellationRequested();
             if (!pdf) await _aiTagService!.RunClusteringAsync();
-            if (failures.IsEmpty) _taskManager.CompleteTask(task.Id);
-            else _taskManager.FailTask(task.Id, $"{title}：{failures.Count} 个文件失败", string.Join(Environment.NewLine, failures));
+            if (failed == 0) _taskManager.CompleteTask(task.Id);
+            else
+            {
+                var detail = string.Join(Environment.NewLine, failures);
+                if (failed > failureSamples)
+                    detail += Environment.NewLine + LocalizationText.Get("analysis.more_failures", failed - failureSamples);
+                _taskManager.FailTask(task.Id, $"{title}：{failed} 个文件失败", detail);
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested || !AnalysisEnabled)
         {

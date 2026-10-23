@@ -1340,7 +1340,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             if (_navigation.CurrentHistoryEntry is { IsSearchMode: true } searchEntry)
             {
-                RestoreSearchHistoryEntry(searchEntry);
+                await RestoreSearchHistoryEntryAsync(searchEntry);
                 return;
             }
 
@@ -4043,7 +4043,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         await RefreshAsync();
     }
 
-    private void RestoreSearchHistoryEntry(NavigationHistoryEntry entry)
+    private async Task RestoreSearchHistoryEntryAsync(NavigationHistoryEntry entry)
     {
         CancelDirectoryWork();
         _navigation.SetWatchedDirectory(null);
@@ -4060,8 +4060,29 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.CurrentRemoteServerId = null;
         _navigation.IsSearchMode = true;
         _navigation.SearchQuery = entry.SearchQuery;
-        ApplyEntries(entry.SearchResults);
-        StatusText = MacExplorer.Services.Impl.LocalizationText.Get("搜索 \"{0}\" — 找到 {1} 项", entry.SearchQuery, entry.SearchResults.Count);
+        if (entry.HasSearchResultsSnapshot)
+        {
+            ApplyEntries(entry.SearchResults);
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("搜索 \"{0}\" — 找到 {1} 项", entry.SearchQuery, entry.SearchResults.Count);
+            return;
+        }
+        MemoryDiagnostics.Record("search.history_reloaded", new { });
+        ApplyEntries([]);
+        // Live search can keep streaming until the next navigation. It must not
+        // suppress recording that next navigation as another back/forward action.
+        _navigation.EndHistoryNavigation();
+        IsLoading = true;
+        try
+        {
+            await _search.SearchAsync(entry.SearchQuery, HomeDirectory, entry.SearchRootPath,
+                entries =>
+                {
+                    if (!ReferenceEquals(_navigation.CurrentHistoryEntry, entry)) return;
+                    ApplyEntries(entries);
+                    _navigation.UpdateCurrentSearchResults(entries);
+                }, message => { if (ReferenceEquals(_navigation.CurrentHistoryEntry, entry)) StatusText = message; });
+        }
+        finally { if (ReferenceEquals(_navigation.CurrentHistoryEntry, entry)) IsLoading = false; }
     }
 
     // ── Tags ──

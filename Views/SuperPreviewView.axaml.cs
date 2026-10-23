@@ -466,8 +466,10 @@ public partial class SuperPreviewView : UserControl
                 return;
             if (bytes != null && bytes.Length > 0)
             {
-                using var stream = new MemoryStream(bytes, writable: false);
-                SetPreviewBitmap(new Bitmap(stream));
+                var bitmap = await Task.Run(() => MacExplorer.Services.BoundedImageDecoder.Decode(bytes, _isCompactPreview ? 720 : 1800, token), token);
+                if (version != _operationVersion || token.IsCancellationRequested || !IsVisible) { bitmap?.Dispose(); return; }
+                if (bitmap == null) { ShowPlaceholder("系统无法为此文件生成预览"); return; }
+                SetPreviewBitmap(bitmap);
                 PreviewImage.IsVisible = true;
                 PreviewPlaceholder.IsVisible = false;
                 PreviewTextScroll.IsVisible = false;

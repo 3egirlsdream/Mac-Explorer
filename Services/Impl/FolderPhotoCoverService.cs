@@ -30,7 +30,7 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
                     {
                         var result = await thumbnails.GetThumbnailResultAsync(path, pixels, cancellationToken).ConfigureAwait(false);
                         if (result?.Bytes is not { Length: > 0 } bytes) continue;
-                        var bitmap = SKBitmap.Decode(bytes);
+                        var bitmap = BoundedImageDecoder.DecodeSkia(bytes, pixels, cancellationToken);
                         if (bitmap != null) photos.Add(bitmap);
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)

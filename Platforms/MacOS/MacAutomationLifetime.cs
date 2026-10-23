@@ -102,6 +102,7 @@ internal static class MacAutomationLifetime
                 Node.SetValue(wrapper, null);
                 DisposeNode.Invoke(node, null);
             }
+            if (owned.Count > 0) Services.MemoryDiagnostics.Record("lifetime.native_nodes_released", new { count = owned.Count, detachedOnly });
             owned.Clear();
         };
     }

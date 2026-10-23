@@ -28,6 +28,22 @@ public sealed class FileTaskContext
         _pause = null;
         _changed = null;
     }
+    internal long EstimateRetainedBytes(long limit)
+    {
+        try
+        {
+            var size = new RetainedStateSize(limit);
+            size.Measure(_checkpoints);
+            size.Measure(Results);
+            size.Measure(Warnings);
+            return size.Measure(Task.Request);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            MemoryDiagnostics.Record("task.state_estimate_failed", new { exception = ex.GetType().Name });
+            return limit + 1;
+        }
+    }
     internal IDisposable Atomic()
     {
         _atomicDepth++;

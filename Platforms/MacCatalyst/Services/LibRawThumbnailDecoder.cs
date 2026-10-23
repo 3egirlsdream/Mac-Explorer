@@ -7,8 +7,8 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 internal static class LibRawThumbnailDecoder
 {
     private const string Library = "libraw.dylib";
-    // Covers current 100-150 MP cameras (including sensor margins), while
-    // bounding LibRaw's RGB buffer and the Skia bitmap to about 1.1 GiB total.
+    // Covers current 100-150 MP cameras (including sensor margins). LibRaw owns
+    // its RGB output; our RGBA copy is created only at the requested preview size.
     private const int MaxPixels = 160_000_000;
     private const int BitmapImage = 2;
     private static readonly ProgressCallback CancellationCallback = CheckCancellation;
@@ -30,7 +30,9 @@ internal static class LibRawThumbnailDecoder
                 return null;
             }
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ValidDimensions(GetRawWidth(context), GetRawHeight(context))) return null;
+            var rawWidth = GetRawWidth(context); var rawHeight = GetRawHeight(context);
+            if (!ValidDimensions(rawWidth, rawHeight)) return null;
+            MacExplorer.Services.MemoryDiagnostics.Record("image.raw_decode", new { width = rawWidth, height = rawHeight, maxPixelSize });
             if (Unpack(context) != 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -64,39 +66,43 @@ internal static class LibRawThumbnailDecoder
                 !ValidDimensions(width, height) || (long)width * height * colors != length)
                 return null;
 
-            using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Opaque));
+            var scale = Math.Min(1.0, (double)Math.Clamp(maxPixelSize, 32, MacExplorer.Services.BoundedImageDecoder.MaxOutputEdge) / Math.Max(width, height));
+            var outputWidth = Math.Max(1, (int)Math.Round(width * scale));
+            var outputHeight = Math.Max(1, (int)Math.Round(height * scale));
+            using var bitmap = new SKBitmap(new SKImageInfo(outputWidth, outputHeight, SKColorType.Rgba8888, SKAlphaType.Opaque));
             var destination = bitmap.GetPixels();
             if (destination == IntPtr.Zero) return null;
+            // Sample the developed RGB buffer directly. A 150 MP source previously
+            // allocated another ~600 MiB RGBA image just to shrink it to a thumbnail.
             unsafe
             {
                 var rgb = (byte*)image + 16; // libraw_processed_image_t.data
                 var rgba = (byte*)destination;
-                for (var y = 0; y < height; y++)
+                for (var y = 0; y < outputHeight; y++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    var sy = Math.Clamp((y + .5) * height / outputHeight - .5, 0, height - 1);
+                    var y0 = (int)sy; var y1 = Math.Min(height - 1, y0 + 1); var fy = sy - y0;
                     var row = rgba + y * bitmap.RowBytes;
-                    for (var x = 0; x < width; x++)
+                    for (var x = 0; x < outputWidth; x++)
                     {
-                        var source = rgb + ((long)y * width + x) * colors;
+                        var sx = Math.Clamp((x + .5) * width / outputWidth - .5, 0, width - 1);
+                        var x0 = (int)sx; var x1 = Math.Min(width - 1, x0 + 1); var fx = sx - x0;
                         var pixel = row + x * 4;
-                        pixel[0] = source[0];
-                        pixel[1] = colors == 1 ? source[0] : source[1];
-                        pixel[2] = colors == 1 ? source[0] : source[2];
+                        for (var channel = 0; channel < 3; channel++)
+                        {
+                            var c = colors == 1 ? 0 : channel;
+                            var top = rgb[((long)y0 * width + x0) * colors + c] * (1 - fx)
+                                + rgb[((long)y0 * width + x1) * colors + c] * fx;
+                            var bottom = rgb[((long)y1 * width + x0) * colors + c] * (1 - fx)
+                                + rgb[((long)y1 * width + x1) * colors + c] * fx;
+                            pixel[channel] = (byte)Math.Round(top * (1 - fy) + bottom * fy);
+                        }
                         pixel[3] = 255;
                     }
                 }
             }
-            cancellationToken.ThrowIfCancellationRequested();
-            var scale = Math.Min(1.0, (double)Math.Max(32, maxPixelSize) / Math.Max(width, height));
-            var outputWidth = Math.Max(1, (int)Math.Round(width * scale));
-            var outputHeight = Math.Max(1, (int)Math.Round(height * scale));
-            using var surface = SKSurface.Create(new SKImageInfo(outputWidth, outputHeight));
-            if (surface == null) return null;
-            using var skImage = SKImage.FromBitmap(bitmap);
-            surface.Canvas.DrawImage(skImage, new SKRect(0, 0, outputWidth, outputHeight),
-                new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-            using var snapshot = surface.Snapshot();
-            using var encoded = snapshot.Encode(SKEncodedImageFormat.Png, 100);
+            using var encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100);
             cancellationToken.ThrowIfCancellationRequested();
             return encoded?.ToArray();
         }

@@ -3,7 +3,7 @@ using Avalonia.Media.Imaging;
 namespace MacExplorer.Services.Impl;
 
 /// <summary>Shares borrowed images without keeping unused native bitmaps alive or disposing live bindings.</summary>
-internal sealed class WeakBitmapCache(long maxBytes, int maxEntries = 512) : IIdleMemoryCache
+internal sealed class WeakBitmapCache(long maxBytes, int maxEntries = 512) : IIdleMemoryCache, IMemoryDiagnosticSource
 {
     private sealed record Entry(string Key, WeakReference<Bitmap> Bitmap, long Bytes)
     {
@@ -14,6 +14,8 @@ internal sealed class WeakBitmapCache(long maxBytes, int maxEntries = 512) : IId
     private readonly object _sync = new();
     private long _bytes;
     private bool _registered;
+
+    public MemoryDiagnosticState GetMemoryState() { lock (_sync) return new("shared-images-weak", _entries.Count, _bytes); }
 
     public bool TryGet(string key, out Bitmap? bitmap)
     {
@@ -41,7 +43,7 @@ internal sealed class WeakBitmapCache(long maxBytes, int maxEntries = 512) : IId
     {
         lock (_sync)
         {
-            if (!_registered) { MemoryCacheMaintenance.Register(this); _registered = true; }
+            if (!_registered) { MemoryCacheMaintenance.Register(this); MemoryDiagnostics.Register(this); _registered = true; }
             if (_entries.TryGetValue(key, out var previous)) Remove(previous);
             var bytes = (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4 + key.Length * 2L;
             _entries[key] = _lru.AddFirst(new Entry(key, new(bitmap), bytes));

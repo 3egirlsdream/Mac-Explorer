@@ -268,6 +268,22 @@ public sealed class PdfAnalysisTests : IDisposable
         Assert.Contains("4826", imageJson);
     }
 
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task FailedBatchKeepsAnExactCountAndOnlyABoundedErrorSampleInHistory()
+    {
+        var entries = Enumerable.Range(0, 50).Select(n => FileEntry($"bad-{n:D2}.pdf")).ToArray();
+        var extractor = new Extractor((_, _) => throw new IOException(new string('x', 8000)));
+        using var service = new PdfAnalysisService(extractor, _tags);
+        await Vm(service).TriggerImageAnalysisAsync(entries, _root, TestToken);
+        var task = Assert.Single(_tasks.Tasks);
+        Assert.Equal(BackgroundTaskState.Failed, task.State);
+        Assert.Contains("50", task.ErrorMessage);
+        Assert.Contains("bad-00.pdf", task.ErrorDetail);
+        Assert.DoesNotContain("bad-49.pdf", task.ErrorDetail);
+        Assert.True(task.ErrorDetail!.Length < 42_000);
+    }
+
     [Theory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
@@ -291,6 +307,51 @@ public sealed class PdfAnalysisTests : IDisposable
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
         }
         else await Assert.ThrowsAsync<TimeoutException>(() => running);
+        var pid = int.Parse(await File.ReadAllTextAsync(pidPath, TestToken));
+        Assert.Throws<ArgumentException>(() => Process.GetProcessById(pid));
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task DirectExtractionsShareOneHelperAndQueuedCancellationDoesNotLaunchAnother()
+    {
+        var pids = Path.Combine(_root, "helper-pids");
+        var helper = Path.Combine(_root, "serial-helper");
+        await File.WriteAllTextAsync(helper, $"#!/bin/sh\necho $$ >> '{pids}'\nexec /bin/sleep 30\n", TestToken);
+        File.SetUnixFileMode(helper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var extractor = new MacPdfTextExtractionService(helper, TimeSpan.FromSeconds(10));
+        using var firstCancel = CancellationTokenSource.CreateLinkedTokenSource(TestToken);
+        var first = extractor.ExtractAsync("first.pdf", ct: firstCancel.Token);
+        try
+        {
+            using var startup = CancellationTokenSource.CreateLinkedTokenSource(TestToken);
+            startup.CancelAfter(TimeSpan.FromSeconds(5));
+            while (!File.Exists(pids)) await Task.Delay(10, startup.Token);
+            using var queuedCancel = new CancellationTokenSource();
+            var second = extractor.ExtractAsync("second.pdf", ct: queuedCancel.Token);
+            queuedCancel.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => second.WaitAsync(TimeSpan.FromSeconds(2), TestToken));
+            Assert.Single(await File.ReadAllLinesAsync(pids, TestToken));
+        }
+        finally
+        {
+            firstCancel.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        }
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task BrokenProgressTerminatesTheHelperWithoutWaitingForItsIdleTimeout()
+    {
+        var pidPath = Path.Combine(_root, "broken-progress-pid");
+        var helper = Path.Combine(_root, "broken-progress-helper");
+        await File.WriteAllTextAsync(helper,
+            $"#!/bin/sh\necho $$ > '{pidPath}'\nprintf 'PDF_PROGRESS invalid-json\\n' >&2\nexec /bin/sleep 30\n", TestToken);
+        File.SetUnixFileMode(helper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var extractor = new MacPdfTextExtractionService(helper, TimeSpan.FromSeconds(15));
+        await Assert.ThrowsAsync<IOException>(() => extractor.ExtractAsync("ignored.pdf", ct: TestToken)
+            .WaitAsync(TimeSpan.FromSeconds(3), TestToken));
         var pid = int.Parse(await File.ReadAllTextAsync(pidPath, TestToken));
         Assert.Throws<ArgumentException>(() => Process.GetProcessById(pid));
     }
