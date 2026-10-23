@@ -240,8 +240,17 @@ p {
 }
 .hero-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
   margin-top: 20px;
+}
+.hero-actions > .button {
+  min-height: 41px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 .download-control {
   display: flex;

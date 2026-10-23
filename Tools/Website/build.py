@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / 'docs'
 BASE = 'https://3egirlsdream.github.io/Mac-Explorer/'
 REPO = 'https://github.com/3egirlsdream/Mac-Explorer'
+APP_STORE_URL = 'https://apps.apple.com/cn/app/id6820338798?mt=12'
 ROUTES = {'zh-CN': '', 'zh-Hant': 'zh-Hant/', 'en': 'en/', 'fr': 'fr/'}
 LOCALES = {lang: json.loads((DOCS / 'locales' / (lang + '.json')).read_text()) for lang in ROUTES}
 assert all(set(t) == set(LOCALES['zh-CN']) for t in LOCALES.values()), 'Locale keys must match'
@@ -59,7 +60,7 @@ def render(lang, t):
 </head><body><a class="skip-link" href="#main">{text('skip')}</a>
 <header class="site-header wrap"><a class="brand" href="{asset or './'}" aria-label="Mac Explorer"><img src="{asset}Assets/appicon.svg" alt="" width="32" height="32">Mac Explorer<span class="brand-label">FOR MAC</span></a>
 <nav aria-label="{text('menu')}"><a href="#features">{text('features')}</a><a href="{asset}developers/">{text('docs')}</a><a href="{REPO}">GitHub {icon('arrow-up-right')}</a></nav><div class="header-actions"><details class="language-picker"><summary aria-label="{text('language')}: {text('name')}">{icon('globe')}<span>{text('name')}</span>{icon('chevron-down')}</summary><div>{language_links}</div></details></div></header>
-<main id="main"><section class="hero wrap" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">{text('eyebrow')}</p><h1 id="hero-title">Mac Explorer</h1><p class="hero-tagline">{text('tagline')}</p><p class="hero-intro">{text('intro')}</p><div class="hero-actions"><div class="download-control"><a href="{REPO}/releases/latest">{icon('arrow-download')}{text('get')}</a><details class="download-picker"><summary aria-label="{text('downloadOptions')}">{icon('chevron-down')}</summary><div><a href="{REPO}/releases/latest">{text('silicon')}{icon('arrow-up-right')}</a><a href="{REPO}/releases/latest">{text('intel')}{icon('arrow-up-right')}</a></div></details></div></div></div>
+<main id="main"><section class="hero wrap" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">{text('eyebrow')}</p><h1 id="hero-title">Mac Explorer</h1><p class="hero-tagline">{text('tagline')}</p><p class="hero-intro">{text('intro')}</p><div class="hero-actions"><div class="download-control"><a href="{REPO}/releases/latest">{icon('arrow-download')}{text('get')}</a><details class="download-picker"><summary aria-label="{text('downloadOptions')}">{icon('chevron-down')}</summary><div><a href="{REPO}/releases/latest">{text('silicon')}{icon('arrow-up-right')}</a><a href="{REPO}/releases/latest">{text('intel')}{icon('arrow-up-right')}</a></div></details></div><a class="button secondary" href="{APP_STORE_URL}">{text('appStoreDownload')}{icon('arrow-up-right')}</a></div></div>
 <div class="showcase"><div class="showcase-window"><div data-panel="browser">{stage('browser',t['browserAlt'])}</div></div></div></section>
 <div class="features wrap" id="features">{feature_sections(t)}</div>
 <section class="faq wrap" aria-labelledby="faq-title"><h2 id="faq-title">{text('faqTitle')}</h2><div>{''.join(f'<details><summary>{escape(q)}{icon("add")}</summary><p>{escape(a)}</p></details>' for q,a in t['faqs'])}</div></section>
