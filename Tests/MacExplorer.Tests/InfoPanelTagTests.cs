@@ -46,7 +46,10 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
         vm.CurrentMetadata = new FileMetadata { FullPath = path, Tags = originalTags.ToList() };
         using var tags = new MacExplorer.Services.Impl.FileTagService(
             new MacExplorer.Services.Impl.DatabaseConnectionFactory(Path.Combine(directory, "tags.db")), store: new MacFileTagStore());
-        var panel = new InfoPanelView(tags) { DataContext = vm };
+        Assert.Equal(originalTags.Order(), (await tags.GetFileTagsAsync(path, cancellationToken)).Select(tag => tag.Name).Order());
+        var panel = new InfoPanelView(tags);
+        await panel.SetLivePreviewStateAsync(false, 0);
+        panel.DataContext = vm;
         var window = new Window
         {
             Width = 374, Height = 940, Content = panel,
@@ -59,13 +62,7 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var chips = panel.FindControl<WrapPanel>("CustomTagsPanel")!;
-            for (var attempt = 0; attempt < 200 && !HasTagToRemove(); attempt++)
-            {
-                await Task.Delay(25, cancellationToken);
-                Dispatcher.UIThread.RunJobs();
-            }
-            Dispatcher.UIThread.RunJobs();
-            var remove = FindRemoveButton("待删除");
+            var remove = await WaitForRemoveButtonAsync("待删除");
             var point = remove.TranslatePoint(new Point(remove.Bounds.Width / 2, remove.Bounds.Height / 2), window)!.Value;
             window.MouseMove(point);
             window.MouseDown(point, MouseButton.Left);
@@ -77,7 +74,7 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
             if (!lastTag)
             {
                 // Removing the remaining custom tag with the keyboard must retain the color tag.
-                FindRemoveButton("保留").Focus(NavigationMethod.Tab);
+                (await WaitForRemoveButtonAsync("保留")).Focus(NavigationMethod.Tab);
                 window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
                 window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
                 await ReloadPersistedTagsAsync(["红色"]);
@@ -93,12 +90,21 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
                 Assert.Empty(chips.Children);
             }
 
-            Button FindRemoveButton(string tag) => chips.Children.OfType<Border>()
-                .Single(chip => chip.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == tag))
-                .GetVisualDescendants().OfType<Button>().Single();
-
-            bool HasTagToRemove() => chips.Children.OfType<Border>()
-                .Any(chip => chip.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "待删除"));
+            async Task<Button> WaitForRemoveButtonAsync(string tag)
+            {
+                var watch = Stopwatch.StartNew();
+                while (watch.Elapsed < TimeSpan.FromSeconds(30))
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
+                    var chip = chips.Children.OfType<Border>().SingleOrDefault(candidate =>
+                        candidate.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == tag));
+                    var button = chip?.GetVisualDescendants().OfType<Button>().SingleOrDefault();
+                    if (button is { Bounds.Width: > 0, Bounds.Height: > 0 }) return button;
+                    await Task.Delay(25, cancellationToken);
+                }
+                throw new TimeoutException($"Tag remove button '{tag}' did not become ready. Displayed tags: {string.Join(", ", DisplayedCustomTags())}");
+            }
 
             string[] DisplayedCustomTags() => chips.Children.OfType<Border>()
                 .Select(chip => ((StackPanel)chip.Child!).Children.OfType<TextBlock>().First().Text!)

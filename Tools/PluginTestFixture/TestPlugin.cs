@@ -20,7 +20,10 @@ public sealed class TestPlugin : IFileActionPlugin
         {
             using var helper = Process.Start(new ProcessStartInfo("/bin/sleep", "60") { UseShellExecute = false })!;
             using var track = PluginChildProcesses.Track(helper);
-            await File.WriteAllTextAsync(Path.Combine(invocation.WorkDirectory, "helper.pid"), helper.Id.ToString(), cancellationToken);
+            var pidFile = Path.Combine(invocation.WorkDirectory, "helper.pid");
+            await File.WriteAllTextAsync(pidFile + ".tmp", helper.Id.ToString(), cancellationToken);
+            // File existence is the test's readiness signal; publish only a complete PID.
+            File.Move(pidFile + ".tmp", pidFile, overwrite: true);
             if (invocation.CommandId == "crash-helper") Environment.Exit(24);
             try { await Task.Delay(Timeout.Infinite, invocation.CommandId == "hang" ? CancellationToken.None : cancellationToken); }
             finally { PluginChildProcesses.KillAll(); }
