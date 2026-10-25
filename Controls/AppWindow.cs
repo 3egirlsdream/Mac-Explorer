@@ -123,7 +123,7 @@ public class AppWindow : Window
                 MacAutomationLifetime.ReleaseDetached();
             }, DispatcherPriority.Background);
         };
-        Activated += (_, _) => { RequestNativeWindowChrome(); UpdateWindowPseudoClasses(); if (_subscription != null) _ = _subscription.RefreshAsync(); };
+        Activated += (_, _) => { RequestNativeWindowChrome(); UpdateWindowPseudoClasses(); SchedulePostActivationDisplayRefresh(); if (_subscription != null) _ = _subscription.RefreshAsync(); };
         Deactivated += (_, _) => UpdateWindowPseudoClasses();
         KeyDown += OnWindowKeyDown;
         AddHandler(KeyDownEvent, (_, e) =>
@@ -175,6 +175,24 @@ public class AppWindow : Window
     {
         _nativeChromeRefreshPending = false;
         MacWindowChrome.MakeTransparent(this);
+        // Stage Manager fully occludes the window while the app is in the background;
+        // when the window returns, the content layer can be left without a valid
+        // drawable and freezes on a stale frame until a fullscreen toggle forces a
+        // re-composite. Ask the native layer to redisplay so the render loop produces
+        // a fresh frame as soon as the window is visible again.
+        MacWindowChrome.RequestDisplayRefresh(this);
+    }
+
+    private void SchedulePostActivationDisplayRefresh()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        // The refresh inside ApplyNativeWindowChrome runs on the activation turn and
+        // can still race Stage Manager's restore transition. Schedule one follow-up
+        // after the transition settles so the first valid drawable is re-requested.
+        DispatcherTimer.RunOnce(
+            () => MacWindowChrome.RequestDisplayRefresh(this),
+            TimeSpan.FromMilliseconds(300),
+            DispatcherPriority.Background);
     }
 
     private void RequestNativeWindowChrome()

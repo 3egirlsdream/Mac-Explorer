@@ -86,6 +86,20 @@ internal static class MacWindowChrome
         }
     }
 
+    public static void RequestDisplayRefresh(TopLevel topLevel)
+    {
+        if (!OperatingSystem.IsMacOS())
+            return;
+
+        var nsView = GetNSView(topLevel);
+        if (nsView == IntPtr.Zero)
+            return;
+
+        try { me_window_request_display(nsView); }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+    }
+
     public static bool IsCurrentMouseDoubleClick() =>
         OperatingSystem.IsMacOS() && MacExplorerCurrentLeftMouseClickCount() == 2;
 
@@ -294,6 +308,9 @@ internal static class MacWindowChrome
 
     [DllImport(NativeDragLibrary)]
     private static extern void me_window_chrome_prepare(IntPtr nsView);
+
+    [DllImport(NativeDragLibrary)]
+    private static extern void me_window_request_display(IntPtr nsView);
 
     [DllImport(NativeDragLibrary)]
     private static extern void me_window_shadow_update(IntPtr nsView, double cornerRadius,

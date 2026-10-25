@@ -26,6 +26,21 @@ void me_window_chrome_prepare(void *viewPointer) {
     if (window.contentView != view) PrepareContentLayer(window.contentView);
 }
 
+extern "C" __attribute__((visibility("default")))
+void me_window_request_display(void *viewPointer) {
+    @autoreleasepool {
+        NSView *view = (__bridge NSView *)viewPointer;
+        if (!view || !NSThread.isMainThread) return;
+        NSWindow *window = view.window;
+        if (window) {
+            NSView *content = window.contentView;
+            if (content) [content setNeedsDisplay:YES];
+        }
+        [view setNeedsDisplay:YES];
+        if (view.layer) [view.layer setNeedsDisplay];
+    }
+}
+
 static char MEWindowShadowKey;
 static const CGFloat MEWindowShadowMargin = 40;
 
@@ -93,8 +108,12 @@ static const CGFloat MEWindowShadowMargin = 40;
     _window.ignoresMouseEvents = YES;
     _window.excludedFromWindowsMenu = YES;
     _window.animationBehavior = NSWindowAnimationBehaviorNone;
-    _window.collectionBehavior = NSWindowCollectionBehaviorTransient
-        | NSWindowCollectionBehaviorIgnoresCycle | NSWindowCollectionBehaviorFullScreenAuxiliary;
+    // A shadow must track its owner through Spaces and Stage Manager. Marking it
+    // "Transient" makes Stage Manager treat it as a short-lived, non-managed window
+    // and can leave the owner's child-window group in a broken state after the app
+    // is backgrounded and restored. Keep it out of the window cycle, but managed.
+    _window.collectionBehavior = NSWindowCollectionBehaviorIgnoresCycle
+        | NSWindowCollectionBehaviorFullScreenAuxiliary;
     [_window setAccessibilityElement:NO];
     _surface = [MEWindowShadowView new];
     [_surface setAccessibilityElement:NO];
