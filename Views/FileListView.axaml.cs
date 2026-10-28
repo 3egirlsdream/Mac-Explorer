@@ -11,6 +11,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
@@ -907,8 +908,10 @@ public partial class FileListView : UserControl
                 btn.Tag = qa;
                 if (qa.Execute != null)
                 {
-                    var captured = qa;
-                    btn.Click += async (_, _) => await ExecuteMenuActionAsync(captured);
+                    btn.Click += async (_, _) =>
+                    {
+                        if (btn.Tag is ContextMenuAction current) await ExecuteMenuActionAsync(current);
+                    };
                 }
                 Grid.SetColumn(buttonSurface, i);
                 quickGrid.Children.Add(buttonSurface);
@@ -1014,7 +1017,7 @@ public partial class FileListView : UserControl
             item.PropertyChanged += (_, e) =>
             {
                 if (e.Property != MenuItem.IsSubMenuOpenProperty) return;
-                if (item.IsSubMenuOpen) ReloadSubmenu(item, requestVersion, action.LoadSubItemsAsync);
+                if (item.IsSubMenuOpen) ReloadSubmenu(item, requestVersion);
                 else if (_menuLoads.Remove(item, out var cancellation)) { cancellation.Cancel(); cancellation.Dispose(); }
             };
         }
@@ -1024,9 +1027,8 @@ public partial class FileListView : UserControl
     private void ReloadSubmenu(MenuItem item, int requestVersion,
         Func<CancellationToken, Action<IReadOnlyList<ContextMenuAction>>, Task<IReadOnlyList<ContextMenuAction>>>? loader = null)
     {
-        loader ??= item.Tag as Func<CancellationToken, Action<IReadOnlyList<ContextMenuAction>>, Task<IReadOnlyList<ContextMenuAction>>>;
+        loader ??= (item.Tag as ContextMenuAction)?.LoadSubItemsAsync;
         if (loader == null) return;
-        item.Tag = loader;
         if (_menuLoads.Remove(item, out var previous)) { previous.Cancel(); previous.Dispose(); }
         var cancellation = new CancellationTokenSource();
         _menuLoads[item] = cancellation;
@@ -1230,7 +1232,7 @@ public partial class FileListView : UserControl
         try
         {
             var viewModel = ViewModel;
-            if (viewModel == null) return;
+            if (viewModel == null || requestVersion != _menuRequestVersion || !ReferenceEquals(_openMenu, menu)) return;
 
             var completeActions = await viewModel.LoadCompleteFileContextMenuAsync(entry);
             if (requestVersion != _menuRequestVersion || !ReferenceEquals(_openMenu, menu) || ViewModel == null)
@@ -1244,16 +1246,88 @@ public partial class FileListView : UserControl
                 if (requestVersion != _menuRequestVersion || !ReferenceEquals(_openMenu, menu)) return;
             }
 
+            // Keep the quick actions and unchanged menu trees (including loaded icons
+            // and keyboard focus). Only dynamic groups need new controls.
+            MergeCompleteMenu(menu, completeActions, requestVersion);
             viewModel.ContextMenuActions = new ObservableCollection<ContextMenuAction>(completeActions);
-            var completeRequestVersion = ++_menuRequestVersion;
-            DisposeOwnedMenuBitmaps();
-            FillMenu(menu, viewModel.ContextMenuActions, completeRequestVersion, entry);
         }
         catch
         {
             // Keep the already-open lightweight menu if dynamic menu loading fails.
         }
     }
+
+    private void MergeCompleteMenu(ContextMenu menu, IReadOnlyList<ContextMenuAction> actions, int requestVersion)
+    {
+        var existing = menu.Items.OfType<MenuItem>().Where(item => item.Tag is ContextMenuAction).ToList();
+        var prefixCount = menu.Items.FirstOrDefault() is MenuItem { Tag: null } ? 2 : 0;
+        var separators = new Queue<Separator>(menu.Items.Skip(prefixCount).OfType<Separator>());
+        var desired = menu.Items.Cast<Control>().Take(prefixCount).ToList();
+        if (prefixCount > 0)
+            foreach (var button in desired[0].GetVisualDescendants().OfType<Button>())
+                if (button.Tag is ContextMenuAction previous
+                    && actions.FirstOrDefault(next => next.IsQuickAction && next.Label == previous.Label) is { } next)
+                {
+                    button.Tag = next;
+                    button.IsEnabled = next.IsEnabled;
+                }
+        foreach (var action in actions.Where(action => !action.IsQuickAction))
+        {
+            if (action.IsSeparator)
+            {
+                if (desired.Count > prefixCount && desired[^1] is not Separator)
+                    desired.Add(separators.Count > 0 ? separators.Dequeue() : new Separator());
+                continue;
+            }
+            var old = existing.FirstOrDefault(item => item.Tag is ContextMenuAction previous && SameMenuPresentation(previous, action));
+            if (old != null)
+            {
+                existing.Remove(old);
+                RefreshMenuActions(old, action);
+                desired.Add(old);
+            }
+            else desired.Add(CreateMenuEntry(action, menu, requestVersion));
+        }
+        if (desired.Count > prefixCount && desired[^1] is Separator) desired.RemoveAt(desired.Count - 1);
+        foreach (var item in menu.Items.OfType<Control>().Where(item => !desired.Contains(item)).ToArray())
+        {
+            foreach (var submenu in item.GetLogicalDescendants().OfType<MenuItem>().Concat(item is MenuItem parent ? [parent] : []))
+            {
+                _asyncSubmenus.Remove(submenu);
+                if (_menuLoads.Remove(submenu, out var cancellation)) { cancellation.Cancel(); cancellation.Dispose(); }
+            }
+            menu.Items.Remove(item);
+        }
+        for (var i = 0; i < desired.Count; i++)
+        {
+            if (i < menu.Items.Count && ReferenceEquals(menu.Items[i], desired[i])) continue;
+            menu.Items.Remove(desired[i]);
+            menu.Items.Insert(i, desired[i]);
+        }
+    }
+
+    private static void RefreshMenuActions(MenuItem item, ContextMenuAction action)
+    {
+        item.Tag = action;
+        if (action.SubItems == null || action.LoadSubItemsAsync != null || action.TagTreePaths != null) return;
+        foreach (var child in item.Items.OfType<MenuItem>())
+            if (child.Tag is ContextMenuAction previous
+                && action.SubItems.FirstOrDefault(next => SameMenuPresentation(previous, next)) is { } next)
+                RefreshMenuActions(child, next);
+    }
+
+    private static bool SameMenuPresentation(ContextMenuAction a, ContextMenuAction b)
+        => a.Label == b.Label && a.Tag == b.Tag && a.IsSeparator == b.IsSeparator
+            && a.IsEnabled == b.IsEnabled && a.ToolTip == b.ToolTip
+            && a.IconSvg == b.IconSvg && a.IconColor == b.IconColor && ReferenceEquals(a.IconImage, b.IconImage)
+            && a.IconBase64 == b.IconBase64 && (a.LoadIconBase64Async == null) == (b.LoadIconBase64Async == null)
+            && a.ShortcutId == b.ShortcutId && a.ShortcutText == b.ShortcutText && a.IsCheckable == b.IsCheckable
+            && a.IsChecked == b.IsChecked && a.IsIndeterminate == b.IsIndeterminate
+            && (a.Execute == null) == (b.Execute == null) && a.ReloadParentSubmenu == b.ReloadParentSubmenu
+            && (a.LoadSubItemsAsync == null) == (b.LoadSubItemsAsync == null)
+            && (a.TagTreePaths ?? []).SequenceEqual(b.TagTreePaths ?? [])
+            && (a.SubItems?.Count ?? 0) == (b.SubItems?.Count ?? 0)
+            && (a.SubItems == null || a.SubItems.Zip(b.SubItems ?? []).All(pair => SameMenuPresentation(pair.First, pair.Second)));
 
     private async System.Threading.Tasks.Task ExecuteMenuActionAsync(ContextMenuAction action)
     {

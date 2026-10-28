@@ -85,7 +85,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase
     }
 
     [AvaloniaFact(Explicit = true)]
-    public void SidebarShowsFirstMountedVolumeAndHidesAfterLastUnmount()
+    public void SidebarMountsGroupContainsLocalDisksAndNetworkMountsAndHidesWhenEmpty()
     {
         using var vm = CreateViewModel(new FakeFileService(Path.Combine(RuntimePaths.DataDirectory, "NetworkSidebarFixture")));
         var sidebar = new FinderSidebarView { DataContext = vm };
@@ -93,7 +93,12 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
-            var volumes = sidebar.FindControl<ItemsControl>("ExternalVolumesControl")!;
+            var volumes = sidebar.FindControl<ItemsControl>("NetworkLocationsList")!;
+            var local = sidebar.FindControl<ItemsControl>("ExternalVolumesControl")!;
+            vm.ExternalVolumes.Add(new VolumeInfo { Path = "/Volumes/USB", DisplayName = "USB", IsExternal = true });
+            Dispatcher.UIThread.RunJobs();
+            Assert.Single(local.Items);
+            Assert.True(sidebar.FindControl<TextBlock>("MountedLocationsHeader")!.IsVisible);
             Assert.False(volumes.IsVisible);
             vm.ExternalVolumes.Add(new VolumeInfo { Path = "/Volumes/TestShare", DisplayName = "TestShare", IsNetwork = true });
             Dispatcher.UIThread.RunJobs();
@@ -102,8 +107,70 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase
             vm.ExternalVolumes.Clear();
             Dispatcher.UIThread.RunJobs();
             Assert.False(volumes.IsVisible);
+            Assert.False(local.IsVisible);
+            Assert.False(sidebar.FindControl<TextBlock>("MountedLocationsHeader")!.IsVisible);
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    public void SharedConnectionsSynchronizeTwoWindowsAndPreservePageSelection()
+    {
+        using var theme = new FastListTestTheme();
+        var previous = App.Services;
+        var locations = new SharedLocations();
+        var dav = new RemoteServerInfo { Id = "dav", Name = "WebDAV", ServiceType = RemoteServiceType.WebDav, WebDavUrl = "https://dav.example.test/Files/" };
+        var sftp = new RemoteServerInfo { Id = "sftp", Name = "SFTP" };
+        locations.Rows = [new("WebDAV", "", dav), new("SFTP", "", sftp)];
+        using var services = new ServiceCollection().AddSingleton<INetworkLocationService>(locations)
+            .AddSingleton<INetworkDiscoveryService>(new NavigationDiscovery()).BuildServiceProvider();
+        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        using var firstVm = CreateViewModel(new FakeFileService(Path.Combine(RuntimePaths.DataDirectory, "FirstNetworkWindow")));
+        using var secondVm = CreateViewModel(new FakeFileService(Path.Combine(RuntimePaths.DataDirectory, "SecondNetworkWindow")));
+        var sidebars = new[] { new FinderSidebarView { DataContext = firstVm }, new FinderSidebarView { DataContext = secondVm } };
+        var pages = new[] { new NetworkView { DataContext = firstVm }, new NetworkView { DataContext = secondVm } };
+        var windows = sidebars.Select((sidebar, i) =>
+        {
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("220,*") };
+            Grid.SetColumn(pages[i], 1); grid.Children.Add(sidebar); grid.Children.Add(pages[i]);
+            return new Window { Width = 1000, Height = 500, Content = grid };
+        }).ToArray();
+        try
+        {
+            foreach (var window in windows) window.Show();
+            Dispatcher.UIThread.RunJobs();
+            foreach (var page in pages) { Assert.Equal(2, page.Locations.Count); page.SelectedLocation = page.Locations[0]; }
+            Assert.All(sidebars, sidebar => Assert.Empty(sidebar.FindControl<ItemsControl>("NetworkLocationsList")!.Items));
+            locations.Rows = [new("WebDAV", "", dav, new VolumeInfo { Path = "/Volumes/dav", IsNetwork = true }), new("SFTP", "", sftp)];
+            locations.Notify(); Dispatcher.UIThread.RunJobs();
+            foreach (var sidebar in sidebars)
+            {
+                var item = Assert.IsType<NetworkLocationRow>(Assert.Single(sidebar.FindControl<ItemsControl>("NetworkLocationsList")!.Items));
+                Assert.Equal(dav.Id, item.Identity); Assert.True(item.IsMounted);
+            }
+            Assert.All(pages, page => Assert.Equal(dav.Id, page.SelectedLocation?.Identity));
+            locations.Rows = [new("WebDAV", "", dav), new("SFTP", "", sftp, Connected: true)];
+            locations.Notify(); Dispatcher.UIThread.RunJobs();
+            foreach (var sidebar in sidebars)
+            {
+                var item = Assert.IsType<NetworkLocationRow>(Assert.Single(sidebar.FindControl<ItemsControl>("NetworkLocationsList")!.Items));
+                Assert.Equal(sftp.Id, item.Identity); Assert.False(item.IsMounted);
+            }
+            Assert.All(pages, page => Assert.False(page.SelectedLocation!.IsConnected));
+        }
+        finally
+        {
+            foreach (var window in windows) window.Close();
+            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+        }
+    }
+
+    private sealed class SharedLocations : INetworkLocationService
+    {
+        public IReadOnlyList<NetworkLocationRow> Rows { get; set; } = [];
+        public IReadOnlyList<NetworkLocationRow> GetLocations(bool includeDiscovered = false) => Rows;
+        public event Action? Changed;
+        public void Notify() => Changed?.Invoke();
     }
 
     [AvaloniaFact(Explicit = true)]
@@ -167,7 +234,8 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase
             window.MouseDown(actionPoint, MouseButton.Left); window.MouseUp(actionPoint, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
             Assert.True(view.RowMenu?.IsOpen);
-            Assert.Single(view.RowMenu!.Items);
+            Assert.Equal(3, view.RowMenu!.Items.Count);
+            Assert.Contains(view.RowMenu.Items.Cast<MenuItem>(), item => Equals(item.Header, LocalizationText.Get("network.remove-saved")) && item.IsEnabled);
             view.RowMenu.Close();
 
         }

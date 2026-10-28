@@ -18,6 +18,7 @@ public partial class SettingsDialog
     private Border GeneralStatusBorder => GetPageControl<Border>("general", "GeneralStatusBorder");
     private ToggleSwitch AiAnalysisToggle => GetPageControl<ToggleSwitch>("general", "AiAnalysisToggle");
     private ToggleSwitch DefaultManagerToggle => GetPageControl<ToggleSwitch>("general", "DefaultManagerToggle");
+    private TextBlock DefaultManagerStatus => GetPageControl<TextBlock>("general", "DefaultManagerStatus");
     private Border DefaultManagerRow => GetPageControl<Border>("general", "DefaultManagerRow");
     private ComboBox LanguageCombo => GetPageControl<ComboBox>("general", "LanguageCombo");
     private TextBlock LocalSendStatus => GetPageControl<TextBlock>("send", "LocalSendStatus");

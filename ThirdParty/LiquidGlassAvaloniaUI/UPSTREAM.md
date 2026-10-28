@@ -12,6 +12,10 @@ Shaders are unchanged. The local backdrop provider refreshes snapshots in the sa
 frame when a subscribing surface changes bounds, theme, or render scale, preventing an
 expanding sidebar from briefly sampling its previous layout. Background-only
 updates retain the upstream capture cadence.
+Rounded-clip reflection metadata (including missing properties) is cached per visual
+type; each frame still reads the current radius, so changing corner radii stays live.
+Capture enumerates children directly when their ZIndex values match; differing
+values retain stable sorting without an extra copied array. Clipping and paint order are unchanged.
 
 FKFinder uses `LiquidGlassSurface` for `SidebarSurface` in
 `Views/ExplorerWorkspaceView.axaml`. The approved light appearance captures a

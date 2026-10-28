@@ -255,14 +255,17 @@ public sealed partial class LocalSendService
         Interlocked.Increment(ref _unknownProbes);
         try
         {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromMilliseconds(250));
-            using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
             {
-                if (TcpProbeOverride is { } probe) return await probe(address, port, timeout.Token);
-                await socket.ConnectAsync(new IPEndPoint(IPAddress.Parse(address), port), timeout.Token);
-                return true;
+                if (TcpProbeOverride is { } probe)
+                {
+                    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeout.CancelAfter(TimeSpan.FromMilliseconds(250));
+                    return await probe(address, port, timeout.Token);
+                }
+                var error = await LocalSendTcpProbe.ConnectAsync(new IPEndPoint(IPAddress.Parse(address), port),
+                    TimeSpan.FromMilliseconds(250), cancellationToken, _timeProvider);
+                return error == SocketError.TimedOut ? null : error == SocketError.Success;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (OperationCanceledException) { return null; }

@@ -72,3 +72,31 @@ MACEXPLORER_WINDOW_OPEN_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 该入口仅在 Debug 且设置了 `MACEXPLORER_TEST_ROOT` 时生效；依次打开设置、确认、压缩、任务、远程连接、重命名、图片转换、删除、密码、LocalSend、首页编辑、新主窗口和文件速递，不执行文件操作。报告写入终端打印的临时目录 `window-open-smoke.json`，随后退出。设置首开必须仅创建一个页面，逐页进入后检查延迟内容已创建；每个窗口显示调用返回时，外框必须已经铺满客户端区域。
 
 `constructMs` 是构造耗时，`showMs` 包括构造和同步显示，`commitMs` 记录首轮合成提交在渲染线程应用后的时间，不等同于显示器实际呈现时间。首次与再次打开分别记录，不以单机毫秒阈值作为跨机器单元测试断言；配合保留四周外沿的原生录屏，检查没有白边或中心扩散。浅／深色和窄窗口通过 UI 检查补充覆盖。
+
+## 后台任务圆环原生验证
+
+使用新构建的 Debug 应用及独立配置执行，合成任务仅用于验证显示，不操作用户文件：
+
+```bash
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_TASK_RING_SMOKE=1 bash Tools/Testing/run-isolated.sh \
+  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+报告及浅／深色、0%／25%／50%／100%、流动、暂停和不确定进度截图保存在打印的测试目录下 `task-progress-ring/`。报告检查运行中的实际动画帧增长，暂停、隐藏、最小化、移除和关闭后帧数停止，以及关闭后的绘图资源释放；结束后自动退出。普通逻辑与交互回归使用 `fast --area FileTasks` / `ui --area FileTasks`。
+
+## WebDAV 原生验证
+
+WebDAV 使用 macOS NetFS 和系统文件系统。原生检查以新的 Debug 应用、macOS 自带 Apache 的临时 HTTP WebDAV 服务、用于证书拒绝及取消的 Python 服务和独立配置目录运行；服务只监听 loopback，测试账号、文件和自签名证书均为一次性数据，不导入系统信任，不读取真实远程配置。执行前准备独立 Python 环境并安装 `WsgiDAV==4.4.0`、`cheroot==11.1.2`：
+
+```bash
+python3 -m venv /tmp/macexplorer-webdav-qa
+/tmp/macexplorer-webdav-qa/bin/pip install WsgiDAV==4.4.0 cheroot==11.1.2
+dotnet build MacExplorer.csproj -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_WEBDAV_TEST_PYTHON=/tmp/macexplorer-webdav-qa/bin/python \
+  bash Tools/Testing/run-tests.sh integration --area Network
+```
+
+该检查覆盖认证失败、未受信任证书、进行中取消、实际挂载目录、应用内浏览、下载内容、上传／重命名／删除、重复连接、两个窗口同步和弹出。`webdav-progress.json` / `webdav-smoke.json` 写入隔离应用目录；服务请求日志保留在打印的 fixture 目录。超时或系统挂载失败按失败报告，不能把文件系统出现临时卷当作挂载成功。未配置 Python 环境或非 Debug 构建时跳过此可选检查；忙碌卷失败同时验证真实打开文件和替身行为，地址／账号／卷身份匹配由单元测试覆盖。
+
+可设置 `MACEXPLORER_WEBDAV_TEST_SERVER=wsgidav` 复现 WsgiDAV 4.4.0 兼容性检查。当前 macOS 27.0.1 对该服务认证成功后仍阻塞在系统挂载调用，须如实记录失败；Apache 的成功不能替代该兼容性结果。Apache 使用独立配置和进程，仅监听临时 loopback 端口，不启用或修改系统 Web 共享服务。

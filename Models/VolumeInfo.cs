@@ -7,6 +7,7 @@ public class VolumeInfo
     public bool IsExternal { get; init; }
     public bool IsNetwork { get; init; }
     public string? SourceUrl { get; init; }
+    public string? MountId { get; init; }
     public string IconData => IsNetwork ? Assets.Icons.Network : Assets.Icons.ExternalDrive;
     public bool IsRemovable { get; init; }
 }

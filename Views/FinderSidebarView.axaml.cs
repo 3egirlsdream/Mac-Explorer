@@ -27,6 +27,7 @@ public partial class FinderSidebarView : UserControl
     internal Func<Action, TimeSpan, IDisposable> ScheduleFolderHover { get; set; }
         = (action, delay) => DispatcherTimer.RunOnce(action, delay);
     private FileListViewModel? _subscribedViewModel;
+    private INetworkLocationService? _networkLocations;
     private readonly Dictionary<Control, RailSecondaryState> _railSecondaryStates = [];
     private bool _isRailMode;
 
@@ -132,7 +133,7 @@ public partial class FinderSidebarView : UserControl
             _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
             UpdateActiveStates();
             UpdateChevronState();
-            RefreshRemoteServersList();
+            RefreshNetworkLocations();
         }
         else
         {
@@ -141,7 +142,7 @@ public partial class FinderSidebarView : UserControl
     }
 
     private void OnSidebarTagChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => Dispatcher.UIThread.Post(UpdateActiveStates);
+        => Dispatcher.UIThread.Post(() => { RefreshNetworkLocations(); UpdateActiveStates(); });
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -191,8 +192,6 @@ public partial class FinderSidebarView : UserControl
     private void UpdateActiveStates()
     {
         if (ViewModel == null) return;
-        if (RemoteServersList.ItemsSource is IEnumerable<RemoteServerInfo> servers)
-            foreach (var server in servers) server.RefreshLocalizedText();
         var current = ViewModel.CurrentPath;
         var home = ViewModel.HomeDirectory;
 
@@ -225,11 +224,14 @@ public partial class FinderSidebarView : UserControl
             {
                 string path => string.Equals(ViewModel.CurrentPath, path, StringComparison.Ordinal),
                 VolumeInfo volume => string.Equals(ViewModel.CurrentPath, volume.Path, StringComparison.Ordinal),
+                NetworkLocationRow row => row.Server?.ServiceType == RemoteServiceType.Sftp
+                    ? ViewModel.IsRemoteView && ViewModel.CurrentRemoteServerId == row.Server.Id
+                    : row.Volume != null && DirectoryAccess.IsWithin(ViewModel.CurrentPath, row.Volume.Path),
                 FileTag tag => string.Equals(ViewModel.CurrentPath, tag.VirtualPath, StringComparison.Ordinal),
                 _ => false
             };
 
-            if (border.Tag is string or VolumeInfo or FileTag)
+            if (border.Tag is string or VolumeInfo or FileTag or NetworkLocationRow)
                 ToggleClass(border, active);
         }
     }
@@ -289,6 +291,8 @@ public partial class FinderSidebarView : UserControl
             return false;
 
         var path = GetSidebarFolderPath(border);
+        // Saved connections navigate to their configured directory through the coordinator.
+        if (border.Tag is NetworkLocationRow { Server: not null }) path = null;
         AiViewMode? aiMode = null;
 
         if (border == TrashItem) path = ViewModel.TrashPath;
@@ -304,10 +308,10 @@ public partial class FinderSidebarView : UserControl
             await ViewModel.NavigateToAiViewAsync(aiMode.Value);
         else if (border.Tag is FileTag tag)
             await ViewModel.NavigateToTagAsync(tag);
-        else if (border.Tag is RemoteServerInfo server)
+        else if (border.Tag is NetworkLocationRow row)
         {
-            await ViewModel.ConnectToServerAsync(server);
-            RefreshRemoteServersList();
+            await OpenNetworkLocationAsync(row);
+            RefreshNetworkLocations();
         }
         else
             return false;
@@ -350,6 +354,8 @@ public partial class FinderSidebarView : UserControl
         {
             string path => path,
             VolumeInfo volume => volume.Path,
+            NetworkLocationRow { Volume: { } volume } row => row.Server != null
+                ? NetworkMountAddress.LocationWithin(row.Server, volume.Path) : volume.Path,
             _ => null
         };
     }
@@ -489,19 +495,19 @@ public partial class FinderSidebarView : UserControl
         base.OnAttachedToVisualTree(e);
         if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
             language.LanguageChanged += UpdateActiveStates;
-        var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
-        if (coordinator != null) coordinator.Changed += OnConnectionsChanged;
-        RefreshRemoteServersList();
+        _networkLocations = App.Services?.GetService<INetworkLocationService>();
+        if (_networkLocations != null) _networkLocations.Changed += OnConnectionsChanged;
+        RefreshNetworkLocations();
         UpdateActiveStates();
     }
 
-    private void OnConnectionsChanged() => Dispatcher.UIThread.Post(RefreshRemoteServersList);
+    private void OnConnectionsChanged() => Dispatcher.UIThread.Post(RefreshNetworkLocations);
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         ClearFolderDropTarget();
-        var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
-        if (coordinator != null) coordinator.Changed -= OnConnectionsChanged;
+        if (_networkLocations != null) _networkLocations.Changed -= OnConnectionsChanged;
+        _networkLocations = null;
         if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
             language.LanguageChanged -= UpdateActiveStates;
         base.OnDetachedFromVisualTree(e);
@@ -531,64 +537,40 @@ public partial class FinderSidebarView : UserControl
             await ViewModel.EjectVolumeCommand.ExecuteAsync(vol);
     }
 
-    // ── Remote Server ──
-
-    private async void OnAddRemoteServer(object? sender, RoutedEventArgs e)
+    private async Task OpenNetworkLocationAsync(NetworkLocationRow row)
     {
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel is not Window window) return;
-
-        var dialog = new RemoteConnectionDialog();
-        using var modalBlock = window is MainWindow mainWindow
-            ? mainWindow.BlockModalParentInteraction()
-            : null;
-        var result = await dialog.ShowDialog<RemoteServerInfo?>(window);
-        if (result != null && dialog.Connected && ViewModel != null)
-        {
-            if (dialog.NavigationPath != null) await ViewModel.NavigateToAsync(dialog.NavigationPath);
-            else await ViewModel.ConnectToServerAsync(result);
-            RefreshRemoteServersList();
-        }
+        if (ViewModel == null) return;
+        if (row.Server != null) await ViewModel.ConnectToServerAsync(row.Server);
+        else if (row.Volume != null) await ViewModel.NavigateToAsync(row.Volume.Path);
     }
 
-    private async void OnRemoteServerPressed(object? sender, PointerPressedEventArgs e)
+    private async void OnNetworkLocationPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Border { Tag: RemoteServerInfo server } || ViewModel == null) return;
-        await ViewModel.ConnectToServerAsync(server);
-        RefreshRemoteServersList();
+        if (sender is not Border { Tag: NetworkLocationRow row } || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        await OpenNetworkLocationAsync(row);
+        UpdateActiveStates();
     }
 
-    private async void OnDisconnectRemoteServer(object? sender, RoutedEventArgs e)
+    private async void OnDisconnectNetworkLocation(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (sender is not Button { Tag: RemoteServerInfo server }) return;
-        if (ViewModel != null) await ViewModel.DisconnectServerAsync(server);
-        RefreshRemoteServersList();
+        if (sender is not Button { Tag: NetworkLocationRow row } || ViewModel == null) return;
+        if (row.Server != null) await ViewModel.DisconnectServerAsync(row.Server);
+        else if (row.Volume != null) await ViewModel.EjectVolumeAsync(row.Volume);
+        RefreshNetworkLocations();
     }
 
-    private void RefreshRemoteServersList()
+    private void RefreshNetworkLocations()
     {
-        var connectionService = App.Services?.GetService<IRemoteConnectionService>();
-        if (connectionService == null)
-        {
-            RemoteServersHeader.IsVisible = false;
-            RemoteServersList.IsVisible = false;
-            return;
-        }
-
-        var servers = connectionService.GetSavedServers();
-        foreach (var server in servers)
-        {
-            server.IsConnected = App.Services?.GetService<IServerConnectionCoordinator>()?.IsConnected(server) ?? connectionService.IsConnected(server.Id);
-        }
-
-        var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
-        servers = servers.Where(server => server.ServiceType != RemoteServiceType.Smb
-            || coordinator?.GetMountedVolume(server) is not { } mounted
-            || ViewModel?.ExternalVolumes.Any(v => v.Path == mounted.Path) != true).ToArray();
-        var hasServers = servers.Count > 0;
-        RemoteServersHeader.IsVisible = hasServers;
-        RemoteServersList.IsVisible = hasServers;
-        RemoteServersList.ItemsSource = servers;
+        var local = ViewModel?.ExternalVolumes.Where(v => !v.IsNetwork).ToArray() ?? [];
+        ExternalVolumesControl.ItemsSource = local;
+        ExternalVolumesControl.IsVisible = local.Length > 0;
+        var rows = (_networkLocations?.GetLocations()
+            ?? MacExplorer.Services.Impl.NetworkLocationService.Build([], ViewModel?.ExternalVolumes ?? [], [], null))
+            .Where(row => row.IsConnected).ToArray();
+        NetworkLocationsList.ItemsSource = rows;
+        NetworkLocationsList.IsVisible = rows.Length > 0;
+        MountedLocationsHeader.IsVisible = local.Length + rows.Length > 0;
+        Dispatcher.UIThread.Post(UpdateActiveStates);
     }
 }

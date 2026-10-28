@@ -11,6 +11,20 @@ namespace MacExplorer.Tests;
 [Trait("Area", "ChromiumTabStripSurface")]
 public sealed class ChromiumTabStripSurfaceTests
 {
+    [AvaloniaFact]
+    [Trait("Kind", "UI")]
+    public void MovingTabSilhouetteReusesBitmapUntilSizeChanges()
+    {
+        using var cache = new TabSilhouetteCache();
+        using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(800, 100));
+        using var drawing = bitmap.CreateDrawingContext();
+        for (var x = 0; x < 400; x += 10)
+            cache.Draw(drawing, new Rect(x, 4, 180, 40), 1, Avalonia.Media.Brushes.White, Avalonia.Media.Colors.Black);
+        Assert.Equal(1, cache.RenderCount);
+        cache.Draw(drawing, new Rect(400, 4, 200, 40), 1, Avalonia.Media.Brushes.White, Avalonia.Media.Colors.Black);
+        Assert.Equal(2, cache.RenderCount);
+    }
+
     [Theory]
     [InlineData(16, 0, 0, -16)]
     [InlineData(0, -10, 10, 0)]

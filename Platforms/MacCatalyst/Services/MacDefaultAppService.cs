@@ -89,6 +89,24 @@ public class MacDefaultAppService : IDefaultAppService
         catch { return false; }
     }
 
+    public DefaultFolderHandlerStatus GetFolderHandlerStatus()
+    {
+        try
+        {
+            var saved = ReadFolderHandler();
+            var viewer = ReadFileViewer();
+            var active = ReadEffectiveFolderHandler();
+            var folderIsOurs = IsHandler(saved, AppBundleId);
+            var viewerIsOurs = IsHandler(viewer, AppBundleId);
+            // The effective folder handler is observable; other applications may cache
+            // NSFileViewer independently, so matching handlers do not prove they refreshed.
+            return new(folderIsOurs && viewerIsOurs,
+                active == null || saved == null ? null : !IsHandler(active, saved),
+                folderIsOurs != viewerIsOurs);
+        }
+        catch { return new(null, null); }
+    }
+
     public (bool Success, string Message) SetAsDefaultFolderHandler()
     {
         return TrySetHandler(AppBundleId, "设为默认文件管理器");
@@ -150,6 +168,11 @@ public class MacDefaultAppService : IDefaultAppService
         var savedHandler = GetSavedFolderHandler(handlers);
         if (savedHandler != null) return savedHandler;
 
+        return ReadEffectiveFolderHandler();
+    }
+
+    internal virtual string? ReadEffectiveFolderHandler()
+    {
         var uti = CFStringCreateWithCString(IntPtr.Zero, FolderUti, 0x08000100);
         var result = IntPtr.Zero;
         try

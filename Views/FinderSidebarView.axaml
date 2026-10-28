@@ -325,39 +325,6 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- External volumes -->
-                    <ItemsControl x:Name="ExternalVolumesControl"
-                                  Classes="sidebar-items rail-secondary"
-                                  ItemsSource="{Binding ExternalVolumes}"
-                                  IsVisible="{Binding ExternalVolumes.Count, Converter={StaticResource IsNotEmpty}}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="models:VolumeInfo">
-                                <Border Classes="sidebar-item"
-                                        Tag="{Binding .}"
-                                        PointerPressed="OnVolumePressed">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
-                                            <PathIcon Data="{Binding IconData}" Classes="sidebar-icon"/>
-                                            <TextBlock Text="{Binding DisplayName}"
-                                                       Margin="8,0,0,0"
-                                                       VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                        <Button Grid.Column="1"
-                                                Classes="ghost sidebar-item-action"
-                                                Tag="{Binding .}"
-                                                ToolTip.Tip="{loc:Loc ui.319}" AutomationProperties.Name="{loc:Loc ui.319}"
-                                                PointerPressed="OnUnpinPointerPressed"
-                                                Click="EjectVolume">
-                                            <PathIcon Data="{x:Static icons:Icons.Eject}"
-                                                      Width="12" Height="12"
-                                                      Foreground="{DynamicResource TextMutedBrush}"/>
-                                        </Button>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
                     <!-- Applications -->
                     <Border Classes="sidebar-item"
                             IsVisible="{Binding ShowSidebarApplications}"
@@ -390,51 +357,61 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- ═══ 远程服务器 Remote Servers ═══ -->
-                    <Grid ColumnDefinitions="Auto,*" Classes="sidebar-category-header rail-secondary"
-                          x:Name="RemoteServersHeader"
-                          IsVisible="False">
-                        <TextBlock Grid.Column="0" Text="{loc:Loc ui.324}"
-                                   Classes="sidebar-section-title"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   Padding="18,4,0,4"/>
-                    </Grid>
+                    <!-- Connected network locations and external disks share the mounts section. -->
+                    <TextBlock x:Name="MountedLocationsHeader" Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="{loc:Loc network.mounts}" IsVisible="False"/>
 
-                    <!-- Remote server list -->
-                    <ItemsControl x:Name="RemoteServersList" Classes="sidebar-items rail-secondary" IsVisible="False">
+                    <ItemsControl x:Name="NetworkLocationsList"
+                                  Classes="sidebar-items rail-secondary"
+                                  IsVisible="False">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Classes="sidebar-item"
-                                        Tag="{Binding}"
-                                        PointerPressed="OnRemoteServerPressed">
+                            <DataTemplate x:DataType="models:NetworkLocationRow">
+                                <Border Classes="sidebar-item" ToolTip.Tip="{Binding Name}"
+                                        Tag="{Binding .}"
+                                        PointerPressed="OnNetworkLocationPressed">
                                     <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
-                                        <!-- Connection status dot -->
-                                        <Grid Grid.Column="0" Width="6" Height="6" Margin="0,0,6,0"
-                                              VerticalAlignment="Center">
-                                            <Ellipse Fill="{DynamicResource ColorSuccess}"
-                                                     IsVisible="{Binding IsConnected}"/>
-                                            <Ellipse Fill="{DynamicResource TextDisabledBrush}"
-                                                     IsVisible="{Binding !IsConnected}"/>
-                                        </Grid>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Background="Transparent"
-                                                    Margin="0">
-                                            <PathIcon Data="{Binding IconData}" Classes="sidebar-icon"/>
-                                            <StackPanel Margin="6,0,0,0">
-                                                <TextBlock Text="{Binding DisplayName}"
-                                                           VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding StatusText}"
-                                                           Classes="sidebar-secondary-text"
-                                                           Foreground="{DynamicResource TextMutedBrush}"/>
-                                            </StackPanel>
-                                        </StackPanel>
+                                        <PathIcon Grid.Column="0" Data="{Binding IconData}" Classes="sidebar-icon"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"/>
                                         <Button Grid.Column="2"
                                                 Classes="ghost sidebar-item-action"
-                                                Tag="{Binding}"
-                                                ToolTip.Tip="{loc:Loc ui.320}" AutomationProperties.Name="{loc:Loc ui.320}" IsEnabled="{Binding IsConnected}"
+                                                Tag="{Binding .}"
+                                                ToolTip.Tip="{loc:Loc network.disconnect}" AutomationProperties.Name="{loc:Loc network.disconnect}"
                                                 PointerPressed="OnUnpinPointerPressed"
-                                                Click="OnDisconnectRemoteServer">
-                                            <PathIcon Data="{x:Static icons:Icons.Delete}"
+                                                Click="OnDisconnectNetworkLocation">
+                                            <PathIcon Data="{x:Static icons:Icons.Eject}"
+                                                      Width="12" Height="12"
+                                                      Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- External volumes -->
+                    <ItemsControl x:Name="ExternalVolumesControl"
+                                  Classes="sidebar-items rail-secondary"
+                                  IsVisible="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:VolumeInfo">
+                                <Border Classes="sidebar-item"
+                                        Tag="{Binding .}"
+                                        PointerPressed="OnVolumePressed">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
+                                            <PathIcon Data="{Binding IconData}" Classes="sidebar-icon"/>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Classes="ghost sidebar-item-action"
+                                                Tag="{Binding .}"
+                                                ToolTip.Tip="{loc:Loc ui.319}" AutomationProperties.Name="{loc:Loc ui.319}"
+                                                PointerPressed="OnUnpinPointerPressed"
+                                                Click="EjectVolume">
+                                            <PathIcon Data="{x:Static icons:Icons.Eject}"
                                                       Width="12" Height="12"
                                                       Foreground="{DynamicResource TextMutedBrush}"/>
                                         </Button>
@@ -529,7 +506,6 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
-
 
                 </StackPanel>
             </ScrollViewer>

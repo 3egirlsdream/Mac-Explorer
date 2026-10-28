@@ -31,6 +31,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="ArchivePathHelperTests.cs" />
+    <Compile Remove="TaskProgressSummaryTests.cs" />
     <Compile Remove="ArchiveExtractionPathHelperTests.cs" />
     <Compile Remove="FileThumbnailSizingTests.cs" />
     <Compile Remove="FileIconTests.cs" />

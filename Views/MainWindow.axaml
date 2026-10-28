@@ -73,22 +73,16 @@
             <Setter Property="Padding" Value="0"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem">
-            <Setter Property="MinWidth" Value="180"/>
-            <Setter Property="MaxWidth" Value="280"/>
+            <Setter Property="MinWidth" Value="0"/>
             <Setter Property="Height" Value="40"/>
             <Setter Property="Padding" Value="0"/>
-            <!-- Chromium overlaps adjacent tab slots so the active tab's
-                 extension feet cover the neighboring separator cleanly. -->
-            <Setter Property="Margin" Value="0,0,-6,0"/>
+            <Setter Property="Margin" Value="0"/>
             <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
             <Setter Property="ZIndex" Value="0"/>
-        </Style>
-        <Style Selector="ListBox.tab-strip ListBoxItem:last-child">
-            <Setter Property="Margin" Value="0"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -263,11 +257,12 @@
             <Grid Grid.Column="0" ColumnDefinitions="*,Auto" HorizontalAlignment="Left" Margin="0,4,0,0">
                     <ScrollViewer Grid.Column="0" x:Name="TabScrollViewer"
                                   chrome:WindowDecorationProperties.ElementRole="User"
-                                  HorizontalAlignment="Left" MaxWidth="840"
-                                  HorizontalScrollBarVisibility="Hidden"
+                                  HorizontalScrollBarVisibility="Disabled"
                                   VerticalScrollBarVisibility="Disabled">
                         <ListBox x:Name="TabList"
                                  Classes="tab-strip"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                  DragDrop.AllowDrop="True"
                                  DragDrop.DragOver="OnTabFileDragOver"
                                  DragDrop.Drop="OnTabFileDrop"
@@ -276,12 +271,14 @@
                                  SelectionMode="Single">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
+                                    <controls:AdaptiveTabPanel UseLayoutRounding="False"/>
                                 </ItemsPanelTemplate>
                             </ListBox.ItemsPanel>
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ExplorerTabViewModel">
                                     <Grid ClipToBounds="False">
+                                        <controls:TabDragSurface IsVisible="False" Fill="{DynamicResource SurfaceBrush}"
+                                                                 ShadowColor="{DynamicResource ActiveTabShadowColor}"/>
                                         <Border Classes="tab-hover-surface" Margin="16,4,16,5"
                                                 CornerRadius="10" IsHitTestVisible="False"/>
                                         <Border Classes="browser-tab-divider"
@@ -292,12 +289,13 @@
                                         <!-- Account for the 16-DIP contour inset, close-button padding,
                                              and 2-DIP content join when balancing the visible spacing. -->
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7"
-                                              Margin="28,0,22,2">
+                                              Margin="28,0,22,2" ClipToBounds="True">
                                             <PathIcon Grid.Column="0" Data="{Binding FileList.CurrentLocationIcon}"
                                                       Width="14" Height="14"
                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Title}"
-                                                       TextTrimming="CharacterEllipsis"
+                                                       TextTrimming="None" TextWrapping="NoWrap"
+                                                       ClipToBounds="True"
                                                        FontSize="{DynamicResource FontSizeBody}"
                                                        VerticalAlignment="Center"
                                                        ToolTip.Tip="{Binding Title}"/>
@@ -418,12 +416,8 @@
                     </Popup>
                     <Button Grid.Column="2" x:Name="TaskButton" IsVisible="False"
                             Classes="title-nav-button" Margin="2,4,0,0"
-                            Click="ToggleTaskPanel" ToolTip.Tip="{loc:Loc ui.048}"
-                            AutomationProperties.Name="{loc:Loc ui.048}">
-                        <Grid>
-                            <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
-                            <TextBlock x:Name="TaskButtonText" IsVisible="False"/>
-                        </Grid>
+                            Click="ToggleTaskPanel">
+                        <controls:AnimatedProgressRing x:Name="TaskProgressRing"/>
                     </Button>
                     <Button Grid.Column="3" x:Name="CopilotStatusButton" IsVisible="False" Classes="title-nav-button"
                             Margin="2,4,0,0" Click="ToggleCopilot"

@@ -15,22 +15,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Views;
 
-public sealed record NetworkLocationRow(string Name, string Detail, RemoteServerInfo? Server = null, VolumeInfo? Volume = null)
-{
-    public bool IsMounted => Volume != null;
-    public string Address => Server != null ? FormatHost(Server.Host, Server.Port) :
-        Uri.TryCreate(Volume?.SourceUrl, UriKind.Absolute, out var uri) ? FormatHost(uri.Host, uri.IsDefaultPort ? 445 : uri.Port) : "—";
-    public string Protocol => Uri.TryCreate(Volume?.SourceUrl, UriKind.Absolute, out var uri) ? uri.Scheme.ToUpperInvariant() : "SMB";
-    public string Status => LocalizationText.Get(IsMounted ? "已连接" : "未连接");
-    public string ActionText => LocalizationText.Get(IsMounted ? "network.open" : "network.connect-short");
-    public string LastConnected => Server?.LastConnectedAt?.ToLocalTime().ToString("yyyy/MM/dd HH:mm") ?? "—";
-    public string LastConnectedDetail => Server?.LastConnectedAt?.ToLocalTime().ToString("F", System.Globalization.CultureInfo.CurrentCulture) ?? "—";
-    private static string FormatHost(string host, int port) => port == 445 ? host : $"{(host.Contains(':') ? $"[{host}]" : host)}:{port}";
-    internal string Identity => Volume?.Path ?? Server?.Id ?? "";
-}
-
 public partial class NetworkView : UserControl
 {
+    private INetworkLocationService? _locationsService;
     private INetworkDiscoveryService? _discovery;
     private IVolumeMonitorService? _volumes;
     private IServerConnectionCoordinator? _coordinator;
@@ -78,23 +65,32 @@ public partial class NetworkView : UserControl
     {
         if (!_attached || !IsVisible) { Stop(); return; }
         if (_lease != null || App.Services == null) return;
+        _locationsService = App.Services.GetService<INetworkLocationService>();
         _discovery = App.Services.GetService<INetworkDiscoveryService>();
         _volumes = App.Services.GetService<IVolumeMonitorService>();
         _coordinator = App.Services.GetService<IServerConnectionCoordinator>();
         _connections = App.Services.GetService<IRemoteConnectionService>();
         if (_discovery == null) return;
-        _discovery.Changed += OnChanged;
-        if (_volumes != null) _volumes.VolumesChanged += OnChanged;
-        if (_coordinator != null) _coordinator.Changed += OnChanged;
+        if (_locationsService != null) _locationsService.Changed += OnChanged;
+        else
+        {
+            _discovery.Changed += OnChanged;
+            if (_volumes != null) _volumes.VolumesChanged += OnChanged;
+            if (_coordinator != null) _coordinator.Changed += OnChanged;
+        }
         _lease = _discovery.Acquire();
         if (LocalizationService.Current != null) LocalizationService.Current.LanguageChanged += OnChanged;
         RefreshRows();
     }
     private void Stop()
     {
-        if (_discovery != null) _discovery.Changed -= OnChanged;
-        if (_volumes != null) _volumes.VolumesChanged -= OnChanged;
-        if (_coordinator != null) _coordinator.Changed -= OnChanged;
+        if (_locationsService != null) _locationsService.Changed -= OnChanged;
+        else
+        {
+            if (_discovery != null) _discovery.Changed -= OnChanged;
+            if (_volumes != null) _volumes.VolumesChanged -= OnChanged;
+            if (_coordinator != null) _coordinator.Changed -= OnChanged;
+        }
         if (LocalizationService.Current != null) LocalizationService.Current.LanguageChanged -= OnChanged;
         RowMenu?.Close(); RowMenu = null;
         _lease?.Dispose(); _lease = null;
@@ -111,25 +107,9 @@ public partial class NetworkView : UserControl
     private void RefreshRows()
     {
         var selected = SelectedLocation;
-        var rows = new List<NetworkLocationRow>();
-        var volumes = _volumes?.ExternalVolumes.Where(v => v.IsNetwork).ToArray() ?? [];
-        var saved = _connections?.GetSavedServers().Where(s => s.ServiceType == RemoteServiceType.Smb).ToArray() ?? [];
-        foreach (var volume in volumes)
-        {
-            var connection = saved.FirstOrDefault(s => _coordinator?.GetMountedVolume(s)?.Path == volume.Path);
-            rows.Add(new(volume.DisplayName, LocalizationText.Get("network.mounted"), connection, volume));
-        }
-        foreach (var server in saved)
-        {
-            if (_coordinator?.GetMountedVolume(server) is { } mounted && volumes.Any(v => v.Path == mounted.Path)) continue;
-            rows.Add(new(server.DisplayName, server.Host, server));
-        }
-        foreach (var server in _discovery?.Servers ?? [])
-        {
-            if (saved.Any(s => string.Equals(s.Host.TrimEnd('.'), server.Host.TrimEnd('.'), StringComparison.OrdinalIgnoreCase))) continue;
-            rows.Add(new(server.Name, server.Host, new RemoteServerInfo
-                { Id = "discovered:" + server.Id, Name = server.Name, Host = server.Host, Port = server.Port, ServiceType = RemoteServiceType.Smb }));
-        }
+        var rows = _locationsService?.GetLocations(includeDiscovered: true)
+            ?? NetworkLocationService.Build(_connections?.GetSavedServers() ?? [], _volumes?.ExternalVolumes ?? [],
+                _discovery?.Servers ?? [], _coordinator);
         SetLocations(rows);
         SelectedLocation = rows.FirstOrDefault(r => r.Identity == selected?.Identity);
         UpdateColumns();
@@ -145,7 +125,8 @@ public partial class NetworkView : UserControl
         if (_locations.Count == rows.Count && _locations.Zip(rows).All(pair =>
             pair.First.Identity == pair.Second.Identity && pair.First.Name == pair.Second.Name
             && pair.First.Address == pair.Second.Address && pair.First.Protocol == pair.Second.Protocol
-            && pair.First.LastConnected == pair.Second.LastConnected && pair.First.IsMounted == pair.Second.IsMounted
+            && pair.First.LastConnected == pair.Second.LastConnected && pair.First.IsConnected == pair.Second.IsConnected
+            && pair.First.Volume?.Path == pair.Second.Volume?.Path && pair.First.Volume?.MountId == pair.Second.Volume?.MountId
             && (ReferenceEquals(pair.First.Server, pair.Second.Server)
                 || pair.First.Server?.Id.StartsWith("discovered:", StringComparison.Ordinal) == true))) return;
         _locations = rows; _byPath.Clear();
@@ -191,13 +172,13 @@ public partial class NetworkView : UserControl
             var row = _byPath[ServersList.Rows[i].FullPath];
             var statusText = new TextBlock { Text = row.Status, Classes = { "tag-label" }, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             var dot = new Border { Width = 6, Height = 6, CornerRadius = new CornerRadius(3), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            dot.Bind(Border.BackgroundProperty, ServersList.GetResourceObservable(row.IsMounted ? "SuccessBrush" : "TextMutedBrush"));
+            dot.Bind(Border.BackgroundProperty, ServersList.GetResourceObservable(row.IsConnected ? "SuccessBrush" : "TextMutedBrush"));
             var status = new Border { Classes = { "status-tag" }, IsHitTestVisible = false,
                 Child = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Children = { dot, statusText } } };
             Canvas.SetLeft(status, 35 + widths.Take(3).Sum()); Canvas.SetTop(status, bounds.Top + 3);
             RowActions.Children.Add(status);
             var open = new Button { Content = row.ActionText, Tag = row, Height = 24, MinHeight = 24, Width = 70, Padding = new Thickness(8, 0), Classes = { "secondary", "compact" } };
-            open.Bind(Button.ForegroundProperty, open.GetResourceObservable(row.IsMounted ? "AccentBrush" : "TextPrimaryBrush"));
+            open.Bind(Button.ForegroundProperty, open.GetResourceObservable(row.IsConnected ? "AccentBrush" : "TextPrimaryBrush"));
             open.Click += OnOpen;
             Avalonia.Automation.AutomationProperties.SetName(open, $"{row.ActionText} — {row.Name}");
             open.PointerEntered += (_, e) => ServersList.UpdatePointerPosition(e.GetPosition(ServersList));
@@ -236,13 +217,19 @@ public partial class NetworkView : UserControl
         else if (e.Key == Key.F10 && e.KeyModifiers.HasFlag(KeyModifiers.Shift) && SelectedLocation is { } row)
         { ShowRowMenu(ServersList, row); e.Handled = true; }
     }
-    private async Task OpenAsync(NetworkLocationRow? row)
+    private async Task OpenAsync(NetworkLocationRow? row, bool edit = false)
     {
         if (_opening || DataContext is not FileListViewModel vm || TopLevel.GetTopLevel(this) is not Window window) return;
         _opening = true;
         try
         {
-            if (row?.Volume != null) { await vm.NavigateToAsync(row.Volume.Path); return; }
+            if (!edit && row?.Server != null && !row.Discovered)
+            {
+                await vm.ConnectToServerAsync(row.Server);
+                RefreshRows();
+                return;
+            }
+            if (!edit && row?.Volume != null) { await vm.NavigateToAsync(row.Volume.Path); return; }
             using var modalBlock = window is MainWindow main ? main.BlockModalParentInteraction() : null;
             var dialog = new RemoteConnectionDialog(row?.Server ?? new RemoteServerInfo { ServiceType = RemoteServiceType.Smb, Port = 445 });
             var result = await dialog.ShowDialog<RemoteServerInfo?>(window);
@@ -271,20 +258,44 @@ public partial class NetworkView : UserControl
         RowMenu?.Close();
         var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedRight, MinWidth = 160 };
         RowMenu = menu;
-        var open = new MenuItem { Header = row.IsMounted ? row.ActionText : LocalizationText.Get("network.edit") };
+        var open = new MenuItem { Header = row.ActionText };
         open.Click += async (_, _) => await OpenAsync(row);
         menu.Items.Add(open);
-        if (row.Server != null && row.IsMounted)
+        if (row.Server != null && !row.Discovered)
         {
             var edit = new MenuItem { Header = LocalizationText.Get("network.edit") };
-            edit.Click += async (_, _) => await OpenAsync(row with { Volume = null });
+            edit.Click += async (_, _) => await OpenAsync(row, edit: true);
             menu.Items.Add(edit);
         }
-        if (row.Volume is { } volume && DataContext is FileListViewModel vm)
+        if (row.IsConnected && DataContext is FileListViewModel vm)
         {
-            var eject = new MenuItem { Header = LocalizationText.Get("network.disconnect") };
-            eject.Click += async (_, _) => await vm.EjectVolumeAsync(volume);
-            menu.Items.Add(eject);
+            var disconnect = new MenuItem { Header = LocalizationText.Get("network.disconnect") };
+            disconnect.Click += async (_, _) =>
+            {
+                if (row.Server != null) await vm.DisconnectServerAsync(row.Server);
+                else if (row.Volume != null) await vm.EjectVolumeAsync(row.Volume);
+                RefreshRows();
+            };
+            menu.Items.Add(disconnect);
+        }
+        if (row.Server != null && !row.Discovered)
+        {
+            var remove = new MenuItem { Header = LocalizationText.Get("network.remove-saved"), IsEnabled = !row.IsConnected };
+            remove.Click += (_, _) =>
+            {
+                try
+                {
+                    if (_coordinator?.IsConnected(row.Server) == true) return;
+                    _connections?.RemoveServer(row.Server.Id);
+                    RefreshRows();
+                }
+                catch (Exception ex)
+                {
+                    if (TopLevel.GetTopLevel(this) is Window window)
+                        AppToast.ShowError(window, LocalizationText.Get("network.delete-error", ex.Message));
+                }
+            };
+            menu.Items.Add(remove);
         }
         menu.Open(anchor);
     }

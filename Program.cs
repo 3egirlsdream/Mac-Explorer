@@ -11,6 +11,9 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+#if DEMO_AUTOMATION
+        Tools.DemoRecord.DemoAutomation.ValidateStartup();
+#endif
         if (args is [MacExplorer.PluginSdk.PluginProtocol.WorkerArgument, var pluginDirectory])
         {
             DistributionChannel.RequireWebsite("插件工作进程");

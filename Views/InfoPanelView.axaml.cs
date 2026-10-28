@@ -214,6 +214,8 @@ public partial class InfoPanelView : UserControl
     {
         if (e.PropertyName == nameof(FileListViewModel.CurrentMetadata))
             ApplyCurrentMetadata();
+        else if (e.PropertyName == nameof(FileListViewModel.SidebarTags))
+            UpdateSystemTagNames(ViewModel?.SidebarTags);
         else if (e.PropertyName == nameof(FileListViewModel.IsInfoPanelVisible))
         {
             if (ViewModel?.IsInfoPanelVisible == true)
@@ -544,9 +546,18 @@ public partial class InfoPanelView : UserControl
                 InfoAccessed.Text = metadata.LastAccessed.ToString("g", culture);
         }
         UpdateExifSection(_displayedImageMetadata);
+        UpdateSystemTagNames();
+    }
+
+    private void UpdateSystemTagNames(IReadOnlyList<FileTag>? definitions = null)
+    {
         foreach (var button in SystemTagsPanel.Children.OfType<Button>())
-            if (button.Tag is string name && FileTagCatalog.TryGetFinderColor(name, out var tag))
-                SetLocalized(button, global::Avalonia.Automation.AutomationProperties.NameProperty, "切换{0}标签", tag.DisplayName);
+        {
+            if (button.Tag is not string name || !FileTagCatalog.TryGetFinderColor(name, out var tag)) continue;
+            tag = definitions?.FirstOrDefault(t => t.Name == name) ?? ViewModel?.ResolveTag(tag) ?? tag;
+            ToolTip.SetTip(button, tag.DisplayName);
+            SetLocalized(button, global::Avalonia.Automation.AutomationProperties.NameProperty, "切换{0}标签", tag.DisplayName);
+        }
     }
 
     private void ApplyPreviewResult(PreviewLoadResult result)
@@ -1021,8 +1032,13 @@ public partial class InfoPanelView : UserControl
         try
         {
             var tags = await _fileTagService.GetFileTagsAsync(path);
+            // The service shares a versioned definitions snapshot with file reads.
+            var definitions = await _fileTagService.GetSidebarTagsAsync();
             if (generation == _tagReadGeneration && path == _currentFilePath)
+            {
+                UpdateSystemTagNames(definitions);
                 RenderTags(path, tags.Select(t => t.Name).ToArray());
+            }
         }
         catch (Exception ex) { Debug.WriteLine($"Unable to refresh tags: {ex.Message}"); }
     }

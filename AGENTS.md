@@ -107,7 +107,7 @@
 - 信息面板的标签搜索复用 `context-submenu-surface` / `PopupGlass` 与 `omnibox-suggestions tag-suggestions`，使用 30px 紧凑候选行；仅匹配尚未添加的自定义标签，支持点击、方向键及回车添加，Escape 关闭，切换文件时清空搜索。
 
 - 应用内弹窗统一使用 `DialogContentBrush` / `DialogGroupBrush` / `DialogDividerBrush`：浅色正文白色、分组 #F8F8F8、分割线 #EEEEEE，深色使用对应主题表面。`DialogWindow` 默认 `ExtendContentToTop`，取消独立标题栏，红黄绿按钮覆盖顶部，普通内容预留 44px；两栏窗口启用 `FullHeightContent`，侧栏灰色与分界线贯穿顶部，并自行预留按钮空间。主窗口保持原标题栏模式。
-- 远程配置使用左侧服务器列表与右侧详情，类型参数独立放入 `ServiceParametersHost`；支持 SFTP 与 macOS 系统挂载 SMB。切换保留窗口内草稿，仅保存或连接成功后持久化，连接期间禁用配置编辑与列表操作。
+- 网络页面统一管理 SFTP、SMB、WebDAV 和系统网络卷；侧栏“位置”保留本机磁盘与原“网络”入口；“挂载”分组统一显示已连接的网络位置、网络卷及外置磁盘，为空时隐藏，复用挂载卷的单行图标、名称与弹出按钮。同一配置与对应卷合并展示，状态由 `NetworkLocationService` 同步。连接弹窗只编辑单个配置，类型参数放入 `ServiceParametersHost`，切换协议保留草稿；SMB／WebDAV 使用 macOS 系统挂载，WebDAV 输入完整 HTTP／HTTPS 地址，仅保存或连接成功后持久化，连接期间禁用编辑。
 
 - 嵌套标签统一复用 `TagTreePanel`、`TagToolbar` 与 `TagMenuHeader`，样式集中在 `ComponentStyles.axaml` 的 `tag-tree-*` / `tag-toolbar-*`；工具栏标签使用左图标右名称及 8px 水平内边距，悬停使用普通递归级联菜单、点击打开文件列表，菜单展开后由原生菜单交互管理关闭，不在移出按钮时关闭，树面板的名称与展开箭头独立操作；管理及文件标签菜单显示全部标签，工具栏仅显示有文件的分支并将溢出标签收进三点菜单。标签菜单复用连续整行悬停表面，行内按钮不单独绘制背景；展开区与文件列表共用 16px 点击宽度、12px Fluent 箭头及 30px 行高；二级菜单顶部左侧显示标题、右侧仅保留 Fluent Star Add 新建标签图标按钮。
 
@@ -122,3 +122,12 @@
 
 - 图片预览通过 `BoundedImageDecoder` 在像素分配前读取尺寸，按最长边缩小且不放大，输出最长边最多 2048px；共享两个解码槽，每槽估算工作集上限 128 MiB，不支持安全缩小的大图返回类型图标。RAW 从原生 RGB 缓冲区直接采样到目标尺寸，不再建立全尺寸 RGBA 副本。搜索导航最多 100 条，最多缓存 8 份／4 MiB 结果快照，清理后返回原搜索时按原范围重新查询。
 - 内存诊断由 `MemoryDiagnostics` 写入 `RuntimePaths.LogDirectory` 的 `memory-*.jsonl`，每 30 秒记录 physical footprint、RSS、托管堆、GC、窗口／页签与弱注册的缓存统计，并记录图片拒绝／大解码、失败重试状态清理及原生节点释放；不记录文件路径、搜索内容或图片内容。日志队列最多 128 条，每文件 2 MiB、最多 8 个文件；不得为采样强制 GC 或建立强引用注册表。
+
+- 主窗口页签通过 `AdaptiveTabPanel` 保留原有按内容 180–280px 的宽度，仅总宽度超出标题栏可用空间时按比例收窄；新建按钮紧随页签，名称超出直接裁切并保留完整名称提示，不设置固定总宽度上限。
+
+- 主窗口页签通过 `TabStripInteraction` 捕获指针并预览横向排序，松手后提交顺序；拖动保留当前激活页签与分栏，Escape 取消。页签轮廓使用 `TabSilhouetteCache` 按尺寸缓存，拖动内容与背景同步；右键菜单以目标页签操作，新建与关闭之间使用分割线，批量关闭复用工作区释放流程。
+- 工具栏收藏夹、溢出及级联标签右键统一提供重命名、删除和添加子收藏夹，编辑复用 `TagTreePanel` 行内输入。系统颜色标签通过持久化 `DisplayNameOverride` 优先显示别名，底层名称与 Finder 关联保持不变；删除沿用现有层级删除规则。
+
+- 普通文件夹与照片封面统一通过 `SvgIconCache.RenderFolderPng` 使用 macOS 系统蓝色文件夹底图；照片封面仅叠加预览，不另画文件夹或口袋遮挡。原生图标不可用时共用蓝色 Fluent 文件夹回退，不恢复旧黄色图标。
+
+- 后台任务入口复用全局 `AnimatedProgressRing`（20px、2px 线宽）：圆弧表示未结束任务的等权平均进度，蓝青渐变在渲染线程流动；包含不确定进度时改用短弧，暂停／隐藏／最小化／关闭时停止持续动画。状态颜色复用主题资源，中心留空，四语提示与无障碍名称同步进度及异常状态。任务开始、进度更新或完成不自动展开面板，点击入口才切换面板；手动展开后保持显示，直至用户关闭。

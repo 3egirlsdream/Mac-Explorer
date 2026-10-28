@@ -52,15 +52,22 @@ public static class SvgIconCache
 
     private static Bitmap RenderFolderIcon(int size)
     {
+        using var stream = new MemoryStream(RenderFolderPng(size));
+        return new Bitmap(stream);
+    }
+
+    internal static byte[] RenderFolderPng(int size)
+    {
         var finderIcon = TryRenderFinderFolderIcon(size);
         if (finderIcon != null)
             return finderIcon;
 
-        var svg = FileIconRenderer.RenderFolder(size);
-        return RenderSvgToBitmap(svg, size);
+        // Non-macOS or unavailable native helper: reuse the shared Fluent folder outline.
+        var svg = $"<svg width=\"{size}\" height=\"{size}\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"{Icons.Folder}\" fill=\"#39BCEB\"/></svg>";
+        return RenderSvgToPng(svg, size);
     }
 
-    private static Bitmap? TryRenderFinderFolderIcon(int size)
+    private static byte[]? TryRenderFinderFolderIcon(int size)
     {
         if (!OperatingSystem.IsMacOS())
             return null;
@@ -72,8 +79,7 @@ public static class SvgIconCache
             try
             {
                 var png = Marshal.PtrToStringUTF8(pointer)!;
-                using var stream = new MemoryStream(Convert.FromBase64String(png));
-                return new Bitmap(stream);
+                return Convert.FromBase64String(png);
             }
             finally { me_free_folder_icon(pointer); }
         }
@@ -96,6 +102,12 @@ public static class SvgIconCache
     }
 
     private static Bitmap RenderSvgToBitmap(string svg, int size)
+    {
+        using var stream = new MemoryStream(RenderSvgToPng(svg, size));
+        return new Bitmap(stream);
+    }
+
+    private static byte[] RenderSvgToPng(string svg, int size)
     {
         // Svg.Skia does not implement dominant-baseline="central" and falls
         // back to baseline alignment.  When y was authored for central
@@ -126,15 +138,13 @@ public static class SvgIconCache
 
         using var image = surface.Snapshot();
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var encoded = data.AsStream();
-        return new Bitmap(encoded);
+        return data.ToArray();
     }
 
-    private static Bitmap CreateEmptyBitmap(int size)
+    private static byte[] CreateEmptyBitmap(int size)
     {
         using var bmp = new SKBitmap(size, size);
         using var data = bmp.Encode(SKEncodedImageFormat.Png, 100);
-        using var encoded = data.AsStream();
-        return new Bitmap(encoded);
+        return data.ToArray();
     }
 }

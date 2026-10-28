@@ -14,6 +14,7 @@ internal static class FileTagSchema
                 file_path TEXT NOT NULL, tag TEXT NOT NULL, is_system INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL, PRIMARY KEY(file_path, tag));
             CREATE INDEX IF NOT EXISTS idx_file_tags_tag ON file_tags(tag, is_system);
+            CREATE INDEX IF NOT EXISTS idx_file_tags_tag_nocase ON file_tags(tag COLLATE NOCASE, file_path);
             CREATE INDEX IF NOT EXISTS idx_file_tags_path ON file_tags(file_path);
             CREATE TABLE IF NOT EXISTS tag_definitions (
                 name TEXT PRIMARY KEY COLLATE NOCASE, color_id INTEGER NOT NULL DEFAULT 0,
@@ -34,6 +35,13 @@ internal static class FileTagSchema
         }
         if (migrateHierarchy)
             Execute(connection, transaction, "ALTER TABLE tag_definitions ADD COLUMN parent_name TEXT COLLATE NOCASE");
+        using (var columns = connection.CreateCommand())
+        {
+            columns.Transaction = transaction;
+            columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('tag_definitions') WHERE name = 'display_name_override'";
+            if (Convert.ToInt32(columns.ExecuteScalar()) == 0)
+                Execute(connection, transaction, "ALTER TABLE tag_definitions ADD COLUMN display_name_override TEXT");
+        }
         Execute(connection, transaction, "CREATE INDEX IF NOT EXISTS idx_tag_definitions_parent ON tag_definitions(parent_name, sort_order)");
         var names = new List<string>();
         using (var command = connection.CreateCommand())

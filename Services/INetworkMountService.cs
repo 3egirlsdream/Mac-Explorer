@@ -2,7 +2,7 @@ using MacExplorer.Models;
 
 namespace MacExplorer.Services;
 
-public interface ISmbMountService
+public interface INetworkMountService
 {
     Task<string> MountAsync(RemoteServerInfo server, CancellationToken cancellationToken = default);
     Task<bool> UnmountAsync(string mountPath);

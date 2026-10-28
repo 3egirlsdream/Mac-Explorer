@@ -135,56 +135,59 @@ public sealed class DialogSettingsAppearanceTests
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
-    public void RemoteDraftsSurviveSwitchingAndOnlySavePersists(bool dark)
+    [Trait("Area", "Remote")]
+    public void SingleConnectionDraftSurvivesProtocolSwitchingAndOnlySavePersists(bool dark)
     {
         using var fixture = new RemoteFixture();
         fixture.Service.SaveServer(new RemoteServerInfo { Id = "first", Host = "first.test" });
-        fixture.Service.SaveServer(new RemoteServerInfo { Id = "second", Host = "second.test" });
-        var dialog = new RemoteConnectionDialog { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
-            Width = 700, Height = 500 };
+        var dialog = new RemoteConnectionDialog(fixture.Service.GetSavedServers()[0])
+            { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light, Width = 400, Height = 400 };
         dialog.Show(); Dispatcher.UIThread.RunJobs();
         try
         {
-            var list = dialog.FindControl<ListBox>("SavedServersList")!;
+            Assert.Null(dialog.FindControl<ListBox>("SavedServersList"));
             var host = dialog.FindControl<TextBox>("HostBox")!;
             Assert.Equal("first.test", host.Text);
             host.Text = "edited.test";
             dialog.FindControl<TextBox>("PortBox")!.Text = "invalid port draft";
-            list.SelectedIndex = 1; list.SelectedIndex = 0;
+            var protocol = dialog.FindControl<ComboBox>("ServiceTypeBox")!;
+            protocol.SelectedIndex = 2;
+            host.Text = "https://dav.example.test/共享%20Files/";
+            Assert.False(dialog.FindControl<Border>("PortRow")!.IsVisible);
+            Assert.False(dialog.FindControl<Border>("DefaultPathRow")!.IsVisible);
+            protocol.SelectedIndex = 0;
             Assert.Equal("edited.test", host.Text);
             Assert.Equal("invalid port draft", dialog.FindControl<TextBox>("PortBox")!.Text);
             Assert.Equal("first.test", fixture.Service.GetSavedServers()[0].Host);
-            Click(dialog, "AddServerButton"); host.Text = "new.test";
-            list.SelectedIndex = 0; Click(dialog, "AddServerButton");
-            Assert.Equal("new.test", host.Text);
-            Assert.Equal(2, fixture.Service.GetSavedServers().Count);
-            Click(dialog, "SaveButton");
-            Assert.Equal(3, fixture.Service.GetSavedServers().Count);
-            Assert.Equal("new.test", Assert.IsType<RemoteServerInfo>(list.SelectedItem).Host);
-            Click(dialog, "DeleteButton");
-            Assert.Equal(2, fixture.Service.GetSavedServers().Count);
-            var rail = dialog.FindControl<Border>("SavedServersPanel")!;
-            Assert.Equal(0, rail.TranslatePoint(default, dialog)!.Value.Y);
-            Assert.Equal(500, rail.Bounds.Height);
-            Assert.NotEqual(Colors.Transparent, ((ISolidColorBrush)rail.Background!).Color);
-            foreach (var name in new[] { "SaveButton", "ConnectButton", "AddServerButton" })
+            protocol.SelectedIndex = 2;
+            Assert.Equal("https://dav.example.test/共享%20Files/", host.Text);
+            dialog.UpdateLayout();
+            foreach (var name in new[] { "SaveButton", "ConnectButton" })
             {
                 var button = dialog.FindControl<Button>(name)!;
                 var origin = button.TranslatePoint(default, dialog)!.Value;
-                Assert.True(origin.Y + button.Bounds.Height <= dialog.ClientSize.Height);
-                Assert.True(origin.X + button.Bounds.Width <= dialog.ClientSize.Width);
+                Assert.True(origin.Y >= 0 && origin.Y + button.Bounds.Height <= dialog.ClientSize.Height);
+                Assert.True(origin.X >= 0 && origin.X + button.Bounds.Width <= dialog.ClientSize.Width);
             }
+            Click(dialog, "SaveButton");
+            var saved = Assert.Single(fixture.Service.GetSavedServers());
+            Assert.Equal("first", saved.Id);
+            Assert.Equal(RemoteServiceType.WebDav, saved.ServiceType);
+            Assert.Equal(443, saved.Port);
+            Assert.Contains("%20Files/", saved.WebDavUrl);
+            Assert.False(dialog.Connected);
+            Assert.False(dialog.IsVisible);
         }
         finally { dialog.Close(); }
     }
 
     [AvaloniaFact(Explicit = true)]
-    public void EmptyRemoteListStaysVisibleAndDiscardedDraftDoesNotPersist()
+    [Trait("Area", "Remote")]
+    public void NewConnectionStartsEmptyAndDiscardedDraftDoesNotPersist()
     {
         using var fixture = new RemoteFixture();
         var dialog = new RemoteConnectionDialog(); dialog.Show(); Dispatcher.UIThread.RunJobs();
-        Assert.True(dialog.FindControl<Border>("SavedServersPanel")!.IsVisible);
-        Assert.False(dialog.FindControl<Button>("DeleteButton")!.IsEnabled);
+        Assert.Null(dialog.FindControl<Border>("SavedServersPanel"));
         dialog.FindControl<TextBox>("HostBox")!.Text = "unsaved.test";
         dialog.Close();
         Assert.Empty(fixture.Service.GetSavedServers());
@@ -196,6 +199,7 @@ public sealed class DialogSettingsAppearanceTests
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Area", "Remote")]
     public void PendingConnectionBlocksEditingAndFailureOrCloseKeepsSavedState(bool close)
     {
         using var fixture = new RemoteFixture(pendingConnection: true);
@@ -206,7 +210,7 @@ public sealed class DialogSettingsAppearanceTests
             dialog.FindControl<TextBox>("HostBox")!.Text = "connection.test";
             Click(dialog, "ConnectButton");
             Assert.False(dialog.FindControl<Button>("SaveButton")!.IsEnabled);
-            Assert.False(dialog.FindControl<Border>("SavedServersPanel")!.IsEnabled);
+            Assert.False(dialog.FindControl<ComboBox>("ServiceTypeBox")!.IsEnabled);
             Assert.False(dialog.FindControl<StackPanel>("ServiceParametersHost")!.IsEnabled);
             Click(dialog, "ConnectButton");
             Assert.Equal(1, pending.Attempts);
@@ -220,7 +224,7 @@ public sealed class DialogSettingsAppearanceTests
                 pending.Completion.SetException(new InvalidOperationException("fixture connection failure"));
                 Dispatcher.UIThread.RunJobs();
                 Assert.True(dialog.FindControl<Button>("SaveButton")!.IsEnabled);
-                Assert.True(dialog.FindControl<Border>("SavedServersPanel")!.IsEnabled);
+                Assert.True(dialog.FindControl<ComboBox>("ServiceTypeBox")!.IsEnabled);
                 Assert.Equal("connection.test", dialog.FindControl<TextBox>("HostBox")!.Text);
                 dialog.UpdateLayout();
                 Assert.Contains(dialog.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("fixture connection failure") == true);
@@ -231,6 +235,7 @@ public sealed class DialogSettingsAppearanceTests
     }
 
     [AvaloniaFact(Explicit = true)]
+    [Trait("Area", "Remote")]
     public void SuccessfulConnectionSavesAndClosesWithExistingResultContract()
     {
         using var fixture = new RemoteFixture(pendingConnection: true);

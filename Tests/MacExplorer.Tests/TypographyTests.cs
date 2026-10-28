@@ -84,15 +84,10 @@ public sealed class TypographyTests
         var fileName = fileList.FindControl<MacExplorer.Controls.FastFileList>("FastList")!;
 
         var sidebar = new FinderSidebarView();
-        var remoteServers = sidebar.FindControl<ItemsControl>("RemoteServersList")!;
+        var remoteServers = sidebar.FindControl<ItemsControl>("NetworkLocationsList")!;
         var remoteTemplate = Assert.IsAssignableFrom<IDataTemplate>(remoteServers.ItemTemplate);
-        var remoteRow = Assert.IsAssignableFrom<Control>(remoteTemplate.Build(new RemoteServerInfo()));
-        remoteRow.DataContext = new RemoteServerInfo
-        {
-            Name = "43.138.192.42",
-            Host = "43.138.192.42",
-            IsConnected = false
-        };
+        var remoteRow = Assert.IsAssignableFrom<Control>(remoteTemplate.Build(new NetworkLocationRow("fixture", "fixture")));
+        remoteRow.DataContext = new NetworkLocationRow("43.138.192.42", "fixture", Connected: true);
         var textBox = new TextBox { Text = "动态字号" };
         var host = new StackPanel
         {
@@ -113,8 +108,6 @@ public sealed class TypographyTests
         var sidebarItemText = sidebarItem.GetVisualDescendants().OfType<TextBlock>().Single();
         var remoteAddress = remoteRow.GetVisualDescendants().OfType<TextBlock>()
             .Single(text => text.Text == "43.138.192.42");
-        var remoteStatus = remoteRow.GetVisualDescendants().OfType<TextBlock>()
-            .Single(text => text.Text == "未连接");
         var remoteAction = remoteRow.GetVisualDescendants().OfType<Button>()
             .Single(button => button.Classes.Contains("sidebar-item-action"));
 
@@ -128,8 +121,8 @@ public sealed class TypographyTests
         Assert.Equal(FontWeight.Light, sidebarItemText.FontWeight);
         Assert.Equal(sidebarItemText.FontWeight, fileName.FontWeight);
         Assert.Equal(Color.Parse("#565D67"), Assert.IsType<SolidColorBrush>(sidebarTitle.Foreground).Color);
-        Assert.Equal(14, remoteAddress.FontSize);
-        Assert.Equal(13, remoteStatus.FontSize);
+        Assert.Equal(sidebarItemText.FontSize, remoteAddress.FontSize);
+        Assert.Single(remoteRow.GetVisualDescendants().OfType<TextBlock>());
         Assert.Equal(0, remoteAction.Opacity);
         Assert.False(remoteAction.IsHitTestVisible);
 
@@ -139,8 +132,7 @@ public sealed class TypographyTests
         Assert.Equal(15, fileName.FontSize);
         Assert.Equal(14, fileName.DetailFontSize);
         Assert.Equal(12.5, sidebarTitle.FontSize);
-        Assert.Equal(16, remoteAddress.FontSize);
-        Assert.Equal(15, remoteStatus.FontSize);
+        Assert.Equal(sidebarItemText.FontSize, remoteAddress.FontSize);
         Assert.Equal(32, sidebarItem.MinHeight);
         Assert.Equal(39, textBox.MinHeight);
 

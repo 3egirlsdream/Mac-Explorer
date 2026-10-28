@@ -448,7 +448,21 @@ public sealed class ShortcutViewModelTests : FileListViewModelTestBase
         Assert.True(service.TrySet(ShortcutIds.NewTab, new(Key.Y, KeyModifiers.Meta), out _));
         var count = fixture.Model.Tabs.Count;
         window.KeyPress(Key.T, RawInputModifiers.Meta, PhysicalKey.T, null); Assert.Equal(count, fixture.Model.Tabs.Count);
-        window.KeyPress(Key.Y, RawInputModifiers.Meta, PhysicalKey.Y, null); Assert.Equal(count + 1, fixture.Model.Tabs.Count);
+        var added = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnTabsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (fixture.Model.Tabs.Count > count) added.TrySetResult();
+        }
+        fixture.Model.Tabs.CollectionChanged += OnTabsChanged;
+        try
+        {
+            window.KeyPress(Key.Y, RawInputModifiers.Meta, PhysicalKey.Y, null);
+            // Directory validation is intentionally off the input thread.
+            await added.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(count + 1, fixture.Model.Tabs.Count);
+        }
+        finally { fixture.Model.Tabs.CollectionChanged -= OnTabsChanged; }
     }
 
     [AvaloniaFact(Explicit = true)]

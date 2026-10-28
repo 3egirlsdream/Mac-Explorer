@@ -247,7 +247,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public string GetLocationIcon(string location)
     {
-        if (location == VirtualPath.Network) return AppIcons.Network;
+        if (location == VirtualPath.Network || VirtualPath.IsRemotePath(location)) return AppIcons.Network;
         if (TagPathHelper.IsTagPath(location)) return AppIcons.Tag;
         var path = location == "/" ? "/" : location.TrimEnd('/');
         var item = SidebarFavorites.Concat(SidebarLocations).Concat(SidebarAiItems)
@@ -284,7 +284,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     // Tag state is encoded in the virtual path so back/forward history can restore it.
     public bool IsTagView => TagPathHelper.IsTagPath(_navigation.CurrentPath);
-    public FileTag? CurrentTag => TagPathHelper.TryParse(_navigation.CurrentPath, out var tag) ? tag : null;
+    public FileTag? CurrentTag => TagPathHelper.TryParse(_navigation.CurrentPath, out var tag) ? ResolveTag(tag) : null;
+    internal FileTag ResolveTag(FileTag tag) => _navigation.ResolveTag(tag);
 
     public ObservableCollection<PinnedFolder> PinnedFolders => _pinnedFolders.PinnedFolders;
 
@@ -850,16 +851,51 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         SidebarTags.Clear();
         foreach (var tag in snapshot)
             SidebarTags.Add(tag);
+        _navigation.SetTagDefinitions(snapshot);
+        OnPropertyChanged(nameof(CurrentTag));
+        OnPropertyChanged(nameof(SidebarTags));
+    }
+
+    private int _tagsRefreshVersion;
+    private int _tagsRefreshQueued;
+    private bool _workspaceVisible = true;
+    private bool _tagDirectoryRefreshPending;
+
+    internal void SetWorkspaceVisible(bool visible)
+    {
+        _workspaceVisible = visible;
+        if (!visible || !_tagDirectoryRefreshPending) return;
+        _tagDirectoryRefreshPending = false;
+        if (!_disposed && IsTagView && !_directoryNotificationsPaused) _ = RefreshAsync();
     }
 
     private void OnTagsChanged(object? sender, EventArgs e)
     {
+        Interlocked.Increment(ref _tagsRefreshVersion);
+        ScheduleTagsRefresh();
+    }
+
+    private void ScheduleTagsRefresh()
+    {
+        if (Interlocked.Exchange(ref _tagsRefreshQueued, 1) != 0) return;
         Dispatcher.UIThread.Post(async () =>
         {
-            if (_disposed) return;
-            await LoadSidebarTagsAsync();
-            if (IsTagView && !_directoryNotificationsPaused)
-                await RefreshAsync();
+            var version = Volatile.Read(ref _tagsRefreshVersion);
+            try
+            {
+                if (_disposed) return;
+                await LoadSidebarTagsAsync();
+                if (IsTagView && !_directoryNotificationsPaused)
+                {
+                    if (_workspaceVisible) await RefreshAsync();
+                    else _tagDirectoryRefreshPending = true;
+                }
+            }
+            finally
+            {
+                Volatile.Write(ref _tagsRefreshQueued, 0);
+                if (!_disposed && version != Volatile.Read(ref _tagsRefreshVersion)) ScheduleTagsRefresh();
+            }
         }, DispatcherPriority.Background);
     }
 
@@ -4145,7 +4181,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
             ApplyEntries(entries);
             ResolveRealEntries(entries, work);
-            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("标签“{0}” · {1} 项", tag.Name, entries.Count);
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("标签“{0}” · {1} 项", ResolveTag(tag).DisplayName, entries.Count);
         }
         catch (OperationCanceledException)
         {

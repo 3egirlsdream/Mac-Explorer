@@ -106,6 +106,14 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
     /// <summary>被导航到的文件名称，用于加载后自动选中</summary>
     public string? PendingSelectFileName { get; set; }
 
+    private Dictionary<string, FileTag> _tagDefinitions = new(StringComparer.OrdinalIgnoreCase);
+    internal FileTag ResolveTag(FileTag tag) => _tagDefinitions.GetValueOrDefault(tag.Name, tag);
+    internal void SetTagDefinitions(IEnumerable<FileTag> tags)
+    {
+        _tagDefinitions = tags.ToDictionary(tag => tag.Name, StringComparer.OrdinalIgnoreCase);
+        if (TagPathHelper.IsTagPath(CurrentPath)) UpdateBreadcrumbs();
+    }
+
     public NavigationViewModel(
         IFileService fileService,
         IFrequentFolderService? frequentFolderService = null,
@@ -466,6 +474,7 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
         }
         else if (TagPathHelper.TryParse(CurrentPath, out var currentTag))
         {
+            currentTag = ResolveTag(currentTag);
             segments.Add(new BreadcrumbSegment { Name = "标签", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("标签"), FullPath = "", HasDropdown = false });
             segments.Add(new BreadcrumbSegment
             {

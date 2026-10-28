@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <ProjectReference Include="../../MacExplorer.csproj" />
+    <Compile Include="../MacExplorer.Tests/TaskProgressSummaryTests.cs" Link="TaskProgressSummaryTests.cs" />
     <Compile Include="../MacExplorer.Tests/ArchivePathHelperTests.cs" Link="ArchivePathHelperTests.cs" />
     <Compile Include="../MacExplorer.Tests/ArchiveExtractionPathHelperTests.cs" Link="ArchiveExtractionPathHelperTests.cs" />
     <Compile Include="../MacExplorer.Tests/FileThumbnailSizingTests.cs" Link="FileThumbnailSizingTests.cs" />

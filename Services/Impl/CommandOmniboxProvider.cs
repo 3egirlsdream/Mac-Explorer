@@ -25,7 +25,7 @@ public class CommandOmniboxProvider(IAppCapabilityRegistry capabilities) : IOmni
         ("显示信息", "打开信息面板", AppIcons.Info, "信息 info inspector panel",
             "ui.info-panel"),
 
-        ("连接远程服务器", "network.command-description", AppIcons.ExternalDrive, "远程 sftp smb network connect remote server",
+        ("连接远程服务器", "network.command-description", AppIcons.ExternalDrive, "远程 sftp smb webdav dav network connect remote server",
             "sftp.connect-dialog"),
 
         ("打开任务中心", "显示后台任务面板", AppIcons.Settings, "任务 task center panel background",

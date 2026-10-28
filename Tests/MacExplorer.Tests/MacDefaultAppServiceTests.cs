@@ -117,15 +117,51 @@ public sealed class MacDefaultAppServiceTests
         Assert.Null(service.Viewer);
     }
 
+    [Theory]
+    [InlineData(AppId, AppId, FinderId, true, true, false)]
+    [InlineData(AppId, AppId, AppId, true, false, false)]
+    [InlineData(FinderId, null, AppId, false, true, false)]
+    [InlineData(FinderId, null, FinderId, false, false, false)]
+    [InlineData(AppId, null, AppId, false, false, true)]
+    [InlineData(FinderId, AppId, FinderId, false, false, true)]
+    [InlineData(AppId, AppId, null, true, null, false)]
+    public void StatusSeparatesSavedConfigurationFromEffectiveHandler(string folder, string? viewer,
+        string? effective, bool enabled, bool? pending, bool partial)
+    {
+        var service = new FakeService { Folder = folder, Viewer = viewer, Effective = effective };
+        var status = service.GetFolderHandlerStatus();
+        Assert.Equal(enabled, status.IsDefault);
+        Assert.Equal(pending, status.RequiresRestart);
+        Assert.Equal(partial, status.IsPartial);
+    }
+
+    [Fact]
+    public void StatusReadsExternalChangesAndDoesNotTreatReadFailureAsDisabled()
+    {
+        var service = new FakeService { Folder = AppId, Viewer = AppId };
+        Assert.True(service.GetFolderHandlerStatus().RequiresRestart);
+        service.Effective = AppId;
+        Assert.False(service.GetFolderHandlerStatus().RequiresRestart);
+        service.Folder = FinderId;
+        service.Viewer = null;
+        Assert.False(service.GetFolderHandlerStatus().IsDefault);
+        Assert.True(service.GetFolderHandlerStatus().RequiresRestart);
+        service.FailRead = true;
+        Assert.Null(service.GetFolderHandlerStatus().IsDefault);
+    }
+
     private sealed class FakeService : MacDefaultAppService
     {
         internal string Folder = FinderId;
+        internal string? Effective = FinderId;
+        internal bool FailRead;
+        internal override string? ReadEffectiveFolderHandler() => Effective;
         internal string? Viewer;
         internal bool FailFolderWrite;
         internal bool FailViewerWrite;
         internal bool IgnoreViewerWrite;
 
-        internal override string? ReadFolderHandler() => Folder;
+        internal override string? ReadFolderHandler() => FailRead ? throw new InvalidOperationException("Read failed") : Folder;
         internal override string? ReadFileViewer() => Viewer;
 
         internal override void WriteFolderHandler(string bundleId)

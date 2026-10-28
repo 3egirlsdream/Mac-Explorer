@@ -15,6 +15,9 @@ public sealed class FileTagService : IFileTagService, IDisposable
     // All reads, pending edits and native writes share this gate. Never write a stale per-view snapshot.
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
     private readonly SemaphoreSlim _retryLock = new(1, 1);
+    private List<FileTag>? _definitions;
+    private long _definitionsChanges = -1;
+    private long _definitionsDataVersion = -1;
 
     public FileTagService(DatabaseConnectionFactory connectionFactory,
         IFinderTagQueryService? finderTagQueryService = null, ILogger<FileTagService>? logger = null,
@@ -40,9 +43,20 @@ public sealed class FileTagService : IFileTagService, IDisposable
 
     private List<FileTag> ReadDefinitions()
     {
+        // Indexing uses other connections. Invalidate for both local writes and
+        // commits by those connections, rather than trusting only TagsChanged.
+        using var version = _connection.CreateCommand();
+        version.CommandText = "SELECT total_changes(), data_version FROM pragma_data_version";
+        long changes, dataVersion;
+        using (var versionReader = version.ExecuteReader())
+        {
+            versionReader.Read(); changes = versionReader.GetInt64(0); dataVersion = versionReader.GetInt64(1);
+        }
+        if (_definitions != null && changes == _definitionsChanges && dataVersion == _definitionsDataVersion)
+            return _definitions;
         using var command = _connection.CreateCommand();
         command.CommandText = """
-            SELECT d.name, d.color_id, d.is_pinned, d.sort_order, COUNT(f.file_path), d.parent_name
+            SELECT d.name, d.color_id, d.is_pinned, d.sort_order, COUNT(f.file_path), d.parent_name, d.display_name_override
             FROM tag_definitions d LEFT JOIN file_tags f ON f.tag = d.name COLLATE NOCASE
             GROUP BY d.name ORDER BY d.sort_order, d.name COLLATE NOCASE
             """;
@@ -55,9 +69,12 @@ public sealed class FileTagService : IFileTagService, IDisposable
             var colorId = system ? color.ColorId : reader.GetInt32(1);
             result.Add(new FileTag(name, FileTagCatalog.ColorHex(colorId),
                 system ? FileTagKind.FinderColor : FileTagKind.Custom,
-                reader.GetInt32(4), colorId, reader.GetInt32(2) != 0, reader.GetInt32(3), reader.IsDBNull(5) ? null : reader.GetString(5)));
+                reader.GetInt32(4), colorId, reader.GetInt32(2) != 0, reader.GetInt32(3), reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6)));
         }
-        return result;
+        _definitionsChanges = changes;
+        _definitionsDataVersion = dataVersion;
+        return _definitions = result;
     }
 
     public Task<FileTag> CreateTagAsync(string name, CancellationToken cancellationToken = default) =>
@@ -71,7 +88,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
         try
         {
             var definitions = ReadDefinitions();
-            if (definitions.Any(t => SameName(t.Name, name))) throw new InvalidOperationException(LocalizationText.Get("标签“{0}”已存在", name));
+            if (definitions.Any(t => HasName(t, name))) throw new InvalidOperationException(LocalizationText.Get("标签“{0}”已存在", name));
             var parent = ResolveParent(definitions, parentName);
             using (var transaction = _connection.BeginTransaction())
             {
@@ -141,17 +158,54 @@ public sealed class FileTagService : IFileTagService, IDisposable
         await _connectionLock.WaitAsync(cancellationToken);
         try
         {
-            var before = ReadIndexed(filePath).Select(t => (t.Name.ToUpperInvariant(), t.ColorId)).ToHashSet();
-            if (ReadPending(filePath).Count > 0) await SyncFileLockedAsync(filePath, cancellationToken);
-            var tags = await ReadEffectiveLockedAsync(filePath, cancellationToken);
-            ReplaceIndex(filePath, tags, updateColors: true);
-            changed = !before.SetEquals(tags.Select(t => (FileTagCatalog.NormalizeName(t.Name).ToUpperInvariant(), t.ColorId)));
-            var names = tags.Select(t => FileTagCatalog.NormalizeName(t.Name)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var read = await RefreshFileTagsLockedAsync(filePath, cancellationToken);
+            changed = read.Changed;
+            var names = read.Names;
             result = ReadDefinitions().Where(t => names.Contains(t.Name)).ToArray();
         }
         finally { _connectionLock.Release(); }
         if (changed) TagsChanged?.Invoke(this, EventArgs.Empty);
         return result;
+    }
+
+    public async Task<FileTagSelection> GetFileTagSelectionAsync(IReadOnlyList<string> filePaths, CancellationToken cancellationToken = default)
+    {
+        var membership = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+        await _connectionLock.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (var path in filePaths.Distinct(StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var read = await RefreshFileTagsLockedAsync(path, cancellationToken);
+                changed |= read.Changed;
+                foreach (var name in read.Names) membership[name] = membership.GetValueOrDefault(name) + 1;
+            }
+            return new(ReadDefinitions().OrderByDescending(tag => tag.IsPinned).ToArray(), membership);
+        }
+        finally
+        {
+            _connectionLock.Release();
+            // Include completed reads even if a later file was cancelled.
+            if (changed) TagsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private async Task<(HashSet<string> Names, bool Changed)> RefreshFileTagsLockedAsync(string path, CancellationToken cancellationToken)
+    {
+        var before = ReadIndexed(path).GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().ColorId, StringComparer.OrdinalIgnoreCase);
+        if (ReadPending(path).Count > 0) await SyncFileLockedAsync(path, cancellationToken);
+        var tags = await ReadEffectiveLockedAsync(path, cancellationToken);
+        var changed = before.Count != tags.Count || tags.Any(tag =>
+        {
+            var name = FileTagCatalog.NormalizeName(tag.Name);
+            var color = FileTagCatalog.TryGetFinderColor(name, out var system) ? system.ColorId : tag.ColorId;
+            return !before.TryGetValue(name, out var indexedColor) || indexedColor != color;
+        });
+        if (changed) ReplaceIndex(path, tags, updateColors: true);
+        return (tags.Select(t => FileTagCatalog.NormalizeName(t.Name)).ToHashSet(StringComparer.OrdinalIgnoreCase), changed);
     }
 
     // Index import only. Pending edits always take precedence over incoming metadata.
@@ -165,7 +219,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
             var before = ReadIndexed(filePath).Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var effective = OverlayPending(filePath, tags.Select(name => new NativeFileTag(FileTagCatalog.NormalizeName(name))));
             changed = !before.SetEquals(effective.Select(t => t.Name));
-            ReplaceIndex(filePath, effective);
+            if (changed) ReplaceIndex(filePath, effective);
         }
         finally { _connectionLock.Release(); }
         if (changed) TagsChanged?.Invoke(this, EventArgs.Empty);
@@ -193,6 +247,11 @@ public sealed class FileTagService : IFileTagService, IDisposable
 
     public async Task RenameTagAsync(FileTag tag, string newName, CancellationToken cancellationToken = default)
     {
+        if (tag.IsFinderColor || FileTagCatalog.TryGetFinderColor(tag.Name, out _))
+        {
+            await RenameSystemTagDisplayAsync(tag, newName, cancellationToken);
+            return;
+        }
         RequireCustom(tag);
         newName = ValidateName(newName);
         if (tag.Name == newName) return;
@@ -201,7 +260,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
         await _connectionLock.WaitAsync(cancellationToken);
         try
         {
-            if (ReadDefinitions().Any(t => SameName(t.Name, newName) && !SameName(t.Name, tag.Name)))
+            if (ReadDefinitions().Any(t => HasName(t, newName) && !SameName(t.Name, tag.Name)))
                 throw new InvalidOperationException(LocalizationText.Get("标签“{0}”已存在", newName));
             paths = paths.Concat(ReadPaths("SELECT file_path FROM file_tags WHERE tag = @tag COLLATE NOCASE", ("@tag", tag.Name))).Distinct().ToArray();
             using var transaction = _connection.BeginTransaction();
@@ -220,6 +279,28 @@ public sealed class FileTagService : IFileTagService, IDisposable
         TagsChanged?.Invoke(this, EventArgs.Empty);
         await SyncPathsAsync(paths, cancellationToken);
     }
+
+    private async Task RenameSystemTagDisplayAsync(FileTag tag, string name, CancellationToken cancellationToken)
+    {
+        name = ValidateDisplayName(name);
+        await _connectionLock.WaitAsync(cancellationToken);
+        try
+        {
+            var definitions = ReadDefinitions();
+            var current = definitions.Single(t => SameName(t.Name, tag.Name));
+            if (definitions.Any(t => !SameName(t.Name, current.Name) && HasName(t, name)))
+                throw new InvalidOperationException(LocalizationText.Get("标签“{0}”已存在", name));
+            if (current.DisplayName == name) return;
+            Execute("UPDATE tag_definitions SET display_name_override = @display WHERE name = @name COLLATE NOCASE", null,
+                ("@display", name == current.Name ? DBNull.Value : name), ("@name", current.Name));
+        }
+        finally { _connectionLock.Release(); }
+        // Display-only edits never rewrite native tags, navigation identities or pending sync work.
+        TagsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static bool HasName(FileTag tag, string name) => SameName(tag.Name, name)
+        || string.Equals(tag.DisplayName, name, StringComparison.OrdinalIgnoreCase);
 
     public async Task DeleteTagAsync(FileTag tag, CancellationToken cancellationToken = default)
     {
@@ -522,14 +603,18 @@ public sealed class FileTagService : IFileTagService, IDisposable
     public static bool IsSupportedPath(string path) => Path.IsPathRooted(path) && !VirtualPath.IsRemotePath(path) && !path.Contains("!/");
     private static string ValidateName(string name)
     {
-        name = FileTagCatalog.NormalizeName(name);
+        return ValidateDisplayName(FileTagCatalog.NormalizeName(name));
+    }
+    private static string ValidateDisplayName(string name)
+    {
+        name = name.Trim();
         if (name.Length == 0 || name.Any(char.IsControl)) throw new InvalidOperationException(LocalizationText.Get("标签名称不能为空或包含控制字符"));
         return name;
     }
     private static void RequireCustom(FileTag tag)
     {
         if (tag.IsFinderColor || FileTagCatalog.TryGetFinderColor(tag.Name, out _))
-            throw new InvalidOperationException(LocalizationText.Get("系统颜色标签不能重命名、删除或改色"));
+            throw new InvalidOperationException(LocalizationText.Get("tags.system-protected"));
     }
     public void Dispose() { _connection.Dispose(); _connectionLock.Dispose(); _retryLock.Dispose(); }
 }

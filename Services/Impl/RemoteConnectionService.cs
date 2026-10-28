@@ -26,7 +26,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
                 Disconnect(server.Id);
         _hostKeys.Forget(host, port);
     }
-    public void RetryCredentialMigration() => LoadSavedServers();
+    public void RetryCredentialMigration() { LoadSavedServers(); Changed?.Invoke(); }
     private readonly ILogger<RemoteConnectionService>? _logger;
 
     private const int MaxReconnectAttempts = 3;
@@ -35,6 +35,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
     public event EventHandler<string>? ConnectionLost;
     public event EventHandler<string>? Reconnecting;
     public event EventHandler<string>? ReconnectFailed;
+    public event Action? Changed;
 
     public RemoteConnectionService(ILogger<RemoteConnectionService>? logger = null)
         : this(Path.Combine(RuntimePaths.DataDirectory, "remote-servers.json"), new DatabaseCredentialStore("com.macexplorer.sftp"), logger) { }
@@ -48,7 +49,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     public async Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
     {
-        if (server.ServiceType != RemoteServiceType.Sftp) throw new InvalidOperationException("Use the connection coordinator for SMB.");
+        if (server.ServiceType != RemoteServiceType.Sftp) throw new InvalidOperationException("Use the connection coordinator for network mounts.");
         Disconnect(server.Id);
 
         var candidate = CopyServer(server);
@@ -117,6 +118,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
             connected.IsConnected = false;
             if (!connected.RememberPrivateKeyPassphrase) connected.PrivateKeyPassphrase = "";
         }
+        Changed?.Invoke();
     }
 
     public void DisconnectAll()
@@ -140,9 +142,12 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         return _servers.Values.ToList().AsReadOnly();
     }
 
+    public IReadOnlyList<RemoteServerInfo> GetConnectedServers() => _connectedServers.Values.Where(s => IsConnected(s.Id)).ToArray();
+
     public void SaveServer(RemoteServerInfo server)
     {
         if (_configurationLoadFailed) throw new InvalidOperationException("原连接配置无法读取，尚未改写。请恢复配置并重试凭据加载后再保存。");
+        if (server.ServiceType == RemoteServiceType.WebDav) _ = WebDavAddress.Parse(server.WebDavUrl);
         var savedServer = CopyServer(server);
         if (server.AuthMethod != RemoteAuthMethod.Password) savedServer.Password = "";
         if (server.AuthMethod != RemoteAuthMethod.PrivateKey || !server.RememberPrivateKeyPassphrase)
@@ -158,6 +163,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         }, () => SaveToDisk(candidate.Values));
         savedServer.IsConnected = IsConnected(server.Id);
         _servers[server.Id] = savedServer;
+        Changed?.Invoke();
     }
 
     public void RemoveServer(string serverId)
@@ -177,7 +183,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
     private static RemoteServerInfo CopyServer(RemoteServerInfo server) => new RemoteServerInfo
         {
             Id = server.Id, ServiceType = server.ServiceType, Name = server.Name, Host = server.Host, Port = server.Port, Username = server.Username,
-            LastConnectedAt = server.LastConnectedAt, DefaultPath = server.DefaultPath, ShareName = server.ShareName, Domain = server.Domain, AuthMethod = server.AuthMethod, Password = server.Password,
+            LastConnectedAt = server.LastConnectedAt, DefaultPath = server.DefaultPath, ShareName = server.ShareName, Domain = server.Domain, WebDavUrl = server.WebDavUrl, AuthMethod = server.AuthMethod, Password = server.Password,
             PrivateKeyPath = server.PrivateKeyPath, PrivateKeyPassphrase = server.PrivateKeyPassphrase,
             RememberPrivateKeyPassphrase = server.RememberPrivateKeyPassphrase
     };
@@ -288,6 +294,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         _connectedServers[server.Id] = server;
         server.IsConnected = true;
         if (_servers.TryGetValue(server.Id, out var saved)) saved.IsConnected = true;
+        Changed?.Invoke();
 
         client.ErrorOccurred += (_, args) =>
         {
@@ -296,6 +303,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
             server.IsConnected = false;
             if (_servers.TryGetValue(server.Id, out var savedServer)) savedServer.IsConnected = false;
             _connections.Remove(server.Id);
+            Changed?.Invoke();
             ConnectionLost?.Invoke(this, server.Id);
 
             // Attempt auto-reconnect
@@ -321,6 +329,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
             _logger?.LogInformation("Reconnect attempt {Attempt}/{Max} for {Server}", attempt, MaxReconnectAttempts, server.DisplayName);
             Reconnecting?.Invoke(this, server.Id);
+            Changed?.Invoke();
 
             try
             {
@@ -346,6 +355,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         _logger?.LogWarning("All reconnect attempts failed for {Server}", server.DisplayName);
         if (!server.RememberPrivateKeyPassphrase) server.PrivateKeyPassphrase = "";
         ReconnectFailed?.Invoke(this, server.Id);
+        Changed?.Invoke();
         _reconnectTokens.Remove(server.Id);
         cts.Dispose();
     }

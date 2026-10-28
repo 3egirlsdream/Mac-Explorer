@@ -1,5 +1,16 @@
 # FastFileList 原生基准
 
+页签和右键交互基准使用 `--interaction-only`，通过隔离启动器运行：
+
+```sh
+dotnet build Tools/Performance/FastListBench/FastListBench.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+bash Tools/Testing/run-isolated.sh Tools/Performance/FastListBench/bin/Debug/net10.0/osx-arm64/FastListBench.app/Contents/MacOS/FastListBench /private/tmp/fkfinder-interaction-results --interaction-only
+```
+
+在隔离目录创建 100 个文件，使用原生渲染窗口，测浅／深色的页签切换、文件选择与三类右键菜单，以及新建页签、连续拖动和松手排序。`interaction-results.json` 分别记录操作耗时、两次动画帧回调的延迟、布局次数、页签位图重建次数、玻璃采样和进程分配量；保留首次与后续样本，不用单次结果推导性能提升。菜单直接调用应用入口，拖动通过 Avalonia 路由事件注入，不覆盖系统鼠标投递延迟，帧回调也不代表显示器呈现时间。测量时不要并行构建或运行其他基准；附着调试器的问题需要另对实际 Debug 进程采样。
+
+`file-context` 观察打开入口及接下来两帧；`file-context-complete` 等待初始、完整两次菜单动作发布，再等待两帧，确保异步或低优先级更新计入总成本。对比旧、新构建时必须使用同一版本的基准程序集；完整菜单指标与早期仅测打开入口的结果分开统计。
+
 任务面板开合基准使用 `--tasks-only`，同样通过隔离启动器运行：
 
 ```sh

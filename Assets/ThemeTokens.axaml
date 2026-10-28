@@ -33,6 +33,7 @@
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ProgressRingEndBrush" Color="#13AFC4"/>
                     <!-- Shared sidebar/menu hover and restrained popup glass. -->
                     <SolidColorBrush x:Key="SidebarHoverBrush" Color="Transparent"/>
                     <BoxShadows x:Key="SidebarHoverOutline">inset 0 1 0 0 #CCFFFFFF, inset 0 -1 0 0 #24212730</BoxShadows>
@@ -199,6 +200,7 @@
                     <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#FFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ProgressRingEndBrush" Color="#54D6E6"/>
                     <!-- Shared sidebar/menu hover and restrained popup glass. -->
                     <SolidColorBrush x:Key="SidebarHoverBrush" Color="#0CFFFFFF"/>
                     <BoxShadows x:Key="SidebarHoverOutline">0 0 0 0 Transparent</BoxShadows>

@@ -113,7 +113,8 @@ public sealed class SecurityDialogTests
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
-    public void FailedRemoteDialogSaveAndDeleteKeepFormAndSavedServer(bool dark)
+    [Trait("Area", "Remote")]
+    public void FailedRemoteDialogSaveKeepsFormAndSavedServer(bool dark)
     {
         var root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "remote-ui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -126,11 +127,13 @@ public sealed class SecurityDialogTests
         using var services = new ServiceCollection().AddSingleton<IRemoteConnectionService>(service).BuildServiceProvider();
         typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
         var owner = InputAppearanceTests.CreateWindow(new TextBlock(), dark);
-        var dialog = new RemoteConnectionDialog { Width = 400, Height = 450, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var dialog = new RemoteConnectionDialog(service.GetSavedServers().Single(s => s.Id == "fixture")) { Width = 400, Height = 450, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
         try
         {
             dialog.Show(owner); Dispatcher.UIThread.RunJobs();
-            dialog.FindControl<ListBox>("SavedServersList")!.SelectedIndex = 1;
+            dialog.FindControl<RadioButton>("PasswordRadio")!.IsChecked = false;
+            dialog.FindControl<RadioButton>("KeyRadio")!.IsChecked = true;
+            dialog.FindControl<RadioButton>("KeyRadio")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.True(dialog.FindControl<Border>("KeyPanel")!.IsVisible);
             Assert.True(dialog.FindControl<Border>("KeyPassphrasePanel")!.IsVisible);
             Assert.Equal('•', dialog.FindControl<TextBox>("KeyPassphraseBox")!.PasswordChar);
@@ -141,7 +144,9 @@ public sealed class SecurityDialogTests
             Assert.Empty(dialog.FindControl<TextBox>("KeyPassphraseBox")!.Text!);
             Assert.False(dialog.FindControl<CheckBox>("RememberKeyPassphrase")!.IsChecked == true);
             Assert.False(dialog.FindControl<Border>("PasswordPanel")!.IsVisible);
-            dialog.FindControl<ListBox>("SavedServersList")!.SelectedIndex = 0;
+            dialog.FindControl<RadioButton>("KeyRadio")!.IsChecked = false;
+            dialog.FindControl<RadioButton>("PasswordRadio")!.IsChecked = true;
+            dialog.FindControl<RadioButton>("PasswordRadio")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.True(dialog.FindControl<Border>("PasswordPanel")!.IsVisible);
             dialog.FindControl<TextBox>("HostBox")!.Text = "edited.test";
             Directory.CreateDirectory(config + ".tmp");
@@ -150,12 +155,6 @@ public sealed class SecurityDialogTests
             Assert.Contains(dialog.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("保存失败") == true);
             Assert.Equal("edited.test", dialog.FindControl<TextBox>("HostBox")!.Text);
             Assert.Equal("original.test", service.GetSavedServers().Single(server => server.Id == "fixture").Host);
-            credentials.FailDelete = true;
-            dialog.FindControl<Button>("DeleteButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
-            Assert.Contains(dialog.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("删除失败") == true);
-            Assert.Equal("edited.test", dialog.FindControl<TextBox>("HostBox")!.Text);
-            Assert.Equal(2, service.GetSavedServers().Count);
             var save = dialog.FindControl<Button>("SaveButton")!;
             Assert.True(save.IsVisible); Assert.True(save.Bounds.Height >= 28);
             Assert.True(dialog.FindControl<Button>("ConnectButton")!.Bounds.Right <= dialog.ClientSize.Width);

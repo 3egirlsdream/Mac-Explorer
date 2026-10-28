@@ -49,7 +49,15 @@ public partial class FileListViewModel
 
     public async Task DisconnectServerAsync(RemoteServerInfo server)
     {
-        if (server.ServiceType == RemoteServiceType.Sftp) { DisconnectServer(server.Id); return; }
+        if (server.ServiceType == RemoteServiceType.Sftp)
+        {
+            var wasCurrent = CurrentRemoteServerId == server.Id;
+            var connections = App.Services?.GetService<IServerConnectionCoordinator>();
+            if (connections != null) await connections.DisconnectAsync(server);
+            else _remoteConnectionService?.Disconnect(server.Id);
+            if (wasCurrent) await NavigateToAsync(VirtualPath.Network);
+            return;
+        }
         if (!await ConfirmNetworkUnmountAsync()) return;
         NetworkError = null;
         var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();

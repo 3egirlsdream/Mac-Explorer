@@ -115,16 +115,23 @@ public partial class MainWindowViewModel : ObservableObject
         AddTab(fileList, select: true);
     }
 
-    public ExplorerTabViewModel AddTab(FileListViewModel fileList, bool select)
+    public ExplorerTabViewModel AddTab(FileListViewModel fileList, bool select, int? insertIndex = null)
     {
         var tab = new ExplorerTabViewModel(fileList);
-        Tabs.Add(tab);
+        Tabs.Insert(Math.Clamp(insertIndex ?? Tabs.Count, 0, Tabs.Count), tab);
         if (VisiblePanes.Count < PaneCount)
             VisiblePanes.Add(tab);
         UpdateCanClose();
         if (select)
             SelectedTab = tab;
         return tab;
+    }
+
+    public void MoveTab(ExplorerTabViewModel tab, int destination)
+    {
+        var source = Tabs.IndexOf(tab);
+        if (source < 0 || destination < 0 || destination >= Tabs.Count || source == destination) return;
+        Tabs.Move(source, destination);
     }
 
     public ExplorerTabViewModel? SelectRelativeTab(int offset)

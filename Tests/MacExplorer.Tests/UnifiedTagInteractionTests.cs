@@ -83,6 +83,7 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
         using var tags = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
         var clipboard = new TagTestClipboard();
         using var vm = CreateViewModel(files, fileTagService: tags, clipboardService: clipboard);
+        Window? treeWindow = null;
         try
         {
             var tag = await tags.CreateTagAsync("项目");
@@ -90,16 +91,17 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
             vm.SetSelection(vm.Entries);
             var actions = await vm.LoadCompleteFileContextMenuAsync(vm.Entries[0]);
             var menu = Assert.Single(actions, a => a.Label == "标签");
-            var toggle = Assert.Single(menu.SubItems!, a => a.Label == "项目");
-            Assert.False(toggle.IsChecked);
-            Assert.Equal(MacExplorer.Assets.Icons.Tag, toggle.IconSvg);
-            Assert.Equal(tag.ColorHex, toggle.IconColor);
-            await toggle.Execute!();
+            var tree = new TagTreePanel(vm, menu.TagTreePaths);
+            treeWindow = new Window { Content = tree };
+            treeWindow.Styles.Add(new FluentTheme());
+            treeWindow.Show(); Dispatcher.UIThread.RunJobs();
+            Border Row() => tree.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is FileTag { Name: "项目" });
+            Button Toggle() => Row().GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-tree-name"));
+            Assert.False(Row().GetVisualDescendants().OfType<PathIcon>().Single(i => i.Classes.Contains("tag-tree-check")).IsVisible);
+            Toggle().RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Dispatcher.UIThread.RunJobs();
             Assert.Equal(2, (await tags.FindFilePathsAsync(tag)).Count);
-            actions = await vm.LoadCompleteFileContextMenuAsync(vm.Entries[0]);
-            toggle = Assert.Single(Assert.Single(actions, a => a.Label == "标签").SubItems!, a => a.Label == "项目");
-            Assert.True(toggle.IsChecked);
-            await toggle.Execute!();
+            Assert.True(Row().GetVisualDescendants().OfType<PathIcon>().Single(i => i.Classes.Contains("tag-tree-check")).IsVisible);
+            Toggle().RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Dispatcher.UIThread.RunJobs();
             Assert.Empty(await tags.FindFilePathsAsync(tag));
             Assert.True(File.Exists(path));
             Assert.True(Directory.Exists(folder));
@@ -121,7 +123,7 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
             Assert.Equal(0, files.MoveCalls);
             Assert.Equal(0, files.CopyCalls);
         }
-        finally { Directory.Delete(root, true); }
+        finally { treeWindow?.Close(); Directory.Delete(root, true); }
     }
 
     [AvaloniaFact(Explicit = true)]

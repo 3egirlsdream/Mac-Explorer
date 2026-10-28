@@ -42,6 +42,8 @@ public partial class FinderToolbar : UserControl
         InitializeComponent();
         ToolbarTags.Opening += CloseDropdowns;
         ToolbarTags.NewTagRequested += () => ShowTagManagement(create: true);
+        ToolbarTags.RenameTagRequested += tag => ShowTagManagement(create: false, target: tag, rename: true);
+        ToolbarTags.CreateChildRequested += tag => ShowTagManagement(create: false, target: tag);
         DataContextChanged += OnDataContextChanged;
         SubscribeToViewModel(ViewModel);
         SyncViewModeToggles();
@@ -290,7 +292,7 @@ public partial class FinderToolbar : UserControl
         popup.IsOpen = shouldOpen;
     }
 
-    private void ShowTagManagement(bool create)
+    private async void ShowTagManagement(bool create, FileTag? target = null, bool rename = false)
     {
         CloseDropdowns();
         if (ViewModel == null) return;
@@ -299,6 +301,13 @@ public partial class FinderToolbar : UserControl
         tree.NavigationRequested += () => TagManagementDropdown.IsOpen = false;
         TagManagementHost.Child = tree;
         TagManagementDropdown.IsOpen = true;
+        await tree.RefreshAsync();
+        if (!TagManagementDropdown.IsOpen || !TagManagementHost.GetVisualDescendants().Contains(tree)) return;
+        if (target != null)
+        {
+            if (rename) tree.BeginEditTag(target);
+            else tree.BeginCreateChildTag(target);
+        }
         if (create) tree.BeginCreateTag();
     }
 

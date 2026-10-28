@@ -20,6 +20,8 @@ public interface IRemoteConnectionService
     bool IsConnected(string serverId);
     SftpClient? GetClient(string serverId);
     IReadOnlyList<RemoteServerInfo> GetSavedServers();
+    IReadOnlyList<RemoteServerInfo> GetConnectedServers() => [];
+    event Action? Changed { add { } remove { } }
     void SaveServer(RemoteServerInfo server);
     void RemoveServer(string serverId);
     event EventHandler<string>? ConnectionLost;

@@ -146,6 +146,9 @@ public sealed class FastFileList : Control, ILogicalScrollable
     internal int CachedGridNameCount => _gridNames.Count;
     internal int ObservedRowCount => _observed.Count;
     internal int LastRenderedRowCount { get; private set; }
+#if DEMO_AUTOMATION
+    internal int DemoPendingImages => _images.PendingCount;
+#endif
     internal int LastRenderedSkeletonRowCount { get; private set; }
     internal int LastRenderedHeaderCount { get; private set; }
     internal int GridColumns => _layout.Columns;

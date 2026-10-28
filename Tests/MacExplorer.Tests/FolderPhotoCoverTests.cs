@@ -72,9 +72,24 @@ public sealed class FolderPhotoCoverTests : IDisposable
 
         Assert.NotNull(result);
         Assert.Equal(count, thumbnails.Requested.Count);
+        // Photo overlays must preserve the ordinary folder artwork outside the cards.
+        using var folderImage = SKImage.FromEncodedData(SvgIconCache.RenderFolderPng(256));
+        using var expectedSurface = SKSurface.Create(new SKImageInfo(pixels, pixels, SKColorType.Bgra8888, SKAlphaType.Premul));
+        expectedSurface.Canvas.Clear(SKColors.Transparent);
+        using var paint = new SKPaint { IsAntialias = true };
+        expectedSurface.Canvas.DrawImage(folderImage, new SKRect(0, 0, pixels, pixels),
+            new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear), paint);
+        using var expectedImage = expectedSurface.Snapshot();
+        using var expected = SKBitmap.FromImage(expectedImage);
         using var bitmap = SKBitmap.Decode(result.Bytes);
         Assert.Equal(pixels, bitmap.Width);
         Assert.Equal(pixels, bitmap.Height);
+        for (var y = 0; y < pixels; y++)
+        {
+            if (y >= pixels * 0.15 && y <= pixels * 0.9) continue;
+            for (var x = 0; x < pixels; x++)
+                Assert.Equal(expected.GetPixel(x, y), bitmap.GetPixel(x, y));
+        }
         var colors = new int[3];
         var lowerPhotoPixels = 0;
         for (var y = 0; y < bitmap.Height; y++)

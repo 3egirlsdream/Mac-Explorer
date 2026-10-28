@@ -96,9 +96,11 @@ public partial class SettingsDialog : DialogWindow
         SettingsTabs.SelectedIndex = 0;
         AddHandler(WindowOpenedEvent, (_, _) => { _pagesReady = true; EnsureSelectedPage(); });
         Opened += OnOpened;
+        Activated += OnSettingsActivated;
         _initializing = false;
         Closed += (_, _) =>
         {
+            Activated -= OnSettingsActivated;
             _localizationService.LanguageChanged -= RefreshLanguage;
             if (_ownsLocalizationService && _localizationService is IDisposable owned) owned.Dispose();
             _updateCancellation.Cancel();
@@ -177,8 +179,8 @@ public partial class SettingsDialog : DialogWindow
                 DirectoryAccessGroup.IsVisible = true;
                 RenderDirectoryAccess();
             }
+            RefreshDefaultManager();
             if (ViewModel == null) return;
-            DefaultManagerToggle.IsChecked = DistributionChannel.SupportsSystemIntegration && _defaultAppService.IsDefaultFolderHandler();
             AiAnalysisToggle.IsChecked = ViewModel.IsAiAnalysisEnabled;
             ConfirmBeforeTrashToggle.IsChecked = ViewModel.ConfirmBeforeTrash;
             DoubleClickEmptyAreaGoUpToggle.IsChecked = ViewModel.DoubleClickEmptyAreaGoUp;
@@ -195,6 +197,7 @@ public partial class SettingsDialog : DialogWindow
             if (IsPageLoaded("general"))
             {
                 RefreshLanguageOptions();
+                RefreshDefaultManager();
                 if (DistributionChannel.IsAppStore) RenderDirectoryAccess();
             }
             if (IsPageLoaded("about"))
@@ -455,6 +458,38 @@ public partial class SettingsDialog : DialogWindow
         return path;
     }
 
+    private void OnSettingsActivated(object? sender, EventArgs e)
+    {
+        if (_pagesReady && IsPageLoaded("general"))
+        {
+            GeneralStatusBorder.IsVisible = false;
+            RefreshDefaultManager();
+        }
+    }
+
+    private void RefreshDefaultManager()
+    {
+        if (!DistributionChannel.SupportsSystemIntegration) return;
+        var status = _defaultAppService.GetFolderHandlerStatus();
+        var initializing = _initializing;
+        _initializing = true;
+        try
+        {
+            // Refresh only system integration; preserve all other settings drafts.
+            DefaultManagerToggle.IsEnabled = status.IsDefault.HasValue;
+            if (status.IsDefault.HasValue) DefaultManagerToggle.IsChecked = status.IsDefault.Value;
+            var key = status.IsDefault == null || status.RequiresRestart == null
+                ? "settings.default_manager.read_failed"
+                : status.IsPartial ? "settings.default_manager.partial"
+                : status.RequiresRestart == true
+                    ? status.IsDefault == true ? "settings.default_manager.pending" : "settings.default_manager.restore_pending"
+                    : null;
+            DefaultManagerStatus.Text = key == null ? null : _localizationService.Get(key);
+            DefaultManagerStatus.IsVisible = key != null;
+        }
+        finally { _initializing = initializing; }
+    }
+
     private void OnDefaultManagerChanged(object? sender, RoutedEventArgs e)
     {
         if (_initializing) return;
@@ -468,9 +503,7 @@ public partial class SettingsDialog : DialogWindow
         GeneralStatusText.Foreground = new SolidColorBrush(Color.Parse(result.Success ? "#2D8A4E" : "#D63030"));
         GeneralStatusText.Text = result.Message;
 
-        _initializing = true;
-        DefaultManagerToggle.IsChecked = DistributionChannel.SupportsSystemIntegration && _defaultAppService.IsDefaultFolderHandler();
-        _initializing = false;
+        RefreshDefaultManager();
     }
 
     private void OnAiAnalysisChanged(object? sender, RoutedEventArgs e)

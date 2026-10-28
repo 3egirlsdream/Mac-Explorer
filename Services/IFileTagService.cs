@@ -15,6 +15,14 @@ public interface IFileTagService
     Task SetTagColorAsync(FileTag tag, int colorId, CancellationToken cancellationToken = default);
     Task SetTagPinnedAsync(FileTag tag, bool pinned, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FileTag>> GetFileTagsAsync(string filePath, CancellationToken cancellationToken = default);
+    async Task<FileTagSelection> GetFileTagSelectionAsync(IReadOnlyList<string> filePaths, CancellationToken cancellationToken = default)
+    {
+        var membership = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in filePaths.Distinct(StringComparer.Ordinal))
+            foreach (var tag in await GetFileTagsAsync(path, cancellationToken))
+                membership[tag.Name] = membership.GetValueOrDefault(tag.Name) + 1;
+        return new(await GetSidebarTagsAsync(cancellationToken), membership);
+    }
     Task<TagSyncResult> SetTagAsync(IReadOnlyList<string> filePaths, FileTag tag, bool applied, CancellationToken cancellationToken = default);
     Task<TagSyncResult> RetryPendingAsync(CancellationToken cancellationToken = default);
 
@@ -32,6 +40,7 @@ public interface IFinderTagQueryService
 }
 
 public sealed record TagSyncResult(int SyncedFiles, int PendingFiles);
+public sealed record FileTagSelection(IReadOnlyList<FileTag> Tags, IReadOnlyDictionary<string, int> Membership);
 public sealed class TagRenamedEventArgs(string oldName, string? newName) : EventArgs
 {
     public string OldName { get; } = oldName;

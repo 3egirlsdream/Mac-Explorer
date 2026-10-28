@@ -37,6 +37,7 @@ public sealed class TagTreePanel : UserControl
     private bool _attached;
     private bool _refreshQueued;
     private int _loadVersion;
+    private CancellationTokenSource? _refreshCancellation;
     private Border? _dropRow;
     private DispatcherTimer? _hoverTimer;
     private Point _dragStart;
@@ -76,6 +77,7 @@ public sealed class TagTreePanel : UserControl
         DetachedFromVisualTree += (_, _) =>
         {
             _attached = false; _loadVersion++;
+            _refreshCancellation?.Cancel();
             _viewModel.SidebarTags.CollectionChanged -= OnTagsChanged;
             if (LocalizationService.Current is { } language) language.LanguageChanged -= OnLanguageChanged;
             ClearDropTarget();
@@ -100,23 +102,27 @@ public sealed class TagTreePanel : UserControl
     internal async Task RefreshAsync()
     {
         var version = ++_loadVersion;
+        _refreshCancellation?.Cancel();
+        using var cancellation = new CancellationTokenSource();
+        _refreshCancellation = cancellation;
         try
         {
             var service = _viewModel.FileTagService;
-            var tags = service == null ? _viewModel.SidebarTags.ToArray() : (await service.GetSidebarTagsAsync()).ToArray();
-            var membership = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            if (_filePaths != null && service != null)
-                foreach (var path in _filePaths)
-                    foreach (var tag in await service.GetFileTagsAsync(path))
-                        membership[tag.Name] = membership.GetValueOrDefault(tag.Name) + 1;
+            var selection = service != null && _filePaths != null
+                ? await service.GetFileTagSelectionAsync(_filePaths, cancellation.Token) : null;
+            var tags = selection?.Tags.ToArray() ?? (service == null ? _viewModel.SidebarTags.ToArray()
+                : (await service.GetSidebarTagsAsync(cancellation.Token)).ToArray());
             if (version != _loadVersion || !_attached) return;
             _tags = tags;
             _header.Update(HeaderTitle);
             _membership.Clear();
-            foreach (var pair in membership) _membership[pair.Key] = pair.Value;
+            if (selection != null)
+                foreach (var pair in selection.Membership) _membership[pair.Key] = pair.Value;
             if (_editor == null) RenderRows();
         }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (Exception ex) { if (version == _loadVersion && _attached) ShowError(ex); }
+        finally { if (ReferenceEquals(_refreshCancellation, cancellation)) _refreshCancellation = null; }
     }
 
     private void RenderRows()
@@ -148,12 +154,16 @@ public sealed class TagTreePanel : UserControl
     {
         var tag = node.Tag;
         var indent = Math.Min(depth * FastFileList.TreeStep, Math.Max(0, (Bounds.Width > 0 ? Bounds.Width : MinWidth) - 140));
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("16,*"), Margin = new Thickness(8 + indent, 0, 8, 0) };
+        // Assignment menus align their icons with sibling submenus; disclosure belongs on the right.
+        var isAssignmentMenu = _filePaths != null;
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(isAssignmentMenu ? "*,16" : "16,*"),
+            Margin = new Thickness(8 + indent, 0, 8, 0) };
         var arrow = new Button { Classes = { "ghost", "compact", "tag-tree-arrow" }, Width = FastFileList.TreeDisclosureWidth, Height = 22,
             Content = Icon(_expanded.Contains(tag.Name) ? Icons.ChevronDown : Icons.ChevronRight, 12),
             VerticalAlignment = VerticalAlignment.Center, IsVisible = node.Children.Count > 0 };
         AutomationProperties.SetName(arrow, LocalizationText.Get("展开或收起标签“{0}”", tag.DisplayName));
         arrow.Click += (_, _) => ToggleExpanded(tag.Name);
+        Grid.SetColumn(arrow, isAssignmentMenu ? 1 : 0);
         grid.Children.Add(arrow);
         var icon = Icon(Icons.Tag, 14); icon.Foreground = Brush.Parse(tag.ColorHex);
         var content = new Grid { ColumnDefinitions = new ColumnDefinitions("20,*,22") };
@@ -166,7 +176,7 @@ public sealed class TagTreePanel : UserControl
             Tag = tag, Height = FastFileList.RowHeight };
         ToolTip.SetTip(label, tag.DisplayName);
         AutomationProperties.SetName(label, tag.DisplayName);
-        Grid.SetColumn(label, 1); grid.Children.Add(label); _nameButtons[tag.Name] = label;
+        Grid.SetColumn(label, isAssignmentMenu ? 0 : 1); grid.Children.Add(label); _nameButtons[tag.Name] = label;
         var count = _membership.GetValueOrDefault(tag.Name);
         var check = Icon(Icons.Checkmark, 12);
         check.Classes.Add("tag-tree-check");
@@ -252,7 +262,7 @@ public sealed class TagTreePanel : UserControl
             item.Click += (_, _) => action(); menu.Items.Add(item);
         }
         Add("添加子标签", () => StartCreate(tag.Name));
-        Add("重命名", () => StartEdit(tag), tag.IsCustom);
+        Add("重命名", () => StartEdit(tag));
         Add(tag.IsPinned ? "从首页取消置顶" : "在首页置顶", () => _ = GuardAsync(() => _viewModel.SetTagPinnedAsync(tag, !tag.IsPinned)));
         Add("删除", () => { CloseRequested?.Invoke(); _viewModel.ShowTagDeleteConfirmDialog(tag); }, tag.IsCustom);
         return menu;
@@ -260,8 +270,29 @@ public sealed class TagTreePanel : UserControl
 
     internal void BeginCreateTag() => StartCreate(null);
 
+    internal void BeginEditTag(FileTag tag)
+    {
+        ExpandAncestors(tag);
+        StartEdit(tag);
+    }
+
+    internal void BeginCreateChildTag(FileTag parent)
+    {
+        ExpandAncestors(parent);
+        StartCreate(parent.Name);
+    }
+
+    private void ExpandAncestors(FileTag tag)
+    {
+        for (var parent = tag.ParentName; parent != null;)
+        {
+            _expanded.Add(parent);
+            parent = _tags.FirstOrDefault(t => t.Name == parent)?.ParentName;
+        }
+    }
+
     private void StartCreate(string? parentName) { _newParent = parentName; _renaming = null; StartEditor(LocalizationText.Get("新标签")); }
-    private void StartEdit(FileTag tag) { _renaming = tag; _newParent = tag.ParentName; StartEditor(tag.Name); }
+    private void StartEdit(FileTag tag) { _renaming = tag; _newParent = tag.ParentName; StartEditor(tag.DisplayName); }
     private void StartEditor(string text)
     {
         if (_busy) return;
@@ -288,13 +319,13 @@ public sealed class TagTreePanel : UserControl
             if (parentRow != null) insertAt = _rows.Children.IndexOf(parentRow) + 1;
         }
         _rows.Children.Insert(insertAt, editorRow);
-        Dispatcher.UIThread.Post(() => { _editor?.Focus(); _editor?.SelectAll(); });
+        Dispatcher.UIThread.Post(() => { _editor?.Focus(); _editor?.SelectAll(); _editor?.BringIntoView(); });
     }
 
     private async Task CommitEditAsync()
     {
         var name = _editor?.Text?.Trim();
-        if (_busy || string.IsNullOrEmpty(name)) return;
+        if (_busy || name == null) return;
         await GuardAsync(async () =>
         {
             var service = _viewModel.FileTagService;

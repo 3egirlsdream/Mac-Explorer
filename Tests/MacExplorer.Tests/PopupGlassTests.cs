@@ -14,6 +14,31 @@ namespace MacExplorer.Tests;
 [Trait("Area", "PopupGlass")]
 public sealed class PopupGlassTests
 {
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
+    public void CaptureKeepsInsertionOrderAndStableZIndexOrder()
+    {
+        var painted = new List<string>();
+        var first = new OrderedCaptureProbe("first", painted);
+        var second = new OrderedCaptureProbe("second", painted);
+        var third = new OrderedCaptureProbe("third", painted);
+        var root = new Grid { Children = { first, second, third } };
+        root.Measure(new Size(100, 100)); root.Arrange(new Rect(0, 0, 100, 100));
+        var render = typeof(LiquidGlassSurface).Assembly.GetType("LiquidGlassAvaloniaUI.LiquidGlassVisualRenderer")!
+            .GetMethod("Render", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+        using var drawing = new DrawingGroup().Open();
+        render.Invoke(null, [drawing, root, new Rect(root.Bounds.Size), null, true]);
+        Assert.Equal(new[] { "first", "second", "third" }, painted);
+        painted.Clear(); first.ZIndex = 2;
+        render.Invoke(null, [drawing, root, new Rect(root.Bounds.Size), null, true]);
+        Assert.Equal(new[] { "second", "third", "first" }, painted);
+    }
+
+    private sealed class OrderedCaptureProbe(string name, List<string> painted) : Control
+    {
+        public override void Render(DrawingContext context) => painted.Add(name);
+    }
+
     [Fact]
     [Trait("Kind", "Unit")]
     public void UnchangedBackdropReusesSnapshotButPixelChangeOutsideSampleGridDoesNot()

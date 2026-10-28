@@ -22,6 +22,7 @@ public class RemoteServerInfo : INotifyPropertyChanged
     public string DefaultPath { get; set; } = "/";
     public string ShareName { get; set; } = "";
     public string Domain { get; set; } = "";
+    public string WebDavUrl { get; set; } = "";
     public DateTimeOffset? LastConnectedAt { get; set; }
 
     public string DisplayName => string.IsNullOrWhiteSpace(Name) ? (string.IsNullOrWhiteSpace(Username) ? Host : $"{Username}@{Host}") : Name;
@@ -64,5 +65,6 @@ public enum RemoteAuthMethod
 public enum RemoteServiceType
 {
     Sftp = 0,
-    Smb = 1
+    Smb = 1,
+    WebDav = 2
 }

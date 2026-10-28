@@ -143,6 +143,16 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_TASK_RING_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.TaskProgressRingSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WEBDAV_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.WebDavMountSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_OPEN_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -175,6 +185,9 @@ public partial class App : Application
                 () => Services.GetRequiredService<Platforms.MacCatalyst.Services.MacDockMenuService>().Register(),
                 TimeSpan.FromSeconds(1));
         }
+#if DEMO_AUTOMATION
+        if (mainWindow != null) Tools.DemoRecord.DemoAutomation.Start(mainWindow);
+#endif
     }
 
     private static async Task StartLocalSendAsync(ILocalSendService localSend)
@@ -250,6 +263,9 @@ public partial class App : Application
 
     private async Task CheckStartupUpdateAsync()
     {
+#if DEMO_AUTOMATION
+        if (RuntimePaths.TestRoot != null) return;
+#endif
         if (DistributionChannel.IsAppStore) return;
         var ct = _startupUpdateCancellation.Token;
         try
@@ -363,9 +379,10 @@ public partial class App : Application
             sp.GetService<ILogger<Services.Impl.RemoteConnectionService>>())
             { ConfirmHostKeyAsync = Views.Dialogs.SftpHostKeyConsent.ConfirmAsync,
                 RequestPrivateKeyPassphraseAsync = Views.Dialogs.SftpPrivateKeyConsent.RequestAsync });
-        services.AddSingleton<ISmbMountService, SmbMountService>();
+        services.AddSingleton<INetworkMountService, NetworkMountService>();
         services.AddSingleton<IServerConnectionCoordinator, ServerConnectionCoordinator>();
         services.AddSingleton<INetworkDiscoveryService, NetworkDiscoveryService>();
+        services.AddSingleton<INetworkLocationService, NetworkLocationService>();
         services.AddSingleton<SftpFileService>();
         services.AddSingleton<IRemoteFileService>(sp => sp.GetRequiredService<SftpFileService>());
         services.AddSingleton<IRemoteFileEditService, Services.Impl.RemoteFileEditService>();

@@ -1,7 +1,4 @@
-using System.Text;
-using MacExplorer.Models;
 using SkiaSharp;
-using Svg.Skia;
 
 namespace MacExplorer.Services.Impl;
 
@@ -106,15 +103,6 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
             DrawCard(canvas, photos[0], 28, 29, 20, 35, 0, scale);
         }
 
-        // The original artwork forms the front of the pocket and hides each card's lower edge.
-        canvas.Save();
-        canvas.ClipRect(new SKRect(0, 39 * scale, pixels, pixels));
-        canvas.DrawImage(FolderArtwork.Value, bounds, sampling, imagePaint);
-        canvas.Restore();
-        using (var seam = new SKPaint { IsAntialias = true, Color = new SKColor(18, 87, 125, 45), StrokeWidth = 0.7f * scale })
-            canvas.DrawLine(3 * scale, 39 * scale, 53 * scale, 39 * scale, seam);
-        using (var highlight = new SKPaint { IsAntialias = true, Color = new SKColor(255, 255, 255, 48), StrokeWidth = 0.5f * scale })
-            canvas.DrawLine(3 * scale, 40 * scale, 53 * scale, 40 * scale, highlight);
         using var snapshot = surface.Snapshot();
         using var encoded = snapshot.Encode(SKEncodedImageFormat.Png, 90);
         return encoded.ToArray();
@@ -152,12 +140,7 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
 
     private static SKImage LoadFolderArtwork()
     {
-        using var svg = new SKSvg();
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(FileIconRenderer.RenderFolder(256)));
-        svg.Load(stream);
-        using var surface = SKSurface.Create(new SKImageInfo(256, 256));
-        surface.Canvas.Clear(SKColors.Transparent);
-        if (svg.Picture != null) surface.Canvas.DrawPicture(svg.Picture);
-        return surface.Snapshot();
+        // Share the ordinary folder's artwork without requiring Avalonia's UI renderer.
+        return SKImage.FromEncodedData(SvgIconCache.RenderFolderPng(256));
     }
 }

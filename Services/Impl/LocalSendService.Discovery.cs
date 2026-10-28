@@ -350,12 +350,20 @@ public sealed partial class LocalSendService
         var infoVerified = false;
         try
         {
+            var deadlineAt = UtcNow + TimeSpan.FromSeconds(4);
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(4), _timeProvider);
+            using var cancelled = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, state.Token);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, state.Token, deadline.Token);
             await _httpProbeGate.WaitAsync(timeout.Token);
             RecordPeak(ref _peakHttp, Interlocked.Increment(ref _httpInFlight));
             try
             {
+                // Historical/offline addresses otherwise make HttpClient repeatedly wrap
+                // a refused connection in exceptions, suspending every thread under a debugger.
+                if (IPAddress.TryParse(peer.Address, out var address)
+                    && await LocalSendTcpProbe.ConnectAsync(new IPEndPoint(address, peer.Port),
+                        deadlineAt - UtcNow, cancelled.Token, _timeProvider) != SocketError.Success)
+                    return false;
                 using var client = CreatePeerClient(peer);
                 if (peer.Protocol == "https")
                 {

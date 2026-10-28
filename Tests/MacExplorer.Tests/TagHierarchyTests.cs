@@ -37,9 +37,19 @@ public sealed class TagHierarchyTests : IDisposable
             Assert.Equal("置顶", ordered[0]);
             Assert.True(Array.IndexOf(ordered, "资料") < Array.IndexOf(ordered, "空"));
             await service.MoveTagAsync(tags.Single(t => t.Name == "空"), "资料", 0);
+            await service.RenameTagAsync(FileTagCatalog.FinderColors[0], "待处理");
         }
         using var reopened = new FileTagService(Factory);
         Assert.Equal("资料", (await reopened.GetSidebarTagsAsync()).Single(t => t.Name == "空").ParentName);
+        Assert.Equal("待处理", (await reopened.GetSidebarTagsAsync()).Single(t => t.Name == "红色").DisplayNameOverride);
+        using var verify = Factory.GetConnection();
+        using var plan = verify.CreateCommand();
+        plan.CommandText = "EXPLAIN QUERY PLAN SELECT d.name, COUNT(f.file_path) FROM tag_definitions d LEFT JOIN file_tags f ON f.tag = d.name COLLATE NOCASE GROUP BY d.name";
+        using var reader = plan.ExecuteReader();
+        var steps = new List<string>();
+        while (reader.Read()) steps.Add(reader.GetString(3));
+        Assert.Contains(steps, step => step.Contains("idx_file_tags_tag_nocase", StringComparison.Ordinal));
+        Assert.DoesNotContain(steps, step => step.StartsWith("SCAN f ", StringComparison.Ordinal));
     }
 
     [Fact]

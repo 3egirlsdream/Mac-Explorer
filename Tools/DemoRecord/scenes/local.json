@@ -1,0 +1,1232 @@
+{
+  "schemaVersion": 1,
+  "description": "本地真实 UI 录制；不调用外部账号、网络传输或在线模型。所有写入仅针对自动生成资料。",
+  "scenes": [
+    {
+      "id": "01-home",
+      "title": "首页与收藏",
+      "description": "展示由真实标签服务创建的收藏卡片与首页文件；等待界面就绪。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.home",
+          "arguments": {}
+        },
+        {
+          "action": "wait",
+          "state": {
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "02-script-editor",
+      "title": "脚本命令配置",
+      "description": "打开真实命令编辑窗口，展示提前配置的安全脚本、名称、图标与工作目录；本场景不启动用户终端。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "script-dialog"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "window": "HomeScriptCommandsDialog"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "03-view-modes",
+      "title": "列表、图标与树形",
+      "description": "依次切换三个真实文件视图，核对每次 ViewMode。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.view-mode",
+          "arguments": {
+            "mode": "Grid"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "viewMode": "Grid",
+            "pendingImages": 0
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.view-mode",
+          "arguments": {
+            "mode": "Tree"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "viewMode": "Tree"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.view-mode",
+          "arguments": {
+            "mode": "List"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "viewMode": "List"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "04-multi-pane",
+      "title": "三栏与四分区",
+      "description": "使用真实应用命令切换三栏、四分区，核对布局。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.pane-layout",
+          "arguments": {
+            "layout": "ThreeColumns"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "layout": "ThreeColumns"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.pane-layout",
+          "arguments": {
+            "layout": "FourGrid"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "layout": "FourGrid"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "04-native-two-pane",
+      "title": "原生点击双栏",
+      "description": "真实点击标题栏布局按钮及双栏选项，等待布局状态。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "name": "PaneLayoutButton",
+            "window": "main"
+          }
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "TwoColumns",
+            "window": "main"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "layout": "TwoColumns"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "05-context-menu",
+      "title": "右键与级联菜单",
+      "description": "CGEvent 对项目方案右键，等待真实动态菜单，悬停打开子菜单；不执行对外分享。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "file": "产品方案.md"
+          },
+          "right": true
+        },
+        {
+          "action": "wait",
+          "state": {
+            "menu": "打开方式"
+          }
+        },
+        {
+          "action": "move",
+          "target": {
+            "name": "打开方式"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        },
+        {
+          "action": "key",
+          "code": 53
+        }
+      ]
+    },
+    {
+      "id": "05-sort-group",
+      "title": "排序与分组",
+      "description": "真实文件按类型分组，再按名称倒序；展示顺序变化。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.sort",
+          "arguments": {
+            "field": "Name",
+            "ascending": false,
+            "priority": "Folders"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.group",
+          "arguments": {
+            "field": "Type"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "06-tags",
+      "title": "收藏标签定位",
+      "description": "通过真实标签服务查找山野精选，显示原文件引用。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "tag-navigate",
+          "name": "山野精选"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "高山湖泊.jpg",
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "07-information",
+      "title": "文件信息",
+      "description": "选中真实照片并展开信息面板；示例照片不冒充包含相机 EXIF。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/摄影作品"
+        },
+        {
+          "action": "app",
+          "op": "select",
+          "names": [
+            "高山湖泊.jpg"
+          ]
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.info-panel",
+          "arguments": {
+            "visible": true
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "08-global-search",
+      "title": "全局搜索与固定预览",
+      "description": "应用内打开真实 Cmd+K 面板并设置查询文本，等待真实索引命中与固定预览；该镜头不验证物理 Cmd+K 或 TextBox 原生文字注入。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/摄影作品"
+        },
+        {
+          "action": "app",
+          "op": "index-ready"
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "global-search-open"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "globalSearch": true
+          }
+        },
+        {
+          "action": "app",
+          "op": "text",
+          "name": "GlobalSearchBox",
+          "text": "高山湖泊"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "globalResult": "高山湖泊.jpg"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "08-name-search",
+      "title": "文件名搜索",
+      "description": "在隔离项目范围搜索高山，检查命中高山湖泊.jpg。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.search",
+          "arguments": {
+            "query": "高山"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "loading": false,
+            "entry": "高山湖泊.jpg"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "09-pdf-content",
+      "title": "PDF 正文搜索",
+      "description": "在隔离资料上执行真实 PDF 文本提取并保存分析，搜索正文 lake，验证 PDF 命中。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/原始资料"
+        },
+        {
+          "action": "app",
+          "op": "index-ready"
+        },
+        {
+          "action": "app",
+          "op": "analyze",
+          "path": "${PROJECT}/原始资料/项目提案.pdf"
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "content-search",
+          "query": "lake"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "项目提案.pdf",
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "10-image-ocr",
+      "title": "图片文字搜索",
+      "description": "对合成白板运行本机 Vision OCR，搜索 MOUNTAIN，验证图片命中。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/原始资料"
+        },
+        {
+          "action": "app",
+          "op": "index-ready"
+        },
+        {
+          "action": "app",
+          "op": "analyze",
+          "path": "${PROJECT}/原始资料/会议白板.png"
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "content-search",
+          "query": "MOUNTAIN"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "会议白板.png",
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "11-image-classification",
+      "title": "本机图像分类",
+      "description": "对仓库示例湖泊照片运行真实 Vision 分类，打开最高置信度分类并验证照片。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/摄影作品"
+        },
+        {
+          "action": "app",
+          "op": "index-ready"
+        },
+        {
+          "action": "app",
+          "op": "analyze",
+          "path": "${PROJECT}/摄影作品/高山湖泊.jpg"
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "classification-open",
+          "path": "${PROJECT}/摄影作品/高山湖泊.jpg"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "高山湖泊.jpg",
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "12-image-space",
+      "title": "空格预览图片",
+      "description": "真实鼠标选中文件，发送空格，验证预览层打开。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/摄影作品"
+        }
+      ],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "file": "高山湖泊.jpg"
+          }
+        },
+        {
+          "action": "key",
+          "code": 49,
+          "modifiers": ""
+        },
+        {
+          "action": "wait",
+          "state": {
+            "preview": true,
+            "previewReady": true
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        },
+        {
+          "action": "key",
+          "code": 53,
+          "modifiers": ""
+        }
+      ]
+    },
+    {
+      "id": "12-office-preview",
+      "title": "Office 预览",
+      "description": "打开自动生成的 Word 文档，录制系统 Quick Look 内嵌界面。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/原始资料"
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "preview",
+          "path": "${PROJECT}/原始资料/设计简报.docx"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "preview": true,
+            "previewReady": true
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        },
+        {
+          "action": "app",
+          "op": "preview-close"
+        }
+      ]
+    },
+    {
+      "id": "12-pdf-space",
+      "title": "原生 PDF 预览",
+      "description": "打开自动生成的可搜索 PDF，录制真实 PDFKit 内容。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/原始资料"
+        }
+      ],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "file": "项目提案.pdf"
+          }
+        },
+        {
+          "action": "key",
+          "code": 49,
+          "modifiers": ""
+        },
+        {
+          "action": "wait",
+          "state": {
+            "preview": true,
+            "previewReady": true
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        },
+        {
+          "action": "key",
+          "code": 53,
+          "modifiers": ""
+        }
+      ]
+    },
+    {
+      "id": "13-markdown-edit",
+      "title": "Markdown 编辑与保存",
+      "description": "真实编辑器输入待办，按 Cmd+S，检查磁盘中保存的内容。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "editor-open",
+          "path": "${PROJECT}/产品方案.md"
+        }
+      ],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "name": "Editor",
+            "window": "main"
+          }
+        },
+        {
+          "action": "key",
+          "code": 125,
+          "modifiers": "cmd"
+        },
+        {
+          "action": "text",
+          "text": "\n- 检查最终交付\n"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "editorContains": "检查最终交付"
+          }
+        },
+        {
+          "action": "key",
+          "code": 1,
+          "modifiers": "cmd"
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/产品方案.md",
+          "contains": "检查最终交付"
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "14-batch-rename",
+      "title": "批量重命名与撤销",
+      "description": "真实工作台预览规则，点击执行，再点击撤销；检查文件恢复。",
+      "captureProfile": "app",
+      "interactionMode": "mixed",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/批量重命名"
+        },
+        {
+          "action": "app",
+          "op": "select",
+          "names": [
+            "IMG_0001.jpg",
+            "IMG_0002.jpg",
+            "IMG_0003.jpg",
+            "IMG_0004.jpg",
+            "IMG_0005.jpg",
+            "IMG_0006.jpg"
+          ]
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.batch-rename-dialog",
+          "arguments": {
+            "rules": [
+              {
+                "type": "Template",
+                "templateText": "山野_{n:000}"
+              }
+            ]
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "window": "BatchRenameDialog"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "ApplyButton",
+            "window": "BatchRenameDialog"
+          }
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/批量重命名/山野_001.jpg"
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "UndoButton",
+            "window": "BatchRenameDialog"
+          }
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/批量重命名/IMG_0001.jpg"
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "15-image-convert",
+      "title": "图片格式转换",
+      "description": "真实右键文件转换菜单，SVG 转 PNG，确认尺寸对话框并校验输出文件。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/设计稿"
+        }
+      ],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "file": "品牌标志.svg"
+          },
+          "right": true
+        },
+        {
+          "action": "wait",
+          "state": {
+            "menu": "文件转换"
+          }
+        },
+        {
+          "action": "move",
+          "target": {
+            "name": "文件转换"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "menu": "转为 PNG"
+          }
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "转为 PNG",
+            "window": "main"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "window": "ImageConversionDialog"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "转换",
+            "window": "ImageConversionDialog"
+          }
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/设计稿/品牌标志.png",
+          "format": "png"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "品牌标志.png",
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "15-markdown-word",
+      "title": "Markdown 转 Word",
+      "description": "真实右键调用内置转换插件，将示例方案转 Word 并检查输出。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "file": "产品方案.md"
+          },
+          "right": true
+        },
+        {
+          "action": "wait",
+          "state": {
+            "menu": "文件转换"
+          }
+        },
+        {
+          "action": "move",
+          "target": {
+            "name": "文件转换"
+          }
+        },
+        {
+          "action": "wait",
+          "state": {
+            "menu": "转为 Word（.docx）"
+          }
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "转为 Word（.docx）",
+            "window": "main"
+          }
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/产品方案.docx",
+          "format": "docx"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "产品方案.docx",
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "16-archive-preview",
+      "title": "压缩包浏览",
+      "description": "真实打开 fixture ZIP 并显示其内容列表。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [],
+      "record": [
+        {
+          "action": "click",
+          "target": {
+            "file": "项目归档.zip"
+          },
+          "count": 2
+        },
+        {
+          "action": "wait",
+          "state": {
+            "loading": false,
+            "entry": "产品方案.md"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "16-compress",
+      "title": "创建压缩包",
+      "description": "打开真实压缩窗口，设置独立输出名，点击确认并校验 ZIP 结构。",
+      "captureProfile": "app",
+      "interactionMode": "mixed",
+      "prepare": [
+        {
+          "action": "app",
+          "op": "select",
+          "names": [
+            "产品方案.md",
+            "会议记录.txt"
+          ]
+        }
+      ],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.compress-dialog",
+          "arguments": {}
+        },
+        {
+          "action": "wait",
+          "state": {
+            "window": "CompressDialog"
+          }
+        },
+        {
+          "action": "app",
+          "op": "text",
+          "window": "CompressDialog",
+          "name": "ArchiveNameBox",
+          "text": "演示交付"
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "ConfirmBtn",
+            "window": "CompressDialog"
+          }
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/演示交付.zip",
+          "format": "zip"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "tasksComplete": true
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "16-extract",
+      "title": "解压与结果",
+      "description": "调用实际解压入口并显示任务面板，验证生成文件及内容。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "extract",
+          "path": "${PROJECT}/项目归档.zip"
+        },
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.task-panel",
+          "arguments": {}
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/项目归档/产品方案.md",
+          "matches": "${PROJECT}/产品方案.md"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "tasksComplete": true
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/项目归档"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "产品方案.md",
+            "loading": false
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "17-copy-undo",
+      "title": "文件复制与撤销",
+      "description": "实际文件任务复制到交付目录，校验内容，再经历史服务撤销。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "copy",
+          "paths": [
+            "${PROJECT}/产品方案.md"
+          ],
+          "destination": "${PROJECT}/交付文件"
+        },
+        {
+          "action": "app",
+          "op": "navigate",
+          "path": "${PROJECT}/交付文件"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "entry": "产品方案.md",
+            "loading": false
+          }
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/交付文件/产品方案.md",
+          "matches": "${PROJECT}/产品方案.md"
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        },
+        {
+          "action": "app",
+          "op": "undo"
+        },
+        {
+          "action": "file",
+          "path": "${PROJECT}/交付文件/产品方案.md",
+          "exists": false
+        },
+        {
+          "action": "hold",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "20-delivery-drag",
+      "title": "文件速递原生拖出",
+      "description": "菜单栏面板取用下载示例图，以 Command 原生拖拽保持接收窗口前台，校验副本和主窗口激活计数。普通无修饰键拖出另行验收。",
+      "captureProfile": "desktop",
+      "interactionMode": "native-input",
+      "prepare": [
+        {
+          "action": "receiver"
+        },
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.file-delivery",
+          "arguments": {}
+        },
+        {
+          "action": "wait",
+          "state": {
+            "loading": false,
+            "entry": "高山湖泊.jpg"
+          },
+          "window": "delivery"
+        }
+      ],
+      "record": [
+        {
+          "action": "drag",
+          "source": {
+            "file": "高山湖泊.jpg",
+            "window": "delivery"
+          },
+          "modifiers": "cmd"
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "id": "22-command-hints",
+      "title": "长按 Command 提示",
+      "description": "真实 HID flagsChanged 按下 Command，等待提示浮层出现，再释放并确认关闭。",
+      "captureProfile": "app",
+      "interactionMode": "native-input",
+      "prepare": [],
+      "record": [
+        {
+          "action": "command-down"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "hints": true
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        },
+        {
+          "action": "command-up"
+        },
+        {
+          "action": "wait",
+          "state": {
+            "hints": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "22-settings",
+      "title": "紧凑设置",
+      "description": "打开真实设置窗口，等待窗口存在，录制当前语言与偏好。",
+      "captureProfile": "app",
+      "interactionMode": "app-command",
+      "prepare": [],
+      "record": [
+        {
+          "action": "app",
+          "op": "capability",
+          "id": "ui.settings",
+          "arguments": {}
+        },
+        {
+          "action": "wait",
+          "state": {
+            "window": "SettingsDialog"
+          }
+        },
+        {
+          "action": "hold",
+          "seconds": 2
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "文件速递分镜显式使用 Command 拖拽保持接收窗口前台；普通无修饰键拖拽会激活演示主窗口，未计为通过。",
+    "全局搜索全部由应用内真实入口和查询字段驱动；该 TextBox 的物理 Cmd+K、合成 Unicode 和 Escape 链路未通过。Markdown 编辑器的原生输入与 Cmd+S 已验证。",
+    "脚本仅录配置；不启动正常终端。网络、在线模型、商店购买、系统截图和任务暂停继续不在默认场景集。"
+  ]
+}

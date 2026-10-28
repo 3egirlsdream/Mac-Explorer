@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.VisualTree;
@@ -10,6 +11,24 @@ namespace LiquidGlassAvaloniaUI
 {
     internal static class LiquidGlassVisualRenderer
     {
+        private sealed class ClipRadiusAccessor
+        {
+            public ClipRadiusAccessor(Type type) => Property = FindProperty(type);
+            public PropertyInfo? Property { get; }
+
+            private static PropertyInfo? FindProperty(Type type)
+            {
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                var property = type.GetProperty("ClipToBoundsRadius", flags)
+                    ?? type.GetProperties(flags).FirstOrDefault(p => p.Name.EndsWith(".ClipToBoundsRadius", StringComparison.Ordinal));
+                return property?.PropertyType == typeof(CornerRadius) ? property : null;
+            }
+        }
+
+        // Most visual types have no rounded-clip property. Cache that result too;
+        // enumerating every property on every backdrop frame dominates capture time.
+        private static readonly ConditionalWeakTable<Type, ClipRadiusAccessor> s_clipRadiusAccessors = new();
+
         public static void Render(DrawingContext context, Visual visual, Rect clipRect, ISet<Visual>? excludedRoots, bool captureForeground = false)
         {
             if (clipRect.Width <= 0 || clipRect.Height <= 0)
@@ -72,7 +91,7 @@ namespace LiquidGlassAvaloniaUI
                 if (visualBounds.Intersects(clipRect))
                     visual.Render(context);
 
-                IReadOnlyList<Visual> children = GetOrderedChildren(visual);
+                IEnumerable<Visual> children = GetOrderedChildren(visual);
 
                 if (visual.ClipToBounds)
                 {
@@ -102,17 +121,8 @@ namespace LiquidGlassAvaloniaUI
         {
             radius = default;
 
-            Type type = visual.GetType();
-            PropertyInfo? prop = type.GetProperty("ClipToBoundsRadius", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-
+            PropertyInfo? prop = s_clipRadiusAccessors.GetValue(visual.GetType(), static type => new ClipRadiusAccessor(type)).Property;
             if (prop is null)
-            {
-                prop = type
-                    .GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
-                    .FirstOrDefault(p => p.Name.EndsWith(".ClipToBoundsRadius", StringComparison.Ordinal));
-            }
-
-            if (prop?.PropertyType != typeof(CornerRadius))
                 return false;
 
             if (prop.GetValue(visual) is not CornerRadius value)
@@ -125,32 +135,20 @@ namespace LiquidGlassAvaloniaUI
             return true;
         }
 
-        private static IReadOnlyList<Visual> GetOrderedChildren(Visual visual)
+        private static IEnumerable<Visual> GetOrderedChildren(Visual visual)
         {
             IEnumerable<Visual> children = visual.GetVisualChildren();
-
-            List<Visual>? list = null;
             int? firstZIndex = null;
-            bool hasNonUniformZIndex = false;
-
             foreach (Visual? child in children)
             {
-                list ??= new List<Visual>();
-                list.Add(child);
-
                 if (firstZIndex is null)
                     firstZIndex = child.ZIndex;
                 else if (child.ZIndex != firstZIndex.Value)
-                    hasNonUniformZIndex = true;
+                    return children.OrderBy(x => x.ZIndex);
             }
-
-            if (list is null || list.Count == 0)
-                return Array.Empty<Visual>();
-
-            if (!hasNonUniformZIndex)
-                return list;
-
-            return list.OrderBy(x => x.ZIndex).ToArray();
+            // The common case already has painting order. Don't allocate a list
+            // for every node on every capture; stable OrderBy is only needed for ZIndex.
+            return children;
         }
     }
 }

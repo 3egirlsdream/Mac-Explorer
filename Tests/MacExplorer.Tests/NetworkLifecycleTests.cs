@@ -45,7 +45,7 @@ public sealed class NetworkLifecycleTests
     public async Task SameNameSharesUseTheActualSystemMountPath()
     {
         var existing = new VolumeInfo { Path = "/Volumes/Files", SourceUrl = "smb://fixture@first/Files", IsNetwork = true };
-        var mount = new SmbMountService(() => [existing], (_, _, _, _) => Task.FromResult(new[] { "/Volumes/Files-1" }), _ => Task.FromResult(true));
+        var mount = new NetworkMountService(() => [existing], (_, _, _, _) => Task.FromResult(new[] { "/Volumes/Files-1" }), _ => Task.FromResult(true));
         var server = new RemoteServerInfo { ServiceType = RemoteServiceType.Smb, Host = "second", Port = 445, ShareName = "Files", Username = "fixture", DefaultPath = "/Sub" };
         Assert.Equal("/Volumes/Files-1/Sub", await mount.MountAsync(server));
     }
@@ -55,8 +55,8 @@ public sealed class NetworkLifecycleTests
     {
         var calls = 0;
         var volume = new VolumeInfo { Path = "/Volumes/Files", SourceUrl = "smb://fixture@nas/Files", IsNetwork = true };
-        var mount = new SmbMountService(() => [volume], (_, _, _, _) => { calls++; return Task.FromResult(new[] { volume.Path }); }, _ => Task.FromResult(true));
-        var server = new RemoteServerInfo { Host = "nas", ShareName = "Files", Port = 445, Username = "fixture", DefaultPath = "/Sub" };
+        var mount = new NetworkMountService(() => [volume], (_, _, _, _) => { calls++; return Task.FromResult(new[] { volume.Path }); }, _ => Task.FromResult(true));
+        var server = new RemoteServerInfo { ServiceType = RemoteServiceType.Smb, Host = "nas", ShareName = "Files", Port = 445, Username = "fixture", DefaultPath = "/Sub" };
         Assert.Equal("/Volumes/Files/Sub", await mount.MountAsync(server)); Assert.Equal(0, calls);
         using var cts = new CancellationTokenSource(); cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => mount.MountAsync(server, cts.Token));
@@ -76,7 +76,7 @@ public sealed class NetworkLifecycleTests
             using var remote = new RemoteConnectionService(Path.Combine(root, "servers.json"), new PrivacySecurityFollowupTests.MemoryCredentials());
             var volume = new VolumeInfo { Path = "/Volumes/Files", SourceUrl = "smb://fixture@first/Files", IsNetwork = true };
             var unmounts = 0;
-            var mount = new SmbMountService(() => [volume], (_, _, _, _) => Task.FromResult(new[] { volume.Path }), _ => { unmounts++; return Task.FromResult(true); });
+            var mount = new NetworkMountService(() => [volume], (_, _, _, _) => Task.FromResult(new[] { volume.Path }), _ => { unmounts++; return Task.FromResult(true); });
             using var coordinator = new ServerConnectionCoordinator(remote, mount, new Volumes());
             var server = new RemoteServerInfo { ServiceType = RemoteServiceType.Smb, Host = "first", Port = 445, ShareName = "Files", Username = "fixture" };
             await coordinator.ConnectAsync(server);
@@ -97,7 +97,7 @@ public sealed class NetworkLifecycleTests
             using var remote = new RemoteConnectionService(Path.Combine(root, "servers.json"), new PrivacySecurityFollowupTests.MemoryCredentials());
             var volume = new VolumeInfo { Path = "/Volumes/Files", IsNetwork = true, SourceUrl = "smb://nas/Files" };
             var calls = 0; var canUnmount = false;
-            var mount = new SmbMountService(() => [volume], (_, _, _, _) => { calls++; return Task.FromResult(new[] { volume.Path }); }, _ => Task.FromResult(canUnmount));
+            var mount = new NetworkMountService(() => [volume], (_, _, _, _) => { calls++; return Task.FromResult(new[] { volume.Path }); }, _ => Task.FromResult(canUnmount));
             using var coordinator = new ServerConnectionCoordinator(remote, mount, new Volumes());
             var server = new RemoteServerInfo { ServiceType = RemoteServiceType.Smb, Host = "nas", Port = 445, ShareName = "Files", Username = "first" };
             await coordinator.ConnectAsync(server); await coordinator.ConnectAsync(server); Assert.Equal(1, calls);

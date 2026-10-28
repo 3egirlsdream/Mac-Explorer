@@ -17,6 +17,97 @@ public sealed class UnifiedFileTagTests : IDisposable
 
     [Fact]
     [Trait("Kind", "Unit")]
+    public async Task StableReadsDoNotWriteAndExternalChangesInvalidateDefinitions()
+    {
+        var store = new MemoryStore();
+        store.Files["/cached"] = [new("Project", 3), new("Red")];
+        using var service = new FileTagService(Factory, store: store);
+        await service.GetFileTagsAsync("/cached");
+        using var observer = Factory.GetConnection();
+        long Version()
+        {
+            using var cmd = observer.CreateCommand(); cmd.CommandText = "PRAGMA data_version";
+            return (long)cmd.ExecuteScalar()!;
+        }
+        var version = Version();
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.Equal(2, (await service.GetFileTagsAsync("/cached")).Count);
+            await service.GetSidebarTagsAsync();
+        }
+        await service.ReplaceFileTagsAsync("/cached", ["Project", "红色"]);
+        Assert.Equal(version, Version());
+        Execute(observer, "UPDATE tag_definitions SET display_name_override = 'Priority' WHERE name = '红色'; INSERT INTO file_tags VALUES('/other','Project',0,1)");
+        var refreshed = await service.GetSidebarTagsAsync();
+        Assert.Equal("Priority", refreshed.Single(t => t.Name == "红色").DisplayName);
+        Assert.Equal(2, refreshed.Single(t => t.Name == "Project").ItemCount);
+        store.Files["/cached"] = [new("Project", 5)];
+        Assert.Equal(5, Assert.Single(await service.GetFileTagsAsync("/cached")).ColorId);
+        Assert.Equal(0, (await service.GetSidebarTagsAsync()).Single(t => t.Name == "红色").ItemCount);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task BatchSelectionDeduplicatesPathsAndNotifiesOnceWithCurrentCounts()
+    {
+        var store = new MemoryStore();
+        store.Files["/first"] = [new("Shared"), new("One")];
+        store.Files["/second"] = [new("shared")];
+        using var service = new FileTagService(Factory, store: store);
+        var notifications = 0;
+        service.TagsChanged += (_, _) => notifications++;
+        var snapshot = await service.GetFileTagSelectionAsync(["/first", "/second", "/first"]);
+        Assert.Equal(2, snapshot.Membership["SHARED"]);
+        Assert.Equal(1, snapshot.Membership["One"]);
+        Assert.Equal(2, snapshot.Tags.Single(t => t.Name == "Shared").ItemCount);
+        Assert.Equal(1, notifications);
+        await service.GetFileTagSelectionAsync(["/first", "/second"]);
+        Assert.Equal(1, notifications);
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.GetFileTagSelectionAsync(["/first"], cancelled.Token));
+        Assert.Equal(2, (await service.GetFileTagSelectionAsync(["/first", "/second"])).Membership["shared"]);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task SystemAliasPersistsWithoutChangingIdentityMembershipOrNativeTags()
+    {
+        var store = new MemoryStore();
+        var red = FileTagCatalog.FinderColors[0];
+        store.Files["/alias-file"] = [new(red.Name, red.ColorId)];
+        using (var service = new FileTagService(Factory, store: store))
+        {
+            var parent = await service.CreateTagAsync("收藏");
+            await service.MoveTagAsync(red, parent.Name, 0);
+            await service.SetTagPinnedAsync(red, true);
+            await service.GetFileTagsAsync("/alias-file");
+            var renamed = 0; var changed = 0;
+            service.TagRenamed += (_, _) => renamed++;
+            service.TagsChanged += (_, _) => changed++;
+            await service.RenameTagAsync(red, "  紧急  ");
+            var updated = (await service.GetSidebarTagsAsync()).Single(t => t.Name == red.Name);
+            Assert.Equal("紧急", updated.DisplayName);
+            Assert.Equal("紧急", updated.DisplayNameOverride);
+            Assert.Equal(red.VirtualPath, updated.VirtualPath);
+            Assert.Equal(red.ColorId, updated.ColorId);
+            Assert.True(updated.IsPinned);
+            Assert.Equal(parent.Name, updated.ParentName);
+            Assert.Equal(0, renamed); Assert.Equal(1, changed);
+            await service.RetryPendingAsync();
+            Assert.Equal(new[] { new NativeFileTag(red.Name, red.ColorId) }, store.Files["/alias-file"]);
+            Assert.Equal(red.Name, Assert.Single(await service.GetFileTagsAsync("/alias-file")).Name);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateTagAsync("紧急"));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.RenameTagAsync(parent, "紧急"));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.RenameTagAsync(red, "收藏"));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.RenameTagAsync(red, "\n"));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteTagAsync(updated));
+        }
+        using var reopened = new FileTagService(Factory);
+        Assert.Equal("紧急", (await reopened.GetSidebarTagsAsync()).Single(t => t.Name == red.Name).DisplayName);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
     public async Task MigrationPreservesEmptyCollectionsMergesNamesAndIsNotRepeated()
     {
         using (var connection = Factory.GetConnection())

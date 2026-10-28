@@ -24,6 +24,66 @@ namespace MacExplorer.Tests;
 public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
 {
     [AvaloniaFact(Explicit = true)]
+    public async Task ToolbarActionsRenameSystemAliasAndCreateChildWithoutChangingNavigation()
+    {
+        var root = Directory.CreateTempSubdirectory("tag-actions-").FullName;
+        using var service = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
+        using var vm = CreateViewModel(new FakeFileService(root), fileTagService: service);
+        using var other = CreateViewModel(new FakeFileService(root), fileTagService: service);
+        var red = FileTagCatalog.FinderColors[0];
+        await service.SetTagAsync([Path.Combine(root, "red.txt")], red, true);
+        await vm.NavigateToTagAsync(red); await other.NavigateToTagAsync(red);
+        var toolbar = new FinderToolbar { DataContext = vm };
+        var window = new Window { Width = 900, Height = 480, Content = toolbar };
+        window.Styles.Add(new FluentTheme());
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            var tags = toolbar.FindControl<TagToolbar>("ToolbarTags")!;
+            void OpenActions()
+            {
+                window.UpdateLayout();
+                var button = tags.GetVisualDescendants().OfType<Button>().Single(b => b.Tag is FileTag { Name: "红色" });
+                var point = button.TranslatePoint(new Point(12, 14), window)!.Value;
+                window.MouseDown(point, MouseButton.Right); window.MouseUp(point, MouseButton.Right);
+                Dispatcher.UIThread.RunJobs();
+            }
+            OpenActions();
+            var menu = Assert.IsType<ContextMenu>(tags.ActiveMenu);
+            Assert.Equal(3, menu.Items.Count);
+            Assert.False(((MenuItem)menu.Items[1]!).IsEnabled);
+            ((MenuItem)menu.Items[0]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            var tree = Assert.Single(toolbar.FindControl<Border>("TagManagementHost")!.GetVisualDescendants().OfType<TagTreePanel>());
+            var input = Assert.Single(tree.GetVisualDescendants().OfType<TextBox>());
+            input.Text = "优先处理";
+            input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("优先处理", vm.CurrentTag!.DisplayName);
+            Assert.Equal("优先处理", other.CurrentTag!.DisplayName);
+            Assert.Equal("优先处理", vm.CurrentLocationTitle);
+            Assert.Equal("优先处理", other.CurrentLocationTitle);
+            Assert.Equal(red.VirtualPath, other.CurrentPath);
+            toolbar.CloseDropdowns();
+            OpenActions();
+            menu = Assert.IsType<ContextMenu>(tags.ActiveMenu);
+            ((MenuItem)menu.Items[2]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            tree = Assert.Single(toolbar.FindControl<Border>("TagManagementHost")!.GetVisualDescendants().OfType<TagTreePanel>());
+            input = Assert.Single(tree.GetVisualDescendants().OfType<TextBox>());
+            input.Text = "本周";
+            input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(red.Name, (await service.GetSidebarTagsAsync()).Single(t => t.Name == "本周").ParentName);
+            Assert.Equal(red.VirtualPath, vm.CurrentPath);
+            Assert.Equal(red.VirtualPath, other.CurrentPath);
+        }
+        finally { window.Close(); Directory.Delete(root, true); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public async Task ToolbarFiltersEmptyBranchesOverflowsAndSeparatesHoverFromClick()
     {
         var root = Directory.CreateTempSubdirectory("tag-toolbar-").FullName;
@@ -75,6 +135,23 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             Assert.Same(menu, toolbar.ActiveMenu); Assert.True(menu.IsOpen);
             childItem.IsSubMenuOpen = true; Dispatcher.UIThread.RunJobs();
             Assert.True(childItem.IsSubMenuOpen);
+            // Right-click the deepest entry: the action must target that entry, not its parent.
+            grandchildItem.UpdateLayout();
+            var leafRoot = Assert.IsAssignableFrom<TopLevel>(TopLevel.GetTopLevel(grandchildItem));
+            var leafPoint = grandchildItem.TranslatePoint(new Point(40, 15), leafRoot)!.Value;
+            FileTag? renameTarget = null;
+            toolbar.RenameTagRequested += tag => renameTarget = tag;
+            leafRoot.MouseDown(leafPoint, MouseButton.Right); leafRoot.MouseUp(leafPoint, MouseButton.Right);
+            Dispatcher.UIThread.RunJobs();
+            var actions = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
+            Assert.NotSame(menu, actions); Assert.False(menu.IsOpen); Assert.Equal(3, actions.Items.Count);
+            ((MenuItem)actions.Items[0]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Equal(grandchild.Name, renameTarget?.Name);
+            Assert.Equal(before, vm.CurrentPath);
+            parentButton.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
+            menu = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
+            childItem = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Tag is FileTag);
+            grandchildItem = Assert.Single(childItem.Items.OfType<MenuItem>());
             grandchildItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(grandchild.Name, vm.CurrentTag!.Name);
@@ -105,6 +182,17 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             Assert.True(more.Bounds.Right <= toolbar.Bounds.Width);
             toolbar.Width = 60; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             Assert.True(more.IsVisible); Assert.NotEmpty(toolbar.OverflowTags);
+            more.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            menu = Assert.IsType<ContextMenu>(toolbar.ActiveMenu); menu.UpdateLayout();
+            var overflowItem = menu.Items.OfType<MenuItem>().First(item => item.Tag is FileTag);
+            overflowItem.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent, Key = Key.F10, KeyModifiers = KeyModifiers.Shift
+            });
+            actions = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
+            Assert.Equal(3, actions.Items.Count);
+            ((MenuItem)actions.Items[0]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Equal(((FileTag)overflowItem.Tag!).Name, renameTarget?.Name);
         }
         finally { window.Close(); Directory.Delete(root, true); }
     }

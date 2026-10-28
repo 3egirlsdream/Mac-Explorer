@@ -11,8 +11,6 @@ public sealed class ChromiumTabStripSurface : Control
 {
     internal const double ContentBandHeight = 2;
     internal const double BottomRadius = 16;
-    private const int SampleScale = 4;
-    private const double ShadowRadius = 2;
 
     public static readonly StyledProperty<ListBox?> TabStripProperty =
         AvaloniaProperty.Register<ChromiumTabStripSurface, ListBox?>(nameof(TabStrip));
@@ -24,11 +22,13 @@ public sealed class ChromiumTabStripSurface : Control
 
     private Rect _tabBounds;
     private Rect _viewport;
-    private Bitmap? _bitmap;
-    private Size _bitmapSize;
-    private double _bitmapScale;
-    private IBrush? _bitmapFill;
-    private Color _bitmapShadowColor;
+    private readonly TabSilhouetteCache _silhouette = new();
+    private Control? _draggedTab;
+    internal Control? DraggedTab
+    {
+        get => _draggedTab;
+        set { _draggedTab = value; UpdateTabBounds(); }
+    }
     private TopLevel? _topLevel;
 
     public ListBox? TabStrip
@@ -104,6 +104,7 @@ public sealed class ChromiumTabStripSurface : Control
         var viewport = default(Rect);
         if (TabStrip is { SelectedIndex: >= 0 } tabs &&
             tabs.ContainerFromIndex(tabs.SelectedIndex) is { } selected &&
+            !ReferenceEquals(selected, DraggedTab) &&
             selected.TranslatePoint(default, this) is { } origin)
         {
             bounds = new Rect(origin, selected.Bounds.Size);
@@ -117,101 +118,24 @@ public sealed class ChromiumTabStripSurface : Control
             return;
         _tabBounds = bounds;
         _viewport = viewport;
-        ClearBitmap();
         InvalidateVisual();
     }
 
-    private void ClearBitmap()
-    {
-        _bitmap?.Dispose();
-        _bitmap = null;
-    }
+    private void ClearBitmap() => _silhouette.Dispose();
 
     public override void Render(DrawingContext context)
     {
         var size = Bounds.Size;
-        if (Fill is null || size.Width <= 0 || size.Height <= ContentBandHeight)
-            return;
-
+        if (Fill is null || size.Width <= 0 || size.Height <= ContentBandHeight) return;
         var scale = _topLevel?.RenderScaling ?? 1;
-        var fill = Fill.ToImmutable();
-        if (_bitmap is null || _bitmapSize != size || _bitmapScale != scale || !Equals(_bitmapFill, fill) || _bitmapShadowColor != ShadowColor)
+        var join = Math.Round((size.Height - ContentBandHeight) * scale) / scale;
+        if (_tabBounds.Width > 0)
         {
-            ClearBitmap();
-            var pixels = PixelSize.FromSize(size, scale);
-            using var sampled = new RenderTargetBitmap(
-                new PixelSize(pixels.Width * SampleScale, pixels.Height * SampleScale),
-                new Vector(96 * scale * SampleScale, 96 * scale * SampleScale));
-            using (var drawing = sampled.CreateDrawingContext())
-            {
-                var join = Math.Round((size.Height - ContentBandHeight) * scale) / scale;
-                var outline = CreateOutline(size, _tabBounds, join);
-                using var options = drawing.PushRenderOptions(new RenderOptions { EdgeMode = EdgeMode.Antialias });
-                if (_viewport.Width > 0)
-                {
-                    var clip = new StreamGeometry();
-                    using (var path = clip.Open())
-                    {
-                        path.BeginFigure(new Point(0, size.Height), true);
-                        path.LineTo(new Point(0, join));
-                        path.LineTo(new Point(_viewport.Left, join));
-                        path.LineTo(new Point(_viewport.Left, 0));
-                        path.LineTo(new Point(_viewport.Right, 0));
-                        path.LineTo(new Point(_viewport.Right, join));
-                        path.LineTo(new Point(size.Width, join));
-                        path.LineTo(new Point(size.Width, size.Height));
-                        path.EndFigure(true);
-                    }
-                    using (drawing.PushGeometryClip(clip))
-                    {
-                        DrawTabShadow(drawing, join);
-                        drawing.DrawGeometry(fill, null, outline);
-                    }
-                }
-                else
-                {
-                    DrawTabShadow(drawing, join);
-                    drawing.DrawGeometry(fill, null, outline);
-                }
-            }
-            // Two exact 2:1 bilinear reductions average all 4x4 coverage
-            // samples. A single cubic resize can skip samples and ring.
-            using var half = ReduceBitmap(sampled,
-                new PixelSize(pixels.Width * 2, pixels.Height * 2), scale * 2);
-            _bitmap = ReduceBitmap(half, pixels, scale);
-            _bitmapSize = size;
-            _bitmapScale = scale;
-            _bitmapFill = fill;
-            _bitmapShadowColor = ShadowColor;
+            using var clip = context.PushClip(new Rect(_viewport.X, 0, _viewport.Width, size.Height));
+            _silhouette.Draw(context, new Rect(_tabBounds.X, _tabBounds.Y, _tabBounds.Width,
+                size.Height - _tabBounds.Y), scale, Fill, ShadowColor);
         }
-        context.DrawImage(_bitmap, new Rect(_bitmap.PixelSize.ToSize(1)), new Rect(size));
-    }
-
-    private void DrawTabShadow(DrawingContext drawing, double join)
-    {
-        if (_tabBounds.Width <= 0 || _tabBounds.Top >= join || ShadowColor.A == 0)
-            return;
-
-        // Blur only the tab silhouette, with no directional offset. The full-width
-        // content band is painted afterward so it does not cast a title-bar shadow.
-        var size = new Size(_tabBounds.Width, join + ContentBandHeight - _tabBounds.Top);
-        var outline = CreateOutline(size, new Rect(size), join - _tabBounds.Top);
-        using var transform = drawing.PushTransform(Matrix.CreateTranslation(_tabBounds.Left, _tabBounds.Top));
-        using var effect = drawing.PushEffect(new BlurEffect { Radius = ShadowRadius }, new Rect(size));
-        drawing.DrawGeometry(new SolidColorBrush(ShadowColor), null, outline);
-    }
-
-    private static RenderTargetBitmap ReduceBitmap(Bitmap source, PixelSize pixels, double scale)
-    {
-        var result = new RenderTargetBitmap(pixels, new Vector(96 * scale, 96 * scale));
-        using var drawing = result.CreateDrawingContext();
-        using var options = drawing.PushRenderOptions(new RenderOptions
-        {
-            BitmapInterpolationMode = BitmapInterpolationMode.LowQuality
-        });
-        // Avalonia 12's bitmap drawing source rectangle is in physical pixels.
-        drawing.DrawImage(source, new Rect(source.PixelSize.ToSize(1)), new Rect(result.Size));
-        return result;
+        context.FillRectangle(Fill, new Rect(0, join, size.Width, size.Height - join));
     }
 
     internal static StreamGeometry CreateOutline(Size size, Rect tab, double join)

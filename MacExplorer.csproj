@@ -20,6 +20,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <DefineConstants Condition="'$(EnableDemoAutomation)' == 'true'">$(DefineConstants);DEMO_AUTOMATION</DefineConstants>
+    <ApplicationId Condition="'$(EnableDemoAutomation)' == 'true'">com.macexplorer.demo</ApplicationId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,6 +35,7 @@
     <Compile Remove="Tests/**/*.cs" />
     <Compile Remove="Tools/Performance/**/*.cs" />
     <Compile Remove="Tools/GlassDemo/**/*.cs" />
+    <Compile Remove="Tools/DemoRecord/**/*.cs" Condition="'$(EnableDemoAutomation)' != 'true'" />
     <Compile Remove="ThirdParty/**/*.cs" />
     <Compile Remove="outputs/**/*.cs" />
   </ItemGroup>
@@ -106,6 +109,9 @@
     <Error Condition="'$(DistributionChannel)' != 'AppStore'" Text="StoreSubmission requires the AppStore channel."/>
     <Error Condition="'$(AppStoreSubscriptionProductId)' == ''" Text="Set AppStoreSubscriptionProductId to the actual annual subscription product before submission."/>
     <Exec Command="python3 Tools/Distribution/verify-release-config.py --identifier '$(AppStoreBundleId)' --policy '$(PrivacyPolicyUrl)' --subscription-product '$(AppStoreSubscriptionProductId)'"/>
+  </Target>
+  <Target Name="ValidateDemoBuild" BeforeTargets="PrepareForBuild" Condition="'$(EnableDemoAutomation)' == 'true'">
+    <Error Condition="'$(DistributionChannel)' != 'Website'" Text="Demo automation is only available in the isolated website build." />
   </Target>
   <Target Name="BuildMacOSStoreKitBridge" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore' and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="Platforms/MacOS/StoreKitBridge.swift;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)libMacExplorerStoreKit.dylib">
     <Exec Command="xcrun swiftc -parse-as-library -emit-library -O -target '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' 'Platforms/MacOS/StoreKitBridge.swift' -framework StoreKit -framework AppKit -Xlinker -install_name -Xlinker '@rpath/libMacExplorerStoreKit.dylib' -o '$(OutputPath)libMacExplorerStoreKit.dylib'" />

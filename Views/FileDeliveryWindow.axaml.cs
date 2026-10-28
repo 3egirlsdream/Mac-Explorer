@@ -130,11 +130,12 @@ public partial class FileDeliveryWindow : AppWindow
         EntryTabs.Children.Clear();
         foreach (var entry in _delivery.Preferences.Entries)
         {
+            var displayName = TagPathHelper.TryParse(entry.Location, out var tag) ? _files.ResolveTag(tag).DisplayName : entry.Name;
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
             content.Children.Add(new PathIcon { Data = Geometry.Parse(_files.GetLocationIcon(entry.Location)), Width = 14, Height = 14 });
-            content.Children.Add(new TextBlock { Text = entry.Name, VerticalAlignment = VerticalAlignment.Center });
+            content.Children.Add(new TextBlock { Text = displayName, VerticalAlignment = VerticalAlignment.Center });
             var button = new Button { Content = content, Classes = { "ghost", "compact", "delivery-tab" } };
-            AutomationProperties.SetName(button, entry.Name);
+            AutomationProperties.SetName(button, displayName);
             button.Classes.Set("selected", entry.Id == _entryId);
             ToolTip.SetTip(button, entry.Location);
             button.Click += async (_, _) => await SelectEntryAsync(entry.Id);
@@ -176,6 +177,7 @@ public partial class FileDeliveryWindow : AppWindow
 
     private void OnFilePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(FileListViewModel.SidebarTags)) RebuildTabs();
         if (e.PropertyName is nameof(FileListViewModel.CurrentPath) or nameof(FileListViewModel.StatusText)
             or nameof(FileListViewModel.CanGoBack) or nameof(FileListViewModel.CanGoForward) or nameof(FileListViewModel.ViewMode)) UpdateToolbar();
     }
@@ -250,7 +252,7 @@ public partial class FileDeliveryWindow : AppWindow
             favorites.Items.Clear();
             foreach (var tag in tags)
             {
-                var item = new MenuItem { Header = tag.Name };
+                var item = new MenuItem { Header = tag.DisplayName };
                 item.Click += (_, _) => _delivery.AddTag(tag);
                 favorites.Items.Add(item);
             }

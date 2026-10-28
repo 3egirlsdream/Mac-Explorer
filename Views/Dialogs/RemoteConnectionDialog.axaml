@@ -5,50 +5,14 @@
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.RemoteConnectionDialog"
         Title="{loc:Loc ui.028}"
-        FullHeightContent="True" Width="820" Height="620" MinWidth="700" MinHeight="500"
+        Width="520" Height="520" MinWidth="380" MinHeight="320" MaxHeight="800"
         CanResize="True" WindowStartupLocation="CenterOwner">
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
-        <Style Selector="ListBox.remote-server-list">
-            <Setter Property="Background" Value="Transparent"/>
-        </Style>
-        <Style Selector="ListBox.remote-server-list > ListBoxItem">
-            <Setter Property="Padding" Value="6,6"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
-        </Style>
     </Window.Styles>
-    <Grid ColumnDefinitions="220,*">
-        <Border x:Name="SavedServersPanel" Background="{DynamicResource TitleBarBackgroundBrush}"
-                BorderBrush="{DynamicResource DialogDividerBrush}" BorderThickness="0,0,1,0">
-            <Grid RowDefinitions="Auto,*,Auto" Margin="10,58,10,12" RowSpacing="8">
-                <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.324}"/>
-                <ListBox Grid.Row="1" x:Name="SavedServersList" Classes="remote-server-list" SelectionChanged="OnSavedServerSelected">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="4,2">
-                                <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="16" Height="16"
-                                          Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding DisplayName}" Classes="settings-label" TextWrapping="NoWrap" ToolTip.Tip="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding ConnectionString}" Classes="settings-description" TextWrapping="NoWrap" ToolTip.Tip="{Binding ConnectionString}" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <Button x:Name="AddServerButton" Classes="ghost compact" Click="OnAddServer" Content="{loc:Loc remote.add}"/>
-                    <Button Grid.Column="1" x:Name="DeleteButton" Classes="icon-action" Click="OnDeleteServer" IsEnabled="False" ToolTip.Tip="{loc:Loc ui.006}" AutomationProperties.Name="{loc:Loc ui.006}">
-                        <PathIcon Data="{x:Static icons:Icons.Delete}" Width="16" Height="16"/>
-                    </Button>
-                </Grid>
-            </Grid>
-        </Border>
-        <Border Grid.Column="1" Background="{DynamicResource DialogContentBrush}" Padding="16,58,16,16">
-        <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="8">
-            <TextBlock Grid.Row="0" Text="{loc:Loc ui.028}" Classes="settings-title"/>
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+    <Border Background="{DynamicResource DialogContentBrush}" Padding="16,8,16,16">
+        <Grid RowDefinitions="*,Auto,Auto" RowSpacing="8">
+        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="8">
                 <Border Classes="settings-group">
                     <StackPanel>
@@ -64,6 +28,7 @@
                                 <ComboBox Grid.Column="1" x:Name="ServiceTypeBox" Classes="settings-inline-input" SelectedIndex="0" SelectionChanged="OnServiceTypeChanged" AutomationProperties.Name="{loc:Loc remote.type}">
                                     <ComboBoxItem Content="SFTP"/>
                                     <ComboBoxItem Content="SMB"/>
+                                    <ComboBoxItem Content="WebDAV"/>
                                 </ComboBox>
                             </Grid>
                         </Border>
@@ -75,14 +40,14 @@
                         <Border Classes="settings-row settings-divider">
                             <StackPanel>
                                 <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.515}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="HostLabel" Classes="settings-label" Text="{loc:Loc ui.515}" VerticalAlignment="Center"/>
                                     <TextBox Grid.Column="1" x:Name="HostBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc ui.516}" AutomationProperties.Name="{loc:Loc ui.515}"/>
                                 </Grid>
                                 <TextBlock x:Name="HostError" IsVisible="False" Text="{loc:Loc ui.517}" TextWrapping="Wrap"
                                            Foreground="{DynamicResource DangerBrush}"/>
                             </StackPanel>
                         </Border>
-                        <Border Classes="settings-row settings-divider">
+                        <Border x:Name="PortRow" Classes="settings-row settings-divider">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.497}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Column="1" x:Name="PortBox" Classes="settings-inline-input" PlaceholderText="22" AutomationProperties.Name="{loc:Loc ui.497}"/>
@@ -129,7 +94,7 @@
                                 <CheckBox x:Name="RememberKeyPassphrase" Content="{loc:Loc ui.527}" ToolTip.Tip="{loc:Loc ui.528}"/>
                             </StackPanel>
                         </Border>
-                        <Border Classes="settings-row">
+                        <Border x:Name="DefaultPathRow" Classes="settings-row">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.529}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Column="1" x:Name="DefaultPathBox" Classes="settings-inline-input" Text="/" AutomationProperties.Name="{loc:Loc ui.529}"/>
@@ -159,16 +124,15 @@
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
-        <ScrollViewer Grid.Row="2" MaxHeight="100" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Grid.Row="1" MaxHeight="100" HorizontalScrollBarVisibility="Disabled">
             <TextBlock x:Name="ConnectionStatus" Classes="settings-description" TextWrapping="Wrap" AutomationProperties.Name="{loc:Loc ui.534}"/>
         </ScrollViewer>
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,4,0,0">
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,4,0,0">
 
             <Button Grid.Column="2" Content="{loc:Loc ui.094}" Classes="secondary compact" Click="OnCancel"/>
             <Button Grid.Column="3" x:Name="SaveButton" Content="{loc:Loc ui.095}" Classes="secondary compact" Click="OnSave"/>
             <Button Grid.Column="4" x:Name="ConnectButton" Content="{loc:Loc ui.499}" Classes="primary compact" Click="OnConnect"/>
         </Grid>
         </Grid>
-        </Border>
-    </Grid>
+    </Border>
 </controls:DialogWindow>

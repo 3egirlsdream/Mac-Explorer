@@ -410,15 +410,77 @@ public sealed class AppUpdateTests
         }
     }
 
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Kind", "UI")]
+    public void SettingsActivationRefreshesDefaultManagerWithoutWritingOrResettingDrafts(bool dark)
+    {
+        if (!DistributionChannel.SupportsSystemIntegration) return;
+        var settings = new SettingsServiceStub();
+        using var services = new SettingsTestServices(settings);
+        using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
+        var styles = new Avalonia.Styling.IStyle[]
+        {
+            new Avalonia.Themes.Fluent.FluentTheme(),
+            (Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")),
+            (Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml"))
+        };
+        foreach (var style in styles) Application.Current!.Styles.Add(style);
+        var defaults = new DefaultAppServiceStub { Status = new(true, true) };
+        var dialog = new SettingsDialog(defaults, settings, new ThemeServiceStub(),
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), new FailingUpdateService(), localizationService: language)
+        {
+            Width = 560,
+            RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light
+        };
+        dialog.Show();
+        try
+        {
+            var toggle = dialog.FindControl<ToggleSwitch>("DefaultManagerToggle")!;
+            var status = dialog.FindControl<TextBlock>("DefaultManagerStatus")!;
+            Assert.True(toggle.IsChecked);
+            Assert.Equal(language.Get("settings.default_manager.pending"), status.Text);
+            var concurrency = dialog.FindControl<NumericUpDown>("FileTaskConcurrencyInput")!;
+            concurrency.Value = 3;
+            void Activate() => typeof(WindowBase).GetMethod("HandleActivated",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(dialog, null);
+            defaults.Status = new(false, true);
+            Activate();
+            Assert.False(toggle.IsChecked);
+            Assert.Equal(language.Get("settings.default_manager.restore_pending"), status.Text);
+            defaults.Status = new(false, false);
+            Activate();
+            Assert.False(status.IsVisible);
+            defaults.Status = new(null, null);
+            Activate();
+            Assert.False(toggle.IsEnabled);
+            Assert.True(status.IsVisible);
+            defaults.Status = new(true, false);
+            Activate();
+            Assert.True(toggle.IsEnabled);
+            Assert.True(toggle.IsChecked);
+            Assert.False(status.IsVisible);
+            Assert.Equal(3m, concurrency.Value);
+            Assert.Equal(0, defaults.Writes);
+        }
+        finally
+        {
+            dialog.Close();
+            foreach (var style in styles) Application.Current!.Styles.Remove(style);
+        }
+    }
+
     private sealed class DefaultAppServiceStub : IDefaultAppService
     {
-        public bool IsDefaultFolderHandler() => false;
+        public DefaultFolderHandlerStatus Status = new(false, false);
+        public int Writes;
+        public bool IsDefaultFolderHandler() => Status.IsDefault == true;
+        public DefaultFolderHandlerStatus GetFolderHandlerStatus() => Status;
 
-        public (bool Success, string Message) SetAsDefaultFolderHandler() =>
-            (true, string.Empty);
+        public (bool Success, string Message) SetAsDefaultFolderHandler() { Writes++; return (true, string.Empty); }
 
-        public (bool Success, string Message) ResetDefaultFolderHandler() =>
-            (true, string.Empty);
+        public (bool Success, string Message) ResetDefaultFolderHandler() { Writes++; return (true, string.Empty); }
     }
 
     private sealed class SettingsServiceStub : ISettingsService

@@ -78,7 +78,7 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
             {
                 var previousPaths = _externalVolumes.Select(volume => volume.Path).ToHashSet(StringComparer.Ordinal);
                 var currentPaths = volumes.Select(volume => volume.Path).ToHashSet(StringComparer.Ordinal);
-                changed = !previousPaths.SetEquals(currentPaths) || !_externalVolumes.Select(v => (v.Path, v.SourceUrl)).SequenceEqual(volumes.Select(v => (v.Path, v.SourceUrl)));
+                changed = !previousPaths.SetEquals(currentPaths) || !_externalVolumes.Select(v => (v.Path, v.SourceUrl, v.MountId)).SequenceEqual(volumes.Select(v => (v.Path, v.SourceUrl, v.MountId)));
                 removed = previousPaths.Except(currentPaths, StringComparer.Ordinal).ToArray();
                 _externalVolumes = volumes.AsReadOnly();
             }

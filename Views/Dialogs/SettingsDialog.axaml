@@ -51,6 +51,8 @@
                                                     <TextBlock Classes="settings-label" Text="{loc:Loc settings.default_manager}"/>
                                                     <TextBlock Classes="settings-description"
                                                                Text="{loc:Loc settings.default_manager.description}"/>
+                                                    <TextBlock x:Name="DefaultManagerStatus" Classes="settings-description"
+                                                               TextWrapping="Wrap" IsVisible="False"/>
                                                 </StackPanel>
                                                 <ToggleSwitch Grid.Column="1" x:Name="DefaultManagerToggle" AutomationProperties.Name="{loc:Loc ui.244}" Classes="settings-toggle compact"
                                                               VerticalAlignment="Center" IsCheckedChanged="OnDefaultManagerChanged"/>

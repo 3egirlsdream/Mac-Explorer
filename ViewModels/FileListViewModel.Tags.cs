@@ -79,41 +79,14 @@ public partial class FileListViewModel
         catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("标签操作失败：{0}", ex.Message); }
     }
 
-    private async Task<ContextMenuAction> BuildTagsContextMenuAsync(FileSystemEntry entry)
+    private Task<ContextMenuAction> BuildTagsContextMenuAsync(FileSystemEntry entry)
     {
         var paths = SelectedEntries.Any(e => e.FullPath == entry.FullPath)
             ? SelectedEntries.Select(e => e.FullPath).Distinct().ToArray() : [entry.FullPath];
-        var memberships = new List<HashSet<string>>();
-        if (_fileTagService != null)
-            foreach (var path in paths)
-                memberships.Add((await _fileTagService.GetFileTagsAsync(path)).Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase));
-        var tags = _fileTagService == null ? FileTagCatalog.FinderColors : await _fileTagService.GetSidebarTagsAsync();
-        var actions = tags.Select(tag =>
+        // TagTreePanel loads membership only when its submenu is opened.
+        return Task.FromResult(new ContextMenuAction
         {
-            var count = memberships.Count(set => set.Contains(tag.Name));
-            var all = count > 0 && count == paths.Length;
-            return new ContextMenuAction
-            {
-                Label = tag.DisplayName,
-                IconSvg = Icons.Tag,
-                IconColor = tag.ColorHex,
-                IsCheckable = true,
-                IsChecked = all,
-                IsIndeterminate = count > 0 && !all,
-                Execute = () => SetFileTagAsync(paths, tag, !all)
-            };
-        }).ToList();
-        actions.Insert(0, ContextMenuAction.Separator);
-        actions.Insert(0, new ContextMenuAction
-        {
-            Label = MacExplorer.Services.Impl.LocalizationText.Get("新建标签…"), IconSvg = Icons.Plus,
-            Execute = () =>
-            {
-                _newTagPaths = paths;
-                NewTagRequested?.Invoke();
-                return Task.CompletedTask;
-            }
+            Label = MacExplorer.Services.Impl.LocalizationText.Get("标签"), IconSvg = Icons.Tag, TagTreePaths = paths
         });
-        return new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("标签"), IconSvg = Icons.Tag, SubItems = actions, TagTreePaths = paths };
     }
 }

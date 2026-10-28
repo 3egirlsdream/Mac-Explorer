@@ -3,6 +3,7 @@
 #import <dns_sd.h>
 #import <arpa/inet.h>
 #import <Network/Network.h>
+#import <sys/mount.h>
 
 using NetworkCallback = void (*)(long long, const char *);
 static NSMutableDictionary<NSNumber *, NSValue *> *mountRequests;
@@ -68,7 +69,7 @@ static void updateService(MENetworkBrowser *owner, nw_browse_result_t result, BO
 }
 
 extern "C" {
-void me_smb_mount(long long identifier, const char *address, const char *user, const char *password, NetworkCallback callback) {
+void me_network_mount(long long identifier, const char *address, const char *user, const char *password, NetworkCallback callback) {
     NSString *urlText = [NSString stringWithUTF8String:address];
     NSString *username = [NSString stringWithUTF8String:user];
     NSString *secret = [NSString stringWithUTF8String:password];
@@ -76,7 +77,8 @@ void me_smb_mount(long long identifier, const char *address, const char *user, c
         if (!mountRequests) mountRequests = [NSMutableDictionary new];
         AsyncRequestID request = nullptr;
         NSURL *mountURL = [NSURL URLWithString:urlText];
-        BOOL explicitLogin = mountURL.path.length > 1 && (username.length || mountURL.user.length);
+        BOOL webdav = [mountURL.scheme isEqualToString:@"http"] || [mountURL.scheme isEqualToString:@"https"];
+        BOOL explicitLogin = (webdav || mountURL.path.length > 1) && (username.length || mountURL.user.length);
         NSMutableDictionary *openOptions = [@{(__bridge NSString *)kNAUIOptionKey:
             (__bridge NSString *)(explicitLogin ? kNAUIOptionNoUI : kNAUIOptionAllowUI)} mutableCopy];
         if (getenv("MACEXPLORER_TEST_ROOT")) openOptions[(__bridge NSString *)kNetFSAllowLoopbackKey] = @YES;
@@ -92,7 +94,7 @@ void me_smb_mount(long long identifier, const char *address, const char *user, c
         else mountRequests[@(identifier)] = [NSValue valueWithPointer:request];
     });
 }
-void me_smb_cancel(long long identifier) {
+void me_network_mount_cancel(long long identifier) {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSValue *request = mountRequests[@(identifier)];
         if (request) { NetFSMountURLCancel(request.pointerValue); [mountRequests removeObjectForKey:@(identifier)]; }
@@ -100,23 +102,34 @@ void me_smb_cancel(long long identifier) {
 }
 char *me_network_volumes() {
     @autoreleasepool {
-        NSArray *keys = @[NSURLVolumeIsLocalKey, NSURLVolumeIsRemovableKey, NSURLVolumeNameKey, NSURLVolumeURLForRemountingKey];
-        NSArray<NSURL *> *urls = [NSFileManager.defaultManager mountedVolumeURLsIncludingResourceValuesForKeys:keys options:NSVolumeEnumerationSkipHiddenVolumes];
+        // Foundation's mounted-volume list can lag behind NetFS's success callback.
+        // Snapshot the kernel table so a newly mounted volume is immediately identifiable.
+        struct statfs *mounts = nullptr;
+        int mountCount = getmntinfo_r_np(&mounts, MNT_NOWAIT);
+        NSArray *keys = @[NSURLVolumeIsRemovableKey, NSURLVolumeNameKey, NSURLVolumeURLForRemountingKey];
         NSMutableArray *result = [NSMutableArray new];
-        for (NSURL *url in urls) {
-            NSDictionary *values = [url resourceValuesForKeys:keys error:nil];
-            if ([url.path isEqualToString:@"/"]) continue;
-            NSNumber *local = values[NSURLVolumeIsLocalKey];
-            if (!local) continue;
-            BOOL network = !local.boolValue;
-            if (!network && ![url.path hasPrefix:@"/Volumes/"]) continue;
+        for (int i = 0; i < mountCount; i++) {
+            const struct statfs &mount = mounts[i];
+            NSString *path = [NSString stringWithUTF8String:mount.f_mntonname];
+            BOOL network = (mount.f_flags & MNT_LOCAL) == 0;
+            if ([path isEqualToString:@"/"] || (mount.f_flags & MNT_DONTBROWSE)) continue;
+            if (!network && ![path hasPrefix:@"/Volumes/"]) continue;
+            NSURL *url = [NSURL fileURLWithPath:path isDirectory:YES];
+            BOOL webdav = strcmp(mount.f_fstypename, "webdav") == 0;
+            // Avoid filesystem queries against a provisional or unresponsive WebDAV mount.
+            NSDictionary *values = webdav ? @{} : [url resourceValuesForKeys:keys error:nil];
             NSURL *source = values[NSURLVolumeURLForRemountingKey];
+            // WebDAV's mount source preserves the full endpoint, including its port and path.
+            if (webdav)
+                source = [NSURL URLWithString:[NSString stringWithUTF8String:mount.f_mntfromname]];
             if (network && !source) source = CFBridgingRelease(NetFSCopyURLForRemountingVolume((__bridge CFURLRef)url));
             NSURLComponents *safe = source ? [NSURLComponents componentsWithURL:source resolvingAgainstBaseURL:NO] : nil;
             safe.password = nil;
-            [result addObject:@{@"Path":url.path, @"DisplayName":values[NSURLVolumeNameKey] ?: url.lastPathComponent,
-                @"IsExternal":@YES, @"IsRemovable":@([values[NSURLVolumeIsRemovableKey] boolValue]), @"IsNetwork":@(network), @"SourceUrl":safe.string ?: @""}];
+            [result addObject:@{@"Path":path, @"DisplayName":values[NSURLVolumeNameKey] ?: path.lastPathComponent,
+                @"IsExternal":@YES, @"IsRemovable":@([values[NSURLVolumeIsRemovableKey] boolValue]), @"IsNetwork":@(network),
+                @"SourceUrl":safe.string ?: @"", @"MountId":[NSString stringWithFormat:@"%d:%d", mount.f_fsid.val[0], mount.f_fsid.val[1]]}];
         }
+        free(mounts);
         return strdup(JSONText(result).UTF8String);
     }
 }
@@ -159,6 +172,13 @@ void me_network_browse_stop(long long identifier) {
 }
 
 bool me_network_open(const char *address) {
-    @autoreleasepool { return [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:[NSString stringWithUTF8String:address]]]; }
+    @autoreleasepool {
+        NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:address]];
+        // HTTP(S) must go to Finder's Connect to Server handler, not the default browser.
+        if ([url.scheme isEqualToString:@"http"] || [url.scheme isEqualToString:@"https"])
+            return [NSWorkspace.sharedWorkspace openURLs:@[url] withAppBundleIdentifier:@"com.apple.finder"
+                options:NSWorkspaceLaunchDefault additionalEventParamDescriptor:nil launchIdentifiers:nil];
+        return [NSWorkspace.sharedWorkspace openURL:url];
+    }
 }
 }

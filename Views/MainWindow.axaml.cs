@@ -68,12 +68,12 @@ public partial class MainWindow : AppWindow
     private readonly NavigationBridge _navigationBridge;
     private readonly IDragDropBridge _dragDropBridge;
     private readonly IBackgroundTaskManager _taskManager;
+    private readonly ILocalizationService? _taskLocalization;
     private readonly IGlobalSearchScopeService _globalSearchScopeService;
     private bool _changingGlobalSearchScope;
     private bool _dialogSyncRunning;
     private bool _initialized;
     private int _modalBlockDepth;
-    private int _previousRunningTaskCount;
     private IServiceScope? _scope;
 
     // Global quick-search state. The backing providers query the app-wide file index
@@ -82,12 +82,9 @@ public partial class MainWindow : AppWindow
     private CancellationTokenSource? _globalSearchCts;
     private SuperPreviewView? _globalSearchPreview;
 
-    // Task overlay panel state machine
-    private enum PanelMode { None, Auto, Manual }
-    private PanelMode _taskPanelMode = PanelMode.None;
+    // Task overlay panel opens only on an explicit user action.
     private bool _isTaskPanelAnimating;
     private CancellationTokenSource? _taskPanelAnimCts;
-    private CancellationTokenSource? _autoCloseTimerCts;
     private const double TaskPanelAnimDurationMs = 220;
 
     private long _paneLayoutGeneration;
@@ -107,6 +104,11 @@ public partial class MainWindow : AppWindow
         WindowDecorationProperties.SetElementRole(TitleBarDragArea,
             OperatingSystem.IsMacOS() ? WindowDecorationsElementRole.User : WindowDecorationsElementRole.TitleBar);
         TabSurface.TabStrip = TabList;
+        _tabInteraction = new TabStripInteraction(TabList, TabSurface,
+            () => _vm != null && !IsModalInteractionBlocked && !_shutdownStarted && !GlobalSearchOverlay.IsVisible,
+            MoveTab, ShowTabContextMenu);
+        Deactivated += (_, _) => _tabInteraction.Cancel();
+        Closed += (_, _) => { _tabContextMenu?.Close(); _tabInteraction.Dispose(); };
         _navigationBridge = App.Services.GetRequiredService<NavigationBridge>();
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
         _taskManager = App.Services.GetRequiredService<IBackgroundTaskManager>();
@@ -125,6 +127,9 @@ public partial class MainWindow : AppWindow
         Closed += OnClosed;
         Application.Current?.ActualThemeVariantChanged += OnActualThemeVariantChanged;
         _taskManager.TasksChanged += OnTasksChanged;
+        _taskLocalization = App.Services.GetService<ILocalizationService>();
+        if (_taskLocalization != null) _taskLocalization.LanguageChanged += OnTasksChanged;
+        UpdateTaskButton();
         _taskHistory = App.Services.GetService<IFileOperationHistoryService>();
         if (_taskHistory != null) _taskHistory.HistoryChanged += OnTasksChanged;
         App.Services.GetRequiredService<ISettingsService>().SettingChanged += OnCopilotSettingChanged;
@@ -244,6 +249,10 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && _tabInteraction.IsPointerDown)
+        {
+            _tabInteraction.Cancel(); e.Handled = true; return;
+        }
         if (Services.Subscriptions.SubscriptionAccess.IsLocked) return;
         if (e.Handled || Shortcuts.IsRecording) return;
         if (IsInsideTextInput(e.Source as Visual) && Services.Impl.ShortcutService.IsTextEditingGesture(e)) return;
@@ -788,7 +797,6 @@ public partial class MainWindow : AppWindow
         if (Application.Current != null)
             Application.Current.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         _taskPanelAnimCts?.Cancel();
-        _autoCloseTimerCts?.Cancel();
         _taskRefreshTimer?.Dispose();
         _globalSearchCts?.Cancel();
         _globalSearchCts?.Dispose();
@@ -798,6 +806,7 @@ public partial class MainWindow : AppWindow
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
         _taskManager.TasksChanged -= OnTasksChanged;
+        if (_taskLocalization != null) _taskLocalization.LanguageChanged -= OnTasksChanged;
         if (_taskHistory != null) _taskHistory.HistoryChanged -= OnTasksChanged;
     }
 
@@ -907,36 +916,25 @@ public partial class MainWindow : AppWindow
         Interlocked.Exchange(ref _taskRefreshPending, 0);
         if (_shutdownStarted) return;
         var tasks = _taskManager.Tasks.ToList();
-        var runningCount = tasks.Count(t => t.State == BackgroundTaskState.Running);
-
-        UpdateTaskButton();
+        UpdateTaskButton(tasks);
         if (TaskOverlayPanel.IsVisible && !_isTaskPanelAnimating)
             RebuildTaskPanelItems(tasks);
-
-        // Auto-open when first task starts running
-        if (runningCount > 0 && _previousRunningTaskCount == 0
-            && _taskPanelMode == PanelMode.None)
-        {
-            _taskPanelMode = PanelMode.Auto;
-            _ = SlideTaskPanelAsync(show: true);
-        }
-
-        // Auto-close when all tasks complete (Auto mode only, after delay)
-        if (runningCount == 0 && _previousRunningTaskCount > 0
-            && _taskPanelMode == PanelMode.Auto)
-        {
-            StartAutoCloseTimer();
-        }
-
-        _previousRunningTaskCount = runningCount;
     }
 
-    private void UpdateTaskButton()
+    private void UpdateTaskButton(IReadOnlyList<BackgroundTaskInfo>? tasks = null)
     {
-        var tasks = _taskManager.Tasks;
-        TaskButton.IsVisible = tasks.Count > 0;
-        var running = tasks.Count(t => t.State == BackgroundTaskState.Running);
-        TaskButtonText.Text = Services.Impl.LocalizationText.Get("后台任务 ({0})", running > 0 ? running : tasks.Count);
+        var summary = TaskProgressSummary.FromTasks(tasks ?? _taskManager.Tasks);
+        TaskButton.IsVisible = summary.TaskCount > 0;
+        TaskProgressRing.Value = summary.Value;
+        TaskProgressRing.IsIndeterminate = summary.IsIndeterminate;
+        TaskProgressRing.IsAnimating = summary.IsAnimating;
+        TaskProgressRing.Classes.Set("muted", summary.Appearance == TaskProgressAppearance.Muted);
+        TaskProgressRing.Classes.Set("attention", summary.Appearance == TaskProgressAppearance.Attention);
+        TaskProgressRing.Classes.Set("failed", summary.Appearance == TaskProgressAppearance.Failed);
+        TaskProgressRing.Classes.Set("completed", summary.Appearance == TaskProgressAppearance.Completed);
+        var description = Services.Impl.TaskProgressText.Format(summary);
+        ToolTip.SetTip(TaskButton, description);
+        Avalonia.Automation.AutomationProperties.SetName(TaskButton, description);
     }
 
     // ──────────────────────────────────────────────
@@ -948,25 +946,12 @@ public partial class MainWindow : AppWindow
     private void ToggleTaskPanel()
     {
         if (_isTaskPanelAnimating) return;
-        CancelAutoCloseTimer();
-
-        if (TaskOverlayPanel.IsVisible)
-        {
-            _taskPanelMode = PanelMode.None;
-            _ = SlideTaskPanelAsync(show: false);
-        }
-        else
-        {
-            _taskPanelMode = PanelMode.Manual;
-            _ = SlideTaskPanelAsync(show: true);
-        }
+        _ = SlideTaskPanelAsync(show: !TaskOverlayPanel.IsVisible);
     }
 
     private void CloseTaskPanel(object? sender, RoutedEventArgs e)
     {
         if (_isTaskPanelAnimating) return;
-        CancelAutoCloseTimer();
-        _taskPanelMode = PanelMode.None;
         _ = SlideTaskPanelAsync(show: false);
     }
 
@@ -1018,37 +1003,6 @@ public partial class MainWindow : AppWindow
         }
     }
 
-    private void StartAutoCloseTimer()
-    {
-        CancelAutoCloseTimer();
-        _autoCloseTimerCts = new CancellationTokenSource();
-        var token = _autoCloseTimerCts.Token;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(3000, token);
-                await Dispatcher.UIThread.InvokeAsync(async () =>
-                {
-                    if (_taskPanelMode == PanelMode.Auto && !_taskManager.Tasks.Any(t => t.IsActive
-                        || t.State == BackgroundTaskState.Failed))
-                    {
-                        _taskPanelMode = PanelMode.None;
-                        await SlideTaskPanelAsync(show: false);
-                    }
-                });
-            }
-            catch (OperationCanceledException) { }
-        }, token);
-    }
-
-    private void CancelAutoCloseTimer()
-    {
-        _autoCloseTimerCts?.Cancel();
-        _autoCloseTimerCts?.Dispose();
-        _autoCloseTimerCts = null;
-    }
-
     private void RebuildTaskPanelItems(IReadOnlyList<BackgroundTaskInfo> tasks)
     {
         TaskPanelTitle.Text = Services.Impl.LocalizationText.Get("tasks.transfers");
@@ -1093,24 +1047,30 @@ public partial class MainWindow : AppWindow
         await ExecuteWindowCapabilityAsync("ui.new-tab", "{}");
     }
 
-    private async Task AddTabAsync(bool select = true, string? directoryPath = null)
+    private async Task AddTabAsync(bool select = true, string? directoryPath = null, int? insertIndex = null)
     {
         if (_vm == null)
             return;
 
+        _tabInteraction.Cancel();
         var sourcePath = directoryPath ?? _vm.FileList.CurrentPath;
+        var navigate = directoryPath != null || (!string.IsNullOrWhiteSpace(sourcePath)
+            && Path.IsPathFullyQualified(sourcePath) && await Task.Run(() => Directory.Exists(sourcePath)));
+        if (_shutdownStarted || _vm == null) return;
         var scope = App.Services.CreateScope();
         ExplorerTabViewModel? tab = null;
         try
         {
             var fileList = scope.ServiceProvider.GetRequiredService<FileListViewModel>();
-            tab = _vm.AddTab(fileList, select);
+            if (navigate && !string.IsNullOrWhiteSpace(sourcePath) && Path.IsPathFullyQualified(sourcePath))
+                fileList.PrepareInitialDirectoryView();
+            tab = _vm.AddTab(fileList, select, insertIndex);
             _tabScopes[tab] = scope;
 
             // Finder opens a new tab at the current ordinary folder. Special
             // views start at Home because their virtual state cannot be safely
             // reconstructed from a filesystem path alone.
-            if (directoryPath != null || (!string.IsNullOrWhiteSpace(sourcePath) && Directory.Exists(sourcePath)))
+            if (navigate)
                 await fileList.NavigateToAsync(sourcePath);
         }
         catch (Exception ex)
@@ -1154,6 +1114,7 @@ public partial class MainWindow : AppWindow
         if (_vm == null || _vm.Tabs.Count <= 1 || !_vm.Tabs.Contains(tab))
             return;
 
+        _tabInteraction.Cancel();
         var header = TabList.ContainerFromItem(tab);
         var releaseHeader = Platforms.MacOS.MacAutomationLifetime.Capture(header, tab);
         var release = DetachWorkspaceAsync(tab, "tab-close");
@@ -1270,6 +1231,7 @@ public partial class MainWindow : AppWindow
                     workspace.FileListView.SaveTabViewState(tab);
                     workspace.DeactivateTransientUi();
                     workspace.IsVisible = false;
+                    tab.FileList.SetWorkspaceVisible(false);
                 }
                 // Hidden cached children still belong to Grid. Clear old placements before
                 // shrinking its definitions so its cell cache cannot reference removed slots.
@@ -1314,6 +1276,7 @@ public partial class MainWindow : AppWindow
             Grid.SetRowSpan(workspace, slot.RowSpan);
             Grid.SetColumnSpan(workspace, slot.ColumnSpan);
             workspace.IsVisible = true;
+            tab.FileList.SetWorkspaceVisible(true);
             if (!wasVisible) workspace.FileListView.RestoreTabViewState(tab);
         }
 

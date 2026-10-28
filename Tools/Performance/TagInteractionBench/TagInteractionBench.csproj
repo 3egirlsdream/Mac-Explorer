@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <HostDirectory Condition="'$(HostDirectory)' == ''">../FastListBench/bin/Debug/net10.0/osx-arm64/FastListBench.app/Contents/MacOS</HostDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MacExplorer" HintPath="$(HostDirectory)/MacExplorer.dll" Private="false" />
+    <Reference Include="Microsoft.Data.Sqlite" HintPath="$(HostDirectory)/Microsoft.Data.Sqlite.dll" Private="false" />
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions" HintPath="$(HostDirectory)/Microsoft.Extensions.Logging.Abstractions.dll" Private="false" />
+  </ItemGroup>
+</Project>

@@ -52,8 +52,6 @@ public sealed class TaskPanelMotionTests : FileListViewModelTestBase
         var window = fixture.Window;
         window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         window.Width = width;
-        var mode = Field("_taskPanelMode");
-        mode.SetValue(window, Enum.Parse(mode.FieldType, "Manual"));
         for (var i = 0; i < 12; i++) manager.CompleteTask(manager.AddTask("Create " + i, BackgroundTaskKind.Create).Id);
         var active = manager.AddTask("Copy", BackgroundTaskKind.Copy);
         for (var i = 0; i < 100; i++) manager.UpdateProgress(active.Id, i % 50, "file.txt");
@@ -61,6 +59,7 @@ public sealed class TaskPanelMotionTests : FileListViewModelTestBase
         Assert.Null(Field("_fileTaskPresenter").GetValue(window));
 
         var panel = window.FindControl<Border>("TaskOverlayPanel")!;
+        Assert.False(panel.IsVisible);
         var opening = Slide(window, true);
         var rows = panel.GetVisualDescendants().OfType<Border>().Where(row => row.Classes.Contains("file-task-row")).ToArray();
         Assert.Equal(13, rows.Length);

@@ -36,6 +36,9 @@ public sealed class TagToolbar : UserControl
     private IReadOnlyList<FileTagNode> _hidden = [];
     public event Action? Opening;
     public event Action? NewTagRequested;
+    public event Action<FileTag>? RenameTagRequested;
+    public event Action<FileTag>? CreateChildRequested;
+    private bool _actionsOpen;
     internal IReadOnlyList<FileTagNode> OverflowTags => _hidden;
     internal ContextMenu? ActiveMenu => _menu;
 
@@ -103,12 +106,14 @@ public sealed class TagToolbar : UserControl
                 VerticalAlignment = VerticalAlignment.Center, Classes = { "ghost", "compact", "tag-toolbar-name" }, Tag = node.Tag };
             ToolTip.SetTip(name, node.Tag.DisplayName); AutomationProperties.SetName(name, node.Tag.DisplayName);
             name.Click += async (_, _) => await NavigateAsync(node.Tag);
+            AttachActions(name, node.Tag);
             if (node.Children.Count > 0)
             {
                 AutomationProperties.SetHelpText(name, LocalizationText.Get("悬停查看子标签"));
                 name.PointerEntered += (_, _) =>
                 {
                     CancelHover();
+                    if (_actionsOpen) return;
                     if (_menu?.IsOpen == true && _menuTarget == name) return;
                     _openDelay = ScheduleHover(() => OpenMenu(name, node.Children, node.Tag.DisplayName), TimeSpan.FromMilliseconds(250));
                 };
@@ -153,7 +158,7 @@ public sealed class TagToolbar : UserControl
 
     private void OpenMenu(Control target, IReadOnlyList<FileTagNode> nodes, string title)
     {
-        if (_viewModel == null || nodes.Count == 0 || _menu?.IsOpen == true && _menuTarget == target) return;
+        if (_viewModel == null || _actionsOpen || nodes.Count == 0 || _menu?.IsOpen == true && _menuTarget == target) return;
         Opening?.Invoke();
         CloseDropdown();
         var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft, MinWidth = 240 };
@@ -173,6 +178,7 @@ public sealed class TagToolbar : UserControl
             TextTrimming = TextTrimming.CharacterEllipsis }, Icon = TagIcon(node.Tag), Tag = node.Tag };
         AutomationProperties.SetName(item, node.Tag.DisplayName); ToolTip.SetTip(item, node.Tag.DisplayName);
         ContextMenuPopupStyler.Attach(item);
+        AttachActions(item, node.Tag);
         foreach (var child in node.Children) item.Items.Add(CreateMenuItem(child));
         item.Click += async (_, e) => { if (ReferenceEquals(e.Source, item)) await NavigateAsync(node.Tag); };
         // A parent remains a navigable tag while the standard menu owns its hover cascade.
@@ -189,6 +195,57 @@ public sealed class TagToolbar : UserControl
         return item;
     }
 
+    private void AttachActions(Control control, FileTag tag)
+    {
+        control.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (!e.GetCurrentPoint(control).Properties.IsRightButtonPressed) return;
+            if (control is MenuItem && !ReferenceEquals(e.Source as MenuItem
+                ?? (e.Source as Visual)?.FindAncestorOfType<MenuItem>(), control)) return;
+            e.Handled = true;
+            CancelHover();
+        }, RoutingStrategies.Tunnel);
+        control.AddHandler(PointerReleasedEvent, (_, e) =>
+        {
+            if (e.InitialPressMouseButton != MouseButton.Right) return;
+            if (control is MenuItem && !ReferenceEquals(e.Source as MenuItem
+                ?? (e.Source as Visual)?.FindAncestorOfType<MenuItem>(), control)) return;
+            e.Handled = true;
+            OpenActions(tag);
+        }, RoutingStrategies.Tunnel);
+        control.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key != Key.Apps && !(e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.Shift)) return;
+            e.Handled = true; OpenActions(tag);
+        }, RoutingStrategies.Tunnel);
+    }
+
+    private void OpenActions(FileTag tag)
+    {
+        Opening?.Invoke();
+        CloseDropdown();
+        if (_viewModel == null) return;
+        tag = _viewModel.ResolveTag(tag);
+        var menu = new ContextMenu();
+        void Add(string label, Action action, bool enabled = true)
+        {
+            var item = new MenuItem { Header = label, IsEnabled = enabled };
+            item.Click += (_, e) => { e.Handled = true; CloseDropdown(); action(); };
+            menu.Items.Add(item);
+        }
+        Add(LocalizationText.Get("重命名"), () => RenameTagRequested?.Invoke(tag));
+        Add(LocalizationText.Get("删除"), () => _viewModel?.ShowTagDeleteConfirmDialog(tag), tag.IsCustom);
+        Add(LocalizationText.Get("tags.add_child_collection"), () => CreateChildRequested?.Invoke(tag));
+        _menu = menu; _menuTarget = this; _actionsOpen = true;
+        menu.Closed += (_, _) =>
+        {
+            if (!ReferenceEquals(_menu, menu)) return;
+            _menu = null; _menuTarget = null; _actionsOpen = false;
+        };
+        // A submenu's popup is already closed; anchor to the live toolbar, at the pointer.
+        menu.Open(this);
+    }
+
     private async Task NavigateAsync(FileTag tag)
     {
         if (_navigating || _viewModel == null) return;
@@ -201,6 +258,7 @@ public sealed class TagToolbar : UserControl
     public void CloseDropdown()
     {
         CancelHover();
+        _actionsOpen = false;
         var menu = _menu; _menu = null; _menuTarget = null;
         menu?.Close();
     }

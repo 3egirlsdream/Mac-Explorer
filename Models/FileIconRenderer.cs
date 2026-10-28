@@ -47,16 +47,6 @@ public static class FileIconRenderer
         return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 32 32"" xmlns=""http://www.w3.org/2000/svg"">{inner}</svg>";
     }
 
-    /// <summary>Renders a Fluent-style folder icon at given size.</summary>
-    public static string RenderFolder(int size) =>
-        $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 32 32"" xmlns=""http://www.w3.org/2000/svg"">{FolderIcon()}</svg>";
-
-    static string FolderIcon() =>
-        @"<path d=""M3 9.5A4.5 4.5 0 0 1 7.5 5h3.964a3.5 3.5 0 0 1 2.475 1.025L16 8.085l-3.475 3.476a1.5 1.5 0 0 1-1.06.439H3zM3 14v10.5A4.5 4.5 0 0 0 7.5 29h19a4.5 4.5 0 0 0 4.5-4.5V13a4.5 4.5 0 0 0-4.5-4.5h-8.086l-4.475 4.475A3.5 3.5 0 0 1 11.464 14z"" fill=""#000"" opacity=""0.04""/>" +
-        @"<path d=""M2 8.5A4.5 4.5 0 0 1 6.5 4h3.964a3.5 3.5 0 0 1 2.475 1.025L15 7.085l-3.475 3.476a1.5 1.5 0 0 1-1.06.439H2z"" fill=""#D4A017""/>" +
-        @"<path d=""M2 13v10.5A4.5 4.5 0 0 0 6.5 28h19a4.5 4.5 0 0 0 4.5-4.5V12a4.5 4.5 0 0 0-4.5-4.5h-8.086l-4.475 4.475A3.5 3.5 0 0 1 10.464 13z"" fill=""#F5C731""/>" +
-        @"<rect x=""2"" y=""13"" width=""28"" height=""1"" rx=""0.5"" fill=""#FFF"" opacity=""0.15""/>";
-
     static string E(string s) => WebUtility.HtmlEncode(s);
 
     // ── Font sizing ──

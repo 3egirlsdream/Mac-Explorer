@@ -110,7 +110,7 @@ public sealed class ExplorerWorkspaceViewTests
         Assert.False(splitView.IsPaneOpen);
         Assert.True(sidebar.IsRailMode);
         var secondarySection = sidebar.FindControl<ItemsControl>("PinnedFoldersControl")!;
-        var remoteServers = sidebar.FindControl<ItemsControl>("RemoteServersList")!;
+        var remoteServers = sidebar.FindControl<ItemsControl>("NetworkLocationsList")!;
         Assert.Contains("rail-secondary", remoteServers.Classes);
         Assert.Equal(0, secondarySection.MaxHeight);
         Assert.Equal(0, secondarySection.Opacity);
