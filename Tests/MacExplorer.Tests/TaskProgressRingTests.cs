@@ -86,7 +86,8 @@ public sealed class TaskProgressRingTests : FileListViewModelTestBase
         Assert.Contains(progress, ToolTip.GetTip(button)!.ToString());
         Assert.Equal(ToolTip.GetTip(button), AutomationProperties.GetName(button));
         window.UpdateLayout();
-        Assert.Equal(20, ring.Bounds.Width); Assert.Equal(20, ring.Bounds.Height);
+        Assert.Equal(16, ring.Bounds.Width); Assert.Equal(16, ring.Bounds.Height);
+        Assert.Equal(2, ring.StrokeThickness);
         Assert.True(ring.IsAnimating);
         Assert.False(panel.IsVisible);
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

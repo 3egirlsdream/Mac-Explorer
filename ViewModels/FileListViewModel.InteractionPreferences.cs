@@ -39,6 +39,14 @@ public partial class FileListViewModel
 
     private void OnSettingsChanged(string key)
     {
+        if (key.StartsWith("sidebar_show_ai_", StringComparison.Ordinal) && !_disposed)
+        {
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                LoadSidebarVisibility();
+            else
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (!_disposed) LoadSidebarVisibility(); });
+            return;
+        }
         if (key == "show_toolbar_tags" && !_disposed)
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (!_disposed) OnPropertyChanged(nameof(ShowToolbarTags)); });

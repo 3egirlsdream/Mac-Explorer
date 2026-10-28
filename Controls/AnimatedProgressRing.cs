@@ -53,7 +53,7 @@ public sealed class AnimatedProgressRing : Control
         IsHitTestVisible = false;
     }
 
-    protected override Size MeasureOverride(Size availableSize) => new(20, 20);
+    protected override Size MeasureOverride(Size availableSize) => new(16, 16);
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {

@@ -424,6 +424,7 @@
                     <!-- ═══ AI 智能 AI ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto" Classes="sidebar-section-header sidebar-category-header rail-secondary"
                           x:Name="AiSectionHeader" Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}" AutomationProperties.Name="{loc:Loc ui.316}"
+                          IsVisible="{Binding ShowSidebarAiSection}"
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="{loc:Loc ui.131}"

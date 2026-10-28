@@ -325,6 +325,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public bool ShowSidebarAiLocations { get; set; } = true;
     public bool ShowSidebarAiDates { get; set; } = true;
     public bool ShowSidebarAiTextSearch { get; set; } = true;
+    public bool ShowSidebarAiSection => ShowSidebarAiPeople || ShowSidebarAiCategories
+        || ShowSidebarAiLocations || ShowSidebarAiDates || ShowSidebarAiTextSearch;
 
     // ── Sidebar collapse states ──
     private bool _isAiCollapsed;
@@ -4297,6 +4299,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ShowSidebarAiLocations));
         OnPropertyChanged(nameof(ShowSidebarAiDates));
         OnPropertyChanged(nameof(ShowSidebarAiTextSearch));
+        OnPropertyChanged(nameof(ShowSidebarAiSection));
     }
 
     private void RefreshExternalVolumes()
