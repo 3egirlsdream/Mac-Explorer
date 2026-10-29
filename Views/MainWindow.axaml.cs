@@ -88,6 +88,7 @@ public partial class MainWindow : AppWindow
     private const double TaskPanelAnimDurationMs = 220;
 
     private long _paneLayoutGeneration;
+    private int _paneRebuildQueued;
     private bool _shutdownStarted;
     private bool _shutdownCompleted;
 
@@ -569,7 +570,7 @@ public partial class MainWindow : AppWindow
     }
 
     private void OnVisiblePanesChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => SchedulePaneLayoutRebuild();
+        => SchedulePaneLayoutRebuildDeferred();
 
     private void ActivateFileList(FileListViewModel fileList)
     {
@@ -1221,6 +1222,24 @@ public partial class MainWindow : AppWindow
         if (_shutdownStarted) return;
         Interlocked.Increment(ref _paneLayoutGeneration);
         RebuildPaneLayout();
+    }
+
+    // Adding, removing and selecting tabs mutate VisiblePanes several times inside a
+    // single input event, and each mutation used to rebuild the pane layout on the
+    // spot. Constructing a full ExplorerWorkspaceView (sidebar, toolbar, breadcrumb and
+    // the virtualized file list) is the dominant cost of opening a tab, so coalesce
+    // those mutations and rebuild once on the next dispatcher turn instead of blocking
+    // the click on a synchronous layout pass.
+    private void SchedulePaneLayoutRebuildDeferred()
+    {
+        if (_shutdownStarted) return;
+        Interlocked.Increment(ref _paneLayoutGeneration);
+        if (Interlocked.Exchange(ref _paneRebuildQueued, 1) != 0) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            Volatile.Write(ref _paneRebuildQueued, 0);
+            if (!_shutdownStarted) RebuildPaneLayout();
+        }, DispatcherPriority.Background);
     }
 
     private void RebuildPaneLayout()
