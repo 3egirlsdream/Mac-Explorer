@@ -35,7 +35,7 @@ public partial class App : Application
         var language = Services.GetRequiredService<ILocalizationService>();
         Name = AppBranding.Name;
         if (OperatingSystem.IsMacOS())
-            NativeMenu.SetMenu(this, Platforms.MacOS.ApplicationMenu.Create(language, ShowAbout));
+            NativeMenu.SetMenu(this, Platforms.MacOS.ApplicationMenu.Create(language, ShowAbout, () => ShowMainWindow()));
         Services.GetRequiredService<IThemeService>().Initialize();
         Services.GetRequiredService<IInteractionStyleService>().Initialize();
         Services.GetRequiredService<ITypographyService>().Initialize();
@@ -273,6 +273,25 @@ public partial class App : Application
         var source = _desktop?.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsActive)
                      ?? _desktop?.Windows.OfType<MainWindow>().LastOrDefault();
         var window = CreateWindow(path, isPrimary: false, source);
+        if (_desktop != null && !_desktop.Windows.Contains(_desktop.MainWindow!))
+            _desktop.MainWindow = window;
+        window.Show();
+        window.Activate();
+        return window;
+    }
+
+    internal static Window ShowMainWindow()
+        => ShowOrCreateWindow(_desktop?.Windows.OfType<MainWindow>() ?? [], () => OpenNewWindow());
+
+    internal static Window ShowOrCreateWindow(System.Collections.Generic.IEnumerable<Window> windows, Func<Window> createWindow)
+    {
+        var candidates = windows.ToArray();
+        var window = candidates.LastOrDefault(w => w.IsActive)
+                     ?? candidates.LastOrDefault(w => w.IsVisible)
+                     ?? candidates.LastOrDefault()
+                     ?? createWindow();
+        if (window.WindowState == WindowState.Minimized)
+            window.WindowState = WindowState.Normal;
         window.Show();
         window.Activate();
         return window;
@@ -299,6 +318,12 @@ public partial class App : Application
         if (_desktop == null) return;
         if (DistributionChannel.IsAppStore)
             _ = Services.GetRequiredService<Services.Subscriptions.SubscriptionService>().RefreshAsync();
+
+        if (e.Kind == ActivationKind.Reopen)
+        {
+            ShowMainWindow();
+            return;
+        }
 
         var path = GetActivatedPath(e);
         if (path == null) return;

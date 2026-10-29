@@ -69,6 +69,7 @@
     "conversion.processing_batch": "正在转换 {0}（{1}/{2}）",
     "app.store_name": "文件资源管理器",
     "app.menu_about": "关于 {0}",
+    "app.menu_show_main_window": "显示主窗口",
     "app.menu_quit": "退出 {0}",
     "app.delivery": "文件速递 · {0}",
     "subscription.unverified": "暂时无法验证订阅",

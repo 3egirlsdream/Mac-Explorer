@@ -70,6 +70,7 @@
     "conversion.processing_batch": "Converting {0} ({1}/{2})",
     "app.store_name": "文件资源管理器",
     "app.menu_about": "About {0}",
+    "app.menu_show_main_window": "Show Main Window",
     "app.menu_quit": "Quit {0}",
     "app.delivery": "File Delivery · {0}",
     "subscription.unverified": "Unable to verify subscription",
