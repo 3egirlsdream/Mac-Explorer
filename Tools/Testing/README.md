@@ -100,3 +100,13 @@ MACEXPLORER_WEBDAV_TEST_PYTHON=/tmp/macexplorer-webdav-qa/bin/python \
 该检查覆盖认证失败、未受信任证书、进行中取消、实际挂载目录、应用内浏览、下载内容、上传／重命名／删除、重复连接、两个窗口同步和弹出。`webdav-progress.json` / `webdav-smoke.json` 写入隔离应用目录；服务请求日志保留在打印的 fixture 目录。超时或系统挂载失败按失败报告，不能把文件系统出现临时卷当作挂载成功。未配置 Python 环境或非 Debug 构建时跳过此可选检查；忙碌卷失败同时验证真实打开文件和替身行为，地址／账号／卷身份匹配由单元测试覆盖。
 
 可设置 `MACEXPLORER_WEBDAV_TEST_SERVER=wsgidav` 复现 WsgiDAV 4.4.0 兼容性检查。当前 macOS 27.0.1 对该服务认证成功后仍阻塞在系统挂载调用，须如实记录失败；Apache 的成功不能替代该兼容性结果。Apache 使用独立配置和进程，仅监听临时 loopback 端口，不启用或修改系统 Web 共享服务。
+
+## 文件速递暂存原生验证
+
+```bash
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_DELIVERY_SMOKE=1 bash Tools/Testing/run-isolated.sh \
+  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+该入口仅在 Debug 与独立测试目录中运行，生成文件、长文件名、文件夹和不可用路径，检查暂存展示、清空后源文件不变，并输出四语浅／深色及窄窗口截图。结果位于打印的测试目录 `file-delivery/`，`report.json` 的 success 为验收结果。设置 `MACEXPLORER_DELIVERY_SMOKE=interactive` 会保留实例及 `Documents/DeliveryFixture`，用于 Finder／本程序实际拖入、拖出和取消验证；`state.json` 仅在该显式测试模式下记录测试路径、窗口可见性和原生拖拽计数。普通自动回归运行 `fast`、`ui --area FileDelivery --area Localization`、`integration --area FileDelivery`。

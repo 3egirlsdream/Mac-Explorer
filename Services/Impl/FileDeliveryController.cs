@@ -14,6 +14,8 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
 {
     private MacFileDeliveryStatusItem? _statusItem;
     private FileDeliveryWindow? _window;
+    private FileDeliveryDropWindow? _dropWindow;
+    private bool _incomingDrag;
     private FileListViewModel? _files;
     private MacQuickLookService? _preview;
     private IServiceScope? _scope;
@@ -24,6 +26,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
     {
         if (!OperatingSystem.IsMacOS()) return;
         delivery.EnabledChanged += OnEnabledChanged;
+        delivery.StagingChanged += OnStagingChanged;
         UpdateEnabled();
     }
 
@@ -38,8 +41,44 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
             _statusItem = new MacFileDeliveryStatusItem();
             _statusItem.Clicked += Toggle;
             _statusItem.OutsideClicked += OnOutsideClicked;
+            _statusItem.FileDragChanged += OnFileDragChanged;
+            _statusItem.DropHoverChanged += hover => _dropWindow?.SetDropHover(hover);
+            _statusItem.FilesDropped += OnFilesDropped;
         }
         else ReleasePanel();
+    }
+
+    private void OnStagingChanged(object? sender, EventArgs e)
+    {
+        if (delivery.StagedPaths.Count == 0) MacFileDeliveryStatusItem.ClearStagingAccess();
+    }
+
+    private bool OnFilesDropped(string[] paths)
+    {
+        if (_disposed || !delivery.Enabled || Subscriptions.SubscriptionAccess.IsLocked) return false;
+        delivery.StagePaths(paths);
+        return paths.Length > 0;
+    }
+
+    private void OnFileDragChanged(bool dragging)
+    {
+        _incomingDrag = dragging;
+        if (!dragging)
+        {
+            _dropWindow?.SetDropHover(false);
+            _dropWindow?.Hide();
+            if (!delivery.Enabled) UpdateEnabled();
+            return;
+        }
+        if (_disposed || !delivery.Enabled || Subscriptions.SubscriptionAccess.IsLocked) return;
+        if (_window?.IsVisible == true)
+        {
+            _window.Suspend();
+            _window.Hide();
+        }
+        _dropWindow ??= new FileDeliveryDropWindow(delivery);
+        _dropWindow.Show();
+        _statusItem?.PlaceDropWindow(_dropWindow);
     }
 
     private void EnsureWindow()
@@ -70,7 +109,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
 
     private void Toggle()
     {
-        if (_disposed || _dragging) return;
+        if (_disposed || _dragging || _incomingDrag) return;
         if (_window?.IsVisible == true) Hide();
         else ShowPanel();
     }
@@ -152,6 +191,9 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
 
     private void ReleasePanel()
     {
+        _dropWindow?.Close();
+        _dropWindow = null;
+        _incomingDrag = false;
         _window?.Suspend();
         _preview?.Dispose();
         _window?.Close();
@@ -166,6 +208,8 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
         if (_disposed) return;
         _disposed = true;
         delivery.EnabledChanged -= OnEnabledChanged;
+        delivery.StagingChanged -= OnStagingChanged;
+        MacFileDeliveryStatusItem.ClearStagingAccess();
         ReleasePanel();
     }
 }

@@ -1264,8 +1264,12 @@ public abstract partial class FileListViewModelTestBase
             }
         }
 
-        public Task<FileSystemEntry?> GetEntryAsync(string path)
-            => Task.FromResult(_entries.GetValueOrDefault(path));
+        public Func<string, Task>? BeforeGetEntry { get; set; }
+        public async Task<FileSystemEntry?> GetEntryAsync(string path)
+        {
+            if (BeforeGetEntry != null) await BeforeGetEntry(path);
+            return _entries.GetValueOrDefault(path);
+        }
 
         public List<(string Path, byte[] Content)> CreatedFiles { get; } = [];
 

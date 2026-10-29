@@ -5,6 +5,12 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "delivery.load_failed": "Impossible de charger le dépôt : {0}",
+    "delivery.staging": "Dépôt temporaire",
+    "delivery.clear": "Vider le dépôt",
+    "delivery.drop": "Déposez ici temporairement",
+    "delivery.count": "Dépôt : {0} éléments",
+    "delivery.unavailable": "Dépôt : {0} · Indisponibles : {1}",
     "tasks.progress.known": "Tâches en cours : {0} · Progression globale {1:0}%",
     "tasks.progress.unknown": "Tâches en cours : {0} · Progression indéterminée",
     "tasks.progress.completed": "Toutes les tâches sont terminées",

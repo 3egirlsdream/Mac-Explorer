@@ -5,6 +5,12 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "delivery.load_failed": "Unable to load staging: {0}",
+    "delivery.staging": "Staging",
+    "delivery.clear": "Clear Staging",
+    "delivery.drop": "Drop here to stage",
+    "delivery.count": "Staged: {0}",
+    "delivery.unavailable": "Staged: {0} · Unavailable: {1}",
     "tasks.progress.known": "Unfinished tasks: {0} · Overall progress {1:0}%",
     "tasks.progress.unknown": "Unfinished tasks: {0} · Progress unknown",
     "tasks.progress.completed": "All tasks completed",

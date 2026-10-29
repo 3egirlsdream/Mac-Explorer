@@ -24,6 +24,7 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
         using var service = new MacExplorer.Services.Impl.FileDeliveryService(fixture.Settings, fixture.Tags);
         foreach (var entry in service.Preferences.Entries.ToArray()) service.Remove(entry.Id);
         service.AddFolder(fixture.Root);
+        service.SelectEntry(service.Preferences.Entries.Single().Id);
         var fileService = new FakeFileService(fixture.Root);
         fileService.Seed(new() { Name = "keep.txt", FullPath = Path.Combine(fixture.Root, "keep.txt") });
         using var panelVm = CreateViewModel(fileService, browseOnly: true);
@@ -36,7 +37,7 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
             window.Show();
             await window.ResumeAsync();
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-            Assert.Single(window.FindControl<StackPanel>("EntryTabs")!.Children);
+            Assert.Equal(2, window.FindControl<StackPanel>("EntryTabs")!.Children.Count);
             Assert.False(window.GetVisualDescendants().OfType<WindowTitleBar>().Single().IsVisible);
             var content = window.GetVisualDescendants().OfType<ContentPresenter>()
                 .Single(control => control.Name == "WindowContent");
@@ -50,6 +51,122 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
             window.Suspend();
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    public async Task StagingLoadsMixedPathsReturnsThroughHistoryAndClearsWithoutChangingFiles()
+    {
+        using var fixture = new FileDeliveryTests.Fixture();
+        using var service = new MacExplorer.Services.Impl.FileDeliveryService(fixture.Settings, fixture.Tags);
+        var folder = Directory.CreateDirectory(Path.Combine(fixture.Root, "Folder")).FullName;
+        var file = Path.Combine(fixture.Root, "keep.txt");
+        await File.WriteAllTextAsync(file, "keep");
+        var files = new FakeFileService(fixture.Root);
+        files.Seed(new() { Name = "keep.txt", FullPath = file });
+        files.Seed(new() { Name = "Folder", FullPath = folder, IsDirectory = true });
+        files.Seed(new() { Name = "child.txt", FullPath = Path.Combine(folder, "child.txt") });
+        service.StagePaths([file, folder, Path.Combine(fixture.Root, "missing")]);
+        using var vm = CreateViewModel(files, browseOnly: true);
+        var window = new FileDeliveryWindow(service, fixture.Tags, vm);
+        try
+        {
+            window.Show();
+            await window.ResumeAsync();
+            var clear = window.FindControl<Button>("ClearStagingButton")!;
+            Assert.Equal(2, vm.Entries.Count);
+            Assert.Contains("1", vm.StatusText);
+            Assert.True(clear.IsVisible && clear.IsEnabled);
+            Assert.Null(Assert.IsType<Button>(window.FindControl<StackPanel>("EntryTabs")!.Children[0]).ContextMenu);
+            Assert.False(window.FindControl<Button>("UpButton")!.IsEnabled);
+            await vm.OpenEntryAsync(vm.Entries.Single(e => e.IsDirectory));
+            Assert.Equal(folder, vm.CurrentPath);
+            Assert.False(clear.IsVisible);
+            await vm.NavigateBackAsync();
+            Assert.True(vm.IsDeliveryStaging);
+            Assert.Equal(2, vm.Entries.Count);
+            window.Suspend();
+            await window.ResumeAsync();
+            Assert.True(vm.IsDeliveryStaging);
+            Assert.Equal(3, service.StagedPaths.Count);
+            clear.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await vm.RefreshAsync();
+            Assert.Empty(vm.Entries);
+            Assert.False(clear.IsEnabled);
+            Assert.Equal("keep", await File.ReadAllTextAsync(file));
+            Assert.True(Directory.Exists(folder));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StaleStagingLoadCannotRepopulateAfterClearOrNavigation(bool navigateAway)
+    {
+        using var fixture = new FileDeliveryTests.Fixture();
+        using var service = new MacExplorer.Services.Impl.FileDeliveryService(fixture.Settings, fixture.Tags);
+        var folder = Directory.CreateDirectory(Path.Combine(fixture.Root, "Other")).FullName;
+        var file = Path.Combine(fixture.Root, "staged.txt");
+        var child = Path.Combine(folder, "child.txt");
+        var files = new FakeFileService(fixture.Root);
+        files.Seed(new() { FullPath = file, Name = "staged.txt" });
+        files.Seed(new() { FullPath = child, Name = "child.txt" });
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        files.BeforeGetEntry = async _ => { entered.TrySetResult(); await release.Task; };
+        service.StagePaths([file]);
+        using var vm = CreateViewModel(files, browseOnly: true);
+        vm.ConfigureDeliveryStaging(service);
+        var pending = vm.NavigateToAsync(MacExplorer.Services.Impl.FileDeliveryService.StagingPath);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            if (navigateAway) await vm.NavigateToAsync(folder);
+            else { service.ClearStaging(); await vm.RefreshAsync(); }
+        }
+        finally { release.TrySetResult(); }
+        await pending;
+        if (navigateAway)
+        {
+            Assert.Equal(folder, vm.CurrentPath);
+            Assert.Equal(child, Assert.Single(vm.Entries).FullPath);
+        }
+        else Assert.Empty(vm.Entries);
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData("zh-CN")]
+    [InlineData("zh-Hant")]
+    [InlineData("en")]
+    [InlineData("fr")]
+    public async Task StagingRestoresSelectionAndLocalizesDropWindow(string language)
+    {
+        using var fixture = new FileDeliveryTests.Fixture();
+        using var localization = new MacExplorer.Services.Impl.LocalizationService(fixture.Settings);
+        localization.SetLanguage(language);
+        using var service = new MacExplorer.Services.Impl.FileDeliveryService(fixture.Settings, fixture.Tags);
+        service.SelectEntry(service.Preferences.Entries[0].Id);
+        using var vm = CreateViewModel(new FakeFileService(fixture.Root), browseOnly: true);
+        var window = new FileDeliveryWindow(service, fixture.Tags, vm);
+        var drop = new FileDeliveryDropWindow(service);
+        try
+        {
+            window.Show();
+            await window.ResumeAsync();
+            Assert.False(vm.IsDeliveryStaging);
+            Assert.Equal(service.Preferences.Entries[0].Location, vm.CurrentPath);
+            var staging = Assert.IsType<Button>(window.FindControl<StackPanel>("EntryTabs")!.Children[0]);
+            Assert.Equal(localization["delivery.staging"], Assert.IsType<StackPanel>(staging.Content).Children.OfType<TextBlock>().Single().Text);
+            drop.Show();
+            service.StagePaths([Path.Combine(fixture.Root, "test.txt")]);
+            Assert.Equal(localization.Get("delivery.count", 1), drop.FindControl<TextBlock>("CountText")!.Text);
+            drop.SetDropHover(true);
+            Assert.Contains("drag-over", drop.FindControl<Border>("DropSurface")!.Classes);
+            drop.SetDropHover(false);
+            Assert.DoesNotContain("drag-over", drop.FindControl<Border>("DropSurface")!.Classes);
+            Assert.False(drop.ShowActivated);
+        }
+        finally { drop.Close(); window.Close(); }
     }
 
     [AvaloniaFact(Explicit = true)]
@@ -153,7 +270,8 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
                 Assert.False(menu.IsOpen);
                 Assert.DoesNotContain(service.Preferences.Entries, e => e.Name == name);
             }
-            Assert.Empty(tabs.Children);
+            Assert.Single(tabs.Children);
+            Assert.Null(Assert.IsType<Button>(tabs.Children[0]).ContextMenu);
             Assert.Contains(await fixture.Tags.GetSidebarTagsAsync(), t => t.Name == tag.Name);
             Assert.Equal("keep", await File.ReadAllTextAsync(file));
         }

@@ -11,6 +11,12 @@
     "zh-CHT"
   ],
   "strings": {
+    "delivery.load_failed": "載入暫存失敗：{0}",
+    "delivery.staging": "暫存",
+    "delivery.clear": "清空暫存",
+    "delivery.drop": "拖到這裡暫存",
+    "delivery.count": "暫存 {0} 項",
+    "delivery.unavailable": "暫存 {0} 項 · {1} 項無法使用",
     "tasks.progress.known": "未結束任務：{0} · 整體進度 {1:0}%",
     "tasks.progress.unknown": "未結束任務：{0} · 進度暫時無法估算",
     "tasks.progress.completed": "所有任務已完成",

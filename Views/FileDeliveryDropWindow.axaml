@@ -1,0 +1,17 @@
+<controls:AppWindow xmlns="https://github.com/avaloniaui"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:controls="using:MacExplorer.Controls"
+                   xmlns:icons="using:MacExplorer.Assets"
+                   x:Class="MacExplorer.Views.FileDeliveryDropWindow"
+                   Classes="file-delivery" Title="{controls:Loc delivery.staging}"
+                   Width="240" Height="169.705627" CanResize="False" CanMaximize="False"
+                   ShowTitleBar="False" ExtendContentToTop="True" ShowActivated="False"
+                   ShowInTaskbar="False" WindowDecorations="None">
+    <Border x:Name="DropSurface" Classes="delivery-drop-surface">
+        <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+            <PathIcon Data="{x:Static icons:Icons.Download}" Width="28" Height="28" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBlock Text="{controls:Loc delivery.drop}" TextAlignment="Center" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeBody}"/>
+            <TextBlock x:Name="CountText" TextAlignment="Center" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+    </Border>
+</controls:AppWindow>

@@ -7,6 +7,45 @@ namespace MacExplorer.Services.Impl;
 /// <summary>References to real folders and existing tags; never owns or alters their files.</summary>
 public sealed class FileDeliveryService : IDisposable
 {
+    public const string StagingId = "staging";
+    public const string StagingPath = "__delivery_staging__";
+    private readonly List<string> _stagedPaths = [];
+    private readonly HashSet<string> _stagedPathSet = new(StringComparer.Ordinal);
+    public IReadOnlyList<string> StagedPaths => _stagedPaths.AsReadOnly();
+    public FileDeliveryEntry StagingEntry { get; private set; } = new(StagingId, "", StagingPath);
+    public IEnumerable<FileDeliveryEntry> AllEntries => new[] { StagingEntry }.Concat(Preferences.Entries);
+    public event EventHandler? StagingChanged;
+
+    public int StagePaths(IEnumerable<string> paths)
+    {
+        var added = 0;
+        foreach (var value in paths)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Contains('\0') || !Path.IsPathFullyQualified(value)) continue;
+            var path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(value));
+            if (!_stagedPathSet.Add(path)) continue;
+            _stagedPaths.Add(path);
+            added++;
+        }
+        if (added > 0) StagingChanged?.Invoke(this, EventArgs.Empty);
+        return added;
+    }
+
+    public void ClearStaging()
+    {
+        if (_stagedPaths.Count == 0) return;
+        _stagedPaths.Clear();
+        _stagedPathSet.Clear();
+        StagingChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void SelectEntry(string id)
+    {
+        if (!AllEntries.Any(e => e.Id == id)) return;
+        Preferences = Preferences with { SelectedId = id };
+        Save();
+    }
+
     internal const string PreferencesKey = "file_delivery_preferences_v1";
     internal const string EnabledKey = "file_delivery_enabled";
     private readonly ISettingsService _settings;
@@ -37,7 +76,7 @@ public sealed class FileDeliveryService : IDisposable
     {
         var home = RuntimePaths.HomeDirectory;
         var downloads = new FileDeliveryEntry(Guid.NewGuid().ToString("N"), "下载", Path.Combine(home, "Downloads"));
-        return new() { Entries = [downloads, new(Guid.NewGuid().ToString("N"), "桌面", Path.Combine(home, "Desktop"))], SelectedId = downloads.Id };
+        return new() { Entries = [downloads, new(Guid.NewGuid().ToString("N"), "桌面", Path.Combine(home, "Desktop"))], SelectedId = StagingId };
     }
 
     public void AddFolder(string path)
@@ -58,8 +97,9 @@ public sealed class FileDeliveryService : IDisposable
 
     public void Remove(string id)
     {
+        if (id == StagingId) return;
         Preferences.Entries.RemoveAll(e => e.Id == id);
-        if (Preferences.SelectedId == id) Preferences = Preferences with { SelectedId = Preferences.Entries.FirstOrDefault()?.Id };
+        if (Preferences.SelectedId == id) Preferences = Preferences with { SelectedId = StagingId };
         CommitEntries();
     }
 
@@ -74,6 +114,12 @@ public sealed class FileDeliveryService : IDisposable
 
     public void SavePosition(string id, string location, FileListScrollAnchor? anchor, double offset)
     {
+        if (id == StagingId)
+        {
+            StagingEntry = StagingEntry with { CurrentLocation = location, ScrollAnchor = anchor, ScrollOffset = offset };
+            SelectEntry(id);
+            return;
+        }
         var index = Preferences.Entries.FindIndex(e => e.Id == id);
         if (index < 0) return;
         Preferences.Entries[index] = Preferences.Entries[index] with
@@ -83,7 +129,7 @@ public sealed class FileDeliveryService : IDisposable
     }
 
     internal static string ResolveLocation(FileDeliveryEntry entry)
-        => entry.CurrentLocation is { } location && (TagPathHelper.IsTagPath(location) || Directory.Exists(location))
+        => entry.CurrentLocation is { } location && (location == StagingPath || TagPathHelper.IsTagPath(location) || Directory.Exists(location))
             ? location : entry.Location;
 
     private void OnTagRenamed(object? sender, TagRenamedEventArgs e)
@@ -104,8 +150,8 @@ public sealed class FileDeliveryService : IDisposable
 
     private void CommitEntries()
     {
-        if (!Preferences.Entries.Any(e => e.Id == Preferences.SelectedId))
-            Preferences = Preferences with { SelectedId = Preferences.Entries.FirstOrDefault()?.Id };
+        if (!AllEntries.Any(e => e.Id == Preferences.SelectedId))
+            Preferences = Preferences with { SelectedId = StagingId };
         Save();
         EntriesChanged?.Invoke(this, EventArgs.Empty);
     }

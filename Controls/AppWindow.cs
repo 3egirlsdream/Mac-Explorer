@@ -22,6 +22,7 @@ public class AppWindow : Window
     private Grid? _subscriptionHost;
     private bool _nativeChromeRefreshPending;
     private ITopLevelImpl? _nativeLifetime;
+    internal WindowRenderDiagnostics? RenderDiagnostics { get; private set; }
     internal bool IsShortcutHintVisible => _shortcutHints?.IsVisible == true;
 
     public static readonly StyledProperty<bool> ShowTitleBarProperty =
@@ -107,10 +108,14 @@ public class AppWindow : Window
             ApplyNativeWindowChrome();
             UpdateLayout();
             UpdateWindowPseudoClasses();
+            if (MemoryDiagnostics.IsEnabled && OperatingSystem.IsMacOS())
+                RenderDiagnostics ??= new WindowRenderDiagnostics(this);
             _shortcutHints ??= new ShortcutHintController(this, Shortcuts);
         };
         Closed += (_, _) =>
         {
+            RenderDiagnostics?.Dispose();
+            RenderDiagnostics = null;
             MacNativeFileDrop.Disable(this);
             if (_subscription != null) _subscription.Changed -= OnSubscriptionChanged;
             _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this);
@@ -194,6 +199,7 @@ public class AppWindow : Window
 
         if (WindowState == WindowState.FullScreen)
         {
+            RenderDiagnostics?.RecordRequest(_stateBeforeFullScreen, "fullscreen-toggle");
             WindowState = _stateBeforeFullScreen;
             return;
         }
@@ -201,6 +207,7 @@ public class AppWindow : Window
         _stateBeforeFullScreen = WindowState == WindowState.Maximized
             ? WindowState.Maximized
             : WindowState.Normal;
+        RenderDiagnostics?.RecordRequest(WindowState.FullScreen, "fullscreen-toggle");
         WindowState = WindowState.FullScreen;
     }
 

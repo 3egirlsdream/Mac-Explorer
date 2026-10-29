@@ -98,7 +98,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         _directoryNotificationsPaused = paused;
         if (paused) StopDirectoryWork();
-        else if (!string.IsNullOrEmpty(CurrentPath) && !TagPathHelper.IsTagPath(CurrentPath))
+        else if (!string.IsNullOrEmpty(CurrentPath) && !IsDeliveryStaging && !TagPathHelper.IsTagPath(CurrentPath))
         {
             _navigation.SetWatchedDirectory(CurrentPath);
             UpdateTreeSubscriptions();
@@ -247,6 +247,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public string GetLocationIcon(string location)
     {
+        if (location == FileDeliveryService.StagingPath) return AppIcons.Download;
         if (location == VirtualPath.Network || VirtualPath.IsRemotePath(location)) return AppIcons.Network;
         if (TagPathHelper.IsTagPath(location)) return AppIcons.Tag;
         var path = location == "/" ? "/" : location.TrimEnd('/');
@@ -1142,7 +1143,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task RefreshFromNotification()
     {
-        if (_disposed || _directoryNotificationsPaused || _isRefreshingFromNotification) return;
+        if (_disposed || _directoryNotificationsPaused || _isRefreshingFromNotification || IsDeliveryStaging) return;
         if (!_navigation.NeedsRefreshFromNotification(IsArchiveView, IsAiView)) return;
         _isRefreshingFromNotification = true;
         try
@@ -1162,7 +1163,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateToAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
-        if (IsBrowseOnly && !TagPathHelper.IsTagPath(path) && !Path.IsPathFullyQualified(path)) return;
+        if (IsBrowseOnly && !(path == FileDeliveryService.StagingPath && _deliveryStaging != null) && !TagPathHelper.IsTagPath(path) && !Path.IsPathFullyQualified(path)) return;
+
+        if (path == FileDeliveryService.StagingPath && _deliveryStaging != null)
+        {
+            CaptureCurrentNavigationViewState();
+            await LoadDeliveryStagingAsync(recordHistory: true);
+            return;
+        }
 
         if (DistributionChannel.IsAppStore && Path.IsPathFullyQualified(path))
         {
@@ -1308,7 +1316,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task NavigateUpAsync()
     {
-        if (IsHomePage) return;
+        if (IsHomePage || IsDeliveryStaging) return;
         if (IsNetworkPage) { GoHome(); return; }
 
         if (IsTagView)
@@ -1383,7 +1391,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
 
             var path = _navigation.CurrentPath;
-            if (path == VirtualPath.Network)
+            if (path == FileDeliveryService.StagingPath && _deliveryStaging != null)
+            {
+                await LoadDeliveryStagingAsync(recordHistory: false);
+            }
+            else if (path == VirtualPath.Network)
             {
                 NavigateToNetwork();
             }
@@ -1825,6 +1837,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task RefreshAsync()
     {
+        if (IsDeliveryStaging) { await LoadDeliveryStagingAsync(recordHistory: false); return; }
         if (IsHomePage) return;
         if (IsNetworkPage)
         {

@@ -21,4 +21,14 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
+    <Style Selector="Border.delivery-drop-surface">
+        <Setter Property="Background" Value="{DynamicResource DialogContentBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.delivery-drop-surface.drag-over">
+        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource SidebarHoverOutline}"/>
+    </Style>
 </Styles>

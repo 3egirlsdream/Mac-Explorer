@@ -92,6 +92,42 @@ public sealed class FileDeliveryTests
         Assert.DoesNotContain(panelSettings.GetAll().Keys, k => k.StartsWith("file_delivery_view_"));
     }
 
+    [Fact]
+    public void StagingKeepsOnlyPathReferencesAndIsNeverPersisted()
+    {
+        using var fixture = new Fixture();
+        var folder = Directory.CreateDirectory(Path.Combine(fixture.Root, "素材")).FullName;
+        var file = Path.Combine(folder, "原文件.txt");
+        File.WriteAllText(file, "unchanged");
+        using var service = new FileDeliveryService(fixture.Settings, fixture.Tags);
+        var changes = 0;
+        service.StagingChanged += (_, _) => changes++;
+        Assert.Equal(FileDeliveryService.StagingId, service.AllEntries.First().Id);
+        Assert.Equal(2, service.StagePaths([file, folder + "/", file, folder + "/../素材", "relative", "https://example.com/a", "/invalid\0path"]));
+        Assert.Equal(new[] { file, folder }, service.StagedPaths);
+        Assert.Equal(0, service.StagePaths([file]));
+        service.SelectEntry(FileDeliveryService.StagingId);
+        service.SavePosition(FileDeliveryService.StagingId, folder, null, 42);
+        service.Remove(FileDeliveryService.StagingId);
+        Assert.Equal(FileDeliveryService.StagingId, service.AllEntries.First().Id);
+        Assert.DoesNotContain(file, fixture.Settings.Get(FileDeliveryService.PreferencesKey)!);
+        using (var restarted = new FileDeliveryService(fixture.Settings, fixture.Tags))
+        {
+            Assert.Empty(restarted.StagedPaths);
+            Assert.Equal(FileDeliveryService.StagingPath, FileDeliveryService.ResolveLocation(restarted.StagingEntry));
+            Assert.Equal(FileDeliveryService.StagingId, restarted.Preferences.SelectedId);
+        }
+        service.Enabled = false;
+        service.Enabled = true;
+        Assert.Equal(2, service.StagedPaths.Count);
+        service.ClearStaging();
+        service.ClearStaging();
+        Assert.Empty(service.StagedPaths);
+        Assert.Equal(2, changes);
+        Assert.Equal("unchanged", File.ReadAllText(file));
+        Assert.True(Directory.Exists(folder));
+    }
+
     internal sealed class Fixture : IDisposable
     {
         public string Root { get; } = Directory.CreateTempSubdirectory("FileDelivery_").FullName;

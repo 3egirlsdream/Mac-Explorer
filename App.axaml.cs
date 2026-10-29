@@ -143,6 +143,16 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_DELIVERY_SMOKE") != null && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FileDeliverySmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_RENDER_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.WindowRenderSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_TASK_RING_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;

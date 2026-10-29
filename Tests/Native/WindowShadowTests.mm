@@ -1,4 +1,5 @@
 #import "../../Platforms/MacOS/WindowShadow.mm"
+#import "../../Platforms/MacOS/MemoryDiagnostics.mm"
 #include <cassert>
 #include <cstdio>
 
@@ -18,11 +19,40 @@ static void Pump() {
         [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:deadline];
 }
 
+static void CheckReadOnlyRenderSnapshot() {
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 600, 400)
+        styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
+    window.releasedWhenClosed = NO;
+    window.title = @"private-window-name";
+    NSView *view = window.contentView;
+    view.wantsLayer = YES;
+    CAMetalLayer *layer = [CAMetalLayer new];
+    view.layer = layer;
+    // Deliberately stale drawable: reading diagnostics must preserve it for investigation.
+    layer.drawableSize = CGSizeMake(123, 45);
+    uint8_t buffer[4096];
+    int length = me_window_render_snapshot((__bridge void *)view, buffer, sizeof(buffer));
+    assert(length > 0 && length < sizeof(buffer));
+    NSData *data = [NSData dataWithBytes:buffer length:length];
+    NSDictionary *snapshot = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    assert([snapshot[@"layerKind"] isEqual:@"Metal"]);
+    assert(([snapshot[@"drawableSize"] isEqual:@[@123, @45]]));
+    assert(CGSizeEqualToSize(layer.drawableSize, CGSizeMake(123, 45)));
+    assert(([snapshot[@"viewSize"] isEqual:@[@600, @400]]));
+    assert(![[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] containsString:window.title]);
+    uint8_t small[] = {42, 43};
+    assert(me_window_render_snapshot((__bridge void *)view, small, 1) == -1);
+    assert(small[0] == 42 && small[1] == 43);
+    assert(me_window_render_snapshot(nullptr, buffer, sizeof(buffer)) == 0);
+    [window close];
+}
+
 int main() {
     @autoreleasepool {
         assert(getenv("MACEXPLORER_TEST_ROOT"));
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+        CheckReadOnlyRenderSnapshot();
         NSWindow *owner = [[NSWindow alloc] initWithContentRect:NSMakeRect(100, 100, 600, 400)
             styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskResizable
             backing:NSBackingStoreBuffered defer:NO];

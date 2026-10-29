@@ -2,19 +2,101 @@
 #import <objc/runtime.h>
 
 typedef void (*DeliveryCallback)(int);
+typedef int (*DeliveryDropCallback)(const char*);
+static NSMutableDictionary<NSString*, NSURL*>* stagingAccess;
+
+static BOOL DeliveryHasFileURLs(NSPasteboard* pasteboard)
+{
+    return [pasteboard availableTypeFromArray:@[NSPasteboardTypeFileURL]] != nil;
+}
+
 
 @interface FileDeliveryStatusItem : NSObject
 @property(nonatomic, strong) NSStatusItem* item;
 @property(nonatomic, weak) NSWindow* panel;
+@property(nonatomic, weak) NSWindow* dropPanel;
+@property(nonatomic, strong) NSTimer* dragTimer;
+@property(nonatomic) NSInteger dragChangeCount;
+@property(nonatomic) NSInteger dragPollCount;
+@property(nonatomic) NSInteger dragStartCount;
+@property(nonatomic) BOOL dragging;
+@property(nonatomic) BOOL internalDrag;
+@property(nonatomic) BOOL observedMouseDown;
+@property(nonatomic) BOOL cancelledUntilRelease;
+@property(nonatomic) DeliveryDropCallback dropCallback;
+- (void)beginFileDrag;
+- (void)endFileDrag;
+- (void)pollFileDrag;
+- (void)observeMouseEvent:(NSEvent*)event;
+- (void)observeDragPressed:(BOOL)pressed changeCount:(NSInteger)changeCount hasFiles:(BOOL)hasFiles cancelled:(BOOL)cancelled;
 @property(nonatomic, strong) id globalMonitor;
 @property(nonatomic, strong) id localMonitor;
 @property(nonatomic) DeliveryCallback callback;
 @end
 
 @implementation FileDeliveryStatusItem
+- (void)beginFileDrag
+{
+    if (self.dragging) return;
+    self.dragging = YES;
+    self.dragStartCount++;
+    if (self.callback) self.callback(2);
+}
+- (void)endFileDrag
+{
+    self.internalDrag = NO;
+    self.observedMouseDown = NO;
+    self.dragChangeCount = [NSPasteboard pasteboardWithName:NSPasteboardNameDrag].changeCount;
+    if (!self.dragging) return;
+    self.dragging = NO;
+    if (self.callback) self.callback(3);
+}
+- (void)observeDragPressed:(BOOL)pressed changeCount:(NSInteger)changeCount hasFiles:(BOOL)hasFiles cancelled:(BOOL)cancelled
+{
+    if (!pressed) self.cancelledUntilRelease = NO;
+    if (cancelled && self.dragging)
+    {
+        self.cancelledUntilRelease = pressed;
+        [self endFileDrag];
+    }
+    else if (!pressed && !self.internalDrag) [self endFileDrag];
+    else if (!self.cancelledUntilRelease && !self.dragging && changeCount != self.dragChangeCount && hasFiles)
+        [self beginFileDrag];
+    self.dragChangeCount = changeCount;
+}
+- (void)pollFileDrag
+{
+    self.dragPollCount++;
+    NSPasteboard* pasteboard = [NSPasteboard pasteboardWithName:NSPasteboardNameDrag];
+    [self observeDragPressed:self.observedMouseDown || (NSEvent.pressedMouseButtons & 1) != 0 changeCount:pasteboard.changeCount
+        hasFiles:DeliveryHasFileURLs(pasteboard) cancelled:CGEventSourceKeyState(kCGEventSourceStateCombinedSessionState, 53)];
+}
+- (void)observeMouseEvent:(NSEvent*)event
+{
+    if (event.type == NSEventTypeLeftMouseDown)
+    {
+        self.observedMouseDown = YES;
+    }
+    else if (event.type == NSEventTypeLeftMouseDragged)
+    {
+        self.observedMouseDown = YES;
+        [self pollFileDrag];
+    }
+    else if (event.type == NSEventTypeLeftMouseUp)
+    {
+        self.observedMouseDown = NO;
+        // Let AppKit finish performDragOperation before closing its destination.
+        __weak FileDeliveryStatusItem* weakSelf = self;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!weakSelf.observedMouseDown && !weakSelf.internalDrag) [weakSelf endFileDrag];
+        });
+    }
+    [self checkOutsideClick:event];
+}
 - (void)toggle:(id)sender { if (self.callback) self.callback(0); }
 - (void)checkOutsideClick:(NSEvent*)event
 {
+    if (event.type != NSEventTypeLeftMouseDown && event.type != NSEventTypeRightMouseDown) return;
     if (!self.panel.visible || !self.callback) return;
     // Local events carry the clicked window's coordinates. Reading the current
     // pointer here can race a queued event (and misclassify accessibility clicks).
@@ -24,6 +106,7 @@ typedef void (*DeliveryCallback)(int);
 }
 - (void)dealloc
 {
+    [self.dragTimer invalidate];
     if (self.globalMonitor) [NSEvent removeMonitor:self.globalMonitor];
     if (self.localMonitor) [NSEvent removeMonitor:self.localMonitor];
     if (self.item) [NSStatusBar.systemStatusBar removeStatusItem:self.item];
@@ -31,6 +114,96 @@ typedef void (*DeliveryCallback)(int);
 @end
 
 static FileDeliveryStatusItem* delivery;
+
+void MacExplorerDeliveryDragStarted()
+{
+    delivery.internalDrag = YES;
+    [delivery beginFileDrag];
+}
+void MacExplorerDeliveryDragEnded() { [delivery endFileDrag]; }
+
+static NSDragOperation DeliveryDropOperation(id<NSDraggingInfo> info)
+{
+    return DeliveryHasFileURLs(info.draggingPasteboard) && (info.draggingSourceOperationMask & NSDragOperationCopy)
+        ? NSDragOperationCopy : NSDragOperationNone;
+}
+
+static NSDragOperation DeliveryDropEntered(id view, SEL selector, id<NSDraggingInfo> info)
+{
+    NSDragOperation operation = DeliveryDropOperation(info);
+    if (delivery.callback) delivery.callback(operation == NSDragOperationNone ? 5 : 4);
+    return operation;
+}
+static void DeliveryDropExited(id view, SEL selector, id<NSDraggingInfo> info)
+{
+    if (delivery.callback) delivery.callback(5);
+}
+static void DeliveryDropEnded(id view, SEL selector, id<NSDraggingInfo> info)
+{
+    [delivery endFileDrag];
+}
+static void DeliveryDropConclude(id view, SEL selector, id<NSDraggingInfo> info) { }
+static BOOL DeliveryDropPrepare(id view, SEL selector, id<NSDraggingInfo> info)
+{
+    return DeliveryDropOperation(info) != NSDragOperationNone;
+}
+static BOOL DeliveryDropPerform(id view, SEL selector, id<NSDraggingInfo> info)
+{
+    if (!delivery.dropCallback || DeliveryDropOperation(info) == NSDragOperationNone) return NO;
+    NSArray<NSURL*>* urls = [info.draggingPasteboard readObjectsForClasses:@[NSURL.class]
+        options:@{ NSPasteboardURLReadingFileURLsOnlyKey: @YES }];
+    NSMutableArray<NSString*>* paths = [NSMutableArray new];
+    NSMutableArray<NSURL*>* retainedURLs = [NSMutableArray new];
+    for (NSURL* url in urls)
+    {
+        if (!url.isFileURL || (url.host.length && ![url.host isEqualToString:@"localhost"])) continue;
+        NSString* path = url.filePathURL.path.stringByStandardizingPath;
+        if (!path.isAbsolutePath || [path rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location != NSNotFound) continue;
+        [paths addObject:path];
+        [retainedURLs addObject:url];
+    }
+    if (!paths.count) return NO;
+    if (!stagingAccess) stagingAccess = [NSMutableDictionary new];
+    // Keep the original URL's temporary sandbox access for the in-process shelf.
+    NSMutableArray<NSString*>* opened = [NSMutableArray new];
+    for (NSUInteger index = 0; index < paths.count; index++)
+        if (!stagingAccess[paths[index]] && [retainedURLs[index] startAccessingSecurityScopedResource])
+        {
+            stagingAccess[paths[index]] = retainedURLs[index];
+            [opened addObject:paths[index]];
+        }
+    NSData* json = [NSJSONSerialization dataWithJSONObject:paths options:0 error:nil];
+    NSString* payload = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
+    BOOL accepted = delivery.dropCallback(payload.UTF8String) != 0;
+    if (!accepted)
+        for (NSString* path in opened)
+        {
+            [stagingAccess[path] stopAccessingSecurityScopedResource];
+            [stagingAccess removeObjectForKey:path];
+        }
+    [delivery endFileDrag];
+    return accepted;
+}
+
+static void ConfigureDeliveryDrop(NSView* view)
+{
+    static Class dropClass;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        dropClass = objc_allocateClassPair(object_getClass(view), "MacExplorerDeliveryDropView", 0);
+        class_addMethod(dropClass, @selector(draggingEntered:), (IMP)DeliveryDropEntered, "Q@:@");
+        class_addMethod(dropClass, @selector(draggingUpdated:), (IMP)DeliveryDropEntered, "Q@:@");
+        class_addMethod(dropClass, @selector(draggingEnded:), (IMP)DeliveryDropEnded, "v@:@");
+        class_addMethod(dropClass, @selector(concludeDragOperation:), (IMP)DeliveryDropConclude, "v@:@");
+        class_addMethod(dropClass, @selector(draggingExited:), (IMP)DeliveryDropExited, "v@:@");
+        class_addMethod(dropClass, @selector(prepareForDragOperation:), (IMP)DeliveryDropPrepare, "B@:@");
+        class_addMethod(dropClass, @selector(performDragOperation:), (IMP)DeliveryDropPerform, "B@:@");
+        objc_registerClassPair(dropClass);
+    });
+    object_setClass(view, dropClass);
+    [view registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
+}
+
 
 static void ConfigureDeliveryDragActivation(NSView* view)
 {
@@ -112,10 +285,17 @@ static NSImage* DeliveryMenuBarImage()
 }
 
 extern "C" __attribute__((visibility("default")))
-void MacExplorerDeliveryCreate(DeliveryCallback callback)
+void MacExplorerDeliveryCreate(DeliveryCallback callback, DeliveryDropCallback dropCallback)
 {
     delivery = [FileDeliveryStatusItem new];
     delivery.callback = callback;
+    delivery.dropCallback = dropCallback;
+    delivery.dragChangeCount = [NSPasteboard pasteboardWithName:NSPasteboardNameDrag].changeCount;
+    __weak FileDeliveryStatusItem* weakTimerOwner = delivery;
+    delivery.dragTimer = [NSTimer timerWithTimeInterval:0.1 repeats:YES block:^(NSTimer* timer) {
+        [weakTimerOwner pollFileDrag];
+    }];
+    [NSRunLoop.mainRunLoop addTimer:delivery.dragTimer forMode:NSRunLoopCommonModes];
     delivery.item = [NSStatusBar.systemStatusBar statusItemWithLength:NSSquareStatusItemLength];
     delivery.item.button.image = DeliveryMenuBarImage();
     NSString *appName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"]
@@ -126,18 +306,31 @@ void MacExplorerDeliveryCreate(DeliveryCallback callback)
     delivery.item.button.target = delivery;
     delivery.item.button.action = @selector(toggle:);
     __weak FileDeliveryStatusItem* weakDelivery = delivery;
-    NSEventMask mask = NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown;
+    NSEventMask mask = NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged;
     delivery.globalMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:mask handler:^(NSEvent* event) {
-        [weakDelivery checkOutsideClick:event];
+        [weakDelivery observeMouseEvent:event];
     }];
     delivery.localMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:mask handler:^NSEvent*(NSEvent* event) {
-        [weakDelivery checkOutsideClick:event];
+        [weakDelivery observeMouseEvent:event];
         return event;
     }];
 }
 
 extern "C" __attribute__((visibility("default")))
-void MacExplorerDeliveryDestroy() { delivery.callback = NULL; delivery = nil; }
+void MacExplorerDeliveryDestroy()
+{
+    [delivery.dragTimer invalidate];
+    delivery.callback = NULL;
+    delivery.dropCallback = NULL;
+    delivery = nil;
+}
+
+extern "C" __attribute__((visibility("default")))
+void MacExplorerDeliveryClearStagingAccess()
+{
+    for (NSURL* url in stagingAccess.allValues) [url stopAccessingSecurityScopedResource];
+    [stagingAccess removeAllObjects];
+}
 
 extern "C" __attribute__((visibility("default")))
 void MacExplorerDeliveryPrepare(void* viewHandle)
@@ -148,13 +341,9 @@ void MacExplorerDeliveryPrepare(void* viewHandle)
     ConfigureDeliveryDragActivation(view);
 }
 
-extern "C" __attribute__((visibility("default")))
-void MacExplorerDeliveryPlace(void* viewHandle)
+static void PlaceDeliveryWindow(NSWindow* window)
 {
-    NSView* view = (__bridge NSView*)viewHandle;
-    NSWindow* window = view.window;
     if (!window || !delivery.item.button.window) return;
-    MacExplorerDeliveryPrepare(viewHandle);
     window.level = NSFloatingWindowLevel;
     window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces
         | NSWindowCollectionBehaviorFullScreenAuxiliary | NSWindowCollectionBehaviorIgnoresCycle;
@@ -169,15 +358,44 @@ void MacExplorerDeliveryPlace(void* viewHandle)
     CGFloat x = MAX(NSMinX(bounds), MIN(NSMidX(button) - size.width / 2, NSMaxX(bounds) - size.width));
     CGFloat y = MAX(NSMinY(bounds), MIN(NSMinY(button) - size.height - 6, NSMaxY(bounds) - size.height));
     [window setFrame:NSMakeRect(x, y, size.width, size.height) display:YES];
-    // Do not activate NSApp: doing so would also raise the main browser window.
-    // Leave an inactive panel non-key so AppKit can delay activation on the
-    // first mouse-down and suppress it when that gesture becomes a drag.
     [window orderFrontRegardless];
     [window invalidateShadow];
+}
+
+extern "C" __attribute__((visibility("default")))
+void MacExplorerDeliveryPlace(void* viewHandle)
+{
+    NSView* view = (__bridge NSView*)viewHandle;
+    MacExplorerDeliveryPrepare(viewHandle);
+    PlaceDeliveryWindow(view.window);
+}
+
+extern "C" __attribute__((visibility("default")))
+void MacExplorerDeliveryPlaceDrop(void* viewHandle)
+{
+    NSView* view = (__bridge NSView*)viewHandle;
+    if (!view.window) return;
+    delivery.dropPanel = view.window;
+    ConfigureDeliveryDrop(view);
+    PlaceDeliveryWindow(view.window);
 }
 
 extern "C" __attribute__((visibility("default")))
 int MacExplorerDeliveryContainsPoint(double x, double y)
 {
     return delivery.panel && NSPointInRect(NSMakePoint(x, y), delivery.panel.frame);
+}
+
+extern "C" __attribute__((visibility("default")))
+int MacExplorerDeliveryInspect(double* x, double* y, int* polls, int* starts, int* changeCount)
+{
+    NSRect button = delivery.item.button.window
+        ? [delivery.item.button.window convertRectToScreen:delivery.item.button.frame] : NSZeroRect;
+    *x = NSMidX(button);
+    *y = NSMaxY(NSScreen.screens.firstObject.frame) - NSMidY(button);
+    *polls = (int)delivery.dragPollCount;
+    *starts = (int)delivery.dragStartCount;
+    *changeCount = (int)delivery.dragChangeCount;
+    return (delivery != nil ? 1 : 0) | (delivery.item.button.window != nil ? 2 : 0)
+        | (delivery.dragTimer.valid ? 4 : 0) | (delivery.dragging ? 8 : 0);
 }

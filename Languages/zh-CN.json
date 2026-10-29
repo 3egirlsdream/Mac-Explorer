@@ -4,6 +4,12 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "delivery.load_failed": "加载暂存失败：{0}",
+    "delivery.staging": "暂存",
+    "delivery.clear": "清空暂存",
+    "delivery.drop": "拖到这里暂存",
+    "delivery.count": "暂存 {0} 项",
+    "delivery.unavailable": "暂存 {0} 项 · {1} 项不可用",
     "tasks.progress.known": "未结束任务：{0} · 总体进度 {1:0}%",
     "tasks.progress.unknown": "未结束任务：{0} · 进度暂无法估算",
     "tasks.progress.completed": "所有任务已完成",

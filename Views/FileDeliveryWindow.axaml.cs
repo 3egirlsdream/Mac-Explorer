@@ -52,27 +52,46 @@ public partial class FileDeliveryWindow : AppWindow
         _delivery = delivery;
         _tags = tags;
         _files = files;
+        files.ConfigureDeliveryStaging(delivery);
         Files.DataContext = files;
         LocationBreadcrumb.DataContext = files;
         Height = Width / Math.Sqrt(2);
         ExtendClientAreaTitleBarHeightHint = 0;
         _files.PropertyChanged += OnFilePropertyChanged;
         _delivery.EntriesChanged += OnEntriesChanged;
+        _delivery.StagingChanged += OnStagingChanged;
+        _localization = LocalizationService.Current;
+        if (_localization != null) _localization.LanguageChanged += OnLanguageChanged;
         AddHandler(KeyDownEvent, OnPanelKeyDown, RoutingStrategies.Tunnel);
         Closed += (_, _) =>
         {
             _disposed = true;
             _files.PropertyChanged -= OnFilePropertyChanged;
             _delivery.EntriesChanged -= OnEntriesChanged;
+            _delivery.StagingChanged -= OnStagingChanged;
+            if (_localization != null) _localization.LanguageChanged -= OnLanguageChanged;
         };
         RebuildTabs();
     }
 
+    private readonly ILocalizationService? _localization;
+    private async void OnLanguageChanged()
+    {
+        RebuildTabs();
+        if (IsVisible && _files.IsDeliveryStaging) await _files.RefreshAsync();
+    }
+    private void OnStagingChanged(object? sender, EventArgs e)
+    {
+        UpdateToolbar();
+        if (IsVisible && _files.IsDeliveryStaging) _ = _files.RefreshAsync();
+    }
+    private void OnClearStaging(object? sender, RoutedEventArgs e) => _delivery.ClearStaging();
+
     public async Task ResumeAsync()
     {
         _files.SetDirectoryNotificationsPaused(false);
-        var entry = _delivery.Preferences.Entries.FirstOrDefault(e => e.Id == (_entryId ?? _delivery.Preferences.SelectedId))
-            ?? _delivery.Preferences.Entries.FirstOrDefault();
+        var entry = _delivery.AllEntries.FirstOrDefault(e => e.Id == (_entryId ?? _delivery.Preferences.SelectedId))
+            ?? _delivery.StagingEntry;
         if (entry != null) await SelectEntryAsync(entry.Id, refresh: true);
     }
 
@@ -90,7 +109,7 @@ public partial class FileDeliveryWindow : AppWindow
     private void SavePosition()
     {
         if (_navigating || _entryId == null || string.IsNullOrEmpty(_files.CurrentPath)) return;
-        var entry = _delivery.Preferences.Entries.FirstOrDefault(e => e.Id == _entryId);
+        var entry = _delivery.AllEntries.FirstOrDefault(e => e.Id == _entryId);
         if (entry == null || TagPathHelper.IsTagPath(_files.CurrentPath) && _files.CurrentPath != entry.Location) return;
         var state = Files.CaptureDeliveryPosition();
         _delivery.SavePosition(_entryId, _files.CurrentPath, state.Anchor, state.Offset);
@@ -104,10 +123,11 @@ public partial class FileDeliveryWindow : AppWindow
         {
             if (_disposed) return;
             SavePosition();
-            var entry = _delivery.Preferences.Entries.FirstOrDefault(e => e.Id == id);
+            var entry = _delivery.AllEntries.FirstOrDefault(e => e.Id == id);
             if (entry == null) return;
             var switchingEntry = _entryId != id;
             _entryId = id;
+            _delivery.SelectEntry(id);
             _navigating = true;
             RebuildTabs();
             var path = FileDeliveryService.ResolveLocation(entry);
@@ -128,16 +148,16 @@ public partial class FileDeliveryWindow : AppWindow
     {
         _entryContextMenu?.Close();
         EntryTabs.Children.Clear();
-        foreach (var entry in _delivery.Preferences.Entries)
+        foreach (var entry in _delivery.AllEntries)
         {
-            var displayName = TagPathHelper.TryParse(entry.Location, out var tag) ? _files.ResolveTag(tag).DisplayName : entry.Name;
+            var displayName = entry.Id == FileDeliveryService.StagingId ? LocalizationText.Get("delivery.staging") : TagPathHelper.TryParse(entry.Location, out var tag) ? _files.ResolveTag(tag).DisplayName : entry.Name;
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
             content.Children.Add(new PathIcon { Data = Geometry.Parse(_files.GetLocationIcon(entry.Location)), Width = 14, Height = 14 });
             content.Children.Add(new TextBlock { Text = displayName, VerticalAlignment = VerticalAlignment.Center });
             var button = new Button { Content = content, Classes = { "ghost", "compact", "delivery-tab" } };
             AutomationProperties.SetName(button, displayName);
             button.Classes.Set("selected", entry.Id == _entryId);
-            ToolTip.SetTip(button, entry.Location);
+            ToolTip.SetTip(button, entry.Id == FileDeliveryService.StagingId ? displayName : entry.Location);
             button.Click += async (_, _) => await SelectEntryAsync(entry.Id);
             var menu = new ContextMenu();
             var remove = new MenuItem { Header = MacExplorer.Services.Impl.LocalizationText.Get("删除入口") };
@@ -149,10 +169,10 @@ public partial class FileDeliveryWindow : AppWindow
             menu.Items.Add(remove);
             menu.Opened += (_, _) => _entryContextMenu = menu;
             menu.Closed += (_, _) => { if (_entryContextMenu == menu) _entryContextMenu = null; };
-            button.ContextMenu = menu;
+            if (entry.Id != FileDeliveryService.StagingId) button.ContextMenu = menu;
             EntryTabs.Children.Add(button);
         }
-        EmptyEntries.IsVisible = _delivery.Preferences.Entries.Count == 0;
+        EmptyEntries.IsVisible = false;
         Files.IsVisible = !EmptyEntries.IsVisible;
         UpdateToolbar();
     }
@@ -161,9 +181,9 @@ public partial class FileDeliveryWindow : AppWindow
     {
         if (_disposed) return;
         RebuildTabs();
-        foreach (var id in _selections.Keys.Where(id => !_delivery.Preferences.Entries.Any(entry => entry.Id == id)).ToArray())
+        foreach (var id in _selections.Keys.Where(id => !_delivery.AllEntries.Any(entry => entry.Id == id)).ToArray())
             _selections.Remove(id);
-        var entry = _delivery.Preferences.Entries.FirstOrDefault(item => item.Id == _entryId);
+        var entry = _delivery.AllEntries.FirstOrDefault(item => item.Id == _entryId);
         if (entry == null)
         {
             _entryId = null;
@@ -186,6 +206,9 @@ public partial class FileDeliveryWindow : AppWindow
     {
         if (_files == null) return;
         LocationBreadcrumb.IsVisible = !EmptyEntries.IsVisible;
+        ClearStagingButton.IsVisible = _files.IsDeliveryStaging;
+        ClearStagingButton.IsEnabled = _delivery.StagedPaths.Count > 0;
+        UpButton.IsEnabled = !_files.IsDeliveryStaging;
         BackButton.IsEnabled = _files.CanGoBack;
         ForwardButton.IsEnabled = _files.CanGoForward;
         StatusText.Text = EmptyEntries.IsVisible ? "" : string.IsNullOrEmpty(_files.StatusText) ? MacExplorer.Services.Impl.LocalizationText.Get("选择文件，拖到其他软件即可使用") : _files.StatusText;

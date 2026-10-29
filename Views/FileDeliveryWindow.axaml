@@ -27,7 +27,7 @@
                     <Button Grid.Column="1" x:Name="ForwardButton" Classes="workspace-nav-button" Click="OnForward" ToolTip.Tip="{loc:Loc ui.544}" AutomationProperties.Name="{loc:Loc ui.544}">
                         <PathIcon Data="{x:Static icons:Icons.Forward}"/>
                     </Button>
-                    <Button Grid.Column="2" Classes="workspace-nav-button" Click="OnUp" ToolTip.Tip="{loc:Loc ui.554}" AutomationProperties.Name="{loc:Loc ui.554}">
+                    <Button Grid.Column="2" x:Name="UpButton" Classes="workspace-nav-button" Click="OnUp" ToolTip.Tip="{loc:Loc ui.554}" AutomationProperties.Name="{loc:Loc ui.554}">
                         <PathIcon Data="{x:Static icons:Icons.Up}"/>
                     </Button>
                     <views:BreadcrumbBar Grid.Column="3" x:Name="LocationBreadcrumb" Margin="4,0" VerticalAlignment="Center"/>
@@ -39,7 +39,10 @@
                 <StackPanel Grid.Row="2" x:Name="EmptyEntries" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                     <TextBlock Text="{loc:Loc ui.556}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </StackPanel>
-                <TextBlock Grid.Row="3" x:Name="StatusText" Margin="14,6" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="14,6" ColumnSpacing="8">
+                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Button Grid.Column="1" x:Name="ClearStagingButton" Classes="secondary compact" Content="{loc:Loc delivery.clear}" AutomationProperties.Name="{loc:Loc delivery.clear}" Click="OnClearStaging" IsVisible="False"/>
+                </Grid>
             </Grid>
         </Grid>
     </Border>

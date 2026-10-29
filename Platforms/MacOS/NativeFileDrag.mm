@@ -9,6 +9,8 @@ int MacExplorerCurrentLeftMouseClickCount()
 }
 
 void MacExplorerDeliveryPrepareDrag(NSView* view);
+void MacExplorerDeliveryDragStarted();
+void MacExplorerDeliveryDragEnded();
 
 typedef void (*MacExplorerDragCallback)(void*, int, double, double, int);
 
@@ -32,6 +34,7 @@ static NSMutableSet<MacExplorerDragSource*>* MacExplorerActiveDragSources()
 
 - (void)draggingSession:(NSDraggingSession*)session willBeginAtPoint:(NSPoint)point
 {
+    MacExplorerDeliveryDragStarted();
     if (self.callback) self.callback(self.callbackContext, 0, point.x, point.y, 0);
 }
 
@@ -55,6 +58,7 @@ static NSMutableSet<MacExplorerDragSource*>* MacExplorerActiveDragSources()
            endedAtPoint:(NSPoint)screenPoint
               operation:(NSDragOperation)operation
 {
+    MacExplorerDeliveryDragEnded();
     if (self.callback) self.callback(self.callbackContext, 2, screenPoint.x, screenPoint.y, (int)operation);
     [MacExplorerActiveDragSources() removeObject:self];
 }

@@ -205,9 +205,15 @@ public partial class MainWindow : AppWindow
         if (MacWindowChrome.IsCurrentMouseDoubleClick())
         {
             if (WindowState == WindowState.Normal)
+            {
+                RenderDiagnostics?.RecordRequest(WindowState.Maximized, "titlebar-double-click");
                 WindowState = WindowState.Maximized;
+            }
             else if (WindowState == WindowState.Maximized)
+            {
+                RenderDiagnostics?.RecordRequest(WindowState.Normal, "titlebar-double-click");
                 WindowState = WindowState.Normal;
+            }
         }
         else
         {

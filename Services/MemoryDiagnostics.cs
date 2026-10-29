@@ -24,6 +24,7 @@ internal sealed class MemoryDiagnostics : IDisposable
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
     private int _sampling, _uiPending;
     private long _lastFootprint, _dropped;
+    internal static bool IsEnabled => Volatile.Read(ref _current) != null;
 
     private MemoryDiagnostics(string directory)
     {
@@ -90,6 +91,7 @@ internal sealed class MemoryDiagnostics : IDisposable
                 threads = process.Threads.Count, footprintGrowthBytes = growth,
                 highMemory = footprint >= 2L * 1024 * 1024 * 1024 || growth >= 256L * 1024 * 1024,
                 droppedEvents = Interlocked.Read(ref _dropped), imageDecode = BoundedImageDecoder.Statistics });
+            var uiQueuedAt = Stopwatch.GetTimestamp();
             if (Application.Current != null && Interlocked.Exchange(ref _uiPending, 1) == 0)
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -97,9 +99,13 @@ internal sealed class MemoryDiagnostics : IDisposable
                     {
                         var states = ReadSources();
                         var windows = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Windows;
-                        Record("memory.ui", new { windows = windows?.Count, tabs = windows?.OfType<Views.MainWindow>()
+                        Record("memory.ui", new { dispatcherDelayMs = Stopwatch.GetElapsedTime(uiQueuedAt).TotalMilliseconds,
+                            windows = windows?.Count, tabs = windows?.OfType<Views.MainWindow>()
                             .Sum(window => (window.DataContext as ViewModels.MainWindowViewModel)?.Tabs.Count ?? 0),
                             nativeAccessibilityFix = Platforms.MacOS.MacAutomationLifetime.NativeChildrenFixActive, sources = states });
+                        if (windows != null)
+                            foreach (var window in windows.OfType<Controls.AppWindow>())
+                                if (window.IsVisible) window.RenderDiagnostics?.Capture("periodic");
                     }
                     finally { Volatile.Write(ref _uiPending, 0); }
                 }, DispatcherPriority.Background);
