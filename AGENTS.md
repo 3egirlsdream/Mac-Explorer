@@ -93,6 +93,7 @@
 - 排序菜单选中标记复用全局 `PathIcon.toolbar-popup-check` 与 `toolbar-popup-item.selected`，使用 Fluent Checkmark；未选中保留图标列占位，文字对齐。排序优先支持文件（默认）、文件夹和不区分，并保存偏好。
 
 - 通用按钮使用 `FontFamilyButton` 的西文字体优先、中文苹方回退顺序，内容默认水平与垂直居中；菜单及行操作仍由对应样式显式指定对齐，不按语言添加固定像素偏移。
+- 界面常规文字统一复用 `FontWeightRegular`，侧栏、文件／网络列表及行内名称编辑器不使用细体；标题和分组保留原有中等／半粗字重。字号使用 `TypographyTokens.axaml` 的语义资源，XAML 使用动态资源，代码创建控件通过 `AppTypography.BindFontSize` 绑定；命令编辑统一使用 `FontFamilyMono`，固定图标字形和拖拽位图徽标保留几何字号。
 
 - 快捷键文字统一复用 `ShortcutText`、`FontFamilyShortcut` 与 `FontSizeBody`，覆盖菜单、设置主键／修饰键及 Cmd 提示；按字形实际边界将修饰键符号缩放到统一可见高度并居中，不仅统一字号。固定 Cmd 符号复用 `shortcut-symbol`。
 
@@ -109,7 +110,7 @@
 - 应用内弹窗统一使用 `DialogContentBrush` / `DialogGroupBrush` / `DialogDividerBrush`：浅色正文白色、分组 #F8F8F8、分割线 #EEEEEE，深色使用对应主题表面。`DialogWindow` 默认 `ExtendContentToTop`，取消独立标题栏，红黄绿按钮覆盖顶部，普通内容预留 44px；两栏窗口启用 `FullHeightContent`，侧栏灰色与分界线贯穿顶部，并自行预留按钮空间。主窗口保持原标题栏模式。
 - 网络页面统一管理 SFTP、SMB、WebDAV 和系统网络卷；侧栏“位置”保留本机磁盘与原“网络”入口；“挂载”分组统一显示已连接的网络位置、网络卷及外置磁盘，为空时隐藏，复用挂载卷的单行图标、名称与弹出按钮。同一配置与对应卷合并展示，状态由 `NetworkLocationService` 同步。连接弹窗只编辑单个配置，类型参数放入 `ServiceParametersHost`，切换协议保留草稿；SMB／WebDAV 使用 macOS 系统挂载，WebDAV 输入完整 HTTP／HTTPS 地址，仅保存或连接成功后持久化，连接期间禁用编辑。
 
-- 嵌套标签统一复用 `TagTreePanel`、`TagToolbar` 与 `TagMenuHeader`，样式集中在 `ComponentStyles.axaml` 的 `tag-tree-*` / `tag-toolbar-*`；工具栏标签使用左图标右名称及 8px 水平内边距，悬停使用普通递归级联菜单、点击打开文件列表，菜单展开后由原生菜单交互管理关闭，不在移出按钮时关闭，树面板的名称与展开箭头独立操作；管理及文件标签菜单显示全部标签，工具栏仅显示有文件的分支并将溢出标签收进三点菜单。标签菜单复用连续整行悬停表面，行内按钮不单独绘制背景；展开区与文件列表共用 16px 点击宽度、12px Fluent 箭头及 30px 行高；二级菜单顶部左侧显示标题、右侧仅保留 Fluent Star Add 新建标签图标按钮。
+- 嵌套标签统一复用 `TagTreePanel`、`TagToolbar` 与 `TagMenuHeader`，样式集中在 `ComponentStyles.axaml` 的 `tag-tree-*` / `tag-toolbar-*`；工具栏标签复用 `toolbar-btn`，文字使用 `FontSizeLabel`、常规字重，图标与相邻工具栏入口统一为 13px，使用左图标右名称及 8px 水平内边距，悬停使用普通递归级联菜单、点击打开文件列表，菜单展开后由原生菜单交互管理关闭，不在移出按钮时关闭，树面板的名称与展开箭头独立操作；管理及文件标签菜单显示全部标签，工具栏仅显示有文件的分支并将溢出标签收进三点菜单。标签菜单复用连续整行悬停表面，行内按钮不单独绘制背景；展开区与文件列表共用 16px 点击宽度、12px Fluent 箭头及 30px 行高；二级菜单顶部左侧显示标题、右侧仅保留 Fluent Star Add 新建标签图标按钮。
 
 - 网络页面不重复显示正文标题或刷新按钮，刷新复用顶部导航操作，连接服务器使用面包屑右侧的 Fluent 图标按钮并保留本地化提示与无障碍名称。网络页面直接复用 `FastFileList` 的 30px 行、斑马纹、悬停、选中、字体、图标槽位与滚动，表头复用 `FileListHeaderStyles.axaml`；非文件列通过 `DetailTextProvider` 提供，不触发文件缩略图读取或文件操作。状态使用全局 `Border.status-tag` 胶囊标签，操作使用 `secondary compact` 按钮，统一 24px 高度并在行内居中对齐；窄窗口允许横向滚动，错误统一通过 `AppToast` 显示窗口级 toast；Bonjour／WS-Discovery 仅在页面打开时共享运行，系统网络卷与保存的 SMB 连接统一状态，弹出前提示其他应用也会断开。
 

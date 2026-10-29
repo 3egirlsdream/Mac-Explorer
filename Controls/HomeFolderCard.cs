@@ -203,7 +203,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
             }
             mosaic.VerticalAlignment = VerticalAlignment.Center;
             var expandContent = MacExplorer.Views.HomeItemActions.CreateGridContent(mosaic,
-                new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("全部 {0}", Paths.Count), FontSize = 12 });
+                AppTypography.BindFontSize(new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("全部 {0}", Paths.Count) }, AppTypography.Label));
             var expand = new Button { Content = expandContent, Classes = { "ghost", "home-grid-item", "home-overflow" } };
             AutomationProperties.SetName(expand, MacExplorer.Services.Impl.LocalizationText.Get("展开{0}收藏夹，共{1}项", TagDefinition.DisplayName, Paths.Count));
             ToolTip.SetTip(expand, MacExplorer.Services.Impl.LocalizationText.Get("展开全部 · 还有 {0} 项", Paths.Count - capacity));

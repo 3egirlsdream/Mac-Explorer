@@ -40,7 +40,7 @@
   </Style>
   <Style Selector="Border.rename-step.current TextBlock.rename-step-label">
     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
   </Style>
   <Style Selector="TextBlock.rename-heading">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>

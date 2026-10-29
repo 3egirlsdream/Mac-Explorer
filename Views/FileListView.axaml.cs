@@ -1706,7 +1706,7 @@ public partial class FileListView : UserControl
                 drawing.DrawRectangle(new SolidColorBrush(Color.FromRgb(0, 122, 255)), null, badge, 14, 14);
                 var label = itemCount > 99 ? "99+" : itemCount.ToString();
                 var text = new FormattedText(label, System.Globalization.CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight, new Typeface(FontManager.Current.DefaultFontFamily, FontStyle.Normal, FontWeight.Bold),
+                    FlowDirection.LeftToRight, new Typeface((FontFamily)Application.Current!.FindResource("FontFamilyUi")!, FontStyle.Normal, FontWeight.Bold),
                     label.Length > 2 ? 12 : 15, Brushes.White);
                 drawing.DrawText(text, new Point(badge.Center.X - text.Width / 2, badge.Center.Y - text.Height / 2));
             }

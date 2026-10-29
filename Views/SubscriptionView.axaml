@@ -18,28 +18,28 @@
                        AutomationProperties.Name="{loc:Loc ui.585}"/>
                 <StackPanel x:Name="FeaturePanel" Grid.Column="1" Spacing="18" VerticalAlignment="Center">
                     <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc ui.586}" FontSize="25" FontWeight="SemiBold"
+                        <TextBlock Text="{loc:Loc ui.586}" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}"
                                    Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
                         <TextBlock Text="{loc:Loc ui.587}" Classes="settings-description" TextWrapping="Wrap"/>
                     </StackPanel>
                     <Grid ColumnDefinitions="24,*">
                         <PathIcon Data="{x:Static icons:Icons.CopyPath}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3">
-                            <TextBlock Text="{loc:Loc ui.588}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{loc:Loc ui.588}" FontWeight="{StaticResource FontWeightSemibold}"/>
                             <TextBlock Text="{loc:Loc ui.589}" Classes="settings-description" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Grid>
                     <Grid ColumnDefinitions="24,*">
                         <PathIcon Data="{x:Static icons:Icons.SplitVertical}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3">
-                            <TextBlock Text="{loc:Loc ui.590}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{loc:Loc ui.590}" FontWeight="{StaticResource FontWeightSemibold}"/>
                             <TextBlock Text="{loc:Loc ui.591}" Classes="settings-description" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Grid>
                     <Grid ColumnDefinitions="24,*">
                         <PathIcon Data="{x:Static icons:Icons.Search}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3">
-                            <TextBlock Text="{loc:Loc ui.592}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{loc:Loc ui.592}" FontWeight="{StaticResource FontWeightSemibold}"/>
                             <TextBlock Text="{loc:Loc ui.593}" Classes="settings-description" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Grid>
@@ -49,7 +49,7 @@
         <StackPanel Grid.Row="2" Margin="24,8,24,16" Spacing="8" MaxWidth="420" HorizontalAlignment="Stretch">
             <TextBlock x:Name="StatusText" Classes="settings-description" TextAlignment="Center" TextWrapping="Wrap"/>
             <StackPanel Spacing="6">
-                <TextBlock x:Name="PriceText" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="23" TextAlignment="Center" TextWrapping="Wrap"/>
+                <TextBlock x:Name="PriceText" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="{StaticResource FontWeightSemibold}" FontSize="{DynamicResource FontSizeDisplay}" TextAlignment="Center" TextWrapping="Wrap"/>
                 <TextBlock x:Name="TermsText" Classes="settings-description" TextAlignment="Center" TextWrapping="Wrap"/>
             </StackPanel>
             <TextBlock x:Name="MessageText" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" IsVisible="False"/>

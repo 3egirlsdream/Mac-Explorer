@@ -55,8 +55,8 @@ public sealed class HomeItemActions : IDisposable
             Opacity = entry.IsReadable ? 1 : 0.5 };
         var image = new MacExplorer.Controls.HomeFileImage(entry, compact ? 30 : 48, _navigation.GetListThumbnailAsync, _thumbnails)
         { HorizontalAlignment = HorizontalAlignment.Center };
-        var name = new TextBlock { Text = InterfaceLocationNames.Get(entry.FullPath, _navigation.HomeDirectory) ?? entry.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis,
-            FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        var name = AppTypography.BindFontSize(new TextBlock { Text = InterfaceLocationNames.Get(entry.FullPath, _navigation.HomeDirectory) ?? entry.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center }, AppTypography.Label);
         if (compact)
         {
             button.Width = 192;

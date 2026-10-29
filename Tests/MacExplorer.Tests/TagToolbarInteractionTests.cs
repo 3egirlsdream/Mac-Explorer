@@ -116,8 +116,13 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             Assert.Equal(before, vm.CurrentPath);
             Assert.Equal(new Thickness(8, 0), parentButton.Padding);
             var buttonContent = Assert.IsType<StackPanel>(parentButton.Content);
-            Assert.IsType<PathIcon>(buttonContent.Children[0]);
-            Assert.IsType<TextBlock>(buttonContent.Children[1]);
+            var tagIcon = Assert.IsType<PathIcon>(buttonContent.Children[0]);
+            var tagLabel = Assert.IsType<TextBlock>(buttonContent.Children[1]);
+            Assert.Equal(13, tagIcon.Width);
+            Assert.Equal(13, tagIcon.Height);
+            Assert.Equal(parentButton.FontFamily, tagLabel.FontFamily);
+            Assert.Equal(parentButton.FontSize, tagLabel.FontSize);
+            Assert.Equal(Avalonia.Media.FontWeight.Normal, tagLabel.FontWeight);
             Assert.Equal(6, buttonContent.Spacing);
             var menu = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
             var childItem = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Tag is FileTag);

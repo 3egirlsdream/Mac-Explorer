@@ -251,7 +251,7 @@
         <Setter Property="MinWidth" Value="0"/>
         <Setter Property="Height" Value="32"/>
         <Setter Property="Padding" Value="9,4"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="Background" Value="Transparent"/>
     </Style>
     <Style Selector="Button.copilot-history-title:pointerover,
@@ -369,17 +369,17 @@
         <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
     </Style>
     <Style Selector="TextBlock.copilot-process-title">
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
     <Style Selector="TextBlock.copilot-process-detail">
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
     <Style Selector="TextBlock.copilot-error-title">
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
     </Style>
     <Style Selector="Border.copilot-tool-card, Border.copilot-thinking-card, Border.copilot-approval-card">
@@ -406,25 +406,25 @@
         <Setter Property="BorderThickness" Value="1,0,0,0"/>
     </Style>
     <Style Selector="TextBlock.copilot-tool-title">
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
     <Style Selector="TextBlock.copilot-tool-action">
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
     <Style Selector="TextBlock.copilot-tool-detail">
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
     <Style Selector="TextBlock.copilot-tool-failed">
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
         <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
     </Style>
     <Style Selector="TextBlock.copilot-approval-title">
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
     </Style>
     <Style Selector="Button.info-panel-icon">
@@ -937,7 +937,7 @@
     </Style>
     <Style Selector="TextBlock.shortcut-group-title">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
     <Style Selector="TextBlock.shortcut-name, TextBlock.shortcut-keys">
@@ -948,12 +948,12 @@
                      MenuItem /template/ TextBlock#PART_InputGestureText">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyShortcut}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
     </Style>
     <Style Selector="Button.shortcut-binding, Button.shortcut-modifier">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyShortcut}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
         <Setter Property="ContentTemplate">
             <DataTemplate>
                 <controls:ShortcutText Text="{Binding}" Classes="shortcut-symbol"/>

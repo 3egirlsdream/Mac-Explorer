@@ -16,7 +16,7 @@
                             Background="{DynamicResource ColorBgContent}" Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextMutedBrush}"
                             AlternateRow="{DynamicResource FileListAlternateRowBrush}" Hover="{DynamicResource InteractionHoverBrush}"
                             Selected="{DynamicResource InteractionSelectedBrush}" SelectedHover="{DynamicResource InteractionSelectedHoverBrush}"
-                            FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightLight}"
+                            FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightRegular}"
                             DetailFontSize="{DynamicResource FontSizeLabel}" RowCornerRadius="{DynamicResource InteractionCornerRadius}"
                             Muted="{DynamicResource TextMutedBrush}" Divider="{DynamicResource ColorDivider}" FocusRing="{DynamicResource FocusRingBrush}"
                             SelectionOutline="{DynamicResource SelectionOutlineShadow}" FocusOutline="{DynamicResource FocusOutlineShadow}"

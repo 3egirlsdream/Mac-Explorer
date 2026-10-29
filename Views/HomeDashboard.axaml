@@ -2,7 +2,7 @@
              xmlns:icons="using:MacExplorer.Assets" xmlns:controls="using:MacExplorer.Controls" x:Class="MacExplorer.Views.HomeDashboard">
     <Grid RowDefinitions="Auto,*">
         <StackPanel Margin="24,0,16,14" Spacing="6">
-            <TextBlock Text="{loc:Loc ui.557}" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="{loc:Loc ui.557}" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}"/>
             <ScrollViewer MaxHeight="100" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <WrapPanel x:Name="RecentItems" SizeChanged="OnRecentAreaSizeChanged"/>
             </ScrollViewer>
@@ -10,7 +10,7 @@
         </StackPanel>
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="16,0,10,24" Spacing="16">
-                <TextBlock Text="{loc:Loc ui.559}" Margin="8,0,0,0" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock Text="{loc:Loc ui.559}" Margin="8,0,0,0" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}"/>
                 <TextBlock x:Name="StatusMessage" IsVisible="False" Classes="home-secondary" TextWrapping="Wrap"/>
                 <controls:HomeFolderPanel Margin="0,0,0,8" x:Name="FolderItems" SizeChanged="OnFolderAreaSizeChanged"/>
             </StackPanel>

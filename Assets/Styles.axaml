@@ -93,7 +93,7 @@
         <Setter Property="Padding" Value="10,3"/>
         <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Margin" Value="4,1"/>
         <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
@@ -230,7 +230,7 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
         <Setter Property="LineHeight" Value="{DynamicResource LineHeightBodyLarge}"/>
     </Style>
 
@@ -241,7 +241,7 @@
 
     <Style Selector="TextBox.tag-name-editor">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
     </Style>
 
     <Style Selector="Border.sidebar-item:pointerover">

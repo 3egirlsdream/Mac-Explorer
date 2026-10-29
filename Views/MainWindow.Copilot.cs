@@ -354,11 +354,11 @@ public partial class MainWindow
             Data = Geometry.Parse(attachment.IsDirectory ? Icons.Folder : Icons.File),
             Width = 10, Height = 10, VerticalAlignment = VerticalAlignment.Center
         });
-        content.Children.Add(new TextBlock
+        content.Children.Add(AppTypography.BindFontSize(new TextBlock
         {
             Text = name, MaxWidth = 100, TextTrimming = TextTrimming.CharacterEllipsis,
-            FontSize = 10, VerticalAlignment = VerticalAlignment.Center
-        });
+            VerticalAlignment = VerticalAlignment.Center
+        }, AppTypography.Meta));
         var chip = new Border
         {
             Child = content,

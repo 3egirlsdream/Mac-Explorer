@@ -23,7 +23,7 @@ namespace MacExplorer.Controls;
 public sealed class TagToolbar : UserControl
 {
     private readonly StackPanel _strip = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
-    private readonly Button _overflow = new() { Width = 28, Height = 30, Classes = { "ghost", "compact", "tag-toolbar-more" }, Content = TagTreePanel.Icon(Icons.MoreHorizontal, 14) };
+    private readonly Button _overflow = new() { Width = 28, Height = 30, Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-more" }, Content = new PathIcon { Data = Geometry.Parse(Icons.MoreHorizontal), Classes = { "toolbar-icon" } } };
     private readonly List<(FileTagNode Node, Control Control, double Width)> _items = [];
     private FileListViewModel? _viewModel;
     private ContextMenu? _menu;
@@ -98,12 +98,12 @@ public sealed class TagToolbar : UserControl
         foreach (var node in FileTagTree.Build(_viewModel.SidebarTags, hideEmpty: true))
         {
             var text = AppTypography.BindFontSize(new TextBlock { Text = node.Tag.DisplayName,
-                MaxWidth = 128, TextTrimming = TextTrimming.CharacterEllipsis }, AppTypography.Body);
+                MaxWidth = 128, TextTrimming = TextTrimming.CharacterEllipsis }, AppTypography.Label);
             text.Measure(new Size(double.PositiveInfinity, 30));
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6,
-                Children = { TagIcon(node.Tag), text } };
-            var name = new Button { Content = content, Width = Math.Clamp(text.DesiredSize.Width + 38, 52, 166), Height = 28,
-                VerticalAlignment = VerticalAlignment.Center, Classes = { "ghost", "compact", "tag-toolbar-name" }, Tag = node.Tag };
+                Children = { TagIcon(node.Tag, toolbar: true), text } };
+            var name = new Button { Content = content, Width = Math.Clamp(text.DesiredSize.Width + 35, 52, 163), Height = 28,
+                VerticalAlignment = VerticalAlignment.Center, Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-name" }, Tag = node.Tag };
             ToolTip.SetTip(name, node.Tag.DisplayName); AutomationProperties.SetName(name, node.Tag.DisplayName);
             name.Click += async (_, _) => await NavigateAsync(node.Tag);
             AttachActions(name, node.Tag);
@@ -133,9 +133,12 @@ public sealed class TagToolbar : UserControl
         Reflow();
     }
 
-    private static PathIcon TagIcon(FileTag tag)
+    private static PathIcon TagIcon(FileTag tag, bool toolbar = false)
     {
-        var icon = TagTreePanel.Icon(tag.IsFinderColor ? Icons.Tag : Icons.Folder, 16);
+        var geometry = tag.IsFinderColor ? Icons.Tag : Icons.Folder;
+        var icon = toolbar
+            ? new PathIcon { Data = Geometry.Parse(geometry), Classes = { "toolbar-icon" } }
+            : TagTreePanel.Icon(geometry, 16);
         if (tag.ColorId != 0) icon.Foreground = Brush.Parse(tag.ColorHex);
         return icon;
     }

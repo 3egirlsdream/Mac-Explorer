@@ -125,7 +125,7 @@ public sealed class FastFileListStyleViewModelTests : FileListViewModelTestBase
                     }
                     else Assert.True(name.Right <= 12 + 22 + fast.ColumnWidths.Name);
                 }
-                Assert.Equal(FontWeight.Light, fast.FontWeight);
+                Assert.Equal(FontWeight.Normal, fast.FontWeight);
                 Assert.True(window.TryFindResource("TextPrimaryBrush", window.ActualThemeVariant, out var foreground));
                 Assert.Equal(foreground, fast.Foreground);
                 Assert.Equal(12 * scale, fast.DetailFontSize);

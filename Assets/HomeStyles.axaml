@@ -147,7 +147,7 @@
         <Setter Property="Height" Value="28"/>
         <Setter Property="Width" Value="28"/>
         <Setter Property="Padding" Value="2,0"/>
-        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeMeta}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
     <Style Selector=".home-card:pointerover Button.home-resize-grip, Button.home-resize-grip:focus, Button.home-resize-grip.resizing">

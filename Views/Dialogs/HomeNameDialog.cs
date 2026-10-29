@@ -13,7 +13,7 @@ internal sealed class HomeNameDialog : DialogWindow
         Width = 420;
         Height = 245;
         var panel = new StackPanel { Spacing = 16 };
-        panel.Children.Add(new TextBlock { Text = title, FontSize = 20 });
+        panel.Children.Add(AppTypography.BindFontSize(new TextBlock { Text = title }, AppTypography.Title));
         var input = new TextBox { Text = initial, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("标签名称"), MaxLength = 80 };
         panel.Children.Add(input);
         var error = new TextBlock { Classes = { "home-secondary" } };

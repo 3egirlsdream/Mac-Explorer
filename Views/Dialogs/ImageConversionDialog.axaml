@@ -26,7 +26,7 @@
     </controls:DialogWindow.Styles>
     <StackPanel Margin="16" Spacing="12">
         <TextBlock x:Name="Heading" FontSize="{DynamicResource FontSizeTitle}"
-                   FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                   FontWeight="{StaticResource FontWeightSemibold}" Foreground="{DynamicResource TextPrimaryBrush}"/>
         <TextBlock x:Name="Description" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
         <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
             <TextBlock Text="{loc:Loc ui.415}" Foreground="{DynamicResource TextSecondaryBrush}"/>

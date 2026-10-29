@@ -11,7 +11,7 @@ internal sealed class HomeConfirmDialog : DialogWindow
     {
         Title = title; Width = 440; Height = 230;
         var panel = new StackPanel { Spacing = 18 };
-        panel.Children.Add(new TextBlock { Text = title, FontSize = 20 });
+        panel.Children.Add(AppTypography.BindFontSize(new TextBlock { Text = title }, AppTypography.Title));
         panel.Children.Add(new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8,
             HorizontalAlignment = HorizontalAlignment.Right };

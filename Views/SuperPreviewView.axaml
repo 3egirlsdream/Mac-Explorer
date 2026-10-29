@@ -46,15 +46,15 @@
                         <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
                     </Button>
                     <StackPanel Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center">
-                        <TextBlock x:Name="TitleText" Text="{loc:Loc ui.599}" FontSize="18"
+                        <TextBlock x:Name="TitleText" Text="{loc:Loc ui.599}" FontSize="{DynamicResource FontSizeTitle}"
                                    FontWeight="{StaticResource FontWeightSemibold}"
                                    TextTrimming="CharacterEllipsis"/>
-                        <TextBlock x:Name="BreadcrumbText" Text="" FontSize="11"
+                        <TextBlock x:Name="BreadcrumbText" Text="" FontSize="{DynamicResource FontSizeCaption}"
                                    Foreground="{DynamicResource TextMutedBrush}"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <TextBlock Grid.Column="2" x:Name="ItemCountText" VerticalAlignment="Center"
-                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
+                               FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
                     <Button AutomationProperties.Name="{loc:Loc ui.600}" Grid.Column="3" x:Name="ClosePreviewButton" Classes="ghost compact" Width="30" Height="30" Padding="6"
                             Click="ClosePreview" ToolTip.Tip="{loc:Loc ui.600}">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
@@ -77,9 +77,9 @@
                                                        Source="{Binding ., Converter={StaticResource FileIconConverter}, ConverterParameter=32}"
                                                        Loaded="OnPreviewEntryImageLoaded"/>
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                                                    <TextBlock Text="{Binding Name}" FontSize="12"
+                                                    <TextBlock Text="{Binding Name}" FontSize="{DynamicResource FontSizeLabel}"
                                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
-                                                    <TextBlock Text="{Binding FormattedSize}" FontSize="10"
+                                                    <TextBlock Text="{Binding FormattedSize}" FontSize="{DynamicResource FontSizeMeta}"
                                                                Foreground="{DynamicResource TextMutedBrush}"/>
                                                 </StackPanel>
                                                 <PathIcon Grid.Column="2" x:Name="EntryChevron" Data="{x:Static icons:Icons.Forward}"
@@ -97,7 +97,7 @@
                         <Grid x:Name="PreviewHost">
                             <TextBlock x:Name="PreviewPlaceholder" Text="{loc:Loc ui.603}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="14"
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="{DynamicResource FontSizeBodyLarge}"
                                        TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
                             <Image x:Name="PreviewImage" IsVisible="False" Stretch="Uniform"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -105,7 +105,7 @@
                                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                                 <TextBox x:Name="PreviewText" IsReadOnly="True" AcceptsReturn="True"
                                          TextWrapping="NoWrap" BorderThickness="0" Background="Transparent"
-                                         FontFamily="{StaticResource FontFamilyMono}" FontSize="13"
+                                         FontFamily="{StaticResource FontFamilyMono}" FontSize="{DynamicResource FontSizeBody}"
                                          Padding="8" HorizontalContentAlignment="Left"
                                          VerticalContentAlignment="Top"/>
                             </ScrollViewer>
@@ -113,11 +113,11 @@
                                         VerticalAlignment="Center" Spacing="8">
                                 <PathIcon x:Name="FolderSummaryIcon" Data="{x:Static icons:Icons.Folder}" Width="72" Height="72"
                                           Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="FolderSummaryTitle" FontSize="20" FontWeight="{StaticResource FontWeightSemibold}"
+                                <TextBlock x:Name="FolderSummaryTitle" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}"
                                            HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="500"/>
-                                <TextBlock x:Name="FolderSummaryDetails" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
+                                <TextBlock x:Name="FolderSummaryDetails" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"
                                            HorizontalAlignment="Center" TextAlignment="Center"/>
-                                <TextBlock Text="{loc:Loc ui.604}" FontSize="11"
+                                <TextBlock Text="{loc:Loc ui.604}" FontSize="{DynamicResource FontSizeCaption}"
                                            Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
                             </StackPanel>
                         </Grid>

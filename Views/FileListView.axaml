@@ -135,7 +135,7 @@
                         Hover="{DynamicResource InteractionHoverBrush}" Selected="{DynamicResource InteractionSelectedBrush}"
                         SelectedHover="{DynamicResource InteractionSelectedHoverBrush}" DropBrush="{DynamicResource ColorAccentLight}"
                         FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}"
-                        FontWeight="{StaticResource FontWeightLight}"
+                        FontWeight="{StaticResource FontWeightRegular}"
                         DetailFontSize="{DynamicResource FontSizeLabel}" RowCornerRadius="{DynamicResource InteractionCornerRadius}"
                         CaptionFontSize="{DynamicResource FontSizeCaption}" MetaFontSize="{DynamicResource FontSizeMeta}"
                         GroupMinHeight="{DynamicResource TypographyListRowMinHeight}"
@@ -161,7 +161,7 @@
                 <StackPanel Spacing="8" Margin="6">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock x:Name="ColumnFilterTitle" VerticalAlignment="Center"
-                                   FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"
+                                   FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <Button Grid.Column="1" Content="{loc:Loc ui.085}" Classes="file-header-button" Padding="8,0"
                                 Click="OnClearColumnFilter" AutomationProperties.Name="{loc:Loc ui.087}"/>

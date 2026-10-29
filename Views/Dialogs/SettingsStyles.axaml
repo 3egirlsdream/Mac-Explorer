@@ -29,7 +29,7 @@
             <Style Selector="^:selected">
                 <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
             </Style>
             <Style Selector="^:selected:pointerover">
                 <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
@@ -54,7 +54,7 @@
                             <Grid DockPanel.Dock="Top" ColumnDefinitions="28,*" ColumnSpacing="8" Margin="8,0,0,16">
                                 <Image Source="/Assets/appicon.ico" Width="28" Height="28"/>
                                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{loc:Loc ui.072}" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{loc:Loc ui.072}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"/>
                                     <TextBlock Text="{loc:Loc app.name}" FontSize="{DynamicResource FontSizeCaption}" TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </StackPanel>
@@ -183,7 +183,7 @@
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="MinHeight" Value="68"/>
         <Setter Property="MaxHeight" Value="140"/>
-        <Setter Property="FontFamily" Value="Menlo,monospace"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
@@ -311,7 +311,7 @@
         <Setter Property="Height" Value="32"/>
         <Setter Property="MinHeight" Value="32"/>
         <Setter Property="Padding" Value="10,5"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 </Styles>

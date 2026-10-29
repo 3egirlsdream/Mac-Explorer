@@ -193,7 +193,7 @@ public partial class FileListView
         };
         AppTypography.BindFontSize(editor, FastList.IsGrid ? AppTypography.Caption : AppTypography.Body);
         editor.Bind(HeightProperty, editor.GetResourceObservable("TypographyInlineEditorHeight"));
-        editor.Bind(TextBox.FontWeightProperty, editor.GetResourceObservable("FontWeightLight"));
+        editor.Bind(TextBox.FontWeightProperty, editor.GetResourceObservable("FontWeightRegular"));
         editor.Classes.Add("inline-rename-editor");
         _renameEditor = editor;
         _activeRenamePath = entry.FullPath;

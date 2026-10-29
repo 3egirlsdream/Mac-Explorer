@@ -15,7 +15,6 @@
     <FontFamily x:Key="FontFamilyMono">Menlo, Monaco, monospace</FontFamily>
     <!-- Keep macOS key symbols in one typeface instead of UI/button fallback fonts. -->
     <FontFamily x:Key="FontFamilyShortcut">Menlo, Monaco, DejaVu Sans Mono, Segoe UI Symbol, monospace</FontFamily>
-    <media:FontWeight x:Key="FontWeightLight">Light</media:FontWeight>
     <media:FontWeight x:Key="FontWeightRegular">Normal</media:FontWeight>
     <media:FontWeight x:Key="FontWeightMedium">Medium</media:FontWeight>
     <media:FontWeight x:Key="FontWeightSemibold">SemiBold</media:FontWeight>

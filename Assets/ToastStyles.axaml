@@ -41,7 +41,7 @@
                 <Setter Property="ContentTemplate">
                     <DataTemplate DataType="INotification">
                         <StackPanel Spacing="3" ToolTip.Tip="{Binding Message}">
-                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                            <TextBlock Text="{Binding Title}" FontWeight="{StaticResource FontWeightSemibold}"
                                 FontSize="{DynamicResource FontSizeBodyLarge}" Foreground="{DynamicResource TextPrimaryBrush}"
                                 TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
                                 IsVisible="{Binding Title, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"/>

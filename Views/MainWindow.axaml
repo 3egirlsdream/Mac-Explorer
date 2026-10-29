@@ -335,79 +335,79 @@
                             <Grid RowDefinitions="Auto,*" Width="320"
                                   KeyboardNavigation.TabNavigation="Cycle">
                                 <TextBlock Grid.Row="0" Text="{loc:Loc ui.071}" Margin="5,2,0,8"
-                                           FontSize="12" FontWeight="{StaticResource FontWeightSemibold}"
+                                           FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <UniformGrid Grid.Row="1" Columns="4" Rows="3">
                                     <Button Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.044}" AutomationProperties.Name="{loc:Loc ui.044}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="Single"/>
-                                            <TextBlock Text="{loc:Loc ui.044}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.044}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.059}" AutomationProperties.Name="{loc:Loc ui.059}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="TwoColumns"/>
-                                            <TextBlock Text="{loc:Loc ui.059}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.059}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.037}" AutomationProperties.Name="{loc:Loc ui.037}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="TwoRows"/>
-                                            <TextBlock Text="{loc:Loc ui.037}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.037}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.035}" AutomationProperties.Name="{loc:Loc ui.035}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="ThreeColumns"/>
-                                            <TextBlock Text="{loc:Loc ui.035}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.035}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.036}" AutomationProperties.Name="{loc:Loc ui.036}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="ThreeRows"/>
-                                            <TextBlock Text="{loc:Loc ui.036}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.036}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.056}" AutomationProperties.Name="{loc:Loc ui.056}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight"/>
-                                            <TextBlock Text="{loc:Loc ui.056}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.056}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.058}" AutomationProperties.Name="{loc:Loc ui.058}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft"/>
-                                            <TextBlock Text="{loc:Loc ui.058}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.058}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.050}" AutomationProperties.Name="{loc:Loc ui.050}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourGrid"/>
-                                            <TextBlock Text="{loc:Loc ui.050}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.050}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.049}" AutomationProperties.Name="{loc:Loc ui.049}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourColumns"/>
-                                            <TextBlock Text="{loc:Loc ui.049}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.049}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.051}" AutomationProperties.Name="{loc:Loc ui.051}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourRows"/>
-                                            <TextBlock Text="{loc:Loc ui.051}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.051}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.055}" AutomationProperties.Name="{loc:Loc ui.055}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight"/>
-                                            <TextBlock Text="{loc:Loc ui.055}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.055}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.057}" AutomationProperties.Name="{loc:Loc ui.057}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft"/>
-                                            <TextBlock Text="{loc:Loc ui.057}" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc ui.057}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </UniformGrid>
@@ -454,7 +454,7 @@
                   BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="0,0,1,0"
                   CornerRadius="{DynamicResource RadiusLg}" Padding="12,14,10,12">
             <Grid RowDefinitions="Auto,*">
-              <TextBlock Text="{loc:Loc ui.045}" FontSize="12" FontWeight="SemiBold"
+              <TextBlock Text="{loc:Loc ui.045}" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}"
                          Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,0,12"/>
               <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                             HorizontalScrollBarVisibility="Disabled">
@@ -467,7 +467,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                     <PathIcon Data="{x:Static icons:Icons.Copilot}" Width="17" Height="17"
                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                    <TextBlock Text="Copilot" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="Copilot" FontWeight="{StaticResource FontWeightSemibold}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <Button x:Name="CopilotHistoryToggle" Grid.Column="1" Classes="ghost compact copilot-history-toggle"
                         Click="ToggleCopilotHistory" ToolTip.Tip="{loc:Loc ui.045}"
@@ -489,7 +489,7 @@
             <Border Grid.Row="2" x:Name="CopilotApprovalCard" Classes="copilot-approval-card"
                     IsVisible="False" Margin="0,8,0,0">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="{loc:Loc ui.063}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc ui.063}" FontWeight="{StaticResource FontWeightSemibold}"/>
                     <ScrollViewer MaxHeight="155" VerticalScrollBarVisibility="Auto">
                         <TextBlock x:Name="CopilotApprovalText" TextWrapping="Wrap"/>
                     </ScrollViewer>
@@ -511,7 +511,7 @@
                         <PathIcon Data="{x:Static icons:Icons.File}" Width="13" Height="13"
                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                         <TextBlock Text="{loc:Loc ui.062}" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
+                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="{DynamicResource FontSizeCaption}"/>
                     </StackPanel>
                     <ScrollViewer x:Name="CopilotAttachmentScroll" IsVisible="False"
                                   MaxHeight="84" VerticalScrollBarVisibility="Auto"
@@ -616,7 +616,7 @@
 	                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
 	                    </Border>
 	                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.041}" Margin="10,0,0,0"
-	                               VerticalAlignment="Center" FontSize="17"
+	                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeHeading}"
 	                               FontWeight="{StaticResource FontWeightSemibold}"/>
 	                    <ComboBox Grid.Column="2" x:Name="GlobalSearchScopeCombo"
 	                              Width="150" Height="28" Margin="8,0,8,0"
@@ -630,7 +630,7 @@
 	                            IsVisible="False" ToolTip.Tip="{loc:Loc ui.067}"
 	                            Click="OnAddGlobalSearchFolder"/>
 	                    <TextBlock Grid.Column="4" Text="{loc:Loc ui.033}"
-	                               VerticalAlignment="Center" FontSize="11"
+	                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}"
 	                               Foreground="{DynamicResource TextMutedBrush}"/>
 	                </Grid>
 	                <Border Grid.Row="1" CornerRadius="10" Padding="10,7"
@@ -642,7 +642,7 @@
 	                                  Foreground="{DynamicResource TextMutedBrush}"/>
 	                        <TextBox Grid.Column="1" x:Name="GlobalSearchBox"
 	                                 Classes="search-input omnibox-input"
-	                                 FontSize="16"
+	                                 FontSize="{DynamicResource FontSizeHeading}"
 	                                 PlaceholderText="{loc:Loc ui.075}"
 	                                 TextChanged="OnGlobalSearchTextChanged"
 	                                 KeyDown="OnGlobalSearchKeyDown"/>
@@ -671,9 +671,9 @@
                                         </Border>
                                         <StackPanel Grid.Column="1" Margin="8,0,8,0" Spacing="1"
                                                     VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Title}" FontSize="14"
+                                            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeBodyLarge}"
                                                        TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="{DynamicResource FontSizeCaption}"
                                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
@@ -699,9 +699,9 @@
                 </Grid>
 	                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="2,7,2,0">
 	                    <TextBlock x:Name="GlobalSearchResultCount" Text="{loc:Loc ui.038}"
-	                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+	                               FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
 	                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.034}"
-	                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+	                               FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
 	                </Grid>
 	            </Grid>
 	        </Border>

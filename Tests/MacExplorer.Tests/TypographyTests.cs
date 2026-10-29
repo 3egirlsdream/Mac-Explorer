@@ -118,7 +118,7 @@ public sealed class TypographyTests
         Assert.Equal(11, sidebarTitle.FontSize);
         Assert.Equal("PingFang SC", sidebarTitle.FontFamily.Name);
         Assert.Equal(FontWeight.Medium, sidebarTitle.FontWeight);
-        Assert.Equal(FontWeight.Light, sidebarItemText.FontWeight);
+        Assert.Equal(FontWeight.Normal, sidebarItemText.FontWeight);
         Assert.Equal(sidebarItemText.FontWeight, fileName.FontWeight);
         Assert.Equal(Color.Parse("#565D67"), Assert.IsType<SolidColorBrush>(sidebarTitle.Foreground).Color);
         Assert.Equal(sidebarItemText.FontSize, remoteAddress.FontSize);
@@ -137,6 +137,50 @@ public sealed class TypographyTests
         Assert.Equal(39, textBox.MinHeight);
 
         window.Close();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SettingsCopilotAndSubscriptionFollowSharedTypography(bool dark)
+    {
+        var service = new TypographyService(new MemorySettingsService());
+        service.Initialize();
+        var command = new TextBox { Text = "echo 中文 && pwd", Classes = { "settings-command-editor" } };
+        var toolTitle = new TextBlock { Text = "工具执行 Tool", Classes = { "copilot-tool-title" } };
+        var subscription = new SubscriptionView();
+        var window = new Window
+        {
+            Width = 440, Height = 700,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
+            Content = new StackPanel { Children = { command, toolTitle, subscription } }
+        };
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml")));
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var price = subscription.FindControl<TextBlock>("PriceText")!;
+            Assert.Equal("Menlo", command.FontFamily.Name);
+            Assert.Equal(FontWeight.Normal, command.FontWeight);
+            Assert.Equal("PingFang SC", toolTitle.FontFamily.Name);
+            Assert.Equal(FontWeight.SemiBold, toolTitle.FontWeight);
+            Assert.Equal(FontWeight.SemiBold, price.FontWeight);
+            Assert.Equal(12, command.FontSize);
+            Assert.Equal(12, toolTitle.FontSize);
+            Assert.Equal(24, price.FontSize);
+
+            service.SetPreset(FontSizePreset.Large);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(14, command.FontSize);
+            Assert.Equal(14, toolTitle.FontSize);
+            Assert.Equal(27.5, price.FontSize);
+            Assert.Equal(FontWeight.SemiBold, toolTitle.FontWeight);
+        }
+        finally { window.Close(); }
     }
 
     private static void AssertResource(string key, double expected)
