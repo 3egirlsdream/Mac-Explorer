@@ -10,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using LiquidGlassAvaloniaUI;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.ViewModels;
@@ -45,13 +46,20 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     public ExplorerWorkspaceView()
     {
         InitializeComponent();
-        SidebarAppearance.Apply(SidebarSurface, ActualThemeVariant == ThemeVariant.Dark);
-        ActualThemeVariantChanged += (_, _) => SidebarAppearance.Apply(SidebarSurface, ActualThemeVariant == ThemeVariant.Dark);
+        ApplySidebarAppearance();
+        ActualThemeVariantChanged += (_, _) => ApplySidebarAppearance();
         AddHandler(PointerPressedEvent, OnWorkspacePointerPressed,
             RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(GotFocusEvent, OnWorkspaceGotFocus,
             RoutingStrategies.Bubble, handledEventsToo: true);
         SizeChanged += OnWorkspaceSizeChanged;
+    }
+
+    private void ApplySidebarAppearance()
+    {
+        SidebarAppearance.Apply(SidebarSurface, ActualThemeVariant == ThemeVariant.Dark);
+        SidebarSurface.Bind(LiquidGlassSurface.RefractionAmountProperty, this.GetResourceObservable("WorkspaceSidebarRefraction"));
+        SidebarSurface.Bind(LiquidGlassSurface.RefractionHeightProperty, this.GetResourceObservable("WorkspaceSidebarRefractionHeight"));
     }
 
     public ExplorerTabViewModel? Tab => DataContext as ExplorerTabViewModel;

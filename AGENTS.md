@@ -136,4 +136,4 @@
 
 - 文件速递固定首个“暂存”页签，暂存路径仅保留在当前进程；拖拽投放窗口复用 `AppWindow` 与 `FileDeliveryStyles.axaml` 的 `delivery-drop-surface`，不激活主窗口，清空暂存仅移除路径引用。
 
-- 背景主题仅作用于主窗口，通过 `WindowBackgroundTheme` 和 `BackgroundThemeSurface` 共享窗口坐标；图片按窗口高度等比横向平铺或居中铺满裁切，不随列表滚动。`Workspace*Brush` 提供透明表面入口，默认保持原主题；激活页签沿原轮廓显示同一背景并与下方连续，导航、状态栏及信息面板复用缓存的磨砂图片，侧栏与首页继续复用现有玻璃。设置入口使用 `BackgroundThemeSettingsView` 与紧凑设置分组，四语文案同步；图片经 `BoundedImageDecoder` 限制解码后导入应用 Themes 目录，清除仅删除托管副本。独立窗口和弹出菜单不增加主题配置，不对文字与图标整体调整透明度。
+- 背景主题仅作用于主窗口，通过 `WindowBackgroundTheme` 和 `BackgroundThemeSurface` 共享窗口坐标；图片按窗口高度等比横向平铺或居中铺满裁切，不随列表滚动。`Workspace*Brush` 提供透明表面入口，默认保持原主题；激活页签与底部状态栏显示原图，页签与下方连续。导航／面包屑与工具栏共用 `workspace-toolbar-material` 的 `RadiusLg` 圆角表面，和信息面板复用轻磨砂缓存；磨砂与原图共用相同坐标、比例及透明度，只改变模糊程度；信息面板磨砂从分隔线开始，不覆盖左侧拖拽区。侧栏与首页继续复用现有玻璃，主题启用时通过 `WorkspaceSidebarRefraction`／`WorkspaceSidebarRefractionHeight` 增强侧栏折射。设置入口使用 `BackgroundThemeSettingsView` 与紧凑设置分组，四语文案同步；图片经 `BoundedImageDecoder` 限制解码后导入应用 Themes 目录，清除仅删除托管副本。独立窗口和弹出菜单不增加主题配置，不对文字与图标整体调整透明度。

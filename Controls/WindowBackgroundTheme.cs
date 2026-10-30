@@ -41,12 +41,16 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable
         }
         if (_service.IsActive)
         {
+            _window.Resources["WorkspaceSidebarRefraction"] = _window.ActualThemeVariant == ThemeVariant.Dark ? 24d : 36d;
+            _window.Resources["WorkspaceSidebarRefractionHeight"] = 24d;
             _window.Resources["WorkspaceTabBrush"] = Brushes.Transparent;
             if (_window.TryFindResource("ThemedWorkspaceStripeBrush", _window.ActualThemeVariant, out var stripe))
                 _window.Resources["WorkspaceStripeBrush"] = stripe;
         }
         else
         {
+            _window.Resources.Remove("WorkspaceSidebarRefraction");
+            _window.Resources.Remove("WorkspaceSidebarRefractionHeight");
             _window.Resources.Remove("WorkspaceTabBrush");
             _window.Resources.Remove("WorkspaceStripeBrush");
         }

@@ -177,7 +177,7 @@ public sealed class BackgroundThemeService : IDisposable
             using var small = decoded.Resize(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul), new SKSamplingOptions(SKFilterMode.Linear));
             if (small == null) return null;
             using var surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var filter = SKImageFilter.CreateBlur(Math.Max(1, size.Height * 18f / 800), Math.Max(1, size.Height * 18f / 800), SKShaderTileMode.Clamp);
+            using var filter = SKImageFilter.CreateBlur(Math.Max(1, size.Height * 5f / 800), Math.Max(1, size.Height * 5f / 800), SKShaderTileMode.Clamp);
             using var paint = new SKPaint { ImageFilter = filter };
             surface.Canvas.DrawBitmap(small, 0, 0, paint);
             using var blurred = surface.Snapshot();

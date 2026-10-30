@@ -101,92 +101,97 @@
 
             <SplitView.Content>
                 <!-- Capture only the sidebar material, even while a cached compact layout is expanding. -->
-                <Grid x:Name="PageSurface" RowDefinitions="Auto,Auto,*"
+                <Grid x:Name="PageSurface" RowDefinitions="Auto,*"
                       glass:LiquidGlassBackdrop.IsExcludedFromCapture="True">
-                    <controls:BackgroundThemeSurface Frosted="True" Grid.RowSpan="2"/>
-                    <Grid Grid.Row="0" x:Name="NavigationRow" Height="40"
-                          IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}"
-                          ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="12,0"
-                          VerticalAlignment="Center">
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
-                            <Button x:Name="SidebarToggleButton" Classes="workspace-nav-button"
-                                    ToolTip.Tip="{loc:Loc ui.542}" AutomationProperties.Name="{loc:Loc ui.542}"
-                                    IsVisible="False" Click="OnToggleSidebar">
-                                <PathIcon Data="{x:Static icons:Icons.List}"/>
-                            </Button>
-                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.back"
-                                    AutomationProperties.Name="{loc:Loc ui.543}" Click="NavigateBack"
-                                    IsEnabled="{Binding FileList.CanGoBack}">
-                                <PathIcon Data="{x:Static icons:Icons.Back}"/>
-                            </Button>
-                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.forward"
-                                    AutomationProperties.Name="{loc:Loc ui.544}" Click="NavigateForward"
-                                    IsEnabled="{Binding FileList.CanGoForward}">
-                                <PathIcon Data="{x:Static icons:Icons.Forward}"/>
-                            </Button>
-                            <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.up"
-                                    AutomationProperties.Name="{loc:Loc ui.545}" Click="NavigateUp"
-                                    IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
-                                <PathIcon Data="{x:Static icons:Icons.Up}"/>
-                            </Button>
-                            <Button x:Name="RefreshButton" Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.refresh"
-                                    AutomationProperties.Name="{loc:Loc ui.344}" Click="RefreshView">
-                                <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
-                            </Button>
-                        </StackPanel>
-
-                        <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
-                                             DataContext="{Binding FileList}"
-                                             HorizontalAlignment="Stretch"
-                                             VerticalAlignment="Center"/>
-
-                        <Button Grid.Column="2" x:Name="ConnectServerButton" Classes="workspace-nav-button" VerticalAlignment="Center"
-                                IsVisible="{Binding FileList.IsNetworkPage}" Click="OnConnectNetworkServer"
-                                ToolTip.Tip="{loc:Loc network.connect}" AutomationProperties.Name="{loc:Loc network.connect}">
-                            <PathIcon Data="{x:Static icons:Icons.PlugConnected}"/>
-                        </Button>
-                        <Grid Grid.Column="2" x:Name="SearchControls">
-                            <Button x:Name="SearchToggleButton" Classes="workspace-nav-button"
-                                    IsVisible="False" Click="OnTogglePageSearch"
-                                    ToolTip.Tip="{loc:Loc ui.546}" AutomationProperties.Name="{loc:Loc ui.546}">
-                                <PathIcon Data="{x:Static icons:Icons.Search}"/>
-                            </Button>
-                            <Grid x:Name="SearchHost" Classes="workspace-search-host"
-                                  VerticalAlignment="Center">
-                                <Border Classes="breadcrumb-bar workspace-search" Padding="4,2">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,0">
-                                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
-                                                  Width="13" Height="13" Margin="0,0,6,0"
-                                                  VerticalAlignment="Center"
-                                                  Foreground="{DynamicResource TextMutedBrush}"/>
-                                        <TextBox Grid.Column="1" x:Name="SearchBox"
-                                                 Classes="search-input omnibox-input"
-                                                 FontSize="{DynamicResource FontSizeLabel}"
-                                                 Foreground="{DynamicResource TextPrimaryBrush}"
-                                                 PlaceholderText="{loc:Loc ui.547}" AutomationProperties.Name="{loc:Loc ui.547}"
-                                                 Text="{Binding FileList.SearchQuery, Mode=OneWay}"
-                                                 TextChanged="OnSearchTextChanged"
-                                                 KeyDown="OnSearchKeyDown"/>
-                                        <Button Grid.Column="2" x:Name="SearchClearButton"
-                                                Classes="ghost close-btn search-clear-btn"
-                                                Background="Transparent"
-                                                Foreground="{DynamicResource TextMutedBrush}"
-                                                IsVisible="False" Click="ClearSearch"
-                                                AutomationProperties.Name="{loc:Loc ui.548}" ToolTip.Tip="{loc:Loc ui.549}">
-                                            <PathIcon Data="{x:Static icons:Icons.Close}"/>
-                                        </Button>
-                                    </Grid>
-                                </Border>
-                            </Grid>
-                        </Grid>
-                    </Grid>
-
-                    <Border Grid.Row="1" x:Name="ToolbarSurface" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                    <Border x:Name="ToolbarMaterialHost" Classes="workspace-toolbar-material"
                             IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
-                        <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
+                        <Grid RowDefinitions="Auto,Auto">
+                            <controls:BackgroundThemeSurface Frosted="True" Grid.RowSpan="2"/>
+                            <Grid Grid.Row="0" x:Name="NavigationRow" Height="40"
+                                  IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}"
+                                  ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="12,0"
+                                  VerticalAlignment="Center">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
+                                    <Button x:Name="SidebarToggleButton" Classes="workspace-nav-button"
+                                            ToolTip.Tip="{loc:Loc ui.542}" AutomationProperties.Name="{loc:Loc ui.542}"
+                                            IsVisible="False" Click="OnToggleSidebar">
+                                        <PathIcon Data="{x:Static icons:Icons.List}"/>
+                                    </Button>
+                                    <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.back"
+                                            AutomationProperties.Name="{loc:Loc ui.543}" Click="NavigateBack"
+                                            IsEnabled="{Binding FileList.CanGoBack}">
+                                        <PathIcon Data="{x:Static icons:Icons.Back}"/>
+                                    </Button>
+                                    <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.forward"
+                                            AutomationProperties.Name="{loc:Loc ui.544}" Click="NavigateForward"
+                                            IsEnabled="{Binding FileList.CanGoForward}">
+                                        <PathIcon Data="{x:Static icons:Icons.Forward}"/>
+                                    </Button>
+                                    <Button Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.up"
+                                            AutomationProperties.Name="{loc:Loc ui.545}" Click="NavigateUp"
+                                            IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                                        <PathIcon Data="{x:Static icons:Icons.Up}"/>
+                                    </Button>
+                                    <Button x:Name="RefreshButton" Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.refresh"
+                                            AutomationProperties.Name="{loc:Loc ui.344}" Click="RefreshView">
+                                        <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
+                                    </Button>
+                                </StackPanel>
+
+                                <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
+                                                     DataContext="{Binding FileList}"
+                                                     HorizontalAlignment="Stretch"
+                                                     VerticalAlignment="Center"/>
+
+                                <Button Grid.Column="2" x:Name="ConnectServerButton" Classes="workspace-nav-button" VerticalAlignment="Center"
+                                        IsVisible="{Binding FileList.IsNetworkPage}" Click="OnConnectNetworkServer"
+                                        ToolTip.Tip="{loc:Loc network.connect}" AutomationProperties.Name="{loc:Loc network.connect}">
+                                    <PathIcon Data="{x:Static icons:Icons.PlugConnected}"/>
+                                </Button>
+                                <Grid Grid.Column="2" x:Name="SearchControls">
+                                    <Button x:Name="SearchToggleButton" Classes="workspace-nav-button"
+                                            IsVisible="False" Click="OnTogglePageSearch"
+                                            ToolTip.Tip="{loc:Loc ui.546}" AutomationProperties.Name="{loc:Loc ui.546}">
+                                        <PathIcon Data="{x:Static icons:Icons.Search}"/>
+                                    </Button>
+                                    <Grid x:Name="SearchHost" Classes="workspace-search-host"
+                                          VerticalAlignment="Center">
+                                        <Border Classes="breadcrumb-bar workspace-search" Padding="4,2">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,0">
+                                                <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                                                          Width="13" Height="13" Margin="0,0,6,0"
+                                                          VerticalAlignment="Center"
+                                                          Foreground="{DynamicResource TextMutedBrush}"/>
+                                                <TextBox Grid.Column="1" x:Name="SearchBox"
+                                                         Classes="search-input omnibox-input"
+                                                         FontSize="{DynamicResource FontSizeLabel}"
+                                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                                         PlaceholderText="{loc:Loc ui.547}" AutomationProperties.Name="{loc:Loc ui.547}"
+                                                         Text="{Binding FileList.SearchQuery, Mode=OneWay}"
+                                                         TextChanged="OnSearchTextChanged"
+                                                         KeyDown="OnSearchKeyDown"/>
+                                                <Button Grid.Column="2" x:Name="SearchClearButton"
+                                                        Classes="ghost close-btn search-clear-btn"
+                                                        Background="Transparent"
+                                                        Foreground="{DynamicResource TextMutedBrush}"
+                                                        IsVisible="False" Click="ClearSearch"
+                                                        AutomationProperties.Name="{loc:Loc ui.548}" ToolTip.Tip="{loc:Loc ui.549}">
+                                                    <PathIcon Data="{x:Static icons:Icons.Close}"/>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </Grid>
+
+                            <Border Grid.Row="1" x:Name="ToolbarSurface"
+                                    IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                                <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
+                            </Border>
+                        </Grid>
                     </Border>
 
-                    <Border Grid.Row="2" x:Name="PageContentSurface">
+                    <Border Grid.Row="1" x:Name="PageContentSurface">
                             <Grid RowDefinitions="Auto,*,Auto">
                                 <Border Grid.Row="0" IsVisible="{Binding FileList.IsSearchMode}" Padding="12,8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -212,7 +217,7 @@
                                                 <ColumnDefinition Width="6"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <controls:BackgroundThemeSurface Frosted="True" Grid.ColumnSpan="2"/>
+                                            <controls:BackgroundThemeSurface x:Name="InfoPanelMaterial" Frosted="True" Grid.Column="1"/>
                                             <Border Grid.Column="0" x:Name="InfoPanelResizeHandle"
                                                     Background="Transparent" Cursor="SizeWestEast"
                                                     PointerPressed="OnInfoPanelResizePressed"
@@ -253,7 +258,6 @@
                                 <Border Grid.Row="2" x:Name="StatusBar" MinHeight="28" Padding="0,4" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                         IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
                                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
-                                        <controls:BackgroundThemeSurface Frosted="True" Grid.ColumnSpan="3" Margin="-12,-4"/>
                                         <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
                                                    FontSize="{DynamicResource FontSizeCaption}"
                                                    VerticalAlignment="Center"

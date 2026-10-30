@@ -64,7 +64,7 @@ public class BackgroundThemeSurface : Control
         {
             var rect = new Rect(windowSize);
             context.DrawRectangle(surface, null, rect);
-            using (context.PushOpacity(_theme.Options.Strength / 100d * (Frosted ? 0.65 : 1)))
+            using (context.PushOpacity(_theme.Options.Strength / 100d))
                 context.DrawRectangle(brush, null, rect);
         }
         return true;

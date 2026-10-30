@@ -40,6 +40,8 @@
                     <Color x:Key="PopupGlassColor">#F2FFFFFF</Color>
                     <sys:Double x:Key="PopupGlassBackdrop">1</sys:Double>
                     <sys:Double x:Key="PopupGlassRefraction">6</sys:Double>
+                    <sys:Double x:Key="WorkspaceSidebarRefraction">24</sys:Double>
+                    <sys:Double x:Key="WorkspaceSidebarRefractionHeight">18</sys:Double>
                     <sys:Double x:Key="PopupGlassHighlight">0.22</sys:Double>
                     <SolidColorBrush x:Key="InputCaretBrush" Color="#007AFF"/>
                     <SolidColorBrush x:Key="CheckBoxSurfaceBrush" Color="#E9E9E9"/>
@@ -214,6 +216,8 @@
                     <Color x:Key="PopupGlassColor">#F230302F</Color>
                     <sys:Double x:Key="PopupGlassBackdrop">0.85</sys:Double>
                     <sys:Double x:Key="PopupGlassRefraction">0</sys:Double>
+                    <sys:Double x:Key="WorkspaceSidebarRefraction">0</sys:Double>
+                    <sys:Double x:Key="WorkspaceSidebarRefractionHeight">18</sys:Double>
                     <sys:Double x:Key="PopupGlassHighlight">0</sys:Double>
                     <SolidColorBrush x:Key="InputCaretBrush" Color="#0A84FF"/>
                     <SolidColorBrush x:Key="CheckBoxSurfaceBrush" Color="#454545"/>

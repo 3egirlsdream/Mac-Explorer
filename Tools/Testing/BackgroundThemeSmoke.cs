@@ -58,7 +58,7 @@ internal static class BackgroundThemeSmoke
                 owner.Width = 1280;
                 model.FileList.IsInfoPanelVisible = true;
                 await CaptureAsync(owner, prefix + "-files");
-                await AssertTabContinuityAsync();
+                await AssertBackgroundBoundariesAsync();
                 model.FileList.IsInfoPanelVisible = false;
                 owner.Width = 800;
                 await CaptureAsync(owner, prefix + "-compact");
@@ -71,6 +71,8 @@ internal static class BackgroundThemeSmoke
             }
             checks.Add("Light/dark, file list, information pane, home, compact and wide render snapshots");
             checks.Add("Active tab pixels match the shared window background");
+            checks.Add("Info divider keeps the original texture on its left; toolbar corners and status bar reveal the original background");
+            checks.Add("Toolbar and info frost use the same window coordinates, scale and opacity as the original image");
             var bitmap = service.Image;
             owner.Width = 1500; owner.Height = 900;
             await CaptureAsync(owner, "resized");
@@ -132,7 +134,7 @@ internal static class BackgroundThemeSmoke
             snapshot.Save(Path.Combine(output, name + ".png"));
         }
 
-        async Task AssertTabContinuityAsync()
+        async Task AssertBackgroundBoundariesAsync()
         {
             var tabs = owner.FindControl<ListBox>("TabList")!;
             var tab = tabs.ContainerFromIndex(tabs.SelectedIndex)!;
@@ -141,10 +143,41 @@ internal static class BackgroundThemeSmoke
             var backgroundVisual = ElementComposition.GetElementVisual(owner.BackgroundContent!)!;
             using var window = await windowVisual.Compositor.CreateCompositionVisualSnapshot(windowVisual, 1);
             using var background = await backgroundVisual.Compositor.CreateCompositionVisualSnapshot(backgroundVisual, 1);
-            var actual = Sample(window, point.X / window.Size.Width, point.Y / window.Size.Height);
-            var expected = Sample(background, point.X / background.Size.Width, point.Y / background.Size.Height);
-            if (Math.Abs(actual.Red - expected.Red) > 3 || Math.Abs(actual.Green - expected.Green) > 3 || Math.Abs(actual.Blue - expected.Blue) > 3)
-                throw new InvalidOperationException($"Active tab background is discontinuous: {actual} / {expected}.");
+            AssertOriginalAt(point, "Active tab");
+            var workspace = owner.GetVisualDescendants().OfType<ExplorerWorkspaceView>().Single(v => v.IsEffectivelyVisible);
+            var info = workspace.FindControl<BackgroundThemeSurface>("InfoPanelMaterial")!;
+            foreach (var y in new[] { 10d, 80d, 180d })
+                AssertOriginalAt(info.TranslatePoint(new Point(-3, y), owner)!.Value, "Info divider's left edge");
+            var toolbar = workspace.FindControl<Border>("ToolbarMaterialHost")!;
+            foreach (var corner in new[] { new Point(1, 1), new Point(toolbar.Bounds.Width - 2, 1),
+                new Point(1, toolbar.Bounds.Height - 2), new Point(toolbar.Bounds.Width - 2, toolbar.Bounds.Height - 2) })
+                AssertOriginalAt(toolbar.TranslatePoint(corner, owner)!.Value, "Rounded toolbar corner");
+            var status = workspace.FindControl<Border>("StatusBar")!;
+            AssertOriginalAt(status.TranslatePoint(new Point(status.Bounds.Width * 0.65, status.Bounds.Height / 2), owner)!.Value, "Status bar");
+
+            var backdrop = (BackgroundThemeSurface)owner.BackgroundContent!;
+            backdrop.Frosted = true;
+            try
+            {
+                await Task.Delay(60);
+                await backgroundVisual.Compositor.RequestCommitAsync();
+                using var frosted = await backgroundVisual.Compositor.CreateCompositionVisualSnapshot(backgroundVisual, 1);
+                AssertMatches(frosted, toolbar.TranslatePoint(new Point(toolbar.Bounds.Width / 2, 3), owner)!.Value, "Toolbar frost");
+                foreach (var y in new[] { 50d, 300d, 500d })
+                    AssertMatches(frosted, info.TranslatePoint(new Point(8, y), owner)!.Value, "Info frost");
+            }
+            finally { backdrop.Frosted = false; }
+
+            void AssertOriginalAt(Point location, string label)
+                => AssertMatches(background, location, label);
+
+            void AssertMatches(Avalonia.Media.Imaging.Bitmap reference, Point location, string label)
+            {
+                var actual = Sample(window, location.X / window.Size.Width, location.Y / window.Size.Height);
+                var expected = Sample(reference, location.X / reference.Size.Width, location.Y / reference.Size.Height);
+                if (Math.Abs(actual.Red - expected.Red) > 3 || Math.Abs(actual.Green - expected.Green) > 3 || Math.Abs(actual.Blue - expected.Blue) > 3)
+                    throw new InvalidOperationException($"{label} background is discontinuous: {actual} / {expected}.");
+            }
         }
     }
 

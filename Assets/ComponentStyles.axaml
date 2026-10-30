@@ -1003,6 +1003,11 @@
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
     </Style>
+    <Style Selector="Border.workspace-toolbar-material">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+        <Setter Property="Margin" Value="0,4,4,4"/>
+    </Style>
     <Style Selector="Separator">
         <Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
     </Style>
