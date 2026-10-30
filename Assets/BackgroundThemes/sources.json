@@ -1,0 +1,35 @@
+[
+  {
+    "file": "circuit.svg",
+    "source": "https://qqpatch.gtimg.cn/template_theme/texture/1002.svg",
+    "sha256": "6a95605e8c7217ac650988f802dc035a9906c850bcede9f8edd706771355c43b",
+    "originalSettings": {
+      "url": "https://qqpatch.gtimg.cn/template_theme/texture/1002.svg",
+      "opaque": 0.2,
+      "layout": 0,
+      "blendMode": 1
+    }
+  },
+  {
+    "file": "confetti.svg",
+    "source": "https://qqpatch.gtimg.cn/template_theme/texture/1001.svg",
+    "sha256": "3975054ad23a903a6e0823bdc388ad93c1dfffe5151d221af4f8b0f9454fce3e",
+    "originalSettings": {
+      "url": "https://qqpatch.gtimg.cn/template_theme/texture/1001.svg",
+      "opaque": 0.2,
+      "layout": 0,
+      "blendMode": 1
+    }
+  },
+  {
+    "file": "dunhuang.png",
+    "source": "https://qqpatch.gtimg.cn/static_theme/dunhuang/1.png",
+    "sha256": "2753e5fbdb0878bae5a9bea1969a36d0781bd2c5622b5a8590e8c45c4449d34e",
+    "originalSettings": {
+      "url": "https://qqpatch.gtimg.cn/static_theme/dunhuang/1.png",
+      "opaque": 1,
+      "layout": 1,
+      "blendMode": 0
+    }
+  }
+]

@@ -2,35 +2,59 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
+using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Controls;
 
 /// <summary>Scopes theme surfaces to a main window; dialogs and popup resources stay unchanged.</summary>
-public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable
+public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemoryDiagnosticSource
 {
     public static readonly AttachedProperty<BackgroundThemeService?> ServiceProperty =
         AvaloniaProperty.RegisterAttached<WindowBackgroundTheme, Control, BackgroundThemeService?>("Service", inherits: true);
     public static BackgroundThemeService? GetService(Control control) => control.GetValue(ServiceProperty);
+    private static readonly AttachedProperty<WindowBackgroundTheme?> ControllerProperty =
+        AvaloniaProperty.RegisterAttached<WindowBackgroundTheme, Control, WindowBackgroundTheme?>("Controller", inherits: true);
+    internal static WindowBackgroundTheme? GetController(Control control) => control.GetValue(ControllerProperty);
+    private static readonly SemaphoreSlim RenderSlots = new(2, 2);
     private static readonly string[] ClearSurfaces =
         ["WorkspaceContentBrush", "WorkspaceSurfaceBrush", "WorkspaceInfoBrush"];
     private readonly AppWindow _window;
     private readonly BackgroundThemeService _service;
+    private CancellationTokenSource? _renderCancellation;
+    private bool _disposed;
+    internal BackgroundThemeComposition? Frame { get; private set; }
+    internal bool IsActive => _service.IsActive && Frame != null;
+    internal bool IsRendering => _renderCancellation != null;
+    internal event Action? FrameChanged;
 
     public WindowBackgroundTheme(AppWindow window, BackgroundThemeService service)
     {
         _window = window; _service = service;
+        MemoryDiagnostics.Register(this);
         window.SetValue(ServiceProperty, service);
+        window.SetValue(ControllerProperty, this);
         window.BackgroundContent = new BackgroundThemeSurface();
         service.Changed += Update;
         window.ActualThemeVariantChanged += OnThemeChanged;
         window.Closed += OnClosed;
+        window.SizeChanged += OnSizeChanged;
+        window.PropertyChanged += OnWindowPropertyChanged;
         Update();
         _ = service.InitializeAsync();
     }
 
+    MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState() => new("background-frame", Frame == null ? 0 : 2,
+        Frame is { } frame ? ((long)frame.Image.PixelSize.Width * frame.Image.PixelSize.Height
+            + (long)frame.Frosted.PixelSize.Width * frame.Frosted.PixelSize.Height) * 4 : 0, IsRendering ? 1 : 0);
+
     private void OnClosed(object? sender, EventArgs e) => Dispose();
     private void OnThemeChanged(object? sender, EventArgs e) => Update();
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e) => ScheduleRender();
+    private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property.Name == nameof(TopLevel.RenderScaling)) ScheduleRender();
+    }
 
     private void Update()
     {
@@ -54,13 +78,76 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable
             _window.Resources.Remove("WorkspaceTabBrush");
             _window.Resources.Remove("WorkspaceStripeBrush");
         }
+        ScheduleRender();
+    }
+
+    private void ScheduleRender()
+    {
+        _renderCancellation?.Cancel();
+        if (_disposed) return;
+        if (!_service.IsActive)
+        {
+            var old = Frame; Frame = null;
+            FrameChanged?.Invoke(); old?.Dispose();
+            return;
+        }
+        var size = _window.ClientSize;
+        if (size.Width <= 0 || size.Height <= 0) return;
+        var cancellation = new CancellationTokenSource();
+        _renderCancellation = cancellation;
+        _ = RenderAsync(size, _window.ActualThemeVariant == ThemeVariant.Dark, _window.RenderScaling, cancellation);
+    }
+
+    private async Task RenderAsync(Size size, bool dark, double scaling, CancellationTokenSource cancellation)
+    {
+        BackgroundThemeComposition? frame = null;
+        var token = cancellation.Token;
+        try
+        {
+            // Coalesce slider/resize bursts. Every surface keeps using the same prior frame meanwhile.
+            await Task.Delay(60, token);
+            using var artwork = _service.AcquireArtwork();
+            if (artwork == null) return;
+            var options = _service.Options;
+            await RenderSlots.WaitAsync(token);
+            try
+            {
+                frame = await Task.Run(() => BackgroundThemeComposition.Create(artwork.Texture, options, size, dark, scaling, token), token);
+            }
+            finally { RenderSlots.Release(); }
+            token.ThrowIfCancellationRequested();
+            if (_disposed) return;
+            var previous = Frame;
+            Frame = frame; frame = null;
+            FrameChanged?.Invoke();
+            previous?.Dispose();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Background composition failed: {ex.Message}");
+        }
+        finally
+        {
+            frame?.Dispose();
+            if (ReferenceEquals(_renderCancellation, cancellation)) _renderCancellation = null;
+            cancellation.Dispose();
+        }
     }
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        _renderCancellation?.Cancel();
         _service.Changed -= Update;
         _window.ActualThemeVariantChanged -= OnThemeChanged;
         _window.Closed -= OnClosed;
+        _window.SizeChanged -= OnSizeChanged;
+        _window.PropertyChanged -= OnWindowPropertyChanged;
+        var old = Frame; Frame = null;
+        FrameChanged?.Invoke(); FrameChanged = null; old?.Dispose();
         _window.ClearValue(ServiceProperty);
+        _window.ClearValue(ControllerProperty);
     }
 }

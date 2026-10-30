@@ -143,6 +143,97 @@ public sealed class BackgroundThemeTests
         Assert.True(service.IsActive);
     }
 
+    [AvaloniaFact]
+    public async Task PresetsPersistWithoutRemovingTheUsersImageAndLateSelectionsCannotReplaceTheLatest()
+    {
+        using var fixture = new Fixture();
+        await fixture.ImportAsync();
+        var managed = fixture.Service.Options.ImageFile;
+        var first = fixture.Service.SelectPresetAsync("qq-circuit-pink");
+        var last = fixture.Service.SelectPresetAsync("qq-dunhuang-red");
+        await Task.WhenAll(first, last);
+        Assert.Equal("qq-dunhuang-red", fixture.Service.Options.PresetId);
+        Assert.True(File.Exists(Path.Combine(fixture.Root, managed)));
+        fixture.Service.Update(true, BackgroundImageLayout.Cover, 73);
+        Assert.Equal(73, fixture.Service.Options.TextureStrength);
+        Assert.Equal(40, fixture.Service.Options.Strength);
+        using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
+        await restored.InitializeAsync();
+        Assert.Equal(fixture.Service.Options, restored.Options);
+        Assert.True(restored.IsActive);
+        await fixture.Service.SelectPresetAsync("");
+        Assert.Equal(managed, fixture.Service.Options.ImageFile);
+        Assert.Equal("", fixture.Service.Options.PresetId);
+        fixture.Service.Reset();
+        Assert.False(File.Exists(Path.Combine(fixture.Root, managed)));
+    }
+
+    [AvaloniaFact]
+    public async Task PackagedTexturesDecodeAndColorOnlyThemesDoNotRequireAnImage()
+    {
+        using var fixture = new Fixture();
+        foreach (var preset in BackgroundThemePresets.All)
+        {
+            await fixture.Service.SelectPresetAsync(preset.Id);
+            Assert.True(fixture.Service.IsActive);
+            using var artwork = fixture.Service.AcquireArtwork()!;
+            Assert.Equal(preset.TextureAsset == null, artwork.Texture == null);
+            if (artwork.Texture != null) Assert.InRange(Math.Max(artwork.Texture.Width, artwork.Texture.Height), 1, 2048);
+            foreach (var dark in new[] { false, true })
+            {
+                using var frame = BackgroundThemeComposition.Render(artwork.Texture, fixture.Service.Options, 480, 300, dark, CancellationToken.None);
+                Assert.Equal(255, frame.GetPixel(100, 100).Alpha);
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void PaletteSpansTheWindowAndTextureStrengthDoesNotDimItsColors()
+    {
+        var options = new BackgroundThemeOptions { PresetId = "qq-circuit-neon", TextureStrength = 0 };
+        using var texture = new SKBitmap(8, 8);
+        texture.Erase(SKColors.White);
+        using var narrow = BackgroundThemeComposition.Render(texture, options, 400, 100, false, CancellationToken.None);
+        using var wide = BackgroundThemeComposition.Render(texture, options, 800, 100, false, CancellationToken.None);
+        Assert.NotEqual(narrow.GetPixel(10, 50), narrow.GetPixel(110, 50));
+        var a = narrow.GetPixel(200, 50); var b = wide.GetPixel(400, 50);
+        Assert.InRange(Math.Abs(a.Red - b.Red), 0, 1);
+        Assert.InRange(Math.Abs(a.Green - b.Green), 0, 1);
+        Assert.InRange(Math.Abs(a.Blue - b.Blue), 0, 1);
+        using var withoutTexture = BackgroundThemeComposition.Render(null, options with { TextureStrength = 100 }, 400, 100, false, CancellationToken.None);
+        Assert.Equal(narrow.GetPixel(100, 50), withoutTexture.GetPixel(100, 50));
+        using var custom = BackgroundThemeComposition.Render(texture, new() { Strength = 0 }, 400, 100, false, CancellationToken.None);
+        Assert.Equal(SKColors.White, custom.GetPixel(100, 50));
+    }
+
+    [AvaloniaFact]
+    public async Task PresetControlsKeepSelectionAndIntensityWhenLanguageChanges()
+    {
+        using var fixture = new Fixture();
+        using var localization = new LocalizationService(fixture.Settings);
+        var fluent = new Avalonia.Themes.Fluent.FluentTheme();
+        Application.Current!.Styles.Insert(0, fluent);
+        var view = new BackgroundThemeSettingsView(fixture.Service);
+        var window = new Window { Width = 530, Height = 400, Content = view };
+        foreach (var uri in new[] { "Assets/ComponentStyles.axaml", "Views/Dialogs/SettingsStyles.axaml" })
+            window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/" + uri)));
+        window.Show();
+        try
+        {
+            view.FindControl<ComboBox>("PresetCombo")!.SelectedIndex = 1;
+            for (var i = 0; fixture.Service.Options.PresetId.Length == 0 && i < 100; i++) await Task.Delay(10);
+            Assert.Equal("qq-circuit-pink", fixture.Service.Options.PresetId);
+            view.FindControl<Slider>("StrengthSlider")!.Value = 35;
+            localization.SetLanguage("fr");
+            Assert.Equal(35, fixture.Service.Options.TextureStrength);
+            Assert.Equal(localization["background.preset.pink_city"], view.FindControl<ComboBox>("PresetCombo")!.SelectionBoxItem);
+            await fixture.Service.SelectPresetAsync("qq-ink-blue");
+            Assert.False(view.FindControl<Border>("StrengthRow")!.IsVisible);
+            Assert.False(view.FindControl<Border>("LayoutRow")!.IsVisible);
+        }
+        finally { window.Close(); Application.Current!.Styles.Remove(fluent); }
+    }
+
     private static Color BrushColor(Control control, string key)
     {
         Assert.True(control.TryFindResource(key, control.ActualThemeVariant, out var brush));

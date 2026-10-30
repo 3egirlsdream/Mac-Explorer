@@ -11,6 +11,16 @@
     "zh-CHT"
   ],
   "strings": {
+    "background.preset": "主題",
+    "background.custom": "自訂圖片",
+    "background.texture_strength": "圖案強度",
+    "background.texture_layout": "圖案配置",
+    "background.preset_failed": "無法載入主題，請重試。",
+    "background.preset.pink_city": "粉墨都市",
+    "background.preset.neon": "霓虹燈光",
+    "background.preset.taro": "香芋啵啵",
+    "background.preset.dunhuang": "紅消綠冷",
+    "background.preset.ink_blue": "天青色",
     "background.title": "背景主題",
     "background.choose": "選擇圖片…",
     "background.reset": "恢復預設",

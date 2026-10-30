@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Automation;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -23,6 +25,7 @@ public partial class BackgroundThemeSettingsView : UserControl
     public BackgroundThemeSettingsView()
     {
         InitializeComponent();
+        ActualThemeVariantChanged += (_, _) => Refresh();
         StrengthSlider.PropertyChanged += (_, e) =>
         {
             if (e.Property == RangeBase.ValueProperty) SaveOptions();
@@ -62,22 +65,33 @@ public partial class BackgroundThemeSettingsView : UserControl
         try
         {
             var options = _service?.Options ?? new();
+            var preset = BackgroundThemePresets.Find(options.PresetId);
             var language = LocalizationService.Current?.Culture.Name ?? "zh-CN";
             if (_layoutLanguage != language)
             {
                 LayoutCombo.ItemsSource = new[] { LocalizationText.Get("background.height_tile"), LocalizationText.Get("background.cover") };
+                PresetCombo.ItemsSource = new[] { LocalizationText.Get("background.custom") }
+                    .Concat(BackgroundThemePresets.All.Select(p => LocalizationText.Get(p.NameKey))).ToArray();
                 _layoutLanguage = language;
             }
-            PreviewImage.Source = _service?.Image;
+            PreviewImage.Source = _service?.GetPreview(ActualThemeVariant == ThemeVariant.Dark);
             PlaceholderIcon.IsVisible = PreviewImage.Source == null;
-            ImageName.Text = options.DisplayName.Length > 0 ? options.DisplayName : LocalizationText.Get("background.none");
+            ImageName.Text = preset != null ? LocalizationText.Get(preset.NameKey)
+                : options.DisplayName.Length > 0 ? options.DisplayName : LocalizationText.Get("background.none");
             ToolTip.SetTip(ImageName, ImageName.Text);
             EnabledToggle.IsChecked = options.Enabled;
             LayoutCombo.SelectedIndex = options.Layout == BackgroundImageLayout.Cover ? 1 : 0;
-            StrengthSlider.Value = options.Strength;
-            StrengthValue.Text = options.Strength + "%";
+            PresetCombo.SelectedIndex = preset == null ? 0 : BackgroundThemePresets.All.ToList().IndexOf(preset) + 1;
+            StrengthSlider.Value = preset == null ? options.Strength : options.TextureStrength;
+            StrengthValue.Text = StrengthSlider.Value + "%";
+            StrengthLabel.Text = LocalizationText.Get(preset == null ? "background.strength" : "background.texture_strength");
+            LayoutLabel.Text = LocalizationText.Get(preset == null ? "background.layout" : "background.texture_layout");
+            AutomationProperties.SetName(StrengthSlider, StrengthLabel.Text);
+            AutomationProperties.SetName(LayoutCombo, LayoutLabel.Text);
+            LayoutRow.IsVisible = StrengthRow.IsVisible = preset == null || preset.TextureAsset != null;
             ChooseButton.IsEnabled = _service != null && !_busy;
-            ResetButton.IsEnabled = options.ImageFile.Length > 0 && !_busy;
+            PresetCombo.IsEnabled = _service != null && !_busy;
+            ResetButton.IsEnabled = (options.ImageFile.Length > 0 || options.PresetId.Length > 0) && !_busy;
             EnabledToggle.IsEnabled = _service?.Image != null && !_busy;
             LayoutCombo.IsEnabled = StrengthSlider.IsEnabled = _service?.IsActive == true && !_busy;
             var error = _errorKey ?? _service?.ErrorKey;
@@ -101,6 +115,33 @@ public partial class BackgroundThemeSettingsView : UserControl
     {
         _errorKey = null;
         _service?.Reset();
+    }
+
+    private async void SelectPreset(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_updating || _busy || _service == null || PresetCombo.SelectedIndex < 0) return;
+        var id = PresetCombo.SelectedIndex == 0 ? "" : BackgroundThemePresets.All[PresetCombo.SelectedIndex - 1].Id;
+        if (id == _service.Options.PresetId) return;
+        if (id.Length == 0 && _service.Options.ImageFile.Length == 0)
+        {
+            ChooseImage(sender, e);
+            return;
+        }
+        _busy = true; _errorKey = null;
+        _importCancellation = new CancellationTokenSource();
+        Refresh();
+        try { await _service.SelectPresetAsync(id, _importCancellation.Token); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            _errorKey = "background.preset_failed";
+        }
+        finally
+        {
+            _importCancellation.Dispose(); _importCancellation = null;
+            _busy = false;
+            if (this.IsAttachedToVisualTree()) Refresh();
+        }
     }
 
     private async void ChooseImage(object? sender, RoutedEventArgs e)

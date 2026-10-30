@@ -1,27 +1,25 @@
 using System.Text.Json;
-using Avalonia;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
 using MacExplorer.Models;
-using SkiaSharp;
 
 namespace MacExplorer.Services.Impl;
 
-/// <summary>One bounded, managed image and one blurred texture shared by all main windows.</summary>
-public sealed class BackgroundThemeService : IDisposable
+/// <summary>Owns the selected palette/texture source; windows compose it independently at their own size.</summary>
+public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSource
 {
     internal const string SettingKey = "background_theme";
     private readonly ISettingsService _settings;
     private readonly string _directory;
-    private Artwork? _artwork;
+    private BackgroundThemeArtwork? _artwork;
     private Task? _initialization;
     private int _generation;
     private bool _disposed;
     public event Action? Changed;
     public BackgroundThemeOptions Options { get; private set; }
-    public Bitmap? Image => _artwork?.Image;
-    internal Bitmap? FrostedImage => _artwork?.Frosted;
+    public Bitmap? Image => _artwork?.Preview;
+    public Bitmap? GetPreview(bool dark) => dark ? _artwork?.DarkPreview : Image;
+    internal BackgroundThemeArtwork? AcquireArtwork() => _artwork?.Retain();
     public bool IsActive => Options.Enabled && Image != null;
     public string? ErrorKey { get; private set; }
 
@@ -32,23 +30,25 @@ public sealed class BackgroundThemeService : IDisposable
     {
         _settings = settings;
         _directory = directory;
+        MemoryDiagnostics.Register(this);
         try { Options = (JsonSerializer.Deserialize<BackgroundThemeOptions>(settings.Get(SettingKey) ?? "{}") ?? new()).Normalize(); }
         catch (JsonException) { Options = new(); }
     }
+
+    MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState() => new("background-source", _artwork == null ? 0 : 1,
+        (_artwork?.Texture is { } texture ? (long)texture.RowBytes * texture.Height : 0)
+        + (_artwork?.Preview is { } preview ? (long)preview.PixelSize.Width * preview.PixelSize.Height * 8 : 0));
 
     public Task InitializeAsync() => _initialization ??= LoadAsync();
 
     private async Task LoadAsync()
     {
-        if (Options.ImageFile.Length == 0) return;
+        if (Options.ImageFile.Length == 0 && Options.PresetId.Length == 0) return;
         var generation = _generation;
-        Artwork? artwork = null;
+        BackgroundThemeArtwork? artwork = null;
         try
         {
-            var bytes = await BoundedImageDecoder.ReadSourceAsync(Path.Combine(_directory, Options.ImageFile));
-            if (bytes == null) throw new InvalidDataException();
-            artwork = await Task.Run(() => Artwork.Decode(bytes, CancellationToken.None));
-            if (artwork == null) throw new InvalidDataException();
+            artwork = await LoadArtworkAsync(Options, CancellationToken.None);
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (_disposed || generation != _generation) return;
@@ -84,8 +84,7 @@ public sealed class BackgroundThemeService : IDisposable
             if (buffer.Length + count > BoundedImageDecoder.MaxEncodedBytes) throw new InvalidDataException();
             buffer.Write(chunk, 0, count);
         }
-        Artwork? artwork = await Task.Run(() => Artwork.Decode(buffer.ToArray(), token), token);
-        if (artwork == null) throw new InvalidDataException();
+        BackgroundThemeArtwork? artwork = await Task.Run(() => BackgroundThemeArtwork.Decode(buffer.ToArray(), token), token);
         var file = Guid.NewGuid().ToString("N") + ".png";
         var path = Path.Combine(_directory, file);
         try
@@ -98,7 +97,7 @@ public sealed class BackgroundThemeService : IDisposable
             var previous = Options.ImageFile;
             var old = _artwork;
             _artwork = artwork; artwork = null;
-            Options = (Options with { Enabled = true, ImageFile = file, DisplayName = displayName }).Normalize();
+            Options = (Options with { Enabled = true, PresetId = "", ImageFile = file, DisplayName = displayName }).Normalize();
             ErrorKey = null;
             Save();
             old?.Dispose();
@@ -111,11 +110,64 @@ public sealed class BackgroundThemeService : IDisposable
         }
     }
 
+    public async Task SelectPresetAsync(string presetId, CancellationToken token = default)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await InitializeAsync();
+        var preset = BackgroundThemePresets.Find(presetId);
+        if (presetId.Length > 0 && preset == null) throw new ArgumentException("Unknown background preset.", nameof(presetId));
+        var options = (Options with { PresetId = presetId, Enabled = true,
+            TextureStrength = preset?.TextureStrength ?? Options.TextureStrength }).Normalize();
+        var generation = ++_generation;
+        BackgroundThemeArtwork? artwork = await LoadArtworkAsync(options, token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            if (_disposed || generation != _generation) return;
+            artwork.ReleaseEncoded();
+            var old = _artwork;
+            _artwork = artwork; artwork = null;
+            Options = options;
+            ErrorKey = null;
+            Save();
+            old?.Dispose();
+        }
+        finally { artwork?.Dispose(); }
+    }
+
+    private async Task<BackgroundThemeArtwork> LoadArtworkAsync(BackgroundThemeOptions options, CancellationToken token)
+    {
+        if (options.PresetId.Length == 0)
+        {
+            var bytes = await BoundedImageDecoder.ReadSourceAsync(Path.Combine(_directory, options.ImageFile));
+            if (bytes == null) throw new InvalidDataException();
+            return await Task.Run(() => BackgroundThemeArtwork.Decode(bytes, token), token);
+        }
+        var preset = BackgroundThemePresets.Find(options.PresetId) ?? throw new InvalidDataException();
+        return await Task.Run(() =>
+        {
+            var texture = preset.TextureAsset == null ? null : BackgroundThemeArtwork.DecodePresetTexture(preset.TextureAsset, token);
+            try
+            {
+                token.ThrowIfCancellationRequested();
+                using var preview = BackgroundThemeComposition.Render(texture, options, 360, 240, false, token);
+                using var darkPreview = BackgroundThemeComposition.Render(texture, options, 360, 240, true, token);
+                var light = BackgroundThemeArtwork.ToBitmap(preview);
+                try { return new BackgroundThemeArtwork(texture, light, [], BackgroundThemeArtwork.ToBitmap(darkPreview)); }
+                catch { light.Dispose(); throw; }
+            }
+            catch { texture?.Dispose(); throw; }
+        }, token);
+    }
+
     public void Update(bool enabled, BackgroundImageLayout layout, int strength)
     {
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var options = (Options with { Enabled = enabled, Layout = layout, Strength = strength }).Normalize();
+        var options = (Options.PresetId.Length == 0
+            ? Options with { Enabled = enabled, Layout = layout, Strength = strength }
+            : Options with { Enabled = enabled, Layout = layout, TextureStrength = strength }).Normalize();
         if (options == Options) return;
         Options = options;
         Save(deferred: true);
@@ -161,35 +213,4 @@ public sealed class BackgroundThemeService : IDisposable
         old?.Dispose();
     }
 
-    private sealed class Artwork(Bitmap image, Bitmap frosted, byte[] png) : IDisposable
-    {
-        public Bitmap Image { get; } = image;
-        public Bitmap Frosted { get; } = frosted;
-        public byte[] Png { get; private set; } = png;
-        public void ReleaseEncoded() => Png = [];
-
-        public static Artwork? Decode(byte[] bytes, CancellationToken token)
-        {
-            using var decoded = BoundedImageDecoder.DecodeSkia(bytes, 2048, token);
-            if (decoded == null) return null;
-            using var encoded = decoded.Encode(SKEncodedImageFormat.Png, 90);
-            var size = BoundedImageDecoder.Fit(decoded.Width, decoded.Height, 1024);
-            using var small = decoded.Resize(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul), new SKSamplingOptions(SKFilterMode.Linear));
-            if (small == null) return null;
-            using var surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var filter = SKImageFilter.CreateBlur(Math.Max(1, size.Height * 5f / 800), Math.Max(1, size.Height * 5f / 800), SKShaderTileMode.Clamp);
-            using var paint = new SKPaint { ImageFilter = filter };
-            surface.Canvas.DrawBitmap(small, 0, 0, paint);
-            using var blurred = surface.Snapshot();
-            using var raster = SKBitmap.FromImage(blurred);
-            token.ThrowIfCancellationRequested();
-            return new Artwork(ToBitmap(decoded), ToBitmap(raster), encoded.ToArray());
-        }
-
-        private static Bitmap ToBitmap(SKBitmap bitmap) => new(
-            bitmap.ColorType == SKColorType.Rgba8888 ? PixelFormat.Rgba8888 : PixelFormat.Bgra8888, AlphaFormat.Premul,
-            bitmap.GetPixels(), new PixelSize(bitmap.Width, bitmap.Height), new Vector(96, 96), bitmap.RowBytes);
-
-        public void Dispose() { Image.Dispose(); Frosted.Dispose(); }
-    }
 }

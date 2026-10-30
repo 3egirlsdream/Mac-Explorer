@@ -40,11 +40,6 @@ internal static class BackgroundThemeSmoke
             var source = Path.Combine(output, "theme.png");
             CreateImage(source);
             await using (var stream = File.OpenRead(source)) await service.ImportAsync(stream, "theme.png");
-            var clearColor = Sample(service.Image!, 0.5, 0.5);
-            var frostedColor = Sample(service.FrostedImage!, 0.5, 0.5);
-            if (Math.Abs(clearColor.Red - frostedColor.Red) > 14 || Math.Abs(clearColor.Blue - frostedColor.Blue) > 14)
-                throw new InvalidOperationException("Frosted texture changed the image's color channels.");
-            checks.Add("Frosted texture preserves image colors");
             service.Update(true, BackgroundImageLayout.HeightTile, 50);
             if (owner.DataContext is not MainWindowViewModel model) throw new InvalidOperationException("Missing main model.");
             owner.MinWidth = 640;
@@ -73,6 +68,19 @@ internal static class BackgroundThemeSmoke
             checks.Add("Active tab pixels match the shared window background");
             checks.Add("Info divider keeps the original texture on its left; toolbar corners and status bar reveal the original background");
             checks.Add("Toolbar and info frost use the same window coordinates, scale and opacity as the original image");
+            model.FileList.IsInfoPanelVisible = true;
+            foreach (var preset in BackgroundThemePresets.All)
+            {
+                await service.SelectPresetAsync(preset.Id);
+                foreach (var dark in new[] { false, true })
+                {
+                    owner.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+                    await CaptureAsync(owner, preset.Id + (dark ? "-dark" : "-light"));
+                    await AssertBackgroundBoundariesAsync();
+                }
+            }
+            checks.Add("All packaged SVG/PNG/color presets render in light/dark with continuous clear/frosted surfaces");
+            await service.SelectPresetAsync("");
             var bitmap = service.Image;
             owner.Width = 1500; owner.Height = 900;
             await CaptureAsync(owner, "resized");
@@ -100,12 +108,19 @@ internal static class BackgroundThemeSmoke
             settings.Show(owner);
             var tabs = settings.FindControl<TabControl>("SettingsTabs")!;
             tabs.SelectedItem = tabs.Items.OfType<LazyTabItem>().Single(p => p.PageKey == "appearance");
+            settings.UpdateLayout();
+            var themeSettings = settings.GetVisualDescendants().OfType<BackgroundThemeSettingsView>().Single();
+            themeSettings.FindControl<ComboBox>("PresetCombo")!.SelectedIndex = 1;
+            for (var attempt = 0; service.Options.PresetId != "qq-circuit-pink" && attempt < 100; attempt++) await Task.Delay(20);
+            if (service.Options.PresetId != "qq-circuit-pink") throw new InvalidOperationException("Settings did not select the preset.");
             var language = App.Services.GetRequiredService<ILocalizationService>();
             foreach (var id in new[] { "zh-CN", "zh-Hant", "en", "fr" })
             {
                 language.SetLanguage(id);
                 settings.RequestedThemeVariant = id is "zh-Hant" or "en" ? ThemeVariant.Dark : ThemeVariant.Light;
                 await CaptureAsync(settings, "settings-" + id);
+                if (!ReferenceEquals(themeSettings.FindControl<Image>("PreviewImage")!.Source, service.GetPreview(settings.ActualThemeVariant == ThemeVariant.Dark)))
+                    throw new InvalidOperationException("Preset preview did not follow the settings appearance.");
                 if (WindowBackgroundTheme.GetService(settings) != null) throw new InvalidOperationException("Dialog inherited the main-window theme.");
             }
             settings.Close(); settings = null;
@@ -128,6 +143,9 @@ internal static class BackgroundThemeSmoke
         {
             control.UpdateLayout();
             await Task.Delay(180);
+            var controller = WindowBackgroundTheme.GetController(control);
+            for (var attempt = 0; controller?.IsRendering == true && attempt < 250; attempt++) await Task.Delay(20);
+            if (controller is { IsRendering: true }) throw new TimeoutException("Theme composition did not settle.");
             var visual = ElementComposition.GetElementVisual(control)!;
             await visual.Compositor.RequestCommitAsync();
             using var snapshot = await visual.Compositor.CreateCompositionVisualSnapshot(visual, 1);
