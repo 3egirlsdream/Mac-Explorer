@@ -9,7 +9,7 @@
              x:CompileBindings="False">
 
     <Border x:Name="InfoPanelRoot" Classes="info-panel" ClipToBounds="True"
-            BorderBrush="{DynamicResource ColorBorderSubtle}" BorderThickness="1,0,0,0">
+            BorderBrush="{DynamicResource WorkspaceDividerBrush}" BorderThickness="1,0,0,0">
         <Grid RowDefinitions="Auto,*">
                 <!-- Header with preview controls -->
                 <DockPanel Grid.Row="0" Margin="16,0" MinHeight="40" LastChildFill="True">
@@ -38,8 +38,8 @@
             <ScrollViewer Grid.Row="1">
               <StackPanel Spacing="0">
                 <!-- Type-aware preview host -->
-                <Border x:Name="PreviewImageArea" Margin="14,10,14,0" CornerRadius="10"
-                        Background="{DynamicResource SurfaceMutedBrush}" MinHeight="160" MaxHeight="220"
+                <Border x:Name="PreviewImageArea" Classes="workspace-preview-surface" Margin="14,10,14,0"
+                        MinHeight="160" MaxHeight="220"
                         ClipToBounds="True">
                     <Panel>
                         <Image x:Name="PreviewImage" Stretch="Uniform"
@@ -61,14 +61,14 @@
                         <Border x:Name="PreviewKindBadge" IsVisible="False"
                                 HorizontalAlignment="Left" VerticalAlignment="Top"
                                 Margin="8" Padding="7,3" CornerRadius="6"
-                                Background="#B8202024">
+                                Background="{DynamicResource WorkspacePreviewBadgeBrush}">
                             <TextBlock x:Name="PreviewKindText" FontSize="{DynamicResource FontSizeMeta}" Foreground="{DynamicResource TextOnAccentBrush}"/>
                         </Border>
                         <Button AutomationProperties.Name="{loc:Loc ui.573}" x:Name="CopyImageTextBtn" IsVisible="False"
                                 Classes="ghost compact" Click="CopyImageText"
                                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                 Margin="8" Padding="9,5" CornerRadius="{DynamicResource InteractionCornerRadius}"
-                                Background="#D9202024" Foreground="{DynamicResource TextOnAccentBrush}"
+                                Background="{DynamicResource WorkspacePreviewActionBrush}" Foreground="{DynamicResource TextOnAccentBrush}"
                                 Content="{loc:Loc ui.574}" FontSize="{DynamicResource FontSizeLabel}"
                                 ToolTip.Tip="{loc:Loc ui.573}">
                         </Button>
@@ -190,7 +190,7 @@
                 </StackPanel>
 
                 <!-- Quick Actions -->
-                <Border Height="1" Background="{DynamicResource ColorDivider}" Margin="8,16,8,12"/>
+                <Border Height="1" Background="{DynamicResource WorkspaceDividerBrush}" Margin="8,16,8,12"/>
                 <StackPanel Margin="8,0,8,14" Spacing="8">
                     <TextBlock Text="{loc:Loc ui.583}" Classes="info-section-title" Margin="0"/>
                     <Button Classes="ghost info-quick-action" Click="CopyPath" AutomationProperties.Name="{loc:Loc ui.355}" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">

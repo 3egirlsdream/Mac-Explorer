@@ -19,6 +19,9 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
     private static readonly SemaphoreSlim RenderSlots = new(2, 2);
     private static readonly string[] ClearSurfaces =
         ["WorkspaceContentBrush", "WorkspaceSurfaceBrush", "WorkspaceInfoBrush"];
+    private static readonly string[] ChromeResources = ["TitleBarBackgroundBrush", "ViewModeToggleBg", "ViewModeToggleHoverBg",
+        "ViewModeToggleSelectedBg", "WorkspacePreviewBrush", "WorkspaceControlHoverBrush", "WorkspaceControlPressedBrush", "WorkspaceControlSelectedBrush",
+        "WorkspaceControlBorderBrush", "WorkspaceDividerBrush", "WorkspaceInfoTagBrush", "WorkspacePreviewBadgeBrush", "WorkspacePreviewActionBrush"];
     private readonly AppWindow _window;
     private readonly BackgroundThemeService _service;
     private CancellationTokenSource? _renderCancellation;
@@ -78,7 +81,43 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
             _window.Resources.Remove("WorkspaceTabBrush");
             _window.Resources.Remove("WorkspaceStripeBrush");
         }
+        UpdateChrome();
         ScheduleRender();
+    }
+
+    private void UpdateChrome()
+    {
+        if (!IsActive)
+        {
+            _window.Classes.Remove("background-themed");
+            foreach (var key in ChromeResources) _window.Resources.Remove(key);
+            return;
+        }
+        var colors = Frame!.TitleColors;
+        _window.Resources["TitleBarBackgroundBrush"] = new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(1, 0, RelativeUnit.Relative),
+            GradientStops = new GradientStops { new(colors[0], 0), new(colors[1], 0.5), new(colors[2], 1) }
+        };
+        var dark = _window.ActualThemeVariant == ThemeVariant.Dark;
+        SetBrush("ViewModeToggleBg", dark ? "#281B1D21" : "#28FFFFFF");
+        SetBrush("ViewModeToggleHoverBg", dark ? "#28FFFFFF" : "#52FFFFFF");
+        SetBrush("ViewModeToggleSelectedBg", dark ? "#42FFFFFF" : "#7AFFFFFF");
+        SetBrush("WorkspacePreviewBrush", dark ? "#281B1D21" : "#28FFFFFF");
+        SetBrush("WorkspaceControlHoverBrush", dark ? "#28FFFFFF" : "#3DFFFFFF");
+        SetBrush("WorkspaceControlPressedBrush", dark ? "#38FFFFFF" : "#66FFFFFF");
+        SetBrush("WorkspaceControlSelectedBrush", dark ? "#40689AE6" : "#3093B9F4");
+        SetBrush("WorkspaceControlBorderBrush", dark ? "#24FFFFFF" : "#18000000");
+        SetBrush("WorkspaceDividerBrush", dark ? "#24FFFFFF" : "#18000000");
+        SetBrush("WorkspaceInfoTagBrush", dark ? "#281B1D21" : "#30FFFFFF");
+        var tint = colors[1];
+        var badge = Color.FromArgb(220, (byte)(tint.R * 0.3), (byte)(tint.G * 0.3), (byte)(tint.B * 0.3));
+        _window.Resources["WorkspacePreviewBadgeBrush"] = new SolidColorBrush(badge);
+        _window.Resources["WorkspacePreviewActionBrush"] = new SolidColorBrush(Color.FromArgb(235, badge.R, badge.G, badge.B));
+        _window.Classes.Add("background-themed");
+
+        void SetBrush(string key, string color) => _window.Resources[key] = new SolidColorBrush(Color.Parse(color));
     }
 
     private void ScheduleRender()
@@ -119,6 +158,7 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
             if (_disposed) return;
             var previous = Frame;
             Frame = frame; frame = null;
+            UpdateChrome();
             FrameChanged?.Invoke();
             previous?.Dispose();
         }

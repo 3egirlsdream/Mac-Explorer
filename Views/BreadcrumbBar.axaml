@@ -49,7 +49,7 @@
             <Setter Property="IsVisible" Value="{Binding HasDropdown}"/>
         </Style>
         <Style Selector="Button.breadcrumb-dropdown:pointerover, Button.breadcrumb-dropdown.open">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.breadcrumb-dropdown.open PathIcon">

@@ -69,6 +69,8 @@
                     <SolidColorBrush x:Key="WorkspaceContentBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="WorkspaceSurfaceBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="WorkspaceInfoBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="WorkspacePreviewBadgeBrush" Color="#B8202024"/>
+                    <SolidColorBrush x:Key="WorkspacePreviewActionBrush" Color="#D9202024"/>
                     <SolidColorBrush x:Key="WorkspaceTabBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="WorkspaceStripeBrush" Color="#F7F8FA"/>
                     <SolidColorBrush x:Key="ThemedWorkspaceStripeBrush" Color="#24FFFFFF"/>
@@ -87,6 +89,8 @@
                     <BoxShadows x:Key="PopupShadow">0 0 20 -4 #48000000, 0 0 4 -1 #28000000</BoxShadows>
                     <!-- Semantic interaction tokens. Fluent compatibility resources are bridged at runtime. -->
                     <SolidColorBrush x:Key="InteractionHoverBrush" Color="#ECEEF2"/>
+                    <SolidColorBrush x:Key="WorkspaceControlHoverBrush" Color="#ECEEF2"/>
+                    <SolidColorBrush x:Key="WorkspaceControlSelectedBrush" Color="#E5EEFC"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#E5EEFC"/>
                     <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="#D8E6FA"/>
                     <SolidColorBrush x:Key="InteractionTextHighlightBrush" Color="#22000000"/>
@@ -160,6 +164,7 @@
                     <SolidColorBrush x:Key="TextDisabledBrush" Color="#A0A5AF"/>
                     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="BorderBrush" Color="#E1E4E9"/>
+                    <SolidColorBrush x:Key="WorkspaceDividerBrush" Color="#E1E4E9"/>
                     <SolidColorBrush x:Key="BorderStrongBrush" Color="#7C8491"/>
                     <SolidColorBrush x:Key="AccentBrush" Color="#2463D4"/>
                     <SolidColorBrush x:Key="AccentHoverBrush" Color="#1F56BA"/>
@@ -245,6 +250,8 @@
                     <SolidColorBrush x:Key="WorkspaceContentBrush" Color="#1B1D21"/>
                     <SolidColorBrush x:Key="WorkspaceSurfaceBrush" Color="#1B1D21"/>
                     <SolidColorBrush x:Key="WorkspaceInfoBrush" Color="#1B1D21"/>
+                    <SolidColorBrush x:Key="WorkspacePreviewBadgeBrush" Color="#B8202024"/>
+                    <SolidColorBrush x:Key="WorkspacePreviewActionBrush" Color="#D9202024"/>
                     <SolidColorBrush x:Key="WorkspaceTabBrush" Color="#1B1D21"/>
                     <SolidColorBrush x:Key="WorkspaceStripeBrush" Color="#202329"/>
                     <SolidColorBrush x:Key="ThemedWorkspaceStripeBrush" Color="#18202329"/>
@@ -263,6 +270,8 @@
                     <BoxShadows x:Key="PopupShadow">0 0 20 -4 #B0000000, 0 0 4 -1 #70000000</BoxShadows>
                     <!-- Semantic interaction tokens. Fluent compatibility resources are bridged at runtime. -->
                     <SolidColorBrush x:Key="InteractionHoverBrush" Color="#2B3038"/>
+                    <SolidColorBrush x:Key="WorkspaceControlHoverBrush" Color="#2B3038"/>
+                    <SolidColorBrush x:Key="WorkspaceControlSelectedBrush" Color="#283E61"/>
                     <SolidColorBrush x:Key="InteractionSelectedBrush" Color="#283E61"/>
                     <SolidColorBrush x:Key="InteractionSelectedHoverBrush" Color="#324C74"/>
                     <SolidColorBrush x:Key="InteractionTextHighlightBrush" Color="#33FFFFFF"/>
@@ -334,6 +343,7 @@
                     <SolidColorBrush x:Key="TextDisabledBrush" Color="#686F7C"/>
                     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="BorderBrush" Color="#343942"/>
+                    <SolidColorBrush x:Key="WorkspaceDividerBrush" Color="#343942"/>
                     <SolidColorBrush x:Key="BorderStrongBrush" Color="#A4AAB5"/>
                     <SolidColorBrush x:Key="AccentBrush" Color="#8AB4FF"/>
                     <SolidColorBrush x:Key="AccentHoverBrush" Color="#A3C4FF"/>

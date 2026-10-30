@@ -20,7 +20,7 @@
           DragDrop.DragLeave="OnDragLeave" DragDrop.Drop="OnDrop">
         <Border Grid.Row="0" Classes="file-list-header" x:Name="ListHeaderPanel"
                 Background="{DynamicResource WorkspaceContentBrush}"
-                BorderBrush="{DynamicResource ColorDivider}"
+                BorderBrush="{DynamicResource WorkspaceDividerBrush}"
                 BorderThickness="0,0,0,1"
                 CornerRadius="0" Margin="0,0,0,6" Height="38" Padding="12,0">
             <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,110,*">
@@ -139,7 +139,7 @@
                         DetailFontSize="{DynamicResource FontSizeLabel}" RowCornerRadius="{DynamicResource InteractionCornerRadius}"
                         CaptionFontSize="{DynamicResource FontSizeCaption}" MetaFontSize="{DynamicResource FontSizeMeta}"
                         GroupMinHeight="{DynamicResource TypographyListRowMinHeight}"
-                        Muted="{DynamicResource TextMutedBrush}" Divider="{DynamicResource ColorDivider}"
+                        Muted="{DynamicResource TextMutedBrush}" Divider="{DynamicResource WorkspaceDividerBrush}"
                         FocusRing="{DynamicResource FocusRingBrush}"
                         SelectionOutline="{DynamicResource SelectionOutlineShadow}" FocusOutline="{DynamicResource FocusOutlineShadow}"
                         AutomationProperties.Name="{loc:Loc ui.083}"/>

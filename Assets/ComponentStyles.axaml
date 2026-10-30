@@ -438,7 +438,7 @@
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style Selector="Button.info-panel-icon:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
     </Style>
     <Style Selector="Button.info-panel-icon:focus-visible">
         <Setter Property="BorderThickness" Value="0"/>
@@ -1008,8 +1008,48 @@
         <Setter Property="ClipToBounds" Value="True"/>
         <Setter Property="Margin" Value="0,4,4,4"/>
     </Style>
+    <Style Selector="Border.workspace-preview-surface">
+        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+    </Style>
+    <Style Selector="Border.info-tag-chip">
+        <Setter Property="Background" Value="{DynamicResource ColorSurfaceSecondary}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="Padding" Value="10,4,4,4"/>
+        <Setter Property="Margin" Value="0,0,6,6"/>
+    </Style>
+    <Style Selector="Border.info-tag-chip:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Border.workspace-preview-surface">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePreviewBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceControlBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Border.info-tag-chip">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceInfoTagBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Border.info-tag-chip:pointerover">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.toolbar-btn:pointerover">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.toolbar-btn:enabled /template/ ContentPresenter#PART_ContentPresenter,
+                     :is(controls|AppWindow).background-themed Button.workspace-nav-button:enabled /template/ ContentPresenter#PART_ContentPresenter,
+                     :is(controls|AppWindow).background-themed Button.info-panel-icon:enabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.toolbar-btn:pressed,
+                     :is(controls|AppWindow).background-themed Button.workspace-nav-button:pressed,
+                     :is(controls|AppWindow).background-themed Button.info-panel-icon:pressed">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlPressedBrush}"/>
+    </Style>
     <Style Selector="Separator">
         <Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
+    </Style>
+    <Style Selector="Separator.toolbar-separator">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDividerBrush}"/>
     </Style>
 
     <Style Selector="Border.card">
@@ -1065,7 +1105,7 @@
             <Setter Property="Height" Value="13"/>
         </Style>
         <Style Selector="Button.workspace-nav-button:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
         </Style>
 
     <!-- Shared nested tag navigation and assignment surfaces. -->

@@ -21,14 +21,14 @@ public sealed class InteractionStyleService : IInteractionStyleService
             [InteractionStyleToken.Hover] = new(
                 "interaction.hover",
                 "InteractionHoverBrush",
-                ["ButtonBackgroundPointerOver", "ComboBoxBackgroundPointerOver", "ComboBoxItemBackgroundPointerOver",
+                ["WorkspaceControlHoverBrush", "ButtonBackgroundPointerOver", "ComboBoxBackgroundPointerOver", "ComboBoxItemBackgroundPointerOver",
                     "TextControlBackgroundPointerOver", "ButtonBackgroundPressed", "ComboBoxBackgroundPressed",
                     "ComboBoxItemBackgroundPressed", "ListBoxItemBackgroundPointerOver", "ListBoxItemBackgroundPressed",
                     "ToggleButtonBackgroundPointerOver", "ToggleButtonBackgroundPressed"]),
             [InteractionStyleToken.Selected] = new(
                 "interaction.selected",
                 "InteractionSelectedBrush",
-                ["SelectionBrush", "ColorBgSelected", "ColorAccentLight", "ListBoxItemBackgroundSelected", "ComboBoxItemBackgroundSelected"]),
+                ["WorkspaceControlSelectedBrush", "SelectionBrush", "ColorBgSelected", "ColorAccentLight", "ListBoxItemBackgroundSelected", "ComboBoxItemBackgroundSelected"]),
             [InteractionStyleToken.SelectedHover] = new(
                 "interaction.selected_hover",
                 "InteractionSelectedHoverBrush",

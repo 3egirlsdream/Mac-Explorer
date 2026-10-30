@@ -18,6 +18,7 @@ using MacExplorer.Services.Impl;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -1077,20 +1078,8 @@ public partial class InfoPanelView : UserControl
         }
     }
 
-    private static IBrush ResolveBrush(string key, string fallback)
-    {
-        if (Application.Current?.TryFindResource(key, out var value) == true && value is IBrush brush)
-            return brush;
-        return Brush.Parse(fallback);
-    }
-
     private Border CreateTagChip(string tag, string filePath)
     {
-        var textTertiary = ResolveBrush("TextMutedBrush", "#7D8491");
-        var surfaceSecondary = ResolveBrush("ColorSurfaceSecondary", "#F0F1F3");
-        var textSecondary = ResolveBrush("TextSecondaryBrush", "#5B6270");
-        var bgHover = ResolveBrush("ColorBgHover", "#0B0F172A");
-
         var removeBtn = new Button
         {
             Content = new PathIcon
@@ -1103,7 +1092,7 @@ public partial class InfoPanelView : UserControl
             Background = Brushes.Transparent,
             Padding = new Thickness(0),
             CornerRadius = new CornerRadius(7),
-            Foreground = textTertiary,
+            [!Button.ForegroundProperty] = new DynamicResourceExtension("TextMutedBrush"),
             Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Hand),
             VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
             HorizontalContentAlignment = HorizontalAlignment.Center,
@@ -1115,10 +1104,7 @@ public partial class InfoPanelView : UserControl
 
         var chip = new Border
         {
-            Background = surfaceSecondary,
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(10, 4, 4, 4),
-            Margin = new Thickness(0, 0, 6, 6),
+            Classes = { "info-tag-chip" },
             Child = new StackPanel
             {
                 Orientation = global::Avalonia.Layout.Orientation.Horizontal,
@@ -1131,16 +1117,13 @@ public partial class InfoPanelView : UserControl
                         MaxWidth = 200,
                         TextTrimming = TextTrimming.CharacterEllipsis,
                         VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
-                        Foreground = textSecondary
+                        [!TextBlock.ForegroundProperty] = new DynamicResourceExtension("TextSecondaryBrush")
                     }, AppTypography.Label),
                     removeBtn
                 }
             }
         };
         ToolTip.SetTip(chip, tag);
-
-        chip.PointerEntered += (_, _) => chip.Background = bgHover;
-        chip.PointerExited += (_, _) => chip.Background = surfaceSecondary;
 
         removeBtn.Click += (_, _) =>
         {

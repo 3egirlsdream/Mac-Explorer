@@ -1,11 +1,15 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
@@ -238,6 +242,81 @@ public sealed class BackgroundThemeTests
     {
         Assert.True(control.TryFindResource(key, control.ActualThemeVariant, out var brush));
         return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+    }
+
+    [AvaloniaFact]
+    public void TitlePaletteIgnoresTextureAndSamplesBroadPhotoColors()
+    {
+        using var image = new SKBitmap(96, 48);
+        image.Erase(SKColors.Red);
+        var preset = new BackgroundThemeOptions { PresetId = "qq-circuit-pink", TextureStrength = 0 };
+        var colors = BackgroundThemeComposition.CreateTitleColors(image, preset, false, CancellationToken.None);
+        image.Erase(SKColors.Blue);
+        Assert.Equal(colors, BackgroundThemeComposition.CreateTitleColors(image, preset with { TextureStrength = 100 }, false, CancellationToken.None));
+        Assert.NotEqual(colors[0], colors[2]);
+        for (var y = 0; y < image.Height; y++)
+            for (var x = 0; x < image.Width; x++) image.SetPixel(x, y, x < image.Width / 2 ? SKColors.Red : SKColors.Blue);
+        var photo = BackgroundThemeComposition.CreateTitleColors(image, new(), false, CancellationToken.None);
+        Assert.Equal(255, photo[0].R);
+        Assert.Equal(255, photo[2].B);
+        Assert.InRange(photo[1].R, (byte)145, (byte)148);
+        Assert.InRange(photo[1].B, (byte)145, (byte)148);
+        Assert.All(photo, c => Assert.InRange(c.G, (byte)37, (byte)39));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ChromeSurfacesFollowTheWindowThemeAndRestoreWithoutTintingDialogs(bool dark)
+    {
+        using var fixture = new Fixture();
+        var preview = new Border { Classes = { "workspace-preview-surface" }, Height = 100 };
+        var chip = new Border { Classes = { "info-tag-chip" }, Height = 30 };
+        var toolbar = new Button { Classes = { "ghost", "toolbar-btn" }, Content = "Toolbar", Width = 80 };
+        var navigation = new Button { Classes = { "ghost", "workspace-nav-button" }, Content = "Nav" };
+        var info = new Button { Classes = { "ghost", "info-panel-icon" }, Content = "Info" };
+        var first = new AppWindow { Width = 600, Height = 400, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
+            Content = new StackPanel { Children = { preview, chip, toolbar, navigation, info } } };
+        var dialog = new DialogWindow { Width = 400, Height = 300, RequestedThemeVariant = first.RequestedThemeVariant };
+        first.Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
+        first.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ThemeTokens.axaml")));
+        first.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
+        first.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        using var theme = new WindowBackgroundTheme(first, fixture.Service);
+        first.Show(); dialog.Show(first);
+        try
+        {
+            var original = BrushColor(first, "TitleBarBackgroundBrush");
+            var originalDivider = BrushColor(first, "WorkspaceDividerBrush");
+            await fixture.Service.SelectPresetAsync("qq-circuit-neon");
+            for (var i = 0; theme.IsRendering && i < 100; i++) await Task.Delay(10);
+            Assert.True(theme.IsActive);
+            Assert.IsType<LinearGradientBrush>(first.Resources["TitleBarBackgroundBrush"]);
+            Assert.Equal(original, BrushColor(dialog, "TitleBarBackgroundBrush"));
+            Assert.Equal(originalDivider, BrushColor(dialog, "WorkspaceDividerBrush"));
+            Assert.InRange(BrushColor(first, "WorkspaceDividerBrush").A, (byte)16, (byte)40);
+            Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(preview.Background).Color.A, (byte)1, (byte)254);
+            Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(chip.Background).Color.A, (byte)1, (byte)254);
+            Assert.InRange(BrushColor(first, "ViewModeToggleSelectedBg").A, (byte)1, (byte)254);
+            foreach (var button in new[] { toolbar, navigation, info })
+            {
+                var location = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), first)!.Value;
+                first.MouseMove(location);
+                Assert.True(button.IsPointerOver);
+                var presenter = button.GetVisualDescendants().OfType<ContentPresenter>().Single(v => v.Name == "PART_ContentPresenter");
+                Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color.A, (byte)1, (byte)254);
+                first.MouseDown(location, MouseButton.Left);
+                Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color.A, (byte)1, (byte)254);
+                first.MouseUp(location, MouseButton.Left);
+            }
+            fixture.Service.Update(false, BackgroundImageLayout.HeightTile, 20);
+            Assert.Equal(original, BrushColor(first, "TitleBarBackgroundBrush"));
+            Assert.Equal(originalDivider, BrushColor(first, "WorkspaceDividerBrush"));
+            Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(preview.Background).Color.A);
+            Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(chip.Background).Color.A);
+            Assert.Equal(255, BrushColor(first, "ViewModeToggleSelectedBg").A);
+        }
+        finally { first.Close(); dialog.Close(); }
     }
 
     private sealed class Fixture : IDisposable

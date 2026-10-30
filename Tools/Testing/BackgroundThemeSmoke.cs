@@ -68,6 +68,8 @@ internal static class BackgroundThemeSmoke
             checks.Add("Active tab pixels match the shared window background");
             checks.Add("Info divider keeps the original texture on its left; toolbar corners and status bar reveal the original background");
             checks.Add("Toolbar and info frost use the same window coordinates, scale and opacity as the original image");
+            checks.Add("Titlebar uses a texture-free palette; preview cards and toolbar controls reveal the themed surface");
+            checks.Add("Toolbar, list header, information pane and status separators use low-opacity theme strokes");
             model.FileList.IsInfoPanelVisible = true;
             foreach (var preset in BackgroundThemePresets.All)
             {
@@ -162,6 +164,19 @@ internal static class BackgroundThemeSmoke
             using var window = await windowVisual.Compositor.CreateCompositionVisualSnapshot(windowVisual, 1);
             using var background = await backgroundVisual.Compositor.CreateCompositionVisualSnapshot(backgroundVisual, 1);
             AssertOriginalAt(point, "Active tab");
+            var title = owner.GetVisualDescendants().OfType<WindowTitleBar>().Single().FindControl<Grid>("TitleBarSurface")!;
+            var colors = WindowBackgroundTheme.GetController(owner)!.Frame!.TitleColors;
+            foreach (var x in new[] { 0.6, 0.85 })
+            {
+                var location = title.TranslatePoint(new Point(title.Bounds.Width * x, 12), owner)!.Value;
+                var amount = (float)((x - 0.5) * 2);
+                var left = colors[1]; var right = colors[2];
+                AssertColorAt(location, new SKColor((byte)(left.R + (right.R - left.R) * amount),
+                    (byte)(left.G + (right.G - left.G) * amount), (byte)(left.B + (right.B - left.B) * amount)), "Titlebar palette");
+            }
+            if (!owner.TryFindResource("ViewModeToggleSelectedBg", owner.ActualThemeVariant, out var selected)
+                || selected is not ISolidColorBrush { Color.A: > 0 and < 255 })
+                throw new InvalidOperationException("Toolbar selection is not translucent.");
             var workspace = owner.GetVisualDescendants().OfType<ExplorerWorkspaceView>().Single(v => v.IsEffectivelyVisible);
             var info = workspace.FindControl<BackgroundThemeSurface>("InfoPanelMaterial")!;
             foreach (var y in new[] { 10d, 80d, 180d })
@@ -172,6 +187,13 @@ internal static class BackgroundThemeSmoke
                 AssertOriginalAt(toolbar.TranslatePoint(corner, owner)!.Value, "Rounded toolbar corner");
             var status = workspace.FindControl<Border>("StatusBar")!;
             AssertOriginalAt(status.TranslatePoint(new Point(status.Bounds.Width * 0.65, status.Bounds.Height / 2), owner)!.Value, "Status bar");
+            var infoView = workspace.GetVisualDescendants().OfType<InfoPanelView>().Single(v => v.IsEffectivelyVisible);
+            var fileView = workspace.GetVisualDescendants().OfType<FileListView>().Single(v => v.IsEffectivelyVisible);
+            AssertDivider(status.BorderBrush, "Status bar");
+            AssertDivider(infoView.FindControl<Border>("InfoPanelRoot")!.BorderBrush, "Information pane");
+            AssertDivider(fileView.FindControl<Border>("ListHeaderPanel")!.BorderBrush, "File list header");
+            foreach (var separator in toolbar.GetVisualDescendants().OfType<Separator>().Where(v => v.Classes.Contains("toolbar-separator")))
+                AssertDivider(separator.Background, "Toolbar");
 
             var backdrop = (BackgroundThemeSurface)owner.BackgroundContent!;
             backdrop.Frosted = true;
@@ -183,16 +205,36 @@ internal static class BackgroundThemeSmoke
                 AssertMatches(frosted, toolbar.TranslatePoint(new Point(toolbar.Bounds.Width / 2, 3), owner)!.Value, "Toolbar frost");
                 foreach (var y in new[] { 50d, 300d, 500d })
                     AssertMatches(frosted, info.TranslatePoint(new Point(8, y), owner)!.Value, "Info frost");
+                var preview = infoView.FindControl<Border>("PreviewImageArea")!;
+                var location = preview.TranslatePoint(new Point(preview.Bounds.Width / 2, 20), owner)!.Value;
+                var under = Sample(frosted, location.X / frosted.Size.Width, location.Y / frosted.Size.Height);
+                if (preview.Background is not ISolidColorBrush { Color.A: > 0 and < 255 } surface)
+                    throw new InvalidOperationException("Information preview is not translucent.");
+                var alpha = surface.Color.A / 255f;
+                AssertColorAt(location, new SKColor((byte)(under.Red * (1 - alpha) + surface.Color.R * alpha),
+                    (byte)(under.Green * (1 - alpha) + surface.Color.G * alpha),
+                    (byte)(under.Blue * (1 - alpha) + surface.Color.B * alpha)), "Information preview surface");
             }
             finally { backdrop.Frosted = false; }
 
             void AssertOriginalAt(Point location, string label)
                 => AssertMatches(background, location, label);
 
+            void AssertDivider(IBrush? brush, string label)
+            {
+                if (brush is not ISolidColorBrush { Color.A: > 0 and <= 40 })
+                    throw new InvalidOperationException($"{label} divider is not a low-opacity stroke.");
+            }
+
             void AssertMatches(Avalonia.Media.Imaging.Bitmap reference, Point location, string label)
             {
-                var actual = Sample(window, location.X / window.Size.Width, location.Y / window.Size.Height);
                 var expected = Sample(reference, location.X / reference.Size.Width, location.Y / reference.Size.Height);
+                AssertColorAt(location, expected, label);
+            }
+
+            void AssertColorAt(Point location, SKColor expected, string label)
+            {
+                var actual = Sample(window, location.X / window.Size.Width, location.Y / window.Size.Height);
                 if (Math.Abs(actual.Red - expected.Red) > 3 || Math.Abs(actual.Green - expected.Green) > 3 || Math.Abs(actual.Blue - expected.Blue) > 3)
                     throw new InvalidOperationException($"{label} background is discontinuous: {actual} / {expected}.");
             }

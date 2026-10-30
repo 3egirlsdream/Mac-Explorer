@@ -50,6 +50,12 @@
     <Style Selector="Button.file-header-button.filtered, Button.file-header-button.filter-open">
         <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
     </Style>
+    <Style Selector="Border.file-list-header Button.file-header-button:pointerover, Border.file-list-header Button.file-header-button:pressed">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
+    </Style>
+    <Style Selector="Border.file-list-header Button.file-header-button.filtered, Border.file-list-header Button.file-header-button.filter-open">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlSelectedBrush}"/>
+    </Style>
     <Style Selector="Button.file-header-filter">
         <Setter Property="Width" Value="24"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>

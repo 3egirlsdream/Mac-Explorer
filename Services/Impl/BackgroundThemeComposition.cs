@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using MacExplorer.Models;
 using SkiaSharp;
@@ -6,10 +7,11 @@ using SkiaSharp;
 namespace MacExplorer.Services.Impl;
 
 /// <summary>A bounded window composition and its blur, produced from exactly the same pixels.</summary>
-internal sealed class BackgroundThemeComposition(Bitmap image, Bitmap frosted) : IDisposable
+internal sealed class BackgroundThemeComposition(Bitmap image, Bitmap frosted, Color[] titleColors) : IDisposable
 {
     public Bitmap Image { get; } = image;
     public Bitmap Frosted { get; } = frosted;
+    public Color[] TitleColors { get; } = titleColors;
 
     public static BackgroundThemeComposition Create(SKBitmap? texture, BackgroundThemeOptions options,
         Size window, bool dark, double scaling, CancellationToken token)
@@ -27,10 +29,42 @@ internal sealed class BackgroundThemeComposition(Bitmap image, Bitmap frosted) :
         surface.Canvas.DrawBitmap(small, 0, 0, paint);
         using var snapshot = surface.Snapshot();
         using var blurred = SKBitmap.FromImage(snapshot);
+        var titleColors = CreateTitleColors(blurred, options, dark, token);
         token.ThrowIfCancellationRequested();
         var image = BackgroundThemeArtwork.ToBitmap(composed);
-        try { return new(image, BackgroundThemeArtwork.ToBitmap(blurred)); }
+        try { return new(image, BackgroundThemeArtwork.ToBitmap(blurred), titleColors); }
         catch { image.Dispose(); throw; }
+    }
+
+    internal static Color[] CreateTitleColors(SKBitmap composed, BackgroundThemeOptions options, bool dark, CancellationToken token)
+    {
+        // Presets use their palette without texture. Photos contribute broad color averages, never details.
+        using var palette = BackgroundThemePresets.Find(options.PresetId) == null
+            ? null : Render(null, options, 16, 16, dark, token);
+        var colors = new Color[3];
+        for (var band = 0; band < colors.Length; band++)
+        {
+            double red = 0, green = 0, blue = 0;
+            if (palette != null)
+            {
+                var color = palette.GetPixel(band * 15 / 2, 0);
+                red = color.Red; green = color.Green; blue = color.Blue;
+            }
+            else
+            {
+                for (var y = 0; y < 16; y++)
+                    for (var x = 0; x < 24; x++)
+                    {
+                        var color = composed.GetPixel(Math.Min(composed.Width - 1, (int)((band + (x + 0.5) / 24) * composed.Width / 3)),
+                            Math.Min(composed.Height - 1, (int)((y + 0.5) * composed.Height / 48)));
+                        red += color.Red / 384d; green += color.Green / 384d; blue += color.Blue / 384d;
+                    }
+            }
+            var neutral = dark ? 27 : 255;
+            colors[band] = Color.FromRgb((byte)Math.Round(red * 0.85 + neutral * 0.15),
+                (byte)Math.Round(green * 0.85 + neutral * 0.15), (byte)Math.Round(blue * 0.85 + neutral * 0.15));
+        }
+        return colors;
     }
 
     internal static SKBitmap Render(SKBitmap? texture, BackgroundThemeOptions options,

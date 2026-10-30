@@ -318,7 +318,7 @@
     </Style>
 
     <Style Selector="Button.toolbar-btn:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
     </Style>
 
     <Style Selector="Grid.view-mode-segmented">
@@ -446,7 +446,7 @@
 
 
     <Style Selector="Button.toolbar-btn.dropdown-open">
-        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 
@@ -460,7 +460,7 @@
     </Style>
 
     <Style Selector="Button.toolbar-btn.active">
-        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 
@@ -468,7 +468,7 @@
         <Setter Property="Width" Value="1"/>
         <Setter Property="Height" Value="20"/>
         <Setter Property="Margin" Value="4,0"/>
-        <Setter Property="Background" Value="{DynamicResource ColorBorder}"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDividerBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
@@ -476,7 +476,7 @@
     <Style Selector="Border.breadcrumb-bar">
         <Setter Property="Height" Value="30"/>
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceDividerBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="Cursor" Value="IBeam"/>
@@ -609,13 +609,13 @@
     <Style Selector="Border.preview-pane">
         <Setter Property="Background" Value="{DynamicResource GlassPanelBg}"/>
         <Setter Property="Width" Value="280"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceDividerBrush}"/>
         <Setter Property="BorderThickness" Value="1,0,0,0"/>
     </Style>
 
     <Style Selector="Border.preview-pane-header">
         <Setter Property="Padding" Value="14"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceDividerBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
 
@@ -636,7 +636,7 @@
         <Setter Property="MinHeight" Value="27"/>
         <Setter Property="Padding" Value="0,5"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorDivider}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceDividerBrush}"/>
     </Style>
 
     <Style Selector="TextBlock.info-field-label, TextBlock.info-field-value">

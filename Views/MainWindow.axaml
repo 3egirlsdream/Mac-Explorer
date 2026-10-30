@@ -284,7 +284,7 @@
                                         <Border Classes="browser-tab-divider"
                                                 Width="1" Height="20" Margin="0,0,0,4"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                Background="{DynamicResource ColorBorderSubtle}"
+                                                Background="{DynamicResource WorkspaceDividerBrush}"
                                                 IsHitTestVisible="False"/>
                                         <!-- Account for the 16-DIP contour inset, close-button padding,
                                              and 2-DIP content join when balancing the visible spacing. -->

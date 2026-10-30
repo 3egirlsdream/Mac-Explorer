@@ -6,7 +6,7 @@
     <Grid RowDefinitions="*,Auto" Background="{DynamicResource WorkspaceContentBrush}">
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <Grid MinWidth="900" RowDefinitions="Auto,*" x:Name="TableSurface">
-                <Border Classes="file-list-header" Background="{DynamicResource WorkspaceContentBrush}" BorderBrush="{DynamicResource ColorDivider}"
+                <Border Classes="file-list-header" Background="{DynamicResource WorkspaceContentBrush}" BorderBrush="{DynamicResource WorkspaceDividerBrush}"
                         BorderThickness="0,0,0,1" Margin="0,0,0,6" Height="38" Padding="13,0">
                     <Grid x:Name="ColumnHeaders"/>
                 </Border>
@@ -18,7 +18,7 @@
                             Selected="{DynamicResource InteractionSelectedBrush}" SelectedHover="{DynamicResource InteractionSelectedHoverBrush}"
                             FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightRegular}"
                             DetailFontSize="{DynamicResource FontSizeLabel}" RowCornerRadius="{DynamicResource InteractionCornerRadius}"
-                            Muted="{DynamicResource TextMutedBrush}" Divider="{DynamicResource ColorDivider}" FocusRing="{DynamicResource FocusRingBrush}"
+                            Muted="{DynamicResource TextMutedBrush}" Divider="{DynamicResource WorkspaceDividerBrush}" FocusRing="{DynamicResource FocusRingBrush}"
                             SelectionOutline="{DynamicResource SelectionOutlineShadow}" FocusOutline="{DynamicResource FocusOutlineShadow}"
                             AutomationProperties.Name="{loc:Loc network.title}"/>
                     </ScrollViewer>
