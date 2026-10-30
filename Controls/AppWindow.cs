@@ -58,6 +58,15 @@ public class AppWindow : Window
     public static readonly StyledProperty<Control?> TitleBarBackgroundContentProperty =
         AvaloniaProperty.Register<AppWindow, Control?>(nameof(TitleBarBackgroundContent));
 
+    public static readonly StyledProperty<Control?> BackgroundContentProperty =
+        AvaloniaProperty.Register<AppWindow, Control?>(nameof(BackgroundContent));
+
+    public Control? BackgroundContent
+    {
+        get => GetValue(BackgroundContentProperty);
+        set => SetValue(BackgroundContentProperty, value);
+    }
+
     public static readonly StyledProperty<bool> IsModalInteractionBlockedProperty =
         AvaloniaProperty.Register<AppWindow, bool>(nameof(IsModalInteractionBlocked));
 

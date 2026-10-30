@@ -234,11 +234,11 @@
             <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         </Style>
         <Style Selector="Border#RootLayout">
-            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+            <Setter Property="Background" Value="{DynamicResource WorkspaceContentBrush}"/>
         </Style>
         <Style Selector="controls|ChromiumTabStripSurface">
             <Setter Property="ShadowColor" Value="{DynamicResource ActiveTabShadowColor}"/>
-            <Setter Property="Fill" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Fill" Value="{DynamicResource WorkspaceTabBrush}"/>
         </Style>
     </controls:AppWindow.Styles>
 
@@ -433,7 +433,7 @@
             <!-- Match the tab and toolbar through the top inset, including translucent themes.
                  Paint this band once so stacked translucent fills cannot create a dark seam. -->
             <Border x:Name="TabContentJoin" Height="8" VerticalAlignment="Top"
-                    Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False"/>
+                    Background="{DynamicResource WorkspaceTabBrush}" IsHitTestVisible="False"/>
             <Grid Margin="8">
                 <Grid x:Name="PaneLayoutRoot"/>
             </Grid>

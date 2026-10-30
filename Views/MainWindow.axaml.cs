@@ -101,6 +101,8 @@ public partial class MainWindow : AppWindow
     public MainWindow()
     {
         InitializeComponent();
+        if (App.Services.GetService<Services.Impl.BackgroundThemeService>() is { } backgroundTheme)
+            _ = new WindowBackgroundTheme(this, backgroundTheme);
         WindowDecorationProperties.SetElementRole(TitleBarDragArea,
             OperatingSystem.IsMacOS() ? WindowDecorationsElementRole.User : WindowDecorationsElementRole.TitleBar);
         TabSurface.TabStrip = TabList;

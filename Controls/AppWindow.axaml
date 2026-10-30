@@ -15,6 +15,8 @@
                             ClipToBounds="True">
                         <VisualLayerManager Name="PART_VisualLayerManager">
                         <Grid RowDefinitions="Auto,*">
+                            <ContentPresenter Grid.RowSpan="2" Content="{TemplateBinding BackgroundContent}"
+                                              IsHitTestVisible="False" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                             <ContentPresenter x:Name="WindowContent"
                                               Content="{TemplateBinding Content}"
                                               ContentTemplate="{TemplateBinding ContentTemplate}"

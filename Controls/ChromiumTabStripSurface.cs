@@ -7,7 +7,7 @@ using Avalonia.VisualTree;
 namespace MacExplorer.Controls;
 
 /// <summary>One surface for the active tab and the full-width content join.</summary>
-public sealed class ChromiumTabStripSurface : Control
+public sealed class ChromiumTabStripSurface : BackgroundThemeSurface
 {
     internal const double ContentBandHeight = 2;
     internal const double BottomRadius = 16;
@@ -30,6 +30,8 @@ public sealed class ChromiumTabStripSurface : Control
         set { _draggedTab = value; UpdateTabBounds(); }
     }
     private TopLevel? _topLevel;
+    private StreamGeometry? _themeClip;
+    private (Size Size, Rect Tab, double Join) _themeClipKey;
 
     public ListBox? TabStrip
     {
@@ -133,9 +135,24 @@ public sealed class ChromiumTabStripSurface : Control
         {
             using var clip = context.PushClip(new Rect(_viewport.X, 0, _viewport.Width, size.Height));
             _silhouette.Draw(context, new Rect(_tabBounds.X, _tabBounds.Y, _tabBounds.Width,
-                size.Height - _tabBounds.Y), scale, Fill, ShadowColor);
+                size.Height - _tabBounds.Y), scale, IsThemeActive ? Brushes.Transparent : Fill, ShadowColor);
+            if (IsThemeActive)
+            {
+                var key = (size, _tabBounds, join);
+                if (_themeClip == null || key != _themeClipKey)
+                {
+                    _themeClip = CreateOutline(size, _tabBounds, join);
+                    _themeClipKey = key;
+                }
+                using (context.PushGeometryClip(_themeClip)) RenderTheme(context);
+            }
         }
-        context.FillRectangle(Fill, new Rect(0, join, size.Width, size.Height - join));
+        var band = new Rect(0, join, size.Width, size.Height - join);
+        if (IsThemeActive)
+        {
+            using (context.PushClip(band)) RenderTheme(context);
+        }
+        else context.FillRectangle(Fill, band);
     }
 
     internal static StreamGeometry CreateOutline(Size size, Rect tab, double join)

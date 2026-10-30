@@ -542,6 +542,8 @@
                                 </Border>
                             </StackPanel>
 
+                            <controls:BackgroundThemeSettingsView/>
+
                             <StackPanel Spacing="6">
                                 <TextBlock Classes="settings-section-title" Text="{loc:Loc ui.166}"/>
                                 <Border Classes="settings-group">

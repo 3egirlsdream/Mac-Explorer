@@ -117,6 +117,7 @@ public partial class App : Application
                 Services.GetService<Services.Subscriptions.SubscriptionService>()?.Dispose();
                 _startupUpdateCancellation.Cancel();
                 Services.GetRequiredService<FileDeliveryController>().Dispose();
+                Services.GetRequiredService<BackgroundThemeService>().Dispose();
                 DirectoryAccess.Current.Dispose();
             };
 
@@ -143,6 +144,11 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_BACKGROUND_THEME_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.BackgroundThemeSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_TAG_CLIPBOARD_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -452,6 +458,7 @@ public partial class App : Application
         services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<BackgroundThemeService>();
         services.AddSingleton<ILocalizationService, Services.Impl.LocalizationService>();
         services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddSingleton<ILocalSendService, Services.Impl.LocalSendService>();

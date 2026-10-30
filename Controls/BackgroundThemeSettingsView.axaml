@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Controls.BackgroundThemeSettingsView">
+    <StackPanel Spacing="6">
+        <TextBlock Classes="settings-section-title" Text="{loc:Loc background.title}"/>
+        <Border Classes="settings-group">
+            <StackPanel>
+                <Border Classes="settings-row settings-divider">
+                    <Grid ColumnDefinitions="72,*,Auto" ColumnSpacing="10">
+                        <Border CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True" Height="48"
+                                Background="{DynamicResource DialogContentBrush}">
+                            <Grid>
+                                <PathIcon x:Name="PlaceholderIcon" Data="{x:Static icons:Icons.Image}" Width="20" Height="20"
+                                          Foreground="{DynamicResource TextMutedBrush}"/>
+                                <Image x:Name="PreviewImage" Stretch="UniformToFill"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock Grid.Column="1" x:Name="ImageName" Classes="settings-label" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button x:Name="ChooseButton" Classes="secondary compact" Content="{loc:Loc background.choose}" Click="ChooseImage"/>
+                            <Button x:Name="ResetButton" Classes="ghost compact" Content="{loc:Loc background.reset}" Click="ResetTheme"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Border Classes="settings-row settings-divider">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="settings-label" Text="{loc:Loc background.enabled}" VerticalAlignment="Center"/>
+                        <ToggleSwitch Grid.Column="1" x:Name="EnabledToggle" Classes="compact"
+                                      OnContent="" OffContent=""
+                                      AutomationProperties.Name="{loc:Loc background.enabled}" IsCheckedChanged="OptionsChanged"/>
+                    </Grid>
+                </Border>
+                <Border Classes="settings-row settings-divider">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock Classes="settings-label" Text="{loc:Loc background.layout}" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1" x:Name="LayoutCombo" Width="164" Classes="settings-inline-input"
+                                  AutomationProperties.Name="{loc:Loc background.layout}" SelectionChanged="OptionsChanged"/>
+                    </Grid>
+                </Border>
+                <Border Classes="settings-row">
+                    <Grid ColumnDefinitions="*,160,38" ColumnSpacing="8">
+                        <TextBlock Classes="settings-label" Text="{loc:Loc background.strength}" VerticalAlignment="Center"/>
+                        <Slider Grid.Column="1" x:Name="StrengthSlider" Minimum="0" Maximum="100" TickFrequency="1"
+                                IsSnapToTickEnabled="True" SmallChange="1" LargeChange="10" VerticalAlignment="Center"
+                                AutomationProperties.Name="{loc:Loc background.strength}"/>
+                        <TextBlock Grid.Column="2" x:Name="StrengthValue" Classes="settings-description" VerticalAlignment="Center"
+                                   HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </Border>
+        <TextBlock x:Name="ErrorText" Classes="settings-description" Foreground="{DynamicResource DangerBrush}" IsVisible="False"/>
+    </StackPanel>
+</UserControl>

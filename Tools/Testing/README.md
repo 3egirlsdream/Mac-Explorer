@@ -120,3 +120,16 @@ MACEXPLORER_DELIVERY_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 ```
 
 该入口仅在 Debug 与独立测试目录中运行，生成文件、长文件名、文件夹和不可用路径，检查暂存展示、清空后源文件不变，并输出四语浅／深色及窄窗口截图。结果位于打印的测试目录 `file-delivery/`，`report.json` 的 success 为验收结果。设置 `MACEXPLORER_DELIVERY_SMOKE=interactive` 会保留实例及 `Documents/DeliveryFixture`，用于 Finder／本程序实际拖入、拖出和取消验证；`state.json` 仅在该显式测试模式下记录测试路径、窗口可见性和原生拖拽计数。普通自动回归运行 `fast`、`ui --area FileDelivery --area Localization`、`integration --area FileDelivery`。
+
+## 背景主题验证
+
+```bash
+bash Tools/Testing/run-tests.sh fast --area BackgroundTheme
+bash Tools/Testing/run-tests.sh ui
+
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_BACKGROUND_THEME_SMOKE=1 bash Tools/Testing/run-isolated.sh \
+  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+主题检查覆盖按高平铺与裁切几何、受限解码与导入持久化、失效图片回退、失败替换保留旧主题、多窗口同步、弹窗隔离以及四语设置操作。原生检查只在 Debug 隔离实例中生效，生成主题图和文件列表样例，输出浅／深色、宽／窄窗口、首页、信息面板、滚动、裁切、关闭主题及四语设置截图；`background-theme/report.json` 记录检查结果。图片缩放与滚动复用同一已解码资源，恢复默认保留原图。

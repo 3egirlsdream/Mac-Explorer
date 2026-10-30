@@ -15,11 +15,11 @@
         <StyleInclude Source="avares://MacExplorer/Assets/FileListHeaderStyles.axaml"/>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*" x:Name="InteractionSurface" Background="{DynamicResource ColorBgContent}"
+    <Grid RowDefinitions="Auto,*" x:Name="InteractionSurface" Background="{DynamicResource WorkspaceContentBrush}"
           DragDrop.AllowDrop="True" DragDrop.DragOver="OnDragOver"
           DragDrop.DragLeave="OnDragLeave" DragDrop.Drop="OnDrop">
         <Border Grid.Row="0" Classes="file-list-header" x:Name="ListHeaderPanel"
-                Background="{DynamicResource ColorBgContent}"
+                Background="{DynamicResource WorkspaceContentBrush}"
                 BorderBrush="{DynamicResource ColorDivider}"
                 BorderThickness="0,0,0,1"
                 CornerRadius="0" Margin="0,0,0,6" Height="38" Padding="12,0">
@@ -111,7 +111,7 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" x:Name="FileScroll" Background="{DynamicResource ColorBgContent}" ClipToBounds="True">
+        <Grid Grid.Row="1" x:Name="FileScroll" Background="{DynamicResource WorkspaceContentBrush}" ClipToBounds="True">
                 <StackPanel x:Name="EmptyState" IsVisible="False" ZIndex="1"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
                             Margin="24" Spacing="10">
@@ -129,9 +129,9 @@
                 <ScrollViewer x:Name="FastListHost" IsVisible="False"
                               HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <controls:FastFileList x:Name="FastList"
-                        Background="{DynamicResource ColorBgContent}"
+                        Background="{DynamicResource WorkspaceContentBrush}"
                         Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextMutedBrush}"
-                        AlternateRow="{DynamicResource FileListAlternateRowBrush}"
+                        AlternateRow="{DynamicResource WorkspaceStripeBrush}"
                         Hover="{DynamicResource InteractionHoverBrush}" Selected="{DynamicResource InteractionSelectedBrush}"
                         SelectedHover="{DynamicResource InteractionSelectedHoverBrush}" DropBrush="{DynamicResource ColorAccentLight}"
                         FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}"

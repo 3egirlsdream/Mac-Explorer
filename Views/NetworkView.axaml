@@ -3,18 +3,18 @@
     <UserControl.Styles>
         <StyleInclude Source="avares://MacExplorer/Assets/FileListHeaderStyles.axaml"/>
     </UserControl.Styles>
-    <Grid RowDefinitions="*,Auto" Background="{DynamicResource ColorBgContent}">
+    <Grid RowDefinitions="*,Auto" Background="{DynamicResource WorkspaceContentBrush}">
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <Grid MinWidth="900" RowDefinitions="Auto,*" x:Name="TableSurface">
-                <Border Classes="file-list-header" Background="{DynamicResource ColorBgContent}" BorderBrush="{DynamicResource ColorDivider}"
+                <Border Classes="file-list-header" Background="{DynamicResource WorkspaceContentBrush}" BorderBrush="{DynamicResource ColorDivider}"
                         BorderThickness="0,0,0,1" Margin="0,0,0,6" Height="38" Padding="13,0">
                     <Grid x:Name="ColumnHeaders"/>
                 </Border>
                 <Grid Grid.Row="1">
                     <ScrollViewer x:Name="RowsHost" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                         <loc:FastFileList x:Name="ServersList"
-                            Background="{DynamicResource ColorBgContent}" Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextMutedBrush}"
-                            AlternateRow="{DynamicResource FileListAlternateRowBrush}" Hover="{DynamicResource InteractionHoverBrush}"
+                            Background="{DynamicResource WorkspaceContentBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextMutedBrush}"
+                            AlternateRow="{DynamicResource WorkspaceStripeBrush}" Hover="{DynamicResource InteractionHoverBrush}"
                             Selected="{DynamicResource InteractionSelectedBrush}" SelectedHover="{DynamicResource InteractionSelectedHoverBrush}"
                             FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightRegular}"
                             DetailFontSize="{DynamicResource FontSizeLabel}" RowCornerRadius="{DynamicResource InteractionCornerRadius}"

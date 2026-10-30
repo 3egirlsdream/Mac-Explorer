@@ -6,7 +6,7 @@ using Avalonia.Media.Imaging;
 namespace MacExplorer.Controls;
 
 /// <summary>Tab-local surface that moves above neighboring headers during sorting.</summary>
-public sealed class TabDragSurface : Control
+public sealed class TabDragSurface : BackgroundThemeSurface
 {
     public static readonly StyledProperty<IBrush?> FillProperty =
         AvaloniaProperty.Register<TabDragSurface, IBrush?>(nameof(Fill));
@@ -15,11 +15,25 @@ public sealed class TabDragSurface : Control
     public IBrush? Fill { get => GetValue(FillProperty); set => SetValue(FillProperty, value); }
     public Color ShadowColor { get => GetValue(ShadowColorProperty); set => SetValue(ShadowColorProperty, value); }
     private readonly TabSilhouetteCache _cache = new();
+    private StreamGeometry? _themeClip;
+    private Size _themeSize;
     static TabDragSurface() => AffectsRender<TabDragSurface>(FillProperty, ShadowColorProperty);
     public TabDragSurface() { IsHitTestVisible = false; }
     public override void Render(DrawingContext context)
     {
-        if (Fill != null) _cache.Draw(context, new Rect(Bounds.Size), TopLevel.GetTopLevel(this)?.RenderScaling ?? 1, Fill, ShadowColor);
+        if (Fill == null) return;
+        _cache.Draw(context, new Rect(Bounds.Size), TopLevel.GetTopLevel(this)?.RenderScaling ?? 1,
+            IsThemeActive ? Brushes.Transparent : Fill, ShadowColor);
+        if (IsThemeActive)
+        {
+            if (_themeClip == null || _themeSize != Bounds.Size)
+            {
+                _themeSize = Bounds.Size;
+                _themeClip = ChromiumTabStripSurface.CreateOutline(_themeSize, new Rect(_themeSize),
+                    _themeSize.Height - ChromiumTabStripSurface.ContentBandHeight);
+            }
+            using (context.PushGeometryClip(_themeClip)) RenderTheme(context);
+        }
     }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     { _cache.Dispose(); base.OnDetachedFromVisualTree(e); }

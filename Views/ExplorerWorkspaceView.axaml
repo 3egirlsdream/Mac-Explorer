@@ -34,7 +34,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource WorkspaceSurfaceBrush}"/>
         </Style>
         <Style Selector="local|ExplorerWorkspaceView:split Border.workspace-surface.active">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
@@ -68,10 +68,10 @@
             <Setter Property="Opacity" Value="0.96"/>
         </Style>
         <Style Selector="Grid#PageSurface">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource WorkspaceSurfaceBrush}"/>
         </Style>
         <Style Selector="Border#PageContentSurface">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource WorkspaceSurfaceBrush}"/>
         </Style>
     </UserControl.Styles>
 
@@ -103,6 +103,7 @@
                 <!-- Capture only the sidebar material, even while a cached compact layout is expanding. -->
                 <Grid x:Name="PageSurface" RowDefinitions="Auto,Auto,*"
                       glass:LiquidGlassBackdrop.IsExcludedFromCapture="True">
+                    <controls:BackgroundThemeSurface Frosted="True" Grid.RowSpan="2"/>
                     <Grid Grid.Row="0" x:Name="NavigationRow" Height="40"
                           IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}"
                           ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="12,0"
@@ -200,17 +201,18 @@
                                            Grid.Row="1"
                                            DisplayMode="Inline"
                                            PanePlacement="Right"
-                                           PaneBackground="{DynamicResource ColorBgContent}"
+                                           PaneBackground="{DynamicResource WorkspaceInfoBrush}"
                                            OpenPaneLength="{Binding InfoPanelWidth, Mode=TwoWay}"
                                            CompactPaneLength="0"
                                            IsPaneOpen="False">
                                     <SplitView.Pane>
                                         <Grid x:Name="InfoPanelPane" ClipToBounds="True"
-                                              Background="{DynamicResource ColorBgContent}">
+                                              Background="{DynamicResource WorkspaceInfoBrush}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="6"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
+                                            <controls:BackgroundThemeSurface Frosted="True" Grid.ColumnSpan="2"/>
                                             <Border Grid.Column="0" x:Name="InfoPanelResizeHandle"
                                                     Background="Transparent" Cursor="SizeWestEast"
                                                     PointerPressed="OnInfoPanelResizePressed"
@@ -251,6 +253,7 @@
                                 <Border Grid.Row="2" x:Name="StatusBar" MinHeight="28" Padding="0,4" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                         IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
                                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
+                                        <controls:BackgroundThemeSurface Frosted="True" Grid.ColumnSpan="3" Margin="-12,-4"/>
                                         <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
                                                    FontSize="{DynamicResource FontSizeCaption}"
                                                    VerticalAlignment="Center"

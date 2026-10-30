@@ -10,7 +10,7 @@ using Avalonia.VisualTree;
 namespace MacExplorer.Controls;
 
 // Kept beside the glass surface so the backdrop provider can capture it.
-public sealed class SidebarBackdrop : Control
+public sealed class SidebarBackdrop : BackgroundThemeSurface
 {
     public bool UseWindowCoordinates { get; set; }
     private Bitmap? _bitmap;
@@ -27,6 +27,7 @@ public sealed class SidebarBackdrop : Control
 
     public override void Render(DrawingContext context)
     {
+        if (RenderTheme(context)) return;
         var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         var key = (Dark: ActualThemeVariant == ThemeVariant.Dark, Scale: scale);
         if (Bounds.Width <= 0 || Bounds.Height <= 0) return;

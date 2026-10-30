@@ -7,7 +7,7 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
-    <Grid RowDefinitions="Auto,*" Background="{DynamicResource ColorBgContent}">
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource WorkspaceContentBrush}">
         <Border Grid.Row="0" Padding="16,12,16,0" Background="Transparent">
             <Border Classes="ai-search-box">
             <Grid ColumnDefinitions="Auto,*,Auto">
