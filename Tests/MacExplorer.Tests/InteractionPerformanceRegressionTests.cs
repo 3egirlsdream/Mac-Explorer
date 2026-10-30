@@ -77,6 +77,34 @@ public sealed class InteractionPerformanceRegressionTests : FileListViewModelTes
         finally { root.Delete(true); }
     }
 
+    [AvaloniaFact(Explicit = true)]
+    public async Task TagChangesDuringRefreshDoNotRepeatTheCompletedDirectoryQuery()
+    {
+        var root = Directory.CreateTempSubdirectory("tag-refresh-");
+        var query = new CountingQuery();
+        using var service = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root.FullName, "tags.db")), query);
+        using var vm = CreateViewModel(new FakeFileService(root.FullName), fileTagService: service);
+        var pending = new TaskCompletionSource<IReadOnlyList<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            var red = FileTagCatalog.FinderColors[0];
+            await vm.NavigateToTagAsync(red);
+            Dispatcher.UIThread.RunJobs();
+            query.Calls = 0;
+            query.NextResult = pending.Task;
+            await service.RenameTagAsync(red, "First");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, query.Calls);
+
+            await service.RenameTagAsync(red, "Latest");
+            pending.SetResult([]);
+            await TestTime.WaitUntilAsync(() => vm.CurrentLocationTitle == "Latest" && !vm.IsLoading);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, query.Calls);
+        }
+        finally { pending.TrySetResult([]); root.Delete(true); }
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
@@ -134,7 +162,13 @@ public sealed class InteractionPerformanceRegressionTests : FileListViewModelTes
     private sealed class CountingQuery : IFinderTagQueryService
     {
         public int Calls;
+        public Task<IReadOnlyList<string>>? NextResult;
         public Task<IReadOnlyList<string>> FindFilePathsAsync(FileTag tag, CancellationToken cancellationToken = default)
-        { Calls++; return Task.FromResult<IReadOnlyList<string>>([]); }
+        {
+            Calls++;
+            var result = NextResult;
+            NextResult = null;
+            return result ?? Task.FromResult<IReadOnlyList<string>>([]);
+        }
     }
 }

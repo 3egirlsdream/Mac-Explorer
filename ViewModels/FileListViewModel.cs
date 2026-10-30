@@ -867,6 +867,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private bool _tagDirectoryRefreshPending;
     private Task? _tagContentsRefreshTask;
     private string? _tagContentsRefreshPath;
+    private int _tagContentsRefreshVersion = -1;
 
     private Task RefreshTagContentsAsync()
     {
@@ -882,6 +883,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (_disposed) return;
             version = Volatile.Read(ref _tagsRefreshVersion);
             await LoadTagContentsAsync(path, recordHistory);
+            if (CurrentPath == path && _tagContentsRefreshPath == path)
+                _tagContentsRefreshVersion = version;
             recordHistory = false;
         } while (IsTagView && CurrentPath == path && _workspaceVisible && !_directoryNotificationsPaused
             && version != Volatile.Read(ref _tagsRefreshVersion));
@@ -913,7 +916,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 await LoadSidebarTagsAsync();
                 if (IsTagView && !_directoryNotificationsPaused)
                 {
-                    if (_workspaceVisible) await RefreshTagContentsAsync();
+                    if (_workspaceVisible)
+                    {
+                        if (_tagContentsRefreshVersion != Volatile.Read(ref _tagsRefreshVersion))
+                            await RefreshTagContentsAsync();
+                    }
                     else _tagDirectoryRefreshPending = true;
                 }
             }
