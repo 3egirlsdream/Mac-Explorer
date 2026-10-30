@@ -80,7 +80,7 @@
                 <Button x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="{loc:Loc ui.026}" Click="PasteItems">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
                 </Button>
-                <Button x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{loc:Loc ui.024}" Click="DeleteSelected">
+                <Button x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Click="DeleteSelected">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
                 </Button>
 
@@ -256,7 +256,7 @@
                                 <TextBlock Text="{loc:Loc ui.026}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="DeleteOverflowButton" AutomationProperties.Name="{loc:Loc ui.024}" Classes="toolbar-popup-item compact-overflow-item"
+                        <Button x:Name="DeleteOverflowButton" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Classes="toolbar-popup-item compact-overflow-item"
                                 controls:ShortcutTip.Command="file.trash"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="DeleteSelected">

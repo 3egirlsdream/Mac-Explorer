@@ -80,6 +80,31 @@ public sealed class ReviewPasteOwnershipTests
     }
 
     [Fact]
+    public async Task TagCutRemovesSourceTagOnlyForConfirmedMoves()
+    {
+        var sourceTag = new FileTag("A", "#8E8E93", FileTagKind.Custom);
+        var clipboard = new ClipboardStub();
+        clipboard.Service.CutFiles(["/source/a.txt", "/source/b.txt"], sourceTag);
+        var files = Stub<IFileService>((_, args) => (string)args[0]! == "/source/b.txt"
+            ? Task.FromException(new IOException("move failed")) : Task.CompletedTask);
+        var removals = new List<string>();
+        var tags = Stub<IFileTagService>((method, args) =>
+        {
+            if (method.Name == "UpdatePathAsync") return Task.CompletedTask;
+            Assert.Equal("SetTagAsync", method.Name);
+            Assert.Equal(sourceTag, args[1]);
+            Assert.False((bool)args[2]!);
+            removals.AddRange((IReadOnlyList<string>)args[0]!);
+            return Task.FromResult(new TagSyncResult(1, 0));
+        });
+        var vm = new FileOpsViewModel(clipboard.Service, files, fileTagService: tags);
+        await Assert.ThrowsAsync<IOException>(() => vm.PasteAsync("/target"));
+        Assert.Equal(new[] { "/target/a.txt" }, removals);
+        Assert.Equal(new[] { "/source/b.txt" }, clipboard.Entry!.SourcePaths);
+        Assert.Equal(sourceTag, clipboard.Entry.SourceTag);
+    }
+
+    [Fact]
     public async Task MetadataFailureDoesNotKeepAnAlreadyMovedFileInTheCutClipboard()
     {
         var clipboard = new ClipboardStub("/source/a.txt");
@@ -146,7 +171,8 @@ public sealed class ReviewPasteOwnershipTests
                     case "CopyFiles":
                     case "CutFiles":
                         Entry = new() { SourcePaths = ((string[])args[0]!).ToList(),
-                            Operation = method.Name == "CutFiles" ? ClipboardOperation.Cut : ClipboardOperation.Copy };
+                            Operation = method.Name == "CutFiles" ? ClipboardOperation.Cut : ClipboardOperation.Copy,
+                            SourceTag = method.Name == "CutFiles" ? (FileTag?)args[1] : null };
                         return null;
                     default: throw new NotSupportedException(method.Name);
                 }

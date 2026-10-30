@@ -76,13 +76,25 @@ public partial class FileOpsViewModel : ObservableObject
 
     [RelayCommand]
     public void CutSelected(IReadOnlyList<FileSystemEntry> selectedEntries)
+        => CutSelectedFromTag(selectedEntries, null);
+
+    internal void CutSelectedFromTag(IReadOnlyList<FileSystemEntry> selectedEntries, FileTag? sourceTag)
     {
         Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (_clipboardService == null || selectedEntries.Count == 0) return;
-        _clipboardService.CutFiles(selectedEntries.Select(e => e.FullPath).ToArray());
+        _clipboardService.CutFiles(selectedEntries.Select(e => e.FullPath).ToArray(), sourceTag);
         CutPaths.Clear();
         foreach (var e in selectedEntries) CutPaths.Add(e.FullPath);
         OnPropertyChanged(nameof(CutPaths));
+    }
+
+    internal void ConsumeTagCut(ClipboardEntry entry, IReadOnlyList<string> paths)
+    {
+        foreach (var path in paths) entry.SourcePaths.Remove(path);
+        if (!ReferenceEquals(_clipboardService?.GetClipboardEntry(), entry)) return;
+        CutPaths.ExceptWith(paths);
+        OnPropertyChanged(nameof(CutPaths));
+        if (entry.IsEmpty) _clipboardService.Clear();
     }
 
     public List<string> GetPasteConflicts(string currentPath)
@@ -149,7 +161,16 @@ public partial class FileOpsViewModel : ObservableObject
                     OnPropertyChanged(nameof(CutPaths));
                 if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
                 {
-                    try { await _fileTagService.UpdatePathAsync(sourcePath, movedPath); }
+                    try
+                    {
+                        await _fileTagService.UpdatePathAsync(sourcePath, movedPath);
+                        if (entry.SourceTag is { } sourceTag)
+                        {
+                            var sync = await _fileTagService.SetTagAsync([movedPath], sourceTag, false);
+                            if (sync.PendingFiles > 0)
+                                warnings.Add(Services.Impl.LocalizationText.Get("标签已保存，{0} 个文件等待同步 Finder", sync.PendingFiles));
+                        }
+                    }
                     catch (Exception ex)
                     {
                         metadataError ??= ex;

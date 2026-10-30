@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -25,15 +26,19 @@ public class MacClipboardService : IClipboardService
     private long _probeChangeCount = -1;
     private ClipboardPasteKind _probeKind = ClipboardPasteKind.None;
     private static bool _appKitLoaded;
+    private readonly string? _pasteboardName;
+
+    public MacClipboardService() { }
+    internal MacClipboardService(string pasteboardName) => _pasteboardName = pasteboardName;
 
     public void CopyFiles(string[] paths)
     {
         SetClipboardEntry(paths, ClipboardOperation.Copy);
     }
 
-    public void CutFiles(string[] paths)
+    public void CutFiles(string[] paths, FileTag? sourceTag = null)
     {
-        SetClipboardEntry(paths, ClipboardOperation.Cut);
+        SetClipboardEntry(paths, ClipboardOperation.Cut, sourceTag);
     }
 
     public async Task CopyTextAsync(string text)
@@ -48,18 +53,14 @@ public class MacClipboardService : IClipboardService
         await CopyTextWithPbcopyAsync(text).ConfigureAwait(false);
     }
 
-    private static bool TryWriteTextToPasteboard(string text)
+    private bool TryWriteTextToPasteboard(string text)
     {
         try
         {
             if (!EnsureAppKitLoaded())
                 return false;
 
-            var pasteboardClass = objc_getClass("NSPasteboard");
-            if (pasteboardClass == IntPtr.Zero)
-                return false;
-
-            var pasteboard = Send(pasteboardClass, "generalPasteboard");
+            var pasteboard = GeneralPasteboard();
             if (pasteboard == IntPtr.Zero)
                 return false;
 
@@ -217,11 +218,11 @@ public class MacClipboardService : IClipboardService
         _probeChangeCount = -1;
     }
 
-    private void SetClipboardEntry(string[] paths, ClipboardOperation operation)
+    private void SetClipboardEntry(string[] paths, ClipboardOperation operation, FileTag? sourceTag = null)
     {
         if (OperatingSystem.IsMacOS() && !Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.InvokeAsync(() => SetClipboardEntry(paths, operation)).GetAwaiter().GetResult();
+            Dispatcher.UIThread.InvokeAsync(() => SetClipboardEntry(paths, operation, sourceTag)).GetAwaiter().GetResult();
             return;
         }
         var existingPaths = paths
@@ -232,7 +233,8 @@ public class MacClipboardService : IClipboardService
         _entry = new ClipboardEntry
         {
             SourcePaths = existingPaths.ToList(),
-            Operation = operation
+            Operation = operation,
+            SourceTag = sourceTag
         };
         _entryChangeCount = -1;
 
@@ -247,11 +249,9 @@ public class MacClipboardService : IClipboardService
         {
             var pasteboard = GeneralPasteboard();
             if (pasteboard == IntPtr.Zero) return ClipboardPasteKind.None;
-            var types = Send(pasteboard, "types");
             // File URLs win over an image representation of the same clipboard item.
-            // Inspect advertised types only: opening a menu must not request image bytes.
-            if (SendBool(types, "containsObject:", CreateString("public.file-url")) ||
-                SendBool(types, "containsObject:", CreateString("NSFilenamesPboardType")))
+            // Classify URLs without requesting image bytes when opening a menu.
+            if (ClipboardHasFilesNative(pasteboard))
                 return ClipboardPasteKind.ExternalFiles;
             return TryFindImageType(pasteboard, out _, out _)
                 ? ClipboardPasteKind.Image : ClipboardPasteKind.None;
@@ -272,11 +272,13 @@ public class MacClipboardService : IClipboardService
         return pasteboard == IntPtr.Zero ? -1 : objc_msgSend_long(pasteboard, sel_registerName("changeCount"));
     }
 
-    private static IntPtr GeneralPasteboard()
+    private IntPtr GeneralPasteboard()
     {
         if (!EnsureAppKitLoaded()) return IntPtr.Zero;
         var pasteboardClass = objc_getClass("NSPasteboard");
-        return pasteboardClass == IntPtr.Zero ? IntPtr.Zero : Send(pasteboardClass, "generalPasteboard");
+        if (pasteboardClass == IntPtr.Zero) return IntPtr.Zero;
+        return _pasteboardName == null ? Send(pasteboardClass, "generalPasteboard")
+            : SendIntPtr(pasteboardClass, "pasteboardWithName:", CreateString(_pasteboardName));
     }
 
     private static bool TryFindImageType(IntPtr pasteboard, out string pasteboardType, out string extension)
@@ -298,56 +300,23 @@ public class MacClipboardService : IClipboardService
         return false;
     }
 
-    private static List<string> ReadPasteboardFilePaths()
+    private List<string> ReadPasteboardFilePaths()
     {
-        var pasteboard = GeneralPasteboard();
-        if (pasteboard == IntPtr.Zero) return [];
-
-        var paths = new List<string>();
-        var items = Send(pasteboard, "pasteboardItems");
-        if (items != IntPtr.Zero)
-        {
-            var count = (int)objc_msgSend_long(items, sel_registerName("count"));
-            for (var index = 0; index < count; index++)
-            {
-                var item = objc_msgSend_intptr_long(items, sel_registerName("objectAtIndex:"), index);
-                if (item == IntPtr.Zero) continue;
-
-                var url = SendIntPtr(item, "stringForType:", CreateString("public.file-url"));
-                var path = ToLocalFilePath(url);
-                if (path != null) paths.Add(path);
-            }
-        }
-
-        if (paths.Count == 0)
-            paths.AddRange(ReadLegacyFileNames(pasteboard));
-
-        return paths;
+        var pointer = ClipboardCopyPathsNative(GeneralPasteboard());
+        if (pointer == IntPtr.Zero) return [];
+        try { return JsonSerializer.Deserialize<List<string>>(Marshal.PtrToStringUTF8(pointer)!) ?? []; }
+        finally { ClipboardFreePathsNative(pointer); }
     }
 
-    private static IEnumerable<string> ReadLegacyFileNames(IntPtr pasteboard)
-    {
-        var array = SendIntPtr(pasteboard, "propertyListForType:", CreateString("NSFilenamesPboardType"));
-        if (array == IntPtr.Zero) yield break;
+    [DllImport("MacExplorerNativeDrag", EntryPoint = "me_clipboard_has_files")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool ClipboardHasFilesNative(IntPtr pasteboard);
 
-        var count = (int)objc_msgSend_long(array, sel_registerName("count"));
-        for (var index = 0; index < count; index++)
-        {
-            var value = objc_msgSend_intptr_long(array, sel_registerName("objectAtIndex:"), index);
-            var text = ToUtf8String(value);
-            if (!string.IsNullOrEmpty(text)) yield return text;
-        }
-    }
+    [DllImport("MacExplorerNativeDrag", EntryPoint = "me_clipboard_copy_paths")]
+    private static extern IntPtr ClipboardCopyPathsNative(IntPtr pasteboard);
 
-    private static string? ToLocalFilePath(IntPtr nsString)
-    {
-        var text = ToUtf8String(nsString);
-        if (string.IsNullOrEmpty(text)) return null;
-        return Uri.TryCreate(text, UriKind.Absolute, out var uri) && uri.IsFile ? uri.LocalPath : null;
-    }
-
-    private static string? ToUtf8String(IntPtr nsString)
-        => nsString == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(Send(nsString, "UTF8String"));
+    [DllImport("MacExplorerNativeDrag", EntryPoint = "me_clipboard_free_paths")]
+    private static extern void ClipboardFreePathsNative(IntPtr paths);
 
     private static byte[] ReadDataBytes(IntPtr data)
     {
@@ -493,12 +462,6 @@ public class MacClipboardService : IClipboardService
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern long objc_msgSend_long(IntPtr receiver, IntPtr selector);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr objc_msgSend_intptr_long(
-        IntPtr receiver,
-        IntPtr selector,
-        long argument);
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_intptr_long_intptr(

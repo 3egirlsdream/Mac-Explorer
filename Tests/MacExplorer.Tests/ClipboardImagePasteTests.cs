@@ -80,8 +80,8 @@ internal sealed class ImageClipboardService(ClipboardImageData? image = null) : 
     public void CopyFiles(string[] paths)
         => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Copy };
 
-    public void CutFiles(string[] paths)
-        => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut };
+    public void CutFiles(string[] paths, FileTag? sourceTag = null)
+        => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut, SourceTag = sourceTag };
 
     public Task CopyTextAsync(string text) => Task.CompletedTask;
     public Task PasteFilesAsync(string targetDirectory) => Task.CompletedTask;

@@ -163,6 +163,106 @@ public sealed class UnifiedFileTagTests : IDisposable
 
     [Fact]
     [Trait("Kind", "Unit")]
+    public async Task RetryingPendingTagsWhileReadingStillNotifiesAboutNativeChanges()
+    {
+        var store = new MemoryStore { FailWrites = true };
+        using var service = new FileTagService(Factory, store: store);
+        var tag = await service.CreateTagAsync("A", Ct);
+        await service.SetTagAsync(["/file"], tag, true, Ct);
+        store.Files["/file"] = [new("C")];
+        store.FailWrites = false;
+        var changes = 0;
+        service.TagsChanged += (_, _) => changes++;
+        Assert.Equal(new[] { "A", "C" }, (await service.GetFileTagsAsync("/file", Ct)).Select(t => t.Name).Order());
+        Assert.Equal(1, changes);
+        Assert.Equal(1, (await service.GetSidebarTagsAsync(Ct)).Single(t => t.Name == "C").ItemCount);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task RemovedTagDoesNotReturnFromStaleFinderResultsAfterRestart()
+    {
+        var store = new MemoryStore();
+        store.Files["/copy"] = [new("A"), new("C")];
+        var query = new FixedQuery(["/copy"]);
+        var tag = new FileTag("A", "#8E8E93", FileTagKind.Custom);
+        using (var service = new FileTagService(Factory, query, store: store))
+        {
+            Assert.Single(await service.FindFilePathsAsync(tag, Ct));
+            await service.SetTagAsync(["/copy"], tag, false, Ct);
+            Assert.Empty(await service.FindFilePathsAsync(tag, Ct));
+            Assert.Equal(0, (await service.GetSidebarTagsAsync(Ct)).Single(t => t.Name == "A").ItemCount);
+        }
+        using var restarted = new FileTagService(Factory, query, store: store);
+        Assert.Empty(await restarted.FindFilePathsAsync(tag, Ct));
+        Assert.Equal(new[] { new NativeFileTag("C") }, store.Files["/copy"]);
+        store.Files["/copy"].Add(new("A"));
+        Assert.Single(await restarted.FindFilePathsAsync(tag, Ct));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task QueryRepairsStaleIndexButRetainsCacheWhenNativeReadFails()
+    {
+        var store = new MemoryStore();
+        using var service = new FileTagService(Factory, new FixedQuery(["/stale"]), store: store);
+        var tag = await service.CreateTagAsync("A", Ct);
+        await service.ReplaceFileTagsAsync("/stale", ["A"], Ct);
+        store.FailReads = true;
+        Assert.Single(await service.FindFilePathsAsync(tag, Ct));
+        store.FailReads = false;
+        var changes = 0;
+        service.TagsChanged += (_, _) => changes++;
+        Assert.Empty(await service.FindFilePathsAsync(tag, Ct));
+        Assert.Equal(0, (await service.GetSidebarTagsAsync(Ct)).Single(t => t.Name == "A").ItemCount);
+        await service.FindFilePathsAsync(tag, Ct);
+        Assert.Equal(1, changes);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task TagMovePersistsBothChangesAndPreservesUnrelatedTagsAndChildren()
+    {
+        var store = new MemoryStore { FailWrites = true };
+        store.Files["/folder"] = [new("A"), new("C", 3)];
+        store.Files["/folder/child"] = [new("A")];
+        var source = new FileTag("A", "#8E8E93", FileTagKind.Custom);
+        var target = new FileTag("B", "#8E8E93", FileTagKind.Custom);
+        using (var service = new FileTagService(Factory, new FixedQuery(["/folder"]), store: store))
+        {
+            Assert.Equal(new TagSyncResult(0, 1), await service.MoveTagMembershipAsync(["/folder"], source, target, Ct));
+            Assert.Empty(await service.FindFilePathsAsync(source, Ct));
+            Assert.Single(await service.FindFilePathsAsync(target, Ct));
+        }
+        store.FailWrites = false;
+        using var restarted = new FileTagService(Factory, store: store);
+        Assert.Equal(new TagSyncResult(1, 0), await restarted.RetryPendingAsync(Ct));
+        Assert.Equal(new[] { "B", "C" }, store.Files["/folder"].Select(t => t.Name).Order());
+        Assert.Contains(new NativeFileTag("C", 3), store.Files["/folder"]);
+        Assert.Equal(new[] { new NativeFileTag("A") }, store.Files["/folder/child"]);
+        Assert.Equal(new TagSyncResult(0, 0), await restarted.MoveTagMembershipAsync(["/folder"], target, target, Ct));
+        Assert.Equal(new[] { "B", "C" }, store.Files["/folder"].Select(t => t.Name).Order());
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task TagMoveRollsBackTargetIfSourceRemovalCannotBeQueued()
+    {
+        var store = new MemoryStore();
+        store.Files["/file"] = [new("A"), new("C")];
+        using var service = new FileTagService(Factory, store: store);
+        await service.GetFileTagsAsync("/file", Ct);
+        using var connection = Factory.GetConnection();
+        Execute(connection, "CREATE TRIGGER reject_removal BEFORE INSERT ON pending_tag_changes WHEN NEW.applied = 0 BEGIN SELECT RAISE(ABORT, 'test failure'); END");
+        await Assert.ThrowsAsync<SqliteException>(() => service.MoveTagMembershipAsync(["/file"],
+            new("A", "#8E8E93", FileTagKind.Custom), new("B", "#8E8E93", FileTagKind.Custom), Ct));
+        Assert.Equal(new[] { "A", "C" }, (await service.GetFileTagsAsync("/file", Ct)).Select(t => t.Name).Order());
+        Assert.DoesNotContain(await service.GetSidebarTagsAsync(Ct), t => t.Name == "B");
+        Assert.Equal(new TagSyncResult(0, 0), await service.RetryPendingAsync(Ct));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
     public async Task ConcurrentChangesAndCaseOnlyRenamePreserveOtherNativeTags()
     {
         var store = new MemoryStore();
@@ -376,9 +476,11 @@ public sealed class UnifiedFileTagTests : IDisposable
     {
         public Dictionary<string, List<NativeFileTag>> Files { get; } = new(StringComparer.Ordinal);
         public bool FailWrites { get; set; }
+        public bool FailReads { get; set; }
         public Action? AfterWrite { get; set; }
         public Task<IReadOnlyList<NativeFileTag>> ReadAsync(string path, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<NativeFileTag>>(Files.GetValueOrDefault(path)?.ToArray() ?? []);
+            FailReads ? Task.FromException<IReadOnlyList<NativeFileTag>>(new IOException("Read failed"))
+                : Task.FromResult<IReadOnlyList<NativeFileTag>>(Files.GetValueOrDefault(path)?.ToArray() ?? []);
         public Task WriteAsync(string path, IReadOnlyList<NativeFileTag> tags, CancellationToken cancellationToken = default)
         {
             if (FailWrites) throw new IOException("Read only");
@@ -391,6 +493,10 @@ public sealed class UnifiedFileTagTests : IDisposable
     {
         public Task<IReadOnlyList<string>> FindFilePathsAsync(FileTag tag, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<string>>(store.Files.Where(file => file.Value.Any(t => string.Equals(t.Name, tag.Name, StringComparison.OrdinalIgnoreCase))).Select(file => file.Key).ToArray());
+    }
+    private sealed class FixedQuery(IReadOnlyList<string> paths) : IFinderTagQueryService
+    {
+        public Task<IReadOnlyList<string>> FindFilePathsAsync(FileTag tag, CancellationToken cancellationToken = default) => Task.FromResult(paths);
     }
     public void Dispose()
     {

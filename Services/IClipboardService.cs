@@ -5,7 +5,7 @@ namespace MacExplorer.Services;
 public interface IClipboardService
 {
     void CopyFiles(string[] paths);
-    void CutFiles(string[] paths);
+    void CutFiles(string[] paths, FileTag? sourceTag = null);
     Task CopyTextAsync(string text);
     Task PasteFilesAsync(string targetDirectory);
     bool HasClipboardFiles { get; }

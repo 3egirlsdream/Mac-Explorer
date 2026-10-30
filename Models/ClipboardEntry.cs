@@ -4,6 +4,7 @@ public class ClipboardEntry
 {
     public List<string> SourcePaths { get; init; } = [];
     public ClipboardOperation Operation { get; init; }
+    public FileTag? SourceTag { get; init; }
     public bool IsEmpty => SourcePaths.Count == 0;
 }
 

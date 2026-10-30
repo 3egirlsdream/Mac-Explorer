@@ -122,16 +122,42 @@ static NSArray<NSString *> *MEReadDroppedPaths(NSPasteboard *pasteboard) {
     return paths.array;
 }
 
-extern "C" __attribute__((visibility("default")))
-char *me_file_drop_copy_paths() {
+static char *MECopyPasteboardPaths(NSPasteboard *pasteboard) {
     @try {
-        NSArray *paths = MEReadDroppedPaths(MECurrentDropPasteboard);
+        NSArray *paths = MEReadDroppedPaths(pasteboard);
         if (!paths.count) return nullptr;
         NSData *json = [NSJSONSerialization dataWithJSONObject:paths options:0 error:nil];
         NSString *text = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
         return text ? strdup(text.UTF8String) : nullptr;
     } @catch (NSException *exception) { return nullptr; }
 }
+
+extern "C" __attribute__((visibility("default")))
+char *me_file_drop_copy_paths() { return MECopyPasteboardPaths(MECurrentDropPasteboard); }
+
+static bool MEPasteboardHasFiles(NSPasteboard *pasteboard) {
+    if ([pasteboard canReadObjectForClasses:@[NSURL.class]
+        options:@{NSPasteboardURLReadingFileURLsOnlyKey:@YES}]) return true;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if ([pasteboard availableTypeFromArray:@[NSFilenamesPboardType, NSPasteboardTypeFileURL]]) return true;
+#pragma clang diagnostic pop
+    return [pasteboard availableTypeFromArray:@[@"com.trolltech.anymime.text--uri-list", @"Apple URL pasteboard type"]]
+        && MEReadDroppedPaths(pasteboard).count > 0;
+}
+
+extern "C" __attribute__((visibility("default")))
+bool me_clipboard_has_files(void *pasteboard) {
+    @autoreleasepool { return MEPasteboardHasFiles((__bridge NSPasteboard *)pasteboard); }
+}
+
+extern "C" __attribute__((visibility("default")))
+char *me_clipboard_copy_paths(void *pasteboard) {
+    @autoreleasepool { return MECopyPasteboardPaths((__bridge NSPasteboard *)pasteboard); }
+}
+
+extern "C" __attribute__((visibility("default")))
+void me_clipboard_free_paths(void *paths) { free(paths); }
 
 extern "C" __attribute__((visibility("default")))
 void me_file_drop_free_paths(void *paths) { free(paths); }

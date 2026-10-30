@@ -131,6 +131,7 @@ public sealed class BatchRenameServiceTests
         public Task SetTagPinnedAsync(FileTag tag, bool pinned, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<FileTag>> GetFileTagsAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<TagSyncResult> SetTagAsync(IReadOnlyList<string> paths, FileTag tag, bool applied, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<TagSyncResult> MoveTagMembershipAsync(IReadOnlyList<string> paths, FileTag source, FileTag target, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<TagSyncResult> RetryPendingAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public List<(string OldPath, string NewPath)> PathUpdates { get; } = [];
 

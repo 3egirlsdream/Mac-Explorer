@@ -65,9 +65,32 @@ public partial class FileListViewModel
         await RunTagActionAsync(async () =>
         {
             var result = await _fileTagService.SetTagAsync(paths, tag, applied);
+            if (!_disposed && CurrentTag?.Name == tag.Name)
+                await RefreshTagContentsAsync();
             StatusText = result.PendingFiles > 0
                 ? MacExplorer.Services.Impl.LocalizationText.Get("标签已保存，{0} 个文件等待同步 Finder", result.PendingFiles)
                 : applied ? MacExplorer.Services.Impl.LocalizationText.Get("已添加标签“{0}”", tag.DisplayName) : MacExplorer.Services.Impl.LocalizationText.Get("已移除标签“{0}”", tag.DisplayName);
+        });
+    }
+
+    private async Task PasteFilesIntoTagAsync(ClipboardEntry clipboard, FileTag tag)
+    {
+        if (_fileTagService == null) return;
+        var sourceTag = clipboard.Operation == ClipboardOperation.Cut ? clipboard.SourceTag : null;
+        if (sourceTag != null && string.Equals(sourceTag.Name, tag.Name, StringComparison.OrdinalIgnoreCase)) return;
+        var paths = clipboard.SourcePaths.ToArray();
+        await RunTagActionAsync(async () =>
+        {
+            var result = sourceTag != null
+                ? await _fileTagService.MoveTagMembershipAsync(paths, sourceTag, tag)
+                : await _fileTagService.SetTagAsync(paths, tag, true);
+            if (clipboard.Operation == ClipboardOperation.Cut)
+                _fileOps.ConsumeTagCut(clipboard, paths);
+            StatusText = result.PendingFiles > 0
+                ? MacExplorer.Services.Impl.LocalizationText.Get("标签已保存，{0} 个文件等待同步 Finder", result.PendingFiles)
+                : MacExplorer.Services.Impl.LocalizationText.Get("已添加标签“{0}”", tag.DisplayName);
+            if (!_disposed && CurrentTag?.Name == tag.Name)
+                await RefreshTagContentsAsync();
         });
     }
 

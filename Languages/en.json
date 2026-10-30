@@ -5,6 +5,7 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "clipboard.files_unavailable": "Unable to read the clipboard files. Copy them again in Finder and retry.",
     "delivery.load_failed": "Unable to load staging: {0}",
     "delivery.staging": "Staging",
     "delivery.clear": "Clear Staging",

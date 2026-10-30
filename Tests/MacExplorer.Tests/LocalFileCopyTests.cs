@@ -244,7 +244,7 @@ public sealed class LocalFileCopyTests : IDisposable
         public ClipboardImageData? ReadExternalImage() => null;
         public ClipboardEntry? GetClipboardEntry() => _entry;
         public void CopyFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Copy };
-        public void CutFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut };
+        public void CutFiles(string[] paths, FileTag? sourceTag = null) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut, SourceTag = sourceTag };
         public void Clear() => _entry = null;
         public Task CopyTextAsync(string text) => Task.CompletedTask;
         public Task PasteFilesAsync(string targetDirectory) => throw new NotSupportedException();

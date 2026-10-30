@@ -73,6 +73,16 @@ MACEXPLORER_WINDOW_OPEN_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 
 `constructMs` 是构造耗时，`showMs` 包括构造和同步显示，`commitMs` 记录首轮合成提交在渲染线程应用后的时间，不等同于显示器实际呈现时间。首次与再次打开分别记录，不以单机毫秒阈值作为跨机器单元测试断言；配合保留四周外沿的原生录屏，检查没有白边或中心扩散。浅／深色和窄窗口通过 UI 检查补充覆盖。
 
+## 标签与剪贴板原生验证
+
+```bash
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_TAG_CLIPBOARD_SMOKE=1 bash Tools/Testing/run-isolated.sh \
+  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+该入口仅在 Debug 隔离实例中运行，检查标签间复制／剪切、真实子目录复制／移动、取消副本标签，以及外部进程写入的多文件 Finder 引用 URL。使用独立命名剪贴板，报告与窗口截图保存到测试目录的 `tag-clipboard/`，结束后退出。自动回归使用 `fast`、`ui --area UnifiedTagInteraction --area Localization` 和 `integration --area UnifiedFileTag --area Clipboard --area FileDrop`。
+
 ## 后台任务圆环原生验证
 
 使用新构建的 Debug 应用及独立配置执行，合成任务仅用于验证显示，不操作用户文件：

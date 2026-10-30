@@ -1186,9 +1186,11 @@ public abstract partial class FileListViewModelTestBase
         var index = new FakeFileIndex();
         var writer = new FakeFileIndexWriter();
         var fileOps = new FileOpsViewModel(
+            clipboardService: clipboardService,
             fileService: fileService,
             taskManager: backgroundTaskManager,
-            directoryChangeNotifier: directoryChangeNotifier);
+            directoryChangeNotifier: directoryChangeNotifier,
+            fileTagService: fileTagService);
 
         return new FileListViewModel(
             navigation,

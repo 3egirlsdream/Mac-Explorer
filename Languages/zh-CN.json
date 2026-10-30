@@ -4,6 +4,7 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "clipboard.files_unavailable": "无法读取剪贴板中的文件，请在 Finder 中重新复制后重试。",
     "delivery.load_failed": "加载暂存失败：{0}",
     "delivery.staging": "暂存",
     "delivery.clear": "清空暂存",

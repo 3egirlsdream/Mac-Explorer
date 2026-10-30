@@ -286,6 +286,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     // Tag state is encoded in the virtual path so back/forward history can restore it.
     public bool IsTagView => TagPathHelper.IsTagPath(_navigation.CurrentPath);
     public FileTag? CurrentTag => TagPathHelper.TryParse(_navigation.CurrentPath, out var tag) ? ResolveTag(tag) : null;
+    public string DeleteSelectionDescription => MacExplorer.Services.Impl.LocalizationText.Get(IsTagView ? "删除" : "ui.024");
     internal FileTag ResolveTag(FileTag tag) => _navigation.ResolveTag(tag);
 
     public ObservableCollection<PinnedFolder> PinnedFolders => _pinnedFolders.PinnedFolders;
@@ -470,6 +471,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CurrentLocationTitle));
         OnPropertyChanged(nameof(CurrentTag));
         OnPropertyChanged(nameof(StatusSummaryText));
+        OnPropertyChanged(nameof(DeleteSelectionDescription));
         foreach (var entry in Entries) entry.RefreshLocalizedText();
         RefreshLocationStatus();
     }
@@ -863,13 +865,34 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private int _tagsRefreshQueued;
     private bool _workspaceVisible = true;
     private bool _tagDirectoryRefreshPending;
+    private Task? _tagContentsRefreshTask;
+    private string? _tagContentsRefreshPath;
+
+    private Task RefreshTagContentsAsync()
+    {
+        if (!_workspaceVisible) { _tagDirectoryRefreshPending = true; return Task.CompletedTask; }
+        return HandleTagNavigationAsync(CurrentPath, false);
+    }
+
+    private async Task RefreshTagContentsCoreAsync(string path, bool recordHistory)
+    {
+        int version;
+        do
+        {
+            if (_disposed) return;
+            version = Volatile.Read(ref _tagsRefreshVersion);
+            await LoadTagContentsAsync(path, recordHistory);
+            recordHistory = false;
+        } while (IsTagView && CurrentPath == path && _workspaceVisible && !_directoryNotificationsPaused
+            && version != Volatile.Read(ref _tagsRefreshVersion));
+    }
 
     internal void SetWorkspaceVisible(bool visible)
     {
         _workspaceVisible = visible;
         if (!visible || !_tagDirectoryRefreshPending) return;
         _tagDirectoryRefreshPending = false;
-        if (!_disposed && IsTagView && !_directoryNotificationsPaused) _ = RefreshAsync();
+        if (!_disposed && IsTagView && !_directoryNotificationsPaused) _ = RefreshTagContentsAsync();
     }
 
     private void OnTagsChanged(object? sender, EventArgs e)
@@ -890,7 +913,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 await LoadSidebarTagsAsync();
                 if (IsTagView && !_directoryNotificationsPaused)
                 {
-                    if (_workspaceVisible) await RefreshAsync();
+                    if (_workspaceVisible) await RefreshTagContentsAsync();
                     else _tagDirectoryRefreshPending = true;
                 }
             }
@@ -1025,6 +1048,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             ReadErrorMessage = string.Empty;
             OnPropertyChanged(nameof(IsTagView));
             OnPropertyChanged(nameof(CurrentTag));
+            OnPropertyChanged(nameof(DeleteSelectionDescription));
         }
 
         if (e.PropertyName is nameof(NavigationViewModel.CurrentPath)
@@ -2210,7 +2234,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             ContextMenuActions = new ObservableCollection<ContextMenuAction>
             {
-                new() { Label = MacExplorer.Services.Impl.LocalizationText.Get("粘贴以添加标签"), IconSvg = Icons.Paste, IsEnabled = _clipboardService?.HasClipboardFiles == true || _clipboardService?.GetPasteKind() == ClipboardPasteKind.ExternalFiles, Execute = PasteAsync },
+                new() { Label = MacExplorer.Services.Impl.LocalizationText.Get("粘贴"), IconSvg = Icons.Paste, IsEnabled = _clipboardService?.GetPasteKind() is ClipboardPasteKind.InAppFiles or ClipboardPasteKind.ExternalFiles, Execute = PasteAsync },
                 new() { Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), IconSvg = Icons.Refresh, Execute = RefreshAsync }
             };
         }
@@ -2409,8 +2433,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             Execute = () =>
         {
             if (!_selectedEntriesSet.Contains(entry)) { ClearSelection(); SelectedEntries.Add(entry); }
-            ShowDeleteConfirmDialogCommand.Execute(null);
-            return Task.CompletedTask;
+            return RequestDeleteSelectedAsync();
         }
         });
 
@@ -2975,7 +2998,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
                     IsQuickAction = action.IsQuickAction,
-                    Execute = async () => { _fileOps.CutSelectedCommand.Execute(NormalizeTreeOperationEntries(SelectedEntries)); await Task.CompletedTask; }
+                    Execute = () => { CutSelected(); return Task.CompletedTask; }
                 });
             }
             else if (action.Label == "粘贴")
@@ -2991,11 +3014,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     Execute = () => PasteCommand.ExecuteAsync(null)
                 });
             }
-            else if (action.Label == "删除")
+            else if (action.ShortcutId == ShortcutIds.Trash || action.Label == "删除")
             {
                 result.Add(new ContextMenuAction
                 {
-                    Label = action.Label,
+                    Label = MacExplorer.Services.Impl.LocalizationText.Get("删除"),
                     IconSvg = action.IconSvg,
                     ShortcutId = action.ShortcutId,
                     ShortcutText = action.ShortcutText,
@@ -3007,8 +3030,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                             SelectedEntries.Clear();
                             SelectedEntries.Add(entry);
                         }
-                        ShowDeleteConfirmDialogCommand.Execute(null);
-                        return Task.CompletedTask;
+                        return RequestDeleteSelectedAsync();
                     }
                 });
             }
@@ -3333,7 +3355,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (IsBrowseOnly) return;
         if (SelectedEntries.Count == 0) return;
         var entries = NormalizeTreeOperationEntries(SelectedEntries);
-        _fileOps.CutSelectedCommand.Execute(entries);
+        _fileOps.CutSelectedFromTag(entries, CurrentTag);
         StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已剪切 {0} 项", entries.Count);
     }
 
@@ -3362,9 +3384,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             var tagPasteKind = _clipboardService.GetPasteKind();
             if (tagPasteKind is ClipboardPasteKind.None or ClipboardPasteKind.Image) return;
-            if (tagPasteKind == ClipboardPasteKind.ExternalFiles && !_clipboardService.TryAdoptExternalFiles()) return;
+            if (tagPasteKind == ClipboardPasteKind.ExternalFiles && !_clipboardService.TryAdoptExternalFiles())
+            {
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("clipboard.files_unavailable");
+                return;
+            }
             var clipboard = _clipboardService.GetClipboardEntry();
-            if (clipboard is { IsEmpty: false }) await SetFileTagAsync(clipboard.SourcePaths.ToArray(), tag, true);
+            if (clipboard is { IsEmpty: false }) await PasteFilesIntoTagAsync(clipboard, tag);
             return;
         }
 
@@ -3379,7 +3405,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (kind == ClipboardPasteKind.ExternalFiles && !_clipboardService.TryAdoptExternalFiles()) return;
+        if (kind == ClipboardPasteKind.ExternalFiles && !_clipboardService.TryAdoptExternalFiles())
+        {
+            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("clipboard.files_unavailable");
+            return;
+        }
         if (!_clipboardService.HasClipboardFiles) return;
 
         try
@@ -3522,6 +3552,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var entries = NormalizeTreeOperationEntries(SelectedEntries.Where(entry => !entry.IsVirtual)).ToArray();
         if (entries.Length == 0) return;
         IsContextMenuVisible = false;
+        if (CurrentTag is { } tag)
+        {
+            _deleteInProgress = true;
+            try { await SetFileTagAsync(entries.Select(entry => entry.FullPath).ToArray(), tag, false); }
+            finally { _deleteInProgress = false; }
+            return;
+        }
         // SFTP ignores moveToTrash and deletes permanently. Never let a preference
         // intended for recoverable local Trash operations silence that warning.
         if (!ConfirmBeforeTrash && !IsTrashActive && !entries.Any(entry => VirtualPath.IsRemotePath(entry.FullPath)))
@@ -4140,7 +4177,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public Task NavigateToTagAsync(FileTag tag) => NavigateToAsync(tag.VirtualPath);
 
-    private async Task HandleTagNavigationAsync(string sentinelPath, bool recordHistory = true)
+    private Task HandleTagNavigationAsync(string sentinelPath, bool recordHistory = true)
+    {
+        if (!recordHistory && _tagContentsRefreshPath == sentinelPath && _tagContentsRefreshTask is { IsCompleted: false })
+            return _tagContentsRefreshTask;
+        _tagContentsRefreshPath = sentinelPath;
+        return _tagContentsRefreshTask = RefreshTagContentsCoreAsync(sentinelPath, recordHistory);
+    }
+
+    private async Task LoadTagContentsAsync(string sentinelPath, bool recordHistory)
     {
         if (_fileTagService == null || !TagPathHelper.TryParse(sentinelPath, out var tag))
         {

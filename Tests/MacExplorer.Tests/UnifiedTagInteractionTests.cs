@@ -111,7 +111,7 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
             await vm.PasteAsync();
             Assert.Equal(0, files.MoveCalls);
             Assert.Equal(0, files.CopyCalls);
-            Assert.True(clipboard.HasClipboardFiles);
+            Assert.False(clipboard.HasClipboardFiles);
             Assert.Equal(2, (await tags.FindFilePathsAsync(tag)).Count);
             Assert.Equal("same", await File.ReadAllTextAsync(path));
 
@@ -248,13 +248,19 @@ public abstract partial class FileListViewModelTestBase
     {
         private ClipboardEntry? _entry;
         public ClipboardPasteKind PasteKindOverride { get; set; } = ClipboardPasteKind.None;
+        public string[] ExternalPaths { get; set; } = [];
         public bool HasClipboardFiles => _entry != null;
         public bool HasPasteableContent => HasClipboardFiles || PasteKindOverride != ClipboardPasteKind.None;
         public ClipboardPasteKind GetPasteKind() => HasClipboardFiles ? ClipboardPasteKind.InAppFiles : PasteKindOverride;
-        public bool TryAdoptExternalFiles() => false;
+        public bool TryAdoptExternalFiles()
+        {
+            if (ExternalPaths.Length == 0) return false;
+            CopyFiles(ExternalPaths);
+            return true;
+        }
         public ClipboardImageData? ReadExternalImage() => null;
         public void CopyFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Copy };
-        public void CutFiles(string[] paths) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut };
+        public void CutFiles(string[] paths, FileTag? sourceTag = null) => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut, SourceTag = sourceTag };
         public Task CopyTextAsync(string text) => Task.CompletedTask;
         public Task PasteFilesAsync(string targetDirectory) => throw new InvalidOperationException("Tag paste must not copy files");
         public ClipboardEntry? GetClipboardEntry() => _entry;

@@ -24,6 +24,7 @@ public interface IFileTagService
         return new(await GetSidebarTagsAsync(cancellationToken), membership);
     }
     Task<TagSyncResult> SetTagAsync(IReadOnlyList<string> filePaths, FileTag tag, bool applied, CancellationToken cancellationToken = default);
+    Task<TagSyncResult> MoveTagMembershipAsync(IReadOnlyList<string> filePaths, FileTag sourceTag, FileTag targetTag, CancellationToken cancellationToken = default);
     Task<TagSyncResult> RetryPendingAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<FileTag>> GetSidebarTagsAsync(CancellationToken cancellationToken = default);

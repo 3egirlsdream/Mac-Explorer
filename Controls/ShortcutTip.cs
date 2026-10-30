@@ -32,6 +32,7 @@ public sealed class ShortcutTip : AvaloniaObject
             _control = control;
             control.AttachedToVisualTree += Attach;
             control.DetachedFromVisualTree += Detach;
+            control.PropertyChanged += OnPropertyChanged;
             Update();
             if (control.IsAttachedToVisualTree()) Attach(null, null!);
         }
@@ -55,11 +56,16 @@ public sealed class ShortcutTip : AvaloniaObject
             var label = AutomationProperties.GetName(_control);
             ToolTip.SetTip(_control, $"{(string.IsNullOrEmpty(label) ? service.Definitions.First(d => d.Id == id).Name : label)} {service.GetDisplay(id)}");
         }
+        private void OnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == AutomationProperties.NameProperty) Update();
+        }
         public void Dispose()
         {
             Detach(null, null!);
             _control.AttachedToVisualTree -= Attach;
             _control.DetachedFromVisualTree -= Detach;
+            _control.PropertyChanged -= OnPropertyChanged;
         }
     }
 }

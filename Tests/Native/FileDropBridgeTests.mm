@@ -90,6 +90,31 @@ int main(int argc, char **argv) {
         CHECK(scoped.stops == 1 && ordinary.stops == 0);
         CHECK(me_file_drop_begin_access() == nullptr);
         NSPasteboard *board = [NSPasteboard pasteboardWithUniqueName];
+        CHECK(!MEPasteboardHasFiles(board));
+        NSString *clipboardFile = [root stringByAppendingPathComponent:@"Finder 中文 file #.txt"];
+        NSString *secondClipboardFile = [root stringByAppendingPathComponent:@"second clipboard.txt"];
+        CHECK([@"original" writeToFile:clipboardFile atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+        CHECK([@"second" writeToFile:secondClipboardFile atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+        NSURL *reference = [NSURL fileURLWithPath:clipboardFile].fileReferenceURL;
+        CHECK(reference.isFileReferenceURL);
+        NSPasteboardItem *referenceItem = [NSPasteboardItem new];
+        [referenceItem setString:reference.absoluteString forType:NSPasteboardTypeFileURL];
+        NSPasteboardItem *secondItem = [NSPasteboardItem new];
+        [secondItem setString:[NSURL fileURLWithPath:secondClipboardFile].absoluteString forType:NSPasteboardTypeFileURL];
+        CHECK(([board writeObjects:@[referenceItem, secondItem]]));
+        CHECK(MEPasteboardHasFiles(board));
+        NSArray *expectedClipboardPaths = @[reference.filePathURL.path.stringByStandardizingPath, secondClipboardFile.stringByStandardizingPath];
+        CHECK([MEReadDroppedPaths(board) isEqualToArray:expectedClipboardPaths]);
+        char *clipboardJSON = MECopyPasteboardPaths(board);
+        CHECK(clipboardJSON != nullptr);
+        NSArray *decodedPaths = [NSJSONSerialization JSONObjectWithData:[[NSString stringWithUTF8String:clipboardJSON] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+        CHECK([decodedPaths isEqualToArray:expectedClipboardPaths]);
+        me_clipboard_free_paths(clipboardJSON);
+        CHECK(me_file_drop_copy_paths() == nullptr);
+        [board clearContents];
+        [board setString:@"https://example.com" forType:@"Apple URL pasteboard type"];
+        CHECK(!MEPasteboardHasFiles(board));
+        [board clearContents];
         CHECK(MEDropKind(board) == 0);
         CHECK(!MEReceiveDrop(board, root, nullptr, Completed));
         CHECK(!MEReceiveDrop(board, @"relative", nullptr, Completed));
@@ -98,6 +123,7 @@ int main(int argc, char **argv) {
         memset(pixels.bitmapData, 255, 16);
         NSData *png = [pixels representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
         [board setData:png forType:NSPasteboardTypePNG];
+        CHECK(!MEPasteboardHasFiles(board));
         CHECK(MEDropKind(board) == 2);
         CHECK(me_file_drop_kind() == 0); // No access to a stale drag/general clipboard.
         AvnView *view = [AvnView new];
@@ -135,6 +161,7 @@ int main(int argc, char **argv) {
         [board setString:@"# Qt URI list\r\nfile:///tmp/%E5%9B%BE%E7%89%87%20test.png\r\nhttps://example.com/a\r\nfile:///tmp/second.txt"
             forType:@"com.trolltech.anymime.text--uri-list"];
         CHECK(([MEReadDroppedPaths(board) isEqualToArray:@[@"/tmp/图片 test.png", @"/tmp/second.txt"]]));
+        CHECK(MEPasteboardHasFiles(board));
         CHECK(me_file_drop_copy_paths() == nullptr); // No stale pasteboard outside native event routing.
         // Legacy promise format takes precedence over any thumbnail.
         [board setPropertyList:@[@"png"] forType:NSFilesPromisePboardType];

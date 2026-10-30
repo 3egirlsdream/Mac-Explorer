@@ -5,6 +5,7 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "clipboard.files_unavailable": "Impossible de lire les fichiers du presse-papiers. Copiez-les à nouveau dans le Finder, puis réessayez.",
     "delivery.load_failed": "Impossible de charger le dépôt : {0}",
     "delivery.staging": "Dépôt temporaire",
     "delivery.clear": "Vider le dépôt",
