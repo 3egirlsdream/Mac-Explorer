@@ -1,35 +1,150 @@
-[
-  {
-    "file": "circuit.svg",
-    "source": "https://qqpatch.gtimg.cn/template_theme/texture/1002.svg",
-    "sha256": "6a95605e8c7217ac650988f802dc035a9906c850bcede9f8edd706771355c43b",
-    "originalSettings": {
-      "url": "https://qqpatch.gtimg.cn/template_theme/texture/1002.svg",
-      "opaque": 0.2,
-      "layout": 0,
-      "blendMode": 1
+{
+  "referenceCollection": "User-supplied QQ背景素材-20261030/原始背景纹理",
+  "rights": "QQ reference derivatives for this development branch; no new stock/public-domain license is claimed.",
+  "presets": [
+    {
+      "id": "cyber-circuit",
+      "title": "幻彩机核",
+      "file": "cyber-circuit.svg",
+      "reference": "幻彩机核.svg",
+      "referenceSha256": "6a95605e8c7217ac650988f802dc035a9906c850bcede9f8edd706771355c43b",
+      "sha256": "95d10c5ee4dcd58fe7a4da43cfe420024b53f5e71c77b9d5d99a87cec00f04ed",
+      "width": 1950,
+      "height": 650,
+      "cellWidth": 650,
+      "cellHeight": 650,
+      "cells": 3,
+      "mirrored": false,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "cyber-hud",
+      "title": "深空矩阵",
+      "file": "cyber-hud.svg",
+      "reference": "幻彩机核.svg",
+      "referenceSha256": "6a95605e8c7217ac650988f802dc035a9906c850bcede9f8edd706771355c43b",
+      "sha256": "7bfdd371f02bf486c5dd1ff3981e1c33ca4b5fcd1563a768c0fedd6eae9376b7",
+      "width": 1950,
+      "height": 650,
+      "cellWidth": 650,
+      "cellHeight": 650,
+      "cells": 3,
+      "mirrored": false,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "cyber-city",
+      "title": "霓虹脉冲",
+      "file": "cyber-city.svg",
+      "reference": "幻彩机核.svg",
+      "referenceSha256": "6a95605e8c7217ac650988f802dc035a9906c850bcede9f8edd706771355c43b",
+      "sha256": "54cf1d29ac2bb5a878704cf50ccb9fd692c95f3d8e70c205becddfb266e028b1",
+      "width": 1950,
+      "height": 650,
+      "cellWidth": 650,
+      "cellHeight": 650,
+      "cells": 3,
+      "mirrored": false,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "nature-willow",
+      "title": "夏绿成荫",
+      "file": "nature-willow.svg",
+      "reference": "精品尝鲜/夏绿成荫-浅色.png",
+      "referenceSha256": "6b05e54c8965a4e11541bdf5e0cc66ad93a890592b9a63beb97281c922a7fc86",
+      "sha256": "3cb23a42070dcd57efc2853615d618f2657720d3801b69901cbd32b593d29c49",
+      "width": 2640.9344845099035,
+      "height": 650,
+      "cellWidth": 660.2336211274759,
+      "cellHeight": 650,
+      "cells": 4,
+      "mirrored": true,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "nature-marigold",
+      "title": "妙手生春",
+      "file": "nature-marigold.svg",
+      "reference": "精品尝鲜/妙手生春-浅色.png",
+      "referenceSha256": "510dcafe1a67c83149b126f8c5f2cb6ba5ce5a0057fc38a50f767bd9eb5d16d3",
+      "sha256": "9a7df1735aaf56124e93159315cbabcbb4433c5e1b4adbc3c3ba7d8cf0c7f471",
+      "width": 2640.9344845099035,
+      "height": 650,
+      "cellWidth": 660.2336211274759,
+      "cellHeight": 650,
+      "cells": 4,
+      "mirrored": true,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "nature-trellis",
+      "title": "花语涂鸦",
+      "file": "nature-trellis.svg",
+      "reference": "神秘美学.svg",
+      "referenceSha256": "5c60087c246be1ba5bd22e0777f7dcef059e4e321b79272fef01a007dd817f4a",
+      "sha256": "8e196e73a3c89b7ff3c65854821c371dd10bf8d3381b3ed037877e93fb89cb60",
+      "width": 1950,
+      "height": 650,
+      "cellWidth": 650,
+      "cellHeight": 650,
+      "cells": 3,
+      "mirrored": false,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "animal-dragon",
+      "title": "龙行绚烂",
+      "file": "animal-dragon.svg",
+      "reference": "精品尝鲜/龙行绚烂-浅色.png",
+      "referenceSha256": "14d815ed5bb1e21a86455eeb4a15291e11ceed35a73ef72e7d4cc132fff2c0d6",
+      "sha256": "19c77069144f9d2d4e44b8f80ceb7cffaa270d181d7a6611a2ca47989fb1adda",
+      "width": 2639.5939086294416,
+      "height": 650,
+      "cellWidth": 659.8984771573604,
+      "cellHeight": 650,
+      "cells": 4,
+      "mirrored": true,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "animal-rabbit",
+      "title": "灵动玉兔",
+      "file": "animal-rabbit.svg",
+      "reference": "缤纷时刻.svg",
+      "referenceSha256": "3975054ad23a903a6e0823bdc388ad93c1dfffe5151d221af4f8b0f9454fce3e",
+      "sha256": "d48d8a49cde0c6dd60c0a29feb7ba13ec40671fb2951c7845113c8736a0df1d8",
+      "width": 2600,
+      "height": 650,
+      "cellWidth": 650,
+      "cellHeight": 650,
+      "cells": 4,
+      "mirrored": true,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
+    },
+    {
+      "id": "animal-panda",
+      "title": "熊猫漫游",
+      "file": "animal-panda.svg",
+      "reference": "缤纷时刻.svg",
+      "referenceSha256": "3975054ad23a903a6e0823bdc388ad93c1dfffe5151d221af4f8b0f9454fce3e",
+      "sha256": "20111ad3aa4ecec3e5c67ac863a5e319f811456fe8f32924835d824fa46d8519",
+      "width": 2600,
+      "height": 650,
+      "cellWidth": 650,
+      "cellHeight": 650,
+      "cells": 4,
+      "mirrored": true,
+      "format": "SVG paths only; no embedded raster",
+      "modifications": "Original composition and aspect ratio retained. PNG references traced with per-path alpha and paired mirror cells; vector references recolored, with face substitutions for rabbit/panda. Same-scale cells form the wide texture."
     }
-  },
-  {
-    "file": "confetti.svg",
-    "source": "https://qqpatch.gtimg.cn/template_theme/texture/1001.svg",
-    "sha256": "3975054ad23a903a6e0823bdc388ad93c1dfffe5151d221af4f8b0f9454fce3e",
-    "originalSettings": {
-      "url": "https://qqpatch.gtimg.cn/template_theme/texture/1001.svg",
-      "opaque": 0.2,
-      "layout": 0,
-      "blendMode": 1
-    }
-  },
-  {
-    "file": "dunhuang.png",
-    "source": "https://qqpatch.gtimg.cn/static_theme/dunhuang/1.png",
-    "sha256": "2753e5fbdb0878bae5a9bea1969a36d0781bd2c5622b5a8590e8c45c4449d34e",
-    "originalSettings": {
-      "url": "https://qqpatch.gtimg.cn/static_theme/dunhuang/1.png",
-      "opaque": 1,
-      "layout": 1,
-      "blendMode": 0
-    }
-  }
-]
+  ]
+}

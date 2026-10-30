@@ -38,9 +38,10 @@ internal sealed class BackgroundThemeComposition(Bitmap image, Bitmap frosted, C
 
     internal static Color[] CreateTitleColors(SKBitmap composed, BackgroundThemeOptions options, bool dark, CancellationToken token)
     {
-        // Presets use their palette without texture. Photos contribute broad color averages, never details.
-        using var palette = BackgroundThemePresets.Find(options.PresetId) == null
-            ? null : Render(null, options, 16, 16, dark, token);
+        // Full-color artwork and photos supply broad color averages, never image details.
+        // Layered overlay textures can still use their independent palette.
+        using var palette = BackgroundThemePresets.Find(options.PresetId)?.Blend == BackgroundTextureBlend.Overlay
+            ? Render(null, options, 16, 16, dark, token) : null;
         var colors = new Color[3];
         for (var band = 0; band < colors.Length; band++)
         {

@@ -12,13 +12,18 @@ public sealed record BackgroundThemeOptions
     public int Strength { get; init; } = 40;
     public int TextureStrength { get; init; } = 20;
 
-    public BackgroundThemeOptions Normalize() => this with
+    public BackgroundThemeOptions Normalize()
     {
-        ImageFile = Path.GetFileName(ImageFile ?? ""),
-        DisplayName = Path.GetFileName(DisplayName ?? ""),
-        PresetId = PresetId ?? "",
-        Layout = Enum.IsDefined(Layout) ? Layout : BackgroundImageLayout.HeightTile,
-        Strength = Math.Clamp(Strength, 0, 100),
-        TextureStrength = Math.Clamp(TextureStrength, 0, 100)
-    };
+        var id = BackgroundThemePresets.MigrateId(PresetId ?? "");
+        return this with
+        {
+            ImageFile = Path.GetFileName(ImageFile ?? ""),
+            DisplayName = Path.GetFileName(DisplayName ?? ""),
+            PresetId = id,
+            Layout = Enum.IsDefined(Layout) ? Layout : BackgroundImageLayout.HeightTile,
+            Strength = Math.Clamp(Strength, 0, 100),
+            TextureStrength = Math.Clamp(id != PresetId && BackgroundThemePresets.Find(id) is { } preset
+                ? preset.TextureStrength : TextureStrength, 0, 100)
+        };
+    }
 }

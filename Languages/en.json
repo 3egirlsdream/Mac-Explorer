@@ -6,15 +6,19 @@
   "fallback": "zh-CN",
   "strings": {
     "background.preset": "Theme",
+    "background.family.cyber": "Cyberpunk",
+    "background.family.nature": "Nature",
+    "background.family.animal": "Animals",
+    "background.preset.circuit": "Prismatic Core",
+    "background.preset.hud": "Orbital Matrix",
+    "background.preset.city": "Neon Pulse",
+    "background.preset.dragon": "Radiant Dragon",
+    "background.preset.rabbit": "Playful Rabbits",
+    "background.preset.panda": "Panda Ramble",
     "background.custom": "Custom image",
     "background.texture_strength": "Pattern strength",
     "background.texture_layout": "Pattern layout",
     "background.preset_failed": "Unable to load the theme. Try again.",
-    "background.preset.pink_city": "Pink City",
-    "background.preset.neon": "Neon Lights",
-    "background.preset.taro": "Taro Bubbles",
-    "background.preset.dunhuang": "Dunhuang Fresco",
-    "background.preset.ink_blue": "Sky Blue",
     "background.title": "Background theme",
     "background.choose": "Choose image…",
     "background.reset": "Reset",
@@ -1377,6 +1381,9 @@
     "请选择包含“{0}”的文件夹。": "Choose a folder that contains “{0}”.",
     "未能启用文件夹授权，请重新选择包含此附件的文件夹。": "Could not enable folder access. Choose the folder containing this attachment again.",
     "本次授权已启用，但无法记住此文件夹：{0}": "Access is enabled for this session, but the folder could not be remembered: {0}",
-    "无法继续保存拖入的文件。": "Could not continue saving the dropped file."
+    "无法继续保存拖入的文件。": "Could not continue saving the dropped file.",
+    "background.preset.willow": "Summer Canopy",
+    "background.preset.marigold": "Spring Ribbons",
+    "background.preset.trellis": "Botanical Doodles"
   }
 }

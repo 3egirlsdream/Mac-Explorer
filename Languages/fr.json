@@ -6,15 +6,19 @@
   "fallback": "en",
   "strings": {
     "background.preset": "Thème",
+    "background.family.cyber": "Cyberpunk",
+    "background.family.nature": "Nature",
+    "background.family.animal": "Animaux",
+    "background.preset.circuit": "Cœur irisé",
+    "background.preset.hud": "Matrice orbitale",
+    "background.preset.city": "Pulsation néon",
+    "background.preset.dragon": "Dragon flamboyant",
+    "background.preset.rabbit": "Lapins espiègles",
+    "background.preset.panda": "Balade des pandas",
     "background.custom": "Image personnalisée",
     "background.texture_strength": "Intensité du motif",
     "background.texture_layout": "Disposition du motif",
     "background.preset_failed": "Impossible de charger le thème. Réessayez.",
-    "background.preset.pink_city": "Ville rose",
-    "background.preset.neon": "Lumières néon",
-    "background.preset.taro": "Bulles de taro",
-    "background.preset.dunhuang": "Fresque de Dunhuang",
-    "background.preset.ink_blue": "Bleu céleste",
     "background.title": "Thème de fond",
     "background.choose": "Choisir…",
     "background.reset": "Réinitialiser",
@@ -1377,6 +1381,9 @@
     "请选择包含“{0}”的文件夹。": "Choisissez un dossier contenant « {0} ».",
     "未能启用文件夹授权，请重新选择包含此附件的文件夹。": "Impossible d’activer l’accès au dossier. Sélectionnez à nouveau le dossier contenant cette pièce jointe.",
     "本次授权已启用，但无法记住此文件夹：{0}": "L’accès est autorisé pour cette session, mais le dossier n’a pas pu être mémorisé : {0}",
-    "无法继续保存拖入的文件。": "Impossible de poursuivre l’enregistrement du fichier déposé."
+    "无法继续保存拖入的文件。": "Impossible de poursuivre l’enregistrement du fichier déposé.",
+    "background.preset.willow": "Feuillage d’été",
+    "background.preset.marigold": "Rubans printaniers",
+    "background.preset.trellis": "Gribouillis fleuris"
   }
 }

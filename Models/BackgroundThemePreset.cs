@@ -2,24 +2,42 @@ namespace MacExplorer.Models;
 
 public enum BackgroundTextureBlend { Normal, Overlay }
 
-public sealed record BackgroundThemePreset(string Id, string NameKey, string? TextureAsset,
+public sealed record BackgroundThemePreset(string Id, string FamilyKey, string NameKey, string? TextureAsset,
     int TextureStrength, BackgroundTextureBlend Blend, string[] LightColors, string[] DarkColors);
 
 public static class BackgroundThemePresets
 {
-    // Palette adaptations and source provenance are documented beside the original textures.
+    // Wide, horizontally periodic SVG textures over a window-wide color palette.
     public static IReadOnlyList<BackgroundThemePreset> All { get; } = Array.AsReadOnly<BackgroundThemePreset>([
-        new("qq-circuit-pink", "background.preset.pink_city", "circuit.svg", 20, BackgroundTextureBlend.Overlay,
-            ["#E8BAC3", "#F1C39F", "#D7ACF8", "#D7ACF8"], ["#644054", "#705039", "#57387B", "#57387B"]),
-        new("qq-circuit-neon", "background.preset.neon", "circuit.svg", 20, BackgroundTextureBlend.Overlay,
-            ["#E4B6F7", "#F7B2F5", "#B9BDFA", "#C2BBFA"], ["#603A77", "#713774", "#3B417A", "#444079"]),
-        new("qq-confetti-taro", "background.preset.taro", "confetti.svg", 20, BackgroundTextureBlend.Normal,
-            ["#FFE1DB", "#FFE0D4", "#CBC5FE", "#E2DFFE"], ["#6D5558", "#6D554F", "#494574", "#5A5873"]),
-        new("qq-dunhuang-red", "background.preset.dunhuang", "dunhuang.png", 100, BackgroundTextureBlend.Normal,
-            ["#CDBCA5", "#CBB79F", "#EAECDD", "#CFC9BF"], ["#99A4865B", "#99A07B55", "#99D8DFBD", "#99A89D8A"]),
-        new("qq-ink-blue", "background.preset.ink_blue", null, 0, BackgroundTextureBlend.Normal,
-            ["#DCEBF0", "#C9E0EA", "#EDF4F6", "#D7E9EF"], ["#293E47", "#294550", "#25373F", "#304A54"])
+        new("cyber-circuit", "background.family.cyber", "background.preset.circuit", "cyber-circuit.svg", 35, BackgroundTextureBlend.Normal,
+            ["#E7E6F6", "#DDEFF4", "#DFEAF7", "#DFEFEB"], ["#161423", "#101D29", "#111D2B", "#122325"]),
+        new("cyber-hud", "background.family.cyber", "background.preset.hud", "cyber-hud.svg", 35, BackgroundTextureBlend.Normal,
+            ["#E1EAF5", "#E1F2F1", "#E4E5F3", "#DEEDF5"], ["#111C2A", "#102124", "#1C192C", "#14202C"]),
+        new("cyber-city", "background.family.cyber", "background.preset.city", "cyber-city.svg", 35, BackgroundTextureBlend.Normal,
+            ["#EDE1F0", "#E3E5F7", "#EADFF0", "#DFECF3"], ["#221529", "#18182A", "#21172B", "#11202A"]),
+        new("nature-willow", "background.family.nature", "background.preset.willow", "nature-willow.svg", 35, BackgroundTextureBlend.Normal,
+            ["#E6EEDD", "#DDF0E7", "#DFEFE6", "#E8EFD9"], ["#192017", "#11241F", "#10231F", "#1B2014"]),
+        new("nature-marigold", "background.family.nature", "background.preset.marigold", "nature-marigold.svg", 35, BackgroundTextureBlend.Normal,
+            ["#F4E9DC", "#EAE0EF", "#ECE5DC", "#E6E3F1"], ["#221D19", "#21192A", "#1D211B", "#191A2B"]),
+        new("nature-trellis", "background.family.nature", "background.preset.trellis", "nature-trellis.svg", 35, BackgroundTextureBlend.Normal,
+            ["#E8E4F2", "#E2EDF0", "#E4EBDD", "#EEE3ED"], ["#1D1929", "#131F29", "#19231B", "#261B27"]),
+        new("animal-dragon", "background.family.animal", "background.preset.dragon", "animal-dragon.svg", 35, BackgroundTextureBlend.Normal,
+            ["#F7E6DA", "#F2E5DD", "#F1DFD9", "#F2E4EB"], ["#261C24", "#261920", "#201B2A", "#2A1D23"]),
+        new("animal-rabbit", "background.family.animal", "background.preset.rabbit", "animal-rabbit.svg", 35, BackgroundTextureBlend.Normal,
+            ["#E9E6F2", "#E3EDF4", "#E9E8F1", "#E7EFEB"], ["#1D1B2B", "#151F2C", "#211B2A", "#16231F"]),
+        new("animal-panda", "background.family.animal", "background.preset.panda", "animal-panda.svg", 35, BackgroundTextureBlend.Normal,
+            ["#E7EDDE", "#DFECE5", "#ECECDA", "#DDEBE5"], ["#1D2217", "#15251F", "#222218", "#14221D"])
     ]);
 
     public static BackgroundThemePreset? Find(string id) => All.FirstOrDefault(p => p.Id == id);
+
+    internal static string MigrateId(string id) => id switch
+    {
+        "qq-circuit-pink" => "cyber-circuit",
+        "qq-circuit-neon" => "cyber-hud",
+        "qq-confetti-taro" => "nature-marigold",
+        "qq-dunhuang-red" => "nature-trellis",
+        "qq-ink-blue" => "animal-panda",
+        _ => id
+    };
 }

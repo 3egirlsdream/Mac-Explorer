@@ -71,12 +71,12 @@ public partial class BackgroundThemeSettingsView : UserControl
             {
                 LayoutCombo.ItemsSource = new[] { LocalizationText.Get("background.height_tile"), LocalizationText.Get("background.cover") };
                 PresetCombo.ItemsSource = new[] { LocalizationText.Get("background.custom") }
-                    .Concat(BackgroundThemePresets.All.Select(p => LocalizationText.Get(p.NameKey))).ToArray();
+                    .Concat(BackgroundThemePresets.All.Select(PresetLabel)).ToArray();
                 _layoutLanguage = language;
             }
             PreviewImage.Source = _service?.GetPreview(ActualThemeVariant == ThemeVariant.Dark);
             PlaceholderIcon.IsVisible = PreviewImage.Source == null;
-            ImageName.Text = preset != null ? LocalizationText.Get(preset.NameKey)
+            ImageName.Text = preset != null ? PresetLabel(preset)
                 : options.DisplayName.Length > 0 ? options.DisplayName : LocalizationText.Get("background.none");
             ToolTip.SetTip(ImageName, ImageName.Text);
             EnabledToggle.IsChecked = options.Enabled;
@@ -102,6 +102,9 @@ public partial class BackgroundThemeSettingsView : UserControl
     }
 
     private void OptionsChanged(object? sender, RoutedEventArgs e) => SaveOptions();
+
+    private static string PresetLabel(BackgroundThemePreset preset) =>
+        $"{LocalizationText.Get(preset.FamilyKey)} · {LocalizationText.Get(preset.NameKey)}";
 
     private void SaveOptions()
     {

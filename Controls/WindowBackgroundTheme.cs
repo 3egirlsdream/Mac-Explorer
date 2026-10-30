@@ -21,7 +21,8 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
         ["WorkspaceContentBrush", "WorkspaceSurfaceBrush", "WorkspaceInfoBrush"];
     private static readonly string[] ChromeResources = ["TitleBarBackgroundBrush", "ViewModeToggleBg", "ViewModeToggleHoverBg",
         "ViewModeToggleSelectedBg", "WorkspacePreviewBrush", "WorkspaceControlHoverBrush", "WorkspaceControlPressedBrush", "WorkspaceControlSelectedBrush",
-        "WorkspaceControlBorderBrush", "WorkspaceDividerBrush", "WorkspaceInfoTagBrush", "WorkspacePreviewBadgeBrush", "WorkspacePreviewActionBrush"];
+        "WorkspaceControlBorderBrush", "WorkspaceDividerBrush", "WorkspaceInfoTagBrush", "WorkspacePreviewBadgeBrush", "WorkspacePreviewActionBrush",
+        "TextSecondaryBrush", "TextMutedBrush", "TextSubtleBrush"];
     private readonly AppWindow _window;
     private readonly BackgroundThemeService _service;
     private CancellationTokenSource? _renderCancellation;
@@ -101,6 +102,19 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
             GradientStops = new GradientStops { new(colors[0], 0), new(colors[1], 0.5), new(colors[2], 1) }
         };
         var dark = _window.ActualThemeVariant == ThemeVariant.Dark;
+        // Keep preset text readable at the default image strength; custom photo colors remain unchanged.
+        if (_service.Options.PresetId.Length > 0)
+        {
+            SetBrush("TextSecondaryBrush", dark ? "#E5EAF0" : "#303946");
+            SetBrush("TextMutedBrush", dark ? "#E5EAF0" : "#303946");
+            SetBrush("TextSubtleBrush", dark ? "#E5EAF0" : "#303946");
+        }
+        else
+        {
+            _window.Resources.Remove("TextSecondaryBrush");
+            _window.Resources.Remove("TextMutedBrush");
+            _window.Resources.Remove("TextSubtleBrush");
+        }
         SetBrush("ViewModeToggleBg", dark ? "#281B1D21" : "#28FFFFFF");
         SetBrush("ViewModeToggleHoverBg", dark ? "#28FFFFFF" : "#52FFFFFF");
         SetBrush("ViewModeToggleSelectedBg", dark ? "#42FFFFFF" : "#7AFFFFFF");

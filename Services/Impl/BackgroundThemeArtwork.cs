@@ -42,7 +42,9 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
         svg.Load(stream);
         if (svg.Picture is not { } picture || picture.CullRect.Width <= 0 || picture.CullRect.Height <= 0)
             throw new InvalidDataException();
-        var scale = 1600 / Math.Max(picture.CullRect.Width, picture.CullRect.Height);
+        // Wide vectors need enough vertical pixels for height-based scaling.
+        // Cap both dimensions: at most 4096 × 1280 (20 MiB), independent of the window.
+        var scale = Math.Min(4096 / picture.CullRect.Width, 1280 / picture.CullRect.Height);
         var bitmap = new SKBitmap(new SKImageInfo((int)Math.Ceiling(picture.CullRect.Width * scale),
             (int)Math.Ceiling(picture.CullRect.Height * scale), SKColorType.Bgra8888, SKAlphaType.Premul));
         using var canvas = new SKCanvas(bitmap);

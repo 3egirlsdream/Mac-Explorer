@@ -26,7 +26,7 @@
                 <Border Classes="settings-row settings-divider">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <TextBlock Classes="settings-label" Text="{loc:Loc background.preset}" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Column="1" x:Name="PresetCombo" Width="200" Classes="settings-inline-input"
+                        <ComboBox Grid.Column="1" x:Name="PresetCombo" Width="240" Classes="settings-inline-input"
                                   AutomationProperties.Name="{loc:Loc background.preset}" SelectionChanged="SelectPreset"/>
                     </Grid>
                 </Border>

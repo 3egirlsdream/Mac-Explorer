@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -14,6 +15,7 @@ using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
 using SkiaSharp;
+using System.Xml.Linq;
 using Xunit;
 
 namespace MacExplorer.Tests;
@@ -153,10 +155,10 @@ public sealed class BackgroundThemeTests
         using var fixture = new Fixture();
         await fixture.ImportAsync();
         var managed = fixture.Service.Options.ImageFile;
-        var first = fixture.Service.SelectPresetAsync("qq-circuit-pink");
-        var last = fixture.Service.SelectPresetAsync("qq-dunhuang-red");
+        var first = fixture.Service.SelectPresetAsync("cyber-circuit");
+        var last = fixture.Service.SelectPresetAsync("nature-trellis");
         await Task.WhenAll(first, last);
-        Assert.Equal("qq-dunhuang-red", fixture.Service.Options.PresetId);
+        Assert.Equal("nature-trellis", fixture.Service.Options.PresetId);
         Assert.True(File.Exists(Path.Combine(fixture.Root, managed)));
         fixture.Service.Update(true, BackgroundImageLayout.Cover, 73);
         Assert.Equal(73, fixture.Service.Options.TextureStrength);
@@ -173,28 +175,88 @@ public sealed class BackgroundThemeTests
     }
 
     [AvaloniaFact]
-    public async Task PackagedTexturesDecodeAndColorOnlyThemesDoNotRequireAnImage()
+    public async Task NineWideVectorPresetsHaveContinuousEdgesAndReadableLightAndDarkPalettes()
     {
         using var fixture = new Fixture();
+        Assert.Equal(9, BackgroundThemePresets.All.Count);
+        Assert.Equal(3, BackgroundThemePresets.All.Select(p => p.FamilyKey).Distinct().Count());
+        Assert.All(BackgroundThemePresets.All.GroupBy(p => p.FamilyKey), family => Assert.Equal(3, family.Count()));
         foreach (var preset in BackgroundThemePresets.All)
         {
+            Assert.Equal(BackgroundTextureBlend.Normal, preset.Blend);
+            Assert.EndsWith(".svg", preset.TextureAsset);
+            using (var stream = AssetLoader.Open(new Uri("avares://MacExplorer/Assets/BackgroundThemes/" + preset.TextureAsset)))
+            {
+                var svg = XDocument.Load(stream);
+                var bounds = svg.Root!.Attribute("viewBox")!.Value.Split(' ')
+                    .Select(value => double.Parse(value, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                Assert.Equal(650, bounds[3]);
+                Assert.InRange(bounds[2] / bounds[3], 3, 4.1);
+                Assert.DoesNotContain(svg.Descendants(), node => node.Name.LocalName == "image");
+            }
             await fixture.Service.SelectPresetAsync(preset.Id);
             Assert.True(fixture.Service.IsActive);
             using var artwork = fixture.Service.AcquireArtwork()!;
-            Assert.Equal(preset.TextureAsset == null, artwork.Texture == null);
-            if (artwork.Texture != null) Assert.InRange(Math.Max(artwork.Texture.Width, artwork.Texture.Height), 1, 2048);
+            Assert.NotNull(artwork.Texture);
+            Assert.InRange(artwork.Texture.Width, 1, 4096);
+            Assert.InRange(artwork.Texture.Height, 1, 1280);
+            Assert.InRange((double)artwork.Texture.Width / artwork.Texture.Height, 3, 4.1);
+            // Inspect the SVG's actual decoded boundary pixels on a white base.
+            // This also catches alpha discontinuities without allocating two full tiles.
+            {
+                double seamDifference = 0;
+                for (var y = 0; y < artwork.Texture.Height; y++)
+                {
+                    var a = OverWhite(artwork.Texture.GetPixel(artwork.Texture.Width - 1, y));
+                    var b = OverWhite(artwork.Texture.GetPixel(0, y));
+                    seamDifference += (Math.Abs(a.Red - b.Red) + Math.Abs(a.Green - b.Green) + Math.Abs(a.Blue - b.Blue)) / 3d;
+                }
+                Assert.True(seamDifference / artwork.Texture.Height < 5, $"{preset.Id}: visible seam {seamDifference / artwork.Texture.Height:F2}");
+            }
             foreach (var dark in new[] { false, true })
             {
                 using var frame = BackgroundThemeComposition.Render(artwork.Texture, fixture.Service.Options, 480, 300, dark, CancellationToken.None);
                 Assert.Equal(255, frame.GetPixel(100, 100).Alpha);
+                var text = Luminance(SKColor.Parse(dark ? "#E5EAF0" : "#303946"));
+                for (var y = 0; y < frame.Height; y += 3)
+                    for (var x = 0; x < frame.Width; x += 3)
+                    {
+                        var background = Luminance(frame.GetPixel(x, y));
+                        var contrast = (Math.Max(text, background) + .05) / (Math.Min(text, background) + .05);
+                        Assert.True(contrast >= 4.5, $"{preset.Id} ({dark}): contrast {contrast:F2} at {x},{y}");
+                    }
             }
+        }
+
+        static SKColor OverWhite(SKColor color) => new(
+            (byte)(255 - color.Alpha + color.Red * color.Alpha / 255),
+            (byte)(255 - color.Alpha + color.Green * color.Alpha / 255),
+            (byte)(255 - color.Alpha + color.Blue * color.Alpha / 255));
+
+        static double Luminance(SKColor color)
+        {
+            static double Linear(byte c) => c / 255d <= .04045 ? c / 255d / 12.92 : Math.Pow((c / 255d + .055) / 1.055, 2.4);
+            return .2126 * Linear(color.Red) + .7152 * Linear(color.Green) + .0722 * Linear(color.Blue);
+        }
+    }
+
+    [AvaloniaFact]
+    public void FullStrengthPresetsPreserveSourcePixels()
+    {
+        using var source = new SKBitmap(8, 8);
+        source.Erase(new SKColor(36, 125, 213));
+        foreach (var preset in BackgroundThemePresets.All)
+        {
+            using var frame = BackgroundThemeComposition.Render(source,
+                new() { PresetId = preset.Id, TextureStrength = 100 }, 8, 8, false, CancellationToken.None);
+            Assert.Equal(source.GetPixel(4, 4), frame.GetPixel(4, 4));
         }
     }
 
     [AvaloniaFact]
     public void PaletteSpansTheWindowAndTextureStrengthDoesNotDimItsColors()
     {
-        var options = new BackgroundThemeOptions { PresetId = "qq-circuit-neon", TextureStrength = 0 };
+        var options = new BackgroundThemeOptions { PresetId = "cyber-hud", TextureStrength = 0 };
         using var texture = new SKBitmap(8, 8);
         texture.Erase(SKColors.White);
         using var narrow = BackgroundThemeComposition.Render(texture, options, 400, 100, false, CancellationToken.None);
@@ -226,14 +288,16 @@ public sealed class BackgroundThemeTests
         {
             view.FindControl<ComboBox>("PresetCombo")!.SelectedIndex = 1;
             for (var i = 0; fixture.Service.Options.PresetId.Length == 0 && i < 100; i++) await Task.Delay(10);
-            Assert.Equal("qq-circuit-pink", fixture.Service.Options.PresetId);
+            Assert.Equal("cyber-circuit", fixture.Service.Options.PresetId);
             view.FindControl<Slider>("StrengthSlider")!.Value = 35;
             localization.SetLanguage("fr");
             Assert.Equal(35, fixture.Service.Options.TextureStrength);
-            Assert.Equal(localization["background.preset.pink_city"], view.FindControl<ComboBox>("PresetCombo")!.SelectionBoxItem);
-            await fixture.Service.SelectPresetAsync("qq-ink-blue");
-            Assert.False(view.FindControl<Border>("StrengthRow")!.IsVisible);
-            Assert.False(view.FindControl<Border>("LayoutRow")!.IsVisible);
+            Assert.Equal(10, view.FindControl<ComboBox>("PresetCombo")!.ItemCount);
+            Assert.Equal(localization["background.family.cyber"] + " · " + localization["background.preset.circuit"],
+                view.FindControl<ComboBox>("PresetCombo")!.SelectionBoxItem);
+            await fixture.Service.SelectPresetAsync("animal-panda");
+            Assert.True(view.FindControl<Border>("StrengthRow")!.IsVisible);
+            Assert.True(view.FindControl<Border>("LayoutRow")!.IsVisible);
         }
         finally { window.Close(); Application.Current!.Styles.Remove(fluent); }
     }
@@ -244,19 +308,37 @@ public sealed class BackgroundThemeTests
         return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
     }
 
+    [AvaloniaTheory]
+    [InlineData("qq-circuit-pink", "cyber-circuit")]
+    [InlineData("qq-circuit-neon", "cyber-hud")]
+    [InlineData("qq-confetti-taro", "nature-marigold")]
+    [InlineData("qq-dunhuang-red", "nature-trellis")]
+    [InlineData("qq-ink-blue", "animal-panda")]
+    public async Task DevelopmentPresetsMigrateWhileKeepingCustomImage(string oldId, string newId)
+    {
+        using var fixture = new Fixture();
+        await fixture.ImportAsync();
+        var options = fixture.Service.Options with { PresetId = oldId, TextureStrength = 100 };
+        fixture.Settings.Set(BackgroundThemeService.SettingKey, System.Text.Json.JsonSerializer.Serialize(options));
+        using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
+        await restored.InitializeAsync();
+        Assert.True(restored.IsActive);
+        Assert.Equal(newId, restored.Options.PresetId);
+        Assert.Equal(BackgroundThemePresets.Find(newId)!.TextureStrength, restored.Options.TextureStrength);
+        Assert.Equal(options.ImageFile, restored.Options.ImageFile);
+        await restored.SelectPresetAsync("");
+        Assert.True(restored.IsActive);
+    }
+
     [AvaloniaFact]
-    public void TitlePaletteIgnoresTextureAndSamplesBroadPhotoColors()
+    public void TitlePaletteSamplesBroadArtworkAndPhotoColors()
     {
         using var image = new SKBitmap(96, 48);
-        image.Erase(SKColors.Red);
-        var preset = new BackgroundThemeOptions { PresetId = "qq-circuit-pink", TextureStrength = 0 };
-        var colors = BackgroundThemeComposition.CreateTitleColors(image, preset, false, CancellationToken.None);
-        image.Erase(SKColors.Blue);
-        Assert.Equal(colors, BackgroundThemeComposition.CreateTitleColors(image, preset with { TextureStrength = 100 }, false, CancellationToken.None));
-        Assert.NotEqual(colors[0], colors[2]);
         for (var y = 0; y < image.Height; y++)
             for (var x = 0; x < image.Width; x++) image.SetPixel(x, y, x < image.Width / 2 ? SKColors.Red : SKColors.Blue);
         var photo = BackgroundThemeComposition.CreateTitleColors(image, new(), false, CancellationToken.None);
+        var preset = BackgroundThemeComposition.CreateTitleColors(image, new() { PresetId = "cyber-circuit" }, false, CancellationToken.None);
+        Assert.Equal(photo, preset);
         Assert.Equal(255, photo[0].R);
         Assert.Equal(255, photo[2].B);
         Assert.InRange(photo[1].R, (byte)145, (byte)148);
@@ -288,12 +370,14 @@ public sealed class BackgroundThemeTests
         {
             var original = BrushColor(first, "TitleBarBackgroundBrush");
             var originalDivider = BrushColor(first, "WorkspaceDividerBrush");
-            await fixture.Service.SelectPresetAsync("qq-circuit-neon");
+            var originalMuted = BrushColor(first, "TextMutedBrush");
+            await fixture.Service.SelectPresetAsync("cyber-hud");
             for (var i = 0; theme.IsRendering && i < 100; i++) await Task.Delay(10);
             Assert.True(theme.IsActive);
             Assert.IsType<LinearGradientBrush>(first.Resources["TitleBarBackgroundBrush"]);
             Assert.Equal(original, BrushColor(dialog, "TitleBarBackgroundBrush"));
             Assert.Equal(originalDivider, BrushColor(dialog, "WorkspaceDividerBrush"));
+            Assert.Equal(originalMuted, BrushColor(dialog, "TextMutedBrush"));
             Assert.InRange(BrushColor(first, "WorkspaceDividerBrush").A, (byte)16, (byte)40);
             Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(preview.Background).Color.A, (byte)1, (byte)254);
             Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(chip.Background).Color.A, (byte)1, (byte)254);
@@ -312,6 +396,7 @@ public sealed class BackgroundThemeTests
             fixture.Service.Update(false, BackgroundImageLayout.HeightTile, 20);
             Assert.Equal(original, BrushColor(first, "TitleBarBackgroundBrush"));
             Assert.Equal(originalDivider, BrushColor(first, "WorkspaceDividerBrush"));
+            Assert.Equal(originalMuted, BrushColor(first, "TextMutedBrush"));
             Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(preview.Background).Color.A);
             Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(chip.Background).Color.A);
             Assert.Equal(255, BrushColor(first, "ViewModeToggleSelectedBg").A);

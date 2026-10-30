@@ -78,10 +78,12 @@ internal static class BackgroundThemeSmoke
                 {
                     owner.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
                     await CaptureAsync(owner, preset.Id + (dark ? "-dark" : "-light"));
+                    WindowBackgroundTheme.GetController(owner)!.Frame!.Image.Save(
+                        Path.Combine(output, preset.Id + (dark ? "-dark-artwork.png" : "-light-artwork.png")));
                     await AssertBackgroundBoundariesAsync();
                 }
             }
-            checks.Add("All packaged SVG/PNG/color presets render in light/dark with continuous clear/frosted surfaces");
+            checks.Add("All nine wide SVG presets render in light/dark with continuous clear/frosted surfaces");
             await service.SelectPresetAsync("");
             var bitmap = service.Image;
             owner.Width = 1500; owner.Height = 900;
@@ -113,8 +115,8 @@ internal static class BackgroundThemeSmoke
             settings.UpdateLayout();
             var themeSettings = settings.GetVisualDescendants().OfType<BackgroundThemeSettingsView>().Single();
             themeSettings.FindControl<ComboBox>("PresetCombo")!.SelectedIndex = 1;
-            for (var attempt = 0; service.Options.PresetId != "qq-circuit-pink" && attempt < 100; attempt++) await Task.Delay(20);
-            if (service.Options.PresetId != "qq-circuit-pink") throw new InvalidOperationException("Settings did not select the preset.");
+            for (var attempt = 0; service.Options.PresetId != "cyber-circuit" && attempt < 100; attempt++) await Task.Delay(20);
+            if (service.Options.PresetId != "cyber-circuit") throw new InvalidOperationException("Settings did not select the preset.");
             var language = App.Services.GetRequiredService<ILocalizationService>();
             foreach (var id in new[] { "zh-CN", "zh-Hant", "en", "fr" })
             {
@@ -125,6 +127,24 @@ internal static class BackgroundThemeSmoke
                     throw new InvalidOperationException("Preset preview did not follow the settings appearance.");
                 if (WindowBackgroundTheme.GetService(settings) != null) throw new InvalidOperationException("Dialog inherited the main-window theme.");
             }
+            var presetCombo = themeSettings.FindControl<ComboBox>("PresetCombo")!;
+            if (presetCombo.ItemCount != 10) throw new InvalidOperationException("Settings must offer one custom image and nine presets.");
+            for (var index = 0; index < BackgroundThemePresets.All.Count; index++)
+            {
+                presetCombo.SelectedIndex = index + 1;
+                var expected = BackgroundThemePresets.All[index].Id;
+                // The service publishes its new options before the picker finishes
+                // its async handler. Wait until a user could select another item.
+                for (var attempt = 0; (service.Options.PresetId != expected || !presetCombo.IsEnabled) && attempt < 250; attempt++) await Task.Delay(20);
+                if (service.Options.PresetId != expected || !presetCombo.IsEnabled)
+                    throw new InvalidOperationException($"Settings did not finish selecting {expected}.");
+            }
+            await CaptureAsync(settings, "settings-fr-long-preset");
+            presetCombo.SelectedIndex = 0;
+            for (var attempt = 0; service.Options.PresetId.Length != 0 && attempt < 100; attempt++) await Task.Delay(20);
+            if (service.Options.PresetId.Length != 0 || service.Options.DisplayName != "theme.png")
+                throw new InvalidOperationException("Settings did not restore the custom image.");
+            checks.Add("Settings switch through all nine SVG presets and restore the retained custom image");
             settings.Close(); settings = null;
             language.SetLanguage("zh-CN");
             checks.Add("Settings retain default surfaces in four languages");
