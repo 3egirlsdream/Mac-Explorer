@@ -110,7 +110,7 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
         }
     }
 
-    public async Task SelectPresetAsync(string presetId, CancellationToken token = default)
+    public async Task SelectPresetAsync(string presetId, CancellationToken token = default, BackgroundThemeColorSelection? colors = null)
     {
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -118,8 +118,17 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
         var preset = BackgroundThemePresets.Find(presetId);
         if (presetId.Length > 0 && preset == null) throw new ArgumentException("Unknown background preset.", nameof(presetId));
         var options = (Options with { PresetId = presetId, Enabled = true,
-            TextureStrength = preset?.TextureStrength ?? Options.TextureStrength }).Normalize();
+            Colors = colors == null || preset == null ? Options.Colors : Options.Colors.SetItem(presetId, colors.Normalize()),
+            TextureStrength = presetId == Options.PresetId ? Options.TextureStrength : preset?.TextureStrength ?? Options.TextureStrength }).Normalize();
         var generation = ++_generation;
+        if (presetId == Options.PresetId && preset != null && _artwork != null)
+        {
+            token.ThrowIfCancellationRequested();
+            _artwork.UpdatePreviews(options);
+            Options = options;
+            Save();
+            return;
+        }
         BackgroundThemeArtwork? artwork = await LoadArtworkAsync(options, token);
         try
         {
@@ -169,6 +178,23 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
             ? Options with { Enabled = enabled, Layout = layout, Strength = strength }
             : Options with { Enabled = enabled, Layout = layout, TextureStrength = strength }).Normalize();
         if (options == Options) return;
+        Options = options;
+        Save(deferred: true);
+    }
+
+    public void UpdateCustomColor(string presetId, string color) => UpdateColors(presetId, new("custom", color));
+
+    internal void RestorePresetColors(string presetId) => UpdateColors(presetId, new());
+
+    private void UpdateColors(string presetId, BackgroundThemeColorSelection colors)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (presetId != Options.PresetId || BackgroundThemePresets.Find(presetId) == null) return;
+        var selection = colors.Normalize();
+        if (Options.GetColors(presetId) == selection) return;
+        var options = Options with { Colors = Options.Colors.SetItem(presetId, selection) };
+        _artwork?.UpdatePreviews(options);
         Options = options;
         Save(deferred: true);
     }

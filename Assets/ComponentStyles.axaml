@@ -1186,4 +1186,50 @@
     </Style>
 
     <StyleInclude Source="avares://MacExplorer/Assets/ToastStyles.axaml"/>
+    <Style Selector="Button.theme-swatch">
+        <Setter Property="Padding" Value="2"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Height" Value="66"/>
+        <Setter Property="Margin" Value="3"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.theme-swatch.active">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.theme-swatch-image">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+    <Style Selector="Border.color-palette-surface">
+        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="Padding" Value="12"/>
+    </Style>
+    <Style Selector="Button.color-palette-swatch">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="3"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.color-palette-swatch.active, Button.color-palette-swatch:focus-visible">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <Style Selector="Border.color-palette-dot">
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+    </Style>
 </Styles>

@@ -555,6 +555,10 @@ public partial class SettingsDialog : DialogWindow
 
     private void LoadInteractionStyleSettings()
     {
+        InteractionPalette.ColorChanged -= OnInteractionPaletteColorChanged;
+        InteractionPalette.ColorChanged += OnInteractionPaletteColorChanged;
+        InteractionPalette.ResetRequested -= OnResetInteractionColors;
+        InteractionPalette.ResetRequested += OnResetInteractionColors;
         _editingInteractionTheme = _interactionStyleService.CurrentTheme;
         _updatingInteractionStyleSettings = true;
         InteractionThemeVariantCombo.SelectedIndex = _editingInteractionTheme == InteractionThemeVariant.Dark ? 1 : 0;
@@ -582,36 +586,14 @@ public partial class SettingsDialog : DialogWindow
         RefreshInteractionColorEditor();
     }
 
-    private void OnInteractionPaletteColorClick(object? sender, RoutedEventArgs e)
+    private void OnInteractionPaletteColorChanged(string color)
     {
-        if (sender is not Button { Tag: string color }
-            || !_interactionStyleService.TrySetColor(_selectedInteractionToken, _editingInteractionTheme, color))
-            return;
-
+        if (!_interactionStyleService.TrySetColor(_selectedInteractionToken, _editingInteractionTheme, color)) return;
         InteractionStyleStatusText.IsVisible = false;
-        RefreshInteractionColorEditor();
+        RefreshInteractionColorRows();
     }
 
-    private void OnInteractionCustomColorChanged(object? sender, TextChangedEventArgs e)
-    {
-        if (_initializing || _updatingInteractionStyleSettings)
-            return;
-
-        if (_interactionStyleService.TrySetColor(
-                _selectedInteractionToken,
-                _editingInteractionTheme,
-                InteractionCustomColorBox.Text ?? string.Empty))
-        {
-            InteractionStyleStatusText.IsVisible = false;
-            RefreshInteractionColorEditor();
-            return;
-        }
-
-        InteractionStyleStatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("颜色格式无效，请使用 #RRGGBB 或 #AARRGGBB。");
-        InteractionStyleStatusText.IsVisible = true;
-    }
-
-    private void OnResetInteractionColors(object? sender, RoutedEventArgs e)
+    private void OnResetInteractionColors()
     {
         _interactionStyleService.ResetColors(_editingInteractionTheme);
         InteractionStyleStatusText.IsVisible = false;
@@ -623,17 +605,23 @@ public partial class SettingsDialog : DialogWindow
         _updatingInteractionStyleSettings = true;
         try
         {
-            UpdateInteractionColorRow(InteractionStyleToken.Hover, InteractionHoverColorPreview, InteractionHoverColorValue, InteractionHoverColorButton);
-            UpdateInteractionColorRow(InteractionStyleToken.Selected, InteractionSelectedColorPreview, InteractionSelectedColorValue, InteractionSelectedColorButton);
-            UpdateInteractionColorRow(InteractionStyleToken.SelectedHover, InteractionSelectedHoverColorPreview, InteractionSelectedHoverColorValue, InteractionSelectedHoverColorButton);
-            UpdateInteractionColorRow(InteractionStyleToken.TextHighlight, InteractionTextHighlightColorPreview, InteractionTextHighlightColorValue, InteractionTextHighlightColorButton);
+            RefreshInteractionColorRows();
             InteractionSelectedTokenText.Text = MacExplorer.Services.Impl.LocalizationText.Get("正在设置：{0}（{1}）", GetInteractionTokenName(_selectedInteractionToken), GetInteractionThemeName(_editingInteractionTheme));
-            InteractionCustomColorBox.Text = _interactionStyleService.GetColor(_selectedInteractionToken, _editingInteractionTheme);
+            InteractionPalette.Configure(Services.Impl.InteractionStyleService.PaletteColors,
+                _interactionStyleService.GetColor(_selectedInteractionToken, _editingInteractionTheme), InteractionSelectedTokenText.Text);
         }
         finally
         {
             _updatingInteractionStyleSettings = false;
         }
+    }
+
+    private void RefreshInteractionColorRows()
+    {
+            UpdateInteractionColorRow(InteractionStyleToken.Hover, InteractionHoverColorPreview, InteractionHoverColorValue, InteractionHoverColorButton);
+            UpdateInteractionColorRow(InteractionStyleToken.Selected, InteractionSelectedColorPreview, InteractionSelectedColorValue, InteractionSelectedColorButton);
+            UpdateInteractionColorRow(InteractionStyleToken.SelectedHover, InteractionSelectedHoverColorPreview, InteractionSelectedHoverColorValue, InteractionSelectedHoverColorButton);
+            UpdateInteractionColorRow(InteractionStyleToken.TextHighlight, InteractionTextHighlightColorPreview, InteractionTextHighlightColorValue, InteractionTextHighlightColorButton);
     }
 
     private void UpdateInteractionColorRow(InteractionStyleToken token, Border preview, TextBlock value, Button button)

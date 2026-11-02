@@ -42,8 +42,8 @@ public partial class SettingsDialog
     private TextBlock UsernameSettingLabel => GetPageControl<TextBlock>("sidebar", "UsernameSettingLabel");
     private StackPanel PanelSidebar => GetPageControl<StackPanel>("sidebar", "PanelSidebar");
     private TextBlock InteractionStyleStatusText => GetPageControl<TextBlock>("appearance", "InteractionStyleStatusText");
-    private TextBox InteractionCustomColorBox => GetPageControl<TextBox>("appearance", "InteractionCustomColorBox");
-    private TextBlock InteractionSelectedTokenText => GetPageControl<TextBlock>("appearance", "InteractionSelectedTokenText");
+    private MacExplorer.Controls.ColorPalette InteractionPalette => GetPageControl<MacExplorer.Controls.ColorPalette>("appearance", "InteractionPalette");
+    private TextBlock InteractionSelectedTokenText => InteractionPalette.DescriptionBlock;
     private TextBlock InteractionTextHighlightColorValue => GetPageControl<TextBlock>("appearance", "InteractionTextHighlightColorValue");
     private Border InteractionTextHighlightColorPreview => GetPageControl<Border>("appearance", "InteractionTextHighlightColorPreview");
     private Button InteractionTextHighlightColorButton => GetPageControl<Button>("appearance", "InteractionTextHighlightColorButton");

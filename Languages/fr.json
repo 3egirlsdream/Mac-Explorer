@@ -5,6 +5,11 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "color.palette.hex_hint": "Entrée ou sortie du champ pour appliquer ; Échap annule la saisie.",
+    "background.invalid_color": "Saisissez une couleur au format #RRGGBB.",
+    "background.palette.original": "Couleur par défaut",
+    "background.palette.custom": "Couleur personnalisée",
+    "background.selected": "Sélectionné",
     "background.preset": "Thème",
     "background.family.cyber": "Cyberpunk",
     "background.family.nature": "Nature",

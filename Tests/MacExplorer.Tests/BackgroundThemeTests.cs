@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
@@ -284,22 +285,82 @@ public sealed class BackgroundThemeTests
         foreach (var uri in new[] { "Assets/ComponentStyles.axaml", "Views/Dialogs/SettingsStyles.axaml" })
             window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/" + uri)));
         window.Show();
+        window.Activate();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        view.GetSwatch("cyber-circuit").Focus();
         try
         {
-            view.FindControl<ComboBox>("PresetCombo")!.SelectedIndex = 1;
+            view.GetSwatch("cyber-circuit").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             for (var i = 0; fixture.Service.Options.PresetId.Length == 0 && i < 100; i++) await Task.Delay(10);
             Assert.Equal("cyber-circuit", fixture.Service.Options.PresetId);
+            for (var i = 0; view.OpenPalette == null && i < 100; i++) { await Task.Delay(20); Dispatcher.UIThread.RunJobs(); }
+            Assert.True(view.OpenPalette != null, $"Palette={view.OpenPalettePattern}, bounds={view.GetSwatch("cyber-circuit").Bounds}, active={window.IsActive}");
+            Assert.Equal(BackgroundThemePresets.All[0].DefaultColor, view.OpenPalette!.SelectedColor);
+            Assert.Equal("", fixture.Service.Options.GetColors("cyber-circuit").PaletteId);
+            Assert.All(BackgroundThemePresets.All, preset =>
+            {
+                Assert.Equal(preset.DefaultColor, preset.ColorOptions[0]);
+                Assert.Equal(4, preset.ColorOptions.Length);
+                Assert.All(preset.ColorOptions, color => Assert.True(Color.TryParse(color, out _)));
+            });
+            view.ClosePalette();
             view.FindControl<Slider>("StrengthSlider")!.Value = 35;
             localization.SetLanguage("fr");
             Assert.Equal(35, fixture.Service.Options.TextureStrength);
-            Assert.Equal(10, view.FindControl<ComboBox>("PresetCombo")!.ItemCount);
-            Assert.Equal(localization["background.family.cyber"] + " · " + localization["background.preset.circuit"],
-                view.FindControl<ComboBox>("PresetCombo")!.SelectionBoxItem);
+            Assert.Equal(9, view.GetVisualDescendants().OfType<Button>().Count(button => button.Classes.Contains("theme-swatch")));
+            Assert.Contains(localization["background.preset.circuit"], AutomationProperties.GetName(view.GetSwatch("cyber-circuit")));
+            Assert.True(view.GetSwatch("cyber-circuit").Classes.Contains("active"));
+            for (var i = 0; !view.ArePreviewsReady && i < 500; i++) await Task.Delay(20);
+            Assert.True(view.ArePreviewsReady);
+            Assert.All(view.GetVisualDescendants().OfType<Button>().Where(button => button.Classes.Contains("theme-swatch")),
+                button => Assert.NotNull(button.GetVisualDescendants().OfType<Image>().Single().Source));
             await fixture.Service.SelectPresetAsync("animal-panda");
             Assert.True(view.FindControl<Border>("StrengthRow")!.IsVisible);
             Assert.True(view.FindControl<Border>("LayoutRow")!.IsVisible);
         }
         finally { window.Close(); Application.Current!.Styles.Remove(fluent); }
+    }
+
+    [AvaloniaFact]
+    public async Task PaletteChangesReuseTheSvgAndPersistIndependentlyForEachPattern()
+    {
+        using var fixture = new Fixture();
+        await fixture.Service.SelectPresetAsync("cyber-circuit", colors: new("custom", BackgroundThemePresets.All[0].ColorOptions[1]));
+        using var artwork = fixture.Service.AcquireArtwork()!;
+        fixture.Service.Update(true, BackgroundImageLayout.HeightTile, 47);
+        await fixture.Service.SelectPresetAsync("cyber-circuit", colors: new("custom", BackgroundThemePresets.All[0].ColorOptions[2]));
+        using var recolored = fixture.Service.AcquireArtwork()!;
+        Assert.Same(artwork.Texture, recolored.Texture);
+        Assert.Equal(47, fixture.Service.Options.TextureStrength);
+        fixture.Service.UpdateCustomColor("cyber-circuit", "#CF804A");
+        Assert.Equal(new BackgroundThemeColorSelection("custom", "#CF804A"), fixture.Service.Options.GetColors("cyber-circuit"));
+        await fixture.Service.SelectPresetAsync("animal-panda", colors: new("custom", BackgroundThemePresets.Find("animal-panda")!.ColorOptions[3]));
+        using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
+        await restored.InitializeAsync();
+        Assert.Equal(BackgroundThemePresets.Find("animal-panda")!.ColorOptions[3], restored.Options.GetColors("animal-panda").CustomColor);
+        Assert.Equal("#CF804A", restored.Options.GetColors("cyber-circuit").CustomColor);
+        await restored.SelectPresetAsync("cyber-circuit");
+        Assert.Equal("custom", restored.Options.GetColors("cyber-circuit").PaletteId);
+    }
+
+    [AvaloniaFact]
+    public void PaletteChangesRecolorBothClearAndFrostedFramesAndRejectInvalidStoredValues()
+    {
+        var preset = BackgroundThemePresets.All[0];
+        var options = new BackgroundThemeOptions { PresetId = preset.Id, TextureStrength = 0 };
+        using var original = BackgroundThemeComposition.Create(null, options, new Size(300, 180), false, 1, CancellationToken.None);
+        var colors = new BackgroundThemeColorSelection("custom", "#FF8000");
+        options = options with { Colors = options.Colors.SetItem(preset.Id, colors) };
+        using var tinted = BackgroundThemeComposition.Create(null, options, new Size(300, 180), false, 1, CancellationToken.None);
+        Assert.NotEqual(original.TitleColors[0], tinted.TitleColors[0]);
+        Assert.NotEqual(new BackgroundThemeColorSelection("custom", preset.ColorOptions[2]).GetColors(preset, false), colors.GetColors(preset, false));
+        Assert.NotEqual(new BackgroundThemeColorSelection("custom", "#FF8000").GetColors(preset, false),
+            new BackgroundThemeColorSelection("custom", "#804000").GetColors(preset, false));
+        Assert.NotEqual(new BackgroundThemeColorSelection("custom", "#FF8000").GetColors(preset, false),
+            new BackgroundThemeColorSelection("custom", "#FFBF80").GetColors(preset, false));
+        var invalid = (options with { Colors = options.Colors.SetItem(preset.Id, new("missing", "bad")) }).Normalize();
+        Assert.Equal(new BackgroundThemeColorSelection(), invalid.GetColors(preset.Id));
     }
 
     private static Color BrushColor(Control control, string key)

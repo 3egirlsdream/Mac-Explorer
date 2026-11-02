@@ -2,42 +2,29 @@
              xmlns:loc="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
              x:Class="MacExplorer.Controls.BackgroundThemeSettingsView">
     <StackPanel Spacing="6">
-        <TextBlock Classes="settings-section-title" Text="{loc:Loc background.title}"/>
         <Border Classes="settings-group">
             <StackPanel>
                 <Border Classes="settings-row settings-divider">
-                    <Grid ColumnDefinitions="72,*,Auto" ColumnSpacing="10">
-                        <Border CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True" Height="48"
-                                Background="{DynamicResource DialogContentBrush}">
-                            <Grid>
-                                <PathIcon x:Name="PlaceholderIcon" Data="{x:Static icons:Icons.Image}" Width="20" Height="20"
-                                          Foreground="{DynamicResource TextMutedBrush}"/>
-                                <Image x:Name="PreviewImage" Stretch="UniformToFill"/>
-                            </Grid>
-                        </Border>
-                        <TextBlock Grid.Column="1" x:Name="ImageName" Classes="settings-label" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"/>
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <Button x:Name="ChooseButton" Classes="secondary compact" Content="{loc:Loc background.choose}" Click="ChooseImage"/>
-                            <Button x:Name="ResetButton" Classes="ghost compact" Content="{loc:Loc background.reset}" Click="ResetTheme"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-                <Border Classes="settings-row settings-divider">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBlock Classes="settings-label" Text="{loc:Loc background.preset}" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Column="1" x:Name="PresetCombo" Width="240" Classes="settings-inline-input"
-                                  AutomationProperties.Name="{loc:Loc background.preset}" SelectionChanged="SelectPreset"/>
-                    </Grid>
-                </Border>
-                <Border Classes="settings-row settings-divider">
-                    <Grid ColumnDefinitions="*,Auto">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                         <TextBlock Classes="settings-label" Text="{loc:Loc background.enabled}" VerticalAlignment="Center"/>
-                        <ToggleSwitch Grid.Column="1" x:Name="EnabledToggle" Classes="compact"
-                                      OnContent="" OffContent=""
+                        <ToggleSwitch Grid.Column="1" x:Name="EnabledToggle" Classes="compact" OnContent="" OffContent=""
                                       AutomationProperties.Name="{loc:Loc background.enabled}" IsCheckedChanged="OptionsChanged"/>
+                        <Button Grid.Column="2" x:Name="UseImageButton" Classes="icon-action" Width="28" Height="28" ToolTip.Tip="{loc:Loc background.custom}" AutomationProperties.Name="{loc:Loc background.custom}" Click="UseCustomImage" IsVisible="False">
+                            <PathIcon Data="{x:Static icons:Icons.Image}" Width="16" Height="16"/>
+                        </Button>
+                        <Button Grid.Column="3" x:Name="ChooseButton" Classes="secondary compact" Content="{loc:Loc background.choose}" Click="ChooseImage"/>
+                        <Button Grid.Column="4" x:Name="ResetButton" Classes="ghost compact" Content="{loc:Loc background.reset}" Click="ResetTheme"/>
                     </Grid>
                 </Border>
+                <Border x:Name="CustomImageRow" Classes="settings-row settings-divider" IsVisible="False">
+                    <Grid ColumnDefinitions="64,*" ColumnSpacing="10">
+                        <Border CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True" Height="36">
+                            <Image x:Name="PreviewImage" Stretch="UniformToFill"/>
+                        </Border>
+                        <TextBlock Grid.Column="1" x:Name="ImageName" Classes="settings-label" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                </Border>
+                <UniformGrid x:Name="PatternRows" Columns="3" Margin="7,5"/>
                 <Border x:Name="LayoutRow" Classes="settings-row settings-divider">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <TextBlock x:Name="LayoutLabel" Classes="settings-label" Text="{loc:Loc background.layout}" VerticalAlignment="Center"/>

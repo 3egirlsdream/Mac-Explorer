@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:MacExplorer.Controls" x:Class="MacExplorer.Controls.ColorPalette">
+    <Border Classes="color-palette-surface">
+        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel>
+                    <TextBlock Classes="settings-label" Text="{loc:Loc ui.247}"/>
+                    <TextBlock x:Name="DescriptionText" Classes="settings-description" IsVisible="False"/>
+                </StackPanel>
+                <Button Grid.Column="1" x:Name="ResetButton" Classes="secondary compact" Content="{loc:Loc ui.177}" Click="ResetClicked"/>
+            </Grid>
+            <WrapPanel x:Name="Swatches"/>
+            <TextBox x:Name="ColorInput" Classes="settings-inline-input" PlaceholderText="#RRGGBB"
+                     ToolTip.Tip="{loc:Loc color.palette.hex_hint}" AutomationProperties.Name="{loc:Loc background.palette.custom}" TextChanged="InputChanged" LostFocus="InputCommitted" KeyDown="InputKeyDown"/>
+            <TextBlock x:Name="ErrorText" Classes="settings-description" Foreground="{DynamicResource DangerBrush}" IsVisible="False"/>
+        </StackPanel>
+    </Border>
+</UserControl>

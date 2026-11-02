@@ -2,6 +2,7 @@
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
@@ -114,7 +115,10 @@ internal static class BackgroundThemeSmoke
             tabs.SelectedItem = tabs.Items.OfType<LazyTabItem>().Single(p => p.PageKey == "appearance");
             settings.UpdateLayout();
             var themeSettings = settings.GetVisualDescendants().OfType<BackgroundThemeSettingsView>().Single();
-            themeSettings.FindControl<ComboBox>("PresetCombo")!.SelectedIndex = 1;
+            themeSettings.GetSwatch("cyber-circuit").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            for (var attempt = 0; !themeSettings.ArePreviewsReady && attempt < 500; attempt++) await Task.Delay(20);
+            if (!themeSettings.ArePreviewsReady) throw new InvalidOperationException("SVG swatch previews did not load.");
+            themeSettings.ClosePalette();
             for (var attempt = 0; service.Options.PresetId != "cyber-circuit" && attempt < 100; attempt++) await Task.Delay(20);
             if (service.Options.PresetId != "cyber-circuit") throw new InvalidOperationException("Settings did not select the preset.");
             var language = App.Services.GetRequiredService<ILocalizationService>();
@@ -127,24 +131,57 @@ internal static class BackgroundThemeSmoke
                     throw new InvalidOperationException("Preset preview did not follow the settings appearance.");
                 if (WindowBackgroundTheme.GetService(settings) != null) throw new InvalidOperationException("Dialog inherited the main-window theme.");
             }
-            var presetCombo = themeSettings.FindControl<ComboBox>("PresetCombo")!;
-            if (presetCombo.ItemCount != 10) throw new InvalidOperationException("Settings must offer one custom image and nine presets.");
-            for (var index = 0; index < BackgroundThemePresets.All.Count; index++)
+            var rows = themeSettings.FindControl<Panel>("PatternRows")!;
+            if (rows.Children.Count != 9) throw new InvalidOperationException("Settings must offer nine pattern cards.");
+            foreach (var preset in BackgroundThemePresets.All)
             {
-                presetCombo.SelectedIndex = index + 1;
-                var expected = BackgroundThemePresets.All[index].Id;
-                // The service publishes its new options before the picker finishes
-                // its async handler. Wait until a user could select another item.
-                for (var attempt = 0; (service.Options.PresetId != expected || !presetCombo.IsEnabled) && attempt < 250; attempt++) await Task.Delay(20);
-                if (service.Options.PresetId != expected || !presetCombo.IsEnabled)
-                    throw new InvalidOperationException($"Settings did not finish selecting {expected}.");
+                themeSettings.GetSwatch(preset.Id).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                for (var attempt = 0; (service.Options.PresetId != preset.Id || !rows.IsEnabled || themeSettings.OpenPalette == null || themeSettings.OpenPalettePattern != preset.Id) && attempt < 250; attempt++) await Task.Delay(20);
+                if (service.Options.PresetId != preset.Id || !rows.IsEnabled)
+                    throw new InvalidOperationException($"Settings did not finish selecting {preset.Id}.");
             }
             await CaptureAsync(settings, "settings-fr-long-preset");
-            presetCombo.SelectedIndex = 0;
+            var customSwatch = themeSettings.GetSwatch("cyber-circuit");
+            customSwatch.BringIntoView();
+            customSwatch.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            for (var attempt = 0; (!rows.IsEnabled || service.Options.PresetId != "cyber-circuit" || themeSettings.OpenPalette == null) && attempt < 250; attempt++) await Task.Delay(20);
+            await CaptureAsync(settings, "settings-color-palette");
+            var paletteView = themeSettings.OpenPalette ?? throw new InvalidOperationException("The custom swatch did not open the palette.");
+            if (paletteView.GetVisualDescendants().OfType<Button>().Count(item => item.Classes.Contains("color-palette-swatch")) != BackgroundThemePresets.All[0].ColorOptions.Length)
+                throw new InvalidOperationException("The configured palette did not render.");
+            await CaptureAsync(paletteView, "color-palette-content");
+            service.UpdateCustomColor("cyber-circuit", "#CE804A");
+            await CaptureAsync(owner, "custom-palette-main-window");
+            themeSettings.ClosePalette();
+            themeSettings.FindControl<Button>("UseImageButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             for (var attempt = 0; service.Options.PresetId.Length != 0 && attempt < 100; attempt++) await Task.Delay(20);
             if (service.Options.PresetId.Length != 0 || service.Options.DisplayName != "theme.png")
                 throw new InvalidOperationException("Settings did not restore the custom image.");
             checks.Add("Settings switch through all nine SVG presets and restore the retained custom image");
+            language.SetLanguage("zh-CN");
+            var interactionPalette = settings.GetVisualDescendants().OfType<ColorPalette>().Single(item => item.Name == "InteractionPalette");
+            interactionPalette.BringIntoView();
+            var interaction = App.Services.GetRequiredService<IInteractionStyleService>();
+            var editingTheme = settings.GetVisualDescendants().OfType<ComboBox>().Single(item => item.Name == "InteractionThemeVariantCombo").SelectedIndex == 0
+                ? InteractionThemeVariant.Light : InteractionThemeVariant.Dark;
+            var originalHover = interaction.GetColor(InteractionStyleToken.Hover, editingTheme);
+            interactionPalette.GetVisualDescendants().OfType<Button>().Single(item => Equals(item.Tag, "#3B82F6"))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            if (interaction.GetColor(InteractionStyleToken.Hover, editingTheme) != "#3B82F6")
+                throw new InvalidOperationException("The shared palette did not update the interaction color.");
+            interactionPalette.InputBox.Text = "#AB";
+            await Task.Delay(50);
+            if (interaction.GetColor(InteractionStyleToken.Hover, editingTheme) != "#3B82F6")
+                throw new InvalidOperationException("A partial hex draft changed the saved color.");
+            interactionPalette.InputBox.Text = "#22C55E";
+            interactionPalette.InputBox.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter });
+            if (interaction.GetColor(InteractionStyleToken.Hover, editingTheme) != "#22C55E")
+                throw new InvalidOperationException("The palette did not commit the completed hex color.");
+            await CaptureAsync(settings, "settings-shared-color-palette");
+            interactionPalette.FindControl<Button>("ResetButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            if (interaction.GetColor(InteractionStyleToken.Hover, editingTheme) != originalHover)
+                throw new InvalidOperationException("The interaction palette did not restore its configured defaults.");
+            checks.Add("Shared theme/interaction palette shows colored swatches, commits complete hex input and restores defaults");
             settings.Close(); settings = null;
             language.SetLanguage("zh-CN");
             checks.Add("Settings retain default surfaces in four languages");

@@ -11,6 +11,12 @@ namespace MacExplorer.Services.Impl;
 /// </summary>
 public sealed class InteractionStyleService : IInteractionStyleService
 {
+    public static IReadOnlyList<string> PaletteColors { get; } = Array.AsReadOnly(new[]
+    {
+        "#FFFFFF", "#F0F1F3", "#E4E6EA", "#1E2026", "#30343B", "#3B82F6",
+        "#77AAFF", "#22C55E", "#F59E0B", "#E5484D", "#A855F7", "#14B8A6"
+    });
+
     private const string CornerRadiusSettingKey = "interaction.corner_radius";
     private const string DisabledOpacitySettingKey = "interaction.disabled_opacity";
     private const string FormerFocusSettingKey = "interaction.focus";

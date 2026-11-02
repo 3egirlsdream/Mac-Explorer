@@ -80,7 +80,7 @@ internal sealed class BackgroundThemeComposition(Bitmap image, Bitmap frosted, C
             if (preset != null)
             {
                 // A four-corner palette spans the whole window; only the texture repeats.
-                var colors = (dark ? preset.DarkColors : preset.LightColors).Select(SKColor.Parse).ToArray();
+                var colors = options.GetColors(preset.Id).GetColors(preset, dark).Select(SKColor.Parse).ToArray();
                 using var palette = new SKBitmap(new SKImageInfo(2, 2, SKColorType.Bgra8888, SKAlphaType.Premul));
                 for (var i = 0; i < 4; i++) palette.SetPixel(i % 2, i / 2, colors[i]);
                 using var gradient = palette.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,

@@ -11,8 +11,9 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
 {
     private int _references = 1;
     public SKBitmap? Texture { get; } = texture;
-    public Bitmap Preview { get; } = preview;
-    public Bitmap DarkPreview => darkPreview ?? Preview;
+    public Bitmap Preview { get; private set; } = preview;
+    private Bitmap? _darkPreview = darkPreview;
+    public Bitmap DarkPreview => _darkPreview ?? Preview;
     public byte[] Png { get; private set; } = png;
     public void ReleaseEncoded() => Png = [];
     public BackgroundThemeArtwork Retain() { Interlocked.Increment(ref _references); return this; }
@@ -28,7 +29,7 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
         catch { decoded.Dispose(); throw; }
     }
 
-    public static SKBitmap DecodePresetTexture(string asset, CancellationToken token)
+    public static SKBitmap DecodePresetTexture(string asset, CancellationToken token, int maxWidth = 4096, int maxHeight = 1280)
     {
         using var stream = AssetLoader.Open(new Uri("avares://MacExplorer/Assets/BackgroundThemes/" + asset));
         if (!asset.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
@@ -44,7 +45,7 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
             throw new InvalidDataException();
         // Wide vectors need enough vertical pixels for height-based scaling.
         // Cap both dimensions: at most 4096 × 1280 (20 MiB), independent of the window.
-        var scale = Math.Min(4096 / picture.CullRect.Width, 1280 / picture.CullRect.Height);
+        var scale = Math.Min(maxWidth / picture.CullRect.Width, maxHeight / picture.CullRect.Height);
         var bitmap = new SKBitmap(new SKImageInfo((int)Math.Ceiling(picture.CullRect.Width * scale),
             (int)Math.Ceiling(picture.CullRect.Height * scale), SKColorType.Bgra8888, SKAlphaType.Premul));
         using var canvas = new SKCanvas(bitmap);
@@ -66,9 +67,22 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
         return ToBitmap(small);
     }
 
+    public void UpdatePreviews(Models.BackgroundThemeOptions options)
+    {
+        using var light = BackgroundThemeComposition.Render(Texture, options, 360, 240, false, CancellationToken.None);
+        using var dark = BackgroundThemeComposition.Render(Texture, options, 360, 240, true, CancellationToken.None);
+        var nextLight = ToBitmap(light);
+        Bitmap nextDark;
+        try { nextDark = ToBitmap(dark); }
+        catch { nextLight.Dispose(); throw; }
+        var oldLight = Preview; var oldDark = _darkPreview;
+        Preview = nextLight; _darkPreview = nextDark;
+        oldLight.Dispose(); oldDark?.Dispose();
+    }
+
     public void Dispose()
     {
         if (Interlocked.Decrement(ref _references) != 0) return;
-        Preview.Dispose(); darkPreview?.Dispose(); Texture?.Dispose();
+        Preview.Dispose(); _darkPreview?.Dispose(); Texture?.Dispose();
     }
 }

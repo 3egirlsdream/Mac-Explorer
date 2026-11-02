@@ -5,6 +5,11 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "color.palette.hex_hint": "Press Enter or leave the field to apply; Esc cancels the draft.",
+    "background.invalid_color": "Enter a color in #RRGGBB format.",
+    "background.palette.original": "Default color",
+    "background.palette.custom": "Custom color",
+    "background.selected": "Selected",
     "background.preset": "Theme",
     "background.family.cyber": "Cyberpunk",
     "background.family.nature": "Nature",

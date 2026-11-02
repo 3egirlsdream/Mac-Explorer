@@ -254,20 +254,6 @@
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
 
-    <Style Selector="Button.interaction-palette-swatch">
-        <Setter Property="Width" Value="30"/>
-        <Setter Property="Height" Value="30"/>
-        <Setter Property="Padding" Value="3"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="15"/>
-    </Style>
-
-    <Style Selector="Button.interaction-palette-swatch:pointerover">
-        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
-    </Style>
-
     <Style Selector="ListBox.settings-locations">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>

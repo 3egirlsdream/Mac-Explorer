@@ -11,6 +11,11 @@
     "zh-CHT"
   ],
   "strings": {
+    "color.palette.hex_hint": "按 Enter 或移開焦點套用；Esc 復原輸入。",
+    "background.invalid_color": "顏色格式無效，請使用 #RRGGBB。",
+    "background.palette.original": "預設顏色",
+    "background.palette.custom": "自選顏色",
+    "background.selected": "已選擇",
     "background.preset": "主題",
     "background.family.cyber": "科幻賽博",
     "background.family.nature": "自然生境",

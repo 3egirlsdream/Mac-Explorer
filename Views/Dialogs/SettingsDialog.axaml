@@ -616,32 +616,8 @@
                                                         </Grid>
                                                     </Button>
                                                 </Grid>
-                                                <Border Classes="settings-note">
-                                                    <StackPanel Spacing="8">
-                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
-                                                            <StackPanel>
-                                                                <TextBlock Classes="settings-label" Text="{loc:Loc ui.247}"/>
-                                                                <TextBlock x:Name="InteractionSelectedTokenText" Classes="settings-description"/>
-                                                            </StackPanel>
-                                                            <Button Grid.Column="1" Classes="secondary" Content="{loc:Loc ui.177}" VerticalAlignment="Center" Click="OnResetInteractionColors"/>
-                                                        </Grid>
-                                                        <WrapPanel>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#FFFFFF" AutomationProperties.Name="{loc:Loc ui.331}" ToolTip.Tip="#FFFFFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#FFFFFF" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#F0F1F3" AutomationProperties.Name="{loc:Loc ui.332}" ToolTip.Tip="#F0F1F3" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F0F1F3" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#E4E6EA" AutomationProperties.Name="{loc:Loc ui.333}" ToolTip.Tip="#E4E6EA" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E4E6EA" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#1E2026" AutomationProperties.Name="{loc:Loc ui.334}" ToolTip.Tip="#1E2026" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#1E2026" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#30343B" AutomationProperties.Name="{loc:Loc ui.335}" ToolTip.Tip="#30343B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#30343B" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#3B82F6" AutomationProperties.Name="{loc:Loc ui.336}" ToolTip.Tip="#3B82F6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#3B82F6" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#77AAFF" AutomationProperties.Name="{loc:Loc ui.337}" ToolTip.Tip="#77AAFF" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#77AAFF" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#22C55E" AutomationProperties.Name="{loc:Loc ui.338}" ToolTip.Tip="#22C55E" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#22C55E" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#F59E0B" AutomationProperties.Name="{loc:Loc ui.339}" ToolTip.Tip="#F59E0B" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#F59E0B" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#E5484D" AutomationProperties.Name="{loc:Loc ui.340}" ToolTip.Tip="#E5484D" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#E5484D" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#A855F7" AutomationProperties.Name="{loc:Loc ui.341}" ToolTip.Tip="#A855F7" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#A855F7" CornerRadius="12"/></Button>
-                                                            <Button Classes="interaction-palette-swatch" Tag="#14B8A6" AutomationProperties.Name="{loc:Loc ui.342}" ToolTip.Tip="#14B8A6" Click="OnInteractionPaletteColorClick" Margin="0,0,6,6"><Border Background="#14B8A6" CornerRadius="12"/></Button>
-                                                        </WrapPanel>
-                                                        <TextBox x:Name="InteractionCustomColorBox" AutomationProperties.Name="{loc:Loc ui.243}" PlaceholderText="{loc:Loc ui.140}" TextChanged="OnInteractionCustomColorChanged"/>
-                                                    </StackPanel>
-                                                </Border>
+                                                <controls:ColorPalette x:Name="InteractionPalette"/>
+
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
