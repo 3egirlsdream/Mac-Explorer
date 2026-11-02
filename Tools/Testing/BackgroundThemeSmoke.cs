@@ -29,6 +29,7 @@ internal static class BackgroundThemeSmoke
         Directory.CreateDirectory(output);
         var service = App.Services.GetRequiredService<BackgroundThemeService>();
         var checks = new List<string>();
+        var timings = new Dictionary<string, double>();
         string? error = null;
         SettingsDialog? settings = null;
         MainWindow? second = null;
@@ -118,11 +119,12 @@ internal static class BackgroundThemeSmoke
             tabs.SelectedItem = tabs.Items.OfType<LazyTabItem>().Single(p => p.PageKey == "appearance");
             settings.UpdateLayout();
             var themeSettings = settings.GetVisualDescendants().OfType<BackgroundThemeSettingsView>().Single();
-            themeSettings.GetSwatch("cyber-circuit").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             for (var attempt = 0; !themeSettings.ArePreviewsReady && attempt < 500; attempt++) await Task.Delay(20);
-            if (!themeSettings.ArePreviewsReady) throw new InvalidOperationException("SVG swatch previews did not load.");
+            if (!themeSettings.ArePreviewsReady) throw new InvalidOperationException("Packaged swatch previews did not load.");
+            timings["themePreviewLoadMilliseconds"] = themeSettings.PreviewLoadDuration.TotalMilliseconds;
+            themeSettings.GetSwatch("cyber-circuit").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            for (var attempt = 0; (service.Options.PresetId != "cyber-circuit" || themeSettings.OpenPalette == null) && attempt < 100; attempt++) await Task.Delay(20);
             themeSettings.ClosePalette();
-            for (var attempt = 0; service.Options.PresetId != "cyber-circuit" && attempt < 100; attempt++) await Task.Delay(20);
             if (service.Options.PresetId != "cyber-circuit") throw new InvalidOperationException("Settings did not select the preset.");
             var language = App.Services.GetRequiredService<ILocalizationService>();
             foreach (var id in new[] { "zh-CN", "zh-Hant", "en", "fr" })
@@ -144,15 +146,38 @@ internal static class BackgroundThemeSmoke
                     throw new InvalidOperationException($"Settings did not finish selecting {preset.Id}.");
             }
             await CaptureAsync(settings, "settings-fr-long-preset");
+            language.SetLanguage("zh-CN");
             var customSwatch = themeSettings.GetSwatch("cyber-circuit");
             customSwatch.BringIntoView();
             customSwatch.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             for (var attempt = 0; (!rows.IsEnabled || service.Options.PresetId != "cyber-circuit" || themeSettings.OpenPalette == null) && attempt < 250; attempt++) await Task.Delay(20);
             await CaptureAsync(settings, "settings-color-palette");
+            var palettePopup = themeSettings.FindControl<Popup>("ColorPalettePopup")!;
+            await CaptureAsync(palettePopup.Child!, "theme-palette-popover");
+            var swatchPoint = customSwatch.PointToScreen(default);
+            var surfacePoint = palettePopup.Child!.PointToScreen(default);
+            if (Math.Abs(surfacePoint.X - swatchPoint.X) > 4)
+                throw new InvalidOperationException($"Palette is not aligned to its card: {surfacePoint} / {swatchPoint}.");
             var paletteView = themeSettings.OpenPalette ?? throw new InvalidOperationException("The custom swatch did not open the palette.");
             if (paletteView.GetVisualDescendants().OfType<Button>().Count(item => item.Classes.Contains("color-palette-swatch")) != BackgroundThemePresets.All[0].ColorOptions.Length)
                 throw new InvalidOperationException("The configured palette did not render.");
             await CaptureAsync(paletteView, "color-palette-content");
+            settings.RequestedThemeVariant = ThemeVariant.Dark;
+            await CaptureAsync(settings, "settings-theme-palette-dark");
+            settings.Width = 780;
+            themeSettings.GetSwatch("cyber-city").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            for (var attempt = 0; (service.Options.PresetId != "cyber-city" || themeSettings.OpenPalettePattern != "cyber-city" || themeSettings.OpenPalette == null) && attempt < 250; attempt++) await Task.Delay(20);
+            await CaptureAsync(settings, "settings-theme-palette-compact");
+            var popupOrigin = settings.PointToClient(palettePopup.Child!.PointToScreen(default));
+            if (popupOrigin.X < 0 || popupOrigin.X + palettePopup.Child.Bounds.Width > settings.ClientSize.Width ||
+                popupOrigin.Y < 0 || popupOrigin.Y + palettePopup.Child.Bounds.Height > settings.ClientSize.Height)
+                throw new InvalidOperationException("Compact palette extends beyond the settings window.");
+            settings.RequestedThemeVariant = ThemeVariant.Light;
+            settings.Width = 940;
+            customSwatch.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            for (var attempt = 0; (service.Options.PresetId != "cyber-circuit" || themeSettings.OpenPalettePattern != "cyber-circuit" || themeSettings.OpenPalette == null) && attempt < 250; attempt++) await Task.Delay(20);
+            await CaptureAsync(settings, "settings-theme-palette-zh-CN");
+            checks.Add("Theme palette uses one card-aligned surface, stays inside compact windows and supports light/dark appearance");
             service.UpdateCustomColor("cyber-circuit", "#CE804A");
             await CaptureAsync(owner, "custom-palette-main-window");
             themeSettings.ClosePalette();
@@ -196,7 +221,7 @@ internal static class BackgroundThemeSmoke
         finally
         {
             settings?.Close(); second?.Close();
-            await File.WriteAllTextAsync(Path.Combine(output, "report.json"), JsonSerializer.Serialize(new { success = error == null, checks, error }, new JsonSerializerOptions { WriteIndented = true }));
+            await File.WriteAllTextAsync(Path.Combine(output, "report.json"), JsonSerializer.Serialize(new { success = error == null, checks, timings, error }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"Background theme smoke: {output}; success={error == null}");
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime) lifetime.Shutdown(error == null ? 0 : 1);
         }

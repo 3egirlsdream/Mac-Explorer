@@ -6,6 +6,7 @@ using System.Net.Http.Json;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -316,6 +317,70 @@ public sealed class AppUpdateTests
             Assert.True(lastHeader.TranslatePoint(default, dialog)!.Value.Y + lastHeader.Bounds.Height <= dialog.ClientSize.Height);
         }
         finally { dialog.Close(); Avalonia.Application.Current!.Styles.Remove(theme); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Kind", "UI")]
+    [Trait("Area", "Appearance")]
+    public void AppearanceInitializationAndEditorRefreshNeverSaveColors(bool dark)
+    {
+        var settings = new AppearanceSettingsStub();
+        using var services = new SettingsTestServices(settings);
+        using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
+        Application.Current!.RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
+        var interaction = new InteractionStyleService(settings);
+        interaction.Initialize();
+        settings.DeferredWrites.Clear();
+        var fluent = new Avalonia.Themes.Fluent.FluentTheme();
+        Application.Current.Styles.Insert(0, fluent);
+        var dialog = new SettingsDialog(new DefaultAppServiceStub(), settings, new ThemeServiceStub(),
+            new TypographyServiceStub(), new OpenWithAppServiceStub(), new FailingUpdateService(),
+            interactionStyleService: interaction, localizationService: language);
+        dialog.Show();
+        try
+        {
+            SelectPage(dialog, "appearance");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(settings.DeferredWrites);
+            var palette = dialog.FindControl<ColorPalette>("InteractionPalette")!;
+            var editor = palette.InputBox;
+            dialog.FindControl<ComboBox>("InteractionThemeVariantCombo")!.SelectedIndex = dark ? 0 : 1;
+            dialog.FindControl<Button>("InteractionSelectedColorButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            SelectPage(dialog, "general");
+            SelectPage(dialog, "appearance");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(settings.DeferredWrites);
+            editor.Text = "invalid";
+            editor.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Assert.True(palette.FindControl<TextBlock>("ErrorText")!.IsVisible);
+            Assert.Empty(settings.DeferredWrites);
+            editor.Text = "#123456";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("#123456", editor.Text);
+            Assert.Empty(settings.DeferredWrites);
+            editor.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Assert.False(palette.FindControl<TextBlock>("ErrorText")!.IsVisible);
+            Assert.Equal(dark ? "interaction.selected.light" : "interaction.selected.dark", Assert.Single(settings.DeferredWrites));
+            Assert.Empty(settings.SynchronousWrites);
+        }
+        finally { dialog.Close(); Application.Current.Styles.Remove(fluent); }
+    }
+
+    private sealed class AppearanceSettingsStub : ISettingsService
+    {
+        private readonly Dictionary<string, string> _values = [];
+        public List<string> SynchronousWrites { get; } = [];
+        public List<string> DeferredWrites { get; } = [];
+        public event Action<string>? SettingChanged { add { } remove { } }
+        public string? Get(string key) => _values.GetValueOrDefault(key);
+        public T Get<T>(string key, T defaultValue) => Get(key) is { } value && typeof(T) == typeof(string)
+            ? (T)(object)value : defaultValue;
+        public void Set(string key, string value) { SynchronousWrites.Add(key); _values[key] = value; }
+        public void SetDeferred(string key, string value) { DeferredWrites.Add(key); _values[key] = value; }
+        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
+        public Dictionary<string, string> GetAll() => new(_values);
     }
 
     private static void SelectPage(SettingsDialog dialog, string key) =>

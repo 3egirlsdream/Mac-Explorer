@@ -273,13 +273,24 @@ public partial class App : Application
             Dispatcher.UIThread.Post(() => Services.GetRequiredService<Services.Subscriptions.SubscriptionService>().Start(), DispatcherPriority.ApplicationIdle);
         _ = Task.Run(CheckStartupUpdateAsync);
         Services.GetRequiredService<ApplicationStorageMaintenance>().Start();
-        DispatcherTimer.RunOnce(() =>
+        _ = StartSearchIndexAsync();
+    }
+
+    private async Task StartSearchIndexAsync()
+    {
+        var ct = _startupUpdateCancellation.Token;
+        try
         {
-            if (_startupUpdateCancellation.IsCancellationRequested) return;
+            await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
             var indexer = Services.GetRequiredService<SearchIndexer>();
             foreach (var root in RuntimePaths.StartupIndexRoots)
+            {
+                ct.ThrowIfCancellationRequested();
                 indexer.EnsureRoot(root);
-        }, TimeSpan.FromSeconds(2));
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex) { Services.GetService<ILogger<App>>()?.LogError(ex, "Search index startup failed"); }
     }
 
     private async Task CheckStartupUpdateAsync()

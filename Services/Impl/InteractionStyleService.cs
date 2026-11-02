@@ -98,7 +98,7 @@ public sealed class InteractionStyleService : IInteractionStyleService
             return false;
 
         EnsureInitialized();
-        _settingsService.Set(GetSettingKey(token, theme), FormatColor(color));
+        _settingsService.SetDeferred(GetSettingKey(token, theme), FormatColor(color));
         if (theme == CurrentTheme)
             ApplyCurrentTheme();
         return true;
@@ -108,7 +108,7 @@ public sealed class InteractionStyleService : IInteractionStyleService
     {
         EnsureInitialized();
         foreach (var token in TokenDefinitions.Keys)
-            _settingsService.Set(GetSettingKey(token, theme), string.Empty);
+            _settingsService.SetDeferred(GetSettingKey(token, theme), string.Empty);
 
         if (theme == CurrentTheme)
             ApplyCurrentTheme();
@@ -147,7 +147,7 @@ public sealed class InteractionStyleService : IInteractionStyleService
     {
         EnsureInitialized();
         var normalized = Math.Round(Math.Clamp(value, 0, 24), MidpointRounding.AwayFromZero);
-        _settingsService.Set(CornerRadiusSettingKey, normalized.ToString(CultureInfo.InvariantCulture));
+        _settingsService.SetDeferred(CornerRadiusSettingKey, normalized.ToString(CultureInfo.InvariantCulture));
         ApplyCornerRadius(normalized);
     }
 
@@ -168,7 +168,7 @@ public sealed class InteractionStyleService : IInteractionStyleService
     {
         EnsureInitialized();
         var normalized = Math.Round(Math.Clamp(value, 0.15, 1), 2, MidpointRounding.AwayFromZero);
-        _settingsService.Set(DisabledOpacitySettingKey, normalized.ToString(CultureInfo.InvariantCulture));
+        _settingsService.SetDeferred(DisabledOpacitySettingKey, normalized.ToString(CultureInfo.InvariantCulture));
         ApplyDisabledOpacity(normalized);
     }
 
@@ -178,8 +178,8 @@ public sealed class InteractionStyleService : IInteractionStyleService
         ResetColors(InteractionThemeVariant.Dark);
 
         var resources = GetApplication().Resources;
-        _settingsService.Set(CornerRadiusSettingKey, string.Empty);
-        _settingsService.Set(DisabledOpacitySettingKey, string.Empty);
+        _settingsService.SetDeferred(CornerRadiusSettingKey, string.Empty);
+        _settingsService.SetDeferred(DisabledOpacitySettingKey, string.Empty);
         resources.Remove("InteractionCornerRadius");
         resources.Remove("InteractionDisabledOpacity");
     }
@@ -196,10 +196,10 @@ public sealed class InteractionStyleService : IInteractionStyleService
             {
                 var settingKey = GetSettingKey(token, theme);
                 if (string.IsNullOrWhiteSpace(_settingsService.Get(settingKey)))
-                    _settingsService.Set(settingKey, FormatColor(color));
+                    _settingsService.SetDeferred(settingKey, FormatColor(color));
             }
 
-            _settingsService.Set(definition.LegacySettingKey, string.Empty);
+            _settingsService.SetDeferred(definition.LegacySettingKey, string.Empty);
         }
     }
 
@@ -215,13 +215,13 @@ public sealed class InteractionStyleService : IInteractionStyleService
                 if (string.IsNullOrWhiteSpace(formerFocusValue))
                     formerFocusValue = _settingsService.Get(FormerFocusSettingKey);
                 if (Color.TryParse(formerFocusValue, out var color))
-                    _settingsService.Set(selectedKey, FormatColor(color));
+                    _settingsService.SetDeferred(selectedKey, FormatColor(color));
             }
 
-            _settingsService.Set($"{FormerFocusSettingKey}.{theme.ToString().ToLowerInvariant()}", string.Empty);
+            _settingsService.SetDeferred($"{FormerFocusSettingKey}.{theme.ToString().ToLowerInvariant()}", string.Empty);
         }
 
-        _settingsService.Set(FormerFocusSettingKey, string.Empty);
+        _settingsService.SetDeferred(FormerFocusSettingKey, string.Empty);
     }
 
     private void CaptureDefaultColors()

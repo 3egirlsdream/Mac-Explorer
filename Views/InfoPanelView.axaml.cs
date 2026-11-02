@@ -484,7 +484,8 @@ public partial class InfoPanelView : UserControl
             var bitmap = await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return CreatePreviewBitmap(bytes, extension, requestedPixels, cancellationToken);
+                return BoundedImageDecoder.Decode(bytes, requestedPixels, cancellationToken)
+                    ?? throw new InvalidDataException("Image exceeds preview decode limits or is unsupported.");
             }, cancellationToken).ConfigureAwait(false);
 
             string? badge = null;
@@ -610,39 +611,6 @@ public partial class InfoPanelView : UserControl
         _panelUpdateDebounceCts = null;
     }
 
-    private static global::Avalonia.Media.Imaging.Bitmap RenderSvgToBitmap(byte[] svgBytes, int maxSize)
-    {
-        using var svgImage = new Svg.Skia.SKSvg();
-        using var stream = new MemoryStream(svgBytes);
-        svgImage.Load(stream);
-
-        if (svgImage.Picture is null)
-        {
-            using var bmp = new SkiaSharp.SKBitmap(1, 1);
-            using var data = bmp.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
-            return new global::Avalonia.Media.Imaging.Bitmap(data.AsStream());
-        }
-
-        var width = svgImage.Picture.CullRect.Width;
-        var height = svgImage.Picture.CullRect.Height;
-        var scale = Math.Min(maxSize / width, maxSize / height);
-        if (!float.IsFinite(scale) || scale <= 0) throw new InvalidDataException("Invalid SVG dimensions.");
-
-        var renderWidth = Math.Max(1, (int)(width * scale));
-        var renderHeight = Math.Max(1, (int)(height * scale));
-
-        using var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(renderWidth, renderHeight));
-        var canvas = surface.Canvas;
-        canvas.Clear(SkiaSharp.SKColors.Transparent);
-        canvas.Scale(scale, scale);
-        canvas.DrawPicture(svgImage.Picture);
-        canvas.Flush();
-
-        using var snapshot = surface.Snapshot();
-        using var encoded = snapshot.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
-        return new global::Avalonia.Media.Imaging.Bitmap(encoded.AsStream());
-    }
-
     private void ResetPreviewContent(string placeholder)
     {
         _ocrCts?.Cancel();
@@ -749,19 +717,6 @@ public partial class InfoPanelView : UserControl
         return await TryReadSmallOriginalImageAsync(entry, cancellationToken).ConfigureAwait(false);
     }
 
-    private static global::Avalonia.Media.Imaging.Bitmap CreatePreviewBitmap(
-        byte[] bytes,
-        string extension,
-        int maxPixelSize,
-        CancellationToken cancellationToken)
-    {
-        if (extension.Equals(".svg", StringComparison.OrdinalIgnoreCase))
-            return RenderSvgToBitmap(bytes, maxPixelSize);
-
-        return BoundedImageDecoder.Decode(bytes, maxPixelSize, cancellationToken)
-            ?? throw new InvalidDataException("Image exceeds preview decode limits or is unsupported.");
-    }
-
     private sealed class PreviewLoadResult : IDisposable
     {
         private PreviewLoadResult()
@@ -812,7 +767,8 @@ public partial class InfoPanelView : UserControl
         CancellationToken cancellationToken)
     {
         const long maxInlinePreviewBytes = 8L * 1024 * 1024;
-        if (entry.IconKey != "file-image")
+        if (entry.IconKey != "file-image"
+            || entry.Extension.Equals(".svg", StringComparison.OrdinalIgnoreCase))
             return null;
 
         try

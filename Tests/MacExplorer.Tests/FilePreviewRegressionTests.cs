@@ -84,6 +84,37 @@ public sealed class FilePreviewRegressionViewModelTests : FileListViewModelTestB
 
     [AvaloniaFact(Explicit = true)]
     [Trait("Kind", "UI")]
+    public async Task InfoPanelDecodesSvgThumbnailAsPng()
+    {
+        var root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "svg-panel-" + Guid.NewGuid().ToString("N"))).FullName;
+        var path = Path.Combine(root, "image.svg");
+        await File.WriteAllTextAsync(path, "<svg xmlns='http://www.w3.org/2000/svg' width='106' height='74'/>");
+        using var vm = CreateViewModel(new FakeFileService(root), thumbnailService: new PreviewThumbnailStub(path));
+        var panel = new InfoPanelView { DataContext = vm };
+        var window = new Window { Width = 400, Height = 600, Content = panel };
+        try
+        {
+            window.Show();
+            vm.IsInfoPanelVisible = true;
+            await panel.SetLivePreviewStateAsync(true, 1);
+            vm.SelectedEntries.Add(new FileSystemEntry
+            {
+                FullPath = path, Name = "image.svg", Extension = ".svg", IconKey = "file-image"
+            });
+            await WaitForPreviewAsync(() => panel.FindControl<Image>("PreviewImage")!.IsVisible);
+            var image = Assert.IsType<global::Avalonia.Media.Imaging.Bitmap>(panel.FindControl<Image>("PreviewImage")!.Source);
+            Assert.Equal(new global::Avalonia.PixelSize(1, 1), image.PixelSize);
+        }
+        finally
+        {
+            await panel.SetLivePreviewStateAsync(false, 2);
+            window.Close();
+            Directory.Delete(root, true);
+        }
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
     public async Task InfoPanelShowsFileHashWithTooltipAndCopyButton()
     {
         var directory = Path.Combine(Path.GetTempPath(), "fkfinder-hash-test-" + Guid.NewGuid().ToString("N"));

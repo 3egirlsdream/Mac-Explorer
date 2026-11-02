@@ -535,7 +535,6 @@ public partial class SettingsDialog : DialogWindow
     private void OnThemeModeChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_initializing || ThemeModeCombo.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
-        _settingsService.Set("theme_mode", mode);
         _themeService.SetThemeMode(mode);
         _interactionStyleService.ApplyCurrentTheme();
     }

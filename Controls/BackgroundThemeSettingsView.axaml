@@ -41,5 +41,12 @@
             </StackPanel>
         </Border>
         <TextBlock x:Name="ErrorText" Classes="settings-description" Foreground="{DynamicResource DangerBrush}" IsVisible="False"/>
+        <Popup x:Name="ColorPalettePopup" Placement="BottomEdgeAlignedLeft"
+               HorizontalOffset="-12" VerticalOffset="-10" IsLightDismissEnabled="True"
+               ShouldUseOverlayLayer="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False" Closed="PaletteClosed">
+            <Border Classes="context-submenu-surface">
+                <ContentControl x:Name="PaletteContent"/>
+            </Border>
+        </Popup>
     </StackPanel>
 </UserControl>

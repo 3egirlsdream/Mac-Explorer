@@ -97,7 +97,7 @@ public class SettingsService : ISettingsService, IDisposable
         if (changed) SettingChanged?.Invoke(key);
     }
 
-    // Noncritical navigation state is available immediately; SQLite writer waits stay off the UI thread.
+    // UI preferences are available immediately; SQLite writer waits stay off the UI thread.
     public void SetDeferred(string key, string value)
     {
         bool changed;

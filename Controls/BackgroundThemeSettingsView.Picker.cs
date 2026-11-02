@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Layout;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -20,12 +20,12 @@ public partial class BackgroundThemeSettingsView
     private readonly Dictionary<string, SKBitmap> _previewTextures = [];
     private readonly Dictionary<string, (string Key, Bitmap Image)> _previewBitmaps = [];
     private CancellationTokenSource? _thumbnailCancellation;
-    private Flyout? _colorFlyout;
     private ColorPalette? _paletteView;
     internal string? OpenPalettePattern { get; private set; }
+    internal TimeSpan PreviewLoadDuration { get; private set; }
     internal bool ArePreviewsReady => _previewTextures.Count == BackgroundThemePresets.All.Count;
     internal Button GetSwatch(string pattern) => _swatches[pattern].Button;
-    internal ColorPalette? OpenPalette => _colorFlyout?.IsOpen == true ? _paletteView : null;
+    internal ColorPalette? OpenPalette => ColorPalettePopup.IsOpen ? _paletteView : null;
 
     private void RefreshPatternRows(BackgroundThemeOptions options)
     {
@@ -50,7 +50,7 @@ public partial class BackgroundThemeSettingsView
         {
             var button = _swatches[preset.Id].Button;
             var label = PresetLabel(preset);
-            ToolTip.SetTip(button, label); AutomationProperties.SetName(button, label);
+            AutomationProperties.SetName(button, label);
             var active = options.PresetId == preset.Id;
             button.Classes.Set("active", active);
             AutomationProperties.SetHelpText(button, active ? LocalizationText.Get("background.selected") : "");
@@ -65,15 +65,17 @@ public partial class BackgroundThemeSettingsView
 
     private async Task LoadPatternPreviewsAsync(CancellationToken token)
     {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             foreach (var preset in BackgroundThemePresets.All)
             {
-                var texture = await Task.Run(() => BackgroundThemeArtwork.DecodePresetTexture(preset.TextureAsset!, token, 384, 128), token);
+                var texture = await Task.Run(() => BackgroundThemeArtwork.DecodePresetPreview(preset.TextureAsset!, token), token);
                 if (token.IsCancellationRequested) { texture.Dispose(); return; }
                 _previewTextures.Add(preset.Id, texture);
                 UpdateSwatchPreview(preset, _service?.Options.GetColors(preset.Id) ?? new());
             }
+            PreviewLoadDuration = watch.Elapsed;
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException)
@@ -120,7 +122,7 @@ public partial class BackgroundThemeSettingsView
     {
         var selected = _service!.Options.GetColors(preset.Id);
         var color = selected.PaletteId.Length == 0 ? preset.DefaultColor : selected.CustomColor;
-        var picker = new ColorPalette { Width = 292 };
+        var picker = new ColorPalette { Width = 264, Classes = { "popover" } };
         picker.Configure(preset.ColorOptions, color, allowAlpha: false);
         picker.ColorChanged += value =>
         {
@@ -134,16 +136,29 @@ public partial class BackgroundThemeSettingsView
         };
         OpenPalettePattern = preset.Id;
         _paletteView = picker;
-        _colorFlyout = new Flyout { Placement = PlacementMode.BottomEdgeAlignedRight,
-            Content = new Border { Classes = { "context-submenu-surface" }, Child = picker } };
-        _colorFlyout.ShowAt(button);
+        picker.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape) return;
+            ClosePalette(); button.Focus(); e.Handled = true;
+        };
+        PaletteContent.Content = picker;
+        ColorPalettePopup.PlacementTarget = button;
+        ColorPalettePopup.IsOpen = true;
+        picker.InputBox.Focus(NavigationMethod.Pointer);
+        picker.InputBox.CaretIndex = picker.InputBox.Text?.Length ?? 0;
     }
 
-    internal void ClosePalette() { _colorFlyout?.Hide(); OpenPalettePattern = null; _paletteView = null; }
+    internal void ClosePalette() => ColorPalettePopup.IsOpen = false;
+
+    private void PaletteClosed(object? sender, EventArgs e)
+    {
+        OpenPalettePattern = null;
+        _paletteView = null;
+    }
 
     private void ClearPatternPreviews()
     {
-        ClosePalette(); _colorFlyout = null;
+        ClosePalette(); PaletteContent.Content = null;
         _thumbnailCancellation?.Cancel(); _thumbnailCancellation?.Dispose(); _thumbnailCancellation = null;
         foreach (var swatch in _swatches.Values) swatch.Image.Source = null;
         foreach (var bitmap in _previewBitmaps.Values) bitmap.Image.Dispose();

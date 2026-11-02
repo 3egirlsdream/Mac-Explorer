@@ -1,8 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
-using Avalonia.Threading;
-using MacExplorer.Controls;
 using MacExplorer.Views;
 
 namespace MacExplorer.Services.Impl;
@@ -15,79 +13,17 @@ internal readonly record struct WindowPlacement(
 
 internal sealed class WindowPlacementService
 {
-    private const string WidthKey = "window.primary.normal_width";
-    private const string HeightKey = "window.primary.normal_height";
-    private const string XKey = "window.primary.position_x";
-    private const string YKey = "window.primary.position_y";
-    private const string MaximizedKey = "window.primary.is_maximized";
-    private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(300);
-
-    private readonly ISettingsService _settings;
     private readonly Dictionary<Window, WindowPlacement> _normalPlacements = [];
-    private readonly Dictionary<Window, IDisposable> _pendingSaves = [];
-
-    public WindowPlacementService(ISettingsService settings) => _settings = settings;
 
     public void Prepare(MainWindow window, bool isPrimary, MainWindow? source)
     {
         window.WindowStartupLocation = WindowStartupLocation.Manual;
-        var placement = isPrimary ? LoadPrimary(window) : CreateSecondary(window, source);
+        var placement = isPrimary ? CenterOnPrimary(window, 1280, 800, false) : CreateSecondary(window, source);
         Apply(window, placement);
         _normalPlacements[window] = placement with { IsMaximized = false };
-
-        if (isPrimary && placement.IsMaximized)
-        {
-            void RestoreMaximized(object? sender, EventArgs args)
-            {
-                window.Opened -= RestoreMaximized;
-                Dispatcher.UIThread.Post(
-                    () => window.WindowState = WindowState.Maximized,
-                    DispatcherPriority.Loaded);
-            }
-
-            window.Opened += RestoreMaximized;
-        }
-
-        window.SizeChanged += (_, _) => OnGeometryChanged(window, isPrimary);
-        window.PositionChanged += (_, _) => OnGeometryChanged(window, isPrimary);
-        window.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == Window.WindowStateProperty && isPrimary)
-                ScheduleSave(window);
-        };
-        window.Closing += (_, _) =>
-        {
-            CaptureNormal(window);
-            if (isPrimary)
-                SavePrimary(window);
-        };
-        window.Closed += (_, _) =>
-        {
-            if (_pendingSaves.Remove(window, out var pending))
-                pending.Dispose();
-            _normalPlacements.Remove(window);
-        };
-    }
-
-    private WindowPlacement LoadPrimary(Window window)
-    {
-        var hasPlacement = _settings.Get(WidthKey) != null
-                           && _settings.Get(HeightKey) != null
-                           && _settings.Get(XKey) != null
-                           && _settings.Get(YKey) != null;
-        if (!hasPlacement)
-            return CenterOnPrimary(window, 1280, 800, false);
-
-        var candidate = new WindowPlacement(
-            Math.Max(window.MinWidth, _settings.Get(WidthKey, 1280d)),
-            Math.Max(window.MinHeight, _settings.Get(HeightKey, 800d)),
-            new PixelPoint(_settings.Get(XKey, 0), _settings.Get(YKey, 0)),
-            _settings.Get(MaximizedKey, false));
-
-        var screen = FindIntersectingScreen(window.Screens.All, candidate);
-        return screen == null
-            ? CenterOnPrimary(window, candidate.NormalWidth, candidate.NormalHeight, candidate.IsMaximized)
-            : ClampToScreen(candidate, screen, window.MinWidth, window.MinHeight);
+        window.SizeChanged += (_, _) => CaptureNormal(window);
+        window.PositionChanged += (_, _) => CaptureNormal(window);
+        window.Closed += (_, _) => _normalPlacements.Remove(window);
     }
 
     private WindowPlacement CreateSecondary(Window window, MainWindow? source)
@@ -112,15 +48,6 @@ internal sealed class WindowPlacementService
             : CenterOnScreen(candidate.NormalWidth, candidate.NormalHeight, false, screen, window.MinWidth, window.MinHeight);
     }
 
-    private void OnGeometryChanged(Window window, bool isPrimary)
-    {
-        if (window.WindowState != WindowState.Normal)
-            return;
-        CaptureNormal(window);
-        if (isPrimary)
-            ScheduleSave(window);
-    }
-
     private void CaptureNormal(Window window)
     {
         if (window.WindowState != WindowState.Normal || window.Bounds.Width <= 0 || window.Bounds.Height <= 0)
@@ -130,32 +57,6 @@ internal sealed class WindowPlacementService
             window.Bounds.Height,
             window.Position,
             false);
-    }
-
-    private void ScheduleSave(Window window)
-    {
-        if (_pendingSaves.Remove(window, out var pending))
-            pending.Dispose();
-        _pendingSaves[window] = DispatcherTimer.RunOnce(() =>
-        {
-            _pendingSaves.Remove(window);
-            SavePrimary(window);
-        }, SaveDelay);
-    }
-
-    private void SavePrimary(Window window)
-    {
-        if (!_normalPlacements.TryGetValue(window, out var placement))
-            return;
-
-        _settings.Set(WidthKey, placement.NormalWidth);
-        _settings.Set(HeightKey, placement.NormalHeight);
-        _settings.Set(XKey, placement.Position.X);
-        _settings.Set(YKey, placement.Position.Y);
-        var restorableState = window is AppWindow appWindow
-            ? appWindow.RestorableWindowState
-            : window.WindowState;
-        _settings.Set(MaximizedKey, restorableState == WindowState.Maximized);
     }
 
     private static void Apply(Window window, WindowPlacement placement)
@@ -180,12 +81,6 @@ internal sealed class WindowPlacementService
     private static WindowPlacement ClampToScreen(
         WindowPlacement placement, Screen screen, double minWidth, double minHeight)
         => WindowPlacementMath.Clamp(placement, screen.WorkingArea, screen.Scaling, minWidth, minHeight);
-
-    private static Screen? FindIntersectingScreen(IReadOnlyList<Screen> screens, WindowPlacement placement)
-        => screens.FirstOrDefault(screen => HasUsefulIntersection(placement, screen));
-
-    private static bool HasUsefulIntersection(WindowPlacement placement, Screen screen)
-        => WindowPlacementMath.HasUsefulIntersection(placement, screen.WorkingArea, screen.Scaling);
 }
 
 internal static class WindowPlacementMath

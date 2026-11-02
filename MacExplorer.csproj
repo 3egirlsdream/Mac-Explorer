@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>1.0.67</Version>
+    <Version>1.0.68</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -34,6 +34,7 @@
     <Compile Remove="Tools/PluginTestFixture/**/*.cs" />
     <Compile Remove="Tests/**/*.cs" />
     <Compile Remove="Tools/Performance/**/*.cs" />
+    <Compile Remove="Tools/Design/**/*.cs" />
     <Compile Remove="Tools/GlassDemo/**/*.cs" />
     <Compile Remove="Tools/DemoRecord/**/*.cs" Condition="'$(EnableDemoAutomation)' != 'true'" />
     <Compile Remove="ThirdParty/**/*.cs" />

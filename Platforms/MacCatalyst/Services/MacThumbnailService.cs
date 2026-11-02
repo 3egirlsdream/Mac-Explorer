@@ -12,7 +12,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
     {
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp",
         ".heic", ".heif", ".avif", ".jxl", ".jp2", ".j2k", ".jpf",
-        ".ppm", ".pgm", ".pbm", ".tga", ".dds", ".ico", ".icns"
+        ".ppm", ".pgm", ".pbm", ".tga", ".dds", ".ico", ".icns", ".svg"
     };
     private static readonly HashSet<string> RawExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -140,7 +140,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         return await GetOrCreateThumbnailAsync(cacheKey,
             (outputPath, token) => GenerateThumbnailAsync(filePath, outputPath, maxPixelSize, token),
             rememberFailure: true, ct,
-            manageGenerationGate: !isImage)
+            manageGenerationGate: !isImage || extension.Equals(".svg", StringComparison.OrdinalIgnoreCase))
             .ConfigureAwait(false);
     }
 
@@ -391,6 +391,15 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         int maxPixelSize,
         CancellationToken ct)
     {
+        if (Path.GetExtension(sourcePath).Equals(".svg", StringComparison.OrdinalIgnoreCase))
+        {
+            var source = await BoundedImageDecoder.ReadSourceAsync(sourcePath, ct).ConfigureAwait(false);
+            var png = source == null ? null : SvgThumbnailRenderer.RenderPng(source, maxPixelSize, ct);
+            if (png != null)
+                await WriteCacheFileAtomicallyAsync(cachePath, png, ct).ConfigureAwait(false);
+            return png;
+        }
+
         if (!IsImageFile(Path.GetExtension(sourcePath)))
             return await GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, ct);
 

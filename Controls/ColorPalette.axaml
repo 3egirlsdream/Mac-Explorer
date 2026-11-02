@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:loc="using:MacExplorer.Controls" x:Class="MacExplorer.Controls.ColorPalette">
+             xmlns:loc="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets" x:Class="MacExplorer.Controls.ColorPalette">
     <Border Classes="color-palette-surface">
         <StackPanel Spacing="8">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -7,7 +7,13 @@
                     <TextBlock Classes="settings-label" Text="{loc:Loc ui.247}"/>
                     <TextBlock x:Name="DescriptionText" Classes="settings-description" IsVisible="False"/>
                 </StackPanel>
-                <Button Grid.Column="1" x:Name="ResetButton" Classes="secondary compact" Content="{loc:Loc ui.177}" Click="ResetClicked"/>
+                <Button Grid.Column="1" x:Name="ResetButton" Classes="secondary compact"
+                        ToolTip.Tip="{loc:Loc ui.177}" AutomationProperties.Name="{loc:Loc ui.177}" Click="ResetClicked">
+                    <Grid>
+                        <TextBlock Classes="color-palette-reset-label" Text="{loc:Loc ui.177}" VerticalAlignment="Center"/>
+                        <PathIcon Classes="color-palette-reset-icon" Data="{x:Static icons:Icons.Refresh}" Width="14" Height="14"/>
+                    </Grid>
+                </Button>
             </Grid>
             <WrapPanel x:Name="Swatches"/>
             <TextBox x:Name="ColorInput" Classes="settings-inline-input" PlaceholderText="#RRGGBB"

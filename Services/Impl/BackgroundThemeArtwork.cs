@@ -29,6 +29,13 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
         catch { decoded.Dispose(); throw; }
     }
 
+    public static SKBitmap DecodePresetPreview(string asset, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        using var stream = AssetLoader.Open(new Uri("avares://MacExplorer/Assets/BackgroundThemes/Previews/" + Path.ChangeExtension(asset, ".png")));
+        return SKBitmap.Decode(stream) ?? throw new InvalidDataException();
+    }
+
     public static SKBitmap DecodePresetTexture(string asset, CancellationToken token, int maxWidth = 4096, int maxHeight = 1280)
     {
         using var stream = AssetLoader.Open(new Uri("avares://MacExplorer/Assets/BackgroundThemes/" + asset));

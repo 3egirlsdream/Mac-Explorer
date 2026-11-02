@@ -61,7 +61,8 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
             yield break;
         }
         var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
-        var coverageChanged = _indexer.EnsureRoot(root, includeHiddenFolders: !options.HideDotFolders);
+        var coverageChanged = await Task.Run(() => _indexer.EnsureRoot(root, includeHiddenFolders: !options.HideDotFolders),
+            cancellationToken).ConfigureAwait(false);
         while (coverageChanged && _indexer.Observe(root) is var observation && observation.Status.IsBusy)
             await observation.Changed.WaitAsync(cancellationToken).ConfigureAwait(false);
         var entries = await _catalog.SearchAsync(root, query, options, maxResults,
@@ -104,7 +105,8 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
         }
         var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
         var includeAi = _settings?.Get("SearchIncludeAiTags", true) ?? true;
-        _indexer.EnsureRoot(root, includeHiddenFolders: !options.HideDotFolders);
+        await Task.Run(() => _indexer.EnsureRoot(root, includeHiddenFolders: !options.HideDotFolders),
+            cancellationToken).ConfigureAwait(false);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();

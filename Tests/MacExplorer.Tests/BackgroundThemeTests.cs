@@ -287,6 +287,25 @@ public sealed class BackgroundThemeTests
     }
 
     [AvaloniaFact]
+    public void PackagedPreviewsMatchCurrentSvgSourcesAndStayBounded()
+    {
+        using var manifestStream = AssetLoader.Open(new Uri("avares://MacExplorer/Assets/BackgroundThemes/Previews/sources.json"));
+        using var manifest = System.Text.Json.JsonDocument.Parse(manifestStream);
+        Assert.Equal(BackgroundThemePresets.All.Count, manifest.RootElement.GetArrayLength());
+        foreach (var preset in BackgroundThemePresets.All)
+        {
+            var entry = manifest.RootElement.EnumerateArray().Single(item => item.GetProperty("asset").GetString() == preset.TextureAsset);
+            using var vector = AssetLoader.Open(new Uri("avares://MacExplorer/Assets/BackgroundThemes/" + preset.TextureAsset));
+            Assert.Equal(entry.GetProperty("sha256").GetString(), Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(vector)));
+            using var preview = BackgroundThemeArtwork.DecodePresetPreview(preset.TextureAsset!, CancellationToken.None);
+            Assert.Equal(entry.GetProperty("width").GetInt32(), preview.Width);
+            Assert.Equal(entry.GetProperty("height").GetInt32(), preview.Height);
+            Assert.InRange(preview.Width, 1, 640);
+            Assert.InRange(preview.Height, 1, 192);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task PresetControlsKeepSelectionAndIntensityWhenLanguageChanges()
     {
         using var fixture = new Fixture();
@@ -311,6 +330,24 @@ public sealed class BackgroundThemeTests
             Assert.True(view.OpenPalette != null, $"Palette={view.OpenPalettePattern}, bounds={view.GetSwatch("cyber-circuit").Bounds}, active={window.IsActive}");
             Assert.Equal(BackgroundThemePresets.All[0].DefaultColor, view.OpenPalette!.SelectedColor);
             Assert.Equal("", fixture.Service.Options.GetColors("cyber-circuit").PaletteId);
+            var popup = view.FindControl<Popup>("ColorPalettePopup")!;
+            Assert.Same(view.GetSwatch("cyber-circuit"), popup.PlacementTarget);
+            Assert.Equal(PlacementMode.BottomEdgeAlignedLeft, popup.Placement);
+            Assert.True(popup.ShouldUseOverlayLayer);
+            Assert.True(popup.OverlayDismissEventPassThrough);
+            Assert.True(view.OpenPalette.InputBox.IsFocused);
+            Assert.Empty(view.OpenPalette.GetVisualAncestors().OfType<FlyoutPresenter>());
+            Assert.True(view.OpenPalette.Classes.Contains("popover"));
+            Assert.False(view.OpenPalette.GetVisualDescendants().OfType<TextBlock>().Single(x => x.Classes.Contains("color-palette-reset-label")).IsVisible);
+            Assert.True(view.OpenPalette.GetVisualDescendants().OfType<PathIcon>().Single(x => x.Classes.Contains("color-palette-reset-icon")).IsVisible);
+            var input = view.OpenPalette.InputBox;
+            input.Text = "#12";
+            input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
+            Assert.NotNull(view.OpenPalette);
+            Assert.Equal(BackgroundThemePresets.All[0].DefaultColor, input.Text);
+            input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
+            Assert.Null(view.OpenPalette);
+
             Assert.All(BackgroundThemePresets.All, preset =>
             {
                 Assert.Equal(preset.DefaultColor, preset.ColorOptions[0]);

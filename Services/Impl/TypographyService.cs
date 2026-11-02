@@ -80,7 +80,7 @@ public sealed class TypographyService : ITypographyService
             return;
 
         CurrentPreset = preset;
-        _settingsService.Set(SettingKey, ToSettingValue(preset));
+        _settingsService.SetDeferred(SettingKey, ToSettingValue(preset));
         ApplyPreset(preset);
         TypographyChanged?.Invoke(this, new TypographyChangedEventArgs { Preset = preset });
     }

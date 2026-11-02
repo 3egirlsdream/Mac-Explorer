@@ -1,0 +1,56 @@
+[
+  {
+    "asset": "animal-dragon.svg",
+    "sha256": "19c77069144f9d2d4e44b8f80ceb7cffaa270d181d7a6611a2ca47989fb1adda",
+    "width": 640,
+    "height": 158
+  },
+  {
+    "asset": "animal-panda.svg",
+    "sha256": "20111ad3aa4ecec3e5c67ac863a5e319f811456fe8f32924835d824fa46d8519",
+    "width": 640,
+    "height": 160
+  },
+  {
+    "asset": "animal-rabbit.svg",
+    "sha256": "d48d8a49cde0c6dd60c0a29feb7ba13ec40671fb2951c7845113c8736a0df1d8",
+    "width": 640,
+    "height": 160
+  },
+  {
+    "asset": "cyber-circuit.svg",
+    "sha256": "95d10c5ee4dcd58fe7a4da43cfe420024b53f5e71c77b9d5d99a87cec00f04ed",
+    "width": 576,
+    "height": 192
+  },
+  {
+    "asset": "cyber-city.svg",
+    "sha256": "54cf1d29ac2bb5a878704cf50ccb9fd692c95f3d8e70c205becddfb266e028b1",
+    "width": 576,
+    "height": 192
+  },
+  {
+    "asset": "cyber-hud.svg",
+    "sha256": "7bfdd371f02bf486c5dd1ff3981e1c33ca4b5fcd1563a768c0fedd6eae9376b7",
+    "width": 576,
+    "height": 192
+  },
+  {
+    "asset": "nature-marigold.svg",
+    "sha256": "9a7df1735aaf56124e93159315cbabcbb4433c5e1b4adbc3c3ba7d8cf0c7f471",
+    "width": 640,
+    "height": 158
+  },
+  {
+    "asset": "nature-trellis.svg",
+    "sha256": "8e196e73a3c89b7ff3c65854821c371dd10bf8d3381b3ed037877e93fb89cb60",
+    "width": 576,
+    "height": 192
+  },
+  {
+    "asset": "nature-willow.svg",
+    "sha256": "3cb23a42070dcd57efc2853615d618f2657720d3801b69901cbd32b593d29c49",
+    "width": 640,
+    "height": 158
+  }
+]

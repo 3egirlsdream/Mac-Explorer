@@ -27,7 +27,7 @@ public class MacThemeService : IThemeService
     public void SetThemeMode(string mode)
     {
         _themeMode = mode is "light" or "dark" ? mode : "system";
-        _settingsService.Set("theme_mode", _themeMode);
+        _settingsService.SetDeferred("theme_mode", _themeMode);
         ApplyTheme();
         ThemeChanged?.Invoke(this, new ThemeChangedEventArgs { IsDarkMode = IsDarkMode });
     }

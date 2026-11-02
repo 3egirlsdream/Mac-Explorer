@@ -1238,6 +1238,26 @@
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
         <Setter Property="Padding" Value="12"/>
     </Style>
+    <Style Selector="PathIcon.color-palette-reset-icon">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="controls|ColorPalette.popover Border.color-palette-surface">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="6"/>
+    </Style>
+    <Style Selector="controls|ColorPalette.popover Button#ResetButton">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="controls|ColorPalette.popover TextBlock.color-palette-reset-label">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="controls|ColorPalette.popover PathIcon.color-palette-reset-icon">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
     <Style Selector="Button.color-palette-swatch">
         <Setter Property="Width" Value="30"/>
         <Setter Property="Height" Value="30"/>

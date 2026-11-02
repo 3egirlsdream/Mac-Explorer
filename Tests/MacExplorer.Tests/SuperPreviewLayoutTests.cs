@@ -19,6 +19,47 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task SvgPreviewUsesSharedThumbnailService(bool compact)
+    {
+        var root = Directory.CreateTempSubdirectory("FKFinder_SvgPreview_");
+        using var theme = new FastListTestTheme();
+        try
+        {
+            var entry = new FileSystemEntry
+            {
+                FullPath = Path.Combine(root.FullName, "image.svg"), Name = "image.svg",
+                Extension = ".svg", IconKey = "file-image"
+            };
+            await File.WriteAllTextAsync(entry.FullPath, "<svg xmlns='http://www.w3.org/2000/svg' width='106' height='74'><rect width='106' height='74' fill='red'/></svg>");
+            var thumbnails = new MacExplorer.Platforms.MacCatalyst.Services.MacThumbnailService(
+                Path.Combine(root.FullName, "cache"), 1024 * 1024, 0.8);
+            var files = new FakeFileService(root.FullName);
+            files.Seed(entry);
+            await using var fixture = await TabCacheFixture.CreateAsync(entries: 0,
+                configureServices: services => services.AddSingleton<IThumbnailService>(thumbnails)
+                    .AddSingleton<IFileService>(files));
+            var preview = new SuperPreviewView(isCompactPreview: compact);
+            var window = new Window { Width = 800, Height = 600, Content = preview };
+            try
+            {
+                window.Show();
+                await preview.OpenAsync(entry);
+                Assert.IsType<global::Avalonia.Media.Imaging.Bitmap>(preview.FindControl<Image>("PreviewImage")!.Source);
+                Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
+                // Headless drawing substitutes a dummy Avalonia bitmap; inspect the service's actual PNG.
+                var cached = Assert.Single(Directory.GetFiles(Path.Combine(root.FullName, "cache"), "*.png"));
+                using var image = SkiaSharp.SKBitmap.Decode(cached);
+                Assert.Equal(compact ? 720 : 1800, image.Width);
+                Assert.InRange(image.Height, image.Width * 74 / 106 - 1, image.Width * 74 / 106 + 1);
+            }
+            finally { preview.Close(); window.Close(); }
+        }
+        finally { root.Delete(true); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task StandalonePreviewUsesFullWidthAndDirectoryPreviewRetainsNavigation(bool dark)
     {
         var root = Directory.CreateTempSubdirectory("FKFinder_PreviewLayout_");
