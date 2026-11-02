@@ -69,12 +69,27 @@ public sealed class PopupGlass : AvaloniaObject
                 ContentHost.Padding = p;
             }
             owner.PropertyChanged += OnOwnerChanged;
-            DetachedFromVisualTree += (_, _) => owner.PropertyChanged -= OnOwnerChanged;
+            WindowBackgroundTheme? renderer = null;
+            void UpdateMaterial()
+            {
+                // Native popups can retain a resolved resource across detach/reopen.
+                if (renderer != null) glass.SurfaceColor = renderer.PopupColor;
+                else glass.ClearValue(LiquidGlassSurface.SurfaceColorProperty);
+            }
+            DetachedFromVisualTree += (_, _) =>
+            {
+                owner.PropertyChanged -= OnOwnerChanged;
+                if (renderer != null) renderer.FrameChanged -= UpdateMaterial;
+                renderer = null;
+            };
             AttachedToVisualTree += (_, _) =>
             {
                 owner.PropertyChanged -= OnOwnerChanged;
                 owner.PropertyChanged += OnOwnerChanged;
                 UpdatePadding();
+                renderer = WindowBackgroundTheme.GetController(owner);
+                if (renderer != null) renderer.FrameChanged += UpdateMaterial;
+                UpdateMaterial();
             };
             void OnOwnerChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
             {

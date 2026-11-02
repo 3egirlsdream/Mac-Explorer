@@ -7,8 +7,8 @@ using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Controls;
 
-/// <summary>Scopes theme surfaces to a main window; dialogs and popup resources stay unchanged.</summary>
-public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemoryDiagnosticSource
+/// <summary>Scopes translucent surfaces and popup materials to a main window; independent dialogs keep their defaults.</summary>
+public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemoryDiagnosticSource
 {
     public static readonly AttachedProperty<BackgroundThemeService?> ServiceProperty =
         AvaloniaProperty.RegisterAttached<WindowBackgroundTheme, Control, BackgroundThemeService?>("Service", inherits: true);
@@ -23,6 +23,7 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
         "ViewModeToggleSelectedBg", "WorkspacePreviewBrush", "WorkspaceControlHoverBrush", "WorkspaceControlPressedBrush", "WorkspaceControlSelectedBrush",
         "WorkspaceControlBorderBrush", "WorkspaceDividerBrush", "WorkspaceInfoTagBrush", "WorkspacePreviewBadgeBrush", "WorkspacePreviewActionBrush",
         "TextSecondaryBrush", "TextMutedBrush", "TextSubtleBrush"];
+    private readonly HashSet<string> _surfaceResources = [];
     private readonly AppWindow _window;
     private readonly BackgroundThemeService _service;
     private CancellationTokenSource? _renderCancellation;
@@ -92,6 +93,8 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
         {
             _window.Classes.Remove("background-themed");
             foreach (var key in ChromeResources) _window.Resources.Remove(key);
+            foreach (var key in _surfaceResources) _window.Resources.Remove(key);
+            _surfaceResources.Clear();
             return;
         }
         var colors = Frame!.TitleColors;
@@ -125,6 +128,7 @@ public sealed class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemory
         SetBrush("WorkspaceControlBorderBrush", dark ? "#24FFFFFF" : "#18000000");
         SetBrush("WorkspaceDividerBrush", dark ? "#24FFFFFF" : "#18000000");
         SetBrush("WorkspaceInfoTagBrush", dark ? "#281B1D21" : "#30FFFFFF");
+        UpdateControlSurfaces(dark);
         var tint = colors[1];
         var badge = Color.FromArgb(220, (byte)(tint.R * 0.3), (byte)(tint.G * 0.3), (byte)(tint.B * 0.3));
         _window.Resources["WorkspacePreviewBadgeBrush"] = new SolidColorBrush(badge);

@@ -31,3 +31,5 @@ Markdown editor) set `LiquidGlassBackdrop.IsExcludedFromCapture`: they paint abo
 the glass, and background-only changes use the throttled capture cadence, so without
 the exclusion a closing overlay would replay its content inside the sidebar pane for
 a frame. No application-wide theme or renderer defaults are installed.
+
+Offset backdrop captures clip the target bitmap before translating from window coordinates. This keeps native menus and dropdowns away from the window origin sampling the same visible page as the sidebar.

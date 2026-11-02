@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Automation;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
@@ -20,7 +19,6 @@ public partial class BackgroundThemeSettingsView : UserControl
     private CancellationTokenSource? _importCancellation;
     private bool _updating, _busy;
     private string? _errorKey;
-    private string? _layoutLanguage;
 
     public BackgroundThemeSettingsView()
     {
@@ -67,33 +65,21 @@ public partial class BackgroundThemeSettingsView : UserControl
         {
             var options = _service?.Options ?? new();
             var preset = BackgroundThemePresets.Find(options.PresetId);
-            var language = LocalizationService.Current?.Culture.Name ?? "zh-CN";
-            if (_layoutLanguage != language)
-            {
-                LayoutCombo.ItemsSource = new[] { LocalizationText.Get("background.height_tile"), LocalizationText.Get("background.cover") };
-                _layoutLanguage = language;
-            }
             PreviewImage.Source = _service?.GetPreview(ActualThemeVariant == ThemeVariant.Dark);
             CustomImageRow.IsVisible = preset == null && PreviewImage.Source != null;
             ImageName.Text = preset != null ? PresetLabel(preset)
                 : options.DisplayName.Length > 0 ? options.DisplayName : LocalizationText.Get("background.none");
             ToolTip.SetTip(ImageName, ImageName.Text);
             EnabledToggle.IsChecked = options.Enabled;
-            LayoutCombo.SelectedIndex = options.Layout == BackgroundImageLayout.Cover ? 1 : 0;
-            StrengthSlider.Value = preset == null ? options.Strength : options.TextureStrength;
+            StrengthSlider.Value = 100 - (preset == null ? options.Strength : options.TextureStrength);
             StrengthValue.Text = StrengthSlider.Value + "%";
-            StrengthLabel.Text = LocalizationText.Get(preset == null ? "background.strength" : "background.texture_strength");
-            LayoutLabel.Text = LocalizationText.Get(preset == null ? "background.layout" : "background.texture_layout");
-            AutomationProperties.SetName(StrengthSlider, StrengthLabel.Text);
-            AutomationProperties.SetName(LayoutCombo, LayoutLabel.Text);
-            LayoutRow.IsVisible = StrengthRow.IsVisible = preset == null || preset.TextureAsset != null;
+            StrengthRow.IsVisible = preset == null || preset.TextureAsset != null;
             ChooseButton.IsEnabled = UseImageButton.IsEnabled = _service != null && !_busy;
             UseImageButton.IsVisible = preset != null && options.ImageFile.Length > 0;
             PatternRows.IsEnabled = _service != null && !_busy;
             RefreshPatternRows(options);
-            ResetButton.IsEnabled = (options.ImageFile.Length > 0 || options.PresetId.Length > 0) && !_busy;
             EnabledToggle.IsEnabled = _service?.Image != null && !_busy;
-            LayoutCombo.IsEnabled = StrengthSlider.IsEnabled = _service?.IsActive == true && !_busy;
+            StrengthSlider.IsEnabled = _service?.IsActive == true && !_busy;
             var error = _errorKey ?? _service?.ErrorKey;
             ErrorText.IsVisible = error != null;
             ErrorText.Text = error == null ? "" : LocalizationText.Get(error);
@@ -109,15 +95,8 @@ public partial class BackgroundThemeSettingsView : UserControl
     private void SaveOptions()
     {
         if (_updating || _busy || _service == null) return;
-        _service.Update(EnabledToggle.IsChecked == true,
-            LayoutCombo.SelectedIndex == 1 ? BackgroundImageLayout.Cover : BackgroundImageLayout.HeightTile,
-            (int)Math.Round(StrengthSlider.Value));
-    }
-
-    private void ResetTheme(object? sender, RoutedEventArgs e)
-    {
-        _errorKey = null;
-        _service?.Reset();
+        // Stored strength remains opacity so existing themes keep exactly the same appearance.
+        _service.Update(EnabledToggle.IsChecked == true, 100 - (int)Math.Round(StrengthSlider.Value));
     }
 
     private async void UseCustomImage(object? sender, RoutedEventArgs e) => await SelectSwatchAsync("", new());

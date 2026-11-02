@@ -47,6 +47,12 @@ public sealed class InteractionStyleService : IInteractionStyleService
                 ["TextControlSelectionHighlightColor"]),
         };
 
+    internal static IEnumerable<string> GetResourceKeys(InteractionStyleToken token)
+    {
+        var definition = GetDefinition(token);
+        return new[] { definition.ResourceKey }.Concat(definition.FluentBridgeKeys);
+    }
+
     private readonly ISettingsService _settingsService;
     private readonly Dictionary<(InteractionStyleToken Token, InteractionThemeVariant Theme), Color> _defaultColors = [];
     private bool _initialized;

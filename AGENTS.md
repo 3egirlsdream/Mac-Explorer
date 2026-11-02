@@ -141,3 +141,5 @@
 - 主题设置使用全局 `Button.theme-swatch` / `Border.theme-swatch-image`，每图案一张 SVG 卡片，点击打开取色卡；默认色与推荐色通过 `BackgroundThemePreset.DefaultColor`／`ColorOptions` 配置，不显示图案名称或标题，名称保留在四语提示和无障碍标签中。`BackgroundThemeOptions.Colors` 按图案保存配色和自选色，调色复用源纹理并同步清晰／磨砂背景；小预览在后台按 384×128 上限生成，离开设置时释放。调色盘复用通用 `ColorPalette`，主题弹出层使用 `context-submenu-surface` / `PopupGlass`。
 
 - 主题与交互颜色共用 `ColorPalette`，样式集中在 `ComponentStyles.axaml` 的 `color-palette-*`；色块固定 18px，避免无内容 Border 被居中布局压成零尺寸。十六进制输入保留草稿，回车／失焦后校验应用，Esc 撤销，不在输入过程中回写文本或保存短格式；交互颜色允许透明度，背景主题仅允许 RGB。推荐色来自各自配置，恢复默认由所属服务处理。
+
+- 背景主题交互表面由 `WindowBackgroundTheme` 在主窗口内统一覆盖语义色与 Fluent 状态资源；菜单、子菜单和下拉列表保留 `PopupGlass` 材质并透明透底，独立设置／对话框保留默认背景。主题仅按高度等比横向平铺；设置“透明度”以 100 减去已保存强度显示，保留旧配置效果。

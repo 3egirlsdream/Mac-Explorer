@@ -41,7 +41,7 @@ internal static class BackgroundThemeSmoke
             var source = Path.Combine(output, "theme.png");
             CreateImage(source);
             await using (var stream = File.OpenRead(source)) await service.ImportAsync(stream, "theme.png");
-            service.Update(true, BackgroundImageLayout.HeightTile, 50);
+            service.Update(true, 50);
             if (owner.DataContext is not MainWindowViewModel model) throw new InvalidOperationException("Missing main model.");
             owner.MinWidth = 640;
             owner.Width = 1280; owner.Height = 800;
@@ -55,6 +55,7 @@ internal static class BackgroundThemeSmoke
                 model.FileList.IsInfoPanelVisible = true;
                 await CaptureAsync(owner, prefix + "-files");
                 await AssertBackgroundBoundariesAsync();
+                await CapturePopupStatesAsync(prefix);
                 model.FileList.IsInfoPanelVisible = false;
                 owner.Width = 800;
                 await CaptureAsync(owner, prefix + "-compact");
@@ -82,9 +83,11 @@ internal static class BackgroundThemeSmoke
                     WindowBackgroundTheme.GetController(owner)!.Frame!.Image.Save(
                         Path.Combine(output, preset.Id + (dark ? "-dark-artwork.png" : "-light-artwork.png")));
                     await AssertBackgroundBoundariesAsync();
+                    if (preset.Id == "cyber-circuit") await CapturePopupStatesAsync("preset-" + (dark ? "dark" : "light"));
                 }
             }
             checks.Add("All nine wide SVG presets render in light/dark with continuous clear/frosted surfaces");
+            checks.Add("Custom image and preset light/dark selection, context-menu hover, nested menu and sort dropdown keep their translucent glass material");
             await service.SelectPresetAsync("");
             var bitmap = service.Image;
             owner.Width = 1500; owner.Height = 900;
@@ -95,15 +98,15 @@ internal static class BackgroundThemeSmoke
             await CaptureAsync(owner, "scrolled");
             if (!ReferenceEquals(bitmap, service.Image)) throw new InvalidOperationException("Scrolling decoded a new image.");
             checks.Add("Resize and scrolling retain the shared image");
-            service.Update(true, BackgroundImageLayout.Cover, 50);
-            await CaptureAsync(owner, "cover");
+            service.Update(true, 50);
+            await CaptureAsync(owner, "height-tile");
             second = App.OpenNewWindow(files);
             await Task.Delay(250);
-            service.Update(false, BackgroundImageLayout.Cover, 50);
+            service.Update(false, 50);
             if (owner.Resources.ContainsKey("WorkspaceContentBrush") || second.Resources.ContainsKey("WorkspaceContentBrush"))
                 throw new InvalidOperationException("Disabling the theme did not restore both windows.");
             await CaptureAsync(owner, "disabled-default");
-            service.Update(true, BackgroundImageLayout.HeightTile, 50);
+            service.Update(true, 50);
             if (!ReferenceEquals(WindowBackgroundTheme.GetService(second), service)) throw new InvalidOperationException("New window uses another theme.");
             second.Close(); second = null;
             checks.Add("New window shares theme; disabling restores both windows");
@@ -196,6 +199,81 @@ internal static class BackgroundThemeSmoke
             await File.WriteAllTextAsync(Path.Combine(output, "report.json"), JsonSerializer.Serialize(new { success = error == null, checks, error }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"Background theme smoke: {output}; success={error == null}");
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime) lifetime.Shutdown(error == null ? 0 : 1);
+        }
+
+        async Task CapturePopupStatesAsync(string prefix)
+        {
+            var model = (MainWindowViewModel)owner.DataContext!;
+            model.FileList.SelectEntry(model.FileList.Entries.First());
+            await CaptureAsync(owner, prefix + "-selected");
+            var fileView = owner.GetVisualDescendants().OfType<FileListView>().Single(v => v.IsEffectivelyVisible);
+            var anchor = fileView.FindControl<Button>("NameSortButton")!;
+            var show = typeof(FileListView).GetMethod("ShowMenuAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            await (Task)show.Invoke(fileView, [anchor, null])!;
+            var menu = (ContextMenu)typeof(FileListView).GetField("_openMenu", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(fileView)!;
+            menu.Close();
+            menu.PlacementTarget = anchor;
+            menu.Placement = PlacementMode.BottomEdgeAlignedLeft;
+            menu.Open(anchor);
+            try
+            {
+                await Task.Delay(150);
+                var parent = menu.Items.OfType<MenuItem>().First(item => item.IsEnabled && item.Items.Count > 0);
+                parent.IsSelected = true;
+                await CaptureAsync(menu, prefix + "-context-menu");
+                AssertPopup(menu, "context-menu");
+                parent.IsSubMenuOpen = true;
+                await Task.Delay(150);
+                var submenu = parent.GetVisualDescendants().OfType<Popup>().Single();
+                await CaptureAsync(submenu.Child!, prefix + "-submenu");
+                AssertPopup(submenu.Child!, "submenu");
+            }
+            finally { menu.Close(); fileView.DismissContextMenu(); }
+            var toolbar = owner.GetVisualDescendants().OfType<FinderToolbar>().Single(v => v.IsEffectivelyVisible);
+            var dropdown = toolbar.FindControl<Popup>("SortDropdown")!;
+            dropdown.PlacementTarget = toolbar.FindControl<Button>("SortButton")!;
+            dropdown.IsOpen = true;
+            try
+            {
+                await Task.Delay(150);
+                await CaptureAsync(dropdown.Child!, prefix + "-sort-dropdown");
+                AssertPopup(dropdown.Child!, "sort-dropdown");
+            }
+            finally { dropdown.IsOpen = false; model.FileList.ClearSelection(); }
+
+            void AssertPopup(Control root, string name)
+            {
+                var glass = root.GetVisualDescendants().OfType<LiquidGlassAvaloniaUI.LiquidGlassSurface>().Single();
+                if (glass.SurfaceColor.A is 0 or > 240 || glass.BlurRadius != 8 || !glass.CaptureForeground)
+                    throw new InvalidOperationException("Popup did not keep its translucent foreground glass material.");
+                var provider = typeof(LiquidGlassAvaloniaUI.LiquidGlassSurface).Assembly.GetType("LiquidGlassAvaloniaUI.LiquidGlassBackdropProvider")!;
+                var snapshot = provider.GetMethod("TryGetSnapshot")!.Invoke(null, [glass])
+                    ?? throw new InvalidOperationException($"Popup has no page backdrop: root={provider.GetMethod("GetBackdropRoot", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, [glass])}, visible={glass.IsEffectivelyVisible}, bounds={glass.Bounds}, screen={glass.PointToScreen(default)}, owner={owner.PointToScreen(default)}, size={owner.ClientSize}, transformed={glass.GetTransformedBounds()}");
+                var type = snapshot.GetType();
+                if (!(bool)type.GetMethod("TryAddLease")!.Invoke(snapshot, null)!)
+                    throw new InvalidOperationException("Popup page backdrop was already released.");
+                try
+                {
+                    var image = (SKImage)type.GetProperty("Image")!.GetValue(snapshot)!;
+                    using var pixels = SKBitmap.FromImage(image);
+                    double red = 0, green = 0, blue = 0;
+                    var count = 0;
+                    for (var y = 0; y < pixels.Height; y += 8)
+                        for (var x = 0; x < pixels.Width; x += 8)
+                        {
+                            var color = pixels.GetPixel(x, y);
+                            if (color.Alpha < 230) continue;
+                            red += color.Red; green += color.Green; blue += color.Blue; count++;
+                        }
+                    if (count < pixels.Width * pixels.Height / 256 ||
+                        Math.Max(red, Math.Max(green, blue)) - Math.Min(red, Math.Min(green, blue)) < count * 4)
+                        throw new InvalidOperationException("Popup sampled an empty or neutral region instead of the colored page.");
+                    using var encoded = image.Encode(SKEncodedImageFormat.Png, 90);
+                    File.WriteAllBytes(Path.Combine(output, prefix + "-" + name + "-backdrop.png"), encoded.ToArray());
+                }
+                finally { type.GetMethod("ReleaseLease")!.Invoke(snapshot, null); }
+
+            }
         }
 
         async Task CaptureAsync(Control control, string name)

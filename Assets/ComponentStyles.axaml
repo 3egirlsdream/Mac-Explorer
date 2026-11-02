@@ -1045,6 +1045,34 @@
                      :is(controls|AppWindow).background-themed Button.info-panel-icon:pressed">
         <Setter Property="Background" Value="{DynamicResource WorkspaceControlPressedBrush}"/>
     </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.primary">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePrimaryBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.primary /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePrimaryBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.primary:pointerover,
+                     :is(controls|AppWindow).background-themed Button.primary:pressed">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePrimaryHoverBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     :is(controls|AppWindow).background-themed Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspacePrimaryHoverBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.danger">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDangerBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.danger /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDangerBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.danger:pointerover,
+                     :is(controls|AppWindow).background-themed Button.danger:pressed">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDangerHoverBrush}"/>
+    </Style>
+    <Style Selector=":is(controls|AppWindow).background-themed Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     :is(controls|AppWindow).background-themed Button.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDangerHoverBrush}"/>
+    </Style>
     <Style Selector="Separator">
         <Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
     </Style>

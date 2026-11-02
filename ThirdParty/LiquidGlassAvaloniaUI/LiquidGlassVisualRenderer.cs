@@ -35,8 +35,8 @@ namespace LiquidGlassAvaloniaUI
                 return;
 
             Rect targetClip = new(clipRect.Size);
-            using (context.PushTransform(Matrix.CreateTranslation(-clipRect.Position.X, -clipRect.Position.Y)))
             using (context.PushClip(targetClip))
+            using (context.PushTransform(Matrix.CreateTranslation(-clipRect.Position.X, -clipRect.Position.Y)))
             {
                 Render(context, visual, new Rect(visual.Bounds.Size), Matrix.Identity, clipRect, excludedRoots, captureForeground);
             }

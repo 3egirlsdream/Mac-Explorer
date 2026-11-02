@@ -91,8 +91,8 @@ internal sealed class BackgroundThemeComposition(Bitmap image, Bitmap frosted, C
             token.ThrowIfCancellationRequested();
             if (texture != null)
             {
-                var tile = CalculateImageRect(new Size(texture.Width, texture.Height), new Size(width, height), options.Layout);
-                using var shader = texture.ToShader(options.Layout == BackgroundImageLayout.HeightTile ? SKShaderTileMode.Repeat : SKShaderTileMode.Clamp,
+                var tile = CalculateImageRect(new Size(texture.Width, texture.Height), new Size(width, height));
+                using var shader = texture.ToShader(SKShaderTileMode.Repeat,
                     SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear),
                     SKMatrix.CreateScaleTranslation((float)(tile.Width / texture.Width), (float)(tile.Height / texture.Height), (float)tile.X, (float)tile.Y));
                 using var texturePaint = new SKPaint
@@ -108,16 +108,10 @@ internal sealed class BackgroundThemeComposition(Bitmap image, Bitmap frosted, C
         catch { bitmap.Dispose(); throw; }
     }
 
-    internal static Rect CalculateImageRect(Size image, Size window, BackgroundImageLayout layout)
+    internal static Rect CalculateImageRect(Size image, Size window)
     {
         if (image.Width <= 0 || image.Height <= 0 || window.Width <= 0 || window.Height <= 0) return default;
         var scale = window.Height / image.Height;
-        if (layout == BackgroundImageLayout.Cover)
-        {
-            scale = Math.Max(scale, window.Width / image.Width);
-            var size = image * scale;
-            return new Rect((window.Width - size.Width) / 2, (window.Height - size.Height) / 2, size.Width, size.Height);
-        }
         return new Rect(0, 0, image.Width * scale, window.Height);
     }
 

@@ -34,6 +34,25 @@ public sealed class PopupGlassTests
         Assert.Equal(new[] { "second", "third", "first" }, painted);
     }
 
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
+    public void OffsetBackdropClipStaysInTargetCoordinates()
+    {
+        var probe = new OffsetCaptureProbe();
+        probe.Measure(new Size(500, 400));
+        probe.Arrange(new Rect(0, 0, 500, 400));
+        var render = typeof(LiquidGlassSurface).Assembly.GetType("LiquidGlassAvaloniaUI.LiquidGlassVisualRenderer")!
+            .GetMethod("Render", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+        var group = new DrawingGroup();
+        using (var drawing = group.Open()) render.Invoke(null, [drawing, probe, new Rect(200, 100, 80, 60), null, true]);
+        Assert.Equal(new Rect(0, 0, 80, 60), group.GetBounds());
+    }
+
+    private sealed class OffsetCaptureProbe : Control
+    {
+        public override void Render(DrawingContext context) => context.DrawRectangle(Brushes.CornflowerBlue, null, new Rect(200, 100, 80, 60));
+    }
+
     private sealed class OrderedCaptureProbe(string name, List<string> painted) : Control
     {
         public override void Render(DrawingContext context) => painted.Add(name);

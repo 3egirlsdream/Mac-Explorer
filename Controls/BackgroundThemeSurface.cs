@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using MacExplorer.Models;
 using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Controls;
@@ -58,6 +57,6 @@ public class BackgroundThemeSurface : Control
         return true;
     }
 
-    internal static Rect CalculateImageRect(Size image, Size window, BackgroundImageLayout layout)
-        => BackgroundThemeComposition.CalculateImageRect(image, window, layout);
+    internal static Rect CalculateImageRect(Size image, Size window)
+        => BackgroundThemeComposition.CalculateImageRect(image, window);
 }

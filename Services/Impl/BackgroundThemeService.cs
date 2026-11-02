@@ -170,13 +170,13 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
         }, token);
     }
 
-    public void Update(bool enabled, BackgroundImageLayout layout, int strength)
+    public void Update(bool enabled, int strength)
     {
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
         var options = (Options.PresetId.Length == 0
-            ? Options with { Enabled = enabled, Layout = layout, Strength = strength }
-            : Options with { Enabled = enabled, Layout = layout, TextureStrength = strength }).Normalize();
+            ? Options with { Enabled = enabled, Strength = strength }
+            : Options with { Enabled = enabled, TextureStrength = strength }).Normalize();
         if (options == Options) return;
         Options = options;
         Save(deferred: true);

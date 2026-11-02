@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -27,14 +28,14 @@ namespace MacExplorer.Tests;
 public sealed class BackgroundThemeTests
 {
     [AvaloniaFact]
-    public void HeightTilingKeepsItsScaleWhileWideningAndCoverPreservesAspectRatio()
+    public void HeightTilingKeepsItsScaleWhileWidening()
     {
         var image = new Size(600, 800);
-        var tile = BackgroundThemeSurface.CalculateImageRect(image, new Size(1000, 800), BackgroundImageLayout.HeightTile);
+        var tile = BackgroundThemeSurface.CalculateImageRect(image, new Size(1000, 800));
         Assert.Equal(new Rect(0, 0, 600, 800), tile);
-        Assert.Equal(tile, BackgroundThemeSurface.CalculateImageRect(image, new Size(1800, 800), BackgroundImageLayout.HeightTile));
-        Assert.Equal(new Rect(0, 0, 300, 400), BackgroundThemeSurface.CalculateImageRect(image, new Size(1000, 400), BackgroundImageLayout.HeightTile));
-        Assert.Equal(new Rect(0, -400, 1200, 1600), BackgroundThemeSurface.CalculateImageRect(image, new Size(1200, 800), BackgroundImageLayout.Cover));
+        Assert.Equal(tile, BackgroundThemeSurface.CalculateImageRect(image, new Size(1800, 800)));
+        Assert.Equal(new Rect(0, 0, 300, 400), BackgroundThemeSurface.CalculateImageRect(image, new Size(1000, 400)));
+        Assert.Equal(new Rect(0, 0, 600, 800), BackgroundThemeSurface.CalculateImageRect(image, new Size(1200, 800)));
     }
 
     [AvaloniaFact]
@@ -50,7 +51,9 @@ public sealed class BackgroundThemeTests
             Assert.Equal(new SKSizeI(2048, 1024), normalized.Info.Size);
         await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Service.ImportAsync(new MemoryStream([1, 2, 3]), "broken.png"));
         Assert.Same(original, fixture.Service.Image);
-        fixture.Service.Update(true, BackgroundImageLayout.Cover, 63);
+        fixture.Service.Update(true, 63);
+        var legacy = fixture.Settings.Get(BackgroundThemeService.SettingKey)!;
+        fixture.Settings.Set(BackgroundThemeService.SettingKey, legacy.Insert(1, "\"Layout\":1,"));
         using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
         await restored.InitializeAsync();
         Assert.Equal(fixture.Service.Options, restored.Options);
@@ -81,7 +84,7 @@ public sealed class BackgroundThemeTests
                 Assert.Equal(Colors.Transparent, BrushColor(window, "WorkspaceContentBrush"));
             Assert.Equal(Colors.White, BrushColor(dialog, "WorkspaceContentBrush"));
             first.RequestedThemeVariant = ThemeVariant.Dark;
-            fixture.Service.Update(false, BackgroundImageLayout.HeightTile, 40);
+            fixture.Service.Update(false, 40);
             Assert.Equal(Color.Parse("#1B1D21"), BrushColor(first, "WorkspaceContentBrush"));
             Assert.Equal(Colors.White, BrushColor(second, "WorkspaceContentBrush"));
         }
@@ -93,7 +96,7 @@ public sealed class BackgroundThemeTests
     [InlineData("zh-Hant", true)]
     [InlineData("en", true)]
     [InlineData("fr", false)]
-    public async Task SettingsEditAndResetTheSharedThemeWithoutClipping(string language, bool dark)
+    public async Task SettingsEditTransparencyWithoutClippingOrChangingLegacyOpacity(string language, bool dark)
     {
         using var fixture = new Fixture();
         using var localization = new LocalizationService(fixture.Settings);
@@ -109,28 +112,36 @@ public sealed class BackgroundThemeTests
         window.Show();
         try
         {
-            view.FindControl<ComboBox>("LayoutCombo")!.SelectedIndex = 1;
+            Assert.Null(view.FindControl<ComboBox>("LayoutCombo"));
+            Assert.Null(view.FindControl<Button>("ResetButton"));
+            Assert.Equal(60, view.FindControl<Slider>("StrengthSlider")!.Value);
             view.FindControl<Slider>("StrengthSlider")!.Value = 72;
-            Assert.Equal(BackgroundImageLayout.Cover, fixture.Service.Options.Layout);
-            Assert.Equal(72, fixture.Service.Options.Strength);
+            Assert.Equal(28, fixture.Service.Options.Strength);
             localization.SetLanguage(language == "en" ? "fr" : "en");
-            Assert.Equal(localization["background.cover"], view.FindControl<ComboBox>("LayoutCombo")!.SelectionBoxItem);
-            Assert.Equal(72, fixture.Service.Options.Strength);
+            Assert.Equal(localization["background.transparency"], view.FindControl<TextBlock>("StrengthLabel")!.Text);
+            Assert.Equal(28, fixture.Service.Options.Strength);
             localization.SetLanguage(language);
             view.FindControl<ToggleSwitch>("EnabledToggle")!.IsChecked = false;
             Assert.False(fixture.Service.IsActive);
             view.FindControl<ToggleSwitch>("EnabledToggle")!.IsChecked = true;
             Assert.True(fixture.Service.IsActive);
             window.UpdateLayout();
-            foreach (var name in new[] { "ChooseButton", "ResetButton", "LayoutCombo", "StrengthSlider", "StrengthValue" })
+            foreach (var name in new[] { "ChooseButton", "EnabledToggle", "StrengthSlider", "StrengthValue" })
             {
                 var control = view.FindControl<Control>(name)!;
                 var point = control.TranslatePoint(default, window)!.Value;
                 Assert.True(point.X >= 0 && point.X + control.Bounds.Width <= window.ClientSize.Width, name);
             }
-            view.FindControl<Button>("ResetButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.False(fixture.Service.IsActive);
-            Assert.Null(view.FindControl<Image>("PreviewImage")!.Source);
+            var toggle = view.FindControl<ToggleSwitch>("EnabledToggle")!;
+            var choose = view.FindControl<Button>("ChooseButton")!;
+            Assert.True(choose.TranslatePoint(default, view)!.Value.Y > toggle.TranslatePoint(default, view)!.Value.Y);
+            view.FindControl<Slider>("StrengthSlider")!.Value = 100;
+            Assert.Equal(0, fixture.Service.Options.Strength);
+            using var artwork = fixture.Service.AcquireArtwork()!;
+            using var transparent = BackgroundThemeComposition.Render(artwork.Texture, fixture.Service.Options, 10, 10, false, CancellationToken.None);
+            Assert.Equal(SKColors.White, transparent.GetPixel(5, 5));
+            view.FindControl<Slider>("StrengthSlider")!.Value = 0;
+            Assert.Equal(100, fixture.Service.Options.Strength);
         }
         finally { window.Close(); Application.Current!.Styles.Remove(fluent); }
     }
@@ -139,7 +150,7 @@ public sealed class BackgroundThemeTests
     public async Task MissingImageFallsBackAndCanBeReplaced()
     {
         using var fixture = new Fixture();
-        fixture.Settings.Set(BackgroundThemeService.SettingKey, "{\"Enabled\":true,\"ImageFile\":\"missing.png\",\"Strength\":200}");
+        fixture.Settings.Set(BackgroundThemeService.SettingKey, "{\"Enabled\":true,\"ImageFile\":\"missing.png\",\"Strength\":200,\"Layout\":1}");
         using var service = new BackgroundThemeService(fixture.Settings, fixture.Root);
         await service.InitializeAsync();
         Assert.False(service.IsActive);
@@ -161,9 +172,11 @@ public sealed class BackgroundThemeTests
         await Task.WhenAll(first, last);
         Assert.Equal("nature-trellis", fixture.Service.Options.PresetId);
         Assert.True(File.Exists(Path.Combine(fixture.Root, managed)));
-        fixture.Service.Update(true, BackgroundImageLayout.Cover, 73);
+        fixture.Service.Update(true, 73);
         Assert.Equal(73, fixture.Service.Options.TextureStrength);
         Assert.Equal(40, fixture.Service.Options.Strength);
+        var legacy = fixture.Settings.Get(BackgroundThemeService.SettingKey)!;
+        fixture.Settings.Set(BackgroundThemeService.SettingKey, legacy.Insert(1, "\"Layout\":1,"));
         using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
         await restored.InitializeAsync();
         Assert.Equal(fixture.Service.Options, restored.Options);
@@ -307,7 +320,7 @@ public sealed class BackgroundThemeTests
             view.ClosePalette();
             view.FindControl<Slider>("StrengthSlider")!.Value = 35;
             localization.SetLanguage("fr");
-            Assert.Equal(35, fixture.Service.Options.TextureStrength);
+            Assert.Equal(65, fixture.Service.Options.TextureStrength);
             Assert.Equal(9, view.GetVisualDescendants().OfType<Button>().Count(button => button.Classes.Contains("theme-swatch")));
             Assert.Contains(localization["background.preset.circuit"], AutomationProperties.GetName(view.GetSwatch("cyber-circuit")));
             Assert.True(view.GetSwatch("cyber-circuit").Classes.Contains("active"));
@@ -317,7 +330,7 @@ public sealed class BackgroundThemeTests
                 button => Assert.NotNull(button.GetVisualDescendants().OfType<Image>().Single().Source));
             await fixture.Service.SelectPresetAsync("animal-panda");
             Assert.True(view.FindControl<Border>("StrengthRow")!.IsVisible);
-            Assert.True(view.FindControl<Border>("LayoutRow")!.IsVisible);
+            Assert.Null(view.FindControl<Border>("LayoutRow"));
         }
         finally { window.Close(); Application.Current!.Styles.Remove(fluent); }
     }
@@ -328,7 +341,7 @@ public sealed class BackgroundThemeTests
         using var fixture = new Fixture();
         await fixture.Service.SelectPresetAsync("cyber-circuit", colors: new("custom", BackgroundThemePresets.All[0].ColorOptions[1]));
         using var artwork = fixture.Service.AcquireArtwork()!;
-        fixture.Service.Update(true, BackgroundImageLayout.HeightTile, 47);
+        fixture.Service.Update(true, 47);
         await fixture.Service.SelectPresetAsync("cyber-circuit", colors: new("custom", BackgroundThemePresets.All[0].ColorOptions[2]));
         using var recolored = fixture.Service.AcquireArtwork()!;
         Assert.Same(artwork.Texture, recolored.Texture);
@@ -418,13 +431,25 @@ public sealed class BackgroundThemeTests
         var toolbar = new Button { Classes = { "ghost", "toolbar-btn" }, Content = "Toolbar", Width = 80 };
         var navigation = new Button { Classes = { "ghost", "workspace-nav-button" }, Content = "Nav" };
         var info = new Button { Classes = { "ghost", "info-panel-icon" }, Content = "Info" };
-        var first = new AppWindow { Width = 600, Height = 400, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
-            Content = new StackPanel { Children = { preview, chip, toolbar, navigation, info } } };
+        var secondary = new Button { Classes = { "secondary", "compact" }, Content = "Secondary" };
+        var ghost = new Button { Classes = { "ghost" }, Content = "Ghost" };
+        var primary = new Button { Classes = { "primary", "compact" }, Content = "Primary" };
+        var danger = new Button { Classes = { "danger", "compact" }, Content = "Danger" };
+        var toggle = new ToggleButton { Content = "Toggle", IsChecked = true };
+        var list = new ListBox { ItemsSource = new[] { "First", "Second" }, SelectedIndex = 0, Height = 60 };
+        var combo = new ComboBox { ItemsSource = new[] { "First", "Second" }, SelectedIndex = 0 };
+        var leaf = new MenuItem { Header = "Leaf" };
+        var parent = new MenuItem { Header = "Submenu", Items = { leaf } };
+        var menu = new ContextMenu { Items = { parent } };
+        ghost.ContextMenu = menu;
+        var first = new AppWindow { Width = 600, Height = 650, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
+            Content = new StackPanel { Children = { preview, chip, toolbar, navigation, info, secondary, ghost, primary, danger, toggle, list, combo } } };
         var dialog = new DialogWindow { Width = 400, Height = 300, RequestedThemeVariant = first.RequestedThemeVariant };
         first.Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
         first.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ThemeTokens.axaml")));
         first.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
         first.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        combo.Theme = (ControlTheme)first.FindResource(typeof(ComboBox))!;
         using var theme = new WindowBackgroundTheme(first, fixture.Service);
         first.Show(); dialog.Show(first);
         try
@@ -443,7 +468,7 @@ public sealed class BackgroundThemeTests
             Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(preview.Background).Color.A, (byte)1, (byte)254);
             Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(chip.Background).Color.A, (byte)1, (byte)254);
             Assert.InRange(BrushColor(first, "ViewModeToggleSelectedBg").A, (byte)1, (byte)254);
-            foreach (var button in new[] { toolbar, navigation, info })
+            foreach (var button in new[] { toolbar, navigation, info, secondary, ghost, primary, danger })
             {
                 var location = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), first)!.Value;
                 first.MouseMove(location);
@@ -454,13 +479,45 @@ public sealed class BackgroundThemeTests
                 Assert.InRange(Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color.A, (byte)1, (byte)254);
                 first.MouseUp(location, MouseButton.Left);
             }
-            fixture.Service.Update(false, BackgroundImageLayout.HeightTile, 20);
+            Assert.InRange(BrushColor(first, "GlassMenuBg").A, (byte)1, (byte)254);
+            Assert.Equal(255, BrushColor(dialog, "GlassMenuBg").A);
+            Assert.InRange(BrushColor(first, "InteractionSelectedBrush").A, (byte)1, (byte)254);
+            Assert.InRange(BrushColor(first, "ToggleButtonBackgroundChecked").A, (byte)1, (byte)254);
+            menu.Open(ghost);
+            Dispatcher.UIThread.RunJobs();
+            var glass = Assert.Single(menu.GetVisualDescendants().OfType<LiquidGlassAvaloniaUI.LiquidGlassSurface>());
+            Assert.InRange(glass.SurfaceColor.A, (byte)1, (byte)240);
+            Assert.Equal(8, glass.BlurRadius);
+            parent.IsSubMenuOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            var submenu = parent.GetVisualDescendants().OfType<Popup>().Single();
+            Assert.InRange(Assert.Single(submenu.Child!.GetVisualDescendants().OfType<LiquidGlassAvaloniaUI.LiquidGlassSurface>()).SurfaceColor.A, (byte)1, (byte)240);
+            menu.Close();
+            combo.ApplyTemplate();
+            first.UpdateLayout();
+            combo.IsDropDownOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            var drop = combo.GetVisualDescendants().OfType<Popup>().Single();
+            Assert.InRange(Assert.Single(drop.Child!.GetVisualDescendants().OfType<LiquidGlassAvaloniaUI.LiquidGlassSurface>()).SurfaceColor.A, (byte)1, (byte)240);
+            combo.IsDropDownOpen = false;
+            fixture.Service.Update(false, 20);
+            await Task.Delay(250);
+            Dispatcher.UIThread.RunJobs();
             Assert.Equal(original, BrushColor(first, "TitleBarBackgroundBrush"));
             Assert.Equal(originalDivider, BrushColor(first, "WorkspaceDividerBrush"));
             Assert.Equal(originalMuted, BrushColor(first, "TextMutedBrush"));
             Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(preview.Background).Color.A);
             Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(chip.Background).Color.A);
             Assert.Equal(255, BrushColor(first, "ViewModeToggleSelectedBg").A);
+            Assert.Equal(255, BrushColor(first, "InteractionHoverBrush").A);
+            Assert.Equal(255, BrushColor(first, "InteractionSelectedBrush").A);
+            menu.Open(ghost);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal((byte)242, ((Color)first.FindResource(first.ActualThemeVariant, "PopupGlassColor")!).A);
+            parent.IsSelected = true;
+            Assert.Equal(BrushColor(first, "SidebarHoverBrush"), Assert.IsAssignableFrom<ISolidColorBrush>(parent.GetVisualDescendants().OfType<Border>().Single(x => x.Name == "PART_LayoutRoot").Background).Color);
+            Assert.Equal(242, Assert.Single(menu.GetVisualDescendants().OfType<LiquidGlassAvaloniaUI.LiquidGlassSurface>()).SurfaceColor.A);
+            menu.Close();
         }
         finally { first.Close(); dialog.Close(); }
     }
