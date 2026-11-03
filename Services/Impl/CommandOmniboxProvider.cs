@@ -6,8 +6,11 @@ using AppIcons = MacExplorer.Assets.Icons;
 namespace MacExplorer.Services.Impl;
 
 /// <summary>Provides application commands (new folder, batch rename, compress, etc.) for the command palette.</summary>
-public class CommandOmniboxProvider(IAppCapabilityRegistry capabilities) : IOmniboxProvider
+public class CommandOmniboxProvider : IOmniboxProvider
 {
+    private readonly Func<IAppCapabilityRegistry> _capabilities;
+    public CommandOmniboxProvider(IAppCapabilityRegistry capabilities) : this(() => capabilities) { }
+    public CommandOmniboxProvider(Func<IAppCapabilityRegistry> capabilities) => _capabilities = capabilities;
     public string Name => "Commands";
     public int Priority => 5;
 
@@ -63,7 +66,7 @@ public class CommandOmniboxProvider(IAppCapabilityRegistry capabilities) : IOmni
                 "#8B5CF6",
                 ExecuteAction: async () =>
                 {
-                    var result = await capabilities.ExecuteUiAsync(cmd.CapabilityId, "{}", viewModel);
+                    var result = await _capabilities().ExecuteUiAsync(cmd.CapabilityId, "{}", viewModel);
                     if (!result.Success) viewModel.StatusText = result.Message;
                 }));
         }

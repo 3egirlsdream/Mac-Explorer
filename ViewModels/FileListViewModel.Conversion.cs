@@ -13,6 +13,7 @@ public partial class FileListViewModel
     private readonly PluginManager? _pluginManager;
     private readonly IBackgroundTaskManager? _conversionTaskManager;
     private readonly IAppCapabilityRegistry? _appCapabilities;
+    private readonly Func<IAppCapabilityRegistry>? _appCapabilitiesFactory;
     private readonly CancellationTokenSource _pluginLifetime = new();
 
     private IReadOnlyList<ContextMenuAction> BuildPluginContextMenus(FileSystemEntry entry)
@@ -29,10 +30,11 @@ public partial class FileListViewModel
                     ? MacExplorer.Services.Impl.LocalizationText.Get(command.Title) : command.Title, IconSvg = PluginIcon(command.Icon), IsEnabled = !plugin.Running,
                 Execute = async () =>
                 {
-                    if (_appCapabilities == null)
+                    var capabilities = _appCapabilities ?? _appCapabilitiesFactory?.Invoke();
+                    if (capabilities == null)
                         await ExecutePluginCommandAsync(plugin.Manifest.Id, command, files);
                     else
-                        await _appCapabilities.ExecuteUiAsync(
+                        await capabilities.ExecuteUiAsync(
                             AppCapabilityRegistry.PluginCommandId(plugin.Manifest.Id, command.Id),
                             System.Text.Json.JsonSerializer.Serialize(new { paths = files.Select(file => file.Path).ToArray() }), this);
                 }

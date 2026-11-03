@@ -514,7 +514,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         MacExplorer.Copilot.IAppCapabilityRegistry? appCapabilities = null,
         ILocalSendService? localSendService = null,
         ILocalizationService? localizationService = null,
-        IAirDropService? airDropService = null)
+        IAirDropService? airDropService = null,
+        Func<MacExplorer.Copilot.IAppCapabilityRegistry>? appCapabilitiesFactory = null)
     {
         _localizationService = localizationService ?? LocalizationService.Current;
         if (_localizationService != null) _localizationService.LanguageChanged += OnInterfaceLanguageChanged;
@@ -555,6 +556,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (_pluginManager != null) _pluginManager.Changed += OnPluginsChanged;
         _conversionTaskManager = conversionTaskManager;
         _appCapabilities = appCapabilities;
+        _appCapabilitiesFactory = appCapabilitiesFactory;
         _localSendService = localSendService;
         _airDropService = airDropService;
         _columnLayoutService = new FileListColumnLayoutService(settingsService);

@@ -25,6 +25,7 @@ public partial class App : Application
     public static IServiceProvider Services { get; private set; } = null!;
     private static IClassicDesktopStyleApplicationLifetime? _desktop;
     private readonly System.Threading.CancellationTokenSource _startupUpdateCancellation = new();
+    private Task _startupServicesTask = Task.CompletedTask;
 
     public override void Initialize()
     {
@@ -72,7 +73,7 @@ public partial class App : Application
         var frequentFolderService = Services.GetService<IFrequentFolderService>();
         OmniboxService.RegisterProvider(new PathOmniboxProvider());
         OmniboxService.RegisterProvider(new CommandOmniboxProvider(
-            Services.GetRequiredService<Copilot.IAppCapabilityRegistry>()));
+            () => Services.GetRequiredService<Copilot.IAppCapabilityRegistry>()));
         // Search suggestions are backed by the app-wide FTS index, so the omnibox
         // reuses the same pipeline as in-window search, including OCR/AI tags.
         OmniboxService.RegisterProvider(new SearchOmniboxProvider(
@@ -105,6 +106,7 @@ public partial class App : Application
                 if (stoppingPlugins) return;
                 stoppingPlugins = true;
                 _startupUpdateCancellation.Cancel();
+                await _startupServicesTask;
                 await Services.GetRequiredService<IBackgroundTaskManager>().ShutdownAsync();
                 try
                 {
@@ -144,10 +146,7 @@ public partial class App : Application
             var localSend = Services.GetRequiredService<ILocalSendService>();
             localSend.ConfirmReceiveAsync = ShowLocalSendReceiveAsync;
             localSend.RequestPinAsync = ShowLocalSendPinAsync;
-            _ = StartLocalSendAsync(localSend);
         }
-        _ = Services.GetRequiredService<IFileTagService>().RetryPendingAsync();
-        _ = Services.GetRequiredService<Services.Plugins.PluginManager>().InitializeAsync();
 
         if (mainWindow is { IsVisible: false })
         {
@@ -283,7 +282,10 @@ public partial class App : Application
     private void OnStartupWindowOpened(object? sender, EventArgs e)
     {
         if (sender is MainWindow window)
+        {
             window.Opened -= OnStartupWindowOpened;
+            _startupServicesTask = StartDeferredServicesAsync(window);
+        }
         Dispatcher.UIThread.Post(Views.FileListView.PrepareFileDrag, DispatcherPriority.ApplicationIdle);
         if (DistributionChannel.IsAppStore)
             Dispatcher.UIThread.Post(async () =>
@@ -294,6 +296,30 @@ public partial class App : Application
         _ = Task.Run(CheckStartupUpdateAsync);
         Services.GetRequiredService<ApplicationStorageMaintenance>().Start();
         _ = StartSearchIndexAsync();
+    }
+
+    private async Task StartDeferredServicesAsync(MainWindow window)
+    {
+        var token = _startupUpdateCancellation.Token;
+        try
+        {
+            var compositor = Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(window)?.Compositor;
+            if (compositor != null) await compositor.RequestCommitAsync().WaitAsync(token);
+            token.ThrowIfCancellationRequested();
+            var localSend = Services.GetRequiredService<ILocalSendService>();
+            var plugins = Services.GetRequiredService<Services.Plugins.PluginManager>();
+            var tags = Services.GetRequiredService<IFileTagService>();
+            await Task.WhenAll(Task.Run(() => StartLocalSendAsync(localSend), token), Task.Run(async () =>
+            {
+                try { token.ThrowIfCancellationRequested(); await plugins.InitializeAsync(); }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
+                catch (Exception ex) { Services.GetService<ILogger<App>>()?.LogError(ex, "Plugin startup failed"); }
+                token.ThrowIfCancellationRequested();
+                await tags.RetryPendingAsync(token);
+            }, token));
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex) { Services.GetService<ILogger<App>>()?.LogError(ex, "Background service startup failed"); }
     }
 
     private async Task StartSearchIndexAsync()
@@ -611,8 +637,9 @@ public partial class App : Application
                 sp.GetService<IRemoteConnectionService>(), sp.GetService<IRemoteFileService>(),
                 sp.GetService<IRemoteFileEditService>(), sp.GetService<IOpenWithAppService>(),
                 sp.GetService<IFileTagService>(), sp.GetService<Services.Plugins.PluginManager>(),
-                sp.GetService<IBackgroundTaskManager>(), sp.GetRequiredService<Copilot.IAppCapabilityRegistry>(),
-                sp.GetService<ILocalSendService>(), airDropService: sp.GetRequiredService<IAirDropService>());
+                sp.GetService<IBackgroundTaskManager>(), null,
+                sp.GetService<ILocalSendService>(), airDropService: sp.GetRequiredService<IAirDropService>(),
+                appCapabilitiesFactory: () => sp.GetRequiredService<Copilot.IAppCapabilityRegistry>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());
             return viewModel;
         });

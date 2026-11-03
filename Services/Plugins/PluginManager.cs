@@ -55,6 +55,7 @@ public sealed partial class PluginManager : IAsyncDisposable
         await _gate.WaitAsync();
         try
         {
+            ThrowIfStopping();
             if (_initialized) return;
             if (DistributionChannel.IsAppStore)
             {
