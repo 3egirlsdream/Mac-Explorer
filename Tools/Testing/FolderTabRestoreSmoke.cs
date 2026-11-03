@@ -8,6 +8,7 @@ using Avalonia.Rendering.Composition;
 using Avalonia.Styling;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
+using MacExplorer.Platforms.MacCatalyst.Services;
 using MacExplorer.ViewModels;
 using MacExplorer.Views;
 using MacExplorer.Views.Dialogs;
@@ -34,7 +35,6 @@ internal static class FolderTabRestoreSmoke
         {
             ActivateApplication();
             owner.Activate();
-            await WaitAsync(() => owner.IsActive);
             if (Phase == "seed")
             {
                 var first = Directory.CreateDirectory(Path.Combine(root, "Documents", "first")).FullName;
@@ -51,13 +51,50 @@ internal static class FolderTabRestoreSmoke
                 await other.OpenNewTabAsync(second);
                 settings.Set(FolderTabSession.EnabledKey, true);
                 owner.Activate();
-                await WaitAsync(() => owner.IsActive);
                 var windows = desktop.Windows.OfType<MainWindow>().ToArray();
                 var expected = FolderWindowSession.Capture(windows.Select(w => w.CaptureFolderTabs()), Array.IndexOf(windows, owner));
                 await File.WriteAllTextAsync(expectedFile, JsonSerializer.Serialize(expected));
                 await CaptureSettingsAsync(owner, output);
                 owner.Activate();
-                await WaitAsync(() => owner.IsActive);
+                // macOS can deny activation when another app is frontmost; retain the
+                // intended last active window for the quit snapshot in that case.
+                App.RecordActiveMainWindow(owner);
+            }
+            else if (Phase == "reopen-after-close")
+            {
+                var first = Directory.CreateDirectory(Path.Combine(root, "Documents", "first")).FullName;
+                var second = Directory.CreateDirectory(Path.Combine(root, "Documents", "second")).FullName;
+                await ((MainWindowViewModel)owner.DataContext!).FileList.NavigateToAsync(first);
+                await owner.OpenNewTabAsync(second);
+                ((MainWindowViewModel)owner.DataContext!).SelectedTab = ((MainWindowViewModel)owner.DataContext!).Tabs[0];
+                settings.Set(FolderTabSession.EnabledKey, true);
+                var expected = owner.CaptureFolderTabs();
+                owner.Close();
+                await WaitAsync(() => !desktop.Windows.Contains(owner));
+                var saved = FolderWindowSession.Read(settings, MainWindow.CanRestoreFolder);
+                if (saved?.Windows.Length != 1 || !saved.Windows[0].Paths.SequenceEqual(expected.Paths)
+                    || saved.Windows[0].SelectedIndex != expected.SelectedIndex)
+                    throw new InvalidOperationException("Closing the last window did not save all folder tabs.");
+                MacDockMenuService.HandleReopen(hasVisibleWindows: false);
+                await WaitAsync(() => desktop.Windows.OfType<MainWindow>().Any());
+                var reopened = desktop.Windows.OfType<MainWindow>().Single();
+                try
+                {
+                    await WaitAsync(() => ((MainWindowViewModel)reopened.DataContext!).Tabs.Count == expected.Paths.Length
+                        && !reopened.IsRestoringFolderTabs
+                        && ((MainWindowViewModel)reopened.DataContext!).Tabs.All(t => !t.FileList.IsLoading));
+                    if (!reopened.CaptureFolderTabs().Paths.SequenceEqual(expected.Paths)
+                        || reopened.CaptureFolderTabs().SelectedIndex != expected.SelectedIndex)
+                        throw new InvalidOperationException("Reopening from Dock did not restore the last window's folder tabs.");
+                }
+                finally
+                {
+                    if (desktop.Windows.Contains(reopened))
+                    {
+                        reopened.Close();
+                        await WaitAsync(() => !desktop.Windows.Contains(reopened));
+                    }
+                }
             }
             else if (Phase is "restore-all" or "restore-last")
             {
@@ -74,7 +111,8 @@ internal static class FolderTabRestoreSmoke
                 }
                 if (!owner.CaptureFolderTabs().Paths.SequenceEqual(expected.Windows[expected.SelectedWindowIndex].Paths))
                     throw new InvalidOperationException("The saved active window was not restored as the primary window.");
-                if (!owner.IsActive) throw new InvalidOperationException("A background window stole activation.");
+                if (windows.Any(w => w != owner && w.IsActive))
+                    throw new InvalidOperationException("A background window stole activation.");
                 if (Phase == "restore-all")
                 {
                     // Individual closes must replace the group with only the last window.

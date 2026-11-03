@@ -380,10 +380,13 @@ public partial class App : Application
     }
 
     public static MainWindow OpenNewWindow(string? path = null)
+        => OpenNewWindow(path, restoreFolderTabsOnOpen: false);
+
+    private static MainWindow OpenNewWindow(string? path, bool restoreFolderTabsOnOpen)
     {
         var source = _desktop?.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsActive)
                      ?? _desktop?.Windows.OfType<MainWindow>().LastOrDefault();
-        var window = CreateWindow(path, isPrimary: false, source);
+        var window = CreateWindow(path, isPrimary: restoreFolderTabsOnOpen, source);
         if (_desktop != null && !_desktop.Windows.Contains(_desktop.MainWindow!))
             _desktop.MainWindow = window;
         window.Show();
@@ -392,7 +395,8 @@ public partial class App : Application
     }
 
     internal static Window ShowMainWindow()
-        => ShowOrCreateWindow(_desktop?.Windows.OfType<MainWindow>() ?? [], () => OpenNewWindow());
+        => ShowOrCreateWindow(_desktop?.Windows.OfType<MainWindow>() ?? [],
+            () => OpenNewWindow(null, restoreFolderTabsOnOpen: true));
 
     internal static Window ShowOrCreateWindow(System.Collections.Generic.IEnumerable<Window> windows, Func<Window> createWindow)
     {

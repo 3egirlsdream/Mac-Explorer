@@ -12,7 +12,7 @@ def main():
     if not root:
         raise SystemExit("Launch through Tools/Testing/run-isolated.sh.")
     executable = Path(sys.argv[1]).resolve()
-    for phase in ("seed", "restore-all", "restore-last", "disabled", "explicit"):
+    for phase in ("reopen-after-close", "seed", "restore-all", "restore-last", "disabled", "explicit"):
         env = dict(os.environ, MACEXPLORER_FOLDER_TABS_SMOKE=phase)
         output = Path(root) / "folder-tabs"
         output.mkdir(parents=True, exist_ok=True)

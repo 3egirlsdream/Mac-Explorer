@@ -93,13 +93,18 @@ public sealed class MacDockMenuService
     {
         try
         {
-            if (hasVisibleWindows == 0)
-                Dispatcher.UIThread.Post(() => App.OpenNewWindow());
+            HandleReopen(hasVisibleWindows != 0);
         }
         catch
         {
         }
         return 1;
+    }
+
+    internal static void HandleReopen(bool hasVisibleWindows)
+    {
+        if (!hasVisibleWindows)
+            Dispatcher.UIThread.Post(() => App.ShowMainWindow());
     }
 
     [UnmanagedCallersOnly]
