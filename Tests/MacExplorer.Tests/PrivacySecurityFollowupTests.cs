@@ -159,6 +159,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     [Trait("Kind", "Integration")]
     public async Task NativeHelperRetainsLocalGpsCameraAndOcrWithoutNetworkPermission()
     {
+        using var features = new GrantedFeatureAccess();
         using var access = new DirectoryAccess(Path.Combine(_root, "access.json"), true, internalRoots: [_root]);
         using var scope = DirectoryAccess.UseForTests(access);
         var photo = Path.Combine(_root, "photo.jpg");
@@ -276,6 +277,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     [Trait("Kind", "Unit")]
     public void SaveAndDeleteFailuresKeepPreviousConfigCredentialAndOtherServers()
     {
+        using var features = new GrantedFeatureAccess();
         var path = Path.Combine(_root, "servers.json"); var credentials = new MemoryCredentials();
         using var service = new RemoteConnectionService(path, credentials);
         service.SaveServer(new RemoteServerInfo { Id = "first", Host = "first.test", Password = "original" });
@@ -311,6 +313,7 @@ public sealed class PrivacySecurityFollowupTests : IDisposable
     [Trait("Kind", "Unit")]
     public void UnreadableConfigOrHostTrustCannotBeSilentlyOverwritten()
     {
+        using var features = new GrantedFeatureAccess();
         var path = Path.Combine(_root, "servers.json"); File.WriteAllText(path, "invalid fixture");
         using var service = new RemoteConnectionService(path, new MemoryCredentials());
         Assert.NotNull(service.CredentialLoadError);

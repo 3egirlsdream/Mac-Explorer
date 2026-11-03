@@ -7,7 +7,6 @@ using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.Services.Plugins;
 using MacExplorer.Services.Search;
-using MacExplorer.Services.Subscriptions;
 using MacExplorer.Indexing;
 using Microsoft.Data.Sqlite;
 using Xunit;
@@ -498,19 +497,6 @@ public sealed class DistributionCommonTests : IDisposable
         Assert.Throws<NotSupportedException>(() => HomeScriptRunner.BuildTerminalScript("missing", new HomeScriptCommand("id", "title", "command", "/bin/zsh", "")));
         await Assert.ThrowsAsync<NotSupportedException>(() => new MacExplorer.Platforms.MacCatalyst.Services.MacFileService().EmptyTrashAsync());
         await manager.DisposeAsync();
-    }
-
-    // These checks exercise credential persistence and consent after the feature gate has allowed access.
-    private sealed class GrantedFeatureAccess : IDisposable
-    {
-        private readonly FeatureAccessService? _previous = FeatureAccess.Current;
-        private readonly FeatureAccessService _access = new(null, null, false);
-        public GrantedFeatureAccess() => FeatureAccess.Current = _access;
-        public void Dispose()
-        {
-            FeatureAccess.Current = _previous;
-            _access.Dispose();
-        }
     }
 
     private sealed class MemoryCredentials : ICredentialStore

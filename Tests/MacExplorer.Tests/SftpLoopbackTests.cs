@@ -10,8 +10,11 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Sftp")]
-public sealed class SftpLoopbackTests
+public sealed class SftpLoopbackTests : IDisposable
 {
+    private readonly GrantedFeatureAccess _featureAccess = new();
+    public void Dispose() => _featureAccess.Dispose();
+
     [Fact(Explicit = true)]
     [Trait("Area", "FileTasks")]
     public async Task QueuedTransfersPauseResumeAndCaptureTheServerInsteadOfTheSelectedTab()
