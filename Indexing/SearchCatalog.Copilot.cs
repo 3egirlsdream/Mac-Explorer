@@ -20,7 +20,14 @@ public sealed partial class SearchCatalog
     /// <summary>Query analysis independently of the evictable files cache and search index coverage.
     /// Returns metadata and match sources, never OCR/PDF excerpts or face feature prints.</summary>
     public Task<IndexedFileSearchResult> SearchResourcesAsync(string root, IndexedFileQuery query,
-        SearchOptions options, CancellationToken ct = default) => RunAsync(false, (connection, _) =>
+        SearchOptions options, CancellationToken ct = default)
+    {
+        Services.Subscriptions.FeatureAccess.Require(Services.Subscriptions.PremiumFeature.ContentSearch);
+        return SearchResourcesCoreAsync(root, query, options, ct);
+    }
+
+    private Task<IndexedFileSearchResult> SearchResourcesCoreAsync(string root, IndexedFileQuery query,
+        SearchOptions options, CancellationToken ct) => RunAsync(false, (connection, _) =>
     {
         root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(root));
         Validate(query);

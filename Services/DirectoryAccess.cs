@@ -150,7 +150,7 @@ public sealed class DirectoryAccess : IDisposable
                 {
                     foreach (var alias in saved.Aliases.Keys.ToArray())
                         if (IsWithin(saved.Aliases[alias], oldPath))
-                            saved.Aliases[alias] = opened.Path + saved.Aliases[alias][oldPath.Length..];
+                            saved.Aliases[alias] = RebasePath(saved.Aliases[alias], oldPath, opened.Path);
                     saved.Aliases[oldPath] = opened.Path;
                 }
             }
@@ -177,7 +177,7 @@ public sealed class DirectoryAccess : IDisposable
     public void RememberSelection(string path)
     {
         if (!_restricted) return;
-        path = Path.GetFullPath(path);
+        path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         if (RuntimePaths.TestRoot is { } root && !IsWithin(_backend.RealPath(path), _backend.RealPath(root)))
             throw new UnauthorizedAccessException("测试授权必须位于本次测试目录。");
         lock (_gate)
@@ -248,8 +248,15 @@ public sealed class DirectoryAccess : IDisposable
     {
         lock (_gate)
             foreach (var (oldPath, newPath) in _movedPaths.OrderByDescending(p => p.Key.Length))
-                if (IsWithin(path, oldPath)) return newPath + path[oldPath.Length..];
+                if (IsWithin(path, Path.TrimEndingDirectorySeparator(oldPath)))
+                    return RebasePath(path, oldPath, newPath);
         return path;
+    }
+
+    private static string RebasePath(string path, string oldRoot, string newRoot)
+    {
+        var relative = Path.GetRelativePath(oldRoot, path);
+        return relative == "." ? Path.TrimEndingDirectorySeparator(newRoot) : Path.Combine(newRoot, relative);
     }
 
     public bool CanAccess(string path)

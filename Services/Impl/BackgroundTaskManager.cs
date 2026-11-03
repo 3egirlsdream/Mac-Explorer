@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 using Microsoft.Extensions.Logging;
 
@@ -61,12 +62,14 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
     public async Task<T> RunAsync<T>(FileTaskRequest request, Func<FileTaskContext, Task<T>> execute,
         CancellationToken cancellationToken = default)
     {
+        var features = FeatureAccess.ForRequest(request);
+        FeatureAccess.Require(features);
         if (FileTaskContext.Current is { } parent) return await execute(parent);
         cancellationToken.ThrowIfCancellationRequested();
         var info = new BackgroundTaskInfo { Kind = request.Kind, Label = request.Label,
             State = BackgroundTaskState.Waiting, IsQueuedFileTask = true, Request = request, CanRetry = true, TotalItems = request.Sources.Count };
         Entry? entry = null;
-        var context = new FileTaskContext(info, () => PauseAtCheckpointAsync(entry!), RaiseTasksChanged);
+        var context = new FileTaskContext(info, () => PauseAtCheckpointAsync(entry!), RaiseTasksChanged, features);
         entry = new Entry { Info = info, Request = request, Context = context,
             Execute = async () => await context.ExecuteAsync(execute) };
         foreach (var path in request.Sources.Concat(request.Destination is { } dest ? [dest] : Array.Empty<string>()))
@@ -324,6 +327,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
             if (task == null || task.State is not (BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention) || !task.CanRetry || _stopping) return;
             var entry = _queue.Find(e => e.Info == task);
             if (entry != null && (entry.Executing || !entry.Completion.Task.IsCompleted)) return;
+            if (task.Request is { } retryRequest && !FeatureAccess.TryUse(FeatureAccess.ForRequest(retryRequest))) return;
             task.ErrorMessage = task.ErrorDetail = null;
             task.FailedAtUtc = null; task.RetainedRetryBytes = 0;
             if (entry != null)

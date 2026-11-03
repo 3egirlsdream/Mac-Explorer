@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using Avalonia;
 using MacExplorer.Controls;
 using Avalonia.Controls;
@@ -63,7 +64,7 @@ public partial class NetworkView : UserControl
 
     private void UpdateLease()
     {
-        if (!_attached || !IsVisible) { Stop(); return; }
+        if (!_attached || !IsVisible || !FeatureAccess.CanUse(PremiumFeature.Network)) { Stop(); return; }
         if (_lease != null || App.Services == null) return;
         _locationsService = App.Services.GetService<INetworkLocationService>();
         _discovery = App.Services.GetService<INetworkDiscoveryService>();

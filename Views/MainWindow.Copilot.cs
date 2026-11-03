@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Automation;
@@ -58,6 +59,7 @@ public partial class MainWindow
 
     private void ToggleCopilot(object? sender, RoutedEventArgs e)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Copilot)) return;
         if (!App.Services.GetRequiredService<ISettingsService>().Get(CopilotSettings.EnabledKey, false)) return;
         CopilotPanel.IsVisible = !CopilotPanel.IsVisible;
         if (!CopilotPanel.IsVisible) return;
@@ -267,6 +269,7 @@ public partial class MainWindow
 
     private async void SendCopilotMessage(object? sender, RoutedEventArgs e)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Copilot)) return;
         var message = CopilotInput.Text?.Trim();
         if (_copilotBusy || _copilotPreparingSend || CopilotApprovalCard.IsVisible
             || string.IsNullOrEmpty(message) && _copilotAttachments.Count == 0) return;

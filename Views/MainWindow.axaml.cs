@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -123,6 +124,9 @@ public partial class MainWindow : AppWindow
             && _vm?.VisiblePanes.Contains(view.Tab) == true);
         DataContextChanged += OnDataContextChanged;
         Opened += OnOpened;
+        Opened += (_, _) => { if (FeatureAccess.Current is { } access) access.Changed += OnFeatureAccessChanged; };
+        Activated += (_, _) => OnFeatureAccessChanged();
+        Closed += (_, _) => { if (FeatureAccess.Current is { } access) access.Changed -= OnFeatureAccessChanged; };
         SizeChanged += (_, _) => UpdateTaskPanelWidth();
         Activated += OnActivated;
         Closing += OnClosing;
@@ -162,6 +166,7 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (IsUpgradeOpen) return;
         if (IsMarkdownEditorOpen && !IsModalInteractionBlocked)
             return;
 
@@ -257,11 +262,12 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (IsUpgradeOpen) return;
         if (e.Key == Key.Escape && _tabInteraction.IsPointerDown)
         {
             _tabInteraction.Cancel(); e.Handled = true; return;
         }
-        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return;
+
         if (e.Handled || Shortcuts.IsRecording) return;
         if (IsInsideTextInput(e.Source as Visual) && Services.Impl.ShortcutService.IsTextEditingGesture(e)) return;
         if (_homeFolderTransition != null)
@@ -1372,8 +1378,30 @@ public partial class MainWindow : AppWindow
         finally { _workspaceDetachTasks.Remove(workspace); }
     }
 
+    private void OnFeatureAccessChanged() => Dispatcher.UIThread.Post(async () =>
+    {
+        if (_vm == null) return;
+        if (!FeatureAccess.CanUse(PremiumFeature.SplitView) && _vm.IsMultiPane) _vm.SetPaneLayout(PaneLayout.Single);
+        if (!FeatureAccess.CanUse(PremiumFeature.GlobalSearch) && GlobalSearchOverlay.IsVisible) CloseGlobalSearch();
+        if (!FeatureAccess.CanUse(PremiumFeature.Copilot) && !_copilotBusy) CopilotPanel.IsVisible = false;
+        foreach (var tab in _vm.Tabs)
+        {
+            if (FeatureAccess.ForPath(tab.FileList.CurrentPath) is var feature && !FeatureAccess.CanUse(feature))
+                tab.FileList.GoHome();
+        }
+        if (!IsActive || FeatureAccess.Current is not { } access
+            || Services.Subscriptions.SubscriptionAccess.Current?.Snapshot.State == SubscriptionState.Checking) return;
+        var notice = await Task.Run(access.TakeNotice);
+        if (notice != null && IsVisible)
+            AppToast.For(this).Show(new Avalonia.Controls.Notifications.Notification(
+                Services.Impl.LocalizationText.Get("access.notice_title"), Services.Impl.LocalizationText.Get("access.notice." + notice),
+                notice == TrialNotice.StorageError ? Avalonia.Controls.Notifications.NotificationType.Warning
+                    : Avalonia.Controls.Notifications.NotificationType.Information, TimeSpan.FromSeconds(12)));
+    });
+
     private void OpenGlobalSearch()
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.GlobalSearch)) return;
         if (_vm?.FileList == null || IsModalInteractionBlocked)
             return;
 

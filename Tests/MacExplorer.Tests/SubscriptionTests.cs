@@ -243,7 +243,7 @@ public sealed class SubscriptionTests
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Kind", "UI")]
-    public async Task SharedLockDisablesEveryWindowAndUnlockRestoresContent(bool dark)
+    public async Task UpgradeIsExplicitDismissibleAndPurchaseRestoresContent(bool dark)
     {
         var store = new Store();
         using var service = new SubscriptionService(store, true);
@@ -258,6 +258,10 @@ public sealed class SubscriptionTests
             first.Show(); second.Show();
             Assert.True(firstButton.IsEffectivelyEnabled);
             service.Start(); await Task.WhenAll(service.RefreshAsync(), service.LoadProductAsync());
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(firstButton.IsEffectivelyEnabled); Assert.True(secondButton.IsEffectivelyEnabled);
+            Assert.Empty(first.GetVisualDescendants().OfType<SubscriptionView>());
+            first.ShowUpgrade(PremiumFeature.BackgroundThemes); second.ShowUpgrade(PremiumFeature.FileDelivery);
             Dispatcher.UIThread.RunJobs();
             Assert.False(firstButton.IsEffectivelyEnabled); Assert.False(secondButton.IsEffectivelyEnabled);
             foreach (var window in new[] { first, second })

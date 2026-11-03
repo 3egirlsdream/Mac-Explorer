@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
@@ -390,6 +391,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<string>> SearchByTagAsync(string tagValue, string? tagType = null, int limit = 200)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         tagValue = tagValue?.Trim() ?? string.Empty;
         if (tagValue.Length == 0 || limit <= 0)
             return [];
@@ -449,6 +451,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<AiCategory>> SearchCategoriesAsync(string query, int limit = 5)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         var categories = new List<AiCategory>();
         if (string.IsNullOrWhiteSpace(query)) return categories;
 
@@ -493,6 +496,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<FaceCluster>> GetAllFaceClustersAsync()
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         var clusters = new List<FaceCluster>();
         using var cmd = _connection.CreateCommand();
@@ -531,6 +535,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<string>> GetFilePathsForClusterAsync(int clusterId)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         var paths = new List<string>();
         using var cmd = _connection.CreateCommand();
@@ -549,6 +554,7 @@ public class AiTagService : IAiTagService
 
     public async Task SetClusterNameAsync(int clusterId, string name)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         using var transaction = _connection.BeginTransaction();
         try
@@ -600,6 +606,7 @@ public class AiTagService : IAiTagService
 
     public async Task MergeClustersAsync(int targetClusterId, int sourceClusterId)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         using var transaction = _connection.BeginTransaction();
         try
@@ -641,6 +648,7 @@ public class AiTagService : IAiTagService
 
     public async Task RunClusteringAsync(float distanceThreshold = 0.5f)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         // Load unassigned faces
         var unassigned = new List<(int id, string path, byte[] fp)>();
@@ -749,6 +757,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<AiCategory>> GetPopularTextTagsAsync(int limit = 40, int minLength = 2)
     {
+        FeatureAccess.Require(PremiumFeature.ContentSearch);
         using var connectionLock = await AcquireConnectionAsync();
         var categories = new List<AiCategory>();
         using var cmd = _connection.CreateCommand();
@@ -781,6 +790,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<AiCategory>> GetCategoriesByTypeAsync(string tagType)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         var categories = new List<AiCategory>();
         using var cmd = _connection.CreateCommand();
@@ -807,6 +817,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<string>> GetAllTagTypesAsync()
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         var types = new List<string>();
         using var cmd = _connection.CreateCommand();
@@ -821,6 +832,7 @@ public class AiTagService : IAiTagService
 
     public async Task<IReadOnlyList<string>> GetFilePathsForCategoryAsync(string tagType, string tagValue)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         using var connectionLock = await AcquireConnectionAsync();
         var paths = new List<string>();
         using var cmd = _connection.CreateCommand();

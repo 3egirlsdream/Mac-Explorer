@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Encodings.Web;
@@ -167,6 +168,7 @@ public sealed class CopilotEngine : IDisposable
         Action<AgentResponseUpdate>? onUpdate = null,
         CancellationToken cancellationToken = default)
     {
+        FeatureAccess.Require(PremiumFeature.Copilot);
         if (_approval != null) throw new InvalidOperationException("请先处理待确认的操作。");
         if (_disposed) throw new ObjectDisposedException(nameof(CopilotEngine));
         if (!settings.HasMetadataConsent())
@@ -186,6 +188,7 @@ public sealed class CopilotEngine : IDisposable
     public async Task<CopilotReply> RespondToApprovalAsync(bool approved, Action<AgentResponseUpdate>? onUpdate = null,
         CancellationToken cancellationToken = default)
     {
+        if (approved) FeatureAccess.Require(PremiumFeature.Copilot);
         if (approved && !settings.HasMetadataConsent())
             throw new InvalidOperationException("AI 分享许可已撤回，请重新允许发送文件信息。 ");
         var request = _approval ?? throw new InvalidOperationException("没有待确认的操作。");

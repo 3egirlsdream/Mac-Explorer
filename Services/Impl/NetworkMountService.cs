@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 using MacExplorer.Platforms.MacOS;
 
@@ -44,6 +45,7 @@ public sealed class NetworkMountService : INetworkMountService
     public IReadOnlyList<VolumeInfo> GetMountedVolumes() => _volumes();
     public async Task<string> MountAsync(RemoteServerInfo server, CancellationToken cancellationToken = default)
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         cancellationToken.ThrowIfCancellationRequested();
         var address = NetworkMountAddress.MountUri(server);
         var matches = GetMountedVolumes().Where(v => NetworkMountAddress.MatchesEndpoint(server, v.SourceUrl)

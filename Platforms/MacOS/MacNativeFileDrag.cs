@@ -59,7 +59,6 @@ internal static class MacNativeFileDrag
         DragDropEffects allowedEffects,
         Action<FileDragSessionEvent>? callback = null)
     {
-        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return false;
         if (!OperatingSystem.IsMacOS() || paths.Count == 0)
             return false;
 

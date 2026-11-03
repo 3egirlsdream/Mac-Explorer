@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using MacExplorer.Models;
@@ -25,6 +26,7 @@ public partial class FileListViewModel
 
     private void NavigateToNetwork()
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Network)) return;
         NetworkError = null;
         BeginDirectoryWork();
         _navigation.SetWatchedDirectory(null);

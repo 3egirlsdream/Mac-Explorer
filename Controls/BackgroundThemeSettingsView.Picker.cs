@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -102,11 +103,12 @@ public partial class BackgroundThemeSettingsView
 
     internal async Task<bool> SelectSwatchAsync(string presetId, BackgroundThemeColorSelection colors)
     {
-        if (_busy || _service == null) return false;
+        if (_busy || _service == null || !FeatureAccess.TryUse(PremiumFeature.BackgroundThemes)) return false;
         _busy = true; _errorKey = null; _importCancellation = new();
         Refresh();
         try { await _service.SelectPresetAsync(presetId, _importCancellation.Token, colors); return true; }
         catch (OperationCanceledException) { return false; }
+        catch (FeatureAccessDeniedException ex) { FeatureAccess.TryUse(ex.Feature); return false; }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             _errorKey = "background.preset_failed"; return false;
@@ -120,6 +122,7 @@ public partial class BackgroundThemeSettingsView
 
     private void ShowColorPalette(Button button, BackgroundThemePreset preset)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.BackgroundThemes)) return;
         var selected = _service!.Options.GetColors(preset.Id);
         var color = selected.PaletteId.Length == 0 ? preset.DefaultColor : selected.CustomColor;
         var picker = new ColorPalette { Width = 264, Classes = { "popover" } };

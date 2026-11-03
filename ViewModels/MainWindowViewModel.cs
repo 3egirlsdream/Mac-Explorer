@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -194,6 +195,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
             : PaneLayout;
 
+        if (!FeatureAccess.CanUse(PremiumFeature.SplitView)) nextLayout = PaneLayout.Single;
         var desired = GetPaneCount(nextLayout);
         var remainingVisible = oldVisible.Where(candidate => !ReferenceEquals(candidate, tab)).ToList();
         ExplorerTabViewModel activeTab;
@@ -292,8 +294,14 @@ public partial class MainWindowViewModel : ObservableObject
             SelectedTab = tab;
     }
 
+    partial void OnPaneLayoutChanging(PaneLayout value)
+    {
+        if (GetPaneCount(value) > 1) FeatureAccess.Require(PremiumFeature.SplitView);
+    }
+
     public void SetPaneLayout(PaneLayout layout)
     {
+        if (GetPaneCount(layout) > 1 && !FeatureAccess.TryUse(PremiumFeature.SplitView)) return;
         var oldCount = PaneCount;
         var oldVisible = VisiblePanes.ToArray();
         var activeTab = SelectedTab ?? oldVisible.ElementAtOrDefault(ActivePaneSlotIndex) ?? Tabs.FirstOrDefault();

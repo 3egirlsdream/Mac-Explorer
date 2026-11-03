@@ -103,7 +103,6 @@ internal sealed class ShortcutHintController : IDisposable
 
     internal bool HandleActivity(KeyboardActivity activity, Key key, KeyModifiers modifiers, bool repeat)
     {
-        if (Services.Subscriptions.SubscriptionAccess.IsLocked) { Cancel(); return false; }
         if (_disposed) return false;
         if (activity == KeyboardActivity.Deactivated) { Cancel(); return false; }
         if (activity == KeyboardActivity.KeyDown && _shortcuts.IsRecording)

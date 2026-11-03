@@ -18,7 +18,7 @@
 - 实现复用 `DialogWindow` / `AppWindow`、`SettingsStyles.axaml` 的分组与字段行，以及全局按钮、输入框和主题色；完成后检查浅色、深色、窄窗口、长文本和图标是否完整显示。
 
 # 组件样式
-- 商店订阅锁定统一使用 `AppWindow` 的 `SubscriptionHost` 与 `SubscriptionView`，复用紧凑设置分组和全局按钮；由应用级订阅服务同步所有窗口，价格与试用资格来自 StoreKit。
+- 商店高级功能通过 `FeatureAccessService` 按功能授权，仅在触发高级入口时使用 `AppWindow.SubscriptionHost` 与可关闭的 `SubscriptionView`，复用紧凑设置分组和全局按钮；应用体验与 Apple 权益独立管理，价格及实际订阅优惠来自 StoreKit。
 - 文件列表视图切换复用全局 `view-mode-segmented`；三项工具栏追加 `three` 样式和 `ViewModeTrackThreeGeometry`，保持统一高度、圆角及选中态。
 - 文字搜索页使用紧凑间距；热门文字复用全局 `Button.tag-chip` 胶囊标签，`tag-label` 与 `tag-count` / `tag-count-text` 分别显示文字和文件数，内容双向居中，长标签省略并通过提示显示完整文字。
 - 脚本命令编辑复用 `SettingsStyles.axaml` 的分组和紧凑字段行；组内输入使用 `settings-inline-input` 透明表面，命令使用 `settings-command-editor` 等宽多行编辑，分隔线使用 `settings-divider-row`。标题栏透明并与窗口表面一体，说明放入提示，不重复显示标题与完整路径。
@@ -145,3 +145,5 @@
 - 背景主题交互表面由 `WindowBackgroundTheme` 在主窗口内统一覆盖语义色与 Fluent 状态资源；菜单、子菜单和下拉列表保留 `PopupGlass` 材质并透明透底，独立设置／对话框保留默认背景。主题仅按高度等比横向平铺；设置“透明度”以 100 减去已保存强度显示，保留旧配置效果。
 
 - 主题取色卡复用 `ColorPalette.popover` 与 `PopupGlass` 的单层表面，通过左对齐 Popup 紧贴所选卡片，不叠加默认 Flyout 卡片；恢复默认使用带提示的 Fluent 图标，内联交互调色盘保留文字按钮。主题网格直接读取随包 PNG 预览纹理并实时合成配色，不在打开设置时解析 SVG；更新 SVG 后运行 `Tools/Design/ThemePreviews` 重新生成预览。
+
+- 商店版通过 `FeatureAccessService` 的内存快照按功能授权，基础操作不查高级权限；`AppWindow.SubscriptionHost` 仅按需展示可关闭的升级页。侧栏底部显示体验状态，背景预览免费、应用及修改为高级功能，到期仅停止显示并保留配置；文件速递暂存与 WebDAV 分别复用文件速递及网络权限。

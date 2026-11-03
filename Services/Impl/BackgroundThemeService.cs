@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Text.Json;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -20,14 +21,24 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
     public Bitmap? Image => _artwork?.Preview;
     public Bitmap? GetPreview(bool dark) => dark ? _artwork?.DarkPreview : Image;
     internal BackgroundThemeArtwork? AcquireArtwork() => _artwork?.Retain();
-    public bool IsActive => Options.Enabled && Image != null;
+    public bool IsActive => Options.Enabled && Image != null && Volatile.Read(ref _hasThemeAccess);
+    private readonly FeatureAccessService? _access;
+    private bool _hasThemeAccess;
+    private void OnAccessChanged()
+    {
+        Volatile.Write(ref _hasThemeAccess, _access?.CanUse(PremiumFeature.BackgroundThemes) ?? !DistributionChannel.IsAppStore);
+        Dispatcher.UIThread.Post(() => { if (!_disposed) Changed?.Invoke(); });
+    }
     public string? ErrorKey { get; private set; }
 
-    public BackgroundThemeService(ISettingsService settings)
-        : this(settings, Path.Combine(RuntimePaths.DataDirectory, "Themes")) { }
+    public BackgroundThemeService(ISettingsService settings, FeatureAccessService? access = null)
+        : this(settings, Path.Combine(RuntimePaths.DataDirectory, "Themes"), access) { }
 
-    internal BackgroundThemeService(ISettingsService settings, string directory)
+    internal BackgroundThemeService(ISettingsService settings, string directory, FeatureAccessService? access = null)
     {
+        _access = access;
+        _hasThemeAccess = access?.CanUse(PremiumFeature.BackgroundThemes) ?? !DistributionChannel.IsAppStore;
+        if (_access != null) _access.Changed += OnAccessChanged;
         _settings = settings;
         _directory = directory;
         MemoryDiagnostics.Register(this);
@@ -40,6 +51,12 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
         + (_artwork?.Preview is { } preview ? (long)preview.PixelSize.Width * preview.PixelSize.Height * 8 : 0));
 
     public Task InitializeAsync() => _initialization ??= LoadAsync();
+
+    internal async Task InitializeForDisplayAsync()
+    {
+        if (_access != null) await _access.StartAsync();
+        await InitializeAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -71,6 +88,7 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
 
     public async Task ImportAsync(Stream source, string displayName, CancellationToken token = default)
     {
+        FeatureAccess.Require(PremiumFeature.BackgroundThemes);
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
         await InitializeAsync();
@@ -112,6 +130,7 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
 
     public async Task SelectPresetAsync(string presetId, CancellationToken token = default, BackgroundThemeColorSelection? colors = null)
     {
+        FeatureAccess.Require(PremiumFeature.BackgroundThemes);
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
         await InitializeAsync();
@@ -172,6 +191,7 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
 
     public void Update(bool enabled, int strength)
     {
+        if (enabled || strength != (Options.PresetId.Length == 0 ? Options.Strength : Options.TextureStrength)) FeatureAccess.Require(PremiumFeature.BackgroundThemes);
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
         var options = (Options.PresetId.Length == 0
@@ -188,6 +208,7 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
 
     private void UpdateColors(string presetId, BackgroundThemeColorSelection colors)
     {
+        FeatureAccess.Require(PremiumFeature.BackgroundThemes);
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (presetId != Options.PresetId || BackgroundThemePresets.Find(presetId) == null) return;
@@ -235,6 +256,7 @@ public sealed class BackgroundThemeService : IDisposable, IMemoryDiagnosticSourc
         _disposed = true; ++_generation;
         var old = _artwork; _artwork = null;
         Changed?.Invoke();
+        if (_access != null) _access.Changed -= OnAccessChanged;
         Changed = null;
         old?.Dispose();
     }

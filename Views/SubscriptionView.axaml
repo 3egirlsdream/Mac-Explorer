@@ -18,15 +18,15 @@
                        AutomationProperties.Name="{loc:Loc ui.585}"/>
                 <StackPanel x:Name="FeaturePanel" Grid.Column="1" Spacing="18" VerticalAlignment="Center">
                     <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc ui.586}" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}"
+                        <TextBlock Text="{loc:Loc access.upgrade_title}" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="{StaticResource FontWeightSemibold}"
                                    Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                        <TextBlock Text="{loc:Loc ui.587}" Classes="settings-description" TextWrapping="Wrap"/>
+                        <TextBlock Text="{loc:Loc access.upgrade_description}" Classes="settings-description" TextWrapping="Wrap"/>
                     </StackPanel>
                     <Grid ColumnDefinitions="24,*">
-                        <PathIcon Data="{x:Static icons:Icons.CopyPath}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                        <PathIcon Data="{x:Static icons:Icons.Image}" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3">
-                            <TextBlock Text="{loc:Loc ui.588}" FontWeight="{StaticResource FontWeightSemibold}"/>
-                            <TextBlock Text="{loc:Loc ui.589}" Classes="settings-description" TextWrapping="Wrap"/>
+                            <TextBlock Text="{loc:Loc access.feature.BackgroundThemes}" FontWeight="{StaticResource FontWeightSemibold}"/>
+                            <TextBlock Text="{loc:Loc access.theme_description}" Classes="settings-description" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Grid>
                     <Grid ColumnDefinitions="24,*">
@@ -62,7 +62,7 @@
             <WrapPanel HorizontalAlignment="Center">
                 <Button Classes="ghost compact" Content="{loc:Loc ui.267}" Click="Privacy"/>
                 <Button Classes="ghost compact" Content="{loc:Loc ui.596}" Click="Terms"/>
-                <Button Classes="ghost compact" Content="{loc:Loc ui.597}" Click="Quit"/>
+                <Button x:Name="ContinueButton" Classes="ghost compact" Content="{loc:Loc access.continue}" Click="ContinueFree"/>
             </WrapPanel>
         </StackPanel>
     </Grid>

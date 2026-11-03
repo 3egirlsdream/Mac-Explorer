@@ -27,6 +27,9 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
     private readonly AppWindow _window;
     private readonly BackgroundThemeService _service;
     private CancellationTokenSource? _renderCancellation;
+    private Task? _renderTask;
+    private Task? _initialShowTask;
+    private bool _initialShowCompleted;
     private bool _disposed;
     internal BackgroundThemeComposition? Frame { get; private set; }
     internal bool IsActive => _service.IsActive && Frame != null;
@@ -54,6 +57,43 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
             + (long)frame.Frosted.PixelSize.Width * frame.Frosted.PixelSize.Height) * 4 : 0, IsRendering ? 1 : 0);
 
     private void OnClosed(object? sender, EventArgs e) => Dispose();
+
+    internal Task ShowWhenReadyAsync(Action show)
+    {
+        if (_disposed) return Task.CompletedTask;
+        if (_initialShowTask is { IsCompleted: false }) return _initialShowTask;
+        if (_initialShowCompleted || !_service.Options.Enabled
+            || (_service.Options.ImageFile.Length == 0 && _service.Options.PresetId.Length == 0))
+        {
+            _initialShowCompleted = true;
+            show();
+            return Task.CompletedTask;
+        }
+        return _initialShowTask = ShowInitialAsync(show);
+    }
+
+    private async Task ShowInitialAsync(Action show)
+    {
+        try
+        {
+            await _service.InitializeForDisplayAsync();
+            if (!_disposed && _service.IsActive)
+            {
+                ScheduleRender();
+                while (_renderTask is { } pending)
+                {
+                    await pending;
+                    if (ReferenceEquals(_renderTask, pending)) break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Initial background preparation failed: {ex.Message}");
+        }
+        _initialShowCompleted = true;
+        if (!_disposed) show();
+    }
     private void OnThemeChanged(object? sender, EventArgs e) => Update();
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e) => ScheduleRender();
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -149,10 +189,14 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
             return;
         }
         var size = _window.ClientSize;
+        // Before Show, ClientSize may still reflect the platform default rather than placement.
+        if (!_window.IsVisible && double.IsFinite(_window.Width) && double.IsFinite(_window.Height))
+            size = new Size(_window.Width, _window.Height);
         if (size.Width <= 0 || size.Height <= 0) return;
         var cancellation = new CancellationTokenSource();
         _renderCancellation = cancellation;
-        _ = RenderAsync(size, _window.ActualThemeVariant == ThemeVariant.Dark, _window.RenderScaling, cancellation);
+        var scaling = _window.RenderScaling > 0 ? _window.RenderScaling : 1;
+        _renderTask = RenderAsync(size, _window.ActualThemeVariant == ThemeVariant.Dark, scaling, cancellation);
     }
 
     private async Task RenderAsync(Size size, bool dark, double scaling, CancellationTokenSource cancellation)
@@ -162,16 +206,16 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
         try
         {
             // Coalesce slider/resize bursts. Every surface keeps using the same prior frame meanwhile.
-            await Task.Delay(60, token);
+            if (Frame != null) await Task.Delay(60, token);
             using var artwork = _service.AcquireArtwork();
             if (artwork == null) return;
             var options = _service.Options;
-            await RenderSlots.WaitAsync(token);
-            try
+            frame = await Task.Run(async () =>
             {
-                frame = await Task.Run(() => BackgroundThemeComposition.Create(artwork.Texture, options, size, dark, scaling, token), token);
-            }
-            finally { RenderSlots.Release(); }
+                await RenderSlots.WaitAsync(token).ConfigureAwait(false);
+                try { return BackgroundThemeComposition.Create(artwork.Texture, options, size, dark, scaling, token); }
+                finally { RenderSlots.Release(); }
+            }, token);
             token.ThrowIfCancellationRequested();
             if (_disposed) return;
             var previous = Frame;

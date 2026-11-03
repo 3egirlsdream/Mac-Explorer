@@ -93,7 +93,6 @@ internal static class MacNativeFileDrop
 
     internal static bool Receive(Window window, string targetDirectory)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (window.TryGetPlatformHandle() is not IMacOSTopLevelPlatformHandle handle) return false;
         FolderAccess.Restore();
         return ReceiveNative(targetDirectory, handle.NSView, Completed);
@@ -151,7 +150,7 @@ internal static class MacNativeFileDrop
                 if (FolderAccess.PersistenceError is { } error)
                     AppToast.ShowError(window, LocalizationText.Get("本次授权已启用，但无法记住此文件夹：{0}", error));
             }
-            Services.Subscriptions.SubscriptionAccess.RequireAccess();
+
             if (!CopyFileNative(source, target, context, Retried))
                 throw new IOException(LocalizationText.Get("无法继续保存拖入的文件。"));
         }

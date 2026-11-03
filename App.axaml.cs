@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System;
 using System.IO;
 using System.Linq;
@@ -32,6 +33,8 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
         MacExplorer.Services.Markdown.MarkdownLocalization.Register();
         Services = ConfigureServices();
+        FeatureAccess.Current = Services.GetRequiredService<FeatureAccessService>();
+        FeatureAccess.UpgradeRequested += ShowFeatureUpgrade;
         var language = Services.GetRequiredService<ILocalizationService>();
         Name = AppBranding.Name;
         if (OperatingSystem.IsMacOS())
@@ -47,6 +50,12 @@ public partial class App : Application
 
     private static void OnDispatcherUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        if (e.Exception is FeatureAccessDeniedException denied)
+        {
+            e.Handled = true;
+            if (FeatureAccess.Current?.Snapshot.State != FeatureAccessState.Initializing) ShowFeatureUpgrade(denied.Feature);
+            return;
+        }
         var logPath = Path.Combine(RuntimePaths.LogDirectory, "macexplorer_crash.log");
         try
         {
@@ -114,6 +123,9 @@ public partial class App : Application
             };
             desktop.Exit += (_, _) =>
             {
+                FeatureAccess.UpgradeRequested -= ShowFeatureUpgrade;
+                FeatureAccess.Current?.Dispose();
+                FeatureAccess.Current = null;
                 Services.GetService<Services.Subscriptions.SubscriptionService>()?.Dispose();
                 _startupUpdateCancellation.Cancel();
                 Services.GetRequiredService<FileDeliveryController>().Dispose();
@@ -144,6 +156,10 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (Tools.Testing.FeatureAccessSmoke.Enabled && mainWindow != null)
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FeatureAccessSmoke.ManualExpired
+                ? Tools.Testing.FeatureAccessSmoke.PrepareManualExpiredAsync(mainWindow)
+                : Tools.Testing.FeatureAccessSmoke.RunAsync(mainWindow), TimeSpan.FromSeconds(1));
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_BACKGROUND_THEME_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -270,7 +286,11 @@ public partial class App : Application
             window.Opened -= OnStartupWindowOpened;
         Dispatcher.UIThread.Post(Views.FileListView.PrepareFileDrag, DispatcherPriority.ApplicationIdle);
         if (DistributionChannel.IsAppStore)
-            Dispatcher.UIThread.Post(() => Services.GetRequiredService<Services.Subscriptions.SubscriptionService>().Start(), DispatcherPriority.ApplicationIdle);
+            Dispatcher.UIThread.Post(async () =>
+            {
+                await Services.GetRequiredService<FeatureAccessService>().StartAsync();
+                Services.GetRequiredService<SubscriptionService>().Start();
+            }, DispatcherPriority.ApplicationIdle);
         _ = Task.Run(CheckStartupUpdateAsync);
         Services.GetRequiredService<ApplicationStorageMaintenance>().Start();
         _ = StartSearchIndexAsync();
@@ -366,9 +386,21 @@ public partial class App : Application
         return window;
     }
 
+    private static void ShowFeatureUpgrade(PremiumFeature feature)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var window = _desktop?.Windows.OfType<Controls.AppWindow>().FirstOrDefault(w => w.IsActive)
+                ?? ShowMainWindow() as Controls.AppWindow;
+            window?.Show(); window?.Activate();
+            window?.ShowUpgrade(feature);
+        });
+    }
+
     private static async void OnApplicationActivated(object? sender, ActivatedEventArgs e)
     {
         if (_desktop == null) return;
+        FeatureAccess.Current?.Refresh();
         if (DistributionChannel.IsAppStore)
             _ = Services.GetRequiredService<Services.Subscriptions.SubscriptionService>().RefreshAsync();
 
@@ -391,7 +423,6 @@ public partial class App : Application
 
         window.Show();
         window.Activate();
-        if (MacExplorer.Services.Subscriptions.SubscriptionAccess.IsLocked) return;
         if (!string.IsNullOrWhiteSpace(path))
             await window.NavigateToPathAsync(path);
     }
@@ -424,6 +455,10 @@ public partial class App : Application
         if (DistributionChannel.IsAppStore)
             services.AddSingleton(sp => new Services.Subscriptions.SubscriptionService(new Platforms.MacOS.StoreKitBridge(), true,
                 logger: sp.GetService<ILogger<Services.Subscriptions.SubscriptionService>>()));
+#if DEBUG
+        if (Tools.Testing.FeatureAccessSmoke.Enabled)
+            services.AddSingleton(_ => new SubscriptionService(Tools.Testing.FeatureAccessSmoke.Store, true, Tools.Testing.FeatureAccessSmoke.Clock));
+#endif
         var indexConfig = new IndexConfiguration();
         services.AddSingleton(indexConfig);
         services.AddSingleton(_ => new ApplicationStorageMaintenance());
@@ -483,6 +518,16 @@ public partial class App : Application
         services.AddSingleton<HomeWorkspaceService>();
         services.AddSingleton<FileDeliveryService>();
         services.AddSingleton<FileDeliveryController>();
+        services.AddSingleton<IAppTrialStore, AppTrialStore>();
+        services.AddSingleton(sp => new FeatureAccessService(sp.GetService<SubscriptionService>(),
+            sp.GetRequiredService<IAppTrialStore>(),
+#if DEBUG
+            DistributionChannel.IsAppStore || Tools.Testing.FeatureAccessSmoke.Enabled,
+            time: Tools.Testing.FeatureAccessSmoke.Enabled ? Tools.Testing.FeatureAccessSmoke.Clock : null,
+#else
+            DistributionChannel.IsAppStore,
+#endif
+            logger: sp.GetService<ILogger<FeatureAccessService>>()));
         services.AddSingleton<HomeScriptRunner>();
         services.AddSingleton<IGlobalSearchScopeService, Services.Impl.GlobalSearchScopeService>();
         services.AddSingleton<FileListColumnLayoutService>();

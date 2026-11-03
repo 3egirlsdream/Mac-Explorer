@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -36,6 +37,7 @@ public sealed class NetworkDiscoveryService : INetworkDiscoveryService, IDisposa
 
     public IDisposable Acquire()
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         lock (_sync) { if (++_leases == 1) Start(); }
         return new Lease(this);
     }
@@ -47,6 +49,7 @@ public sealed class NetworkDiscoveryService : INetworkDiscoveryService, IDisposa
     private void Release() { lock (_sync) { if (--_leases == 0) Stop(); } }
     public void Refresh()
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         lock (_sync) { if (_leases == 0) return; Stop(); Start(); }
         Changed?.Invoke();
     }

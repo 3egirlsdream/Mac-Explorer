@@ -1,6 +1,8 @@
+> 2026-11-02 分级付费改造：历史审核回复仅作留档。新构建、文案和截图已上传，Apple 新用户介绍优惠已移除；真实支付验收及最终提审进度见 [1.0.69 发行记录](1.0.69-release.md)。
+
 # App Store 元数据
 
-当前窗口恢复审核修复为 `1.0.62 (2026102901)`，详见 [整改与重新提交记录](1.0.62-review-fix.md)。原送审构建记录见 [1.0.62 发布记录](1.0.62-release.md)。中文介绍、推广文本和按数字顺序排列的更新日志分别保存在本目录；英文介绍为同步维护的本地文案，后台沿用现有简体中文商店本地化。
+当前商店更新为 `1.0.69 (2026110301)`，上传及提交进度见 [发行记录](1.0.69-release.md)。上一正式版本的窗口恢复修复见 [1.0.62 整改记录](1.0.62-review-fix.md)。中文介绍、推广文本和按数字顺序排列的更新日志分别保存在本目录；英文介绍为同步维护的本地文案，后台沿用现有简体中文商店本地化。
 
 ## 2026-10-16 App Store 审核整改
 
@@ -12,16 +14,16 @@
 | --- | --- | --- |
 | 名称 | 文件资源管理器 | 文件资源管理器 |
 | 副标题 | 多标签、分栏与文件预览 | Tabs, Split Views and Previews |
-| 宣传文本 | 全部文件管理功能需年度订阅（App 内购买）。多标签、分栏、搜索与预览帮助整理文件。价格和试用资格以 App Store 显示为准。 | All file management features require an annual in-app subscription. Organize files with tabs, split views, search, and previews. Price and trial eligibility vary. |
+| 宣传文本 | 完整体验 7 天后基础功能仍免费；高级功能需年度订阅（App 内购买），价格及实际优惠以 App Store 显示为准。 | Try all features for 7 days; basic features remain free. Premium features require an annual in-app subscription. Prices and actual offers are shown by the App Store. |
 | 描述 | [中文完整描述](zh-Hans-description.txt) | [英文完整描述](en-description.txt) |
 
 描述、宣传文本、副标题、截图、预览视频和订阅商品展示名称需要一起核对。已有其他商店本地化时，逐一同步名称和付费说明；不能留下旧 Mac Explorer 名称或暗示永久免费。当前应用界面提供简体中文、繁体中文、英文和法语；商店包的系统名称本地化仍声明简体中文与英文，商店产品页面沿用简体中文主语言。
 
-订阅商品 ID 保持 `001`，商店 Bundle Identifier 保持 `com.thankful.top.macexplorer.store`。保留现有订阅组和应用记录，不创建替代应用。订阅商品展示名称建议为「文件资源管理器年度订阅」/「文件资源管理器 Annual Subscription」，说明全部功能需购买年度自动续订订阅。不要把有资格限制的试用写成所有用户必有的优惠。
+订阅商品 ID 保持 `001`，商店 Bundle Identifier 保持 `com.thankful.top.macexplorer.store`。保留现有订阅组和应用记录，不创建替代应用。订阅商品展示名称建议为「文件资源管理器年度订阅」/「文件资源管理器 Annual Subscription」，说明高级功能需购买年度自动续订订阅，基础功能免费。不要把有资格限制的试用写成所有用户必有的优惠。
 
 ## 截图与预览
 
-每张展示文件管理功能的商店截图均标注「全部功能需年度订阅 · App 内购买」/「Annual subscription required · In-app purchase」。按用户最新要求，说明统一置于右下角，采用半透明小字；详情图为中文 16px、英文 12px、64% 不透明度（1440×900 画布），保留安全边距，不覆盖功能操作区域。推广文本与描述开头保留完整购买说明。
+每张展示文件管理功能的商店截图均标注「高级功能需订阅 · 基础功能免费」/「Premium: annual in-app subscription · Basic features free」。按用户最新要求，说明统一置于右下角，采用半透明小字；详情图为中文 16px、英文 12px、64% 不透明度（1440×900 画布），保留安全边距，不覆盖功能操作区域。推广文本与描述开头保留完整购买说明。
 
 至少展示一张真实订阅页截图，能看到年度周期、StoreKit 实际价格、适用试用说明、恢复购买及隐私／条款入口。不得用本地 QA 商品获取失败画面或替身测试中的 ¥9.90 冒充实际在售商品。视频若展示付费功能，也同步标注需订阅。已通过当前登录的 App Store Connect 保存中文描述、推广文本、版权及副标题，并将原有 8 张截图替换为新版 9 张带双语购买说明的截图（功能总览首图 + 8 张详情）。原图仍在 Apple 素材库。英文描述作为本地草稿保留；后台英文名称校验冲突后撤销本轮新增英文记录，商店沿用原有简体中文主语言回退。
 

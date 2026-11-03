@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Runtime.CompilerServices;
 using MacExplorer.Indexing;
 using MacExplorer.Models;
@@ -35,7 +36,11 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
         CancellationToken cancellationToken = default) => SearchOnceAsync(directory, pattern, maxResults, cancellationToken);
 
     public IAsyncEnumerable<FileSystemEntry> SearchGlobalAsync(string directory, string pattern, int maxResults = 500,
-        CancellationToken cancellationToken = default) => SearchOnceAsync(directory, pattern, maxResults, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        FeatureAccess.Require(PremiumFeature.GlobalSearch);
+        return SearchOnceAsync(directory, pattern, maxResults, cancellationToken);
+    }
 
     private async IAsyncEnumerable<FileSystemEntry> SearchOnceAsync(string directory, string pattern, int maxResults,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -66,7 +71,7 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
         while (coverageChanged && _indexer.Observe(root) is var observation && observation.Status.IsBusy)
             await observation.Changed.WaitAsync(cancellationToken).ConfigureAwait(false);
         var entries = await _catalog.SearchAsync(root, query, options, maxResults,
-            _settings?.Get("SearchIncludeAiTags", true) ?? true, cancellationToken).ConfigureAwait(false);
+            (FeatureAccess.CanUse(PremiumFeature.ContentSearch) && (_settings?.Get("SearchIncludeAiTags", true) ?? true)), cancellationToken).ConfigureAwait(false);
         foreach (var entry in entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -104,7 +109,7 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
             yield break;
         }
         var root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(directory));
-        var includeAi = _settings?.Get("SearchIncludeAiTags", true) ?? true;
+        var includeAi = (FeatureAccess.CanUse(PremiumFeature.ContentSearch) && (_settings?.Get("SearchIncludeAiTags", true) ?? true));
         await Task.Run(() => _indexer.EnsureRoot(root, includeHiddenFolders: !options.HideDotFolders),
             cancellationToken).ConfigureAwait(false);
         while (true)

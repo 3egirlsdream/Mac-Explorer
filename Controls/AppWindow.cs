@@ -20,6 +20,7 @@ public class AppWindow : Window
     private ShortcutHintController? _shortcutHints;
     private SubscriptionService? _subscription;
     private Grid? _subscriptionHost;
+    private PremiumFeature? _upgradeFeature;
     private bool _nativeChromeRefreshPending;
     private ITopLevelImpl? _nativeLifetime;
     internal WindowRenderDiagnostics? RenderDiagnostics { get; private set; }
@@ -67,6 +68,10 @@ public class AppWindow : Window
         set => SetValue(BackgroundContentProperty, value);
     }
 
+    public static readonly StyledProperty<bool> IsUpgradeOpenProperty =
+        AvaloniaProperty.Register<AppWindow, bool>(nameof(IsUpgradeOpen));
+    public bool IsUpgradeOpen { get => GetValue(IsUpgradeOpenProperty); private set => SetValue(IsUpgradeOpenProperty, value); }
+
     public static readonly StyledProperty<bool> IsModalInteractionBlockedProperty =
         AvaloniaProperty.Register<AppWindow, bool>(nameof(IsModalInteractionBlocked));
 
@@ -111,7 +116,7 @@ public class AppWindow : Window
             MacAutomationLifetime.Prepare();
             MacNativeFileDrop.Enable(this);
             _nativeLifetime = PlatformImpl;
-            _subscription ??= SubscriptionAccess.Current;
+            _subscription ??= FeatureAccess.Current?.Subscription ?? SubscriptionAccess.Current;
             if (_subscription != null) _subscription.Changed += OnSubscriptionChanged;
             UpdateSubscription();
             ApplyNativeWindowChrome();
@@ -170,15 +175,38 @@ public class AppWindow : Window
 
     private void OnSubscriptionChanged() => Dispatcher.UIThread.Post(UpdateSubscription);
 
+    internal void ShowUpgrade(PremiumFeature feature = PremiumFeature.None)
+    {
+        AppToast.For(this).CloseAll();
+        _upgradeFeature = feature;
+        UpdateSubscription();
+    }
+
+    internal void CloseUpgrade()
+    {
+        _upgradeFeature = null;
+        UpdateSubscription();
+    }
+
     private void UpdateSubscription()
     {
-        var locked = _subscription?.IsLocked ?? SubscriptionAccess.IsLocked;
-        PseudoClasses.Set(":subscription-locked", locked);
+        if (_upgradeFeature != null && _subscription?.Snapshot.HasAccess(TimeProvider.System.GetUtcNow()) == true)
+            _upgradeFeature = null;
+        var visible = _upgradeFeature != null;
+        IsUpgradeOpen = visible;
+        PseudoClasses.Set(":subscription-locked", visible);
         if (_subscriptionHost == null) return;
-        if (locked && _subscriptionHost.Children.Count == 0)
-            _subscriptionHost.Children.Add(new Views.SubscriptionView(_subscription ?? SubscriptionAccess.Current));
-        _subscriptionHost.IsVisible = locked;
-        if (locked)
+        if (visible && _subscriptionHost.Children.Count == 0)
+        {
+            var view = new Views.SubscriptionView(_subscription ?? SubscriptionAccess.Current);
+            view.CloseRequested += CloseUpgrade;
+            _subscriptionHost.Children.Add(view);
+        }
+        if (_subscriptionHost.Children.FirstOrDefault() is Views.SubscriptionView subscription)
+            subscription.Feature = _upgradeFeature ?? PremiumFeature.None;
+        _subscriptionHost.IsVisible = visible;
+        if (!visible) _subscriptionHost.Children.Clear();
+        else
         {
             _shortcutHints?.Cancel();
             if (ContextMenu is { IsOpen: true }) ContextMenu.Close();
@@ -244,6 +272,7 @@ public class AppWindow : Window
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && _upgradeFeature != null) { CloseUpgrade(); e.Handled = true; return; }
         if (e.Handled || !Shortcuts.Matches(ShortcutIds.FullScreen, e)
             || IsModalInteractionBlocked)
             return;

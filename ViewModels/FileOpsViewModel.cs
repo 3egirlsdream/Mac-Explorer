@@ -61,14 +61,12 @@ public partial class FileOpsViewModel : ObservableObject
 
     public void RaiseRequestRename(FileSystemEntry entry)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         RequestRename?.Invoke(entry);
     }
 
     [RelayCommand]
     public void CopySelected(IReadOnlyList<FileSystemEntry> selectedEntries)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (_clipboardService == null || selectedEntries.Count == 0) return;
         _clipboardService.CopyFiles(selectedEntries.Select(e => e.FullPath).ToArray());
         if (CutPaths.Count > 0) { CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
@@ -80,7 +78,6 @@ public partial class FileOpsViewModel : ObservableObject
 
     internal void CutSelectedFromTag(IReadOnlyList<FileSystemEntry> selectedEntries, FileTag? sourceTag)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (_clipboardService == null || selectedEntries.Count == 0) return;
         _clipboardService.CutFiles(selectedEntries.Select(e => e.FullPath).ToArray(), sourceTag);
         CutPaths.Clear();
@@ -123,7 +120,6 @@ public partial class FileOpsViewModel : ObservableObject
 
     private async Task PasteCoreAsync(string currentPath, bool overwrite, ClipboardEntry? entry, string[] sourcePaths)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         LastOperationResult = null;
         if (_clipboardService == null || entry == null) return;
         if (entry.Operation == ClipboardOperation.Copy)
@@ -257,7 +253,6 @@ public partial class FileOpsViewModel : ObservableObject
         Action<string>? setStatus = null,
         bool overwrite = false)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         LastOperationResult = null;
         if (!targetFolder.IsDirectory) return;
 
@@ -385,7 +380,6 @@ public partial class FileOpsViewModel : ObservableObject
         bool isAiView,
         Action<string>? setStatus = null)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         // Virtual face cluster rename - handled by AiViewModel
         if (entry.IsVirtual)
             return;
@@ -476,7 +470,6 @@ public partial class FileOpsViewModel : ObservableObject
 
     private async Task<string> CreateNewFolderCoreAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         var name = GetUniqueNameInCurrentDir("未命名文件夹", isDirectory: true, rawEntries);
         var fullPath = await _fileService.CreateFolderAsync(currentPath, name);
         if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
@@ -503,7 +496,6 @@ public partial class FileOpsViewModel : ObservableObject
 
     private async Task<string> CreateNewFileCoreAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, string? extension)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         var ext = extension ?? ".txt";
         var baseName = ext.ToLowerInvariant() switch
         {
@@ -539,7 +531,6 @@ public partial class FileOpsViewModel : ObservableObject
 
     private async Task<string> PasteImageCoreAsync(string currentPath, ClipboardImageData image)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         var path = await _fileService.CreateFileWithContentAsync(currentPath,
             $"图片 {DateTime.Now:yyyy-MM-dd HH.mm.ss}{image.Extension}", image.Bytes);
         if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(path);

@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
@@ -191,6 +192,7 @@ public partial class FinderSidebarView : UserControl
 
     private void UpdateActiveStates()
     {
+        UpdateAccessStatus();
         if (ViewModel == null) return;
         var current = ViewModel.CurrentPath;
         var home = ViewModel.HomeDirectory;
@@ -493,6 +495,7 @@ public partial class FinderSidebarView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (FeatureAccess.Current is { } access) access.Changed += OnAccessChanged;
         if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
             language.LanguageChanged += UpdateActiveStates;
         _networkLocations = App.Services?.GetService<INetworkLocationService>();
@@ -501,11 +504,31 @@ public partial class FinderSidebarView : UserControl
         UpdateActiveStates();
     }
 
+    private void OnAccessChanged() => Dispatcher.UIThread.Post(UpdateAccessStatus);
+    private void UpdateAccessStatus()
+    {
+        var access = FeatureAccess.Current;
+        AccessStatusButton.IsVisible = access != null && access.Snapshot.State != FeatureAccessState.Website;
+        if (access == null) return;
+        var snapshot = access.Snapshot;
+        AccessStatusText.Text = snapshot.State == FeatureAccessState.AppTrial
+            ? Services.Impl.LocalizationText.Get("access.trial_remaining", Math.Max(1, (int)Math.Ceiling((snapshot.ExpiresAt!.Value - DateTimeOffset.UtcNow).TotalDays)))
+            : Services.Impl.LocalizationText.Get(snapshot.State == FeatureAccessState.Subscribed ? "access.subscribed"
+                : snapshot.State == FeatureAccessState.Initializing ? "access.preparing" : "access.free");
+        ToolTip.SetTip(AccessStatusButton, AccessStatusText.Text);
+        Avalonia.Automation.AutomationProperties.SetName(AccessStatusButton, AccessStatusText.Text);
+    }
+    private void OnUpgradeAccess(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is MacExplorer.Controls.AppWindow window) window.ShowUpgrade();
+    }
+
     private void OnConnectionsChanged() => Dispatcher.UIThread.Post(RefreshNetworkLocations);
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         ClearFolderDropTarget();
+        if (FeatureAccess.Current is { } access) access.Changed -= OnAccessChanged;
         if (_networkLocations != null) _networkLocations.Changed -= OnConnectionsChanged;
         _networkLocations = null;
         if (MacExplorer.Services.Impl.LocalizationService.Current is { } language)
@@ -540,8 +563,8 @@ public partial class FinderSidebarView : UserControl
     private async Task OpenNetworkLocationAsync(NetworkLocationRow row)
     {
         if (ViewModel == null) return;
-        if (row.Server != null) await ViewModel.ConnectToServerAsync(row.Server);
-        else if (row.Volume != null) await ViewModel.NavigateToAsync(row.Volume.Path);
+        if (row.Volume != null) await ViewModel.NavigateToAsync(row.Volume.Path);
+        else if (row.Server != null) await ViewModel.ConnectToServerAsync(row.Server);
     }
 
     private async void OnNetworkLocationPressed(object? sender, PointerPressedEventArgs e)

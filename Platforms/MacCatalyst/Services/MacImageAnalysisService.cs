@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Diagnostics;
 using System.Text.Json;
 using MacExplorer.Models;
@@ -15,6 +16,7 @@ public class MacImageAnalysisService(PhotoLocationConsent? locationConsent = nul
         string filePath,
         CancellationToken ct = default)
     {
+        FeatureAccess.Require(PremiumFeature.AiClassification);
         if (!File.Exists(filePath)) return new ImageAnalysisResult();
 
         var helperPath = Path.Combine(RuntimePaths.BundleExecutableDirectory, "MacExplorer.ImageAnalysis");

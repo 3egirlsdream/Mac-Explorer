@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Text.Json;
 using MacExplorer.Models;
 using Microsoft.Extensions.Logging;
@@ -47,7 +48,10 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         LoadSavedServers();
     }
 
-    public async Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
+    public Task<SftpClient> ConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
+        => FeatureAccess.RunAcceptedAsync(PremiumFeature.Network, () => ConnectCoreAsync(server, ct));
+
+    private async Task<SftpClient> ConnectCoreAsync(RemoteServerInfo server, CancellationToken ct)
     {
         if (server.ServiceType != RemoteServiceType.Sftp) throw new InvalidOperationException("Use the connection coordinator for network mounts.");
         Disconnect(server.Id);
@@ -74,6 +78,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     public Task<SftpClient> LeaseClientAsync(string serverId, CancellationToken ct = default)
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         var server = _servers.TryGetValue(serverId, out var saved) ? saved
             : throw new InvalidOperationException(LocalizationText.Get("服务器配置已不存在，请重新连接。"));
         return ConnectVerifiedAsync(CopyServer(server), true, ct);
@@ -81,6 +86,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     public async Task<SftpClient> GetOrConnectAsync(RemoteServerInfo server, CancellationToken ct = default)
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         if (_connections.TryGetValue(server.Id, out var existing) && existing.IsConnected
             && existing.ConnectionInfo.Host == server.Host && existing.ConnectionInfo.Port == server.Port
             && existing.ConnectionInfo.Username == server.Username)
@@ -146,6 +152,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     public void SaveServer(RemoteServerInfo server)
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         if (_configurationLoadFailed) throw new InvalidOperationException("原连接配置无法读取，尚未改写。请恢复配置并重试凭据加载后再保存。");
         if (server.ServiceType == RemoteServiceType.WebDav) _ = WebDavAddress.Parse(server.WebDavUrl);
         var savedServer = CopyServer(server);
@@ -168,6 +175,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     public void RemoveServer(string serverId)
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         if (_configurationLoadFailed) throw new InvalidOperationException("原连接配置无法读取，尚未删除。请恢复配置并重试凭据加载。");
         var candidate = new Dictionary<string, RemoteServerInfo>(_servers);
         candidate.Remove(serverId);
@@ -313,6 +321,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
 
     private async Task TryReconnectAsync(RemoteServerInfo server)
     {
+        if (!FeatureAccess.CanUse(PremiumFeature.Network)) return;
         // Cancel any existing reconnect attempt for this server
         if (_reconnectTokens.TryGetValue(server.Id, out var existingCts))
         {
@@ -334,6 +343,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
             try
             {
                 await Task.Delay(ReconnectDelay, cts.Token);
+                if (!FeatureAccess.CanUse(PremiumFeature.Network)) break;
                 var client = await ConnectVerifiedAsync(server, false, cts.Token);
                 RegisterConnection(server, client);
 

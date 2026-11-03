@@ -61,7 +61,7 @@ private final class StoreBridge {
             }
         }
         if let transaction = latest {
-            // The introductory offer configured for this sole product is a free week.
+            // Existing introductory trials remain valid after the offer is removed for new customers.
             return ["state": transaction.offerType == .introductory ? "trial" : "subscribed",
                     "expiresAt": Int64(transaction.expirationDate!.timeIntervalSince1970 * 1000)]
         }
@@ -84,12 +84,8 @@ private final class StoreBridge {
                 default: days = 0
                 }
             } else { days = 0 }
-            // Fail closed for an accidentally configured offer instead of promising a different trial.
-            if offer != nil && days != 7 {
-                throw NSError(domain: "StoreKitBridge", code: 3, userInfo: [NSLocalizedDescriptionKey: "请在 App Store Connect 配置 7 天免费试用。"])
-            }
             let eligible = await subscription.isEligibleForIntroOffer
-            return ["price": item.displayPrice, "trialEligible": days == 7 && eligible, "trialDays": days]
+            return ["price": item.displayPrice, "trialEligible": days > 0 && eligible, "trialDays": days]
         case "purchase":
             let item = try await product()
             switch try await item.purchase() {

@@ -1,5 +1,5 @@
-PURCHASE REQUIRED
-Downloading the app does not include permanent free access. All file management features require an annual auto-renewable in-app subscription. File management is locked without an active subscription or trial entitlement. All features below are included in the annual subscription.
+FREE FEATURES AND PREMIUM ACCESS
+Try all features for 7 days from first use without subscribing or automatic charges. Basic local browsing, tabs, previews, file operations, page search, collections and tags remain free afterward. Split views, batch rename, global/content search, AI, network connection management, file delivery and custom backgrounds require an active trial or annual auto-renewable subscription via in-app purchase. Prices and actual offers are shown by the App Store.
 
 文件资源管理器 brings file browsing, search, previews, organization and transfers into one macOS workspace.
 
@@ -16,7 +16,7 @@ BATCH RENAME AND TASKS
 Combine replacement, numbering, dates and name templates, preview changes and check conflicts. Save presets and undo batches. Track copying, moving, deletion, compression, extraction and SFTP transfers in a compact task panel, with pause, resume, cancel or retry where supported. Queues and undo records last for the current app process.
 
 ARCHIVES AND NETWORK FILES
-Browse and extract ZIP, 7z, RAR, TAR and other formats; create ZIP archives. Support depends on the format, compression method, encryption and multipart layout. Discover network servers, view mounted volumes, mount SMB shares through macOS, and manage remote files over SFTP.
+Browse and extract ZIP, 7z, RAR, TAR and other formats; create ZIP archives. Support depends on the format, compression method, encryption and multipart layout. Premium network management discovers servers, mounts SMB and WebDAV locations through macOS, and manages remote files over SFTP. Ordinary access to system-mounted folders remains free.
 
 TRANSFERS AND EVERYDAY TOOLS
 Transfer files to compatible devices over reachable networks using LocalSend, or send files using system AirDrop. Drag files and images from WeChat, authorizing the attachment folder when required. Access folders and collections from the menu bar. On-device image analysis helps organize photos using text, faces, scenes and metadata; place-name lookup is optional and online.
@@ -25,15 +25,15 @@ OPTIONAL COPILOT
 Find and organize files using natural language with your own compatible AI endpoint, model and API key. Third-party model fees are separate. Consent is requested before connecting, with separate approval before sharing file contents or modifying files.
 
 BUILT FOR macOS
-Light and dark themes, customizable shortcuts, and Simplified Chinese, Traditional Chinese, English and French interfaces. Lazy loading and idle cache cleanup reduce resource accumulation during extended use.
+Light and dark themes, customizable shortcuts, and Simplified Chinese, Traditional Chinese, English and French interfaces. Premium background customization includes nine patterns, custom colors and images; configurations are retained when access expires. Lazy loading and idle cache cleanup reduce resource accumulation during extended use.
 
 YOU CONTROL FILE ACCESS
 Authorize files and folders through the system picker and revoke access in settings. Configuration, indexes and conversation history are stored locally. Optional network features follow your settings and permissions.
 
 For Apple Silicon Macs running macOS 14.0 or later. Preview formats depend on system support.
 
-SUBSCRIPTION AND TRIAL
-The subscription period is one year. Price is shown in the app and on the App Store confirmation sheet. If offered, trial eligibility and duration are determined by the App Store. Trials require confirmation and convert to a paid annual subscription unless cancelled. Auto-renewal must be turned off at least 24 hours before the current subscription or trial ends. Payment is charged to your Apple account. Manage or cancel in Apple account settings; access continues until the current entitlement expires. Existing subscribers can use Restore Purchases.
+APP TRIAL AND SUBSCRIPTION
+The app provides a continuous 168-hour full experience from first use, without subscribing or automatic charges. Basic features stay free afterward. An annual subscription starts when you choose to purchase, without an additional introductory trial for new subscribers; existing Apple trials keep their original entitlement. The subscription period is one year. Price is shown in the app and on the App Store confirmation sheet. Auto-renewal must be turned off at least 24 hours before the current subscription or existing Apple trial ends. The app-managed experience never renews or charges. Payment is charged to your Apple account. Manage or cancel in Apple account settings; access continues until the current entitlement expires. Existing subscribers can use Restore Purchases.
 
 Privacy: https://3egirlsdream.github.io/Mac-Explorer/privacy/
 Terms of Use (Apple Standard EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

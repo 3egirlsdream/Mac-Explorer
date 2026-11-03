@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 
 namespace MacExplorer.Services.Impl;
@@ -22,6 +23,7 @@ public sealed class PdfAnalysisService(IPdfTextExtractionService extractor, IAiT
     public async Task AnalyzeAsync(string path, long modifiedTicks,
         IProgress<PdfAnalysisProgress>? progress, CancellationToken ct)
     {
+        FeatureAccess.Require(PremiumFeature.ContentSearch);
         CancellationTokenSource linked;
         lock (_lock)
             linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _enabled.Token);

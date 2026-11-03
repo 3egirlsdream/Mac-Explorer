@@ -1,7 +1,10 @@
 namespace MacExplorer.Models;
 
 public sealed record FileTaskRequest(BackgroundTaskKind Kind, string Label,
-    IReadOnlyList<string> Sources, string? Destination = null, string? DisplayName = null);
+    IReadOnlyList<string> Sources, string? Destination = null, string? DisplayName = null)
+{
+    internal Services.Subscriptions.PremiumFeature RequiredFeatures { get; init; }
+}
 
 public enum FileTaskItemState { Completed, Failed, Skipped, NotAttempted }
 

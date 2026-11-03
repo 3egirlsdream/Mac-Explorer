@@ -11,6 +11,13 @@ namespace MacExplorer.Views;
 public partial class SubscriptionView : UserControl
 {
     private SubscriptionService? _service;
+    public event Action? CloseRequested;
+    private PremiumFeature _feature;
+    internal PremiumFeature Feature
+    {
+        get => _feature;
+        set { _feature = value; Update(); }
+    }
     public SubscriptionView()
     {
         InitializeComponent();
@@ -45,7 +52,8 @@ public partial class SubscriptionView : UserControl
     private void Update()
     {
         if (_service == null) return;
-        StatusText.Text = _service.Snapshot.State == SubscriptionState.VerificationFailed ? LocalizationText.Get("subscription.unverified") : LocalizationText.Get("subscription.required");
+        StatusText.Text = Feature == PremiumFeature.None ? LocalizationText.Get("access.upgrade_description")
+            : LocalizationText.Get("access.required", FeatureAccess.FeatureName(Feature));
         var product = _service.Product;
         PriceText.Text = product == null ? LocalizationText.Get(_service.ProductError == null ? "subscription.loading_price" : "subscription.no_price") : LocalizationText.Get("subscription.yearly_price", product.Price);
         TermsText.Text = product?.TrialEligible == true
@@ -74,11 +82,7 @@ public partial class SubscriptionView : UserControl
         if (TopLevel.GetTopLevel(this) is { } top)
             await top.Launcher.LaunchUriAsync(new Uri(SubscriptionLinks.Terms));
     }
-    private void Quit(object? sender, RoutedEventArgs e)
-    {
-        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.TryShutdown();
-    }
+    private void ContinueFree(object? sender, RoutedEventArgs e) => CloseRequested?.Invoke();
 }
 
 internal static class SubscriptionLinks

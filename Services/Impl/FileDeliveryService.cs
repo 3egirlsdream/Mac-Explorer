@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Text.Json;
 using MacExplorer.Models;
 using MacExplorer.ViewModels;
@@ -18,6 +19,7 @@ public sealed class FileDeliveryService : IDisposable
 
     public int StagePaths(IEnumerable<string> paths)
     {
+        FeatureAccess.Require(PremiumFeature.FileDelivery);
         var added = 0;
         foreach (var value in paths)
         {
@@ -81,6 +83,7 @@ public sealed class FileDeliveryService : IDisposable
 
     public void AddFolder(string path)
     {
+        FeatureAccess.Require(PremiumFeature.FileDelivery);
         if (!Path.IsPathFullyQualified(path) || !Directory.Exists(path)) throw new ArgumentException("请选择可访问的本地文件夹。");
         path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         Add(new(Guid.NewGuid().ToString("N"), Path.GetFileName(path) is { Length: > 0 } name ? name : path, path));
@@ -90,6 +93,7 @@ public sealed class FileDeliveryService : IDisposable
 
     private void Add(FileDeliveryEntry entry)
     {
+        FeatureAccess.Require(PremiumFeature.FileDelivery);
         if (Preferences.Entries.Any(e => e.Location == entry.Location)) return;
         Preferences.Entries.Add(entry);
         CommitEntries();
@@ -97,6 +101,7 @@ public sealed class FileDeliveryService : IDisposable
 
     public void Remove(string id)
     {
+        FeatureAccess.Require(PremiumFeature.FileDelivery);
         if (id == StagingId) return;
         Preferences.Entries.RemoveAll(e => e.Id == id);
         if (Preferences.SelectedId == id) Preferences = Preferences with { SelectedId = StagingId };
@@ -105,6 +110,7 @@ public sealed class FileDeliveryService : IDisposable
 
     public void Move(string id, int delta)
     {
+        FeatureAccess.Require(PremiumFeature.FileDelivery);
         var index = Preferences.Entries.FindIndex(e => e.Id == id);
         var next = index + delta;
         if (index < 0 || next < 0 || next >= Preferences.Entries.Count) return;

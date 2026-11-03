@@ -102,6 +102,16 @@ internal static class BackgroundThemeSmoke
             service.Update(true, 50);
             await CaptureAsync(owner, "height-tile");
             second = App.OpenNewWindow(files);
+            if (second.IsVisible) throw new InvalidOperationException("The themed window was shown before background preparation.");
+            var shown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            second.Opened += (_, _) =>
+            {
+                if (WindowBackgroundTheme.GetController(second) is { IsActive: true, Frame: { } initialFrame }
+                    && Math.Abs(initialFrame.Image.Size.AspectRatio - second.ClientSize.AspectRatio) < 0.01) shown.TrySetResult();
+                else shown.TrySetException(new InvalidOperationException("The initial window frame has no background."));
+            };
+            await shown.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            checks.Add("MainWindow.Show waits for the initial clear/frosted background before native display");
             await Task.Delay(250);
             service.Update(false, 50);
             if (owner.Resources.ContainsKey("WorkspaceContentBrush") || second.Resources.ContainsKey("WorkspaceContentBrush"))

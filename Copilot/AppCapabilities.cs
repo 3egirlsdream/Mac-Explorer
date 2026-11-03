@@ -185,7 +185,6 @@ public sealed class AppCapabilityRegistry(
     public async Task<CapabilityResult> ExecuteUiAsync(
         string id, string argumentsJson, FileListViewModel pane)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (id == "folder.create-unnamed") return await CreateUnnamedFolderAsync(pane);
         if (!id.StartsWith("plugin.command:", StringComparison.Ordinal))
             return await ExecuteReadAsync(id, argumentsJson, pane);
@@ -220,7 +219,6 @@ public sealed class AppCapabilityRegistry(
 
     public async Task<CapabilityResult> ExecuteReadAsync(string id, string argumentsJson, FileListViewModel? pane)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         var capability = Find(id) ?? throw new ArgumentException($"未知能力：{id}", nameof(id));
         if (capability.Impact != CapabilityImpact.Read)
             throw new InvalidOperationException("此能力需要先预览并确认。");
@@ -507,7 +505,6 @@ public sealed class AppCapabilityRegistry(
 
     public async Task<CapabilityPlan> PreviewAsync(string id, string argumentsJson, FileListViewModel? pane)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         var capability = Find(id) ?? throw new ArgumentException($"未知能力：{id}", nameof(id));
         if (capability.Impact == CapabilityImpact.Read)
             throw new InvalidOperationException("只读能力无需审批。");
@@ -804,7 +801,6 @@ public sealed class AppCapabilityRegistry(
     public async Task<CapabilityResult> ExecuteApprovedAsync(string planId, FileListViewModel? pane,
         IProgress<string>? progress = null)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         Pending pending;
         lock (_gate)
         {

@@ -63,7 +63,7 @@ bash Tools/Distribution/prepare-store-pkg.sh \
 
 历史结果保留于 [初始实现](archive/mac-app-store.md)、[渠道复核](archive/mac-app-store-review.md)、[隐私复核](archive/privacy-security-review.md)及 [可靠性复核](archive/reliability-release-review.md)。正式商店签名、账号/profile 和成功 PKG 流程仍需具备相应资源后验收；Intel 运行测试按用户要求不执行。
 
-正式提交前还需填写 App Privacy 标签、截图、年龄分级、支持信息、审核操作说明和加密出口合规资料。数据库凭据持久化、局域网拒绝／恢复、实际 SFTP 服务、外置磁盘弹出及生产签名 Sandbox 必须单独验收。商店版采用 StoreKit 年度自动续订订阅解锁全部功能；下载本身不包含永久使用权。价格与试用资格由 App Store 返回，参见 [年度订阅配置](../../Tools/Distribution/SUBSCRIPTIONS.md)。
+正式提交前还需填写 App Privacy 标签、截图、年龄分级、支持信息、审核操作说明和加密出口合规资料。数据库凭据持久化、局域网拒绝／恢复、实际 SFTP 服务、外置磁盘弹出及生产签名 Sandbox 必须单独验收。商店版首次使用提供连续 168 小时完整体验，无需订阅、不自动扣费；之后基础功能继续免费，高级功能通过 StoreKit 年度自动续订订阅解锁。应用体验与 Apple 权益独立管理，发布前移除面向新用户的 Apple 介绍试用优惠，保留已有试用；实际价格来自 StoreKit，参见 [年度订阅配置](../../Tools/Distribution/SUBSCRIPTIONS.md)。
 
 ## 2026-10-01 适配验证
 

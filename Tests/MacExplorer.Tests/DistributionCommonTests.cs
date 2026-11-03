@@ -7,6 +7,7 @@ using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.Services.Plugins;
 using MacExplorer.Services.Search;
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Indexing;
 using Microsoft.Data.Sqlite;
 using Xunit;
@@ -106,6 +107,61 @@ public sealed class DistributionCommonTests : IDisposable
             Assert.Equal(original, restarted.ResolvePath(original));
         }
         Assert.Equal(native.Opened, native.Closed);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public void FolderPickerTrailingSlashDoesNotRedirectDesktopAfterSelectionOrRestart()
+    {
+        var selected = Directory.CreateDirectory(Path.Combine(_root, "picker-home")).FullName;
+        var desktop = Directory.CreateDirectory(Path.Combine(selected, "Desktop")).FullName;
+        var store = Path.Combine(_root, "picker-bookmarks.json");
+        var native = new FakeBookmarks();
+        using (var access = new DirectoryAccess(store, true, native, []))
+        {
+            access.RememberSelection(selected + "/");
+            access.RememberSelection(desktop + "/");
+            Assert.Equal(desktop, access.ResolvePath(desktop));
+            Assert.Equal(desktop + "/file.txt", access.ResolvePath(desktop + "/file.txt"));
+            Assert.True(access.CanAccess(access.ResolvePath(desktop)));
+        }
+        using (var restarted = new DirectoryAccess(store, true, native, []))
+        {
+            Assert.Equal(desktop, restarted.ResolvePath(desktop));
+            Assert.Equal(desktop + "/file.txt", restarted.ResolvePath(desktop + "/file.txt"));
+            Assert.True(restarted.CanAccess(restarted.ResolvePath(desktop)));
+        }
+        Assert.Equal(native.Opened, native.Closed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Kind", "Unit")]
+    public void LegacyTrailingSlashAliasesPreserveDirectoryBoundaries(bool moved)
+    {
+        var original = Path.Combine(_root, "legacy-home");
+        var current = Directory.CreateDirectory(moved ? Path.Combine(_root, "moved-home") : original).FullName;
+        var store = Path.Combine(_root, "legacy-bookmarks.json");
+        File.WriteAllText(store, JsonSerializer.Serialize(new
+        {
+            Bookmarks = new Dictionary<string, string> { [original] = "home-bookmark" },
+            Aliases = new Dictionary<string, string>
+            {
+                [original + "/"] = original,
+                [original + "/Desktop/"] = original + "/Desktop"
+            }
+        }));
+        var native = new FakeBookmarks(); native.Bookmarks["home-bookmark"] = current;
+        using var access = new DirectoryAccess(store, true, native, []);
+        Assert.Equal(current, access.ResolvePath(original));
+        Assert.Equal(current + "/Desktop", access.ResolvePath(original + "/Desktop"));
+        Assert.Equal(current + "/Desktop/file.txt", access.ResolvePath(original + "/Desktop/file.txt"));
+        Assert.True(access.CanAccess(access.ResolvePath(original + "/Desktop")));
+        Assert.Equal(original + "-sibling/Desktop", access.ResolvePath(original + "-sibling/Desktop"));
+        access.Revoke(current);
+        Assert.Equal(original + "/Desktop", access.ResolvePath(original + "/Desktop"));
+        Assert.False(access.CanAccess(original + "/Desktop"));
     }
 
     [Fact]
@@ -249,6 +305,7 @@ public sealed class DistributionCommonTests : IDisposable
     [Trait("Kind", "Unit")]
     public void SftpLaterSaveCannotEraseAnotherServersUnmigratedPassword()
     {
+        using var access = new GrantedFeatureAccess();
         var path = Path.Combine(_root, "remote-servers.json");
         var original = JsonSerializer.Serialize(new[] {
             new RemoteServerInfo { Id = "first", Password = "first-secret" },
@@ -373,6 +430,7 @@ public sealed class DistributionCommonTests : IDisposable
     [Trait("Kind", "Unit")]
     public async Task CopilotRejectsUnconsentedSendBeforeAnyTransportOrHistoryWrite()
     {
+        using var access = new GrantedFeatureAccess();
         var settings = new CopilotSettings(new PluginTestEnvironment.MemorySettings()); var credentials = new CopilotCredentialStore();
         credentials.Save("isolated-test-key"); var store = new CopilotStore(Path.Combine(_root, "copilot.db"));
         using var engine = new CopilotEngine(null!, settings, credentials, store, null!, () => null,
@@ -442,6 +500,19 @@ public sealed class DistributionCommonTests : IDisposable
         await manager.DisposeAsync();
     }
 
+    // These checks exercise credential persistence and consent after the feature gate has allowed access.
+    private sealed class GrantedFeatureAccess : IDisposable
+    {
+        private readonly FeatureAccessService? _previous = FeatureAccess.Current;
+        private readonly FeatureAccessService _access = new(null, null, false);
+        public GrantedFeatureAccess() => FeatureAccess.Current = _access;
+        public void Dispose()
+        {
+            FeatureAccess.Current = _previous;
+            _access.Dispose();
+        }
+    }
+
     private sealed class MemoryCredentials : ICredentialStore
     {
         public bool Fail; public string? FailedAccount; private readonly Dictionary<string, string> _values = [];
@@ -457,6 +528,7 @@ public sealed class DistributionCommonTests : IDisposable
         public (IntPtr, string?, string?, bool) Open(string bookmark)
         {
             if (!Bookmarks.TryGetValue(bookmark, out var path)) return (IntPtr.Zero, null, null, false);
+            path = Path.TrimEndingDirectorySeparator(path);
             if (Refreshed != null) Bookmarks[Refreshed] = path;
             return (new IntPtr(++Opened), path, Refreshed, Refreshed != null);
         }

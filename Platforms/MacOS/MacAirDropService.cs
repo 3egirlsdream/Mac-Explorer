@@ -18,7 +18,6 @@ internal sealed class MacAirDropService : IAirDropService
 
     public async Task SendAsync(Window? owner, IReadOnlyList<string> paths)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (!IsSupported) throw new PlatformNotSupportedException(LocalizationText.Get("airdrop.unavailable"));
         if (paths.Count == 0 || paths.Any(path => !Path.IsPathFullyQualified(path) || path.Contains('\0')))
             throw new IOException(LocalizationText.Get("airdrop.invalid-files"));

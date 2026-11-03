@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 using MacExplorer.Services;
 
@@ -32,6 +33,7 @@ public partial class FileListViewModel
 
     public void RaiseRequestBatchRename(BatchRenameRequest request)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.BatchRename)) return;
         if (IsBrowseOnly || IsArchiveView || IsTrashActive || request.Entries.Count == 0
             || request.Entries.Any(e => !IsBatchRenameTarget(e)))
         { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("请选择可重命名的本地文件或文件夹"); return; }

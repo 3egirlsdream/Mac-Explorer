@@ -27,6 +27,83 @@ namespace MacExplorer.Tests;
 [Trait("Area", "BackgroundTheme")]
 public sealed class BackgroundThemeTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task RestoredBackgroundIsReadyBeforeFirstShow(bool preset, bool dark)
+    {
+        using var fixture = new Fixture();
+        if (preset) await fixture.Service.SelectPresetAsync("cyber-circuit");
+        else await fixture.ImportAsync();
+        using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
+        var window = new AppWindow { Width = 640, Height = 400,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        using var theme = new WindowBackgroundTheme(window, restored);
+        var shows = 0;
+        void Show()
+        {
+            Assert.False(window.IsVisible);
+            Assert.True(theme.IsActive);
+            Assert.NotNull(theme.Frame!.Frosted);
+            Assert.True(window.Classes.Contains("background-themed"));
+            Assert.Equal(Colors.Transparent, BrushColor(window, "WorkspaceContentBrush"));
+            shows++;
+            window.Show();
+        }
+        try
+        {
+            var ready = theme.ShowWhenReadyAsync(Show);
+            Assert.False(window.IsVisible);
+            Assert.Same(ready, theme.ShowWhenReadyAsync(Show));
+            await ready.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            Assert.True(window.IsVisible);
+            Assert.Equal(1, shows);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DisabledOrMissingBackgroundStillShowsWindow(bool missing)
+    {
+        using var fixture = new Fixture();
+        fixture.Settings.Set(BackgroundThemeService.SettingKey, missing
+            ? "{\"Enabled\":true,\"ImageFile\":\"missing.png\"}" : "{}");
+        using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
+        var window = new AppWindow { Width = 640, Height = 400 };
+        using var theme = new WindowBackgroundTheme(window, restored);
+        try
+        {
+            var ready = theme.ShowWhenReadyAsync(window.Show);
+            if (!missing) Assert.True(window.IsVisible);
+            await ready.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            Assert.True(window.IsVisible);
+            Assert.False(theme.IsActive);
+            Assert.Equal(Colors.White, BrushColor(window, "WorkspaceContentBrush"));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ClosedWindowIsNotShownWhenBackgroundFinishesLoading()
+    {
+        using var fixture = new Fixture();
+        await fixture.ImportAsync();
+        using var restored = new BackgroundThemeService(fixture.Settings, fixture.Root);
+        var window = new AppWindow { Width = 640, Height = 400 };
+        using var theme = new WindowBackgroundTheme(window, restored);
+        var shows = 0;
+        var ready = theme.ShowWhenReadyAsync(() => shows++);
+        window.Close();
+        await ready.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Equal(0, shows);
+        Assert.False(window.IsVisible);
+        Assert.Null(theme.Frame);
+    }
+
     [AvaloniaFact]
     public void HeightTilingKeepsItsScaleWhileWidening()
     {
@@ -494,8 +571,16 @@ public sealed class BackgroundThemeTests
             var original = BrushColor(first, "TitleBarBackgroundBrush");
             var originalDivider = BrushColor(first, "WorkspaceDividerBrush");
             var originalMuted = BrushColor(first, "TextMutedBrush");
-            await fixture.Service.SelectPresetAsync("cyber-hud");
-            for (var i = 0; theme.IsRendering && i < 100; i++) await Task.Delay(10);
+            var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var cancellation = TestContext.Current.CancellationToken;
+            void OnFrameChanged() { if (theme.IsActive) rendered.TrySetResult(); }
+            theme.FrameChanged += OnFrameChanged;
+            try
+            {
+                await fixture.Service.SelectPresetAsync("cyber-hud");
+                await rendered.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellation);
+            }
+            finally { theme.FrameChanged -= OnFrameChanged; }
             Assert.True(theme.IsActive);
             Assert.IsType<LinearGradientBrush>(first.Resources["TitleBarBackgroundBrush"]);
             Assert.Equal(original, BrushColor(dialog, "TitleBarBackgroundBrush"));

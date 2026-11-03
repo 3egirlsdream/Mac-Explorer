@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 using Microsoft.Extensions.Logging;
 
@@ -146,7 +147,10 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
             if (records.Skip(index + 1).Where(r => !r.IsUndone || r.HasUndoableItems).SelectMany(Paths)
                 .Select(BackgroundTaskManager.Normalize).Any(p => paths.Any(q => BackgroundTaskManager.Overlaps(p, q))))
                 return new(false, LocalizationText.Get("请先撤销涉及相同文件的后续操作。"), []);
-            return await FileTaskContext.RunAsync(_tasks, new(BackgroundTaskKind.Generic, LocalizationText.Get("撤销操作"), paths), async context =>
+            var undoFeatures = paths.Any(VirtualPath.IsRemotePath) ? PremiumFeature.Network : PremiumFeature.None;
+            if (record.Children.Prepend(record).Any(r => r.Kind == FileOperationKind.BatchRename)) undoFeatures |= PremiumFeature.BatchRename;
+            return await FeatureAccess.RunUndoAsync(undoFeatures, () => FileTaskContext.RunAsync(_tasks,
+                new(BackgroundTaskKind.Generic, LocalizationText.Get("撤销操作"), paths) { RequiredFeatures = undoFeatures }, async context =>
             {
                 Undoing.Value = true;
                 context.Task.CanRetry = false;
@@ -165,14 +169,13 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
                         failures.Count == 0 ? LocalizationText.Get("已撤销") : string.Join("；", failures), warnings);
                 }
                 finally { Undoing.Value = false; }
-            });
+            }));
         }
         finally { _undoGate.Release(); }
     }
 
     private async Task UndoRecordAsync(FileOperationRecord record, List<string> warnings)
     {
-        Subscriptions.SubscriptionAccess.RequireAccess();
         if (record.Kind == FileOperationKind.BatchRename)
         {
             var rename = _rename ?? new BatchRenameService(_files, directoryChangeNotifier: _changes, fileTagService: _tags);

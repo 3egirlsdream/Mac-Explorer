@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -92,6 +93,7 @@ public partial class RemoteConnectionDialog : DialogWindow
 
     private void SetConnecting(bool value)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Network)) return;
         _connecting = value;
         ServiceParametersHost.IsEnabled = !value;
         NameBox.IsEnabled = !value;
@@ -135,6 +137,8 @@ public partial class RemoteConnectionDialog : DialogWindow
 
     private async void OnConnect(object? sender, RoutedEventArgs e)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Network)) return;
+        using var operation = FeatureAccess.BeginOperation(PremiumFeature.Network);
         if (_connecting) return;
         var server = BuildServerInfo();
         if (server == null) return;
@@ -167,6 +171,7 @@ public partial class RemoteConnectionDialog : DialogWindow
 
     private void OnSave(object? sender, RoutedEventArgs e)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Network)) return;
         if (_connecting) return;
         var server = BuildServerInfo();
         if (server == null) return;
@@ -297,6 +302,8 @@ public partial class RemoteConnectionDialog : DialogWindow
 
     private async void OnSystemConnect(object? sender, RoutedEventArgs e)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Network)) return;
+        using var operation = FeatureAccess.BeginOperation(PremiumFeature.Network);
         if (_connecting) return;
         var server = BuildServerInfo();
         if (server == null || server.ServiceType == RemoteServiceType.Sftp) return;

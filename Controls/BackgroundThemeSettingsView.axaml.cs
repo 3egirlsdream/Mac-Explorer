@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -95,6 +96,7 @@ public partial class BackgroundThemeSettingsView : UserControl
     private void SaveOptions()
     {
         if (_updating || _busy || _service == null) return;
+        if (EnabledToggle.IsChecked == true && !FeatureAccess.TryUse(PremiumFeature.BackgroundThemes)) { Refresh(); return; }
         // Stored strength remains opacity so existing themes keep exactly the same appearance.
         _service.Update(EnabledToggle.IsChecked == true, 100 - (int)Math.Round(StrengthSlider.Value));
     }
@@ -104,6 +106,7 @@ public partial class BackgroundThemeSettingsView : UserControl
     private async void ChooseImage(object? sender, RoutedEventArgs e)
     {
         if (_busy || _service == null || TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage) return;
+        if (!FeatureAccess.TryUse(PremiumFeature.BackgroundThemes)) return;
         _busy = true; _errorKey = null;
         _importCancellation = new CancellationTokenSource();
         var token = _importCancellation.Token;
@@ -126,6 +129,7 @@ public partial class BackgroundThemeSettingsView : UserControl
             await _service.ImportAsync(input, file.Name, token);
         }
         catch (OperationCanceledException) { }
+        catch (FeatureAccessDeniedException ex) { FeatureAccess.TryUse(ex.Feature); }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             _errorKey = "background.import_failed";

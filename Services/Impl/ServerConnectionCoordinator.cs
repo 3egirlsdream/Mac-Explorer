@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 
 namespace MacExplorer.Services.Impl;
@@ -18,7 +19,10 @@ public sealed class ServerConnectionCoordinator : IServerConnectionCoordinator, 
         _sftp.Changed += OnVolumesChanged;
     }
 
-    public async Task<string> ConnectAsync(RemoteServerInfo server, CancellationToken cancellationToken = default)
+    public Task<string> ConnectAsync(RemoteServerInfo server, CancellationToken cancellationToken = default)
+        => FeatureAccess.RunAcceptedAsync(PremiumFeature.Network, () => ConnectCoreAsync(server, cancellationToken));
+
+    private async Task<string> ConnectCoreAsync(RemoteServerInfo server, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try

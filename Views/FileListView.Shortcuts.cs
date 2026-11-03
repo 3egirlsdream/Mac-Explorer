@@ -30,7 +30,6 @@ public partial class FileListView
 
     internal bool CanExecuteShortcut(string id)
     {
-        if (Services.Subscriptions.SubscriptionAccess.IsLocked) return false;
         var vm = ViewModel;
         if (vm == null || ColumnFilterPopup.IsOpen) return false;
         if ((vm.IsDirectoryLoading || FastListActive && FastList.IsLoading)

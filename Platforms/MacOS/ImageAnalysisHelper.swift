@@ -6,6 +6,10 @@ import PDFKit
 import AppKit
 import ImageIO
 
+// PDFKit/AppKit may register this per-file helper as a foreground application.
+// Set the policy before touching documents or images to keep it out of the Dock.
+NSApplication.shared.setActivationPolicy(.prohibited)
+
 struct FaceResult: Codable {
     let BoundingBoxX: Float
     let BoundingBoxY: Float

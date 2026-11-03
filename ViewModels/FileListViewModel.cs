@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
@@ -1194,6 +1195,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateToAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
+        if (!FeatureAccess.TryUse(FeatureAccess.ForPath(path))) return;
         if (IsBrowseOnly && !(path == FileDeliveryService.StagingPath && _deliveryStaging != null) && !TagPathHelper.IsTagPath(path) && !Path.IsPathFullyQualified(path)) return;
 
         if (path == FileDeliveryService.StagingPath && _deliveryStaging != null)
@@ -1410,6 +1412,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         try
         {
+            if (!FeatureAccess.TryUse(FeatureAccess.ForPath(_navigation.CurrentPath))) { GoHome(); return; }
             if (_navigation.CurrentHistoryEntry is { IsHomePage: true })
             {
                 GoHome();
@@ -1499,7 +1502,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task OpenEntryAsync(FileSystemEntry entry)
     {
-        Services.Subscriptions.SubscriptionAccess.RequireAccess();
         if (IsBrowseOnly)
         {
             if (entry.IsFolder) await NavigateToAsync(entry.FullPath);
@@ -1674,6 +1676,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task NavigateToRemoteAsync(string sentinelPath)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.Network)) return;
         if (_remoteConnectionService == null || _sftpFileService == null)
         {
             StatusText = MacExplorer.Services.Impl.LocalizationText.Get("远程连接服务未初始化");
@@ -1786,9 +1789,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task ConnectToServerAsync(RemoteServerInfo server)
     {
         if (_remoteConnectionService == null) return;
+        var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
+        if (coordinator?.GetMountedVolume(server) is { } mounted)
+        {
+            await NavigateToAsync(mounted.Path); return;
+        }
+        if (!FeatureAccess.TryUse(PremiumFeature.Network)) return;
         try
         {
-            var coordinator = App.Services?.GetService<IServerConnectionCoordinator>();
             if (coordinator != null) await NavigateToAsync(await coordinator.ConnectAsync(server));
             else
             {
@@ -4702,7 +4710,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void FinalizeEntriesLoad(EntryLoadSelectionState state, bool completed)
     {
-
         var restoredSelection = new List<FileSystemEntry>();
         FileSystemEntry? restoredAnchor = null;
 

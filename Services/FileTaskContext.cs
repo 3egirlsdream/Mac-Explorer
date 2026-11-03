@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 
 namespace MacExplorer.Services;
@@ -7,6 +8,9 @@ public sealed class FileTaskContext
 {
     private static readonly AsyncLocal<FileTaskContext?> Ambient = new();
     public static FileTaskContext? Current => Ambient.Value;
+    private readonly PremiumFeature _featureGrant;
+    private int _grantActive;
+    internal bool HasFeatureGrant(PremiumFeature feature) => Volatile.Read(ref _grantActive) != 0 && (_featureGrant & feature) == feature;
     private readonly Dictionary<string, object?> _checkpoints = new(StringComparer.Ordinal);
     private Func<Task>? _pause;
     private int _atomicDepth;
@@ -62,11 +66,12 @@ public sealed class FileTaskContext
         var resource = create(); _resources.Add(key, resource); return resource;
     }
     public List<string> Warnings { get; } = [];
-    internal FileTaskContext(BackgroundTaskInfo task, Func<Task>? pause = null, Action? changed = null)
-    { Task = task; _pause = pause; _changed = changed; }
+    internal FileTaskContext(BackgroundTaskInfo task, Func<Task>? pause = null, Action? changed = null, PremiumFeature featureGrant = PremiumFeature.None)
+    { Task = task; _pause = pause; _changed = changed; _featureGrant = featureGrant; }
 
     internal async Task<T> ExecuteAsync<T>(Func<FileTaskContext, Task<T>> action)
     {
+        Volatile.Write(ref _grantActive, 1);
         var previous = Ambient.Value;
         Ambient.Value = this;
         var succeeded = false;
@@ -78,8 +83,12 @@ public sealed class FileTaskContext
         }
         finally
         {
-            if (succeeded || CancellationToken.IsCancellationRequested) Cleanup();
-            DisposeResources(); Publish(); Ambient.Value = previous;
+            try
+            {
+                if (succeeded || CancellationToken.IsCancellationRequested) Cleanup();
+                DisposeResources(); Publish();
+            }
+            finally { Volatile.Write(ref _grantActive, 0); Ambient.Value = previous; }
         }
     }
 
@@ -90,16 +99,21 @@ public sealed class FileTaskContext
         _resources.Clear();
     }
 
-    internal static async Task<T> RunUnmanagedAsync<T>(Func<FileTaskContext, Task<T>> action, CancellationToken token)
+    internal static async Task<T> RunUnmanagedAsync<T>(Func<FileTaskContext, Task<T>> action, CancellationToken token, PremiumFeature grant = PremiumFeature.None)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
-        return await new FileTaskContext(new BackgroundTaskInfo { Cts = linked }).ExecuteAsync(action);
+        return await new FileTaskContext(new BackgroundTaskInfo { Cts = linked }, featureGrant: grant).ExecuteAsync(action);
     }
 
     public static Task<T> RunAsync<T>(IBackgroundTaskManager? manager, FileTaskRequest request,
         Func<FileTaskContext, Task<T>> action, CancellationToken token = default)
-        => Current is { } current ? action(current)
-            : manager != null ? manager.RunAsync(request, action, token) : RunUnmanagedAsync(action, token);
+    {
+        if (Current == null && manager != null) return manager.RunAsync(request, action, token);
+        var feature = FeatureAccess.ForRequest(request);
+        FeatureAccess.Require(feature);
+        return Current is { } current ? action(current)
+            : manager != null ? manager.RunAsync(request, action, token) : RunUnmanagedAsync(action, token, feature);
+    }
 
     public async Task CheckpointAsync()
     {
@@ -107,7 +121,7 @@ public sealed class FileTaskContext
         CancellationToken.ThrowIfCancellationRequested();
         if (_pause != null) await _pause();
         CancellationToken.ThrowIfCancellationRequested();
-        Subscriptions.SubscriptionAccess.RequireAccess();
+
     }
 
     public static void Checkpoint() => Current?.CheckpointAsync().GetAwaiter().GetResult();

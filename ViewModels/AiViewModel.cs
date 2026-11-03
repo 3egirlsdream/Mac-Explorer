@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Collections.ObjectModel;
 using System.Collections.Concurrent;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -99,6 +100,8 @@ public partial class AiViewModel : ObservableObject
 
     public async Task NavigateToAsync(string sentinelPath)
     {
+        if (!FeatureAccess.TryUse(FeatureAccess.ForPath(sentinelPath))) return;
+        FeatureAccess.Require(FeatureAccess.ForPath(sentinelPath));
         if (_aiTagService == null) return;
         var info = AiPathHelper.Parse(sentinelPath);
 
@@ -152,6 +155,7 @@ public partial class AiViewModel : ObservableObject
         Action<bool> setLoading,
         Action? onEntriesUpdated = null)
     {
+        FeatureAccess.Require(FeatureAccess.ForPath(sentinelPath));
         if (_aiTagService == null) return;
         var info = AiPathHelper.Parse(sentinelPath);
 
@@ -328,6 +332,7 @@ public partial class AiViewModel : ObservableObject
 
     public async Task SearchAiTagsAsync(string query, Action<ObservableCollection<FileSystemEntry>> applyEntries, Action<string> setStatus)
     {
+        if (!FeatureAccess.TryUse(PremiumFeature.ContentSearch)) return;
         if (_aiTagService == null || string.IsNullOrWhiteSpace(query)) return;
         try
         {
@@ -352,10 +357,16 @@ public partial class AiViewModel : ObservableObject
 
     public void ClearTextSearchQuery() => _currentTextSearchQuery = null;
 
-    public async Task TriggerImageAnalysisAsync(
-        IReadOnlyList<FileSystemEntry> entries,
-        string currentPath,
+    public Task TriggerImageAnalysisAsync(IReadOnlyList<FileSystemEntry> entries, string currentPath,
         CancellationToken cancellationToken = default)
+    {
+        if (!FeatureAccess.CanUse(PremiumFeature.AiClassification)) return Task.CompletedTask;
+        return FeatureAccess.RunAcceptedAsync(PremiumFeature.AiClassification | PremiumFeature.ContentSearch, async () =>
+            { await TriggerImageAnalysisCoreAsync(entries, currentPath, cancellationToken); return true; });
+    }
+
+    private async Task TriggerImageAnalysisCoreAsync(IReadOnlyList<FileSystemEntry> entries,
+        string currentPath, CancellationToken cancellationToken)
     {
         if (_aiTagService == null || _taskManager == null || !AnalysisEnabled) return;
         if (!Path.IsPathRooted(currentPath)) return;

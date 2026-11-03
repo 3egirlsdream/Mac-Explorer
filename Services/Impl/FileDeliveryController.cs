@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using Avalonia.Input;
 using Avalonia.Threading;
 using MacExplorer.Indexing;
@@ -26,6 +27,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
     {
         if (!OperatingSystem.IsMacOS()) return;
         delivery.EnabledChanged += OnEnabledChanged;
+        if (FeatureAccess.Current is { } access) access.Changed += OnAccessChanged;
         delivery.StagingChanged += OnStagingChanged;
         UpdateEnabled();
     }
@@ -48,6 +50,12 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
         else ReleasePanel();
     }
 
+    private void OnAccessChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        if (_disposed || _dragging || FeatureAccess.CanUse(PremiumFeature.FileDelivery)) return;
+        Hide(); _dropWindow?.Hide();
+    });
+
     private void OnStagingChanged(object? sender, EventArgs e)
     {
         if (delivery.StagedPaths.Count == 0) MacFileDeliveryStatusItem.ClearStagingAccess();
@@ -55,7 +63,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
 
     private bool OnFilesDropped(string[] paths)
     {
-        if (_disposed || !delivery.Enabled || Subscriptions.SubscriptionAccess.IsLocked) return false;
+        if (_disposed || !delivery.Enabled || !FeatureAccess.CanUse(PremiumFeature.FileDelivery)) return false;
         delivery.StagePaths(paths);
         return paths.Length > 0;
     }
@@ -70,7 +78,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
             if (!delivery.Enabled) UpdateEnabled();
             return;
         }
-        if (_disposed || !delivery.Enabled || Subscriptions.SubscriptionAccess.IsLocked) return;
+        if (_disposed || !delivery.Enabled || !FeatureAccess.CanUse(PremiumFeature.FileDelivery)) return;
         if (_window?.IsVisible == true)
         {
             _window.Suspend();
@@ -117,6 +125,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
     public async void ShowPanel()
     {
         if (_disposed || _dragging || !delivery.Enabled) return;
+        if (!FeatureAccess.TryUse(PremiumFeature.FileDelivery)) return;
         try
         {
             await ShowPanelAsync();
@@ -126,7 +135,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
 
     public async Task ShowPanelAsync()
     {
-        Subscriptions.SubscriptionAccess.RequireAccess();
+        FeatureAccess.Require(PremiumFeature.FileDelivery);
         if (_disposed || _dragging || !delivery.Enabled)
             throw new InvalidOperationException("文件速递当前不可用。");
         EnsureWindow();
@@ -178,7 +187,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
                 {
                     if (_disposed || _window == null) return;
                     if (!delivery.Enabled) { UpdateEnabled(); return; }
-                    if (e.Effect == DragDropEffects.None)
+                    if (e.Effect == DragDropEffects.None && FeatureAccess.CanUse(PremiumFeature.FileDelivery))
                     {
                         Show();
                         _files!.SetDirectoryNotificationsPaused(false);
@@ -208,6 +217,7 @@ public sealed class FileDeliveryController(IServiceProvider services, FileDelive
         if (_disposed) return;
         _disposed = true;
         delivery.EnabledChanged -= OnEnabledChanged;
+        if (FeatureAccess.Current is { } access) access.Changed -= OnAccessChanged;
         delivery.StagingChanged -= OnStagingChanged;
         MacFileDeliveryStatusItem.ClearStagingAccess();
         ReleasePanel();

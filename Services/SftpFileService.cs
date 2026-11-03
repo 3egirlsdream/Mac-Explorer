@@ -1,3 +1,4 @@
+using MacExplorer.Services.Subscriptions;
 using System.Runtime.CompilerServices;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
@@ -29,6 +30,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     private SftpClient GetClient(string? path = null)
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         var id = path != null && VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).ServerId
             : _currentServerId ?? throw new InvalidOperationException("No remote server selected");
         if (FileTaskContext.Current is { } context)
@@ -42,6 +44,7 @@ public class SftpFileService : IRemoteFileService, IDisposable
 
     public Renci.SshNet.SftpClient? GetConnectedClient()
     {
+        FeatureAccess.Require(PremiumFeature.Network);
         var id = _currentServerId;
         if (id == null) return null;
         return _connectionService.GetClient(id);

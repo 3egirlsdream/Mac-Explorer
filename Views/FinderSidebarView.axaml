@@ -160,7 +160,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="*,Auto">
+    <Grid RowDefinitions="*,Auto,Auto">
     <ScrollViewer>
         <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
@@ -510,7 +510,15 @@
 
                 </StackPanel>
             </ScrollViewer>
-    <Border Grid.Row="1" x:Name="SidebarSettingsItem" Classes="sidebar-item" Margin="8,4,8,8"
+    <Button Grid.Row="1" x:Name="AccessStatusButton" Classes="ghost compact" Margin="8,4"
+            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnUpgradeAccess"
+            IsVisible="False">
+        <Grid ColumnDefinitions="16,*" ColumnSpacing="8">
+            <PathIcon Data="{x:Static icons:Icons.StarOutline}" Width="16" Height="16"/>
+            <TextBlock Grid.Column="1" x:Name="AccessStatusText" TextTrimming="CharacterEllipsis"/>
+        </Grid>
+    </Button>
+    <Border Grid.Row="2" x:Name="SidebarSettingsItem" Classes="sidebar-item" Margin="8,4,8,8"
             PointerPressed="OnSidebarItemPressed" ToolTip.Tip="{loc:Loc ui.072}"
             AutomationProperties.Name="{loc:Loc ui.072}">
         <StackPanel Orientation="Horizontal" Background="Transparent">

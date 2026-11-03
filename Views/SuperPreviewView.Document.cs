@@ -66,7 +66,7 @@ public partial class SuperPreviewView
 
     private void OnDocumentOverlayChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == AppWindow.IsModalInteractionBlockedProperty || e.Property == IsVisibleProperty)
+        if (e.Property == AppWindow.IsModalInteractionBlockedProperty || e.Property == AppWindow.IsUpgradeOpenProperty || e.Property == IsVisibleProperty)
             UpdateDocumentVisibility();
     }
 
@@ -78,8 +78,8 @@ public partial class SuperPreviewView
             return;
         }
         if (_documentPreview != null)
-            _documentPreview.IsVisible = _documentWindow?.IsModalInteractionBlocked != true
-                && _documentDialog?.IsVisible != true && !SubscriptionAccess.IsLocked;
+            _documentPreview.IsVisible = _documentWindow?.IsModalInteractionBlocked != true && _documentWindow?.IsUpgradeOpen != true
+                && _documentDialog?.IsVisible != true;
     }
 
     private void ClearDocumentPreview()
