@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Controls;
 using MacExplorer.Controls;
 using MacExplorer.Models;
@@ -12,6 +13,55 @@ public partial class MainWindow
     private readonly TabStripInteraction _tabInteraction;
     private ContextMenu? _tabContextMenu;
     private bool _closingTabs;
+
+    private async Task<bool> RestoreFolderTabSessionAsync()
+    {
+        if (_vm?.SelectedTab is not { } initialTab) return false;
+        var model = _vm;
+        var expectedTabs = model.Tabs.ToList();
+        var expectedPath = initialTab.FileList.CurrentPath;
+        bool Interrupted() => _shutdownStarted || !ReferenceEquals(_vm, model)
+            || !ReferenceEquals(model.SelectedTab, initialTab) || !model.Tabs.SequenceEqual(expectedTabs)
+            || initialTab.FileList.CurrentPath != expectedPath;
+
+        var settings = App.Services.GetRequiredService<ISettingsService>();
+        if (!settings.Get(FolderTabSession.EnabledKey, false)) return false;
+        var session = await Task.Run(() => FolderTabSession.Read(settings, CanRestoreFolder));
+        if (Interrupted()) return true; // A newer user action wins over startup, including the legacy fallback.
+        if (session == null) return false;
+
+        ExplorerTabViewModel? selected = null;
+        var restored = 0;
+        for (var i = 0; i < session.Paths.Length; i++)
+        {
+            var path = session.Paths[i];
+            var available = await Task.Run(() => CanRestoreFolder(path));
+            if (Interrupted()) return true;
+            if (!available) continue;
+            ExplorerTabViewModel restoredTab;
+            if (restored == 0)
+            {
+                restoredTab = initialTab;
+                await initialTab.FileList.NavigateToAsync(path);
+                expectedPath = path;
+            }
+            else
+            {
+                var added = await AddTabAsync(select: false, directoryPath: path);
+                if (added == null) continue;
+                restoredTab = added;
+                expectedTabs.Add(added);
+            }
+            if (Interrupted()) return true;
+            if (i == session.SelectedIndex) selected = restoredTab;
+            restored++;
+        }
+        if (selected != null) model.SelectedTab = selected;
+        return restored > 0;
+    }
+
+    private static bool CanRestoreFolder(string path)
+        => (!DistributionChannel.IsAppStore || DirectoryAccess.Current.CanAccess(path)) && Directory.Exists(path);
 
     private void MoveTab(ExplorerTabViewModel tab, int index)
     {

@@ -24,6 +24,7 @@ public partial class App : Application
 {
     public static IServiceProvider Services { get; private set; } = null!;
     private static IClassicDesktopStyleApplicationLifetime? _desktop;
+    internal static bool IsShuttingDown { get; private set; }
     private readonly System.Threading.CancellationTokenSource _startupUpdateCancellation = new();
     private Task _startupServicesTask = Task.CompletedTask;
 
@@ -105,6 +106,8 @@ public partial class App : Application
                 e.Cancel = true;
                 if (stoppingPlugins) return;
                 stoppingPlugins = true;
+                IsShuttingDown = true;
+                SaveFolderTabSession();
                 _startupUpdateCancellation.Cancel();
                 await _startupServicesTask;
                 await Services.GetRequiredService<IBackgroundTaskManager>().ShutdownAsync();
@@ -396,10 +399,36 @@ public partial class App : Application
         return window;
     }
 
+    // Capture before window scopes are disposed; multiple windows are restored as one ordered tab strip.
+    internal static void SaveFolderTabSession()
+    {
+        if (_desktop == null) return;
+        var windows = _desktop.Windows.OfType<MainWindow>().ToArray();
+        if (windows.Length == 0) return; // Retain the last closed window's session on macOS.
+        var active = windows.LastOrDefault(window => window.IsActive) ?? windows[^1];
+        var paths = new System.Collections.Generic.List<string?>();
+        var selected = 0;
+        foreach (var window in windows)
+        {
+            if (window.DataContext is not MainWindowViewModel model) continue;
+            if (ReferenceEquals(window, active))
+                selected = paths.Count + model.Tabs.IndexOf(model.SelectedTab!);
+            paths.AddRange(model.Tabs.Select(tab => tab.FileList.IsSearchMode || tab.FileList.IsArchiveView
+                ? null : tab.FileList.CurrentPath));
+        }
+        FolderTabSession.Capture(paths, selected).Save(Services.GetRequiredService<ISettingsService>());
+    }
+
+    internal static void SaveLastWindowFolderTabs(MainWindow window)
+    {
+        if (!IsShuttingDown && _desktop?.Windows.OfType<MainWindow>().All(candidate => ReferenceEquals(candidate, window)) == true)
+            SaveFolderTabSession();
+    }
+
     private static MainWindow CreateWindow(string? path, bool isPrimary, MainWindow? source = null)
     {
         var scope = Services.CreateScope();
-        var window = new MainWindow { InitialNavigationPath = path };
+        var window = new MainWindow { InitialNavigationPath = path, RestoreFolderTabsOnOpen = isPrimary };
         var model = scope.ServiceProvider.GetRequiredService<MainWindowViewModel>();
         var navigation = Services.GetRequiredService<NavigationBridge>();
         var initialPath = path ?? (navigation.PendingQuickAccessFocus ? null : model.FileList.GetRestorableDirectoryPath());

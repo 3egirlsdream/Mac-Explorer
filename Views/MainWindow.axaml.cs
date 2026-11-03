@@ -98,6 +98,7 @@ public partial class MainWindow : AppWindow
             : null;
 
     public string? InitialNavigationPath { get; init; }
+    internal bool RestoreFolderTabsOnOpen { get; init; }
 
     public MainWindow()
     {
@@ -701,10 +702,18 @@ public partial class MainWindow : AppWindow
 
         var pendingPath = InitialNavigationPath ?? _navigationBridge.PendingNavigationPath;
         _navigationBridge.PendingNavigationPath = null;
-        var restorePath = _navigationBridge.PendingQuickAccessFocus
+        var quickAccessRequested = _navigationBridge.PendingQuickAccessFocus;
+        var restorePath = quickAccessRequested
             ? null
             : _vm.FileList.GetRestorableDirectoryPath();
         _navigationBridge.PendingQuickAccessFocus = false;
+
+        if (RestoreFolderTabsOnOpen && string.IsNullOrEmpty(pendingPath) && !quickAccessRequested
+            && await RestoreFolderTabSessionAsync())
+        {
+            SchedulePaneLayoutRebuild();
+            return;
+        }
 
         var path = !string.IsNullOrEmpty(pendingPath) ? pendingPath : restorePath;
         if (!string.IsNullOrEmpty(path))
@@ -742,6 +751,7 @@ public partial class MainWindow : AppWindow
         }
         try
         {
+            App.SaveLastWindowFolderTabs(this);
             await CloseCopilotAsync();
             await ShutdownWorkspaceStateAsync();
         }
@@ -1061,16 +1071,16 @@ public partial class MainWindow : AppWindow
         await ExecuteWindowCapabilityAsync("ui.new-tab", "{}");
     }
 
-    private async Task AddTabAsync(bool select = true, string? directoryPath = null, int? insertIndex = null)
+    private async Task<ExplorerTabViewModel?> AddTabAsync(bool select = true, string? directoryPath = null, int? insertIndex = null)
     {
         if (_vm == null)
-            return;
+            return null;
 
         _tabInteraction.Cancel();
         var sourcePath = directoryPath ?? _vm.FileList.CurrentPath;
         var navigate = directoryPath != null || (!string.IsNullOrWhiteSpace(sourcePath)
             && Path.IsPathFullyQualified(sourcePath) && await Task.Run(() => Directory.Exists(sourcePath)));
-        if (_shutdownStarted || _vm == null) return;
+        if (_shutdownStarted || _vm == null) return null;
         var scope = App.Services.CreateScope();
         ExplorerTabViewModel? tab = null;
         try
@@ -1086,6 +1096,7 @@ public partial class MainWindow : AppWindow
             // reconstructed from a filesystem path alone.
             if (navigate)
                 await fileList.NavigateToAsync(sourcePath);
+            return tab;
         }
         catch (Exception ex)
         {
@@ -1098,6 +1109,7 @@ public partial class MainWindow : AppWindow
             scope.Dispose();
             if (_vm?.FileList != null)
                 _vm.FileList.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法新建标签页：{0}", ex.Message);
+            return null;
         }
     }
 

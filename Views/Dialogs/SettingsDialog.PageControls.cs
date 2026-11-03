@@ -5,6 +5,7 @@ namespace MacExplorer.Views.Dialogs;
 
 public partial class SettingsDialog
 {
+    private ToggleSwitch RestoreFolderTabsToggle => GetPageControl<ToggleSwitch>("general", "RestoreFolderTabsToggle");
     private ToggleSwitch DoubleClickEmptyAreaGoUpToggle => GetPageControl<ToggleSwitch>("general", "DoubleClickEmptyAreaGoUpToggle");
     private ToggleSwitch ConfirmBeforeTrashToggle => GetPageControl<ToggleSwitch>("general", "ConfirmBeforeTrashToggle");
     private NumericUpDown FileTaskConcurrencyInput => GetPageControl<NumericUpDown>("general", "FileTaskConcurrencyInput");
