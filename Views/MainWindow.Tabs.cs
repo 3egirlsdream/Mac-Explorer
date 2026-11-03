@@ -14,53 +14,84 @@ public partial class MainWindow
     private ContextMenu? _tabContextMenu;
     private bool _closingTabs;
 
-    private async Task<bool> RestoreFolderTabSessionAsync()
+    private readonly Dictionary<Guid, (ExplorerTabViewModel Tab, string Path)> _restoringFolderTabs = [];
+
+    internal bool IsRestoringFolderTabs => _restoringFolderTabs.Count > 0;
+
+    internal FolderTabSession CaptureFolderTabs()
     {
-        if (_vm?.SelectedTab is not { } initialTab) return false;
+        if (_vm == null) return new FolderTabSession([], 0);
+        return FolderTabSession.Capture(_vm.Tabs.Select(tab =>
+            tab.FileList.IsSearchMode || tab.FileList.IsArchiveView ? null : tab.FileList.CurrentPath),
+            _vm.Tabs.IndexOf(_vm.SelectedTab!));
+    }
+
+    internal bool CanStartFolderRestore => !_shutdownStarted && _vm?.Tabs.Count == 1
+        && _vm.SelectedTab is { } tab && string.IsNullOrEmpty(tab.FileList.CurrentPath)
+        && !tab.FileList.IsSearchMode;
+
+    internal async Task RestoreFolderTabSessionAsync(FolderTabSession session)
+    {
+        var ordered = await PrepareRestoredFolderTabsAsync(session);
+        async Task LoadNextAsync()
+        {
+            while (!_shutdownStarted && ordered.TryDequeue(out var id))
+            {
+                if (!_restoringFolderTabs.TryGetValue(id, out var pending) || _vm?.Tabs.Contains(pending.Tab) != true) continue;
+                var fileList = pending.Tab.FileList;
+                try
+                {
+                    if (fileList.CurrentPath == pending.Path && !fileList.IsSearchMode)
+                        await fileList.NavigateToAsync(pending.Path);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Folder tab restore failed: {ex}");
+                }
+                finally { _restoringFolderTabs.Remove(id); }
+            }
+        }
+        // Bound directory work without serializing the selected folder behind inactive tabs.
+        await Task.WhenAll(LoadNextAsync(), LoadNextAsync());
+        _restoringFolderTabs.Clear();
+    }
+
+    private async Task<Queue<Guid>> PrepareRestoredFolderTabsAsync(FolderTabSession session)
+    {
+        if (_shutdownStarted || _vm?.SelectedTab is not { } initialTab) return new Queue<Guid>();
         var model = _vm;
-        var expectedTabs = model.Tabs.ToList();
-        var expectedPath = initialTab.FileList.CurrentPath;
-        bool Interrupted() => _shutdownStarted || !ReferenceEquals(_vm, model)
-            || !ReferenceEquals(model.SelectedTab, initialTab) || !model.Tabs.SequenceEqual(expectedTabs)
-            || initialTab.FileList.CurrentPath != expectedPath;
-
-        var settings = App.Services.GetRequiredService<ISettingsService>();
-        if (!settings.Get(FolderTabSession.EnabledKey, false)) return false;
-        var session = await Task.Run(() => FolderTabSession.Read(settings, CanRestoreFolder));
-        if (Interrupted()) return true; // A newer user action wins over startup, including the legacy fallback.
-        if (session == null) return false;
-
-        ExplorerTabViewModel? selected = null;
-        var restored = 0;
+        var tabs = new List<ExplorerTabViewModel>();
+        var selected = initialTab;
         for (var i = 0; i < session.Paths.Length; i++)
         {
             var path = session.Paths[i];
-            var available = await Task.Run(() => CanRestoreFolder(path));
-            if (Interrupted()) return true;
-            if (!available) continue;
-            ExplorerTabViewModel restoredTab;
-            if (restored == 0)
-            {
-                restoredTab = initialTab;
-                await initialTab.FileList.NavigateToAsync(path);
-                expectedPath = path;
-            }
-            else
-            {
-                var added = await AddTabAsync(select: false, directoryPath: path);
-                if (added == null) continue;
-                restoredTab = added;
-                expectedTabs.Add(added);
-            }
-            if (Interrupted()) return true;
-            if (i == session.SelectedIndex) selected = restoredTab;
-            restored++;
+            var tab = i == 0 ? initialTab
+                : await AddTabAsync(select: false, directoryPath: path, loadDirectory: false);
+            if (tab == null) continue;
+            if (i == 0) await tab.FileList.PrepareRestoredDirectoryViewAsync(path);
+            _restoringFolderTabs[tab.Id] = (tab, path);
+            tabs.Add(tab);
+            if (i == session.SelectedIndex) selected = tab;
         }
-        if (selected != null) model.SelectedTab = selected;
-        return restored > 0;
+        if (tabs.Count == 0) return new Queue<Guid>();
+        // Select once, before any directory enumeration. Background completion never changes focus.
+        model.SelectedTab = selected;
+        SchedulePaneLayoutRebuild();
+        // The queue retains IDs so a closed pending tab can be collected while other folders are loading.
+        return new Queue<Guid>(new[] { selected.Id }.Concat(tabs.Where(tab => tab != selected).Select(tab => tab.Id)));
     }
 
-    private static bool CanRestoreFolder(string path)
+    private void StopRestoringFolderTab(ExplorerTabViewModel tab)
+    {
+        if (_restoringFolderTabs.Remove(tab.Id)) tab.FileList.StopDirectoryWork();
+    }
+
+    private void StopRestoringFolderTabs()
+    {
+        foreach (var pending in _restoringFolderTabs.Values.ToArray()) StopRestoringFolderTab(pending.Tab);
+    }
+
+    internal static bool CanRestoreFolder(string path)
         => (!DistributionChannel.IsAppStore || DirectoryAccess.Current.CanAccess(path)) && Directory.Exists(path);
 
     private void MoveTab(ExplorerTabViewModel tab, int index)

@@ -6,7 +6,7 @@
   "strings": {
     "settings.startup": "启动",
     "settings.restore_folder_tabs": "启动时恢复文件夹标签页",
-    "settings.restore_folder_tabs.description": "恢复退出时打开的文件夹及选中标签页。多个窗口的标签页合并到一个窗口，不恢复搜索和其他特殊页面。",
+    "settings.restore_folder_tabs.description": "恢复退出时各窗口的文件夹及选中标签页。逐个关闭时保留最后一个窗口；退出应用时保留所有窗口。不恢复搜索和其他特殊页面。",
     "color.palette.hex_hint": "按回车或移开焦点应用；Esc 撤销输入。",
     "background.invalid_color": "颜色格式无效，请使用 #RRGGBB。",
     "background.palette.original": "默认颜色",

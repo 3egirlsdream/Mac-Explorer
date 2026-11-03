@@ -7,7 +7,7 @@
   "strings": {
     "settings.startup": "Startup",
     "settings.restore_folder_tabs": "Restore folder tabs at startup",
-    "settings.restore_folder_tabs.description": "Restore open folders and the selected tab after quitting. Tabs from multiple windows open in one window; searches and other special pages are not restored.",
+    "settings.restore_folder_tabs.description": "Restore folder tabs and the selected tab in each window. Closing windows individually keeps the last window; quitting the app keeps all open windows. Searches and other special pages are not restored.",
     "color.palette.hex_hint": "Press Enter or leave the field to apply; Esc cancels the draft.",
     "background.invalid_color": "Enter a color in #RRGGBB format.",
     "background.palette.original": "Default color",

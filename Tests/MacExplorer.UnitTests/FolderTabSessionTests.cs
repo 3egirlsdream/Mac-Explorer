@@ -101,6 +101,62 @@ public sealed class FolderTabSessionTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public void WindowRoundTripPreservesBoundariesDuplicatesAndEachSelection()
+    {
+        var settings = EnabledSettings();
+        FolderWindowSession.Capture([
+            FolderTabSession.Capture(["/a", "/b", "/a"], 2),
+            FolderTabSession.Capture(["/c", "/d"], 1)], 1).Save(settings);
+        var restored = FolderWindowSession.Read(settings, _ => true)!;
+        Assert.Equal(2, restored.Windows.Length);
+        Assert.Equal(new[] { "/a", "/b", "/a" }, restored.Windows[0].Paths);
+        Assert.Equal(2, restored.Windows[0].SelectedIndex);
+        Assert.Equal(new[] { "/c", "/d" }, restored.Windows[1].Paths);
+        Assert.Equal(1, restored.Windows[1].SelectedIndex);
+        Assert.Equal(1, restored.SelectedWindowIndex);
+    }
+
+    [Fact]
+    public void MissingWindowsAndFoldersRemapBothSelections()
+    {
+        var settings = EnabledSettings();
+        new FolderWindowSession([
+            new(["/missing"], 0), new(["/missing", "/a", "/b"], 2)], 1).Save(settings);
+        var restored = FolderWindowSession.Read(settings, path => path != "/missing")!;
+        Assert.Single(restored.Windows);
+        Assert.Equal(0, restored.SelectedWindowIndex);
+        Assert.Equal(1, restored.Windows[0].SelectedIndex);
+        Assert.Null(FolderWindowSession.Read(settings, _ => false));
+    }
+
+    [Fact]
+    public void OldSingleWindowSessionMigratesAndLastWindowReplacesMultipleWindows()
+    {
+        var settings = EnabledSettings();
+        FolderTabSession.Capture(["/old", "/selected"], 1).Save(settings);
+        var migrated = FolderWindowSession.Read(settings, _ => true)!;
+        Assert.Equal(1, Assert.Single(migrated.Windows).SelectedIndex);
+        FolderWindowSession.Capture([new(["/one"], 0), new(["/two"], 0)], 1).Save(settings);
+        FolderWindowSession.Capture([new(["/last", "/last"], 1)], 0).Save(settings);
+        var restored = FolderWindowSession.Read(settings, _ => true)!;
+        Assert.Equal(new[] { "/last", "/last" }, Assert.Single(restored.Windows).Paths);
+        Assert.Equal(1, restored.Windows[0].SelectedIndex);
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("[]")]
+    [InlineData("{\"Windows\":null}")]
+    [InlineData("{\"Windows\":[null,{\"Paths\":null}]}")]
+    [InlineData("{\"Windows\":42}")]
+    public void InvalidWindowSessionFallsBack(string json)
+    {
+        var settings = EnabledSettings();
+        settings.Set(FolderTabSession.SessionKey, json);
+        Assert.Null(FolderWindowSession.Read(settings, _ => true));
+    }
+
     private static MemorySettings EnabledSettings()
     {
         var settings = new MemorySettings();

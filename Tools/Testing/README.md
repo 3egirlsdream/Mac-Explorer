@@ -137,3 +137,15 @@ MACEXPLORER_BACKGROUND_THEME_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 ## 商店体验与功能分级原生验证
 
 `MACEXPLORER_FEATURE_ACCESS_SMOKE=1 bash Tools/Testing/run-isolated.sh <Debug应用可执行文件>` 使用真实窗口、隔离数据库与文件，检查首次体验、到期后的免费复制、分栏收起、背景保留与恢复、暂存保留及升级页关闭；输出 `feature-access/report.json` 和浅深色／窄窗口截图。商品明确显示 `TEST`，交易和时钟为测试替身，不代表真实 StoreKit 支付验收。功能矩阵、自动用例及发行条件见 [功能权限](../../docs/distribution/feature-access.md)。
+
+## 启动文件夹页签与多窗口恢复
+
+```bash
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+bash Tools/Testing/run-isolated.sh python3 Tools/Testing/run-folder-tabs-smoke.py \
+  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+该入口仅用于 Debug 隔离实例，通过同一临时配置连续启动五次新构建的原生可执行文件，使用与 Dock／应用退出相同的 `ShutdownRequested` 流程。检查退出时保存全部主窗口及各自页签、重复目录与活动位置，重启时恢复窗口边界及活动窗口；再逐个关闭窗口并退出，检查下次只恢复最后关闭窗口。还覆盖关闭恢复设置与显式启动位置优先，生成四语浅色宽窗口／深色窄窗口设置截图。报告与日志保存在测试目录 `folder-tabs/`。此处“实例”指同一应用进程中的多个主窗口，不涉及多个进程之间合并状态。
+
+自动回归使用 `fast` 和 `ui --area TabStartup --area Localization --area Window`。通过可取消的目录枚举验证启动先固定活动页签、后台完成不改变焦点、搜索不被恢复完成打断，以及关闭正在加载或排队中的页签后释放资源且其他页签继续恢复。旧单窗口记录、失效路径过滤和多窗口选中位置重映射由单元测试覆盖。

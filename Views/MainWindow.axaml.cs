@@ -99,6 +99,8 @@ public partial class MainWindow : AppWindow
 
     public string? InitialNavigationPath { get; init; }
     internal bool RestoreFolderTabsOnOpen { get; init; }
+    internal FolderTabSession? InitialFolderTabSession { get; init; }
+    internal bool IsClosingForSession { get; private set; }
 
     public MainWindow()
     {
@@ -700,6 +702,12 @@ public partial class MainWindow : AppWindow
         if (_initialized || _vm == null) return;
         _initialized = true;
 
+        if (InitialFolderTabSession is { } folderTabs)
+        {
+            await RestoreFolderTabSessionAsync(folderTabs);
+            return;
+        }
+
         var pendingPath = InitialNavigationPath ?? _navigationBridge.PendingNavigationPath;
         _navigationBridge.PendingNavigationPath = null;
         var quickAccessRequested = _navigationBridge.PendingQuickAccessFocus;
@@ -709,7 +717,7 @@ public partial class MainWindow : AppWindow
         _navigationBridge.PendingQuickAccessFocus = false;
 
         if (RestoreFolderTabsOnOpen && string.IsNullOrEmpty(pendingPath) && !quickAccessRequested
-            && await RestoreFolderTabSessionAsync())
+            && await App.RestoreFolderWindowsAsync(this))
         {
             SchedulePaneLayoutRebuild();
             return;
@@ -729,6 +737,7 @@ public partial class MainWindow : AppWindow
     private void OnActivated(object? sender, EventArgs e)
     {
         if (_vm == null) return;
+        App.RecordActiveMainWindow(this);
         _navigationBridge.SetActive(_vm.FileList);
         _dragDropBridge.SetActive(_vm.FileList);
         _ = ActivateSelectedWorkspaceAsync();
@@ -751,7 +760,9 @@ public partial class MainWindow : AppWindow
         }
         try
         {
+            IsClosingForSession = true;
             App.SaveLastWindowFolderTabs(this);
+            StopRestoringFolderTabs();
             await CloseCopilotAsync();
             await ShutdownWorkspaceStateAsync();
         }
@@ -1071,7 +1082,7 @@ public partial class MainWindow : AppWindow
         await ExecuteWindowCapabilityAsync("ui.new-tab", "{}");
     }
 
-    private async Task<ExplorerTabViewModel?> AddTabAsync(bool select = true, string? directoryPath = null, int? insertIndex = null)
+    private async Task<ExplorerTabViewModel?> AddTabAsync(bool select = true, string? directoryPath = null, int? insertIndex = null, bool loadDirectory = true)
     {
         if (_vm == null)
             return null;
@@ -1088,13 +1099,15 @@ public partial class MainWindow : AppWindow
             var fileList = scope.ServiceProvider.GetRequiredService<FileListViewModel>();
             if (navigate && !string.IsNullOrWhiteSpace(sourcePath) && Path.IsPathFullyQualified(sourcePath))
                 fileList.PrepareInitialDirectoryView();
+            if (navigate && !loadDirectory)
+                await fileList.PrepareRestoredDirectoryViewAsync(sourcePath);
             tab = _vm.AddTab(fileList, select, insertIndex);
             _tabScopes[tab] = scope;
 
             // Finder opens a new tab at the current ordinary folder. Special
             // views start at Home because their virtual state cannot be safely
             // reconstructed from a filesystem path alone.
-            if (navigate)
+            if (navigate && loadDirectory)
                 await fileList.NavigateToAsync(sourcePath);
             return tab;
         }
@@ -1140,6 +1153,7 @@ public partial class MainWindow : AppWindow
         if (_vm == null || _vm.Tabs.Count <= 1 || !_vm.Tabs.Contains(tab))
             return;
 
+        StopRestoringFolderTab(tab);
         _tabInteraction.Cancel();
         var header = TabList.ContainerFromItem(tab);
         var releaseHeader = Platforms.MacOS.MacAutomationLifetime.Capture(header, tab);

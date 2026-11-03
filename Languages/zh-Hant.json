@@ -13,7 +13,7 @@
   "strings": {
     "settings.startup": "啟動",
     "settings.restore_folder_tabs": "啟動時還原檔案夾分頁",
-    "settings.restore_folder_tabs.description": "還原結束時開啟的檔案夾及選取分頁。多個視窗的分頁合併到一個視窗，不還原搜尋和其他特殊頁面。",
+    "settings.restore_folder_tabs.description": "還原結束時各視窗的檔案夾及選取分頁。逐一關閉時保留最後一個視窗；結束應用程式時保留所有視窗。不還原搜尋和其他特殊頁面。",
     "color.palette.hex_hint": "按 Enter 或移開焦點套用；Esc 復原輸入。",
     "background.invalid_color": "顏色格式無效，請使用 #RRGGBB。",
     "background.palette.original": "預設顏色",
