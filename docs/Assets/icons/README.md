@@ -7,3 +7,5 @@ Source: https://github.com/microsoft/fluentui-system-icons
 2026-10-21: added the official 24 px regular Arrow Up Right, Apps, Music Note 2,
 Globe, Text Bullet List Tree, Info, Text Edit Style and Share icons from the same
 upstream repository. Paths are unchanged; fill is normalized to currentColor.
+
+2026-11-03: homepage generation embeds paths from this same sprite directly into each SVG, with an explicit viewBox. This keeps toolbar, menu and page icons visible in browsers that do not render external SVG use references; source paths and attribution are unchanged.

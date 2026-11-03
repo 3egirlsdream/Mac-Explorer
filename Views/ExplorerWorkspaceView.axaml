@@ -190,6 +190,9 @@
                             </Border>
                         </Grid>
                     </Border>
+                    <Border Height="1" VerticalAlignment="Bottom" IsHitTestVisible="False"
+                            Background="{DynamicResource WorkspaceDividerBrush}"
+                            IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}"/>
 
                     <Border Grid.Row="1" x:Name="PageContentSurface">
                             <Grid RowDefinitions="Auto,*,Auto">

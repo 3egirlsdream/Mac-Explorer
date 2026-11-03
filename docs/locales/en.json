@@ -43,7 +43,7 @@
   "intro": "A file manager made for macOS. Browse, find, organize and share, all in one window.",
   "get": "Download for macOS",
   "downloadOptions": "Choose your Mac chip",
-  "browserAlt": "Mac Explorer 1.0.60 file list and context menu with editing, moving, sharing and file conversion actions",
+  "browserAlt": "Mac Explorer file list and context menus: stacked windows with built-in background themes, project browsing, editing, moving, sharing and file conversion, including toolbar tags and the right-hand information panel",
   "capabilities": [
     {
       "label": "01 / BROWSE & ORGANIZE",
@@ -116,8 +116,8 @@
         ],
         [
           "server",
-          "SFTP, SMB and network discovery",
-          "Manage SFTP files and upload edits automatically. Mount SMB shares through macOS, and discover servers from the network page."
+          "SFTP, SMB, WebDAV and network discovery",
+          "Manage SFTP files and upload edits automatically. Mount SMB and WebDAV through macOS, manage network locations together, and discover and connect to local network servers."
         ],
         [
           "share",
@@ -133,8 +133,8 @@
       "items": [
         [
           "folder",
-          "Menu bar file delivery",
-          "Reach Downloads, Desktop, custom folders and collections from the menu bar. Browse, preview and drag copies into other apps."
+          "Menu bar delivery and file staging",
+          "Browse Downloads, Desktop, custom folders and collections from the menu bar. Drag files or folders into the staging area to preview them, drag copies into other apps or clear the list. Originals stay in place; staging clears when you quit."
         ],
         [
           "sparkle",
@@ -156,5 +156,27 @@
   ],
   "communitySource": "View on GitHub",
   "pluginSdk": "Plugin SDK",
-  "publishPlugin": "Publish a plugin"
+  "publishPlugin": "Publish a plugin",
+  "browserDemo": {
+    "info": "Info",
+    "created": "Created",
+    "modified": "Modified",
+    "path": "Path",
+    "size": "Size",
+    "type": "Kind",
+    "tags": "Tags",
+    "searchTags": "Search or add tags, press Return",
+    "quickActions": "Quick Actions",
+    "copyPath": "Copy Path",
+    "terminal": "Open in Terminal",
+    "compress": "Compress",
+    "compute": "Calculate",
+    "toolbarTags": [
+      "Design",
+      "To Review",
+      "Red",
+      "Orange",
+      "Yellow"
+    ]
+  }
 }

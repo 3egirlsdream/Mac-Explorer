@@ -43,7 +43,7 @@
   "intro": "為 macOS 打造的檔案總管。瀏覽、尋找、整理與分享，在一個視窗裡完成。",
   "get": "下載 macOS 版",
   "downloadOptions": "選擇 Mac 晶片",
-  "browserAlt": "Mac Explorer 1.0.60 檔案清單與右鍵選單：瀏覽專案檔案，使用編輯、移動、分享與檔案轉換功能",
+  "browserAlt": "Mac Explorer 檔案列表與右鍵選單：預設背景主題層疊視窗，瀏覽專案檔案，使用編輯、移動、分享與檔案轉換功能，含工具列標籤與右側資訊面板",
   "capabilities": [
     {
       "label": "01 / 瀏覽與整理",
@@ -116,8 +116,8 @@
         ],
         [
           "server",
-          "SFTP、SMB 與網路探索",
-          "管理 SFTP 檔案，編輯後自動回傳；透過 macOS 掛載 SMB 共享，從網路頁面探索和連線伺服器。"
+          "SFTP、SMB、WebDAV 與網路探索",
+          "管理 SFTP 檔案，編輯後自動回傳；透過 macOS 掛載 SMB 與 WebDAV，統一管理網路位置，並探索和連線區域網路伺服器。"
         ],
         [
           "share",
@@ -133,8 +133,8 @@
       "items": [
         [
           "folder",
-          "選單列檔案速遞",
-          "從選單列取用下載、桌面、自訂目錄和收藏夾。直接瀏覽、預覽，將檔案複製拖曳至其他應用程式。"
+          "選單列檔案速遞與暫存區",
+          "從選單列瀏覽下載、桌面、自訂目錄和收藏夾。將檔案或資料夾拖入暫存區，集中預覽、複製拖出或一鍵清空；不移動原始檔案，結束應用程式後清空暫存。"
         ],
         [
           "sparkle",
@@ -156,5 +156,27 @@
   ],
   "communitySource": "查看 GitHub",
   "pluginSdk": "外掛 SDK",
-  "publishPlugin": "發布外掛"
+  "publishPlugin": "發布外掛",
+  "browserDemo": {
+    "info": "資訊",
+    "created": "建立時間",
+    "modified": "修改日期",
+    "path": "路徑",
+    "size": "大小",
+    "type": "類型",
+    "tags": "標籤",
+    "searchTags": "搜尋或加入標籤，按 Enter 確認",
+    "quickActions": "快速操作",
+    "copyPath": "複製路徑",
+    "terminal": "在終端機中開啟",
+    "compress": "壓縮",
+    "compute": "計算",
+    "toolbarTags": [
+      "設計資料",
+      "待處理",
+      "紅色",
+      "橙色",
+      "黃色"
+    ]
+  }
 }

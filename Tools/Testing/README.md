@@ -1,6 +1,6 @@
 # 测试入口
 
-日常验证用 `bash Tools/Testing/run-tests.sh fast`。入口会先增量构建，再运行全部 Unit 和共享组件 UI 冒烟检查；目标是本机已还原依赖后的增量流程不超过 15 秒。结果目录打印在终端，保留每个程序集的 XML、日志和包含构建/执行/总时长的 `summary.json`。失败时额外从 XML 输出每个失败用例的名称、消息和堆栈；发布 CI 无论测试结果如何都会上传完整报告，保留 7 天。
+日常验证用 `bash Tools/Testing/run-tests.sh fast`。全量 `full` 由 GitHub Actions 执行。入口会先增量构建，再运行全部 Unit 和共享组件 UI 冒烟检查；目标是本机已还原依赖后的增量流程不超过 15 秒。结果目录打印在终端，保留每个程序集的 XML、日志和包含构建/执行/总时长的 `summary.json`。失败时额外从 XML 输出每个失败用例的名称、消息和堆栈；发布 CI 无论测试结果如何都会上传完整报告，保留 7 天。
 
 ```bash
 # 构建 + 日常检查；可把 15 秒作为可验证的整个流程预算
@@ -13,8 +13,7 @@ bash Tools/Testing/run-tests.sh fast --no-build
 bash Tools/Testing/run-tests.sh fast --area Search
 bash Tools/Testing/run-tests.sh ui --area FileList --area Sidebar
 
-# 所有自动用例：Unit、UI、Integration、Stress；保留真实原生 helper 和 bundle
-bash Tools/Testing/run-tests.sh full
+# GitHub Actions 发布 CI：Unit、UI、Integration、Stress；保留真实原生 helper 和 bundle
 bash Tools/Testing/run-tests.sh full --configuration Release
 
 # 集成/压力场景；设备间手动互通需单独选择 manual
@@ -36,7 +35,7 @@ bash Tools/Testing/run-tests.sh stress
 
 `MacExplorer.UnitTests` 通过显式编译列表收纳不使用 dispatcher、全局语言服务或共享应用状态的测试，最多 4 个集合并行。其余测试保持串行和 Avalonia PerTest 隔离。异步 Avalonia 用例在测试入口保存 `TestContext.Current.CancellationToken`，并传给等待与子进程，避免等待过程中重新读取已释放的测试上下文。不要直接对 UI 程序集打开集合并行或改成 PerAssembly。
 
-旧 `FileListViewModelCreateTests` 的测试已按文件拆成各功能类，创建方法与替身复用 `FileListViewModelTestBase`。使用 `Area` 筛选需要考虑调用链；共享主题或输入样式变化应运行 `ui`，LocalSend/插件/native 改动应运行对应 `integration`，发布或公共基础设施变化运行 `full`。
+旧 `FileListViewModelCreateTests` 的测试已按文件拆成各功能类，创建方法与替身复用 `FileListViewModelTestBase`。使用 `Area` 筛选需要考虑调用链；共享主题或输入样式变化应运行 `ui`，LocalSend/插件/native 改动应运行对应 `integration`。
 
 每个测试进程都经过 `run-isolated.sh`，使用独立 `MACEXPLORER_TEST_ROOT`。平台/发行渠道不匹配的用例报告为 Skip；可选 SFTP、真实相机 RAW、签名 Store sandbox 验证仍需要原有环境。
 

@@ -43,7 +43,7 @@
   "intro": "为 macOS 打造的文件资源管理器。浏览、查找、整理与分享，在一个窗口里完成。",
   "get": "下载 macOS 版",
   "downloadOptions": "选择 Mac 芯片",
-  "browserAlt": "Mac Explorer 1.0.60 文件列表与右键菜单：浏览项目文件，使用编辑、移动、分享与文件转换功能",
+  "browserAlt": "Mac Explorer 文件列表与右键菜单：预置背景主题层叠窗口，浏览项目文件，使用编辑、移动、分享与文件转换功能，含工具栏标签与右侧信息面板",
   "capabilities": [
     {
       "label": "01 / 浏览与整理",
@@ -116,8 +116,8 @@
         ],
         [
           "server",
-          "SFTP、SMB 与网络发现",
-          "管理 SFTP 文件，编辑后自动回传；通过 macOS 挂载 SMB 共享，从网络页面发现和连接服务器。"
+          "SFTP、SMB、WebDAV 与网络发现",
+          "管理 SFTP 文件，编辑后自动回传；通过 macOS 挂载 SMB 与 WebDAV，统一管理网络位置，并发现和连接局域网服务器。"
         ],
         [
           "share",
@@ -133,8 +133,8 @@
       "items": [
         [
           "folder",
-          "菜单栏文件速递",
-          "从菜单栏取用下载、桌面、自定义目录和收藏夹。直接浏览、预览，将文件复制拖到其他应用。"
+          "菜单栏文件速递与暂存区",
+          "从菜单栏浏览下载、桌面、自定义目录和收藏夹。将文件或文件夹拖入暂存区，集中预览、复制拖出或一键清空；不移动原文件，退出后清空暂存。"
         ],
         [
           "sparkle",
@@ -156,5 +156,27 @@
   ],
   "communitySource": "查看 GitHub",
   "pluginSdk": "插件 SDK",
-  "publishPlugin": "发布插件"
+  "publishPlugin": "发布插件",
+  "browserDemo": {
+    "info": "信息",
+    "created": "创建时间",
+    "modified": "修改日期",
+    "path": "路径",
+    "size": "大小",
+    "type": "类型",
+    "tags": "标签",
+    "searchTags": "搜索或添加标签，回车确认",
+    "quickActions": "快速操作",
+    "copyPath": "复制路径",
+    "terminal": "在终端中打开",
+    "compress": "压缩",
+    "compute": "计算",
+    "toolbarTags": [
+      "设计资料",
+      "待处理",
+      "红色",
+      "橙色",
+      "黄色"
+    ]
+  }
 }

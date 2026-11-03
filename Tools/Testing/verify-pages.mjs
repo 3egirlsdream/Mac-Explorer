@@ -118,23 +118,27 @@ try {
           .locator('[data-panel="browser"] .browser-context-menu')
           .count()) === 1 &&
           (
-            await page.locator(".replica-stage").getAttribute("aria-label")
-          ).includes("1.0.60"),
+            await page
+              .locator('[data-panel="browser"] .replica-stage')
+              .getAttribute("aria-label")
+          ).includes("Mac Explorer"),
       );
       check(
         `${name}: replica keeps its aspect ratio`,
-        await page.locator(".replica-stage").evaluate((stage) => {
-          const content = stage.firstElementChild.getBoundingClientRect();
-          const frame = stage.getBoundingClientRect();
-          return (
-            Math.abs(content.width - frame.width) < 2 &&
-            Math.abs(content.height - frame.height) < 2
-          );
-        }),
+        await page.locator(".replica-stage").evaluateAll((stages) =>
+          stages.every((stage) => {
+            const content = stage.firstElementChild.getBoundingClientRect();
+            const frame = stage.getBoundingClientRect();
+            return (
+              Math.abs(content.width - frame.width) < 2 &&
+              Math.abs(content.height - frame.height) < 2
+            );
+          }),
+        ),
       );
       check(
         `${name}: entire software window visible on entry`,
-        await page.locator(".showcase-window").evaluate((element) => {
+        await page.locator(".showcase-stack").evaluate((element) => {
           const frame = element.getBoundingClientRect();
           return frame.top >= 0 && frame.bottom <= innerHeight;
         }),
@@ -167,7 +171,7 @@ try {
       );
       if (lang === "zh-CN" && width === 1440) {
         await page
-          .locator(".replica-stage")
+          .locator('[data-panel="browser"] .replica-stage')
           .screenshot({ path: join(output, "browser-replica.png") });
       }
       await page.locator(".faq summary").first().click();

@@ -63,6 +63,7 @@
 - macOS 所有应用窗口统一继承 `AppWindow`，外沿由 `AppWindow.WindowOutline` 绘制 0.5px 细线，复用 `WindowBorderBrush`（浅色 `#E8E8E8`、深色 `#3A3D42`）；`MacWindowChrome` 统一关闭带深色外圈的原生阴影并保留窗口交互能力，通过 `WindowShadow.mm` 的不接收输入的原生附属层绘制轻柔外阴影（18px 模糊、向下 4px，激活 16%／未激活 10% 黑色），排除窗口内部并随移动、缩放、最小化及关闭同步；主窗口、对话框、任务窗口与文件速递共用该实现，隐藏后重显及浮动层级变化同步更新；阴影附属层允许越过菜单栏及屏幕边缘，不受可见区域约束，保持与主体外框对齐；最大化和全屏隐藏描边与轻阴影，勿通过内部 `ColorBorder*` 调整窗口外框。首次显示前通过基类 `WindowOpenedEvent` 初始化外观，关闭原生开窗动画和内容渲染层的隐式几何／纹理动画，首帧按最终尺寸铺满，不从中心扩散。显示前仅做轻量动画准备，显示后的外观更新合并执行；渲染层按实例初始化一次，阴影仅在尺寸、圆角或激活强度变化时重绘。
 
 - GitHub Pages 官网正文使用本地托管的 `Montserrat, system-ui, sans-serif`，中文回退系统字体；软件界面展示保留系统默认字体，复用 `docs/landing.css` 的按钮、分区与亮色网格主题，真实界面展示统一经 `replica-stage` 按当前截图的 1280×800 等比缩放，首屏默认文件列表与右键菜单并随视口剩余高度完整显示，正文仅介绍产品功能；底部开源与插件入口复用 `community-section` 的居中介绍和并排胶囊按钮；文案在 `docs/locales` 四语文件维护，由 `Tools/Website/build.py` 生成独立静态语言页面。
+- 官网首屏堆叠复用 `showcase-stack` / `showcase-window`，前景保留完整文件列表与两级菜单；装饰窗口从无障碍树排除。主题 SVG 经 `Tools/Website/build.py` 从应用预置同步，保持原比例和 35% 图案强度；组件透明表面、菜单 65% 白色与 8px 模糊，不降低文字或图标透明度。 首页图标在构建时从本地 Fluent sprite 内嵌路径并保留 viewBox，避免外部 SVG use 引用在预览浏览器中丢失。 展示中的工具栏标签复用 `browser-toolbar-tags`，右侧面板使用 `browser-info-*` 的单页分区、透明预览、右对齐字段和主题细分隔线，新增文案由四语 `browserDemo` 提供。 官网展示的标题栏保留无纹理渐变，通过单层裁切为激活页签留出开口；页签直接透出窗口背景，不复制背景图，避免缩放拼接细线。 页签下缘不绘制分隔线或阴影。
 
 # 多语言
 - 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `Languages` 目录下简体中文、繁体中文、英文和法语的已发布语言文件，不直接显示硬编码文案。语言列表从 `Languages/*.json` 构建生成，新增语言不修改设置列表；中文原文查询需将 key 加入中文文件的 `literalKeys`。运行时只查内存缓存，不扫描目录或读取 JSON，规则见 `Languages/README.md`。
@@ -70,7 +71,7 @@
 - 代码生成的设置列表订阅语言切换并仅刷新显示文案，不重载配置或覆盖草稿；内置打开方式使用 `OpenWithApp.DisplayLabel`，快捷键使用 `ShortcutDefinition.DisplayName` / `DisplayGroup` / `DisplayContext`，保存的名称及用户自定义名称保持原样。
 
 # 自动测试
-- 日常修改优先运行 `bash Tools/Testing/run-tests.sh fast`，覆盖全部 Unit 和共享组件 UI 冒烟，增量构建加执行目标不超过 15 秒；本轮已构建可追加 `--no-build`，需要验收总时长可追加 `--budget 15`。页面交互用 `ui --area <功能>`，真实网络／原生进程用 `integration --area <功能>`；共享 UI 变化运行 `ui`，发布与测试基础设施变化运行 `full`。不要每次小改动反复跑全量。完整分类、环境和报告见 `Tools/Testing/README.md`。
+- 本地运行 `bash Tools/Testing/run-tests.sh fast`，按需追加 `ui` / `integration --area <功能>`；全量 `full` 由 GitHub Actions 执行。详见 `Tools/Testing/README.md`。
 - `MacExplorer.UnitTests` 仅收纳明确无全局应用状态的可并行测试；其余测试保持串行与 Avalonia PerTest 隔离。普通 `dotnet test` 默认不运行显式 UI／集成／压力用例，发布 CI 必须通过统一入口运行 `full`，同时覆盖两个程序集。
 - 需要启动真实应用或使用默认服务路径的自动测试、原生 UI 验证，通过 `bash Tools/Testing/run-isolated.sh <可执行文件> [参数...]` 启动，每次创建独立临时目录并设置 `MACEXPLORER_TEST_ROOT`；已有显式临时目录与测试替身的单元测试保持原运行方式。构建使用 `-p:SkipMacOSReleaseDMG=true`。
 - 测试模式的数据库、配置、缓存、插件和默认用户目录均位于测试目录；启动索引及“这台 Mac”搜索仅覆盖测试目录。测试开关优先于 `MACEXPLORER_DB_PATH` / `MACEXPLORER_PLUGIN_PATH`，不会复用真实用户的历史与收藏。

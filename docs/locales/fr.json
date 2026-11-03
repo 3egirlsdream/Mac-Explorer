@@ -43,7 +43,7 @@
   "intro": "Un gestionnaire de fichiers pour macOS. Explorer, trouver, organiser et partager dans une seule fenêtre.",
   "get": "Télécharger pour macOS",
   "downloadOptions": "Choisir la puce du Mac",
-  "browserAlt": "Liste de fichiers et menu contextuel de Mac Explorer 1.0.60 : édition, déplacement, partage et conversion",
+  "browserAlt": "Liste de fichiers et menus contextuels de Mac Explorer : fenêtres superposées avec thèmes intégrés, navigation, édition, déplacement, partage et conversion de fichiers, avec étiquettes dans la barre d’outils et panneau d’informations à droite",
   "capabilities": [
     {
       "label": "01 / EXPLORER ET ORGANISER",
@@ -116,8 +116,8 @@
         ],
         [
           "server",
-          "SFTP, SMB et découverte réseau",
-          "Gérez les fichiers SFTP et renvoyez les modifications automatiquement. Montez les partages SMB via macOS et découvrez les serveurs sur la page réseau."
+          "SFTP, SMB, WebDAV et découverte réseau",
+          "Gérez les fichiers SFTP et renvoyez les modifications automatiquement. Montez SMB et WebDAV via macOS, gérez vos emplacements réseau et découvrez les serveurs du réseau local pour vous y connecter."
         ],
         [
           "share",
@@ -133,8 +133,8 @@
       "items": [
         [
           "folder",
-          "Fichiers dans la barre des menus",
-          "Accédez aux téléchargements, au bureau, aux dossiers et collections depuis la barre des menus. Parcourez, prévisualisez et glissez des copies vers d’autres apps."
+          "Fichiers et zone de dépôt dans la barre des menus",
+          "Parcourez les téléchargements, le bureau, les dossiers et les collections depuis la barre des menus. Déposez des fichiers ou dossiers dans la zone de dépôt pour les prévisualiser, en glisser des copies vers d’autres apps ou vider la liste. Les originaux restent en place ; la zone se vide à la fermeture de l’application."
         ],
         [
           "sparkle",
@@ -156,5 +156,27 @@
   ],
   "communitySource": "Voir sur GitHub",
   "pluginSdk": "SDK des extensions",
-  "publishPlugin": "Publier une extension"
+  "publishPlugin": "Publier une extension",
+  "browserDemo": {
+    "info": "Informations",
+    "created": "Création",
+    "modified": "Modification",
+    "path": "Chemin",
+    "size": "Taille",
+    "type": "Type",
+    "tags": "Étiquettes",
+    "searchTags": "Rechercher ou ajouter une étiquette",
+    "quickActions": "Actions rapides",
+    "copyPath": "Copier le chemin",
+    "terminal": "Ouvrir dans le Terminal",
+    "compress": "Compresser",
+    "compute": "Calculer",
+    "toolbarTags": [
+      "Création",
+      "À traiter",
+      "Rouge",
+      "Orange",
+      "Jaune"
+    ]
+  }
 }
