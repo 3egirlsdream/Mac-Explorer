@@ -90,6 +90,7 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     [Trait("Kind", "UI")]
     public async Task RemoteNavigationAndRefresh_UseBatchApiAndPublishOnlyAfterCompletion()
     {
+        using var features = new GrantedFeatureAccess();
         var testCancellation = TestContext.Current.CancellationToken;
         const string serverId = "test-server";
         const string remotePath = "/large";
@@ -133,6 +134,7 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     [Trait("Kind", "UI")]
     public async Task RemoteDirectorySwitch_CancelsOldProducerWithoutPollutingNewDirectory()
     {
+        using var features = new GrantedFeatureAccess();
         var testCancellation = TestContext.Current.CancellationToken;
         const string serverId = "test-server";
         var remote = new StreamingFakeRemoteFileService();
@@ -166,6 +168,7 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     [Trait("Kind", "UI")]
     public async Task RemoteRefresh_RestoresSelectionThatArrivesAfterFirstBatch()
     {
+        using var features = new GrantedFeatureAccess();
         var testCancellation = TestContext.Current.CancellationToken;
         const string serverId = "test-server";
         const string remotePath = "/selection";
@@ -200,6 +203,7 @@ public sealed class FileListLoadingPipelineTests : IDisposable
     [Trait("Kind", "UI")]
     public async Task RemoteNavigation_ConsumesPendingSelectionOnlyAfterLaterBatchArrives()
     {
+        using var features = new GrantedFeatureAccess();
         var testCancellation = TestContext.Current.CancellationToken;
         const string serverId = "test-server";
         const string remotePath = "/pending";

@@ -116,6 +116,7 @@ public sealed class SecurityDialogTests
     [Trait("Area", "Remote")]
     public void FailedRemoteDialogSaveKeepsFormAndSavedServer(bool dark)
     {
+        using var features = new GrantedFeatureAccess();
         var root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "remote-ui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var config = Path.Combine(root, "servers.json");

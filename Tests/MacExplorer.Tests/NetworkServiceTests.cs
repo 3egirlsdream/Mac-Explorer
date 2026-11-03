@@ -67,6 +67,7 @@ public sealed class NetworkServiceTests
     [Fact]
     public void SmbConfigurationPreservesShareDomainAndDatabasePassword()
     {
+        using var features = new GrantedFeatureAccess();
         var root = Path.Combine(Path.GetTempPath(), "smb-model-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try

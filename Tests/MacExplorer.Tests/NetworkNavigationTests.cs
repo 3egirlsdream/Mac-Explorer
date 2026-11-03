@@ -21,8 +21,11 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "UI")]
 [Trait("Area", "Network")]
-public sealed class NetworkNavigationTests : FileListViewModelTestBase
+public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposable
 {
+    private readonly GrantedFeatureAccess _featureAccess = new();
+    public void Dispose() => _featureAccess.Dispose();
+
     [AvaloniaFact(Explicit = true)]
     public void SavedConnectionsToTheSameShareKeepSeparateSelectionIdentities()
     {

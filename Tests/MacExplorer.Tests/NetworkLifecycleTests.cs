@@ -7,8 +7,11 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Unit")]
 [Trait("Area", "Network")]
-public sealed class NetworkLifecycleTests
+public sealed class NetworkLifecycleTests : IDisposable
 {
+    private readonly GrantedFeatureAccess _featureAccess = new();
+    public void Dispose() => _featureAccess.Dispose();
+
     [Fact]
     public void DiscoveryIsSharedAndReleasesNativeAndNetworkWorkAfterLastPageCloses()
     {

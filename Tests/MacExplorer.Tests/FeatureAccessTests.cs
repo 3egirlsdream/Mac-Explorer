@@ -85,6 +85,51 @@ public sealed class FeatureAccessTests
     }
 
     [Fact, Trait("Kind", "Unit")]
+    public void GrantedFunctionalScopeRestoresAccessAfterNestingAndExceptions()
+    {
+        using var denied = new FeatureAccessService(null, null, true);
+        using var scope = new Scope(denied); scope.Apply();
+        using (new GrantedFeatureAccess())
+        {
+            var outer = FeatureAccess.Current;
+            using (new GrantedFeatureAccess()) Assert.True(FeatureAccess.CanUse(PremiumFeature.All));
+            Assert.Same(outer, FeatureAccess.Current);
+        }
+        Assert.Same(denied, FeatureAccess.Current);
+        Assert.Throws<InvalidOperationException>(ThrowInsideGrantedScope);
+        static void ThrowInsideGrantedScope()
+        {
+            using var granted = new GrantedFeatureAccess();
+            throw new InvalidOperationException("fixture failure");
+        }
+        Assert.Same(denied, FeatureAccess.Current);
+        Assert.Throws<FeatureAccessDeniedException>(() => FeatureAccess.Require(PremiumFeature.Network));
+    }
+
+    [Theory, InlineData(false), InlineData(true), Trait("Kind", "Unit")]
+    public async Task UngrantedAccessBlocksRemotePersistenceAndImageAnalysisAtServiceBoundary(bool initialized)
+    {
+        using var fixture = new FileDeliveryTests.Fixture();
+        var clock = new Clock();
+        var store = new TrialStore { Record = new(clock.Now.AddDays(-8), clock.Now.AddDays(-1)) };
+        using var access = new FeatureAccessService(null, store, true, clock);
+        if (initialized) await access.StartAsync();
+        using var scope = new Scope(access); scope.Apply();
+        Assert.Equal(initialized ? FeatureAccessState.Free : FeatureAccessState.Initializing, access.Snapshot.State);
+        var path = Path.Combine(fixture.Root, "blocked-servers.json");
+        var credentials = new PrivacySecurityFollowupTests.MemoryCredentials();
+        using var remote = new RemoteConnectionService(path, credentials);
+        var server = new RemoteServerInfo { Id = "blocked", Host = "fixture.test", Password = "must-not-be-saved" };
+        Assert.Throws<FeatureAccessDeniedException>(() => remote.SaveServer(server));
+        Assert.False(File.Exists(path));
+        Assert.Empty(remote.GetSavedServers());
+        Assert.Null(credentials.Read(server.Id));
+        await Assert.ThrowsAsync<FeatureAccessDeniedException>(() =>
+            new MacExplorer.Platforms.MacCatalyst.Services.MacImageAnalysisService().AnalyzeImageAsync(
+                Path.Combine(fixture.Root, "must-not-be-read.jpg"), TestContext.Current.CancellationToken));
+    }
+
+    [Fact, Trait("Kind", "Unit")]
     public async Task TrialIsExactly168HoursAndRestartDoesNotResetIt()
     {
         var clock = new Clock(); var store = new TrialStore();
