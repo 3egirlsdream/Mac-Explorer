@@ -169,6 +169,7 @@ public partial class SettingsDialog : DialogWindow
         _initializing = true;
         try
         {
+            RestoreFolderTabsToggle.IsChecked = _settingsService.Get(FolderTabSession.EnabledKey, false);
             FileTaskConcurrencyInput.Value = _settingsService.Get("FileTaskConcurrency", 2);
             FileDeliveryToggle.IsChecked = _settingsService.Get(Services.Impl.FileDeliveryService.EnabledKey, true);
             RefreshLanguageOptions();
@@ -341,6 +342,14 @@ public partial class SettingsDialog : DialogWindow
         var count = Math.Clamp((int)value, 1, 4);
         if (App.Services?.GetService<IBackgroundTaskManager>() is { } manager) manager.MaxConcurrency = count;
         else _settingsService.Set("FileTaskConcurrency", count);
+    }
+
+    private void OnRestoreFolderTabsChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        var enabled = RestoreFolderTabsToggle.IsChecked == true;
+        _settingsService.Set(FolderTabSession.EnabledKey, enabled);
+        if (!enabled) _settingsService.Set(FolderTabSession.SessionKey, "");
     }
 
     private void OnConfirmBeforeTrashChanged(object? sender, RoutedEventArgs e)

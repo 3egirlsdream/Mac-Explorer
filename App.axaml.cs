@@ -24,6 +24,8 @@ public partial class App : Application
 {
     public static IServiceProvider Services { get; private set; } = null!;
     private static IClassicDesktopStyleApplicationLifetime? _desktop;
+    internal static bool IsShuttingDown { get; private set; }
+    private static WeakReference<MainWindow>? _lastActiveMainWindow;
     private readonly System.Threading.CancellationTokenSource _startupUpdateCancellation = new();
     private Task _startupServicesTask = Task.CompletedTask;
 
@@ -92,6 +94,9 @@ public partial class App : Application
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             var startupPath = RuntimePaths.TestRoot
                 ?? desktop.Args?.FirstOrDefault(path => Directory.Exists(path) || File.Exists(path));
+#if DEBUG
+            if (Tools.Testing.FolderTabRestoreSmoke.UseSavedSession) startupPath = null;
+#endif
             mainWindow = CreateWindow(
                 string.IsNullOrEmpty(startupPath) ? null : Path.GetFullPath(startupPath),
                 isPrimary: true);
@@ -105,6 +110,8 @@ public partial class App : Application
                 e.Cancel = true;
                 if (stoppingPlugins) return;
                 stoppingPlugins = true;
+                IsShuttingDown = true;
+                SaveFolderTabSession();
                 _startupUpdateCancellation.Cancel();
                 await _startupServicesTask;
                 await Services.GetRequiredService<IBackgroundTaskManager>().ShutdownAsync();
@@ -155,6 +162,11 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (Tools.Testing.FolderTabRestoreSmoke.Phase != null && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FolderTabRestoreSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (Tools.Testing.FeatureAccessSmoke.Enabled && mainWindow != null)
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.FeatureAccessSmoke.ManualExpired
                 ? Tools.Testing.FeatureAccessSmoke.PrepareManualExpiredAsync(mainWindow)
@@ -396,13 +408,69 @@ public partial class App : Application
         return window;
     }
 
-    private static MainWindow CreateWindow(string? path, bool isPrimary, MainWindow? source = null)
+    internal static void RecordActiveMainWindow(MainWindow window)
+        => _lastActiveMainWindow = new WeakReference<MainWindow>(window);
+
+    internal static void SaveFolderTabSession()
+    {
+        if (_desktop == null) return;
+        var windows = _desktop.Windows.OfType<MainWindow>().Where(window => !window.IsClosingForSession).ToArray();
+        if (windows.Length == 0) return; // Keep the last individually closed window when quitting without windows.
+        var active = Array.FindLastIndex(windows, window => window.IsActive);
+        if (active < 0 && _lastActiveMainWindow?.TryGetTarget(out var lastActive) == true)
+            active = Array.IndexOf(windows, lastActive);
+        SaveFolderWindowSession(FolderWindowSession.Capture(windows.Select(window => window.CaptureFolderTabs()),
+            active >= 0 ? active : windows.Length - 1));
+    }
+
+    internal static void SaveLastWindowFolderTabs(MainWindow window)
+    {
+        if (!IsShuttingDown && _desktop?.Windows.OfType<MainWindow>()
+            .All(candidate => ReferenceEquals(candidate, window) || candidate.IsClosingForSession) == true)
+            SaveFolderWindowSession(FolderWindowSession.Capture([window.CaptureFolderTabs()], 0));
+    }
+
+    private static void SaveFolderWindowSession(FolderWindowSession session)
+    {
+        try { session.Save(Services.GetRequiredService<ISettingsService>()); }
+        catch (Exception ex)
+        {
+            Services.GetService<ILogger<App>>()?.LogWarning(ex, "Could not save folder tabs before closing");
+        }
+    }
+
+    internal static async Task<bool> RestoreFolderWindowsAsync(MainWindow primary)
+    {
+        var settings = Services.GetRequiredService<ISettingsService>();
+        if (!settings.Get(FolderTabSession.EnabledKey, false)) return false;
+        var session = await Task.Run(() => FolderWindowSession.Read(settings, MainWindow.CanRestoreFolder));
+        // Complete the primary Show call before showing additional restored windows.
+        await Task.Yield();
+        // Explicit navigation and closing while validation runs take precedence over startup.
+        if (!primary.CanStartFolderRestore) return true;
+        if (!settings.Get(FolderTabSession.EnabledKey, false)) return true;
+        if (session == null) return false;
+        var selectedWindow = session.SelectedWindowIndex;
+        var restore = primary.RestoreFolderTabSessionAsync(session.Windows[selectedWindow]);
+        for (var i = 0; i < session.Windows.Length; i++)
+        {
+            if (i == selectedWindow) continue;
+            var window = CreateWindow(null, isPrimary: false, folderTabs: session.Windows[i]);
+            window.ShowActivated = false;
+            window.Show();
+        }
+        await restore;
+        return true;
+    }
+
+    private static MainWindow CreateWindow(string? path, bool isPrimary, MainWindow? source = null, FolderTabSession? folderTabs = null)
     {
         var scope = Services.CreateScope();
-        var window = new MainWindow { InitialNavigationPath = path };
+        var window = new MainWindow { InitialNavigationPath = path, RestoreFolderTabsOnOpen = isPrimary, InitialFolderTabSession = folderTabs };
         var model = scope.ServiceProvider.GetRequiredService<MainWindowViewModel>();
         var navigation = Services.GetRequiredService<NavigationBridge>();
-        var initialPath = path ?? (navigation.PendingQuickAccessFocus ? null : model.FileList.GetRestorableDirectoryPath());
+        var initialPath = folderTabs?.Paths.FirstOrDefault() ?? path
+            ?? (navigation.PendingQuickAccessFocus ? null : model.FileList.GetRestorableDirectoryPath());
         if (!string.IsNullOrEmpty(initialPath) && Path.IsPathFullyQualified(initialPath)
             && (!DistributionChannel.IsAppStore || DirectoryAccess.Current.CanAccess(initialPath)))
             model.FileList.PrepareInitialDirectoryView();

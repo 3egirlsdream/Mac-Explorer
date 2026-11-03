@@ -5,6 +5,9 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "settings.startup": "Démarrage",
+    "settings.restore_folder_tabs": "Restaurer les onglets de dossiers au démarrage",
+    "settings.restore_folder_tabs.description": "Restaure les dossiers et l’onglet sélectionné de chaque fenêtre. La fermeture individuelle conserve la dernière fenêtre ; quitter l’application conserve toutes les fenêtres ouvertes. Les recherches et pages spéciales ne sont pas restaurées.",
     "color.palette.hex_hint": "Entrée ou sortie du champ pour appliquer ; Échap annule la saisie.",
     "background.invalid_color": "Saisissez une couleur au format #RRGGBB.",
     "background.palette.original": "Couleur par défaut",

@@ -273,6 +273,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (string.IsNullOrEmpty(CurrentPath)) _navigation.IsHomePage = false;
     }
 
+    internal Task PrepareRestoredDirectoryViewAsync(string path)
+    {
+        PrepareInitialDirectoryView();
+        return _navigation.NavigateToAsync(path);
+    }
+
     // Archive state forwarded
     public bool IsArchiveView => _navigation.IsArchiveView;
     public string? CurrentArchivePath => _navigation.CurrentArchivePath;
@@ -1300,7 +1306,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (CurrentPath == path) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法访问: {0}", ex.Message);
         }
 
-        if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
+        if (!_disposed && !IsSearchMode && string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
         {
             _navigation.SetWatchedDirectory(path);
             _settingsService?.SetDeferred(LastDirectorySettingKey, path);
