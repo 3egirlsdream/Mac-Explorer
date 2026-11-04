@@ -85,7 +85,7 @@ public partial class SettingsDialog
                     AboutVersion.Text = _localizationService.Get("settings.version", _appUpdateService.CurrentVersion);
                     PrivacyPolicyStatus.Text = PrivacyPolicy.Status;
                     SubscriptionSettings.IsVisible = DistributionChannel.IsAppStore;
-                    UpdateButton.IsVisible = !DistributionChannel.IsAppStore;
+                    RefreshReviewButton();
                     break;
                 case "shortcuts": ShortcutSettingsHost.Content = new ShortcutSettingsView(ShortcutService.Resolve()); break;
             }

@@ -1820,7 +1820,8 @@ public partial class MainWindow : AppWindow
     {
         _notifications = MacExplorer.Controls.AppToast.For(this);
         _notifications.Show(new Notification(
-            $"发现新版本 {version.Version}", "点击查看更新内容并前往更新。",
+            MacExplorer.Services.Impl.LocalizationText.Get("发现新版本 {0}", version.Version),
+            MacExplorer.Services.Impl.LocalizationText.Get("updates.available_tip"),
             NotificationType.Information, TimeSpan.FromSeconds(15),
             onClick: () => _ = OpenSettingsAsync(version)));
     }

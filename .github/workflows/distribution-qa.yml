@@ -72,6 +72,8 @@ jobs:
             -class MacExplorer.Tests.FileListLoadingPipelineTests \
             -class MacExplorer.Tests.NetworkServiceTests -class MacExplorer.Tests.NetworkLifecycleTests \
             -class MacExplorer.Tests.NetworkNavigationTests -class MacExplorer.Tests.FeatureAccessTests \
+            -class MacExplorer.Tests.AppStoreUpdateTests \
+            -class MacExplorer.Tests.AppStoreUpdateInteractionTests \
             "${channel_selectors[@]}" \
             > "$RUNNER_TEMP/tests-$CHANNEL.log" 2>&1 || test_status=$?
           cat "$RUNNER_TEMP/tests-$CHANNEL.log"

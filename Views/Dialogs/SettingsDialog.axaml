@@ -839,12 +839,19 @@
                                             <Button Grid.Column="1" Classes="secondary compact" VerticalAlignment="Center" Content="{loc:Loc ui.217}" Click="OnPrivacyPolicy"/>
                                         </Grid>
                                     </Border>
-                                    <Border Classes="settings-row">
+                                    <Border Classes="settings-row settings-divider">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                             <TextBlock Classes="settings-label" Text="{loc:Loc settings.feedback}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                                             <Button Grid.Column="1" x:Name="FeedbackButton" Classes="secondary compact"
                                                     Content="{loc:Loc settings.feedback.github}" ToolTip.Tip="{loc:Loc settings.feedback.github.tip}"
                                                     AutomationProperties.Name="{loc:Loc settings.feedback.github.tip}" Click="OnFeedback"/>
+                                        </Grid>
+                                    </Border>
+                                    <Border Classes="settings-row">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <TextBlock Classes="settings-label" Text="{loc:Loc settings.review}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                            <Button Grid.Column="1" x:Name="ReviewButton" Classes="secondary compact"
+                                                    Content="{loc:Loc settings.review.store}" Click="OnReview"/>
                                         </Grid>
                                     </Border>
                                 </StackPanel>
@@ -879,7 +886,7 @@
                             <Border x:Name="SubscriptionSettings" IsVisible="False" Classes="settings-group">
                                 <Border Classes="settings-row">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.134}"/>
+                                        <TextBlock Classes="settings-label" Text="{loc:Loc ui.134}" VerticalAlignment="Center"/>
                                         <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.241}" Click="OnManageSubscription"/>
                                     </Grid>
                                 </Border>

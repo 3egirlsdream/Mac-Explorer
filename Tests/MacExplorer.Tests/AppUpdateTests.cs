@@ -438,6 +438,7 @@ public sealed class AppUpdateTests
         public int InstallAttempts { get; private set; }
 
         public string CurrentVersion => "1.0.18";
+        public Uri? UpdatePageUri { get; set; }
 
         public Task<VersionInfo?> GetVersionDetailsAsync(CancellationToken ct = default) => CheckVersionAsync(ct);
 
@@ -536,7 +537,7 @@ public sealed class AppUpdateTests
         }
     }
 
-    private sealed class DefaultAppServiceStub : IDefaultAppService
+    internal sealed class DefaultAppServiceStub : IDefaultAppService
     {
         public DefaultFolderHandlerStatus Status = new(false, false);
         public int Writes;
@@ -548,7 +549,7 @@ public sealed class AppUpdateTests
         public (bool Success, string Message) ResetDefaultFolderHandler() { Writes++; return (true, string.Empty); }
     }
 
-    private sealed class SettingsServiceStub : ISettingsService
+    internal sealed class SettingsServiceStub : ISettingsService
     {
         public event Action<string>? SettingChanged { add { } remove { } }
         public string? Get(string key) => null;
@@ -566,7 +567,7 @@ public sealed class AppUpdateTests
         public Dictionary<string, string> GetAll() => [];
     }
 
-    private sealed class ThemeServiceStub : IThemeService
+    internal sealed class ThemeServiceStub : IThemeService
     {
         public bool IsDarkMode => false;
 
@@ -587,7 +588,7 @@ public sealed class AppUpdateTests
         public string GetThemeMode() => "system";
     }
 
-    private sealed class TypographyServiceStub : ITypographyService
+    internal sealed class TypographyServiceStub : ITypographyService
     {
         public FontSizePreset CurrentPreset => FontSizePreset.Standard;
 
@@ -606,7 +607,7 @@ public sealed class AppUpdateTests
         }
     }
 
-    private sealed class OpenWithAppServiceStub : IOpenWithAppService
+    internal sealed class OpenWithAppServiceStub : IOpenWithAppService
     {
         public Task<List<OpenWithApp>> GetAllAsync() => Task.FromResult<List<OpenWithApp>>([]);
 

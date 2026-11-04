@@ -356,12 +356,13 @@ public partial class App : Application
 #if DEMO_AUTOMATION
         if (RuntimePaths.TestRoot != null) return;
 #endif
-        if (DistributionChannel.IsAppStore) return;
         var ct = _startupUpdateCancellation.Token;
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(10), ct).ConfigureAwait(false);
-            var version = await StartupUpdateChecker.CheckAsync(ct).ConfigureAwait(false);
+            var version = DistributionChannel.IsAppStore
+                ? await Services.GetRequiredService<IAppUpdateService>().CheckVersionAsync(ct).ConfigureAwait(false)
+                : await StartupUpdateChecker.CheckAsync(ct).ConfigureAwait(false);
             if (version == null || ct.IsCancellationRequested)
                 return;
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -667,7 +668,7 @@ public partial class App : Application
         services.AddSingleton<ITypographyService, Services.Impl.TypographyService>();
         services.AddSingleton<IDisplayNameService, Platforms.MacCatalyst.Services.MacDisplayNameService>();
         services.AddSingleton<HttpClient>(_ => new HttpClient(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(30), PooledConnectionLifetime = TimeSpan.FromMinutes(5) }) { Timeout = TimeSpan.FromMinutes(10) });
-        services.AddSingleton<IAppUpdateService, Services.Impl.AppUpdateService>();
+        services.AddSingleton<IAppUpdateService>(sp => AppUpdateService.Create(sp.GetRequiredService<HttpClient>()));
         services.AddSingleton<IDirectoryChangeNotifier, Services.Impl.DirectoryChangeNotifier>();
         services.AddSingleton<IFSEventsWatcher>(sp => new Platforms.MacCatalyst.Services.MacFSEventsWatcher(sp.GetRequiredService<IDirectoryChangeNotifier>()));
         services.AddSingleton<IDragDropBridge>(sp => new Platforms.MacCatalyst.Services.MacDragDropBridge(

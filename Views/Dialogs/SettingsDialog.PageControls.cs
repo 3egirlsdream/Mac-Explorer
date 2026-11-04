@@ -77,6 +77,7 @@ public partial class SettingsDialog
     private ToggleSwitch CopilotEnabledToggle => GetPageControl<ToggleSwitch>("copilot", "CopilotEnabledToggle");
     private Border SubscriptionSettings => GetPageControl<Border>("about", "SubscriptionSettings");
     private TextBlock PrivacyPolicyStatus => GetPageControl<TextBlock>("about", "PrivacyPolicyStatus");
+    private Button ReviewButton => GetPageControl<Button>("about", "ReviewButton");
     private TextBlock ChangelogText => GetPageControl<TextBlock>("about", "ChangelogText");
     private TextBlock ChangelogTitle => GetPageControl<TextBlock>("about", "ChangelogTitle");
     private Border ChangelogBorder => GetPageControl<Border>("about", "ChangelogBorder");

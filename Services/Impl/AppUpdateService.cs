@@ -19,6 +19,12 @@ public class AppUpdateService : IAppUpdateService
 
     public string CurrentVersion => FormatVersion(GetCurrentVersion());
 
+    public Uri? UpdatePageUri => null;
+
+    internal static IAppUpdateService Create(HttpClient http) => DistributionChannel.IsAppStore
+        ? new AppStoreUpdateService(http)
+        : new AppUpdateService(http);
+
     public async Task<VersionInfo?> CheckVersionAsync(CancellationToken ct = default)
     {
         var latest = await GetVersionDetailsAsync(ct).ConfigureAwait(false);
@@ -556,7 +562,7 @@ echo ""[$(date)] Update completed""
         return true;
     }
 
-    private static string FormatVersion(Version version)
+    internal static string FormatVersion(Version version)
     {
         if (version.Revision > 0)
             return version.ToString(4);

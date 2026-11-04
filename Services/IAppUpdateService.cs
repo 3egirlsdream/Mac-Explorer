@@ -9,8 +9,11 @@ public interface IAppUpdateService
     /// </summary>
     string CurrentVersion { get; }
 
+    /// <summary>The store page used instead of downloading an update, or null for website builds.</summary>
+    Uri? UpdatePageUri { get; }
+
     /// <summary>
-    /// Queries the backend for a newer version.
+    /// Queries the release source for this distribution channel.
     /// Returns VersionInfo if an update is available, null otherwise.
     /// </summary>
     Task<VersionInfo?> CheckVersionAsync(CancellationToken ct = default);
@@ -19,7 +22,7 @@ public interface IAppUpdateService
     Task<VersionInfo?> GetVersionDetailsAsync(CancellationToken ct = default);
 
     /// <summary>
-    /// Downloads the update zip, extracts it, and triggers install+restart.
+    /// Website builds download the update zip, extract it, and trigger install+restart.
     /// Reports progress as (percentage 0-100, status text).
     /// </summary>
     Task DownloadAndInstallAsync(

@@ -6,6 +6,7 @@ import plistlib
 import re
 import subprocess
 import sys
+from helper_metadata import embedded_plist_errors
 
 app = pathlib.Path(sys.argv[1]).resolve()
 channel = sys.argv[2]
@@ -50,6 +51,8 @@ for path in (app / 'Contents').rglob('*'):
         continue
     relative = str(path.relative_to(app))
     if 'Mach-O' in subprocess.check_output(['file', '-b', str(path)], text=True):
+        embedded = subprocess.check_output(['otool', '-P', str(path)], stderr=subprocess.DEVNULL, text=True)
+        errors.extend(f'{relative}: {error}' for error in embedded_plist_errors(embedded))
         load = subprocess.check_output(['otool', '-l', str(path)], text=True)
         targets = re.findall(r'\b(?:minos|version) (\d+\.\d+(?:\.\d+)?)', load)
         # LC_ID_DYLIB also has a version: only inspect deployment load commands.

@@ -1,0 +1,19 @@
+Version 2.0.0, build 2026110402. Bundle ID: com.thankful.top.macexplorer.store. Apple Silicon, macOS 14.0+. No app account is required.
+
+This release improves performance and fixes known issues. It also adds App Store version checks and a link to the App Store review page. The update action opens the App Store; the app does not download or replace its executable.
+
+First use provides 168 consecutive hours of full access without starting a subscription or charging the customer. After the initial experience, local browsing, tabs, preview, ordinary file operations, page search, favorites/tags, archives, LocalSend/AirDrop and task controls remain free. Premium covers split panes, batch rename, global/content/OCR search, AI/Copilot, network connection management, File Delivery including staging, and background customization. Accepted tasks continue across expiry, and saved background settings are retained.
+
+The annual auto-renewable subscription product remains 001. Subscription prices and applicable offers are supplied by StoreKit. The upgrade page can be dismissed. Restore Purchases, Manage Subscription, Privacy Policy and Terms are available.
+
+Review steps:
+1. Launch without purchasing and authorize a test folder using the system picker. Browse/copy files, open tabs and press Space to preview.
+2. During the initial experience, test split panes, Command-K search, batch rename and Settings > Appearance background themes.
+3. The sidebar shows the remaining experience time. After 168 hours, premium actions show a dismissible upgrade page while basic file management remains available. Purchase and restore use Apple Sandbox and product 001.
+4. Network supports macOS SMB/WebDAV mounts and SFTP. Reachable servers and user-provided credentials are required. SFTP confirms the host fingerprint before authentication. LocalSend incoming transfers require an authorized receive folder and user confirmation.
+5. Close the main window, then use Show Main Window (Command-0) or the Dock icon to reopen it. Folder-tab restoration can be enabled in Settings > General.
+6. Settings > About offers Check for Updates and an App Store rating link. This development version may be newer than the currently public App Store version; only newer public versions produce an update notification.
+
+Copilot is optional and disabled by default. It requires a user-configured endpoint and API key, with consent before transmitting data or file contents and confirmation before modifying files. App Sandbox uses user-selected folders. External plugin installation and arbitrary script/Terminal execution are unavailable.
+
+UI languages: Simplified Chinese, Traditional Chinese, English and French. The existing nine product screenshots remain applicable; the subscription screen and purchase flow are unchanged.

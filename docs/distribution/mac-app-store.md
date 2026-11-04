@@ -12,7 +12,7 @@
 | Git 状态 | 使用系统 Git | 检测可执行的已安装 Git，成功时启用；缺失或沙盒拒绝时安静降级 |
 | 图片回退与人脸裁剪 | 原系统图片处理 | 使用随包签名 helper 的 ImageIO，保留 EXIF 方向及原有 Skia 图片兜底 |
 | 磁盘弹出 | 原 diskutil 流程 | 公开 NSWorkspace API，系统拒绝时返回失败，不请求提权 |
-| 更新与外部执行 | 自更新、插件市场、外部插件、脚本及 Terminal 入口 | 禁用；保留固定内置转换和签名帮助程序 |
+| 更新与外部执行 | 自更新、插件市场、外部插件、脚本及 Terminal 入口 | 查询商店版本并跳转 App Store 更新；保留固定内置转换和签名帮助程序，不自行安装更新或运行外部插件、脚本及 Terminal |
 | AI、照片地点、SFTP | 接收方确认、地点解析许可、本机数据库凭据和主机信任 | 使用相同控制 |
 | 安装包 | DMG | 正式签名的 PKG |
 
@@ -51,7 +51,7 @@ bash Tools/Distribution/prepare-store-pkg.sh \
   'Mac Installer Distribution: Your Name (TEAM_ID)'
 ```
 
-打包脚本检查商店分发签名、profile 标识、Team、证书、有效期和分发类型，并拒绝覆盖已有输出。创建 PKG 不会上传或发布应用。
+打包脚本检查商店分发签名、profile 标识、Team、证书、有效期和分发类型，并拒绝覆盖已有输出。原生程序存在内嵌 `__TEXT,__info_plist` 时必须包含有效的 `CFBundleIdentifier`；`verify-bundle.py` 在创建安装包前校验，包括图片分析助手的后台配置。创建 PKG 不会上传或发布应用。
 
 ## 资源与验证
 

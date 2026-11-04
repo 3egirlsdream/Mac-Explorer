@@ -33,6 +33,7 @@ public partial class SettingsDialog : DialogWindow
     private readonly IInteractionStyleService _interactionStyleService;
     private readonly IOpenWithAppService _openWithService;
     private readonly IAppUpdateService _appUpdateService;
+    private readonly Avalonia.Platform.Storage.ILauncher? _launcher;
     private readonly IGlobalSearchScopeService _globalSearchScopeService;
     private readonly ILocalSendService? _localSendService;
     private readonly Dictionary<string, ToggleSwitch> _sidebarToggles = new(StringComparer.Ordinal);
@@ -75,7 +76,8 @@ public partial class SettingsDialog : DialogWindow
         IInteractionStyleService? interactionStyleService = null,
         IGlobalSearchScopeService? globalSearchScopeService = null,
         ILocalSendService? localSendService = null,
-        ILocalizationService? localizationService = null)
+        ILocalizationService? localizationService = null,
+        Avalonia.Platform.Storage.ILauncher? launcher = null)
     {
         _ownsLocalizationService = localizationService == null;
         _localizationService = localizationService ?? new Services.Impl.LocalizationService(settingsService);
@@ -87,6 +89,7 @@ public partial class SettingsDialog : DialogWindow
         _interactionStyleService = interactionStyleService ?? new Services.Impl.InteractionStyleService(settingsService);
         _openWithService = openWithService;
         _appUpdateService = appUpdateService;
+        _launcher = launcher;
         _globalSearchScopeService = globalSearchScopeService
             ?? new Services.Impl.GlobalSearchScopeService(settingsService);
         _localSendService = localSendService;
@@ -205,6 +208,8 @@ public partial class SettingsDialog : DialogWindow
             {
                 AboutVersion.Text = _localizationService.Get("settings.version", _appUpdateService.CurrentVersion);
                 PrivacyPolicyStatus.Text = PrivacyPolicy.Status;
+                RefreshUpdateButtonText();
+                RefreshReviewButton();
             }
             if (IsPageLoaded("copilot")) RefreshCopilotConsent();
             if (IsPageLoaded("send")) UpdateLocalSendStatus();
@@ -887,12 +892,30 @@ public partial class SettingsDialog : DialogWindow
 
     private async void OnUpdateButtonClick(object? sender, RoutedEventArgs e)
     {
-        if (_updateState is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing)
+        if (_updateState is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing or UpdateState.OpeningStore)
             return;
 
         if (_availableVersion != null
             && _updateState is UpdateState.UpdateAvailable or UpdateState.Error)
         {
+            if (_appUpdateService.UpdatePageUri is { } storePage)
+            {
+                SetUpdateState(UpdateState.OpeningStore, _localizationService["updates.store_opening"]);
+                try
+                {
+                    var opened = await (_launcher ?? Launcher).LaunchUriAsync(storePage);
+                    if (_updateCancellation.IsCancellationRequested) return;
+                    SetUpdateState(opened ? UpdateState.UpdateAvailable : UpdateState.Error,
+                        _localizationService[opened ? "updates.store_opened" : "updates.store_open_failed"]);
+                }
+                catch (Exception)
+                {
+                    if (!_updateCancellation.IsCancellationRequested)
+                        SetUpdateState(UpdateState.Error, _localizationService["updates.store_open_failed"]);
+                }
+                return;
+            }
+
             SetUpdateState(UpdateState.Downloading, "准备下载...");
             using var progressLifetime = CancellationTokenSource.CreateLinkedTokenSource(
                 _updateCancellation.Token);
@@ -928,7 +951,9 @@ public partial class SettingsDialog : DialogWindow
 
         _availableVersion = null;
         ChangelogBorder.IsVisible = false;
-        SetUpdateState(UpdateState.Checking, "正在连接更新服务器...");
+        SetUpdateState(UpdateState.Checking, _appUpdateService.UpdatePageUri != null
+            ? _localizationService["updates.store_checking"]
+            : Services.Impl.LocalizationText.Get("正在连接更新服务器..."));
         try
         {
             var details = await _appUpdateService.GetVersionDetailsAsync(_updateCancellation.Token);
@@ -967,6 +992,31 @@ public partial class SettingsDialog : DialogWindow
         catch (Exception)
         {
             AppToast.ShowError(this, _localizationService["settings.feedback.open_failed"]);
+        }
+    }
+
+    private void RefreshReviewButton()
+    {
+        var key = DistributionChannel.IsAppStore ? "settings.review.store" : "settings.review.github";
+        ReviewButton.Content = _localizationService[key];
+        var hint = _localizationService[key + ".tip"];
+        ToolTip.SetTip(ReviewButton, hint);
+        AutomationProperties.SetName(ReviewButton, hint);
+    }
+
+    private async void OnReview(object? sender, RoutedEventArgs e)
+    {
+        var uri = DistributionChannel.IsAppStore
+            ? Services.Impl.AppStoreUpdateService.ReviewPageUri
+            : new Uri("https://github.com/3egirlsdream/Mac-Explorer");
+        try
+        {
+            if (!await (_launcher ?? Launcher).LaunchUriAsync(uri))
+                AppToast.ShowError(this, _localizationService["settings.review.open_failed"]);
+        }
+        catch (Exception)
+        {
+            AppToast.ShowError(this, _localizationService["settings.review.open_failed"]);
         }
     }
 
@@ -1046,19 +1096,19 @@ public partial class SettingsDialog : DialogWindow
         _updateState = state;
         UpdateStatus.Text = status;
         UpdateProgress.IsIndeterminate = false;
+        RefreshUpdateButtonText();
 
         switch (state)
         {
             case UpdateState.Checking:
+            case UpdateState.OpeningStore:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = false;
-                UpdateButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("检查中...");
                 UpdateProgress.IsVisible = false;
                 break;
             case UpdateState.UpdateAvailable:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = true;
-                UpdateButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("立即更新");
                 UpdateProgress.IsVisible = false;
                 break;
             case UpdateState.Downloading:
@@ -1076,7 +1126,6 @@ public partial class SettingsDialog : DialogWindow
             case UpdateState.Error:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = true;
-                UpdateButton.Content = _availableVersion == null ? MacExplorer.Services.Impl.LocalizationText.Get("重新检查") : MacExplorer.Services.Impl.LocalizationText.Get("重试更新");
                 UpdateProgress.IsVisible = false;
                 break;
             case UpdateState.Idle:
@@ -1084,16 +1133,31 @@ public partial class SettingsDialog : DialogWindow
             default:
                 UpdateButton.IsVisible = true;
                 UpdateButton.IsEnabled = true;
-                UpdateButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("检查更新");
                 UpdateProgress.IsVisible = false;
                 break;
         }
+    }
+
+    private void RefreshUpdateButtonText()
+    {
+        UpdateButton.Content = _updateState switch
+        {
+            UpdateState.Checking => _localizationService["ui.695"],
+            UpdateState.OpeningStore => _localizationService["updates.store_opening"],
+            UpdateState.UpdateAvailable => _appUpdateService.UpdatePageUri != null
+                ? _localizationService["updates.open_store"] : _localizationService["ui.696"],
+            UpdateState.Error => _availableVersion == null ? _localizationService["ui.595"]
+                : _appUpdateService.UpdatePageUri != null ? _localizationService["updates.open_store"]
+                : _localizationService["ui.697"],
+            _ => _localizationService["ui.220"]
+        };
     }
 
     private enum UpdateState
     {
         Idle,
         Checking,
+        OpeningStore,
         NoUpdate,
         UpdateAvailable,
         Downloading,
