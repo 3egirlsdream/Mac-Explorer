@@ -20,6 +20,7 @@ internal static class MacSandboxNative
     internal static string? DefaultApplication(string path) => Take(me_default_app(path));
     internal static string RegisteredApplications(string path) => Take(me_registered_apps(path)) ?? "[]";
     internal static string Metadata(string path) => Take(me_metadata(path)) ?? "";
+    internal static long ApplicationSize(string path) => me_application_size(path);
     internal static string OwnerGroup(string path) => Take(me_owner_group(path)) ?? "-- --";
     internal static string ExtendedAttributeNames(string path) => Take(me_xattr_names(path)) ?? "";
     internal static string StoragePath(bool cache) => Take(me_storage_path(cache))!;
@@ -66,6 +67,7 @@ internal static class MacSandboxNative
     [DllImport(Library)] private static extern IntPtr me_default_app([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_registered_apps([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_metadata([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    [DllImport(Library)] private static extern long me_application_size([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_owner_group([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_xattr_names([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_pick_test_directory([MarshalAs(UnmanagedType.LPUTF8Str)] string path);

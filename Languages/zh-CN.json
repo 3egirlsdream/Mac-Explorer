@@ -4,6 +4,8 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "info.size.incomplete": "至少 {0}",
+    "info.size.incomplete-tip": "部分项目无法读取，显示的是已统计大小。",
     "settings.startup": "启动",
     "settings.restore_folder_tabs": "启动时恢复文件夹标签页",
     "settings.restore_folder_tabs.description": "恢复退出时各窗口的文件夹及选中标签页。逐个关闭时保留最后一个窗口；退出应用时保留所有窗口。不恢复搜索和其他特殊页面。",

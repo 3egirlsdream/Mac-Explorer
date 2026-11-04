@@ -15,6 +15,8 @@ public partial class MainWindow
     private bool _closingTabs;
 
     private readonly Dictionary<Guid, (ExplorerTabViewModel Tab, string Path)> _restoringFolderTabs = [];
+    private Queue<Guid>? _preparedFolderTabs;
+    private FolderWindowSession? _initialFolderWindows;
 
     internal bool IsRestoringFolderTabs => _restoringFolderTabs.Count > 0;
 
@@ -33,6 +35,31 @@ public partial class MainWindow
     internal async Task RestoreFolderTabSessionAsync(FolderTabSession session)
     {
         var ordered = await PrepareRestoredFolderTabsAsync(session);
+        await LoadRestoredFolderTabsAsync(ordered);
+    }
+
+    private bool ShouldRestoreFolderWindows => RestoreFolderTabsOnOpen
+        && string.IsNullOrEmpty(InitialNavigationPath ?? _navigationBridge.PendingNavigationPath)
+        && !_navigationBridge.PendingQuickAccessFocus;
+
+    private async Task PrepareInitialFolderTabsAsync()
+    {
+        if (!CanStartFolderRestore) return;
+        var tabs = InitialFolderTabSession;
+        if (tabs == null && ShouldRestoreFolderWindows)
+        {
+            var windows = await App.ReadFolderWindowsAsync();
+            if (!CanStartFolderRestore || !ShouldRestoreFolderWindows
+                || !App.Services.GetRequiredService<ISettingsService>().Get(FolderTabSession.EnabledKey, false)) return;
+            if (windows == null) return;
+            _initialFolderWindows = windows;
+            tabs = windows.Windows[windows.SelectedWindowIndex];
+        }
+        if (tabs != null) _preparedFolderTabs = await PrepareRestoredFolderTabsAsync(tabs);
+    }
+
+    private async Task LoadRestoredFolderTabsAsync(Queue<Guid> ordered)
+    {
         async Task LoadNextAsync()
         {
             while (!_shutdownStarted && ordered.TryDequeue(out var id))

@@ -488,6 +488,7 @@ public partial class MainWindow : AppWindow
         var opacity = Math.Clamp(settings.Get("vibrancy_alpha", 0.30), 0, 1);
 
         ApplyVibrancySurfaceResources(enabled);
+        WindowBackgroundTheme.GetController(this)?.RestoreAppearanceResources();
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         TransparencyBackgroundFallback = Brushes.Transparent;
         Background = Brushes.Transparent;
@@ -702,9 +703,16 @@ public partial class MainWindow : AppWindow
         if (_initialized || _vm == null) return;
         _initialized = true;
 
-        if (InitialFolderTabSession is { } folderTabs)
+        if (_preparedFolderTabs is { } folderTabs)
         {
-            await RestoreFolderTabSessionAsync(folderTabs);
+            var windows = _initialFolderWindows;
+            _preparedFolderTabs = null;
+            _initialFolderWindows = null;
+            await WaitForInitialFrameAsync();
+            if (_shutdownStarted) return;
+            var restore = LoadRestoredFolderTabsAsync(folderTabs);
+            if (windows != null) App.ShowRestoredFolderWindows(windows);
+            await restore;
             return;
         }
 
@@ -715,13 +723,6 @@ public partial class MainWindow : AppWindow
             ? null
             : _vm.FileList.GetRestorableDirectoryPath();
         _navigationBridge.PendingQuickAccessFocus = false;
-
-        if (RestoreFolderTabsOnOpen && string.IsNullOrEmpty(pendingPath) && !quickAccessRequested
-            && await App.RestoreFolderWindowsAsync(this))
-        {
-            SchedulePaneLayoutRebuild();
-            return;
-        }
 
         var path = !string.IsNullOrEmpty(pendingPath) ? pendingPath : restorePath;
         if (!string.IsNullOrEmpty(path))

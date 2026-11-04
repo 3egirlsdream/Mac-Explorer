@@ -90,9 +90,11 @@ public partial class InfoPanelView : UserControl
 
     public InfoPanelView() : this(null) { }
 
-    internal InfoPanelView(IFileTagService? fileTagService)
+    internal InfoPanelView(IFileTagService? fileTagService,
+        Func<string, CancellationToken, Task<DirectorySizeResult>>? directorySizeLoader = null)
     {
         InitializeComponent();
+        _directorySizeLoader = directorySizeLoader ?? DirectorySizeCalculator.CalculateAsync;
         _imageAnalysisService = App.Services?.GetService<IImageAnalysisService>();
         _clipboardService = App.Services?.GetService<IClipboardService>();
         _directoryChangeNotifier = App.Services?.GetService<IDirectoryChangeNotifier>();
@@ -301,6 +303,9 @@ public partial class InfoPanelView : UserControl
             ShowFileIcon("文件夹");
             UpdateExifSection(null);
             UpdateTagsFromMetadata(entry.FullPath, []);
+            if (!entry.IsVirtual && !entry.IsSymbolicLink && Path.IsPathFullyQualified(entry.FullPath)
+                && !(entry.IsApplication && entry.Size > 0))
+                BeginDirectorySizeLoad(entry);
             return;
         }
 
@@ -540,6 +545,7 @@ public partial class InfoPanelView : UserControl
             var entry = selected[0];
             SelectedFileSummary.Text = $"{entry.KindText} · {entry.FormattedSize}";
             InfoSize.Text = entry.FormattedSize;
+            RefreshDirectorySizeText(entry);
             InfoType.Text = entry.KindText;
             var culture = LocalizationService.Current?.Culture ?? System.Globalization.CultureInfo.CurrentCulture;
             InfoModified.Text = entry.LastModified.ToString("g", culture);
@@ -602,6 +608,7 @@ public partial class InfoPanelView : UserControl
         _previewRequestGeneration++;
         _currentPreviewSelection = null;
         CancelHashLoad();
+        CancelDirectorySizeLoad();
     }
 
     private void CancelQueuedPanelUpdate()
@@ -959,6 +966,8 @@ public partial class InfoPanelView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        CancelQueuedPanelUpdate();
+        CancelPanelLoad();
         CloseTagSuggestions();
         if (_language != null) _language.LanguageChanged -= RefreshLocalizedDetails;
         _language = null;

@@ -1,12 +1,16 @@
 #if DEBUG
 using System.Text.Json;
 using System.Runtime.InteropServices;
+using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Rendering.Composition;
+using Avalonia.Platform;
+using Avalonia.Media;
 using Avalonia.Styling;
 using MacExplorer.Services;
+using MacExplorer.Controls;
 using MacExplorer.Services.Impl;
 using MacExplorer.Platforms.MacCatalyst.Services;
 using MacExplorer.ViewModels;
@@ -21,6 +25,64 @@ internal static class FolderTabRestoreSmoke
     internal static string? Phase => RuntimePaths.TestRoot == null ? null
         : Environment.GetEnvironmentVariable("MACEXPLORER_FOLDER_TABS_SMOKE");
     internal static bool UseSavedSession => Phase is "restore-all" or "restore-last" or "disabled";
+    private static readonly List<StartupCheck> StartupChecks = [];
+    private static readonly List<Task> StartupCaptures = [];
+    private static readonly List<string> StartupErrors = [];
+    private static IDisposable? _startupObserver;
+
+    private sealed class StartupCheck
+    {
+        public bool NativeVisibleBeforeShow { get; init; }
+        public bool BackgroundReady { get; init; }
+        public bool ExpectedTheme { get; init; }
+        public int TabCountBeforeShow { get; init; }
+        public bool? ChromeReadyAfterOpened { get; set; }
+    }
+
+    internal static void Prepare()
+    {
+        if (Phase == null) return;
+        if (Phase == "restore-last") Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        _startupObserver = Window.WindowOpenedEvent.AddClassHandler<MainWindow>((window, _) =>
+        {
+            var handle = window.TryGetPlatformHandle();
+            var view = handle is IMacOSTopLevelPlatformHandle mac ? mac.NSView : handle?.Handle ?? IntPtr.Zero;
+            var nativeWindow = view == IntPtr.Zero ? IntPtr.Zero : Send(view, Selector("window"));
+            var visible = nativeWindow != IntPtr.Zero && Send(nativeWindow, Selector("isVisible")) != IntPtr.Zero;
+            var theme = WindowBackgroundTheme.GetController(window);
+            var service = App.Services.GetRequiredService<BackgroundThemeService>();
+            var expectedTheme = service.Options.Enabled && service.ErrorKey == null
+                && (service.Options.PresetId.Length > 0 || service.Options.ImageFile.Length > 0);
+            var model = (MainWindowViewModel)window.DataContext!;
+            var check = new StartupCheck { NativeVisibleBeforeShow = visible, BackgroundReady = theme?.IsActive == true,
+                ExpectedTheme = expectedTheme, TabCountBeforeShow = model.Tabs.Count };
+            StartupChecks.Add(check);
+            if (visible) StartupErrors.Add("Native activation displayed the window before its prepared Show call.");
+            if (expectedTheme && theme?.IsActive != true) StartupErrors.Add("The themed window was shown without a prepared background.");
+            var savedTabs = window.InitialFolderTabSession;
+            if (savedTabs == null && window.RestoreFolderTabsOnOpen && window.InitialNavigationPath == null
+                && FolderWindowSession.Read(App.Services.GetRequiredService<ISettingsService>(), MainWindow.CanRestoreFolder) is { } saved)
+                savedTabs = saved.Windows[saved.SelectedWindowIndex];
+            if (savedTabs != null && (!window.CaptureFolderTabs().Paths.SequenceEqual(savedTabs.Paths)
+                || model.Tabs.IndexOf(model.SelectedTab!) != savedTabs.SelectedIndex))
+                StartupErrors.Add("The first Show did not contain all saved tab headers and the saved selection.");
+            var firstFrame = window.WaitForInitialFrameAsync();
+            NotifyCollectionChangedEventHandler onTabsChanged = (_, e) =>
+            {
+                if (e.Action == NotifyCollectionChangedAction.Add && window.IsRestoringFolderTabs)
+                    StartupErrors.Add("Restored tab headers were inserted after the window was shown.");
+            };
+            model.Tabs.CollectionChanged += onTabsChanged;
+            window.Closed += (_, _) => model.Tabs.CollectionChanged -= onTabsChanged;
+            window.Opened += (_, _) =>
+            {
+                check.ChromeReadyAfterOpened = window.FindResource("TitleBarBackgroundBrush") is LinearGradientBrush;
+                if (expectedTheme && check.ChromeReadyAfterOpened != true)
+                    StartupErrors.Add("Opened replaced the prepared themed title bar with an unthemed surface.");
+                StartupCaptures.Add(CaptureStartupAsync(window, firstFrame, StartupCaptures.Count));
+            };
+        });
+    }
 
     internal static async Task RunAsync(MainWindow owner)
     {
@@ -33,10 +95,12 @@ internal static class FolderTabRestoreSmoke
         string? error = null;
         try
         {
+            await WaitAsync(() => owner.IsVisible);
             ActivateApplication();
-            owner.Activate();
+            owner.ShowAndActivate();
             if (Phase == "seed")
             {
+                await App.Services.GetRequiredService<BackgroundThemeService>().SelectPresetAsync("animal-panda");
                 var first = Directory.CreateDirectory(Path.Combine(root, "Documents", "first")).FullName;
                 var second = Directory.CreateDirectory(Path.Combine(root, "Documents", "second")).FullName;
                 var third = Directory.CreateDirectory(Path.Combine(root, "Documents", "third")).FullName;
@@ -44,6 +108,7 @@ internal static class FolderTabRestoreSmoke
                 await ((MainWindowViewModel)owner.DataContext!).FileList.NavigateToAsync(first);
                 await owner.OpenNewTabAsync(second);
                 await owner.OpenNewTabAsync(first);
+                for (var i = 0; i < 5; i++) await owner.OpenNewTabAsync(i % 2 == 0 ? first : second);
                 var model = (MainWindowViewModel)owner.DataContext!;
                 model.SelectedTab = model.Tabs[1];
                 var other = App.OpenNewWindow(third);
@@ -62,6 +127,13 @@ internal static class FolderTabRestoreSmoke
             }
             else if (Phase == "reopen-after-close")
             {
+                using (var image = new SkiaSharp.SKBitmap(640, 400))
+                {
+                    image.Erase(SkiaSharp.SKColors.CornflowerBlue);
+                    using var encoded = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 90);
+                    using var stream = encoded.AsStream();
+                    await App.Services.GetRequiredService<BackgroundThemeService>().ImportAsync(stream, "startup.png");
+                }
                 var first = Directory.CreateDirectory(Path.Combine(root, "Documents", "first")).FullName;
                 var second = Directory.CreateDirectory(Path.Combine(root, "Documents", "second")).FullName;
                 await ((MainWindowViewModel)owner.DataContext!).FileList.NavigateToAsync(first);
@@ -145,8 +217,13 @@ internal static class FolderTabRestoreSmoke
             }
         }
         catch (Exception ex) { error = ex.ToString(); }
+        try { await Task.WhenAll(StartupCaptures); }
+        catch (Exception ex) { error = ex.ToString(); }
+        if (StartupErrors.Count > 0) error = string.Join(Environment.NewLine, StartupErrors.Distinct()) + Environment.NewLine + error;
+        _startupObserver?.Dispose();
         var report = Path.Combine(output, Phase + ".json");
         await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { success = error == null, error, owner.IsVisible, owner.IsActive, owner.ShowActivated,
+                startupChecks = StartupChecks,
                 windows = desktop.Windows.OfType<MainWindow>().Select(w => new { w.IsVisible, w.IsActive, w.ShowActivated,
                     session = w.CaptureFolderTabs() }).ToArray() },
             new JsonSerializerOptions { WriteIndented = true }));
@@ -171,6 +248,16 @@ internal static class FolderTabRestoreSmoke
         SendBool(app, Selector("activateIgnoringOtherApps:"), true);
         var running = Send(GetClass("NSRunningApplication"), Selector("currentApplication"));
         SendOptions(running, Selector("activateWithOptions:"), 3);
+    }
+
+    private static async Task CaptureStartupAsync(MainWindow window, Task firstFrame, int index)
+    {
+        await firstFrame;
+        var output = Path.Combine(RuntimePaths.TestRoot!, "folder-tabs");
+        Directory.CreateDirectory(output);
+        var visual = ElementComposition.GetElementVisual(window)!;
+        using var bitmap = await visual.Compositor.CreateCompositionVisualSnapshot(visual, 1);
+        bitmap.Save(Path.Combine(output, $"startup-{Phase}-{index}.png"));
     }
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_getClass")]

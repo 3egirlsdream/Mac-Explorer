@@ -95,6 +95,7 @@ public partial class App : Application
             var startupPath = RuntimePaths.TestRoot
                 ?? desktop.Args?.FirstOrDefault(path => Directory.Exists(path) || File.Exists(path));
 #if DEBUG
+            Tools.Testing.FolderTabRestoreSmoke.Prepare();
             if (Tools.Testing.FolderTabRestoreSmoke.UseSavedSession) startupPath = null;
 #endif
             mainWindow = CreateWindow(
@@ -157,8 +158,7 @@ public partial class App : Application
 
         if (mainWindow is { IsVisible: false })
         {
-            mainWindow.Show();
-            mainWindow.Activate();
+            mainWindow.ShowAndActivate();
         }
 
 #if DEBUG
@@ -389,8 +389,7 @@ public partial class App : Application
         var window = CreateWindow(path, isPrimary: restoreFolderTabsOnOpen, source);
         if (_desktop != null && !_desktop.Windows.Contains(_desktop.MainWindow!))
             _desktop.MainWindow = window;
-        window.Show();
-        window.Activate();
+        window.ShowAndActivate();
         return window;
     }
 
@@ -407,9 +406,18 @@ public partial class App : Application
                      ?? createWindow();
         if (window.WindowState == WindowState.Minimized)
             window.WindowState = WindowState.Normal;
-        window.Show();
-        window.Activate();
+        ShowAndActivateWindow(window);
         return window;
+    }
+
+    private static void ShowAndActivateWindow(Window window)
+    {
+        if (window is MainWindow mainWindow) mainWindow.ShowAndActivate();
+        else
+        {
+            window.Show();
+            window.Activate();
+        }
     }
 
     internal static void RecordActiveMainWindow(MainWindow window)
@@ -443,28 +451,21 @@ public partial class App : Application
         }
     }
 
-    internal static async Task<bool> RestoreFolderWindowsAsync(MainWindow primary)
+    internal static Task<FolderWindowSession?> ReadFolderWindowsAsync()
     {
         var settings = Services.GetRequiredService<ISettingsService>();
-        if (!settings.Get(FolderTabSession.EnabledKey, false)) return false;
-        var session = await Task.Run(() => FolderWindowSession.Read(settings, MainWindow.CanRestoreFolder));
-        // Complete the primary Show call before showing additional restored windows.
-        await Task.Yield();
-        // Explicit navigation and closing while validation runs take precedence over startup.
-        if (!primary.CanStartFolderRestore) return true;
-        if (!settings.Get(FolderTabSession.EnabledKey, false)) return true;
-        if (session == null) return false;
-        var selectedWindow = session.SelectedWindowIndex;
-        var restore = primary.RestoreFolderTabSessionAsync(session.Windows[selectedWindow]);
+        return Task.Run(() => FolderWindowSession.Read(settings, MainWindow.CanRestoreFolder));
+    }
+
+    internal static void ShowRestoredFolderWindows(FolderWindowSession session)
+    {
         for (var i = 0; i < session.Windows.Length; i++)
         {
-            if (i == selectedWindow) continue;
+            if (i == session.SelectedWindowIndex) continue;
             var window = CreateWindow(null, isPrimary: false, folderTabs: session.Windows[i]);
             window.ShowActivated = false;
             window.Show();
         }
-        await restore;
-        return true;
     }
 
     private static MainWindow CreateWindow(string? path, bool isPrimary, MainWindow? source = null, FolderTabSession? folderTabs = null)
@@ -490,7 +491,7 @@ public partial class App : Application
         {
             var window = _desktop?.Windows.OfType<Controls.AppWindow>().FirstOrDefault(w => w.IsActive)
                 ?? ShowMainWindow() as Controls.AppWindow;
-            window?.Show(); window?.Activate();
+            if (window != null) ShowAndActivateWindow(window);
             window?.ShowUpgrade(feature);
         });
     }
@@ -519,8 +520,7 @@ public partial class App : Application
             return;
         }
 
-        window.Show();
-        window.Activate();
+        window.ShowAndActivate();
         if (!string.IsNullOrWhiteSpace(path))
             await window.NavigateToPathAsync(path);
     }

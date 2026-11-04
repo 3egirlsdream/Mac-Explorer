@@ -114,6 +114,17 @@ char *me_registered_apps(const char *path) {
         return MEString([[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]);
     }
 }
+int64_t me_application_size(const char *path) {
+    @autoreleasepool {
+        MDItemRef item = MDItemCreate(kCFAllocatorDefault, (__bridge CFStringRef)[NSString stringWithUTF8String:path]);
+        if (!item) return -1;
+        id value = CFBridgingRelease(MDItemCopyAttribute(item, kMDItemFSSize));
+        CFRelease(item);
+        // Newly created, unindexed packages can report 1 before their size is known.
+        int64_t size = [value isKindOfClass:NSNumber.class] ? [value longLongValue] : -1;
+        return size > 1 ? size : -1;
+    }
+}
 char *me_metadata(const char *path) {
     @autoreleasepool {
         MDItemRef item = MDItemCreate(kCFAllocatorDefault, (__bridge CFStringRef)[NSString stringWithUTF8String:path]);

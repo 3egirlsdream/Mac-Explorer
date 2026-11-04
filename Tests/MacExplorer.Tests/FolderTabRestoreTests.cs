@@ -13,6 +13,64 @@ namespace MacExplorer.Tests;
 public sealed class FolderTabRestoreTests : FileListViewModelTestBase
 {
     [AvaloniaFact(Explicit = true)]
+    public async Task FirstShowHasAllSavedHeadersAndSelectionBeforeDirectoryEnumeration()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var root = new Directories();
+        using var theme = new FastListTestTheme();
+        var files = new FakeFileService(root.Path);
+        var firstFrame = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task Enumerate(string _, CancellationToken token)
+        {
+            Assert.True(firstFrame.Task.IsCompletedSuccessfully);
+            entered.TrySetResult();
+            await release.Task.WaitAsync(token);
+        }
+        files.BeforeEnumerate = Enumerate;
+        await using var fixture = await TabCacheFixture.CreateAsync(entries: 0,
+            configureServices: services => services.AddTransient<FileListViewModel>(_ => CreateViewModel(files)));
+        fixture.Window.Hide();
+        fixture.Model.FileList.GoHome();
+        fixture.Model.FileList.PrepareInitialDirectoryView();
+        fixture.Files.BeforeEnumerate = Enumerate;
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        typeof(MainWindow).GetField("_initialized", flags)!.SetValue(fixture.Window, false);
+        typeof(MainWindow).GetField("_initialFrameCommit", flags)!.SetValue(fixture.Window, firstFrame.Task);
+        typeof(MainWindow).GetProperty("InitialFolderTabSession", flags)!.SetValue(fixture.Window,
+            new FolderTabSession([root.First, root.Second, root.Third], 2));
+        var shown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string[]? shownPaths = null;
+        var shownSelection = -1;
+        fixture.Window.Opened += (_, _) =>
+        {
+            shownPaths = fixture.Model.Tabs.Select(t => t.FileList.CurrentPath).ToArray();
+            shownSelection = fixture.Model.Tabs.IndexOf(fixture.Model.SelectedTab!);
+            shown.TrySetResult();
+        };
+        try
+        {
+            fixture.Window.ShowAndActivate();
+            await shown.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+            Assert.Equal(new[] { root.First, root.Second, root.Third }, shownPaths);
+            Assert.Equal(2, shownSelection);
+            Assert.False(entered.Task.IsCompleted);
+            firstFrame.TrySetResult();
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        }
+        finally
+        {
+            firstFrame.TrySetResult();
+            release.TrySetResult();
+        }
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        while (fixture.Window.IsRestoringFolderTabs) await Task.Delay(10, timeout.Token);
+        Assert.Same(fixture.Model.Tabs[2], fixture.Model.SelectedTab);
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public async Task SelectsSavedTabBeforeLoadingAndKeepsUserSelectionDuringBackgroundLoads()
     {
         using var root = new Directories();

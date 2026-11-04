@@ -163,7 +163,7 @@ public class FileSystemEntry : INotifyPropertyChanged
         return true;
     }
 
-    private static string FormatSize(long bytes, bool isDirectory)
+    internal static string FormatSize(long bytes, bool isDirectory = false)
     {
         if (bytes <= 0) return isDirectory ? "--" : "0 B";
         string[] units = ["B", "KB", "MB", "GB", "TB"];

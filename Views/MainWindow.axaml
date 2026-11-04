@@ -74,7 +74,7 @@
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem">
             <Setter Property="MinWidth" Value="0"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="36"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="CornerRadius" Value="0"/>
@@ -254,7 +254,7 @@
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
             <Border x:Name="TitleBarDragArea" Grid.ColumnSpan="4" Background="Transparent"
                     PointerPressed="OnTitleBarBlankPointerPressed"/>
-            <Grid Grid.Column="0" ColumnDefinitions="*,Auto" HorizontalAlignment="Left" Margin="0,4,0,0">
+            <Grid Grid.Column="0" ColumnDefinitions="*,Auto" HorizontalAlignment="Left" Margin="0,8,0,0">
                     <ScrollViewer Grid.Column="0" x:Name="TabScrollViewer"
                                   chrome:WindowDecorationProperties.ElementRole="User"
                                   HorizontalScrollBarVisibility="Disabled"

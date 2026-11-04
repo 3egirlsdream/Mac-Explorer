@@ -5,6 +5,8 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "info.size.incomplete": "At least {0}",
+    "info.size.incomplete-tip": "Some items could not be read. The size shown includes only counted items.",
     "settings.startup": "Startup",
     "settings.restore_folder_tabs": "Restore folder tabs at startup",
     "settings.restore_folder_tabs.description": "Restore folder tabs and the selected tab in each window. Closing windows individually keeps the last window; quitting the app keeps all open windows. Searches and other special pages are not restored.",

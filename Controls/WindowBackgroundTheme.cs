@@ -178,6 +178,11 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
         void SetBrush(string key, string color) => _window.Resources[key] = new SolidColorBrush(Color.Parse(color));
     }
 
+    internal void RestoreAppearanceResources()
+    {
+        if (IsActive) UpdateChrome();
+    }
+
     private void ScheduleRender()
     {
         _renderCancellation?.Cancel();

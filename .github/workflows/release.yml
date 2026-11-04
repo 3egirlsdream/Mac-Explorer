@@ -151,8 +151,23 @@ jobs:
               summary.write(f"- Mode: `{mode}`\n")
           PY
 
-      - name: Test full release memo generation
+      - name: Test numbered changelog extraction
         run: python3 -m unittest discover -s Tools/Release -p 'test_*.py' -v
+
+      - name: Validate release changelog before publishing
+        if: steps.version.outputs.mode != 'noop'
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          MODE: ${{ steps.version.outputs.mode }}
+        run: |
+          set -euo pipefail
+          memo_revision="$GITHUB_SHA"
+          if [[ "$MODE" == "sync" ]]; then memo_revision="$TAG"; fi
+          python3 Tools/Release/generate_memo.py \
+            --tag "$memo_revision" --previous-tag "$PREVIOUS_TAG" \
+            --output "${RUNNER_TEMP}/release-memo-preview.txt"
 
   publish-release:
     name: Build and publish release
@@ -315,7 +330,7 @@ jobs:
             gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
               | jq -e '.isDraft == false and .isPrerelease == false' > /dev/null
             notes_file="${RUNNER_TEMP}/rebuilt-release-notes.txt"
-            python3 Tools/Release/generate_memo.py --version "$VERSION" --tag "$GITHUB_SHA" \
+            python3 Tools/Release/generate_memo.py --tag "$GITHUB_SHA" \
               --previous-tag "$PREVIOUS_TAG" --output "$notes_file"
             python3 - "$notes_file" <<'PYNOTES'
           import os
@@ -384,11 +399,10 @@ jobs:
           echo "zip_name=$zip_name" >> "$GITHUB_OUTPUT"
           echo "zip_url=$zip_url" >> "$GITHUB_OUTPUT"
 
-      - name: Generate backend memo
+      - name: Extract numbered changelog for backend memo
         id: memo
         shell: bash
         env:
-          VERSION: ${{ needs.detect-version.outputs.version }}
           TAG: ${{ needs.detect-version.outputs.tag }}
           PREVIOUS_TAG: ${{ needs.detect-version.outputs.previous_tag }}
           MODE: ${{ needs.detect-version.outputs.mode }}
@@ -399,7 +413,7 @@ jobs:
           memo_revision="$TAG"
           if [[ "$MODE" == "republish" ]]; then memo_revision="$GITHUB_SHA"; fi
           python3 Tools/Release/generate_memo.py \
-            --version "$VERSION" --tag "$memo_revision" --previous-tag "$PREVIOUS_TAG" \
+            --tag "$memo_revision" --previous-tag "$PREVIOUS_TAG" \
             --output "$memo_file"
 
           echo "memo_file=$memo_file" >> "$GITHUB_OUTPUT"

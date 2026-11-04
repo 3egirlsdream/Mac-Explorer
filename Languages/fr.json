@@ -5,6 +5,8 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "info.size.incomplete": "Au moins {0}",
+    "info.size.incomplete-tip": "Certains éléments sont illisibles. La taille affichée ne comprend que les éléments comptés.",
     "settings.startup": "Démarrage",
     "settings.restore_folder_tabs": "Restaurer les onglets de dossiers au démarrage",
     "settings.restore_folder_tabs.description": "Restaure les dossiers et l’onglet sélectionné de chaque fenêtre. La fermeture individuelle conserve la dernière fenêtre ; quitter l’application conserve toutes les fenêtres ouvertes. Les recherches et pages spéciales ne sont pas restaurées.",

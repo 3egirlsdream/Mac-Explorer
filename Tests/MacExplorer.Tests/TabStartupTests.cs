@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.Threading;
+using MacExplorer.Controls;
 using MacExplorer.Services.Impl;
 using Microsoft.Extensions.DependencyInjection;
 using MacExplorer.Models;
@@ -15,6 +17,54 @@ namespace MacExplorer.Tests;
 [Trait("Area", "TabStartup")]
 public sealed class TabStartupViewModelTests : FileListViewModelTestBase
 {
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Area", "BackgroundTheme")]
+    public async Task RepeatedReopenRequestsWaitForBackgroundAndDoNotReopenAClosingWindow(bool close)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var access = new GrantedFeatureAccess();
+        using var styles = new FastListTestTheme();
+        await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
+        fixture.Window.Hide();
+        var settings = new ShortcutMemorySettings();
+        settings.Set(BackgroundThemeService.SettingKey, "{\"Enabled\":true,\"PresetId\":\"cyber-circuit\"}");
+        using var service = new BackgroundThemeService(settings, Path.GetTempPath());
+        using var theme = new WindowBackgroundTheme(fixture.Window, service);
+        var shows = 0;
+        fixture.Window.Opened += (_, _) =>
+        {
+            shows++;
+            Assert.True(theme.IsActive);
+            Assert.NotNull(theme.Frame);
+            Assert.IsType<LinearGradientBrush>(fixture.Window.FindResource("TitleBarBackgroundBrush"));
+        };
+        for (var i = 0; i < 3; i++)
+            App.ShowOrCreateWindow([fixture.Window], () => throw new InvalidOperationException("Unexpected new window."));
+        Assert.False(fixture.Window.IsVisible);
+        var ready = theme.ShowWhenReadyAsync(() => throw new InvalidOperationException("Unexpected duplicate show."));
+        if (close) fixture.Window.Close();
+        await ready.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        Assert.Equal(close ? 0 : 1, shows);
+        Assert.Equal(!close, fixture.Window.IsVisible);
+        if (!close)
+        {
+            fixture.Window.Hide();
+            fixture.Window.ShowAndActivate();
+            Assert.True(fixture.Window.IsVisible);
+            Assert.Equal(2, shows);
+            foreach (var vibrancy in new[] { true, false })
+            {
+                App.Services.GetRequiredService<ISettingsService>().Set("vibrancy_enabled", vibrancy);
+                var frame = theme.Frame;
+                fixture.Window.ApplyAppearanceSettings();
+                Assert.Same(frame, theme.Frame);
+                Assert.IsType<LinearGradientBrush>(fixture.Window.FindResource("TitleBarBackgroundBrush"));
+            }
+        }
+    }
+
     [AvaloniaFact(Explicit = true)]
     [Trait("Area", "Window")]
     public async Task WindowMovesAndResizeDoNotPersistOrRestorePlacement()

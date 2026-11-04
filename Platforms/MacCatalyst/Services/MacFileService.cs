@@ -575,12 +575,18 @@ end tell");
         if (bundleIconKey == "folder" && IsKnownLibraryBundle(dir.Name))
             bundleIconKey = "app-bundle";
 
+        // Enumeration already runs on a worker. Read the system's package size,
+        // without recursively walking every application before publishing the list.
+        var size = OperatingSystem.IsMacOS() && dir.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase)
+            && !dir.Attributes.HasFlag(FileAttributes.ReparsePoint)
+            ? Math.Max(0, MacExplorer.Platforms.MacOS.MacSandboxNative.ApplicationSize(dir.FullName)) : 0;
+
         return new FileSystemEntry
         {
             FullPath = dir.FullName,
             Name = dir.Name,
             IsDirectory = true,
-            Size = 0,
+            Size = size,
             LastModified = dir.LastWriteTime,
             Created = dir.CreationTime,
             Extension = ext,
