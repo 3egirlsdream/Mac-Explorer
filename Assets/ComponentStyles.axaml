@@ -3,6 +3,45 @@
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI">
+    <Style Selector="Border.workspace-surface">
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.workspace-surface.split">
+        <!-- With the window's 8px inset, leave 20px for the 6px shadow and antialiasing. -->
+        <Setter Property="Margin" Value="12"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceSurfaceBrush}"/>
+    </Style>
+    <Style Selector="Border.workspace-surface.split > Grid > Border.workspace-content">
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+    <Style Selector="Border.workspace-shadow">
+        <Setter Property="BoxShadow" Value="{DynamicResource WorkspaceActiveShadow}"/>
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.workspace-surface.split.active > Grid > Border.workspace-shadow">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Border.workspace-inactive-overlay">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceInactiveOverlayBrush}"/>
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.workspace-surface.split:not(.active) Border.workspace-inactive-overlay">
+        <Setter Property="Opacity" Value="0.3"/>
+    </Style>
+
     <Style Selector="controls|AnimatedProgressRing">
         <Setter Property="Width" Value="16"/>
         <Setter Property="Height" Value="16"/>

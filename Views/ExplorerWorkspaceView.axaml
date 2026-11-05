@@ -22,22 +22,8 @@
         <Style Selector="local|ExplorerWorkspaceView:compact Grid#SidebarMaterialHost">
             <Setter Property="Margin" Value="0,4,0,4"/>
         </Style>
-        <Style Selector="Border.workspace-surface">
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-        </Style>
-        <Style Selector="Border.workspace-surface.active">
-            <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceDividerBrush}"/>
-        </Style>
-        <Style Selector="local|ExplorerWorkspaceView:split Border.workspace-surface">
-            <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceDividerBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Background" Value="{DynamicResource WorkspaceSurfaceBrush}"/>
-        </Style>
-        <Style Selector="local|ExplorerWorkspaceView:split Border.workspace-surface.active">
-            <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+        <Style Selector="Border.workspace-surface.split SplitView#SidebarSplitView">
+            <Setter Property="Margin" Value="4,0,0,0"/>
         </Style>
         <Style Selector="Grid.workspace-search-host">
             <Setter Property="Width" Value="220"/>
@@ -76,6 +62,11 @@
     </UserControl.Styles>
 
     <Border x:Name="WorkspaceSurface" Classes="workspace-surface" ClipToBounds="False">
+        <Grid>
+        <Border Classes="workspace-shadow" IsHitTestVisible="False"
+                CornerRadius="{Binding CornerRadius, ElementName=WorkspaceSurface}"/>
+        <Border Classes="workspace-content"
+                CornerRadius="{Binding CornerRadius, ElementName=WorkspaceSurface}">
         <Grid>
         <SplitView x:Name="SidebarSplitView"
                    ClipToBounds="False"
@@ -296,6 +287,10 @@
                 </Grid>
             </SplitView.Content>
         </SplitView>
+        <Border Classes="workspace-inactive-overlay" IsHitTestVisible="False"
+                glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
+        </Grid>
+        </Border>
         </Grid>
     </Border>
 </UserControl>

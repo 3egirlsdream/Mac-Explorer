@@ -32,6 +32,7 @@ feat: 优化文件夹恢复
 - 实现复用 `DialogWindow` / `AppWindow`、`SettingsStyles.axaml` 的分组与字段行，以及全局按钮、输入框和主题色；完成后检查浅色、深色、窄窗口、长文本和图标是否完整显示。
 
 # 组件样式
+- 分屏复用全局 `workspace-surface` / `workspace-content` / `workspace-shadow` / `workspace-inactive-overlay`：无边框，内容按 `RadiusLg` 裁切，激活显示零偏移轻阴影，深色额外使用柔和的 0.5px 外轮廓光；未激活以浅／深色淡灰蒙层淡化 30%。侧栏左侧内缩 4px，与玻璃表面上下间距一致；阴影独立于内容裁切，分屏内缩 12px 并结合主窗口 8px 外边距保留阴影空间，蒙层不拦截输入并排除玻璃采样。
 - 商店高级功能通过 `FeatureAccessService` 按功能授权，仅在触发高级入口时使用 `AppWindow.SubscriptionHost` 与可关闭的 `SubscriptionView`，复用紧凑设置分组和全局按钮；应用体验与 Apple 权益独立管理，价格及实际订阅优惠来自 StoreKit。
 - 官网版更新使用自有版本接口及下载安装流程；App Store 版通过 Apple Lookup 查询商店已发布版本，启动提示与关于页复用现有入口，点击“前往 App Store”打开应用详情页，由商店安装，不运行官网更新工作进程。
 - 文件列表视图切换复用全局 `view-mode-segmented`；三项工具栏追加 `three` 样式和 `ViewModeTrackThreeGeometry`，保持统一高度、圆角及选中态。

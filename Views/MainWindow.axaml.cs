@@ -1311,7 +1311,6 @@ public partial class MainWindow : AppWindow
             var wasVisible = workspace.IsVisible;
             var slot = definition.Slots[index];
             workspace.ForceCompact = _vm.IsMultiPane;
-            workspace.Margin = _vm.IsMultiPane ? new Thickness(2) : default;
             Grid.SetRow(workspace, slot.Row);
             Grid.SetColumn(workspace, slot.Column);
             Grid.SetRowSpan(workspace, slot.RowSpan);

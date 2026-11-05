@@ -116,7 +116,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         base.OnPropertyChanged(change);
         if (change.Property == ForceCompactProperty)
         {
-            PseudoClasses.Set(":split", ForceCompact);
+            WorkspaceSurface.Classes.Set("split", ForceCompact);
             ApplyResponsiveLayout(Bounds.Width);
         }
     }
