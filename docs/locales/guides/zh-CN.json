@@ -1,0 +1,46 @@
+{
+  "title": "使用指南",
+  "related": "延伸阅读",
+  "appleHelp": "Apple 使用手册 · 在 Finder 中重命名文件",
+  "appleHelpUrl": "https://support.apple.com/zh-cn/guide/mac-help/mchlp1144/mac",
+  "articles": {
+    "finder-comparison": {
+      "title": "Mac Explorer 和 Finder 有什么区别？",
+      "intro": "Finder 是 macOS 自带的文件管理器。Mac Explorer 是开源的第三方文件管理器，适合同时查看多个目录、组合规则批量改名，以及搜索已索引的 PDF 和图片文字。",
+      "imageAlt": "Mac Explorer 将两个目录放在同一窗口中，左侧使用列表视图，右侧使用图标视图。",
+      "sections": [
+        {
+          "title": "并排整理文件",
+          "paragraphs": ["在 Finder 中可以用多个标签页或窗口打开不同位置。Mac Explorer 的分屏把多个目录放进同一个工作区。整理项目时，可以左边打开下载目录，右边打开归档目录，在移动文件前同时核对来源和目标。"]
+        },
+        {
+          "title": "批量重命名",
+          "paragraphs": ["Finder 支持替换文字、添加文字和统一名称格式。Mac Explorer 可把多个规则按顺序组合，例如先替换相机文件名的前缀，再添加编号。应用前可以逐项对比原名称和新名称，检查重名并排除个别文件。"]
+        },
+        {
+          "title": "搜索与适用版本",
+          "paragraphs": ["Mac Explorer 可以搜索已索引的 PDF 正文和已有的图片文字识别结果。需要经常核对两个目录、重复执行命名规则或整理扫描资料时，这些功能能减少切换窗口和手动操作。Mac Explorer 支持 macOS 14 或更新版本，兼容 Apple Silicon 和 Intel。"]
+        }
+      ]
+    },
+    "batch-rename": {
+      "title": "Mac 上如何批量重命名文件",
+      "intro": "简单的替换、添加文字或编号可在 Finder 中完成。需要预览每个文件的新名称、组合多条规则或检查重名时，可以使用 Mac Explorer 的批量重命名工作台。",
+      "imageAlt": "批量重命名预览将原名称 Draft-01.txt、Draft-02.txt、Draft-03.txt 对照显示为 Report-01.txt、Report-02.txt、Report-03.txt。",
+      "sections": [
+        {
+          "title": "在 Mac Explorer 中预览并应用",
+          "steps": ["选中 Draft-01.txt、Draft-02.txt 和 Draft-03.txt，按 ⌘⇧R 打开批量重命名。", "选择「替换文本」规则，在「查找」填 Draft，在「替换为」填 Report。", "核对「新名称」一列。编号和 .txt 扩展名应保留。若有重名，调整规则、编辑该项的新名称或取消勾选该项。", "点击「重命名 3 项」，查看执行结果。如需还原，可使用结果中的「撤销本次重命名」。"]
+        },
+        {
+          "title": "组合规则并重复使用",
+          "paragraphs": ["可以在替换规则后继续添加前缀、日期或编号。规则从上到下应用，顺序会影响结果。经常处理同类文件时，可把规则保存成预设。"]
+        },
+        {
+          "title": "在 Finder 中完成简单改名",
+          "paragraphs": ["选中多个文件，打开右键菜单并选择「重新命名」，然后选择替换文字、添加文字或格式。统一文件名时，通常保留 .jpg、.pdf 等原扩展名，以便文件继续由对应应用打开。"]
+        }
+      ]
+    }
+  }
+}

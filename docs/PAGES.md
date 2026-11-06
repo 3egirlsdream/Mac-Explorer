@@ -12,7 +12,8 @@ Pages 继续使用 `main` 分支的 `/docs` 目录。页面是纯静态 HTML、C
 - `docs/landing.css` / `docs/script.js`：首页样式、按视口剩余高度等比缩放、语言与芯片下载菜单键盘操作。网站始终为亮色。
 - `docs/Assets/showcase/`：1.0.60 最新隔离应用截图中的文件图标；窗口、侧栏、标签、布局与文字全部由 HTML/CSS 组成。
 - `docs/Assets/social-preview.png`：1200 × 630 分享图片，从最终页面导出。
-- `docs/sitemap.xml`：四个语言主页、隐私政策与开发者中心的入口。
+- `docs/locales/guides/*.json`：Finder 对比与批量重命名指南的四语内容；生成各语言的 `guides/` 页面。
+- `docs/sitemap.xml`：四个语言主页、各语言指南、隐私政策与开发者中心的入口。
 - `docs/robots.txt`：允许抓取并声明站点地图。
 - `docs/.nojekyll`：直接发布静态文件。
 
@@ -64,7 +65,7 @@ NODE_PATH=/tmp/mac-explorer-pages-tools/node_modules \
 
 1. 运行生成一致性检查和网页验证，提交相关文件并推送 `main`。
 2. 确认 GitHub Pages 构建成功、启用强制 HTTPS，再检查正式地址、四种语言路由及站点地图返回 200，旧地址按原路径重定向。
-3. 在 Google Search Console 验证 `macexplorer.top` 域名资源，提交 `https://macexplorer.top/sitemap.xml`，对主页执行 URL 检查并请求编入索引。使用 Bing Webmaster Tools 时提交同一站点地图。
+3. 在 Google Search Console、Bing Webmaster Tools 和百度搜索资源平台分别验证站点，使用同一站点地图。百度站点若只有手动提交入口，提交需要发现的规范网址。
 4. 后续查看“mac explorer”“Mac文件资源管理器”的展现与收录情况。SEO 改善抓取和理解，不能保证某个时间收录或具体排名。
 
 [Google SEO 入门指南](https://developers.google.com/search/docs/fundamentals/seo-starter-guide) · [多语言页面说明](https://developers.google.com/search/docs/specialty/international/localized-versions) · [robots.txt 放置规则](https://developers.google.com/search/docs/crawling-indexing/robots/intro)

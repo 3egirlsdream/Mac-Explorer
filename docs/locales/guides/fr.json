@@ -1,0 +1,46 @@
+{
+  "title": "Guides",
+  "related": "À lire aussi",
+  "appleHelp": "Guide Apple · Renommer des fichiers dans le Finder",
+  "appleHelpUrl": "https://support.apple.com/fr-fr/guide/mac-help/mchlp1144/mac",
+  "articles": {
+    "finder-comparison": {
+      "title": "Mac Explorer et le Finder",
+      "intro": "Le Finder est le gestionnaire de fichiers intégré à macOS. Mac Explorer est un gestionnaire libre conçu pour afficher des dossiers côte à côte, combiner des règles de renommage et rechercher le texte indexé de PDF et d’images.",
+      "imageAlt": "Deux dossiers ouverts dans une fenêtre Mac Explorer, avec une liste à gauche et une grille d’icônes à droite.",
+      "sections": [
+        {
+          "title": "Organiser des dossiers côte à côte",
+          "paragraphs": ["Le Finder peut ouvrir plusieurs emplacements dans des onglets ou des fenêtres. La vue scindée de Mac Explorer affiche plusieurs dossiers dans un même espace de travail. Pour ranger un projet, ouvrez Téléchargements à gauche et les archives à droite pour contrôler les deux emplacements avant de déplacer les fichiers."]
+        },
+        {
+          "title": "Renommer des fichiers par lot",
+          "paragraphs": ["Le Finder peut remplacer ou ajouter du texte et appliquer un format de nom. Mac Explorer permet de combiner plusieurs règles dans l’ordre. Vous pouvez remplacer le préfixe d’un nom de photo, puis ajouter un numéro. L’aperçu permet de vérifier chaque nom, de repérer les conflits et d’exclure certains fichiers."]
+        },
+        {
+          "title": "Recherche et compatibilité",
+          "paragraphs": ["Mac Explorer recherche le texte indexé des PDF et le texte déjà reconnu dans les images. Ces fonctions servent à classer des documents numérisés, à reproduire un renommage ou à vérifier régulièrement deux dossiers. Mac Explorer nécessite macOS 14 ou une version ultérieure et fonctionne sur les Mac avec puce Apple ou processeur Intel."]
+        }
+      ]
+    },
+    "batch-rename": {
+      "title": "Renommer plusieurs fichiers sur Mac",
+      "intro": "Le Finder permet de remplacer ou d’ajouter du texte et de numéroter des fichiers. L’espace de renommage de Mac Explorer sert à vérifier chaque nouveau nom, à combiner des règles et à repérer les conflits.",
+      "imageAlt": "L’aperçu affiche Draft-01.txt, Draft-02.txt et Draft-03.txt face à Report-01.txt, Report-02.txt et Report-03.txt.",
+      "sections": [
+        {
+          "title": "Prévisualiser et appliquer les changements",
+          "steps": ["Sélectionnez Draft-01.txt, Draft-02.txt et Draft-03.txt. Appuyez sur Commande-Maj-R pour ouvrir le renommage par lot.", "Sélectionnez la règle de remplacement de texte. Recherchez Draft et saisissez Report comme remplacement.", "Vérifiez la colonne des nouveaux noms. Le numéro et l’extension .txt doivent rester en place. En cas de conflit, ajustez la règle, modifiez le nom proposé ou désélectionnez le fichier.", "Cliquez sur Renommer et vérifiez le résultat. Depuis les résultats, vous pouvez annuler le renommage pour rétablir les anciens noms."]
+        },
+        {
+          "title": "Combiner et réutiliser des règles",
+          "paragraphs": ["Ajoutez un préfixe, une date ou un numéro après la règle de remplacement. Les règles s’appliquent de haut en bas et leur ordre peut modifier le résultat. Enregistrez un préréglage si vous devez réutiliser le même enchaînement."]
+        },
+        {
+          "title": "Utiliser le Finder pour les changements simples",
+          "paragraphs": ["Sélectionnez plusieurs fichiers et choisissez Renommer dans le menu contextuel. Choisissez le remplacement de texte, l’ajout de texte ou le format. Conserver l’extension d’origine, par exemple .jpg ou .pdf, aide à ouvrir le fichier avec l’application attendue."]
+        }
+      ]
+    }
+  }
+}

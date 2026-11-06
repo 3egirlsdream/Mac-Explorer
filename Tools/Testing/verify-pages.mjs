@@ -14,6 +14,7 @@ const languageRoutes = [
   ["zh-Hant", "zh-Hant/"],
   ["fr", "fr/"],
 ];
+const guideSlugs = ["finder-comparison", "batch-rename"];
 const expectedAlternates = [...languageRoutes, ["x-default", ""]].map(
   ([lang, route]) => [
     lang,
@@ -291,12 +292,19 @@ try {
   const request = await browser.newContext({ javaScriptEnabled: false });
   const sitemap = await request.request.get(new URL("sitemap.xml", base).href);
   const publicRoutes = ["privacy/", "developers/", "developers/sdk.html"];
+  const guideRoutes = guideSlugs.flatMap((slug) =>
+    languageRoutes.map(([lang, prefix]) => [lang, `${prefix}guides/${slug}/`, slug]),
+  );
   const sitemapUrls = [...(await sitemap.text()).matchAll(/<loc>([^<]+)<\/loc>/g)]
     .map(([, url]) => url);
-  const expectedUrls = [...languageRoutes.map(([, route]) => route), ...publicRoutes]
+  const expectedUrls = [
+    ...languageRoutes.map(([, route]) => route),
+    ...publicRoutes,
+    ...guideRoutes.map(([, route]) => route),
+  ]
     .map((route) => canonicalBase + route);
   check(
-    "Sitemap contains four languages and existing public pages",
+    "Sitemap contains every homepage, guide and public page",
     sitemap.ok() &&
       sitemapUrls.length === expectedUrls.length &&
       expectedUrls.every((url) => sitemapUrls.includes(url)),
@@ -327,6 +335,48 @@ try {
     "Developer center remains available",
     (await page.locator("h1").count()) === 1,
   );
+  for (const [lang, route, slug] of guideRoutes) {
+    const guidePage = await browser.newPage({
+      viewport: { width: 320, height: 740 },
+    });
+    observe(guidePage);
+    const response = await guidePage.goto(new URL(route, base).href);
+    const guide = await guidePage.evaluate(() => {
+      const head = document.head;
+      const image = document.querySelector(".guide-page figure img");
+      return {
+        lang: document.documentElement.lang,
+        canonical: head.querySelector("link[rel=canonical]").href,
+        alternates: Object.fromEntries(
+          [...head.querySelectorAll("link[hreflang]")].map((link) => [link.hreflang, link.href]),
+        ),
+        imageLoaded: image.complete && image.naturalWidth > 0 && image.alt.length > 0,
+        schema: JSON.parse(head.querySelector('script[type="application/ld+json"]').textContent),
+        headings: document.querySelectorAll("main article h1").length,
+        noOverflow: document.documentElement.scrollWidth <= innerWidth,
+      };
+    });
+    check(`${route}: canonical and readable on mobile`, response.ok() &&
+      guide.lang === lang && guide.canonical === canonicalBase + route &&
+      guide.headings === 1 && guide.imageLoaded && guide.noOverflow);
+    check(`${route}: localized links and article schema`,
+      Object.keys(guide.alternates).length === 5 &&
+      languageRoutes.every(([code, prefix]) =>
+        guide.alternates[code] === `${canonicalBase}${prefix}guides/${slug}/`) &&
+      guide.alternates["x-default"] === `${canonicalBase}guides/${slug}/` &&
+      guide.schema["@type"] === "TechArticle" && guide.schema.url === guide.canonical);
+    await audit(guidePage, `${lang}-${slug}`);
+    await guidePage.locator(".language-picker summary").click();
+    check(`${route}: language switch has four choices`,
+      await guidePage.locator(".language-picker a").count() === 4);
+    await guidePage.keyboard.press("Escape");
+    if (lang === "zh-CN") {
+      await guidePage.screenshot({ path: join(output, `${slug}-mobile.png`), fullPage: true });
+      await guidePage.setViewportSize({ width: 1440, height: 900 });
+      await guidePage.screenshot({ path: join(output, `${slug}-desktop.png`), fullPage: true });
+    }
+    await guidePage.close();
+  }
   check("No browser or HTTP errors", errors.length === 0);
   await writeFile(
     join(output, "report.json"),

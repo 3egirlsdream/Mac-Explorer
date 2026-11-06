@@ -81,6 +81,8 @@ feat: 优化文件夹恢复
 - GitHub Pages 官网正文使用本地托管的 `Montserrat, system-ui, sans-serif`，中文回退系统字体；软件界面展示保留系统默认字体，复用 `docs/landing.css` 的按钮、分区与亮色网格主题，真实界面展示统一经 `replica-stage` 按当前截图的 1280×800 等比缩放，首屏默认文件列表与右键菜单并随视口剩余高度完整显示，正文仅介绍产品功能；底部开源与插件入口复用 `community-section` 的居中介绍和并排胶囊按钮；文案在 `docs/locales` 四语文件维护，由 `Tools/Website/build.py` 生成独立静态语言页面。
 - 官网首屏堆叠复用 `showcase-stack` / `showcase-window`，前景保留完整文件列表与两级菜单；装饰窗口从无障碍树排除。主题 SVG 经 `Tools/Website/build.py` 从应用预置同步，保持原比例和 35% 图案强度；组件透明表面、菜单 65% 白色与 8px 模糊，不降低文字或图标透明度。 首页图标在构建时从本地 Fluent sprite 内嵌路径并保留 viewBox，避免外部 SVG use 引用在预览浏览器中丢失。 展示中的工具栏标签复用 `browser-toolbar-tags`，右侧面板使用 `browser-info-*` 的单页分区、透明预览、右对齐字段和主题细分隔线，新增文案由四语 `browserDemo` 提供。 官网展示的标题栏保留无纹理渐变，通过单层裁切为激活页签留出开口；页签直接透出窗口背景，不复制背景图，避免缩放拼接细线。 页签下缘不绘制分隔线或阴影。
 
+- 官网指南复用 `landing.css` 的 `guide-index` / `guide-page` 与现有语言选择器；四语正文由 `docs/locales/guides` 生成静态页面，使用真实界面截图，规范网址和语言互链随页面生成并加入站点地图。
+
 # 多语言
 - 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `Languages` 目录下简体中文、繁体中文、英文和法语的已发布语言文件，不直接显示硬编码文案。语言列表从 `Languages/*.json` 构建生成，新增语言不修改设置列表；中文原文查询需将 key 加入中文文件的 `literalKeys`。运行时只查内存缓存，不扫描目录或读取 JSON，规则见 `Languages/README.md`。
 - 动态右键菜单在构建时按当前语言取文案；检查语言切换后重新打开菜单的显示，确保中英文均正确，较长英文不裁切，参数占位符保持一致。

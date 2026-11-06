@@ -1,0 +1,46 @@
+{
+  "title": "使用指南",
+  "related": "延伸閱讀",
+  "appleHelp": "Apple 使用手冊 · 在 Finder 中重新命名檔案",
+  "appleHelpUrl": "https://support.apple.com/zh-tw/guide/mac-help/mchlp1144/mac",
+  "articles": {
+    "finder-comparison": {
+      "title": "Mac Explorer 和 Finder 有什麼差別？",
+      "intro": "Finder 是 macOS 內建的檔案管理工具。Mac Explorer 是開放原始碼的檔案總管，適合同時檢視多個資料夾、組合規則批次重新命名，以及搜尋已建立索引的 PDF 和影像文字。",
+      "imageAlt": "Mac Explorer 在同一個視窗中開啟兩個資料夾，左側為列表，右側為圖示格線。",
+      "sections": [
+        {
+          "title": "並排整理檔案",
+          "paragraphs": ["Finder 可以用分頁或個別視窗開啟不同位置。Mac Explorer 的分割窗格可以在同一工作區顯示多個資料夾。整理專案時，可以左邊開啟下載項目、右邊開啟封存資料夾，移動檔案前同時確認來源與目的地。"]
+        },
+        {
+          "title": "批次重新命名",
+          "paragraphs": ["Finder 支援取代文字、加入文字和統一名稱格式。Mac Explorer 可依序套用多條規則，例如先取代相機檔名的前綴，再加入編號。套用前可以逐一比較原始名稱和新名稱、檢查衝突，或排除個別檔案。"]
+        },
+        {
+          "title": "搜尋與支援版本",
+          "paragraphs": ["Mac Explorer 可以搜尋已建立索引的 PDF 內文和已辨識的影像文字。經常核對兩個資料夾、重複命名流程或整理掃描文件時，這些功能能減少切換視窗和手動操作。Mac Explorer 支援 macOS 14 或更新版本，適用於 Apple 晶片和 Intel Mac。"]
+        }
+      ]
+    },
+    "batch-rename": {
+      "title": "如何在 Mac 上批次重新命名檔案",
+      "intro": "簡單的取代、加入文字或編號可在 Finder 中完成。若需要預覽每個新檔名、組合規則或檢查名稱衝突，可以使用 Mac Explorer 的批次重新命名工作區。",
+      "imageAlt": "批次重新命名預覽將 Draft-01.txt、Draft-02.txt、Draft-03.txt 分別對照到 Report-01.txt、Report-02.txt、Report-03.txt。",
+      "sections": [
+        {
+          "title": "在 Mac Explorer 預覽並套用變更",
+          "steps": ["選取 Draft-01.txt、Draft-02.txt 和 Draft-03.txt，按 ⌘⇧R 開啟批次重新命名。", "選擇文字取代規則，在搜尋欄位輸入 Draft，取代欄位輸入 Report。", "檢查新名稱欄位，確認編號和 .txt 副檔名保留。若名稱衝突，可調整規則、編輯建議的名稱或取消選取該項。", "按一下重命名 3 項並查看結果。如需還原，可從結果中撤銷本次重新命名。"]
+        },
+        {
+          "title": "組合與重複使用規則",
+          "paragraphs": ["可以在取代規則之後加入前綴、日期或編號。規則由上而下套用，順序會影響結果。經常重複同一流程時，可以把規則儲存成預設。"]
+        },
+        {
+          "title": "在 Finder 處理簡單變更",
+          "paragraphs": ["選取多個檔案，在快速鍵選單中選擇「重新命名」，然後選擇取代文字、加入文字或格式。保留 .jpg、.pdf 等原始副檔名，有助於讓檔案繼續由對應的 App 開啟。"]
+        }
+      ]
+    }
+  }
+}

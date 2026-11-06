@@ -1068,6 +1068,98 @@ p {
   line-height: 1.9;
   padding-bottom: 20px;
 }
+.guide-index {
+  margin-block: 40px;
+}
+.guide-index h2 {
+  margin-bottom: 12px;
+  font-size: 22px;
+}
+.guide-index ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.guide-index a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.guide-index a:hover {
+  color: var(--accent);
+}
+.guide-index .icon {
+  width: 15px;
+  height: 15px;
+}
+.guide-header {
+  justify-content: space-between;
+}
+.guide-page {
+  max-width: 820px;
+  margin-block: clamp(32px, 6vw, 76px);
+}
+.guide-page h1 {
+  margin: 14px 0;
+  font-size: clamp(28px, 5vw, 48px);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.guide-page article {
+  font-size: 16px;
+  line-height: 1.8;
+  text-wrap: pretty;
+}
+.guide-page h2 {
+  font-size: 22px;
+  line-height: 1.4;
+}
+.guide-page article section {
+  margin-block: 32px;
+}
+.guide-page article h2 {
+  margin-bottom: 8px;
+}
+.guide-page ol {
+  margin: 0;
+  padding-inline-start: 1.5em;
+}
+.guide-page ol li + li {
+  margin-top: 6px;
+}
+.guide-page figure {
+  margin: 24px 0 32px;
+}
+.guide-page figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.guide-back,
+.guide-source a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.guide-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.guide-intro {
+  color: var(--muted);
+}
 .community-section {
   position: relative;
   isolation: isolate;

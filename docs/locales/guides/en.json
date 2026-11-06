@@ -1,0 +1,46 @@
+{
+  "title": "Guides",
+  "related": "Related guide",
+  "appleHelp": "Apple User Guide · Rename files in Finder",
+  "appleHelpUrl": "https://support.apple.com/guide/mac-help/mchlp1144/mac",
+  "articles": {
+    "finder-comparison": {
+      "title": "Mac Explorer vs. Finder",
+      "intro": "Finder is the file manager built into macOS. Mac Explorer is an open-source file manager for working with folders side by side, combining batch rename rules, and searching indexed PDF and image text.",
+      "imageAlt": "Two folders open in one Mac Explorer window, with a list on the left and an icon grid on the right.",
+      "sections": [
+        {
+          "title": "Work with folders side by side",
+          "paragraphs": ["Finder can open different locations in tabs or separate windows. Mac Explorer's split view puts multiple folders in a single workspace. When organizing a project, you can open Downloads on the left and the archive on the right, then check both locations before moving files."]
+        },
+        {
+          "title": "Batch rename files",
+          "paragraphs": ["Finder can replace text, add text, and apply a naming format. Mac Explorer can combine rules in order. For example, replace a camera filename prefix and then add a sequence number. Preview each original and new name, check for conflicts, and exclude individual files before applying."]
+        },
+        {
+          "title": "Search files and check compatibility",
+          "paragraphs": ["Mac Explorer can search indexed PDF text and text already recognized in images. That helps when organizing scans, repeating a naming workflow, or checking two folders frequently. Mac Explorer requires macOS 14 or later and supports Apple silicon and Intel Macs."]
+        }
+      ]
+    },
+    "batch-rename": {
+      "title": "How to batch rename files on a Mac",
+      "intro": "Finder can replace or add text and number files. Use the batch rename workspace in Mac Explorer when you want to preview each new name, combine rules, or check for name conflicts.",
+      "imageAlt": "The batch rename preview pairs Draft-01.txt, Draft-02.txt, and Draft-03.txt with Report-01.txt, Report-02.txt, and Report-03.txt.",
+      "sections": [
+        {
+          "title": "Preview and apply changes in Mac Explorer",
+          "steps": ["Select Draft-01.txt, Draft-02.txt, and Draft-03.txt. Press Command-Shift-R to open Batch Rename.", "Select the text replacement rule. Enter Draft as the text to find and Report as the replacement.", "Check the New name column. The number and .txt extension should stay in place. If names conflict, adjust the rule, edit the proposed name, or deselect that item.", "Click Rename 3 items and review the results. Use Undo this rename from the results if you need to restore the previous names."]
+        },
+        {
+          "title": "Combine and reuse rules",
+          "paragraphs": ["Add a prefix, date, or sequence number after the replacement rule. Rules run from top to bottom, so changing their order can change the output. Save a preset when you need to repeat the same workflow."]
+        },
+        {
+          "title": "Use Finder for simple changes",
+          "paragraphs": ["Select multiple files, open the shortcut menu, and choose Rename. Pick Replace Text, Add Text, or Format. Keeping the original extension, such as .jpg or .pdf, helps files continue to open in the expected app."]
+        }
+      ]
+    }
+  }
+}
