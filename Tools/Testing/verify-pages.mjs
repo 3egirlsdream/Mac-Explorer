@@ -7,6 +7,19 @@ const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 const axePath = require.resolve("axe-core/axe.min.js");
 const base = process.argv[2] || "http://127.0.0.1:4317/";
+const canonicalBase = "https://macexplorer.top/";
+const languageRoutes = [
+  ["zh-CN", ""],
+  ["en", "en/"],
+  ["zh-Hant", "zh-Hant/"],
+  ["fr", "fr/"],
+];
+const expectedAlternates = [...languageRoutes, ["x-default", ""]].map(
+  ([lang, route]) => [
+    lang,
+    canonicalBase + route,
+  ],
+);
 const output = resolve(process.argv[3] || "/tmp/macexplorer-pages-qa");
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -59,12 +72,7 @@ async function audit(page, name) {
   );
 }
 try {
-  for (const [lang, route] of [
-    ["zh-CN", ""],
-    ["en", "en/"],
-    ["zh-Hant", "zh-Hant/"],
-    ["fr", "fr/"],
-  ]) {
+  for (const [lang, route] of languageRoutes) {
     for (const [width, height] of [
       [1440, 900],
       [1366, 768],
@@ -102,9 +110,8 @@ try {
       );
       const metadata = await page.evaluate(() => ({
         canonical: document.querySelector("link[rel=canonical]").href,
-        alternates: [...document.querySelectorAll("link[hreflang]")].map(
-          (e) => e.href,
-        ),
+        alternates: [...document.querySelectorAll("link[rel=alternate][hreflang]")]
+          .map((e) => [e.hreflang, e.href]),
         description: document.querySelector("meta[name=description]").content,
         schema: JSON.parse(
           document.querySelector('script[type="application/ld+json"]')
@@ -113,8 +120,14 @@ try {
       }));
       check(
         `${name}: canonical and five alternates`,
-        metadata.canonical.endsWith("/Mac-Explorer/" + route) &&
-          metadata.alternates.length === 5,
+        metadata.canonical === canonicalBase + route &&
+          metadata.alternates.length === expectedAlternates.length &&
+          expectedAlternates.every(([language, href]) =>
+            metadata.alternates.some(
+              ([actualLanguage, actualHref]) =>
+                actualLanguage === language && actualHref === href,
+            ),
+          ),
       );
       check(
         `${name}: description and software schema`,
@@ -275,13 +288,35 @@ try {
     );
     await page.close();
   }
-  const request = await browser.newContext();
+  const request = await browser.newContext({ javaScriptEnabled: false });
   const sitemap = await request.request.get(new URL("sitemap.xml", base).href);
+  const publicRoutes = ["privacy/", "developers/", "developers/sdk.html"];
+  const sitemapUrls = [...(await sitemap.text()).matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map(([, url]) => url);
+  const expectedUrls = [...languageRoutes.map(([, route]) => route), ...publicRoutes]
+    .map((route) => canonicalBase + route);
   check(
     "Sitemap contains four languages and existing public pages",
-    sitemap.ok() && (await sitemap.text()).match(/<loc>/g).length === 7,
+    sitemap.ok() &&
+      sitemapUrls.length === expectedUrls.length &&
+      expectedUrls.every((url) => sitemapUrls.includes(url)),
+  );
+  const robots = await request.request.get(new URL("robots.txt", base).href);
+  check(
+    "Root robots.txt allows crawling and points to the canonical sitemap",
+    robots.ok() &&
+      (await robots.text()) === `User-agent: *\nAllow: /\nSitemap: ${canonicalBase}sitemap.xml\n`,
   );
   const page = await request.newPage();
+  for (const route of publicRoutes) {
+    const response = await page.goto(new URL(route, base).href);
+    check(
+      `${route} is available at its canonical URL`,
+      response.ok() &&
+        (await page.locator("link[rel=canonical]").getAttribute("href")) ===
+          canonicalBase + route,
+    );
+  }
   await page.goto(new URL("privacy/", base).href);
   check(
     "Privacy keeps its shared legacy styles",

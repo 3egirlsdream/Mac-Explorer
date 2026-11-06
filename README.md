@@ -15,10 +15,10 @@
 </p>
 
 <p align="center">
-  <a href="https://3egirlsdream.github.io/Mac-Explorer/">Website</a> ·
+  <a href="https://macexplorer.top/">Website</a> ·
   <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest">Download</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
-  <a href="https://3egirlsdream.github.io/Mac-Explorer/privacy/">Privacy</a> ·
+  <a href="https://macexplorer.top/privacy/">Privacy</a> ·
   <a href="https://github.com/3egirlsdream/Mac-Explorer/issues">Feedback</a>
 </p>
 
@@ -116,7 +116,7 @@ To use Copilot, enter an OpenAI-compatible API endpoint, model name, and API key
 - Use English or Chinese, light or dark appearance, glass surfaces, and standard, compact, or comfortable typography. Adjust interaction colors to suit your preference.
 - Customize keyboard shortcuts, check conflicts, restore defaults, and hold `⌘` to show available shortcut hints.
 - In the website edition, configure named commands for home-page scripts, including their icons, shell, and working directory, and run them through your terminal.
-- Install and manage file-processing extensions through the plugin market or local `.mexplug` packages in the website edition. Developers can build and publish extensions with the [plugin SDK](docs/plugins.md) and [developer center](https://3egirlsdream.github.io/Mac-Explorer/developers/).
+- Install and manage file-processing extensions through the plugin market or local `.mexplug` packages in the website edition. Developers can build and publish extensions with the [plugin SDK](docs/plugins.md) and [developer center](https://macexplorer.top/developers/).
 
 ## Installation and editions
 
@@ -139,7 +139,7 @@ This overview describes the current source. Check the [changelog](CHANGELOG.md) 
 
 File indexes, tags, ratings, settings, analysis results, and Copilot history are stored locally. Image recognition runs on the device. Optional photo location lookup, a configured AI provider, SFTP connections, and LocalSend transfers use their respective services or selected peers.
 
-Copilot confirms the AI recipient before sharing file information and asks for approval before sending file contents or changing files. Saved Copilot API keys, SFTP passwords, and private-key passphrases are stored in the local application database without additional encryption. See the [privacy policy](https://3egirlsdream.github.io/Mac-Explorer/privacy/) for details and available controls.
+Copilot confirms the AI recipient before sharing file information and asks for approval before sending file contents or changing files. Saved Copilot API keys, SFTP passwords, and private-key passphrases are stored in the local application database without additional encryption. See the [privacy policy](https://macexplorer.top/privacy/) for details and available controls.
 
 ## Default shortcuts
 

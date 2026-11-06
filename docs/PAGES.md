@@ -1,6 +1,6 @@
 # GitHub Pages 官网
 
-正式地址：<https://3egirlsdream.github.io/Mac-Explorer/>
+正式地址为 <https://macexplorer.top/>。GitHub Pages 将旧项目地址和 `www` 入口重定向到主域名，保留语言及文档路径。
 
 Pages 继续使用 `main` 分支的 `/docs` 目录。页面是纯静态 HTML、CSS 和 JavaScript，部署无需 Node.js、Python 或构建步骤。新版采用亮色细网格背景，首屏使用产品名称、简短定位、下载按钮和完整的文件列表及右键菜单界面；下滑后按四个分区介绍 16 项特色功能。底部使用居中介绍与胶囊入口，链接至 GitHub、插件 SDK、插件发布和问题反馈。
 
@@ -13,6 +13,7 @@ Pages 继续使用 `main` 分支的 `/docs` 目录。页面是纯静态 HTML、C
 - `docs/Assets/showcase/`：1.0.60 最新隔离应用截图中的文件图标；窗口、侧栏、标签、布局与文字全部由 HTML/CSS 组成。
 - `docs/Assets/social-preview.png`：1200 × 630 分享图片，从最终页面导出。
 - `docs/sitemap.xml`：四个语言主页、隐私政策与开发者中心的入口。
+- `docs/robots.txt`：允许抓取并声明站点地图。
 - `docs/.nojekyll`：直接发布静态文件。
 
 修改模板或语言文件后运行并提交生成结果：
@@ -57,13 +58,13 @@ NODE_PATH=/tmp/mac-explorer-pages-tools/node_modules \
 - 每种语言都有独立、自指向的 canonical，以及互相对应的四种语言 `hreflang` 与 `x-default`。
 - `WebSite`、`WebPage`、`SoftwareApplication` JSON-LD 描述网站及官网免费版；App Store 版的订阅差异在 FAQ 明确说明。不编造评价、评分或下载量。
 - 生成 Open Graph / Twitter 分享信息、图像说明与尺寸，正文是可直接抓取的 HTML。
-- 项目站位于 `/Mac-Explorer/`。有效的 robots.txt 必须位于域名根路径 `/robots.txt`，本仓库内的 `/Mac-Explorer/robots.txt` 不会控制抓取，因此不添加无效的项目级 robots 文件。页面通过 robots meta 允许索引。
+- 主域名根路径提供 `/robots.txt` 与 `/sitemap.xml`。canonical、语言替代链接、结构化数据和分享元数据统一使用 HTTPS 主域名。
 
 上线顺序：
 
 1. 运行生成一致性检查和网页验证，提交相关文件并推送 `main`。
-2. 确认 GitHub Pages 构建成功，再检查正式地址、四种语言路由和 sitemap 返回 200。
-3. 在已验证所有权的 Google Search Console 中添加 `https://3egirlsdream.github.io/Mac-Explorer/` URL 前缀资源，提交 `https://3egirlsdream.github.io/Mac-Explorer/sitemap.xml`，对主页执行 URL 检查并请求编入索引。使用 Bing Webmaster Tools 时提交同一 sitemap。
+2. 确认 GitHub Pages 构建成功、启用强制 HTTPS，再检查正式地址、四种语言路由及站点地图返回 200，旧地址按原路径重定向。
+3. 在 Google Search Console 验证 `macexplorer.top` 域名资源，提交 `https://macexplorer.top/sitemap.xml`，对主页执行 URL 检查并请求编入索引。使用 Bing Webmaster Tools 时提交同一站点地图。
 4. 后续查看“mac explorer”“Mac文件资源管理器”的展现与收录情况。SEO 改善抓取和理解，不能保证某个时间收录或具体排名。
 
 [Google SEO 入门指南](https://developers.google.com/search/docs/fundamentals/seo-starter-guide) · [多语言页面说明](https://developers.google.com/search/docs/specialty/international/localized-versions) · [robots.txt 放置规则](https://developers.google.com/search/docs/crawling-indexing/robots/intro)

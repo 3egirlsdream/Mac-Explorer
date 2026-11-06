@@ -15,10 +15,10 @@
 </p>
 
 <p align="center">
-  <a href="https://3egirlsdream.github.io/Mac-Explorer/">官网</a> ·
+  <a href="https://macexplorer.top/">官网</a> ·
   <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest">下载</a> ·
   <a href="CHANGELOG.md">更新日志</a> ·
-  <a href="https://3egirlsdream.github.io/Mac-Explorer/privacy/">隐私政策</a> ·
+  <a href="https://macexplorer.top/privacy/">隐私政策</a> ·
   <a href="https://github.com/3egirlsdream/Mac-Explorer/issues">反馈</a>
 </p>
 
@@ -116,7 +116,7 @@ Mac Explorer 将日常文件工作集中在一个 macOS 应用里。并排浏览
 - 支持中文与英文、浅色与深色主题、玻璃表面，以及标准、紧凑、舒适三种排版密度；可调整交互颜色。
 - 自定义快捷键、检查冲突、恢复默认，长按 `⌘` 查看当前可用的快捷键提示。
 - 官网版可为首页脚本配置具名命令、图标、Shell 与工作目录，并通过终端运行。
-- 官网版支持通过插件市场或本地 `.mexplug` 包安装、管理文件处理扩展；开发者可使用 [插件 SDK](docs/plugins.md) 和 [开发者中心](https://3egirlsdream.github.io/Mac-Explorer/developers/) 开发并发布插件。
+- 官网版支持通过插件市场或本地 `.mexplug` 包安装、管理文件处理扩展；开发者可使用 [插件 SDK](docs/plugins.md) 和 [开发者中心](https://macexplorer.top/developers/) 开发并发布插件。
 
 ## 安装与版本差异
 
@@ -139,7 +139,7 @@ Mac Explorer 将日常文件工作集中在一个 macOS 应用里。并排浏览
 
 文件索引、标签、评分、设置、分析结果及 Copilot 历史保存在本机，图片识别在设备上完成。可选的照片地点解析、用户配置的 AI 服务、SFTP 连接及 LocalSend 传输分别使用对应服务或选定设备。
 
-Copilot 向 AI 分享文件信息前确认接收方，发送文件正文或修改文件前需要批准。保存的 Copilot API Key、SFTP 密码与私钥口令存储在本机应用数据库中，未额外加密。详细数据用途与控制入口见 [隐私政策](https://3egirlsdream.github.io/Mac-Explorer/privacy/)。
+Copilot 向 AI 分享文件信息前确认接收方，发送文件正文或修改文件前需要批准。保存的 Copilot API Key、SFTP 密码与私钥口令存储在本机应用数据库中，未额外加密。详细数据用途与控制入口见 [隐私政策](https://macexplorer.top/privacy/)。
 
 ## 默认快捷键
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / 'docs'
-BASE = 'https://3egirlsdream.github.io/Mac-Explorer/'
+BASE = 'https://macexplorer.top/'
 REPO = 'https://github.com/3egirlsdream/Mac-Explorer'
 APP_STORE_URL = 'https://apps.apple.com/cn/app/id6820338798?mt=12'
 ROUTES = {'zh-CN': '', 'zh-Hant': 'zh-Hant/', 'en': 'en/', 'fr': 'fr/'}
@@ -128,6 +128,7 @@ def main():
         generated[DOCS / 'Assets' / 'showcase' / 'themes' / (theme + '.svg')] = (ROOT / 'Assets' / 'BackgroundThemes' / (theme + '.svg')).read_text()
     urls = [BASE+r for r in ROUTES.values()] + [BASE+'privacy/',BASE+'developers/',BASE+'developers/sdk.html']
     generated[DOCS/'sitemap.xml'] = ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'+''.join(f'  <url><loc>{u}</loc></url>\n' for u in urls)+'</urlset>\n')
+    generated[DOCS/'robots.txt'] = f'User-agent: *\nAllow: /\nSitemap: {BASE}sitemap.xml\n'
     generated[DOCS/'.nojekyll'] = ''
     if args.check:
         stale = [str(path.relative_to(ROOT)) for path, content in generated.items() if not path.exists() or path.read_text() != content]
