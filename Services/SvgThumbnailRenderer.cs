@@ -1,11 +1,43 @@
+using System.IO.Compression;
 using System.Xml;
 using SkiaSharp;
+using Svg;
 using Svg.Skia;
 
 namespace MacExplorer.Services;
 
 internal static class SvgThumbnailRenderer
 {
+    private const int MaxCompressedSvgBytes = 8 * 1024 * 1024;
+
+    internal static bool Supports(string extension) => extension is ".svg" or ".svgz";
+
+    internal static async Task<byte[]?> RenderFileAsync(string path, bool compressed, int maxPixelSize, CancellationToken ct)
+    {
+        if (!compressed)
+        {
+            var bytes = await BoundedImageDecoder.ReadSourceAsync(path, ct).ConfigureAwait(false);
+            return bytes == null ? null : RenderPng(bytes, maxPixelSize, ct);
+        }
+
+        try
+        {
+            await using var input = File.OpenRead(path);
+            if (input.Length > MaxCompressedSvgBytes) return null;
+            await using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            using var svg = new MemoryStream();
+            var buffer = new byte[16 * 1024];
+            int read;
+            while ((read = await gzip.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+            {
+                if (svg.Length + read > MaxCompressedSvgBytes) return null;
+                svg.Write(buffer, 0, read);
+            }
+            return RenderPng(svg.ToArray(), maxPixelSize, ct);
+        }
+        catch (InvalidDataException) { return null; }
+    }
+
     // SVG is rasterized only here; every preview consumer receives a bounded PNG.
     internal static byte[]? RenderPng(byte[] source, int maxPixelSize, CancellationToken ct)
     {
@@ -23,7 +55,7 @@ internal static class SvgThumbnailRenderer
             using var svg = new SKSvg();
             svg.Settings.EnableJavaScript = false;
             svg.Settings.EnableExternalJavaScript = false;
-            svg.Load(reader);
+            svg.FromSvgDocument(SvgDocument.Open<ThumbnailSvgDocument>(reader));
             ct.ThrowIfCancellationRequested();
             if (svg.SourceDocument is not { } document || document.Width.Value <= 0 || document.Height.Value <= 0)
                 return null;
@@ -48,5 +80,17 @@ internal static class SvgThumbnailRenderer
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception) { return null; }
+    }
+
+    private sealed class ThumbnailSvgDocument : SvgDocument
+    {
+        public ThumbnailSvgDocument()
+        {
+            LoadOptions = new SvgDocumentLoadOptions
+            {
+                ProcessingMode = SvgProcessingMode.SecureStatic,
+                ExternalResources = SvgExternalResourcePolicy.SameDocumentAndDataOnly
+            };
+        }
     }
 }

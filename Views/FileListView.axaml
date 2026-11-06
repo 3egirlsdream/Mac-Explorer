@@ -23,7 +23,7 @@
                 BorderBrush="{DynamicResource WorkspaceDividerBrush}"
                 BorderThickness="0,0,0,1"
                 CornerRadius="0" Margin="0,0,0,6" Height="38" Padding="12,0">
-            <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,110,*">
+            <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,230,*">
                 <Grid Grid.Column="1" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
                     <Button x:Name="NameSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Name}"
                             Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.080}">
@@ -73,7 +73,7 @@
                     <Button x:Name="TypeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Type}"
                             Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.082}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock x:Name="TypeHeader" Text="{loc:Loc ui.025}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TypeHeader" Text="{loc:Loc file_list.kind}" VerticalAlignment="Center"/>
                             <PathIcon x:Name="TypeSortIcon" Classes="file-header-sort-icon"
                                       Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
                         </StackPanel>

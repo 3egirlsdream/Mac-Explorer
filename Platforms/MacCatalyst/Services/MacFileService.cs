@@ -612,7 +612,8 @@ end tell");
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var appEntries = entries.Where(e => (e.IsApplication || e.IconKey == "app-bundle") && e.IconUrl == null).ToList();
+        var appEntries = entries.Where(e => e.IconUrl == null
+            && (e.IsApplication || e.IconKey == "app-bundle" && e.DetailsIconSource.IconKey == "app-bundle")).ToList();
         if (appEntries.Count == 0) return;
 
         // Build mapping: appPath → cachedPngPath (skip already cached)

@@ -44,9 +44,9 @@ internal sealed class FileListColumnLayoutService
     internal const string SizeWidthKey = "file_list.column.size_width";
     internal const string TypeWidthKey = "file_list.column.type_width";
 
-    internal static readonly FileListColumnWidths Defaults = new(420, 170, 110, 110);
+    internal static readonly FileListColumnWidths Defaults = new(420, 170, 110, 230);
     internal static readonly FileListColumnWidths Minimums = new(220, 140, 80, 80);
-    internal static readonly FileListColumnWidths Maximums = new(720, 240, 160, 180);
+    internal static readonly FileListColumnWidths Maximums = new(720, 240, 160, 360);
 
     private readonly ISettingsService? _settings;
 

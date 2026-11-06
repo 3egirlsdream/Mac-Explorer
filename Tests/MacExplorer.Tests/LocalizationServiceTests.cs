@@ -1,3 +1,4 @@
+using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using Xunit;
@@ -29,6 +30,46 @@ public sealed class LocalizationServiceTests
 
         service.SetLanguage(AppLanguage.System);
         Assert.Equal("system", settings.Get("app_language"));
+    }
+
+    [Fact]
+    public void FileKindsFollowTheCurrentDisplayLanguage()
+    {
+        using var service = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        var entry = new FileSystemEntry { Name = "Recording.CAF", Extension = ".CAF" };
+        foreach (var (language, label) in new[]
+                 {
+                     ("zh-CN", "CAF 音频文件"), ("zh-Hant", "CAF 音訊檔案"),
+                     ("en", "CAF Audio File"), ("fr", "Fichier audio CAF")
+                 })
+        {
+            service.SetLanguage(language);
+            Assert.Equal(label, entry.KindText);
+        }
+    }
+
+    [Theory]
+    [InlineData("recording.AIF", ".AIF", false, "file-audio", "AIFF 音频")]
+    [InlineData("track.m4a", ".m4a", false, "file-generic", "Apple MPEG-4 音频")]
+    [InlineData("track.mp3", ".mp3", false, "file-generic", "MP3 音频")]
+    [InlineData("waveform.pkf", ".pkf", false, "file-generic", "Adobe Audition Peak Data File")]
+    [InlineData("photo.xmp", ".xmp", false, "file-generic", "XMP Sidecar")]
+    [InlineData("Song.band", ".band", true, "app-bundle", "库乐队项目")]
+    [InlineData("Example.app", ".app", true, "app-bundle", "应用程序")]
+    [InlineData("Folder.mp3", ".mp3", true, "folder", "文件夹")]
+    [InlineData("archive.TAR.GZ", ".gz", false, "file-generic", "Gzip 压缩的 TAR 归档")]
+    [InlineData("photo.CR3", "", false, "file-generic", "相机 RAW 图像")]
+    [InlineData("Dockerfile", "", false, "file-generic", "容器构建文件")]
+    [InlineData("sample.unknown", ".unknown", false, "file-generic", "UNKNOWN 文件")]
+    [InlineData("sample", "", false, "file-generic", "文件")]
+    public void FileKindsHandleAliasesPackagesAndFallbacks(string name, string extension, bool directory, string icon, string expected)
+    {
+        using var service = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        var entry = new FileSystemEntry
+        {
+            Name = name, FullPath = "/test/" + name, Extension = extension, IsDirectory = directory, IconKey = icon
+        };
+        Assert.Equal(expected, entry.KindText);
     }
 
     [Fact]

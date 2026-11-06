@@ -13,7 +13,7 @@ public sealed class FileListColumnLayoutServiceTests
     {
         var service = new FileListColumnLayoutService();
 
-        Assert.Equal(new FileListColumnWidths(420, 170, 110, 110), service.PreferredWidths);
+        Assert.Equal(new FileListColumnWidths(420, 170, 110, 230), service.PreferredWidths);
     }
 
     [Fact]
@@ -34,9 +34,9 @@ public sealed class FileListColumnLayoutServiceTests
         var wide = FileListColumnLayoutService.CalculateEffective(preferred, 1300);
         var preview = FileListColumnLayoutService.CalculateEffective(preferred, 900);
 
-        Assert.Equal(910, wide.Name);
+        Assert.Equal(790, wide.Name);
         Assert.Equal(1300, wide.Total);
-        Assert.Equal(510, preview.Name);
+        Assert.Equal(390, preview.Name);
         Assert.Equal(preferred.Modified, wide.Modified);
         Assert.Equal(preferred.Size, wide.Size);
         Assert.Equal(preferred.Type, wide.Type);
@@ -50,7 +50,7 @@ public sealed class FileListColumnLayoutServiceTests
 
         Assert.Equal(220, width);
         var resized = FileListColumnLayoutService.CalculateEffective(FileListColumnLayoutService.Defaults.With(FileListColumn.Modified, width), 1000);
-        Assert.Equal(560, resized.Name);
+        Assert.Equal(440, resized.Name);
         Assert.Equal(1000, resized.Total);
     }
 
@@ -85,7 +85,7 @@ public sealed class FileListColumnLayoutServiceTests
             FileListColumnLayoutService.Defaults,
             850);
 
-        Assert.Equal(460, width);
+        Assert.Equal(340, width);
     }
 
     [Fact]

@@ -774,8 +774,7 @@ public partial class InfoPanelView : UserControl
         CancellationToken cancellationToken)
     {
         const long maxInlinePreviewBytes = 8L * 1024 * 1024;
-        if (entry.IconKey != "file-image"
-            || entry.Extension.Equals(".svg", StringComparison.OrdinalIgnoreCase))
+        if (entry.IconKey != "file-image" || SvgThumbnailRenderer.Supports(entry.Extension.ToLowerInvariant()))
             return null;
 
         try

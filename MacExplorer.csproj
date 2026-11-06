@@ -139,7 +139,7 @@
   </Target>
 
   <Target Name="BuildMacOSThumbnailHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="Platforms/MacOS/ThumbnailHelper.swift;Platforms/MacOS/HelperFileAccess.swift;Tools/Distribution/build-helper.sh;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)MacExplorer.Thumbnail">
-    <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ThumbnailHelper.swift' '$(OutputPath)MacExplorer.Thumbnail' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers" />
+    <Exec Command="bash Tools/Distribution/build-helper.sh 'Platforms/MacOS/ThumbnailHelper.swift' '$(OutputPath)MacExplorer.Thumbnail' '$(_NativeArchitecture)-apple-macosx$(MacOSMinimumVersion)' -framework QuickLookThumbnailing -framework ImageIO -framework UniformTypeIdentifiers -framework AVFoundation" />
   </Target>
 
   <Target Name="BuildMacOSGitHelper" DependsOnTargets="PrepareMacOSNativeOptions" AfterTargets="Build" BeforeTargets="CreateMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(DistributionChannel)' == 'AppStore' and '$(SkipMacOSNativeHelpers)' != 'true'" Inputs="Platforms/MacOS/GitHelper.swift;Platforms/MacOS/HelperFileAccess.swift;Tools/Distribution/build-helper.sh;MacExplorer.csproj;Directory.Build.props;$(IntermediateOutputPath)macos-native-options.txt" Outputs="$(OutputPath)MacExplorer.Git">

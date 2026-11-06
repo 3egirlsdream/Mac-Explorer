@@ -514,11 +514,22 @@ public sealed class FastFileList : Control, ILogicalScrollable
         base.OnPointerMoved(e);
         var position = e.GetPosition(this);
         UpdatePointerPosition(position);
+        ToolTip.SetTip(this, GetPointerTip(position));
+    }
+
+    private string? GetPointerTip(Point position)
+    {
+        if (EditingPath != null) return null;
         var disclosure = TreeDisclosureIndexAt(position);
-        ToolTip.SetTip(this, EditingPath != null ? null
-            : disclosure >= 0 && _treeRows[disclosure].HasError ? MacExplorer.Services.Impl.LocalizationText.Get("读取失败，点击重试")
-            : disclosure >= 0 && _treeRows[disclosure].IsLoading ? MacExplorer.Services.Impl.LocalizationText.Get("正在读取文件夹")
-            : EntryAt(position)?.DisplayName);
+        if (disclosure >= 0 && _treeRows[disclosure].HasError)
+            return LocalizationText.Get("读取失败，点击重试");
+        if (disclosure >= 0 && _treeRows[disclosure].IsLoading)
+            return LocalizationText.Get("正在读取文件夹");
+
+        var entry = EntryAt(position);
+        return !IsGrid && DetailTextProvider == null && position.X >= ListRowRight - _columns.Type
+            ? entry?.KindText
+            : entry?.DisplayName;
     }
 
     internal void UpdatePointerPosition(Point point)
@@ -563,6 +574,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private void RefreshLanguage()
     {
         ClearTexts();
+        if (_pointerPosition is { } position)
+            ToolTip.SetTip(this, GetPointerTip(position));
         InvalidateVisual();
     }
 
@@ -744,7 +757,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         {
             using var transform = context.PushTransform(Matrix.CreateScale(bounds.Width / 24, bounds.Height / 24)
                 * Matrix.CreateTranslation(bounds.X, bounds.Y));
-            context.DrawGeometry(Secondary, null, entry.IsFolder ? _folderFallback : _fileFallback);
+            context.DrawGeometry(Secondary, null, entry.DetailsIconSource.IsDirectory ? _folderFallback : _fileFallback);
         }
         if (!entry.HasGitBadge) return;
         var badgeSize = IsGrid ? 16 : 10;

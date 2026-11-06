@@ -1,5 +1,7 @@
+using System.IO.Compression;
 using MacExplorer.Platforms.MacCatalyst.Services;
 using MacExplorer.Views;
+using SkiaSharp;
 using Xunit;
 
 namespace MacExplorer.Tests;
@@ -29,10 +31,55 @@ public sealed class ThumbnailCacheTests
     [InlineData(".toml")]
     [InlineData(".flac")]
     [InlineData(".vob")]
+    [InlineData(".aifc")]
+    [InlineData(".caf")]
+    [InlineData(".apng")]
+    [InlineData(".svgz")]
+    [InlineData(".ora")]
+    [InlineData(".KRZ")]
     [Trait("Kind", "Unit")]
     public void ExpandedSuperPreviewFormatsAreEligibleForThumbnails(string extension)
     {
         Assert.True(MacThumbnailService.SupportsThumbnailExtension(extension));
+    }
+
+    [Theory]
+    [InlineData(".kra", "preview.png")]
+    [InlineData(".krz", "preview.png")]
+    [InlineData(".ora", "Thumbnails/thumbnail.png")]
+    [InlineData(".kra", "mergedimage.png")]
+    [Trait("Kind", "Unit")]
+    public async Task DesignPackagesReadOnlyKnownPreviewEntries(string extension, string member)
+    {
+        var token = TestContext.Current.CancellationToken;
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            var source = Path.Combine(root, "example" + extension);
+            using (var file = File.Create(source))
+            using (var zip = new ZipArchive(file, ZipArchiveMode.Create))
+            using (var image = new SKBitmap(128, 64))
+            {
+                image.Erase(SKColors.Lime);
+                using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+                using var output = zip.CreateEntry(member).Open();
+                png.SaveTo(output);
+            }
+            var service = new MacThumbnailService(Path.Combine(root, "cache"), 1024 * 1024, 0.8);
+            var result = await service.GetThumbnailResultAsync(source, 32, token);
+            Assert.NotNull(result);
+            using var bitmap = SKBitmap.Decode(result.Bytes);
+            Assert.Equal((32, 16), (bitmap.Width, bitmap.Height));
+            Assert.Equal(SKColors.Lime, bitmap.GetPixel(16, 8));
+
+            var missing = Path.Combine(root, "no-preview" + extension);
+            using (var file = File.Create(missing))
+            using (var zip = new ZipArchive(file, ZipArchiveMode.Create))
+            using (var unrelated = zip.CreateEntry("layers/preview.png").Open())
+                unrelated.Write(OnePixelPng);
+            Assert.Null(await service.GetThumbnailResultAsync(missing, 32, token));
+        }
+        finally { Directory.Delete(root, true); }
     }
 
     private static readonly byte[] OnePixelPng = Convert.FromBase64String(

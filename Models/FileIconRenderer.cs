@@ -1,6 +1,7 @@
 namespace MacExplorer.Models;
 
 using System.Net;
+using FluentIcons = MacExplorer.Assets.Icons;
 
 /// <summary>
 /// Renders SVG file type icons in Microsoft Fluent Design style.
@@ -11,7 +12,7 @@ public static class FileIconRenderer
 {
     public static string Render(string iconKey, string extension, int size)
     {
-        var ext = extension?.TrimStart('.').ToUpperInvariant() ?? "";
+        var ext = GetBadgeExtension(iconKey, extension);
         var inner = iconKey switch
         {
             "file-text" => TextFile(ext),
@@ -28,8 +29,19 @@ public static class FileIconRenderer
             "file-web" => WebFile(ext),
             "file-code" => CodeFile(ext),
             "file-config" => ConfigFile(ext),
-            "file-video" => VideoFile(),
-            "file-audio" => AudioFile(),
+            "file-video" => GlyphCard(FluentIcons.FileVideo, "#F5F3FF", "#EDE9FE", "#6D28D9", ext),
+            "file-video-project" => GlyphCard(FluentIcons.VideoClip, "#E0E7FF", "#C7D2FE", "#4338CA", ext),
+            "file-audio" => GlyphCard(FluentIcons.FileAudio, "#FDF2F8", "#FCE7F3", "#BE185D", ext),
+            "file-audio-project" => GlyphCard(FluentIcons.Music, "#FFEDD5", "#FED7AA", "#C2410C", ext),
+            "file-waveform" => GlyphCard(FluentIcons.Pulse, "#EDE9FE", "#DDD6FE", "#6D28D9", ext),
+            "file-metadata" => GlyphCard(FluentIcons.Tag, "#ECFDF5", "#D1FAE5", "#047857", ext),
+            "file-map" => GlyphCard(FluentIcons.Location, "#ECFDF5", "#D1FAE5", "#047857", ext),
+            "file-plugin" => GlyphCard(FluentIcons.PlugConnected, "#EDE9FE", "#DDD6FE", "#6D28D9", ext),
+            "file-mail" => GlyphCard(FluentIcons.Mail, "#DBEAFE", "#BFDBFE", "#1D4ED8", ""),
+            "file-calendar" => GlyphCard(FluentIcons.Calendar, "#FEE2E2", "#FECACA", "#B91C1C", ""),
+            "file-contact" => GlyphCard(FluentIcons.Person, "#CFFAFE", "#A5F3FC", "#0E7490", ""),
+            "file-table" => GlyphCard(FluentIcons.FileSpreadsheet, "#ECFDF5", "#D1FAE5", "#047857", ext),
+            "file-slides" => GlyphCard(FluentIcons.FilePresentation, "#FFEDD5", "#FED7AA", "#C2410C", ext),
             "file-font" => FontFile(ext),
             "file-database" => DatabaseFile(ext),
             "file-ebook" => EbookFile(ext),
@@ -45,6 +57,22 @@ public static class FileIconRenderer
             _ => GenericFile()
         };
         return $@"<svg width=""{size}"" height=""{size}"" viewBox=""0 0 32 32"" xmlns=""http://www.w3.org/2000/svg"">{inner}</svg>";
+    }
+
+    internal static string GetBadgeExtension(string iconKey, string? extension)
+    {
+        if (iconKey is "file" or "file-generic" or "file-word" or "file-document" or "file-excel" or "file-spreadsheet"
+            or "file-powerpoint" or "file-presentation" or "file-pdf" or "file-certificate" or "file-android-package"
+            or "app-bundle" or "file-vs-solution" or "file-razor" or "file-mail" or "file-calendar" or "file-contact")
+            return "";
+
+        var suffix = extension.AsSpan().TrimStart('.');
+        if (suffix.Length is 0 or > 6)
+            return "";
+        foreach (var character in suffix)
+            if (!char.IsAsciiLetterOrDigit(character))
+                return "";
+        return extension!.Length == suffix.Length ? extension.ToUpperInvariant() : suffix.ToString().ToUpperInvariant();
     }
 
     static string E(string s) => WebUtility.HtmlEncode(s);
@@ -71,22 +99,22 @@ public static class FileIconRenderer
         var fs = TFs(text);
         var w = Math.Max(11, 3.5 + text.Length * 3.6);
         var x = 29 - w;
-        return $@"<rect x=""{x:F1}"" y=""22.5"" width=""{w:F1}"" height=""7.5"" rx=""3"" fill=""{bg}""/>" +
-               $@"<text x=""{x + w / 2:F1}"" y=""26.4"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Text',-apple-system,sans-serif"" font-size=""{fs:F1}"" font-weight=""700"" fill=""#fff"" letter-spacing=""0.2"">{E(text)}</text>";
+        return FormattableString.Invariant($@"<rect x=""{x:F1}"" y=""22.5"" width=""{w:F1}"" height=""7.5"" rx=""3"" fill=""{bg}""/>") +
+               FormattableString.Invariant($@"<text x=""{x + w / 2:F1}"" y=""26.4"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Text',-apple-system,sans-serif"" font-size=""{fs:F1}"" font-weight=""700"" fill=""#fff"" letter-spacing=""0.2"">{E(text)}</text>");
     }
 
     static string CenterExt(string text, string color, double cy = 19)
     {
         if (string.IsNullOrEmpty(text)) return "";
         var fs = LFs(text);
-        return $@"<text x=""16"" y=""{cy:F1}"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""{fs:F1}"" font-weight=""700"" fill=""{color}"" letter-spacing=""0.2"">{E(text)}</text>";
+        return FormattableString.Invariant($@"<text x=""16"" y=""{cy:F1}"" text-anchor=""middle"" dominant-baseline=""central"" font-family=""'Segoe UI','SF Pro Display',-apple-system,sans-serif"" font-size=""{fs:F1}"" font-weight=""700"" fill=""{color}"" letter-spacing=""0.2"">{E(text)}</text>");
     }
 
     static string TextLines(double x, double y, double w, int count, string color, double opacity = 0.12)
     {
         var sb = new System.Text.StringBuilder();
         for (int i = 0; i < count; i++)
-            sb.Append($@"<rect x=""{x}"" y=""{y + i * 3.2:F1}"" width=""{w - i * 2.5:F1}"" height=""1.6"" rx=""0.8"" fill=""{color}"" opacity=""{opacity}""/>");
+            sb.Append(FormattableString.Invariant($@"<rect x=""{x}"" y=""{y + i * 3.2:F1}"" width=""{w - i * 2.5:F1}"" height=""1.6"" rx=""0.8"" fill=""{color}"" opacity=""{opacity}""/>"));
         return sb.ToString();
     }
 
@@ -223,20 +251,10 @@ public static class FileIconRenderer
         @"<circle cx=""20"" cy=""17.5"" r=""2"" fill=""#F59E0B"" opacity=""0.7""/>" +
         Badge(ext, "#B45309");
 
-    static string VideoFile() =>
-        Card("#F5F3FF", "#EDE9FE") +
-        @"<circle cx=""16"" cy=""16"" r=""8"" fill=""#7C3AED"" opacity=""0.12""/>" +
-        @"<circle cx=""16"" cy=""16"" r=""5.5"" fill=""#7C3AED"" opacity=""0.2""/>" +
-        @"<path d=""M14 13v6l5.5-3z"" fill=""#7C3AED"" opacity=""0.75""/>";
-
-    static string AudioFile() =>
-        Card("#FDF2F8", "#FCE7F3") +
-        @"<rect x=""7"" y=""14"" width=""2"" height=""4"" rx=""1"" fill=""#DB2777"" opacity=""0.3""/>" +
-        @"<rect x=""10.5"" y=""11"" width=""2"" height=""10"" rx=""1"" fill=""#DB2777"" opacity=""0.4""/>" +
-        @"<rect x=""14"" y=""8"" width=""2"" height=""16"" rx=""1"" fill=""#DB2777"" opacity=""0.5""/>" +
-        @"<rect x=""17.5"" y=""10"" width=""2"" height=""12"" rx=""1"" fill=""#DB2777"" opacity=""0.4""/>" +
-        @"<rect x=""21"" y=""12"" width=""2"" height=""8"" rx=""1"" fill=""#DB2777"" opacity=""0.35""/>" +
-        @"<rect x=""24.5"" y=""14"" width=""2"" height=""4"" rx=""1"" fill=""#DB2777"" opacity=""0.25""/>";
+    static string GlyphCard(string path, string fill, string tint, string ink, string extension) =>
+        Card(fill, tint) +
+        $@"<path d=""{path}"" fill=""{ink}"" transform=""{(extension.Length == 0 ? "translate(4 4)" : "translate(4 1.5)")}""/>" +
+        Badge(extension, ink);
 
     static string FontFile(string ext) =>
         Doc("#D1D5DB") +

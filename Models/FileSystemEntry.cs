@@ -94,8 +94,26 @@ public class FileSystemEntry : INotifyPropertyChanged
 
     // Value descriptors keep icon invalidation independent of selection, cut and Git
     // notifications. These properties perform no I/O and do not own UI resources.
-    public FileIconSource DetailsIconSource => new(IsApplication ? "app-bundle" : IconKey, Extension, IsFolder, IconUrl);
-    public FileIconSource GridIconSource => new(IsApplication ? "app-bundle" : IconKey, Extension, IsFolder, string.IsNullOrWhiteSpace(ThumbnailUrl) ? IconUrl : ThumbnailUrl);
+    public FileIconSource DetailsIconSource => CreateIconSource(IconUrl);
+    public FileIconSource GridIconSource => CreateIconSource(string.IsNullOrWhiteSpace(ThumbnailUrl) ? IconUrl : ThumbnailUrl);
+
+    private FileIconSource CreateIconSource(string? cachedPath)
+    {
+        if (IsApplication)
+            return new("app-bundle", Extension, false, cachedPath);
+        if (IsVirtual)
+            return new(IconKey, Extension, IsDirectory, cachedPath);
+
+        var extension = Extension.Length == 0 ? Path.GetExtension(Name) : Extension;
+        if (IsDirectory && Path.IsPathRooted(FullPath)
+            && Services.Impl.FileKindNames.GetPackageIconKey(extension.ToLowerInvariant()) is { } packageKey)
+            return new(packageKey, extension, false, cachedPath);
+
+        var iconKey = !IsDirectory && IconKey is "file" or "file-generic"
+            ? Services.Impl.FileIconResolver.ResolveIconKey(extension, Name)
+            : IconKey;
+        return new(iconKey, extension, IsDirectory, cachedPath);
+    }
     public string ModifiedText => LastModified.ToString("g", Services.Impl.LocalizationService.Current?.Culture
         ?? System.Globalization.CultureInfo.GetCultureInfo("zh-CN"));
 
@@ -117,9 +135,7 @@ public class FileSystemEntry : INotifyPropertyChanged
         "location" => Services.Impl.LocalizationText.Get("地点"),
         "date" => Services.Impl.LocalizationText.Get("日期"),
         _ => Services.Impl.LocalizationText.Get("AI 分类")
-    } : IsApplication || IconKey == "app-bundle" ? Services.Impl.LocalizationText.Get("应用程序")
-      : IsDirectory ? Services.Impl.LocalizationText.Get("文件夹")
-      : Extension.TrimStart('.').ToUpperInvariant();
+    } : Services.Impl.FileKindNames.Get(this);
     public string VirtualCountText => IsVirtual ? Services.Impl.LocalizationText.Get("{0} 张照片", VirtualItemCount) : string.Empty;
     public bool HasGitBadge => GitStatus is not GitFileStatus.None and not GitFileStatus.Ignored
                                || IsDirectory && HasGitChanges;

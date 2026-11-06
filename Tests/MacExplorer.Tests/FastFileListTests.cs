@@ -13,6 +13,7 @@ using Avalonia.VisualTree;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
 using MacExplorer.Views;
 using Xunit;
@@ -50,15 +51,15 @@ public sealed class FastFileListTests
     public void ListRowHitAndExtentEndAtKindColumnRightEdge()
     {
         var list = new FastFileList();
-        list.Measure(new Size(900, 300));
-        list.Arrange(new Rect(0, 0, 900, 300));
+        list.Measure(new Size(1050, 300));
+        list.Arrange(new Rect(0, 0, 1050, 300));
         var entries = Enumerable.Range(0, 3).Select(Entry).ToArray();
         list.SetRows(entries);
-        // Default columns total 810 → row right edge = 13 + 22 + 810 = 845.
-        Assert.Same(entries[0], list.EntryAt(new Point(844, 15)));
-        Assert.Equal(0, list.RowIndexAt(new Point(844, 15)));
-        Assert.Null(list.EntryAt(new Point(860, 15)));
-        Assert.Equal(-1, list.RowIndexAt(new Point(860, 15)));
+        var right = list.ListRowRight;
+        Assert.Same(entries[0], list.EntryAt(new Point(right - 1, 15)));
+        Assert.Equal(0, list.RowIndexAt(new Point(right - 1, 15)));
+        Assert.Null(list.EntryAt(new Point(right, 15)));
+        Assert.Equal(-1, list.RowIndexAt(new Point(right, 15)));
 
         // Grid mode hits by cell and is unaffected by the row right edge.
         list.IsGrid = true;
@@ -68,6 +69,30 @@ public sealed class FastFileListTests
         list.Arrange(new Rect(0, 0, 1000, 300));
         Assert.Same(gridEntries[7], list.EntryAt(new Point(860, 15)));
         Assert.Equal(7, list.RowIndexAt(new Point(860, 15)));
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    public void NarrowKindColumnShowsFullKindInTooltip()
+    {
+        using var theme = new FastListTestTheme();
+        var list = new FastFileList { ColumnWidths = FileListColumnLayoutService.Minimums };
+        var entry = new FileSystemEntry { Name = "Waveform.pkf", Extension = ".pkf", FullPath = "/test/Waveform.pkf" };
+        list.SetRows([entry]);
+        var window = new Window { Width = 580, Height = 200, Content = list };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.MouseMove(list.TranslatePoint(new Point(50, 15), window)!.Value);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(entry.DisplayName, ToolTip.GetTip(list));
+            var kindPoint = new Point(list.ListRowRight - 30, 15);
+            Assert.Same(entry, list.EntryAt(kindPoint));
+            window.MouseMove(list.TranslatePoint(kindPoint, window)!.Value);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(entry.KindText, ToolTip.GetTip(list));
+        }
+        finally { window.Close(); }
     }
 
     internal static FileSystemEntry Entry(int i) => new()

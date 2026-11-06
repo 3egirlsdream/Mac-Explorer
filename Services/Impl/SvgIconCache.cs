@@ -23,7 +23,7 @@ public static class SvgIconCache
     /// <summary>Get or render a file icon for the given icon-key and extension.</summary>
     public static Bitmap GetFileIcon(string iconKey, string? extension, int size)
     {
-        var ext = extension?.TrimStart('.').ToUpperInvariant() ?? "";
+        var ext = FileIconRenderer.GetBadgeExtension(iconKey, extension);
         var key = $"file:{iconKey}:{ext}:{size}";
         return Cache.GetOrAdd(key, _ => RenderFileIcon(iconKey, ext, size));
     }

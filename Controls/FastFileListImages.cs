@@ -279,7 +279,12 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
 
     private readonly record struct TypeKey(string Icon, string Extension, bool IsDirectory, int Pixels)
     {
-        public static TypeKey For(FileSystemEntry e, int pixels) => new(e.DetailsIconSource.IconKey, e.Extension, e.IsFolder, pixels);
+        public static TypeKey For(FileSystemEntry entry, int pixels)
+        {
+            var source = entry.DetailsIconSource;
+            var badge = source.IsDirectory ? "" : FileIconRenderer.GetBadgeExtension(source.IconKey, source.Extension);
+            return new(source.IconKey, badge, source.IsDirectory, pixels);
+        }
     }
     private readonly record struct ImageKey(string Path, DateTime Modified, long Size, string? Source, int Pixels, bool IsFolderCover)
     {
@@ -288,7 +293,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             e.FullPath, e.LastModified, e.Size,
             string.IsNullOrWhiteSpace(e.ThumbnailUrl) ? e.IconUrl : e.ThumbnailUrl, pixels,
             folderCoversEnabled && e.IsFolder && e.IsReadable && !e.IsSymbolicLink && !e.IsVirtual
-                && System.IO.Path.IsPathFullyQualified(e.FullPath));
+                && System.IO.Path.IsPathFullyQualified(e.FullPath) && e.DetailsIconSource.IsDirectory);
     }
     private sealed record CachedImage(ImageKey Key, Bitmap Bitmap, long Bytes)
     {

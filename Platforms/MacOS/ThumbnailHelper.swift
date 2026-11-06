@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import ImageIO
 import QuickLookThumbnailing
@@ -6,7 +7,7 @@ import UniformTypeIdentifiers
 let arguments = CommandLine.arguments
 guard arguments.count >= 4,
       let size = Double(arguments[3]), size.isFinite, size > 0 else {
-    fputs("usage: MacExplorer.Thumbnail <input> <output.png> <size> [image|face x y width height]\n", stderr)
+    fputs("usage: MacExplorer.Thumbnail <input> <output.png> <size> [image|artwork|face x y width height]\n", stderr)
     exit(2)
 }
 
@@ -18,6 +19,38 @@ func writePNG(_ image: CGImage) -> Bool {
         outputURL as CFURL, UTType.png.identifier as CFString, 1, nil) else { return false }
     CGImageDestinationAddImage(destination, image, nil)
     return CGImageDestinationFinalize(destination)
+}
+
+func downsample(_ source: CGImageSource, size: Double) -> CGImage? {
+    CGImageSourceCreateThumbnailAtIndex(source, 0, [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceThumbnailMaxPixelSize: max(1, size)
+    ] as CFDictionary)
+}
+
+func renderArtwork(from url: URL, size: Double) async -> Int32 {
+    let asset = AVURLAsset(url: url)
+    let metadata = (try? await asset.load(.commonMetadata)) ?? []
+    let artwork = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork)
+    for item in artwork.prefix(4) {
+        guard let data = try? await item.load(.dataValue), data.count <= 8 * 1024 * 1024,
+              let source = CGImageSourceCreateWithData(data as CFData,
+                  [kCGImageSourceShouldCache: false] as CFDictionary),
+              let image = downsample(source, size: min(size, 2048)) else { continue }
+        return writePNG(image) ? 0 : 1
+    }
+    // Absence of cover art is expected. Do not substitute a Quick Look glyph.
+    return 4
+}
+
+if arguments.count == 5 && arguments[4] == "artwork" {
+    Task.detached {
+        exit(await renderArtwork(from: inputURL, size: size))
+    }
+    // The worker exits when finished. Give it the same deadline as Quick Look.
+    _ = DispatchSemaphore(value: 0).wait(timeout: .now() + 3)
+    exit(3)
 }
 
 // ImageIO handles HEIC and EXIF orientation inside the signed, inherited sandbox.
@@ -42,11 +75,7 @@ if arguments.count > 4 {
         guard width > 0, height > 0, cropSize > 0 else { exit(2) }
         decodeSize = min(max(width, height), ceil(size * max(width, height) / cropSize))
     }
-    guard var image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-        kCGImageSourceCreateThumbnailFromImageAlways: true,
-        kCGImageSourceCreateThumbnailWithTransform: true,
-        kCGImageSourceThumbnailMaxPixelSize: max(1, decodeSize)
-    ] as CFDictionary) else { exit(1) }
+    guard var image = downsample(source, size: decodeSize) else { exit(1) }
     if mode == "face" {
         let width = Double(image.width), height = Double(image.height)
         let cropWidth = min(width, max(1, (face[2] * width * 1.6).rounded()))

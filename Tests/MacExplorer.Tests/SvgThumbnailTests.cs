@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using MacExplorer.Platforms.MacCatalyst.Services;
 using MacExplorer.Services;
@@ -50,6 +51,62 @@ public sealed class SvgThumbnailTests
             Assert.NotNull(reloaded);
             Assert.Equal(result.Bytes, reloaded.Bytes);
             Assert.Equal(result.CachePath, reloaded.CachePath);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task SvgzRendersThroughTheSharedThumbnailCacheAndRejectsOversizedInflation()
+    {
+        var root = Directory.CreateTempSubdirectory("svgz-thumbnail-").FullName;
+        var token = TestContext.Current.CancellationToken;
+        try
+        {
+            const string svg = "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40'><rect width='80' height='40' fill='blue'/></svg>";
+            var file = Path.Combine(root, "preview.SVGZ");
+            await WriteSvgzAsync(file, Encoding.UTF8.GetBytes(svg), token);
+            var service = new MacThumbnailService(Path.Combine(root, "cache"), 1024 * 1024, 0.8);
+            var result = await service.GetThumbnailResultAsync(file, 48, token);
+            Assert.NotNull(result);
+            using var bitmap = SKBitmap.Decode(result.Bytes);
+            Assert.Equal((48, 24), (bitmap.Width, bitmap.Height));
+            Assert.Equal(SKColors.Blue, bitmap.GetPixel(24, 12));
+
+            var oversized = Path.Combine(root, "oversized.svgz");
+            await WriteSvgzAsync(oversized, Encoding.UTF8.GetBytes(svg + new string(' ', 8 * 1024 * 1024)), token);
+            Assert.Null(await service.GetThumbnailResultAsync(oversized, 48, token));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    private static async Task WriteSvgzAsync(string path, byte[] bytes, CancellationToken token)
+    {
+        await using var file = File.Create(path);
+        await using var gzip = new GZipStream(file, CompressionLevel.Fastest);
+        await gzip.WriteAsync(bytes, token);
+    }
+
+    [Fact]
+    public void SvgThumbnailsDoNotReadExternalImages()
+    {
+        var root = Directory.CreateTempSubdirectory("svg-external-").FullName;
+        try
+        {
+            using var sourceImage = new SKBitmap(16, 16);
+            sourceImage.Erase(SKColors.Red);
+            using var encoded = sourceImage.Encode(SKEncodedImageFormat.Png, 100);
+            var imagePath = Path.Combine(root, "external.png");
+            File.WriteAllBytes(imagePath, encoded.ToArray());
+            var source = Encoding.UTF8.GetBytes($"""
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+                    <rect width="16" height="16" fill="blue"/>
+                    <image width="16" height="16" href="{new Uri(imagePath).AbsoluteUri}"/>
+                </svg>
+                """);
+            var png = SvgThumbnailRenderer.RenderPng(source, 16, TestContext.Current.CancellationToken);
+            Assert.NotNull(png);
+            using var result = SKBitmap.Decode(png);
+            Assert.Equal(SKColors.Blue, result.GetPixel(8, 8));
         }
         finally { Directory.Delete(root, true); }
     }

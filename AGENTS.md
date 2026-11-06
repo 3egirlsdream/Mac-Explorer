@@ -16,6 +16,7 @@ feat: 优化文件夹恢复
 - 统一使用，自动寻找合适图标： https://github.com/microsoft/fluentui-system-icons
 - 右键菜单，不必每项都带图标，不合适的可以不带，只有明确语义化的才带图标
 - 页签图标绑定 `FileListViewModel.CurrentLocationIcon`，随导航更新，优先复用侧栏对应位置的 Fluent 图标，没有专属图标时回退默认文件夹。
+- 文件类型图标由 `FileKindNames` 与 `FileIconResolver` 统一选择，列表和首页共用 `FileIconRenderer` / `SvgIconCache`。Office、PDF 等固定图标按类型和尺寸复用，音视频、工程、归档等按短后缀绘制徽标。真实应用使用原生图标，已知工程包有类型图标并保留目录操作语义。
 
 # 设计风格提示词：紧凑 macOS 设置
 
@@ -41,6 +42,7 @@ feat: 优化文件夹恢复
 - `ComboBox.icon-picker` 宽 64px、内边距 `8,6`，为 Fluent 模板的 32px 箭头列与 16px 图标保留完整空间。
 - 首页脚本命令的右键菜单图标在名称左侧通过全局 `ComboBox.icon-picker` 选择，收起时仅显示图标，下拉项显示图标与文字，支持不配置／启动／中断，启动与中断复用 Fluent Play／Stop 图标及 `SuccessBrush`／`DangerBrush` 主题色，配置选项与菜单共用图标渲染；不配置在选择器中显示灰色横线，菜单不显示图标。多行编辑复用 `TextBox.multiline`，文字左上对齐并自动换行。
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
+- 文件列表「种类」与信息面板共用 `FileSystemEntry.KindText`，通过 `FileKindNames` 和四语资源显示格式全名，未知后缀显示「后缀 文件」，无后缀显示「文件」；普通目录、应用和已知项目包分别标识。种类列沿用全局列宽布局与单行省略，默认 230px，悬停显示完整名称。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
 - 关于页产品信息使用透明的 `settings-about-card`，更新、隐私与反馈入口复用 `settings-group` / `settings-row` 和 `secondary compact`；反馈下方“给个好评”按渠道显示“跳转商店”或“github star”，分别打开 App Store 评分页或项目 GitHub 首页。反馈群文字与二维码并排，二维码通过 `CroppedBitmap` 展示原图码面与白色边距，不缩放整张海报。
@@ -123,6 +125,7 @@ feat: 优化文件夹恢复
 - `.app` 列表大小在后台枚举时通过原生 `MDItem` 的 `kMDItemFSSize` 读取，不递归扫描应用包；系统大小尚未就绪时保持未知。普通文件夹列表不显示总大小，信息面板选中本地目录时通过 `DirectorySizeCalculator` 在后台统计，最多两个并发，不跟随符号链接；切换选择、关闭面板或释放页面时取消并拒绝过期结果。空目录显示 `0 B`，读取不完整时显示下限及说明；已有系统大小的 `.app` 直接复用，未知时在信息面板补算。
 
 - 文件缩略图统一复用 `ThumbnailShadow` 主题资源与 `ThumbnailAppearance`，沿实际图片边缘绘制零偏移、轻模糊的均匀阴影；文件列表与首页共用，类型图标和文件夹图标不加矩形阴影。
+- SVG／SVGZ 共用有界 SVG 渲染器；Krita 与 OpenRaster 只读取包内约定的预览图，经 `BoundedImageDecoder` 缩小。常见音频通过原生助手读取内嵌封面，其他系统支持的格式按需调用 Quick Look；缺少预览、解码失败或超过限制时显示类型图标。
 
 - 搜索清除按钮复用全局 `Button.search-clear-btn`，尺寸 15×15px（30px 输入框高度的一半），10px Fluent 关闭图标居中。
 

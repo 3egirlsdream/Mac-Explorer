@@ -10,24 +10,28 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
 {
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp",
-        ".heic", ".heif", ".avif", ".jxl", ".jp2", ".j2k", ".jpf",
-        ".ppm", ".pgm", ".pbm", ".tga", ".dds", ".ico", ".icns", ".svg"
+        ".jpg", ".jpeg", ".jpe", ".png", ".apng", ".gif", ".bmp", ".dib", ".tiff", ".tif", ".webp",
+        ".heic", ".heif", ".heics", ".heifs", ".avif", ".avifs", ".jxl", ".jp2", ".j2k", ".jpf", ".jpx",
+        ".ppm", ".pgm", ".pbm", ".pnm", ".pam", ".tga", ".dds", ".ico", ".icns", ".svg", ".svgz"
     };
     private static readonly HashSet<string> RawExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".3fr", ".arw", ".bay", ".cr2", ".cr3", ".crw", ".dcr", ".dng",
-        ".erf", ".fff", ".iiq", ".k25", ".kdc", ".mef", ".mos", ".mrw",
+        ".erf", ".fff", ".gpr", ".iiq", ".k25", ".kdc", ".mef", ".mos", ".mrw",
         ".nef", ".nrw", ".orf", ".pef", ".raf", ".raw", ".rw2", ".rwl",
         ".sr2", ".srf", ".srw", ".x3f"
     };
-    private static readonly HashSet<string> QuickLookDocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AudioArtworkExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp3", ".m4a", ".m4b", ".aac", ".caf", ".aiff", ".aif", ".aifc", ".wav", ".wave", ".bwf", ".flac"
+    };
+    private static readonly HashSet<string> QuickLookExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         // Office, iWork and common publication formats. Availability still follows
         // the Quick Look generators installed on the user's Mac.
         ".pdf", ".doc", ".docx", ".docm", ".dot", ".dotx", ".xls", ".xlsx", ".xlsm", ".xlt", ".xltx",
         ".ppt", ".pptx", ".pptm", ".pps", ".ppsx", ".pot", ".potx", ".pages", ".numbers", ".key",
-        ".rtf", ".odt", ".ods", ".odp", ".epub", ".ibooks", ".pub", ".vsd", ".vsdx", ".one", ".onepkg",
+        ".rtf", ".odt", ".ott", ".ods", ".ots", ".odp", ".otp", ".epub", ".ibooks", ".pub", ".vsd", ".vsdx", ".one", ".onepkg",
         ".psd", ".psb",
         // Text, markup, subtitles, configuration and source files can use a
         // Quick Look text generator when one is available.
@@ -41,10 +45,10 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         ".d", ".zig", ".sol", ".vue", ".svelte", ".astro", ".ipynb", ".graphql", ".gql",
         // Audio/video thumbnails are delegated to macOS Quick Look. A missing
         // generator simply falls back to the existing generic file presentation.
-        ".mp3", ".m4a", ".aac", ".aiff", ".aif", ".wav", ".flac", ".ogg", ".opus", ".wma", ".amr",
+        ".ogg", ".oga", ".opus", ".wma", ".amr",
         ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm", ".wmv", ".flv",
-        ".3gp", ".mpeg", ".mpg", ".mts", ".m2ts", ".mxf", ".mpv", ".ogv", ".dv", ".asf", ".rm", ".rmvb",
-        ".vob", ".ts", ".m2v", ".dmg", ".iso"
+        ".3gp", ".3g2", ".mpeg", ".mpg", ".mpe", ".mts", ".m2ts", ".m2t", ".mxf", ".mpv", ".ogv", ".dv", ".asf", ".rm", ".rmvb",
+        ".vob", ".ts", ".m1v", ".m2v", ".dmg", ".iso"
     };
 
     MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
@@ -116,7 +120,9 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
 
     internal static bool SupportsThumbnailExtension(string extension) =>
         !string.IsNullOrWhiteSpace(extension)
-        && (ImageExtensions.Contains(extension) || RawExtensions.Contains(extension) || QuickLookDocumentExtensions.Contains(extension));
+        && (ImageExtensions.Contains(extension) || RawExtensions.Contains(extension)
+            || AudioArtworkExtensions.Contains(extension) || QuickLookExtensions.Contains(extension)
+            || EmbeddedThumbnailReader.Supports(extension.ToLowerInvariant()));
 
     public async Task<byte[]?> GetThumbnailAsync(
         string filePath,
@@ -129,20 +135,22 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         int maxPixelSize,
         CancellationToken ct = default)
     {
-        if (!DirectoryAccess.Current.CanAccess(filePath)) return null;
-        var extension = Path.GetExtension(filePath);
-        if (!File.Exists(filePath) || !SupportsThumbnailExtension(extension))
+        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+        if (!SupportsThumbnailExtension(extension) || !DirectoryAccess.Current.CanAccess(filePath) || !File.Exists(filePath))
             return null;
 
-        // Version image entries: old caches could contain undecodable RAW source bytes.
+        // Version generated thumbnails separately so older generic audio glyphs are never reused.
         var isImage = IsImageFile(extension);
-        var cacheKey = $"{(isImage ? "image-v3:" : "")}{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
+        var cacheKey = $"{GetThumbnailCachePrefix(extension, isImage)}{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
         return await GetOrCreateThumbnailAsync(cacheKey,
-            (outputPath, token) => GenerateThumbnailAsync(filePath, outputPath, maxPixelSize, token),
+            (outputPath, token) => GenerateThumbnailAsync(filePath, extension, outputPath, maxPixelSize, token),
             rememberFailure: true, ct,
-            manageGenerationGate: !isImage || extension.Equals(".svg", StringComparison.OrdinalIgnoreCase))
+            manageGenerationGate: !isImage || SvgThumbnailRenderer.Supports(extension))
             .ConfigureAwait(false);
     }
+
+    private static string GetThumbnailCachePrefix(string extension, bool isImage)
+        => isImage ? "image-v3:" : AudioArtworkExtensions.Contains(extension) ? "audio-artwork-v1:" : "";
 
     // Generators write a private staging path, never the final cache path. Publication
     // and trimming are serialized, but neither consumes a native-generation slot.
@@ -316,7 +324,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         float bx, float by, float bw, float bh, int maxPixelSize, CancellationToken ct)
     {
         if (DistributionChannel.IsAppStore)
-            return await GenerateWithNativeQuickLookAsync(filePath, outputPath, maxPixelSize,
+            return await GenerateWithNativeHelperAsync(filePath, outputPath, maxPixelSize,
                 _diskCacheDirectory, ct, ["face", bx.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     by.ToString(System.Globalization.CultureInfo.InvariantCulture), bw.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     bh.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
@@ -369,8 +377,9 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
     {
         foreach (var key in _memoryCache.Keys.Where(key => key.Contains(filePath, StringComparison.Ordinal)))
             RemoveFromMemory(key);
-        foreach (var key in _failedThumbnails.Keys.Where(key => key.StartsWith(filePath + ":", StringComparison.Ordinal)
-            || key.StartsWith("image-v3:" + filePath + ":", StringComparison.Ordinal)))
+        var extension = Path.GetExtension(filePath);
+        var prefix = GetThumbnailCachePrefix(extension, IsImageFile(extension)) + filePath + ":";
+        foreach (var key in _failedThumbnails.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)))
             _failedThumbnails.TryRemove(key, out _);
     }
 
@@ -387,20 +396,26 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
 
     private async Task<byte[]?> GenerateThumbnailAsync(
         string sourcePath,
+        string extension,
         string cachePath,
         int maxPixelSize,
         CancellationToken ct)
     {
-        if (Path.GetExtension(sourcePath).Equals(".svg", StringComparison.OrdinalIgnoreCase))
+        if (AudioArtworkExtensions.Contains(extension))
+            return await GenerateWithNativeHelperAsync(sourcePath, cachePath, maxPixelSize,
+                _diskCacheDirectory, ct, ["artwork"]).ConfigureAwait(false);
+
+        if (SvgThumbnailRenderer.Supports(extension) || EmbeddedThumbnailReader.Supports(extension))
         {
-            var source = await BoundedImageDecoder.ReadSourceAsync(sourcePath, ct).ConfigureAwait(false);
-            var png = source == null ? null : SvgThumbnailRenderer.RenderPng(source, maxPixelSize, ct);
+            var png = SvgThumbnailRenderer.Supports(extension)
+                ? await SvgThumbnailRenderer.RenderFileAsync(sourcePath, extension == ".svgz", maxPixelSize, ct).ConfigureAwait(false)
+                : await EmbeddedThumbnailReader.ReadPngAsync(sourcePath, extension, maxPixelSize, ct).ConfigureAwait(false);
             if (png != null)
                 await WriteCacheFileAtomicallyAsync(cachePath, png, ct).ConfigureAwait(false);
             return png;
         }
 
-        if (!IsImageFile(Path.GetExtension(sourcePath)))
+        if (!IsImageFile(extension))
             return await GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, ct);
 
         byte[]? result;
@@ -482,7 +497,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
     {
         if (DistributionChannel.IsAppStore)
         {
-            var nativeResult = await GenerateWithNativeQuickLookAsync(sourcePath, cachePath, maxPixelSize,
+            var nativeResult = await GenerateWithNativeHelperAsync(sourcePath, cachePath, maxPixelSize,
                 _diskCacheDirectory, ct, ["image"]);
             if (nativeResult != null) return nativeResult;
         }
@@ -533,7 +548,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         Directory.CreateDirectory(outputDirectory);
         try
         {
-            var nativeResult = await GenerateWithNativeQuickLookAsync(sourcePath, cachePath, maxPixelSize, outputDirectory, ct);
+            var nativeResult = await GenerateWithNativeHelperAsync(sourcePath, cachePath, maxPixelSize, outputDirectory, ct);
             if (nativeResult != null || !allowQlManageFallback || DistributionChannel.IsAppStore) return nativeResult;
 
             var startInfo = new ProcessStartInfo
@@ -595,7 +610,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         }
     }
 
-    private static async Task<byte[]?> GenerateWithNativeQuickLookAsync(
+    private static async Task<byte[]?> GenerateWithNativeHelperAsync(
         string sourcePath,
         string cachePath,
         int maxPixelSize,
@@ -633,7 +648,8 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
             await Task.WhenAll(stdout, stderr);
             if (process.ExitCode != 0 || !File.Exists(generatedPath))
             {
-                MemoryDiagnostics.Record("image.helper_failed", new { backend = "thumbnail-helper", process.ExitCode, maxPixelSize });
+                if (process.ExitCode != 4 || imageArguments?.FirstOrDefault() != "artwork")
+                    MemoryDiagnostics.Record("image.helper_failed", new { backend = "thumbnail-helper", process.ExitCode, maxPixelSize });
                 return null;
             }
 
