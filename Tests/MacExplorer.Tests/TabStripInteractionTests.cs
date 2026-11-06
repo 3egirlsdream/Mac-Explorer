@@ -59,6 +59,7 @@ public sealed class TabStripInteractionTests : FileListViewModelTestBase
         fixture.Window.Width = width;
         while (fixture.Model.Tabs.Count < 5) fixture.AddTab();
         fixture.Model.Tabs[0].Title = "Long tab title with different preferred width";
+        fixture.Model.CreateGroup(fixture.Model.Tabs.ToArray());
         fixture.Model.SetPaneLayout(PaneLayout.TwoColumns);
         Dispatcher.UIThread.RunJobs(); fixture.Window.UpdateLayout();
         var before = fixture.Model.Tabs.ToArray();
@@ -106,6 +107,8 @@ public sealed class TabStripInteractionTests : FileListViewModelTestBase
     {
         using var theme = new FastListTestTheme();
         await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
+        fixture.Window.Styles.Add((Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         while (fixture.Model.Tabs.Count < 5) fixture.AddTab();
         var tabs = fixture.Model.Tabs.ToArray();
         fixture.Model.SetPaneLayout(PaneLayout.FourGrid);
@@ -118,8 +121,23 @@ public sealed class TabStripInteractionTests : FileListViewModelTestBase
         fixture.Window.MouseDown(point, MouseButton.Right); fixture.Window.MouseUp(point, MouseButton.Right);
         Assert.Same(tabs[0], fixture.Model.SelectedTab);
         var menu = (ContextMenu)typeof(MainWindow).GetField("_tabContextMenu", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(fixture.Window)!;
-        Assert.Equal(5, menu.Items.Count); Assert.IsType<Separator>(menu.Items[1]);
-        Assert.All(menu.Items.OfType<MenuItem>(), item => Assert.True(item.IsEnabled));
+        Assert.True(menu.Items.Count > 5); Assert.IsType<Separator>(menu.Items[1]);
+        Assert.All(menu.Items.OfType<MenuItem>().Take(4), item => Assert.True(item.IsEnabled));
+        var newTab = (MenuItem)menu.Items[0]!;
+        var closeLeft = (MenuItem)menu.Items[2]!;
+        var closeOthers = (MenuItem)menu.Items[4]!;
+        var newTabIcon = Assert.IsType<PathIcon>(newTab.Icon);
+        var closeOthersIcon = Assert.IsType<PathIcon>(closeOthers.Icon);
+        Assert.Null(closeLeft.Icon);
+        Dispatcher.UIThread.RunJobs();
+        menu.UpdateLayout();
+        static double HeaderOffset(MenuItem item) => item.GetVisualDescendants().OfType<Control>()
+            .Single(control => control.Name == "PART_HeaderPresenter").TranslatePoint(default, item)!.Value.X;
+        Assert.Equal(HeaderOffset(newTab), HeaderOffset(closeLeft));
+        Assert.Equal(HeaderOffset(newTab), HeaderOffset(closeOthers));
+        Assert.Equal(new Size(12, 12), closeOthersIcon.Bounds.Size);
+        Assert.Equal(newTabIcon.TranslatePoint(new Point(newTabIcon.Bounds.Width / 2, 0), newTab)!.Value.X,
+            closeOthersIcon.TranslatePoint(new Point(6, 0), closeOthers)!.Value.X);
         menu.Close();
         await fixture.Window.CloseTabsAroundAsync(tabs[2], MainWindow.TabCloseRange.Left);
         Assert.Equal(new[] { tabs[2], tabs[3], tabs[4] }, fixture.Model.Tabs);
@@ -130,7 +148,7 @@ public sealed class TabStripInteractionTests : FileListViewModelTestBase
         Assert.All(removedWorkspaces, workspace => Assert.True(workspace.IsDisposed));
         fixture.Window.ShowTabContextMenu((Control)list.ContainerFromItem(tabs[2])!, tabs[2]);
         menu = (ContextMenu)typeof(MainWindow).GetField("_tabContextMenu", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(fixture.Window)!;
-        Assert.All(menu.Items.OfType<MenuItem>().Skip(1), item => Assert.False(item.IsEnabled));
+        Assert.All(menu.Items.OfType<MenuItem>().Skip(1).Take(3), item => Assert.False(item.IsEnabled));
         menu.Close();
     }
 }

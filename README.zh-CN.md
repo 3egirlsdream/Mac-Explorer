@@ -24,9 +24,9 @@
 
 Mac Explorer 将日常文件工作集中在一个 macOS 应用里。并排浏览多个目录，在不移动原文件的情况下归集资料，搜索文件名与已分析的内容，先预览再打开，并在同一个工作台处理本地文件、压缩包和 SFTP 远程文件。
 
-![Mac Explorer 工作台](Assets/readme-workspace-1.0.54.jpg)
+![Mac Explorer 工作台：页签分组与并排显示的列表和图标视图](.github/assets/readme-workspace.png)
 
-*截图：v1.0.54，2026 年 10 月 10 日使用隔离环境与演示文件拍摄。*
+*页签分组与分屏，列表和图标视图并排显示。*
 
 ## 功能介绍
 

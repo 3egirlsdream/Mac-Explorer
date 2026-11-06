@@ -1,10 +1,13 @@
 using Microsoft.Extensions.DependencyInjection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
+using Icons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.Views;
 
@@ -23,9 +26,10 @@ public partial class MainWindow
     internal FolderTabSession CaptureFolderTabs()
     {
         if (_vm == null) return new FolderTabSession([], 0);
+        _tabInteraction.FinishGroupMotion();
         return FolderTabSession.Capture(_vm.Tabs.Select(tab =>
             tab.FileList.IsSearchMode || tab.FileList.IsArchiveView ? null : tab.FileList.CurrentPath),
-            _vm.Tabs.IndexOf(_vm.SelectedTab!));
+            _vm.Tabs.IndexOf(_vm.SelectedTab!), _vm.CaptureGroups());
     }
 
     internal bool CanStartFolderRestore => !_shutdownStarted && _vm?.Tabs.Count == 1
@@ -88,24 +92,29 @@ public partial class MainWindow
         if (_shutdownStarted || _vm?.SelectedTab is not { } initialTab) return new Queue<Guid>();
         var model = _vm;
         var tabs = new List<ExplorerTabViewModel>();
+        var restored = new Dictionary<int, ExplorerTabViewModel>();
         var selected = initialTab;
         for (var i = 0; i < session.Paths.Length; i++)
         {
             var path = session.Paths[i];
             var tab = i == 0 ? initialTab
-                : await AddTabAsync(select: false, directoryPath: path, loadDirectory: false);
+                : await AddTabAsync(select: false, directoryPath: path, loadDirectory: false, inheritGroup: false);
             if (tab == null) continue;
             if (i == 0) await tab.FileList.PrepareRestoredDirectoryViewAsync(path);
             _restoringFolderTabs[tab.Id] = (tab, path);
             tabs.Add(tab);
+            restored[i] = tab;
             if (i == session.SelectedIndex) selected = tab;
         }
         if (tabs.Count == 0) return new Queue<Guid>();
         // Select once, before any directory enumeration. Background completion never changes focus.
+        model.RestoreGroups(session.Groups, restored);
         model.SelectedTab = selected;
+        model.RefreshSplitAccess();
         SchedulePaneLayoutRebuild();
         // The queue retains IDs so a closed pending tab can be collected while other folders are loading.
-        return new Queue<Guid>(new[] { selected.Id }.Concat(tabs.Where(tab => tab != selected).Select(tab => tab.Id)));
+        return new Queue<Guid>(new[] { selected.Id }.Concat(model.VisiblePanes.Select(tab => tab.Id))
+            .Concat(tabs.Select(tab => tab.Id)).Distinct());
     }
 
     private void StopRestoringFolderTab(ExplorerTabViewModel tab)
@@ -121,34 +130,112 @@ public partial class MainWindow
     internal static bool CanRestoreFolder(string path)
         => (!DistributionChannel.IsAppStore || DirectoryAccess.Current.CanAccess(path)) && Directory.Exists(path);
 
-    private void MoveTab(ExplorerTabViewModel tab, int index)
-    {
-        _vm?.MoveTab(tab, index);
-        // ListBox regenerates the moved header. Release only the detached native AX nodes.
-        Avalonia.Threading.Dispatcher.UIThread.Post(Platforms.MacOS.MacAutomationLifetime.ReleaseDetached,
-            Avalonia.Threading.DispatcherPriority.Background);
-    }
-
     internal void ShowTabContextMenu(Control target, ExplorerTabViewModel tab)
     {
         if (_vm == null || !_vm.Tabs.Contains(tab)) return;
         _tabContextMenu?.Close();
         var menu = new ContextMenu();
         var index = _vm.Tabs.IndexOf(tab);
-        void Add(string key, Func<Task> action, bool enabled = true)
+        void Add(string key, Func<Task> action, bool enabled = true, string? icon = null)
         {
-            var item = new MenuItem { Header = LocalizationText.Get(key), IsEnabled = enabled && !_closingTabs };
+            var item = new MenuItem
+            {
+                Header = LocalizationText.Get(key),
+                IsEnabled = enabled && !_closingTabs,
+                Icon = CreateTabMenuIcon(icon)
+            };
             item.Click += async (_, e) => { e.Handled = true; menu.Close(); await action(); };
             menu.Items.Add(item);
         }
-        Add("tabs.new_right", () => OpenTabToRightAsync(tab));
+        Add("tabs.new_right", () => OpenTabToRightAsync(tab), icon: Icons.TabAdd);
         menu.Items.Add(new Separator());
         Add("tabs.close_left", () => CloseTabsAroundAsync(tab, TabCloseRange.Left), index > 0);
         Add("tabs.close_right", () => CloseTabsAroundAsync(tab, TabCloseRange.Right), index < _vm.Tabs.Count - 1);
-        Add("tabs.close_others", () => CloseTabsAroundAsync(tab, TabCloseRange.Others), _vm.Tabs.Count > 1);
+        Add("tabs.close_others", () => CloseTabsAroundAsync(tab, TabCloseRange.Others), _vm.Tabs.Count > 1, Icons.Close);
+        menu.Items.Add(new Separator());
+        Add("tabs.group.create", () => { _vm.CreateGroup([tab]); return Task.CompletedTask; }, icon: Icons.TabGroup);
+        var move = new MenuItem { Header = LocalizationText.Get("tabs.group.move"), IsEnabled = !_closingTabs && _vm.Groups.Any(group => group != tab.Group) };
+        foreach (var group in _vm.Groups.Where(group => group != tab.Group).ToArray())
+        {
+            var item = new MenuItem { Header = group.Name };
+            item.Click += (_, e) => { e.Handled = true; menu.Close(); _vm?.MoveTabToGroup(tab, group); };
+            move.Items.Add(item);
+        }
+        menu.Items.Add(move);
+        if (tab.Group != null)
+            Add("tabs.group.remove", () => { _vm.MoveTabToGroup(tab, null); return Task.CompletedTask; });
+        OpenTabMenu(menu, target);
+    }
+
+    private void OpenTabMenu(ContextMenu menu, Control target)
+    {
+        Grid.SetIsSharedSizeScope(menu, true);
         _tabContextMenu = menu;
         menu.Closed += (_, _) => { if (ReferenceEquals(_tabContextMenu, menu)) _tabContextMenu = null; };
         menu.Open(target);
+    }
+
+    private static PathIcon? CreateTabMenuIcon(string? geometry)
+    {
+        if (geometry == null) return null;
+        const double slotSize = 16;
+        var glyphSize = geometry == Icons.Close ? 12 : slotSize;
+        return new PathIcon
+        {
+            Data = Geometry.Parse(geometry),
+            Width = glyphSize,
+            Height = glyphSize,
+            Margin = new Thickness((slotSize - glyphSize) / 2)
+        };
+    }
+
+    internal void ShowGroupContextMenu(Control target, TabGroupViewModel group)
+    {
+        if (_vm == null || !_vm.Groups.Contains(group)) return;
+        _tabContextMenu?.Close();
+        var menu = new ContextMenu();
+        void Add(string key, Func<Task> action, string? icon = null)
+        {
+            var item = new MenuItem
+            {
+                Header = LocalizationText.Get(key),
+                IsEnabled = !_closingTabs,
+                Icon = CreateTabMenuIcon(icon)
+            };
+            item.Click += async (_, e) => { e.Handled = true; menu.Close(); await action(); };
+            menu.Items.Add(item);
+        }
+        Add("tabs.group.rename", async () =>
+        {
+            var dialog = new Dialogs.TabGroupNameDialog(group.Name);
+            using var modal = BlockModalParentInteraction();
+            if (await dialog.ShowDialog<string?>(this) is { } name && _vm?.Groups.Contains(group) == true)
+                group.Name = name;
+        }, Icons.Rename);
+        Add("tabs.group.new_tab", async () =>
+        {
+            if (_vm?.Groups.Contains(group) != true) return;
+            var source = group.LastSelectedTab ?? _vm.Members(group).First();
+            if (group.IsCollapsed) _vm.ToggleGroup(group);
+            await AddTabAsync(directoryPath: source.FileList.CurrentPath, group: group, inheritGroup: false);
+        }, Icons.TabAdd);
+        menu.Items.Add(new Separator());
+        Add("tabs.group.ungroup", () => { _vm?.Ungroup(group); return Task.CompletedTask; });
+        Add("tabs.group.close", () => CloseGroupAsync(group), Icons.Close);
+        OpenTabMenu(menu, target);
+    }
+
+    internal async Task CloseGroupAsync(TabGroupViewModel group)
+    {
+        if (_vm == null || _closingTabs || !_vm.Groups.Contains(group)) return;
+        var targets = _vm.Members(group).ToArray();
+        if (targets.Length == _vm.Tabs.Count)
+        {
+            if (await AddTabAsync(select: false, directoryPath: VirtualPath.Home, inheritGroup: false) == null) return;
+        }
+        _closingTabs = true;
+        try { foreach (var tab in targets) await CloseTabCoreAsync(tab); }
+        finally { _closingTabs = false; }
     }
 
     internal enum TabCloseRange { Left, Right, Others }

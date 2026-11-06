@@ -10,6 +10,7 @@ using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
 using MacExplorer.Views.Dialogs;
+using Icons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.Views;
 
@@ -123,9 +124,14 @@ public sealed class HomeItemActions : IDisposable
         await _navigation.OpenEntryAsync(entry);
     }
 
-    private MenuItem ActionItem(string title, Func<Task> action, bool enabled = true)
+    private MenuItem ActionItem(string title, Func<Task> action, bool enabled = true, string? icon = null)
     {
-        var item = new MenuItem { Header = title, IsEnabled = enabled };
+        var item = new MenuItem
+        {
+            Header = title,
+            IsEnabled = enabled,
+            Icon = icon == null ? null : new PathIcon { Data = Geometry.Parse(icon), Width = 16, Height = 16 }
+        };
         item.Click += async (_, _) => await GuardAsync(action);
         return item;
     }
@@ -177,13 +183,14 @@ public sealed class HomeItemActions : IDisposable
     public ContextMenu CreateFolderMenu(FileTag tag, Action? beforeNavigate = null)
     {
         var menu = new ContextMenu();
-        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("添加文件…"), () => AddAsync(tag, folders: false)));
-        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("添加文件夹…"), () => AddAsync(tag, folders: true)));
+        Grid.SetIsSharedSizeScope(menu, true);
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("添加文件…"), () => AddAsync(tag, folders: false), icon: Icons.NewFile));
+        menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("添加文件夹…"), () => AddAsync(tag, folders: true), icon: Icons.NewFolder));
         menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("在文件列表中打开"), async () =>
         {
             beforeNavigate?.Invoke();
             await _navigation.NavigateToAsync(tag.VirtualPath);
-        }));
+        }, icon: Icons.Open));
         menu.Items.Add(new Separator());
         menu.Items.Add(ActionItem(MacExplorer.Services.Impl.LocalizationText.Get("重置收藏夹大小"), () =>
         {
@@ -196,7 +203,7 @@ public sealed class HomeItemActions : IDisposable
                 if (TopLevel.GetTopLevel(_owner) is not Window owner) return;
                 var name = await new HomeNameDialog(MacExplorer.Services.Impl.LocalizationText.Get("重命名标签"), tag.Name).ShowDialog<string?>(owner);
                 if (name != null) await Task.Run(() => _tags.RenameTagAsync(tag, name));
-            }));
+            }, icon: Icons.Rename));
         return menu;
     }
 

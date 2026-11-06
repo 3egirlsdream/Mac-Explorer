@@ -1,9 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using MacExplorer.Controls;
 using Xunit;
 
 namespace MacExplorer.Tests;
@@ -12,6 +14,59 @@ namespace MacExplorer.Tests;
 [Trait("Area", "TabStripLayout")]
 public sealed class TabStripLayoutTests : FileListViewModelTestBase
 {
+    [AvaloniaFact(Explicit = true)]
+    public async Task DividersAtTabBoundariesDisappearOnBothSidesOfHoverAndSelection()
+    {
+        using var theme = new FastListTestTheme();
+        await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
+        while (fixture.Model.Tabs.Count < 5) fixture.AddTab();
+        Dispatcher.UIThread.RunJobs();
+        fixture.Window.UpdateLayout();
+
+        var tabs = fixture.Window.FindControl<ListBox>("TabList")!;
+        var surface = fixture.Window.FindControl<ChromiumTabStripSurface>("TabSurface")!;
+        var headers = Enumerable.Range(0, tabs.Items.Count)
+            .Select(index => Assert.IsType<ListBoxItem>(tabs.ContainerFromIndex(index))).ToArray();
+        var header = headers[2];
+        var title = header.GetVisualDescendants().OfType<TextBlock>().Single();
+        var close = header.GetVisualDescendants().OfType<Button>().Single();
+        var titleBounds = title.Bounds;
+        var closeBounds = close.Bounds;
+        AssertDividersAt(2, 3, 4);
+
+        fixture.Window.MouseMove(header.TranslatePoint(new Point(4, header.Bounds.Height / 2), fixture.Window)!.Value);
+        fixture.Window.UpdateLayout();
+
+        Assert.True(header.IsPointerOver);
+        AssertDividersAt(4);
+        Assert.Equal(titleBounds, title.Bounds);
+        Assert.Equal(closeBounds, close.Bounds);
+        Assert.NotSame(header.DataContext, tabs.SelectedItem);
+
+        fixture.Model.SelectedTab = fixture.Model.Tabs[3];
+        AssertDividersAt(1);
+        fixture.Model.SelectedTab = fixture.Model.Tabs[1];
+        AssertDividersAt(4);
+
+        fixture.Window.MouseMove(new Point(4, 4));
+        Assert.False(header.IsPointerOver);
+        AssertDividersAt(3, 4);
+
+        void AssertDividersAt(params int[] rightHeaders)
+        {
+            var dividers = surface.GetDividerBounds().ToArray();
+            Assert.Equal(rightHeaders.Length, dividers.Length);
+            for (var i = 0; i < dividers.Length; i++)
+            {
+                var right = headers[rightHeaders[i]];
+                var left = headers[rightHeaders[i] - 1];
+                var seam = right.TranslatePoint(default, surface)!.Value.X;
+                Assert.Equal(seam, left.TranslatePoint(new Point(left.Bounds.Width, 0), surface)!.Value.X, 4);
+                Assert.InRange(dividers[i].Center.X, seam - 0.5, seam + 0.5);
+            }
+        }
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
@@ -46,8 +101,9 @@ public sealed class TabStripLayoutTests : FileListViewModelTestBase
                 Assert.All(headers, header => Assert.True(header.Bounds.Width > 0));
                 var last = headers[^1];
                 var end = last.TranslatePoint(new Point(last.Bounds.Width, 0), viewport)!.Value.X;
-                Assert.InRange(end, viewport.Bounds.Width - 1, viewport.Bounds.Width + 1);
-                Assert.InRange(add.TranslatePoint(default, viewport)!.Value.X - end, -1, 1);
+                var expectedExtent = Math.Max(viewport.Bounds.Width, count * 112);
+                Assert.InRange(end, expectedExtent - 1, expectedExtent + 1);
+                Assert.InRange(add.TranslatePoint(default, viewport)!.Value.X - viewport.Bounds.Width, 5, 7);
                 Assert.Equal(0, viewport.Offset.X);
                 if (count == 1)
                     Assert.InRange(headers[0].Bounds.Width, longTitle ? 279 : 179, longTitle ? 281 : 181);

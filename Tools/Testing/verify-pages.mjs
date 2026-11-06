@@ -16,6 +16,17 @@ function check(name, value) {
   assert.ok(value, name);
   checks.push(name);
 }
+async function checkDownloadLinks(page, name) {
+  const actions = page.locator(".hero-actions > a");
+  check(
+    `${name}: App Store first, GitHub Releases second`,
+    (await actions.count()) === 2 &&
+      (await actions.nth(0).getAttribute("href")) ===
+        "https://apps.apple.com/cn/app/id6820338798?mt=12" &&
+      (await actions.nth(1).getAttribute("href")) ===
+        "https://github.com/3egirlsdream/Mac-Explorer/releases/latest",
+  );
+}
 function observe(page) {
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
@@ -153,22 +164,7 @@ try {
           await page.locator("main").innerText(),
         ),
       );
-      await page.locator(".download-picker summary").click();
-      check(
-        `${name}: chip download choices`,
-        (await page.locator(".download-picker a").count()) === 2 &&
-          (await page.locator(".download-picker").evaluate((e) => e.open)),
-      );
-      await page.keyboard.press("Escape");
-      check(
-        `${name}: download Escape and focus`,
-        await page
-          .locator(".download-picker")
-          .evaluate(
-            (e) =>
-              !e.open && document.activeElement === e.querySelector("summary"),
-          ),
-      );
+      await checkDownloadLinks(page, name);
       if (lang === "zh-CN" && width === 1440) {
         await page
           .locator('[data-panel="browser"] .replica-stage')
@@ -264,11 +260,7 @@ try {
       `${route || "zh-CN"}: no JS content`,
       (await page.locator("main").innerText()).includes("Mac Explorer"),
     );
-    check(
-      `${route || "zh-CN"}: no JS download`,
-      (await page.locator(".hero-actions a").first().getAttribute("href")) ===
-        "https://github.com/3egirlsdream/Mac-Explorer/releases/latest",
-    );
+    await checkDownloadLinks(page, `${route || "zh-CN"}: no JS`);
     check(
       `${route || "zh-CN"}: no JS replica fit`,
       await page

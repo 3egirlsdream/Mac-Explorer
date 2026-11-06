@@ -5,14 +5,13 @@
   "skip": "Skip to content",
   "features": "Features",
   "download": "Download",
-  "appStoreDownload": "Download on the App Store",
+  "appStoreDownload": "Get it on the App Store",
+  "otherInstallMethods": "Other ways to install",
   "docs": "Developer docs",
   "menu": "Navigation menu",
   "language": "Language",
   "eyebrow": "MADE FOR macOS · FREE & OPEN SOURCE",
   "platform": "macOS 14+ · Apple Silicon & Intel",
-  "silicon": "Download for Apple Silicon",
-  "intel": "Download for Intel",
   "faqTitle": "A few things before you start",
   "faqs": [
     [
@@ -41,8 +40,6 @@
   "footerLine": "A file manager made for macOS.",
   "tagline": "File management. Made effortless.",
   "intro": "A file manager made for macOS. Browse, find, organize and share, all in one window.",
-  "get": "Download for macOS",
-  "downloadOptions": "Choose your Mac chip",
   "browserAlt": "Mac Explorer file list and context menus: stacked windows with built-in background themes, project browsing, editing, moving, sharing and file conversion, including toolbar tags and the right-hand information panel",
   "capabilities": [
     {

@@ -5,14 +5,13 @@
   "skip": "跳至主要內容",
   "features": "功能",
   "download": "下載",
-  "appStoreDownload": "前往App Store下載",
+  "appStoreDownload": "前往 App Store 取得應用程式",
+  "otherInstallMethods": "其他安裝方式",
   "docs": "開發者文件",
   "menu": "導覽選單",
   "language": "語言",
   "eyebrow": "為 macOS 打造 · 免費開源",
   "platform": "macOS 14+ · Apple Silicon 與 Intel",
-  "silicon": "Apple Silicon 下載",
-  "intel": "Intel 下載",
   "faqTitle": "開始之前，你可能想知道",
   "faqs": [
     [
@@ -41,8 +40,6 @@
   "footerLine": "為 macOS 打造的檔案總管。",
   "tagline": "檔案管理，得心應手。",
   "intro": "為 macOS 打造的檔案總管。瀏覽、尋找、整理與分享，在一個視窗裡完成。",
-  "get": "下載 macOS 版",
-  "downloadOptions": "選擇 Mac 晶片",
   "browserAlt": "Mac Explorer 檔案列表與右鍵選單：預設背景主題層疊視窗，瀏覽專案檔案，使用編輯、移動、分享與檔案轉換功能，含工具列標籤與右側資訊面板",
   "capabilities": [
     {

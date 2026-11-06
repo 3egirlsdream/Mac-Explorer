@@ -22,6 +22,9 @@ internal static class MacWindowChrome
     private static readonly Dictionary<IntPtr, IntPtr> VisualEffectViews = [];
     private static readonly object VisualEffectViewsLock = new();
 
+    internal static bool PrefersReducedMotion => OperatingSystem.IsMacOS() && objc_msgSend_getBool(
+        SendIntPtr(GetClass("NSWorkspace"), "sharedWorkspace"), GetSelector("accessibilityDisplayShouldReduceMotion"));
+
     public static void PrepareToShow(TopLevel topLevel)
     {
         if (!OperatingSystem.IsMacOS()) return;
@@ -304,6 +307,10 @@ internal static class MacWindowChrome
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+    [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool objc_msgSend_getBool(IntPtr receiver, IntPtr selector);
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_void(IntPtr receiver, IntPtr selector);

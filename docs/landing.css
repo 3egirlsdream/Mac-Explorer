@@ -159,7 +159,6 @@ p {
   color: #626e7e;
 }
 .language-picker summary::-webkit-details-marker,
-.download-picker summary::-webkit-details-marker,
 .faq summary::-webkit-details-marker {
   display: none;
 }
@@ -170,8 +169,7 @@ p {
 .language-picker summary .icon:last-child {
   width: 10px;
 }
-.language-picker > div,
-.download-picker > div {
+.language-picker > div {
   position: absolute;
   right: 0;
   top: 43px;
@@ -252,67 +250,8 @@ p {
   border-radius: 999px;
   white-space: nowrap;
 }
-.download-control {
-  display: flex;
-  align-items: center;
-  background: var(--accent);
-  color: #fff;
-  border-radius: 999px;
+.hero-actions > .primary {
   box-shadow: 0 3px 9px #2867d91a;
-}
-.download-control > a {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 41px;
-  padding: 10px 15px 10px 19px;
-  font-size: 13px;
-}
-.download-control > a:hover {
-  color: #fff;
-}
-.download-control .icon {
-  width: 16px;
-  height: 16px;
-}
-.download-picker {
-  position: relative;
-}
-.download-picker summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 2px 13px 2px 11px;
-  border-left: 1px solid #ffffff45;
-  display: flex;
-  align-items: center;
-  min-height: 23px;
-}
-.download-picker summary .icon {
-  width: 13px;
-  height: 13px;
-}
-.download-picker > div {
-  color: var(--ink);
-  top: 36px;
-  min-width: 230px;
-  font-size: 12px;
-}
-.download-picker a {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px 10px;
-  border-radius: 7px;
-  white-space: nowrap;
-}
-.download-picker a:hover {
-  background: #edf3fc;
-}
-.download-picker a .icon {
-  margin-left: auto;
-  width: 12px;
-  height: 12px;
 }
 .showcase {
   flex: 1;
@@ -1339,15 +1278,6 @@ p {
   }
   .hero-actions {
     margin-top: 23px;
-  }
-  .download-control > a {
-    font-size: 12px;
-    min-height: 41px;
-    padding-left: 17px;
-    padding-right: 13px;
-  }
-  .download-picker summary {
-    padding-right: 12px;
   }
   .showcase {
     flex: none;

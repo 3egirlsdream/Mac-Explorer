@@ -1,4 +1,5 @@
 using MacExplorer.Services;
+using MacExplorer.ViewModels;
 using Xunit;
 
 namespace MacExplorer.UnitTests;
@@ -155,6 +156,47 @@ public sealed class FolderTabSessionTests
         var settings = EnabledSettings();
         settings.Set(FolderTabSession.SessionKey, json);
         Assert.Null(FolderWindowSession.Read(settings, _ => true));
+    }
+
+    [Fact]
+    [Trait("Area", "TabGroups")]
+    public void GroupsRoundTripAndRemapDuplicateFoldersAndMissingPanes()
+    {
+        var settings = EnabledSettings();
+        var id = Guid.NewGuid();
+        var group = new FolderTabGroupSession(id, "Development", 3, true, [0, 1, 2, 3, 4],
+            PaneLayout.FourGrid, [2, 0, 4, 1], 4, 2);
+        var session = FolderTabSession.Capture(["/same", "/missing", "/same", "/extra", "/active", "home://"], 4, [group]);
+        FolderWindowSession.Capture([session], 0).Save(settings);
+        var restored = Assert.Single(FolderWindowSession.Read(settings, path => path != "/missing")!.Windows);
+        Assert.Equal(new[] { "/same", "/same", "/extra", "/active" }, restored.Paths);
+        Assert.Equal(3, restored.SelectedIndex);
+        var saved = Assert.Single(restored.Groups);
+        Assert.Equal(id, saved.Id);
+        Assert.Equal("Development", saved.Name);
+        Assert.Equal(3, saved.ColorIndex);
+        Assert.True(saved.IsCollapsed);
+        Assert.Equal(new[] { 0, 1, 2, 3 }, saved.TabIndices);
+        Assert.Equal(new[] { 1, 0, 3, 2 }, saved.PaneIndices);
+        Assert.Equal(3, saved.SelectedIndex);
+        Assert.Equal(2, saved.ActivePaneSlotIndex);
+    }
+
+    [Fact]
+    [Trait("Area", "TabGroups")]
+    public void FilterShrinksLayoutsDropsEmptyGroupsAndDoesNotCapMembers()
+    {
+        var paths = Enumerable.Range(0, 8).Select(i => "/folder" + i).ToArray();
+        var group = new FolderTabGroupSession(Guid.NewGuid(), "Work", 0, false,
+            Enumerable.Range(0, 8).ToArray(), PaneLayout.TwoColumns, [0, 7], 7, 1);
+        var all = FolderTabSession.Capture(paths, 7, [group]);
+        Assert.Equal(8, Assert.Single(all.Groups).TabIndices.Length);
+        var only = FolderTabSession.Filter(paths, 7, path => path == paths[7], [group]);
+        var saved = Assert.Single(only.Groups);
+        Assert.Equal(PaneLayout.Single, saved.Layout);
+        Assert.Equal(new[] { 0 }, saved.PaneIndices);
+        Assert.Equal(0, saved.SelectedIndex);
+        Assert.Empty(FolderTabSession.Filter(paths, 0, _ => false, [group]).Groups);
     }
 
     private static MemorySettings EnabledSettings()

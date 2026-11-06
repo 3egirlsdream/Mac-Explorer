@@ -167,6 +167,11 @@ public partial class App : Application
             var smokeWindow = mainWindow;
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.FolderTabRestoreSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
         }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_TAB_GROUPS_SMOKE") != null && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.TabGroupsSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (Tools.Testing.FeatureAccessSmoke.Enabled && mainWindow != null)
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.FeatureAccessSmoke.ManualExpired
                 ? Tools.Testing.FeatureAccessSmoke.PrepareManualExpiredAsync(mainWindow)

@@ -966,6 +966,7 @@ public sealed class FileListViewModelCreateTests : FileListViewModelTestBase
         var secondTab = window.AddTab(second, select: false);
         var thirdTab = window.AddTab(third, select: false);
         var hiddenTab = window.AddTab(hidden, select: false);
+        window.CreateGroup(window.Tabs.ToArray());
         window.SetPaneLayout(PaneLayout.ThreeColumns);
         window.ActivatePane(secondTab);
 
@@ -1057,6 +1058,7 @@ public sealed class FileListViewModelCreateTests : FileListViewModelTestBase
         var secondTab = window.AddTab(second, select: false);
         var thirdTab = window.AddTab(third, select: false);
         var fourthTab = window.AddTab(fourth, select: false);
+        window.CreateGroup(window.Tabs.ToArray());
         window.SetPaneLayout(PaneLayout.ThreeColumns);
         window.ActivatePane(secondTab);
 

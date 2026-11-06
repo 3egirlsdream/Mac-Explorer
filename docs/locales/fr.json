@@ -5,14 +5,13 @@
   "skip": "Aller au contenu",
   "features": "Fonctions",
   "download": "Télécharger",
-  "appStoreDownload": "Télécharger sur l’App Store",
+  "appStoreDownload": "Obtenir sur l’App Store",
+  "otherInstallMethods": "Autres modes d’installation",
   "docs": "Documentation",
   "menu": "Menu de navigation",
   "language": "Langue",
   "eyebrow": "POUR macOS · GRATUIT ET LIBRE",
   "platform": "macOS 14+ · Apple Silicon et Intel",
-  "silicon": "Télécharger pour Apple Silicon",
-  "intel": "Télécharger pour Intel",
   "faqTitle": "Quelques réponses avant de commencer",
   "faqs": [
     [
@@ -41,8 +40,6 @@
   "footerLine": "Un gestionnaire de fichiers conçu pour macOS.",
   "tagline": "La gestion de fichiers, en toute simplicité.",
   "intro": "Un gestionnaire de fichiers pour macOS. Explorer, trouver, organiser et partager dans une seule fenêtre.",
-  "get": "Télécharger pour macOS",
-  "downloadOptions": "Choisir la puce du Mac",
   "browserAlt": "Liste de fichiers et menus contextuels de Mac Explorer : fenêtres superposées avec thèmes intégrés, navigation, édition, déplacement, partage et conversion de fichiers, avec étiquettes dans la barre d’outils et panneau d’informations à droite",
   "capabilities": [
     {

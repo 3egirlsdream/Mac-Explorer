@@ -5,14 +5,13 @@
   "skip": "跳转到主要内容",
   "features": "功能",
   "download": "下载",
-  "appStoreDownload": "去App Store下载",
+  "appStoreDownload": "去App Store获取应用",
+  "otherInstallMethods": "其他安装方式",
   "docs": "开发者文档",
   "menu": "导航菜单",
   "language": "语言",
   "eyebrow": "为 macOS 打造 · 免费开源",
   "platform": "macOS 14+ · Apple Silicon 与 Intel",
-  "silicon": "Apple Silicon 下载",
-  "intel": "Intel 下载",
   "faqTitle": "开始之前，你可能想知道",
   "faqs": [
     [
@@ -41,8 +40,6 @@
   "footerLine": "为 macOS 打造的文件资源管理器。",
   "tagline": "文件管理，得心应手。",
   "intro": "为 macOS 打造的文件资源管理器。浏览、查找、整理与分享，在一个窗口里完成。",
-  "get": "下载 macOS 版",
-  "downloadOptions": "选择 Mac 芯片",
   "browserAlt": "Mac Explorer 文件列表与右键菜单：预置背景主题层叠窗口，浏览项目文件，使用编辑、移动、分享与文件转换功能，含工具栏标签与右侧信息面板",
   "capabilities": [
     {

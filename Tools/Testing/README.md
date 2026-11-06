@@ -156,3 +156,17 @@ bash Tools/Testing/run-isolated.sh python3 Tools/Testing/run-folder-tabs-smoke.p
 网络连接、发现／挂载、远程文件加载、凭据保存和本地 AI 分析的功能回归，需显式使用 `GrantedFeatureAccess` 表示高级入口已获授权；测试结束后恢复之前的 `FeatureAccess.Current`，嵌套及异常退出同样恢复。纯网络测试类可按每个测试实例持有并释放该作用域，混合测试类仅在需要高级功能的用例内使用。它不改变发行渠道，不读取或修改真实体验／订阅记录，也不替代目录授权和隐私同意。
 
 不要在 `TestApplication`、测试程序集或 CI 进程启动时全局开放功能权限；订阅与拒绝路径用例必须自行构造体验、免费或初始化状态。`distribution-qa.yml` 在两个渠道都运行 `FeatureAccessTests`，同时验证授权作用域隔离，以及未授权网络保存和 AI 分析在服务边界被拒绝、没有文件／凭据写入。CI 继续要求所选用例无失败、无跳过，包审计保持执行。
+
+## 页签组与分屏验证
+
+逻辑回归使用 `bash Tools/Testing/run-tests.sh fast`，交互回归使用 `bash Tools/Testing/run-tests.sh ui --area TabGroups --area TabStripInteraction --area TabStripLayout --area TabStartup --area TabWorkspaceCache`。覆盖超过四个成员、组独立分屏、整组拖动与取消、页签拖出／跨组颜色预览、普通新建默认在组外、收起保留内容、关闭释放和旧快照兼容。
+
+原生隔离验证：
+
+```bash
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_TAB_GROUPS_SMOKE=1 bash Tools/Testing/run-isolated.sh \
+  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+仅 Debug 且配置独立测试目录时启用；数据全部写入本次测试目录。`tab-groups/report.json` 记录结果，并保存四语浅／深色、窄窗口、长组名、菜单、重命名、背景主题及恢复后的真实合成截图。设为 `interactive` 可保留实例供原生指针验收；不操作真实用户目录。

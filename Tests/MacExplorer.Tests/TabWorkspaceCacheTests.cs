@@ -152,11 +152,12 @@ public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
         Dispatcher.UIThread.RunJobs();
         Assert.True(fixture.Workspaces.ContainsKey(first));
         Assert.False(fixture.Workspaces.ContainsKey(second));
+        fixture.Model.CreateGroup(fixture.Model.Tabs.ToArray());
         fixture.Model.SetPaneLayout(PaneLayout.TwoColumns);
         Dispatcher.UIThread.RunJobs();
         var pinned = fixture.Model.VisiblePanes.First(tab => tab != fixture.Model.SelectedTab);
         var pinnedView = fixture.Workspaces[pinned];
-        for (var i = 0; i < 5; i++) fixture.Model.SelectedTab = fixture.AddTab();
+        for (var i = 0; i < 5; i++) fixture.Model.SelectedTab = fixture.AddTab(pinned.Group);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(5, fixture.Workspaces.Count);
         Assert.Same(pinnedView, fixture.Workspaces[pinned]);
@@ -288,10 +289,10 @@ public abstract partial class FileListViewModelTestBase
             return new TabCacheFixture(files, first, configureServices);
         }
 
-        public ExplorerTabViewModel AddTab()
+        public ExplorerTabViewModel AddTab(TabGroupViewModel? group = null)
         {
             var vm = CreateViewModel(Files);
-            return Model.AddTab(vm, select: false);
+            return Model.AddTab(vm, select: false, group: group);
         }
 
         public async ValueTask DisposeAsync()

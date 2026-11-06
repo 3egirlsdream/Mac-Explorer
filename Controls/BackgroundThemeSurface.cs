@@ -42,14 +42,14 @@ public class BackgroundThemeSurface : Control
     private void OnThemeVariantChanged(object? sender, EventArgs e) => InvalidateVisual();
     public override void Render(DrawingContext context) => RenderTheme(context);
 
-    protected bool RenderTheme(DrawingContext context)
+    protected bool RenderTheme(DrawingContext context, Rect? clipBounds = null)
     {
         if (_renderer is not { IsActive: true, Frame: { } frame } || _window == null) return false;
         var image = Frosted ? frame.Frosted : frame.Image;
         if (image == null || this.TranslatePoint(default, _window) is not { } offset) return false;
         var windowSize = _window.ClientSize;
         if (windowSize.Width <= 0 || windowSize.Height <= 0) return false;
-        using (context.PushClip(new Rect(Bounds.Size)))
+        using (context.PushClip(clipBounds ?? new Rect(Bounds.Size)))
         using (context.PushTransform(Matrix.CreateTranslation(-offset.X, -offset.Y)))
         {
             context.DrawImage(image, new Rect(windowSize));

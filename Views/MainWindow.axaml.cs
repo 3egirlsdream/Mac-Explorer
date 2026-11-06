@@ -102,6 +102,8 @@ public partial class MainWindow : AppWindow
     internal FolderTabSession? InitialFolderTabSession { get; init; }
     internal bool IsClosingForSession { get; private set; }
 
+    internal TabGroupStripMotion TabGroupMotion => _tabInteraction.GroupMotion;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -110,10 +112,15 @@ public partial class MainWindow : AppWindow
         WindowDecorationProperties.SetElementRole(TitleBarDragArea,
             OperatingSystem.IsMacOS() ? WindowDecorationsElementRole.User : WindowDecorationsElementRole.TitleBar);
         TabSurface.TabStrip = TabList;
-        _tabInteraction = new TabStripInteraction(TabList, TabSurface,
+        _tabInteraction = new TabStripInteraction(TabList, TabStripAvailableArea, TabStripContent, NewTabButton, TabSurface,
             () => _vm != null && !IsModalInteractionBlocked && !_shutdownStarted && !GlobalSearchOverlay.IsVisible,
-            MoveTab, ShowTabContextMenu);
-        Deactivated += (_, _) => _tabInteraction.Cancel();
+            (item, anchor, after, ungroup) => _vm?.MoveStripItem(item, anchor, after, ungroup), ShowTabContextMenu,
+            group => _vm?.ToggleGroup(group), ShowGroupContextMenu);
+        Deactivated += (_, _) =>
+        {
+            _tabInteraction.FinishGroupMotion();
+            _tabInteraction.Cancel();
+        };
         Closed += (_, _) => { _tabContextMenu?.Close(); _tabInteraction.Dispose(); };
         _navigationBridge = App.Services.GetRequiredService<NavigationBridge>();
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
@@ -1083,7 +1090,8 @@ public partial class MainWindow : AppWindow
         await ExecuteWindowCapabilityAsync("ui.new-tab", "{}");
     }
 
-    private async Task<ExplorerTabViewModel?> AddTabAsync(bool select = true, string? directoryPath = null, int? insertIndex = null, bool loadDirectory = true)
+    private async Task<ExplorerTabViewModel?> AddTabAsync(bool select = true, string? directoryPath = null, int? insertIndex = null, bool loadDirectory = true,
+        TabGroupViewModel? group = null, bool inheritGroup = false)
     {
         if (_vm == null)
             return null;
@@ -1102,7 +1110,7 @@ public partial class MainWindow : AppWindow
                 fileList.PrepareInitialDirectoryView();
             if (navigate && !loadDirectory)
                 await fileList.PrepareRestoredDirectoryViewAsync(sourcePath);
-            tab = _vm.AddTab(fileList, select, insertIndex);
+            tab = _vm.AddTab(fileList, select, insertIndex, group, inheritGroup);
             _tabScopes[tab] = scope;
 
             // Finder opens a new tab at the current ordinary folder. Special
@@ -1233,13 +1241,27 @@ public partial class MainWindow : AppWindow
             return;
 
         var required = MainWindowViewModel.GetPaneCount(layout);
-        while (_vm.Tabs.Count < required)
+        if (required > 1 && !FeatureAccess.TryUse(PremiumFeature.SplitView)) return;
+        var model = _vm;
+        var selected = model.SelectedTab;
+        if (selected == null) return;
+        var candidates = model.GetSplitCandidates(required).ToList();
+        var created = new List<ExplorerTabViewModel>();
+        while (candidates.Count < required)
         {
-            var before = _vm.Tabs.Count;
-            await AddTabAsync(select: false);
-            if (_vm.Tabs.Count <= before) return;
+            var added = await AddTabAsync(select: false, directoryPath: selected.FileList.CurrentPath,
+                insertIndex: model.Tabs.IndexOf(candidates[^1]) + 1, group: selected.Group, inheritGroup: false);
+            if (added == null || _shutdownStarted || _vm != model || model.SelectedTab != selected
+                || required > 1 && !FeatureAccess.CanUse(PremiumFeature.SplitView))
+            {
+                if (added != null) created.Add(added);
+                foreach (var tab in created) await CloseTabCoreAsync(tab);
+                return;
+            }
+            created.Add(added);
+            candidates.Add(added);
         }
-        _vm.SetPaneLayout(layout);
+        model.SetPaneLayout(layout);
     }
 
     private async void OnWorkspaceActivated(ExplorerTabViewModel tab)
@@ -1407,7 +1429,7 @@ public partial class MainWindow : AppWindow
     private void OnFeatureAccessChanged() => Dispatcher.UIThread.Post(async () =>
     {
         if (_vm == null) return;
-        if (!FeatureAccess.CanUse(PremiumFeature.SplitView) && _vm.IsMultiPane) _vm.SetPaneLayout(PaneLayout.Single);
+        _vm.RefreshSplitAccess();
         if (!FeatureAccess.CanUse(PremiumFeature.GlobalSearch) && GlobalSearchOverlay.IsVisible) CloseGlobalSearch();
         if (!FeatureAccess.CanUse(PremiumFeature.Copilot) && !_copilotBusy) CopilotPanel.IsVisible = false;
         foreach (var tab in _vm.Tabs)

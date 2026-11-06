@@ -230,15 +230,15 @@ public sealed class TagToolbar : UserControl
         if (_viewModel == null) return;
         tag = _viewModel.ResolveTag(tag);
         var menu = new ContextMenu();
-        void Add(string label, Action action, bool enabled = true)
+        void Add(string label, string icon, Action action, bool enabled = true)
         {
-            var item = new MenuItem { Header = label, IsEnabled = enabled };
+            var item = new MenuItem { Header = label, Icon = TagTreePanel.Icon(icon, 16), IsEnabled = enabled };
             item.Click += (_, e) => { e.Handled = true; CloseDropdown(); action(); };
             menu.Items.Add(item);
         }
-        Add(LocalizationText.Get("重命名"), () => RenameTagRequested?.Invoke(tag));
-        Add(LocalizationText.Get("删除"), () => _viewModel?.ShowTagDeleteConfirmDialog(tag), tag.IsCustom);
-        Add(LocalizationText.Get("tags.add_child_collection"), () => CreateChildRequested?.Invoke(tag));
+        Add(LocalizationText.Get("重命名"), Icons.Rename, () => RenameTagRequested?.Invoke(tag));
+        Add(LocalizationText.Get("删除"), Icons.Delete, () => _viewModel?.ShowTagDeleteConfirmDialog(tag), tag.IsCustom);
+        Add(LocalizationText.Get("tags.add_child_collection"), Icons.StarAdd, () => CreateChildRequested?.Invoke(tag));
         _menu = menu; _menuTarget = this; _actionsOpen = true;
         menu.Closed += (_, _) =>
         {

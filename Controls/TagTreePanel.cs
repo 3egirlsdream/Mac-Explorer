@@ -256,15 +256,16 @@ public sealed class TagTreePanel : UserControl
     private ContextMenu CreateRowMenu(FileTag tag)
     {
         var menu = new ContextMenu();
-        void Add(string text, Action action, bool enabled = true)
+        void Add(string text, string icon, Action action, bool enabled = true)
         {
-            var item = new MenuItem { Header = LocalizationText.Get(text), IsEnabled = enabled };
+            var item = new MenuItem { Header = LocalizationText.Get(text), Icon = Icon(icon, 16), IsEnabled = enabled };
             item.Click += (_, _) => action(); menu.Items.Add(item);
         }
-        Add("添加子标签", () => StartCreate(tag.Name));
-        Add("重命名", () => StartEdit(tag));
-        Add(tag.IsPinned ? "从首页取消置顶" : "在首页置顶", () => _ = GuardAsync(() => _viewModel.SetTagPinnedAsync(tag, !tag.IsPinned)));
-        Add("删除", () => { CloseRequested?.Invoke(); _viewModel.ShowTagDeleteConfirmDialog(tag); }, tag.IsCustom);
+        Add("添加子标签", Icons.StarAdd, () => StartCreate(tag.Name));
+        Add("重命名", Icons.Rename, () => StartEdit(tag));
+        Add(tag.IsPinned ? "从首页取消置顶" : "在首页置顶", tag.IsPinned ? Icons.PinOff : Icons.Pin,
+            () => _ = GuardAsync(() => _viewModel.SetTagPinnedAsync(tag, !tag.IsPinned)));
+        Add("删除", Icons.Delete, () => { CloseRequested?.Invoke(); _viewModel.ShowTagDeleteConfirmDialog(tag); }, tag.IsCustom);
         return menu;
     }
 

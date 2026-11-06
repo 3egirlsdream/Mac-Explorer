@@ -16,23 +16,25 @@ public sealed class TabDragSurface : BackgroundThemeSurface
     public Color ShadowColor { get => GetValue(ShadowColorProperty); set => SetValue(ShadowColorProperty, value); }
     private readonly TabSilhouetteCache _cache = new();
     private StreamGeometry? _themeClip;
-    private Size _themeSize;
+    private (Size Size, double Join) _themeClipKey;
     static TabDragSurface() => AffectsRender<TabDragSurface>(FillProperty, ShadowColorProperty);
     public TabDragSurface() { IsHitTestVisible = false; }
     public override void Render(DrawingContext context)
     {
-        if (Fill == null) return;
-        _cache.Draw(context, new Rect(Bounds.Size), TopLevel.GetTopLevel(this)?.RenderScaling ?? 1,
+        if (Fill == null || Bounds.Width <= 0 || Bounds.Height <= ChromiumTabStripSurface.ContentBandHeight) return;
+        var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+        _cache.Draw(context, new Rect(Bounds.Size), scale,
             IsThemeActive ? Brushes.Transparent : Fill, ShadowColor);
         if (IsThemeActive)
         {
-            if (_themeClip == null || _themeSize != Bounds.Size)
+            var join = ChromiumTabStripSurface.GetJoin(Bounds.Height, scale);
+            var key = (Bounds.Size, join);
+            if (_themeClip == null || key != _themeClipKey)
             {
-                _themeSize = Bounds.Size;
-                _themeClip = ChromiumTabStripSurface.CreateOutline(_themeSize, new Rect(_themeSize),
-                    _themeSize.Height - ChromiumTabStripSurface.ContentBandHeight);
+                _themeClip = ChromiumTabStripSurface.CreateOutline(new Rect(Bounds.Size), join);
+                _themeClipKey = key;
             }
-            using (context.PushGeometryClip(_themeClip)) RenderTheme(context);
+            using (context.PushGeometryClip(_themeClip)) RenderTheme(context, _themeClip.Bounds);
         }
     }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -42,7 +44,7 @@ public sealed class TabDragSurface : BackgroundThemeSurface
 /// <summary>Caches only the tab silhouette; changing its position does not allocate bitmaps.</summary>
 internal sealed class TabSilhouetteCache : IDisposable
 {
-    private const double Padding = 7;
+    private const double Padding = ChromiumTabStripSurface.BottomRadius + 7;
     private Bitmap? _bitmap;
     private Size _size;
     private double _scale;
@@ -64,12 +66,12 @@ internal sealed class TabSilhouetteCache : IDisposable
             using (var drawing = sampled.CreateDrawingContext())
             using (drawing.PushTransform(Matrix.CreateTranslation(Padding, Padding)))
             {
-                var join = Math.Round((bounds.Height - ChromiumTabStripSurface.ContentBandHeight) * scale) / scale;
-                var outline = ChromiumTabStripSurface.CreateOutline(bounds.Size, new Rect(bounds.Size), join);
+                var outline = ChromiumTabStripSurface.CreateOutline(new Rect(bounds.Size),
+                    ChromiumTabStripSurface.GetJoin(bounds.Height, scale));
                 using var options = drawing.PushRenderOptions(new RenderOptions { EdgeMode = EdgeMode.Antialias });
                 if (shadow.A > 0)
                 {
-                    using var effect = drawing.PushEffect(new BlurEffect { Radius = 2 }, new Rect(bounds.Size));
+                    using var effect = drawing.PushEffect(new BlurEffect { Radius = 2 }, outline.Bounds);
                     drawing.DrawGeometry(new SolidColorBrush(shadow), null, outline);
                 }
                 drawing.DrawGeometry(fill, null, outline);

@@ -16,31 +16,13 @@
     scaleStage(stage);
     resizeObserver.observe(stage);
   });
-  const pickers = [
-    ...document.querySelectorAll(".language-picker, .download-picker"),
-  ];
-  pickers.forEach((picker) =>
-    picker.addEventListener("toggle", () => {
-      if (picker.open)
-        pickers
-          .filter((other) => other !== picker)
-          .forEach((other) => {
-            other.open = false;
-          });
-    }),
-  );
+  const languagePicker = document.querySelector(".language-picker");
   document.addEventListener("click", (event) => {
-    pickers.forEach((picker) => {
-      if (!picker.contains(event.target)) picker.open = false;
-    });
+    if (!languagePicker.contains(event.target)) languagePicker.open = false;
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    pickers
-      .filter((picker) => picker.open)
-      .forEach((picker) => {
-        picker.open = false;
-        picker.querySelector("summary").focus();
-      });
+    if (event.key !== "Escape" || !languagePicker.open) return;
+    languagePicker.open = false;
+    languagePicker.querySelector("summary").focus();
   });
 })();

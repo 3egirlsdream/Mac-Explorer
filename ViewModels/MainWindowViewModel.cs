@@ -44,6 +44,13 @@ public sealed partial class ExplorerTabViewModel : ObservableObject, IDisposable
     internal MacExplorer.Services.FileListTabViewState? CachedListState { get; set; }
 
     [ObservableProperty]
+    private TabGroupViewModel? _group;
+
+    public Guid? GroupId => Group?.Id;
+
+    partial void OnGroupChanged(TabGroupViewModel? value) => OnPropertyChanged(nameof(GroupId));
+
+    [ObservableProperty]
     private string _title;
 
     [ObservableProperty]
@@ -108,190 +115,114 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
+        Tabs.CollectionChanged += (_, _) => RefreshTabStrip();
     }
 
-    public MainWindowViewModel(FileListViewModel fileList)
+    public MainWindowViewModel(FileListViewModel fileList) : this()
     {
         _fileList = fileList;
         AddTab(fileList, select: true);
     }
 
-    public ExplorerTabViewModel AddTab(FileListViewModel fileList, bool select, int? insertIndex = null)
+    public ExplorerTabViewModel AddTab(FileListViewModel fileList, bool select, int? insertIndex = null,
+        TabGroupViewModel? group = null, bool inheritGroup = false)
     {
-        var tab = new ExplorerTabViewModel(fileList);
-        Tabs.Insert(Math.Clamp(insertIndex ?? Tabs.Count, 0, Tabs.Count), tab);
-        if (VisiblePanes.Count < PaneCount)
-            VisiblePanes.Add(tab);
+        group ??= inheritGroup ? SelectedTab?.Group : null;
+        var tab = new ExplorerTabViewModel(fileList) { Group = group };
+        var index = group == null ? insertIndex ?? Tabs.Count
+            : Math.Clamp(insertIndex ?? GroupEnd(group), GroupStart(group), GroupEnd(group));
+        if (group == null && index > 0 && index < Tabs.Count
+            && Tabs[index].Group is { } neighbor && Tabs[index - 1].Group == neighbor)
+            index = GroupEnd(neighbor);
+        Tabs.Insert(Math.Clamp(index, 0, Tabs.Count), tab);
         UpdateCanClose();
-        if (select)
-            SelectedTab = tab;
+        if (select || SelectedTab == null) SelectedTab = tab;
+        RefreshTabStrip();
         return tab;
     }
 
     public void MoveTab(ExplorerTabViewModel tab, int destination)
     {
-        var source = Tabs.IndexOf(tab);
-        if (source < 0 || destination < 0 || destination >= Tabs.Count || source == destination) return;
-        Tabs.Move(source, destination);
+        if (!Tabs.Contains(tab) || destination < 0 || destination >= Tabs.Count) return;
+        var target = Tabs[destination];
+        MoveTabToGroup(tab, target.Group, destination);
     }
 
     public ExplorerTabViewModel? SelectRelativeTab(int offset)
     {
-        if (Tabs.Count < 2 || SelectedTab == null)
-            return SelectedTab;
-
-        var currentIndex = Tabs.IndexOf(SelectedTab);
-        if (currentIndex < 0)
-            currentIndex = 0;
-        var nextIndex = (currentIndex + offset) % Tabs.Count;
-        if (nextIndex < 0)
-            nextIndex += Tabs.Count;
-        SelectedTab = Tabs[nextIndex];
+        if (Tabs.Count < 2 || SelectedTab == null) return SelectedTab;
+        var index = (Tabs.IndexOf(SelectedTab) + offset) % Tabs.Count;
+        SelectedTab = Tabs[index < 0 ? index + Tabs.Count : index];
         return SelectedTab;
     }
 
     public bool ActivatePane(ExplorerTabViewModel tab)
     {
         var slot = VisiblePanes.IndexOf(tab);
-        if (slot < 0)
-            return false;
-
+        if (slot < 0) return false;
         ActivePaneSlotIndex = slot;
-        if (!ReferenceEquals(SelectedTab, tab))
-            SelectedTab = tab;
+        if (!ReferenceEquals(SelectedTab, tab)) SelectedTab = tab;
         return true;
     }
 
     public bool RemoveTab(ExplorerTabViewModel tab)
     {
-        if (Tabs.Count <= 1)
-            return false;
-
-        var removedIndex = Tabs.IndexOf(tab);
-        if (removedIndex < 0)
-            return false;
-
-        var oldTabs = Tabs.ToArray();
-        var oldVisible = VisiblePanes.ToArray();
-        var removedSlot = Array.IndexOf(oldVisible, tab);
+        if (Tabs.Count <= 1 || !Tabs.Contains(tab)) return false;
+        SaveActiveGroupState();
+        var index = Tabs.IndexOf(tab);
+        var owner = tab.Group;
         var wasSelected = ReferenceEquals(SelectedTab, tab);
-        var oldActiveSlot = Math.Clamp(ActivePaneSlotIndex, 0, Math.Max(0, PaneCount - 1));
-
-        Tabs.RemoveAt(removedIndex);
-
-        var replacementOrder = oldTabs
-            .Skip(removedIndex + 1)
-            .Concat(oldTabs.Take(removedIndex).Reverse())
-            .Where(candidate => !ReferenceEquals(candidate, tab))
-            .ToArray();
-
-        var nextLayout = Tabs.Count < PaneCount
-            ? Tabs.Count switch
-            {
-                1 => PaneLayout.Single,
-                2 => PaneLayout.TwoColumns,
-                3 => PaneLayout.MainLeftTwoRowsRight,
-                _ => PaneLayout
-            }
-            : PaneLayout;
-
-        if (!FeatureAccess.CanUse(PremiumFeature.SplitView)) nextLayout = PaneLayout.Single;
-        var desired = GetPaneCount(nextLayout);
-        var remainingVisible = oldVisible.Where(candidate => !ReferenceEquals(candidate, tab)).ToList();
-        ExplorerTabViewModel activeTab;
-
-        if (wasSelected)
-        {
-            activeTab = replacementOrder.FirstOrDefault(candidate => !remainingVisible.Contains(candidate))
-                        ?? replacementOrder.FirstOrDefault()
-                        ?? Tabs[0];
-        }
-        else
-        {
-            activeTab = SelectedTab is { } selected && Tabs.Contains(selected)
-                ? selected
-                : Tabs[0];
-        }
-
-        List<ExplorerTabViewModel> normalized;
-        if (nextLayout == PaneLayout && removedSlot >= 0 && Tabs.Count >= desired)
-        {
-            normalized = oldVisible.Where(candidate => !ReferenceEquals(candidate, tab)).ToList();
-            var replacement = replacementOrder.FirstOrDefault(candidate => !normalized.Contains(candidate));
-            if (replacement != null)
-                normalized.Insert(Math.Min(removedSlot, normalized.Count), replacement);
-            normalized = BuildNormalizedPanes(normalized, desired, activeTab, oldActiveSlot, preserveSlots: true);
-        }
-        else
-        {
-            normalized = BuildNormalizedPanes(
-                remainingVisible,
-                desired,
-                activeTab,
-                Math.Min(oldActiveSlot, desired - 1),
-                preserveSlots: nextLayout == PaneLayout);
-        }
-
-        if (PaneLayout != nextLayout)
-            PaneLayout = nextLayout;
-
-        var activeIndex = Math.Clamp(
-            wasSelected ? Math.Min(oldActiveSlot, desired - 1) : normalized.IndexOf(activeTab),
-            0,
-            desired - 1);
-        activeTab = normalized[activeIndex];
-        ApplyPaneState(normalized, activeIndex, activeTab);
-
-        OnPropertyChanged(nameof(PaneCount));
-        OnPropertyChanged(nameof(IsMultiPane));
+        Tabs.Remove(tab);
+        RepairGroup(owner, index);
+        var selected = wasSelected
+            ? owner?.LastSelectedTab ?? Tabs.ElementAtOrDefault(Math.Min(index, Tabs.Count - 1))
+            : SelectedTab;
+        tab.Group = null;
+        if (selected != null) RestoreContext(selected);
         UpdateCanClose();
+        RefreshTabStrip();
         return true;
+    }
+
+    partial void OnSelectedTabChanging(ExplorerTabViewModel? value)
+    {
+        if (!_suppressSelectedTabRouting && value != null && value.Group != _activeGroup)
+            SaveActiveGroupState();
     }
 
     partial void OnSelectedTabChanged(ExplorerTabViewModel? value)
     {
-        foreach (var tab in Tabs)
-            tab.IsActive = ReferenceEquals(tab, value);
-
-        if (value == null)
-            return;
-
+        foreach (var tab in Tabs) tab.IsActive = ReferenceEquals(tab, value);
+        if (value == null) return;
         if (!_suppressSelectedTabRouting)
         {
-            var visibleIndex = VisiblePanes.IndexOf(value);
-            if (visibleIndex >= 0)
-            {
-                SetActiveSlotWithoutRouting(visibleIndex);
-            }
-            else if (VisiblePanes.Count == 0)
-            {
-                VisiblePanes.Add(value);
-                SetActiveSlotWithoutRouting(0);
-            }
+            if (value.Group != _activeGroup || VisiblePanes.Count == 0)
+                RestoreContext(value);
+            else if (value.Group == null)
+                ApplyPaneState([value], 0, value);
             else
             {
-                var slot = Math.Clamp(ActivePaneSlotIndex, 0, VisiblePanes.Count - 1);
-                VisiblePanes[slot] = value;
+                var slot = VisiblePanes.IndexOf(value);
+                if (slot < 0)
+                {
+                    slot = Math.Clamp(ActivePaneSlotIndex, 0, VisiblePanes.Count - 1);
+                    VisiblePanes[slot] = value;
+                }
                 SetActiveSlotWithoutRouting(slot);
+                SaveActiveGroupState();
             }
         }
-
-        if (!ReferenceEquals(FileList, value.FileList))
-            FileList = value.FileList;
+        if (!ReferenceEquals(FileList, value.FileList)) FileList = value.FileList;
+        UpdateStripSelection();
     }
 
     partial void OnActivePaneSlotIndexChanged(int value)
     {
-        if (_suppressActiveSlotRouting || VisiblePanes.Count == 0)
-            return;
-
-        var clamped = Math.Clamp(value, 0, Math.Min(PaneCount, VisiblePanes.Count) - 1);
-        if (clamped != value)
-            SetActiveSlotWithoutRouting(clamped);
-
-        var tab = VisiblePanes[clamped];
-        if (!ReferenceEquals(SelectedTab, tab))
-            SelectedTab = tab;
+        if (_suppressActiveSlotRouting || VisiblePanes.Count == 0) return;
+        var slot = Math.Clamp(value, 0, VisiblePanes.Count - 1);
+        if (slot != value) SetActiveSlotWithoutRouting(slot);
+        if (!ReferenceEquals(SelectedTab, VisiblePanes[slot])) SelectedTab = VisiblePanes[slot];
+        SaveActiveGroupState();
     }
 
     partial void OnPaneLayoutChanging(PaneLayout value)
@@ -302,112 +233,68 @@ public partial class MainWindowViewModel : ObservableObject
     public void SetPaneLayout(PaneLayout layout)
     {
         if (GetPaneCount(layout) > 1 && !FeatureAccess.TryUse(PremiumFeature.SplitView)) return;
-        var oldCount = PaneCount;
-        var oldVisible = VisiblePanes.ToArray();
-        var activeTab = SelectedTab ?? oldVisible.ElementAtOrDefault(ActivePaneSlotIndex) ?? Tabs.FirstOrDefault();
-        var oldActiveIndex = Math.Clamp(ActivePaneSlotIndex, 0, Math.Max(0, oldCount - 1));
-
-        if (PaneLayout != layout)
-            PaneLayout = layout;
-
-        var desired = PaneCount;
-        if (activeTab != null)
+        if (SelectedTab == null) return;
+        if (layout != PaneLayout.Single && SelectedTab.Group == null)
         {
-            var normalized = BuildNormalizedPanes(
-                oldVisible,
-                desired,
-                activeTab,
-                Math.Min(oldActiveIndex, desired - 1),
-                preserveSlots: desired >= oldCount);
-            var activeIndex = normalized.IndexOf(activeTab);
-            ApplyPaneState(normalized, activeIndex < 0 ? 0 : activeIndex, activeTab);
+            var candidates = GetSplitCandidates(GetPaneCount(layout));
+            if (candidates.Length < GetPaneCount(layout)) return;
+            CreateGroup(candidates);
         }
-
+        if (SelectedTab.Group != null && Members(SelectedTab.Group).Count() < GetPaneCount(layout)) return;
+        var active = SelectedTab;
+        var oldCount = PaneCount;
+        var oldSlot = ActivePaneSlotIndex;
+        var oldPanes = VisiblePanes.ToArray();
+        _restrictedGroupDisplay = false;
+        PaneLayout = layout;
+        var panes = BuildNormalizedPanes(oldPanes, PaneCount, active,
+            Math.Min(oldSlot, PaneCount - 1), PaneCount >= oldCount);
+        ApplyPaneState(panes, Math.Max(0, panes.IndexOf(active)), active);
+        SaveActiveGroupState();
         OnPropertyChanged(nameof(PaneCount));
         OnPropertyChanged(nameof(IsMultiPane));
     }
 
-    private List<ExplorerTabViewModel> BuildNormalizedPanes(
-        IEnumerable<ExplorerTabViewModel> source,
-        int desired,
-        ExplorerTabViewModel activeTab,
-        int requestedActiveIndex,
-        bool preserveSlots)
+    private List<ExplorerTabViewModel> BuildNormalizedPanes(IEnumerable<ExplorerTabViewModel> source,
+        int desired, ExplorerTabViewModel activeTab, int requestedActiveIndex, bool preserveSlots)
     {
+        var members = Members(activeTab.Group).ToArray();
         var target = new ExplorerTabViewModel?[desired];
         var activeIndex = Math.Clamp(requestedActiveIndex, 0, desired - 1);
-        var sourceList = source.Where(Tabs.Contains).Distinct().ToList();
-
+        var sourceList = source.Where(members.Contains).Distinct().ToList();
         if (preserveSlots)
-        {
-            for (var i = 0; i < Math.Min(sourceList.Count, desired); i++)
-                target[i] = sourceList[i];
-        }
-
-        var existingActiveIndex = Array.IndexOf(target, activeTab);
-        if (existingActiveIndex < 0)
-            target[activeIndex] = activeTab;
-        else
-            activeIndex = existingActiveIndex;
-
-        var candidates = sourceList
-            .Concat(Tabs)
-            .Where(candidate => !ReferenceEquals(candidate, activeTab))
-            .Distinct()
-            .ToArray();
+            for (var i = 0; i < Math.Min(sourceList.Count, desired); i++) target[i] = sourceList[i];
+        if (!target.Contains(activeTab)) target[activeIndex] = activeTab;
+        var candidates = sourceList.Concat(members).Distinct().Where(tab => tab != activeTab).ToArray();
         var candidateIndex = 0;
         for (var slot = 0; slot < target.Length; slot++)
         {
-            if (target[slot] != null)
-                continue;
-            while (candidateIndex < candidates.Length && target.Contains(candidates[candidateIndex]))
-                candidateIndex++;
-            if (candidateIndex < candidates.Length)
-                target[slot] = candidates[candidateIndex++];
+            if (target[slot] != null) continue;
+            while (candidateIndex < candidates.Length && target.Contains(candidates[candidateIndex])) candidateIndex++;
+            if (candidateIndex < candidates.Length) target[slot] = candidates[candidateIndex++];
         }
-
-        return target.Where(tab => tab != null).Cast<ExplorerTabViewModel>().ToList();
+        return target.OfType<ExplorerTabViewModel>().ToList();
     }
 
-    private void ApplyPaneState(
-        IReadOnlyList<ExplorerTabViewModel> panes,
-        int activeIndex,
-        ExplorerTabViewModel selected)
+    private void ApplyPaneState(IReadOnlyList<ExplorerTabViewModel> panes, int activeIndex, ExplorerTabViewModel selected)
     {
         for (var i = 0; i < panes.Count; i++)
         {
-            if (i < VisiblePanes.Count)
-                VisiblePanes[i] = panes[i];
-            else
-                VisiblePanes.Add(panes[i]);
+            if (i < VisiblePanes.Count) VisiblePanes[i] = panes[i];
+            else VisiblePanes.Add(panes[i]);
         }
-
-        while (VisiblePanes.Count > panes.Count)
-            VisiblePanes.RemoveAt(VisiblePanes.Count - 1);
-
+        while (VisiblePanes.Count > panes.Count) VisiblePanes.RemoveAt(VisiblePanes.Count - 1);
         SetActiveSlotWithoutRouting(Math.Clamp(activeIndex, 0, Math.Max(0, panes.Count - 1)));
         _suppressSelectedTabRouting = true;
-        try
-        {
-            SelectedTab = selected;
-        }
-        finally
-        {
-            _suppressSelectedTabRouting = false;
-        }
+        try { SelectedTab = selected; }
+        finally { _suppressSelectedTabRouting = false; }
     }
 
     private void SetActiveSlotWithoutRouting(int value)
     {
         _suppressActiveSlotRouting = true;
-        try
-        {
-            ActivePaneSlotIndex = value;
-        }
-        finally
-        {
-            _suppressActiveSlotRouting = false;
-        }
+        try { ActivePaneSlotIndex = value; }
+        finally { _suppressActiveSlotRouting = false; }
     }
 
     public static int GetPaneCount(PaneLayout layout) => GetPaneLayoutDefinition(layout).Slots.Count;

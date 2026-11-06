@@ -91,22 +91,6 @@
             <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Margin" Value="0"/>
         </Style>
-        <Style Selector="Border.tab-hover-surface">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Border.browser-tab-divider">
-            <Setter Property="Opacity" Value="1"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.1" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
-        </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="ZIndex" Value="2"/>
@@ -114,12 +98,6 @@
         <Style Selector="ListBox.tab-strip ListBoxItem:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
-        </Style>
-        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover Border.tab-hover-surface">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-        <Style Selector="ListBox.tab-strip ListBoxItem:pointerover Border.browser-tab-divider">
-            <Setter Property="Opacity" Value="0"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem:selected">
             <Setter Property="Background" Value="Transparent"/>
@@ -130,13 +108,6 @@
                          ListBox.tab-strip ListBoxItem:selected:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
-        </Style>
-        <Style Selector="ListBox.tab-strip ListBoxItem:selected Border.tab-hover-surface">
-            <Setter Property="IsVisible" Value="False"/>
-        </Style>
-        <Style Selector="ListBox.tab-strip ListBoxItem:selected Border.browser-tab-divider,
-                         ListBox.tab-strip ListBoxItem:selected:pointerover Border.browser-tab-divider">
-            <Setter Property="Opacity" Value="0"/>
         </Style>
         <Style Selector="ListBox.tab-strip ListBoxItem:selected:pointerover">
             <Setter Property="ZIndex" Value="3"/>
@@ -239,6 +210,8 @@
         <Style Selector="controls|ChromiumTabStripSurface">
             <Setter Property="ShadowColor" Value="{DynamicResource ActiveTabShadowColor}"/>
             <Setter Property="Fill" Value="{DynamicResource WorkspaceTabBrush}"/>
+            <Setter Property="HoverFill" Value="{DynamicResource InteractionHoverBrush}"/>
+            <Setter Property="DividerFill" Value="{DynamicResource WorkspaceDividerBrush}"/>
         </Style>
     </controls:AppWindow.Styles>
 
@@ -254,10 +227,11 @@
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
             <Border x:Name="TitleBarDragArea" Grid.ColumnSpan="4" Background="Transparent"
                     PointerPressed="OnTitleBarBlankPointerPressed"/>
-            <Grid Grid.Column="0" ColumnDefinitions="*,Auto" HorizontalAlignment="Left" Margin="0,8,0,0">
+            <Grid x:Name="TabStripAvailableArea" Grid.Column="0" Margin="0,8,0,0">
+                <Grid x:Name="TabStripContent" ColumnDefinitions="*,Auto" HorizontalAlignment="Left">
                     <ScrollViewer Grid.Column="0" x:Name="TabScrollViewer"
                                   chrome:WindowDecorationProperties.ElementRole="User"
-                                  HorizontalScrollBarVisibility="Disabled"
+                                  HorizontalScrollBarVisibility="Hidden"
                                   VerticalScrollBarVisibility="Disabled">
                         <ListBox x:Name="TabList"
                                  Classes="tab-strip"
@@ -266,30 +240,35 @@
                                  DragDrop.AllowDrop="True"
                                  DragDrop.DragOver="OnTabFileDragOver"
                                  DragDrop.Drop="OnTabFileDrop"
-                                 ItemsSource="{Binding Tabs}"
-                                 SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
+                                 ItemsSource="{Binding TabStripItems}"
+                                 SelectedItem="{Binding SelectedStripItem, Mode=TwoWay}"
                                  SelectionMode="Single">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <controls:AdaptiveTabPanel UseLayoutRounding="False"/>
+                                    <controls:AdaptiveTabPanel UseLayoutRounding="False" ViewportWidth="{Binding #TabStripAvailableArea.Bounds.Width}"/>
                                 </ItemsPanelTemplate>
                             </ListBox.ItemsPanel>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ExplorerTabViewModel">
+                            <ListBox.DataTemplates>
+                                <DataTemplate DataType="{x:Type vm:TabGroupViewModel}" x:DataType="vm:TabGroupViewModel">
+                                    <Grid>
+                                        <controls:TabGroupLine IsVisible="{Binding !IsCollapsed}"/>
+                                        <Border Classes="tab-group-header" Classes.active="{Binding IsActive}" Background="{Binding ColorBrush}"
+                                                AutomationProperties.Name="{Binding Name}"
+                                                AutomationProperties.HelpText="{loc:Loc tabs.group.toggle}"
+                                                ToolTip.Tip="{Binding Name}">
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                       FontSize="{DynamicResource FontSizeBody}"
+                                                       Foreground="White" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                                <DataTemplate DataType="{x:Type vm:ExplorerTabViewModel}" x:DataType="vm:ExplorerTabViewModel">
                                     <Grid ClipToBounds="False">
-                                        <controls:TabDragSurface IsVisible="False" Fill="{DynamicResource SurfaceBrush}"
+                                        <controls:TabDragSurface x:Name="DragTabSurface" IsVisible="False" Fill="{DynamicResource SurfaceBrush}"
                                                                  ShadowColor="{DynamicResource ActiveTabShadowColor}"/>
-                                        <Border Classes="tab-hover-surface" Margin="16,4,16,5"
-                                                CornerRadius="10" IsHitTestVisible="False"/>
-                                        <Border Classes="browser-tab-divider"
-                                                Width="1" Height="20" Margin="0,0,0,4"
-                                                HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                Background="{DynamicResource WorkspaceDividerBrush}"
-                                                IsHitTestVisible="False"/>
-                                        <!-- Account for the 16-DIP contour inset, close-button padding,
-                                             and 2-DIP content join when balancing the visible spacing. -->
-                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7"
-                                              Margin="28,0,22,2" ClipToBounds="True">
+                                        <controls:TabGroupLine Classes.drag-preview="{Binding #DragTabSurface.IsVisible}"/>
+                                        <Grid Classes="tab-title-content" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7"
+                                              ClipToBounds="True">
                                             <PathIcon Grid.Column="0" Data="{Binding FileList.CurrentLocationIcon}"
                                                       Width="14" Height="14"
                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -309,16 +288,17 @@
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>
-                            </ListBox.ItemTemplate>
+                            </ListBox.DataTemplates>
                         </ListBox>
                     </ScrollViewer>
                     <Button Grid.Column="1" x:Name="NewTabButton" Classes="title-nav-button"
-                            Width="28" Height="28"
+                            Width="28" Height="28" Margin="6,0,0,0"
                             Click="AddTab"
                             controls:ShortcutTip.Command="tab.new"
                             AutomationProperties.Name="{loc:Loc ui.066}">
                         <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
                     </Button>
+                </Grid>
             </Grid>
                     <Button Grid.Column="1" x:Name="PaneLayoutButton" Classes="title-nav-button"
                             Margin="2,4,0,0"
