@@ -22,6 +22,47 @@ public sealed class TabGroupsUiTests : FileListViewModelTestBase
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task GroupSeparationPreservesOriginalAccentPositionAndSelectedTabInsets(bool dark)
+    {
+        using var theme = new FastListTestTheme();
+        await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
+        fixture.Window.Styles.Add((Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        fixture.Window.RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
+        while (fixture.Model.Tabs.Count < 5) fixture.AddTab();
+        var model = fixture.Model;
+        var members = model.Tabs.ToArray();
+        var first = model.CreateGroup(members.Take(2));
+        var second = model.CreateGroup(members.Skip(2).Take(2));
+        var list = fixture.Window.FindControl<ListBox>("TabList")!;
+
+        foreach (var selected in members)
+        {
+            model.SelectedTab = selected;
+            Dispatcher.UIThread.RunJobs();
+            fixture.Window.UpdateLayout();
+            foreach (var item in list.Items)
+            {
+                var header = (ListBoxItem)list.ContainerFromItem(item)!;
+                var line = header.GetVisualDescendants().OfType<TabGroupLine>().Single();
+                Assert.Equal(2, line.Height);
+                Assert.Equal(header.IsSelected ? new Thickness(6, 2, 6, 0) : new Thickness(0, 2, 0, 0), line.Margin);
+            }
+            var firstHeader = (Control)list.ContainerFromItem(first)!;
+            var firstEnd = (Control)list.ContainerFromItem(members[1])!;
+            var secondHeader = (Control)list.ContainerFromItem(second)!;
+            Assert.Equal(0, firstHeader.Margin.Left);
+            Assert.Equal(8, secondHeader.Margin.Left);
+            var gap = secondHeader.TranslatePoint(default, list)!.Value.X
+                - firstEnd.TranslatePoint(new Point(firstEnd.Bounds.Width, 0), list)!.Value.X;
+            Assert.InRange(gap, 7, 9);
+
+        }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task DraggingInactiveGroupMovesTheWholeBlockWithoutActivatingIt(bool collapsed)
     {
         using var theme = new FastListTestTheme();

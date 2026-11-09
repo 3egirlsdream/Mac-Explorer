@@ -74,6 +74,8 @@ public sealed class TabStripLayoutTests : FileListViewModelTestBase
     {
         using var theme = new FastListTestTheme();
         await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
+        fixture.Window.Styles.Add((Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         fixture.Window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         var tabs = fixture.Window.FindControl<ListBox>("TabList")!;
         var viewport = fixture.Window.FindControl<ScrollViewer>("TabScrollViewer")!;
@@ -104,6 +106,19 @@ public sealed class TabStripLayoutTests : FileListViewModelTestBase
                 var expectedExtent = Math.Max(viewport.Bounds.Width, count * 112);
                 Assert.InRange(end, expectedExtent - 1, expectedExtent + 1);
                 Assert.InRange(add.TranslatePoint(default, viewport)!.Value.X - viewport.Bounds.Width, 5, 7);
+                var presets = fixture.Window.FindControl<Button>("GroupPresetsButton")!;
+                var layout = fixture.Window.FindControl<Button>("PaneLayoutButton")!;
+                foreach (var button in new[] { add, presets, layout })
+                {
+                    Assert.Equal(new Size(32, 32), button.Bounds.Size);
+                    var titleBar = button.FindAncestorOfType<WindowTitleBar>()!;
+                    var top = button.TranslatePoint(default, titleBar)!.Value.Y;
+                    Assert.Equal((titleBar.Bounds.Height - button.Bounds.Height) / 2, top, 4);
+                    Assert.Equal(button.Margin.Bottom, titleBar.Bounds.Height - top - button.Bounds.Height, 4);
+                    Assert.Equal(new Thickness(button == add ? 6 : 2, 6, 2, 6), button.Margin);
+                    Assert.Equal(layout.TranslatePoint(default, fixture.Window)!.Value.Y,
+                        button.TranslatePoint(default, fixture.Window)!.Value.Y, 4);
+                }
                 Assert.Equal(0, viewport.Offset.X);
                 if (count == 1)
                     Assert.InRange(headers[0].Bounds.Width, longTitle ? 279 : 179, longTitle ? 281 : 181);

@@ -50,16 +50,18 @@ public sealed class AdaptiveTabPanel : Panel
         for (var i = 0; i < Children.Count; i++)
         {
             var child = Children[i];
+            child.Classes.Set("group-separated", i > 0 && child.DataContext is TabGroupViewModel
+                && GroupOf(Children[i - 1].DataContext) != null);
             child.Measure(new Size(double.PositiveInfinity, availableSize.Height));
             if (child.DataContext is TabGroupViewModel)
-                labelsWidth += _widths[i] = Math.Clamp(child.DesiredSize.Width, 40, 148);
+                labelsWidth += _widths[i] = Math.Clamp(child.DesiredSize.Width, 40 + child.Margin.Left, 148 + child.Margin.Left);
             else
             {
                 tabsWidth += _widths[i] = Math.Clamp(child.DesiredSize.Width, 180, 280);
                 tabCount++;
             }
         }
-        var limit = ViewportWidth > 0 ? Math.Max(0, ViewportWidth - 36) : availableSize.Width;
+        var limit = ViewportWidth > 0 ? Math.Max(0, ViewportWidth - 40) : availableSize.Width;
         var width = Math.Max(labelsWidth + tabCount * 112, Math.Min(labelsWidth + tabsWidth, limit));
         var scale = tabsWidth > 0 ? Math.Min(1, Math.Max(0, width - labelsWidth) / tabsWidth) : 1;
         var height = 0d;

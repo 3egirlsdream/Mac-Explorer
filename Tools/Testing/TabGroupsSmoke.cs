@@ -68,6 +68,11 @@ internal static class TabGroupsSmoke
             model.SelectedTab = selectedBeforeCapture;
             owner.UpdateLayout();
             var strip = owner.FindControl<ListBox>("TabList")!;
+            var groupHeader = (Control)strip.ContainerFromItem(first)!;
+            var previousHeader = (Control)strip.ContainerFromIndex(strip.Items.IndexOf(first) - 1)!;
+            Require(groupHeader.Margin.Left == 8
+                && Math.Abs(groupHeader.Bounds.Left - previousHeader.Bounds.Right - 8) <= 1,
+                "The native strip keeps an eight-pixel gap between colored groups");
             var accents = strip.GetVisualDescendants().OfType<TabGroupLine>().ToArray();
             Require(accents.All(line => line.Height == 2), "Group accent lines use the shared two-pixel style");
             Require(accents.Where(line => line.PreviewGroup != null).All(line => ReferenceEquals(line.Background, line.PreviewGroup!.ColorBrush)),

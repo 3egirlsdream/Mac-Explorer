@@ -18,55 +18,6 @@
         MinWidth="1000" MinHeight="680">
 
     <controls:AppWindow.Styles>
-        <Style Selector="Button.title-nav-button">
-            <Setter Property="Width" Value="30"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="MinWidth" Value="30"/>
-            <Setter Property="MinHeight" Value="30"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="RenderTransform" Value="scale(1)"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <ContentPresenter Background="{TemplateBinding Background}"
-                                      BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="{TemplateBinding BorderThickness}"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                      CornerRadius="{TemplateBinding CornerRadius}"
-                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                      Padding="{TemplateBinding Padding}"/>
-                </ControlTemplate>
-            </Setter>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.09" Easing="QuadraticEaseOut"/>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.title-nav-button PathIcon">
-            <Setter Property="Width" Value="16"/>
-            <Setter Property="Height" Value="16"/>
-        </Style>
-        <Style Selector="Button.title-nav-button:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-        <Style Selector="Button.title-nav-button:pressed">
-            <Setter Property="RenderTransform" Value="scale(0.94)"/>
-        </Style>
-
-        <Style Selector="Button.title-nav-button:disabled">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
-            <Setter Property="RenderTransform" Value="scale(1)"/>
-        </Style>
         <Style Selector="ListBox.tab-strip">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -76,7 +27,6 @@
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="Margin" Value="0"/>
             <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
@@ -223,13 +173,14 @@
 
     <controls:AppWindow.TitleBarContent>
         <!-- Browser-style tabs share the native traffic-light row. -->
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto"
               chrome:WindowDecorationProperties.ElementRole="TitleBar">
-            <Border x:Name="TitleBarDragArea" Grid.ColumnSpan="4" Background="Transparent"
+            <Border x:Name="TitleBarDragArea" Grid.ColumnSpan="5" Background="Transparent"
                     PointerPressed="OnTitleBarBlankPointerPressed"/>
-            <Grid x:Name="TabStripAvailableArea" Grid.Column="0" Margin="0,8,0,0">
+            <Grid x:Name="TabStripAvailableArea" Grid.Column="0">
                 <Grid x:Name="TabStripContent" ColumnDefinitions="*,Auto" HorizontalAlignment="Left">
                     <ScrollViewer Grid.Column="0" x:Name="TabScrollViewer"
+                                  Margin="0,8,0,0"
                                   chrome:WindowDecorationProperties.ElementRole="User"
                                   HorizontalScrollBarVisibility="Hidden"
                                   VerticalScrollBarVisibility="Disabled">
@@ -271,6 +222,7 @@
                                               ClipToBounds="True">
                                             <PathIcon Grid.Column="0" Data="{Binding FileList.CurrentLocationIcon}"
                                                       Width="14" Height="14"
+                                                      HorizontalAlignment="Left"
                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Title}"
                                                        TextTrimming="None" TextWrapping="NoWrap"
@@ -279,6 +231,7 @@
                                                        VerticalAlignment="Center"
                                                        ToolTip.Tip="{Binding Title}"/>
                                             <Button Grid.Column="2" Classes="tab-close-button"
+                                                    HorizontalAlignment="Right"
                                                     IsVisible="{Binding CanClose}"
                                                     Click="CloseTab"
                                                     controls:ShortcutTip.Command="tab.close"
@@ -291,17 +244,21 @@
                             </ListBox.DataTemplates>
                         </ListBox>
                     </ScrollViewer>
-                    <Button Grid.Column="1" x:Name="NewTabButton" Classes="title-nav-button"
-                            Width="28" Height="28" Margin="6,0,0,0"
+                    <Button Grid.Column="1" x:Name="NewTabButton" Classes="title-nav-button tab-add"
                             Click="AddTab"
                             controls:ShortcutTip.Command="tab.new"
                             AutomationProperties.Name="{loc:Loc ui.066}">
-                        <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
+                        <PathIcon Data="{x:Static icons:Icons.Plus}"/>
                     </Button>
                 </Grid>
             </Grid>
-                    <Button Grid.Column="1" x:Name="PaneLayoutButton" Classes="title-nav-button"
-                            Margin="2,4,0,0"
+                    <Button Grid.Column="1" x:Name="GroupPresetsButton" Classes="title-nav-button"
+                            Click="ShowGroupPresets"
+                            ToolTip.Tip="{loc:Loc tabs.preset.title}"
+                            AutomationProperties.Name="{loc:Loc tabs.preset.title}">
+                        <PathIcon Data="{x:Static icons:Icons.SquareMultiple}"/>
+                    </Button>
+                    <Button Grid.Column="2" x:Name="PaneLayoutButton" Classes="title-nav-button"
                             Click="TogglePaneLayoutPopup"
                             ToolTip.Tip="{loc:Loc ui.071}"
                             AutomationProperties.Name="{loc:Loc ui.071}">
@@ -394,13 +351,13 @@
                             </Grid>
                         </Border>
                     </Popup>
-                    <Button Grid.Column="2" x:Name="TaskButton" IsVisible="False"
-                            Classes="title-nav-button" Margin="2,4,0,0"
+                    <Button Grid.Column="3" x:Name="TaskButton" IsVisible="False"
+                            Classes="title-nav-button"
                             Click="ToggleTaskPanel">
                         <controls:AnimatedProgressRing x:Name="TaskProgressRing"/>
                     </Button>
-                    <Button Grid.Column="3" x:Name="CopilotStatusButton" IsVisible="False" Classes="title-nav-button"
-                            Margin="2,4,0,0" Click="ToggleCopilot"
+                    <Button Grid.Column="4" x:Name="CopilotStatusButton" IsVisible="False" Classes="title-nav-button"
+                            Click="ToggleCopilot"
                             ToolTip.Tip="Copilot" AutomationProperties.Name="{loc:Loc ui.060}">
                         <PathIcon Data="{x:Static icons:Icons.Copilot}"/>
                     </Button>

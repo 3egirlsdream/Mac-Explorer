@@ -164,6 +164,11 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_GROUP_PRESETS_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.GroupPresetsSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (Tools.Testing.FolderTabRestoreSmoke.Phase != null && mainWindow != null)
         {
             var smokeWindow = mainWindow;

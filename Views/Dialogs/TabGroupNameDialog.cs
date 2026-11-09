@@ -11,9 +11,12 @@ namespace MacExplorer.Views.Dialogs;
 
 internal sealed class TabGroupNameDialog : DialogWindow
 {
-    internal TabGroupNameDialog(string initial)
+    internal TabGroupNameDialog(string initial, string titleKey = "tabs.group.rename", string nameKey = "tabs.group.name")
     {
-        Title = LocalizationText.Get("tabs.group.rename");
+        Title = LocalizationText.Get(titleKey);
+        var title = new TextBlock { Text = Title, Classes = { "dialog-window-title" } };
+        ToolTip.SetTip(title, Title);
+        TitleBarContent = title;
         Width = 360;
         MinWidth = 300;
         SizeToContent = SizeToContent.Height;
@@ -22,9 +25,9 @@ internal sealed class TabGroupNameDialog : DialogWindow
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
         Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
             { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
-        var input = new TextBox { Text = initial, MaxLength = 80, Classes = { "settings-inline-input" } };
-        AutomationProperties.SetName(input, LocalizationText.Get("tabs.group.name"));
-        var label = new TextBlock { Text = LocalizationText.Get("tabs.group.name"), VerticalAlignment = VerticalAlignment.Center };
+        var input = new TextBox { Name = "GroupNameInput", Text = initial, MaxLength = 80, Classes = { "settings-inline-input" } };
+        AutomationProperties.SetName(input, LocalizationText.Get(nameKey));
+        var label = new TextBlock { Text = LocalizationText.Get(nameKey), VerticalAlignment = VerticalAlignment.Center };
         AppTypography.BindFontSize(label, AppTypography.Body);
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 12,
             Classes = { "settings-row" } };
@@ -32,7 +35,8 @@ internal sealed class TabGroupNameDialog : DialogWindow
         Grid.SetColumn(input, 1);
         row.Children.Add(input);
         var cancel = new Button { Content = LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
-        var save = new Button { Content = LocalizationText.Get("保存"), Classes = { "primary", "compact" }, IsEnabled = true };
+        var save = new Button { Name = "SaveButton", Content = LocalizationText.Get("保存"), Classes = { "primary", "compact" },
+            IsEnabled = !string.IsNullOrWhiteSpace(initial) };
         void Save() { if (!string.IsNullOrWhiteSpace(input.Text)) Close(input.Text.Trim()); }
         input.TextChanged += (_, _) => save.IsEnabled = !string.IsNullOrWhiteSpace(input.Text);
         input.KeyDown += (_, e) =>

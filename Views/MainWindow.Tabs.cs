@@ -20,6 +20,7 @@ public partial class MainWindow
     private readonly Dictionary<Guid, (ExplorerTabViewModel Tab, string Path)> _restoringFolderTabs = [];
     private Queue<Guid>? _preparedFolderTabs;
     private FolderWindowSession? _initialFolderWindows;
+    private readonly SemaphoreSlim _folderRestoreSlots = new(2);
 
     internal bool IsRestoringFolderTabs => _restoringFolderTabs.Count > 0;
 
@@ -70,43 +71,45 @@ public partial class MainWindow
             {
                 if (!_restoringFolderTabs.TryGetValue(id, out var pending) || _vm?.Tabs.Contains(pending.Tab) != true) continue;
                 var fileList = pending.Tab.FileList;
+                await _folderRestoreSlots.WaitAsync();
                 try
                 {
-                    if (fileList.CurrentPath == pending.Path && !fileList.IsSearchMode)
+                    if (!_shutdownStarted && _restoringFolderTabs.ContainsKey(id) && _vm?.Tabs.Contains(pending.Tab) == true
+                        && fileList.CurrentPath == pending.Path && !fileList.IsSearchMode)
                         await fileList.NavigateToAsync(pending.Path);
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Folder tab restore failed: {ex}");
                 }
-                finally { _restoringFolderTabs.Remove(id); }
+                finally { _restoringFolderTabs.Remove(id); _folderRestoreSlots.Release(); }
             }
         }
         // Bound directory work without serializing the selected folder behind inactive tabs.
         await Task.WhenAll(LoadNextAsync(), LoadNextAsync());
-        _restoringFolderTabs.Clear();
     }
 
-    private async Task<Queue<Guid>> PrepareRestoredFolderTabsAsync(FolderTabSession session)
+    private async Task<Queue<Guid>> PrepareRestoredFolderTabsAsync(FolderTabSession session, bool append = false)
     {
         if (_shutdownStarted || _vm?.SelectedTab is not { } initialTab) return new Queue<Guid>();
         var model = _vm;
         var tabs = new List<ExplorerTabViewModel>();
         var restored = new Dictionary<int, ExplorerTabViewModel>();
-        var selected = initialTab;
+        ExplorerTabViewModel? selected = null;
         for (var i = 0; i < session.Paths.Length; i++)
         {
             var path = session.Paths[i];
-            var tab = i == 0 ? initialTab
+            var tab = i == 0 && !append ? initialTab
                 : await AddTabAsync(select: false, directoryPath: path, loadDirectory: false, inheritGroup: false);
             if (tab == null) continue;
-            if (i == 0) await tab.FileList.PrepareRestoredDirectoryViewAsync(path);
+            if (i == 0 && !append) await tab.FileList.PrepareRestoredDirectoryViewAsync(path);
             _restoringFolderTabs[tab.Id] = (tab, path);
             tabs.Add(tab);
             restored[i] = tab;
             if (i == session.SelectedIndex) selected = tab;
         }
         if (tabs.Count == 0) return new Queue<Guid>();
+        selected ??= tabs[0];
         // Select once, before any directory enumeration. Background completion never changes focus.
         model.RestoreGroups(session.Groups, restored);
         model.SelectedTab = selected;
@@ -219,6 +222,7 @@ public partial class MainWindow
             if (group.IsCollapsed) _vm.ToggleGroup(group);
             await AddTabAsync(directoryPath: source.FileList.CurrentPath, group: group, inheritGroup: false);
         }, Icons.TabAdd);
+        Add("tabs.preset.save", () => SaveGroupPresetAsync(group), Icons.Save);
         menu.Items.Add(new Separator());
         Add("tabs.group.ungroup", () => { _vm?.Ungroup(group); return Task.CompletedTask; });
         Add("tabs.group.close", () => CloseGroupAsync(group), Icons.Close);

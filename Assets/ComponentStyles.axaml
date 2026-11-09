@@ -3,6 +3,72 @@
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI">
+    <Style Selector="Button.title-nav-button">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinWidth" Value="32"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="Margin" Value="2,6"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Padding="{TemplateBinding Padding}"/>
+            </ControlTemplate>
+        </Setter>
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.09" Easing="QuadraticEaseOut"/>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.title-nav-button.tab-add">
+        <Setter Property="Margin" Value="6,6,2,6"/>
+    </Style>
+    <Style Selector="Button.title-nav-button PathIcon">
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="Height" Value="14"/>
+    </Style>
+    <Style Selector="Button.title-nav-button:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.title-nav-button:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.94)"/>
+    </Style>
+
+    <Style Selector="Button.title-nav-button:disabled">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+    </Style>
+    <Style Selector="Button.title-nav-button.active">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.dialog-window-title">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="{DynamicResource FontWeightSemibold}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
     <Style Selector="Border.workspace-surface">
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="0"/>
@@ -1414,6 +1480,12 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
     </Style>
+    <Style Selector="ListBox.tab-strip ListBoxItem">
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.tab-strip ListBoxItem.group-separated">
+        <Setter Property="Margin" Value="8,0,0,0"/>
+    </Style>
     <Style Selector="controls|TabGroupLine">
         <Setter Property="Height" Value="2"/>
         <Setter Property="Margin" Value="0,2,0,0"/>
@@ -1436,7 +1508,7 @@
         <Setter Property="FontWeight" Value="{DynamicResource FontWeightMedium}"/>
     </Style>
     <Style Selector="Grid.tab-title-content">
-        <Setter Property="Margin" Value="16,0,10,2"/>
+        <Setter Property="Margin" Value="10,0,4,2"/>
     </Style>
     <Style Selector="Border.tab-group-header.active TextBlock">
         <Setter Property="FontWeight" Value="{DynamicResource FontWeightSemiBold}"/>

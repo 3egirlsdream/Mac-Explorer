@@ -12,6 +12,7 @@ public sealed partial class TabGroupViewModel : ObservableObject
     private static readonly string[] Colors =
         ["#286BF5", "#D90083", "#287B59", "#884DB3", "#AF512C", "#7B652C", "#36747F", "#5E5DB9"];
     public Guid Id { get; }
+    internal Guid? PresetId { get; set; }
     public int ColorIndex { get; }
     public IBrush ColorBrush { get; }
     internal static int ColorCount => Colors.Length;
@@ -306,7 +307,8 @@ public partial class MainWindowViewModel
             .Select(group => new FolderTabGroupSession(group.Id, group.Name, group.ColorIndex, group.IsCollapsed,
                 Members(group).Select(tab => Tabs.IndexOf(tab)).ToArray(), group.Layout,
                 group.Panes.Select(tab => Tabs.IndexOf(tab)).ToArray(),
-                group.LastSelectedTab == null ? -1 : Tabs.IndexOf(group.LastSelectedTab), group.ActiveSlot)).ToArray();
+                group.LastSelectedTab == null ? -1 : Tabs.IndexOf(group.LastSelectedTab), group.ActiveSlot)
+                { PresetId = group.PresetId }).ToArray();
     }
 
     internal void RestoreGroups(FolderTabGroupSession[] groups, IReadOnlyDictionary<int, ExplorerTabViewModel> restored)
@@ -319,6 +321,7 @@ public partial class MainWindowViewModel
                 ? LocalizationText.Get("tabs.group.default", Groups.Count + 1) : saved.Name, saved.ColorIndex, saved.Id)
             {
                 IsCollapsed = saved.IsCollapsed,
+                PresetId = saved.PresetId,
                 Layout = FitLayout(saved.Layout, members.Length),
                 Panes = saved.PaneIndices.Where(restored.ContainsKey).Select(i => restored[i]).Where(members.Contains).ToList(),
                 LastSelectedTab = restored.GetValueOrDefault(saved.SelectedIndex),

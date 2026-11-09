@@ -4,7 +4,10 @@ using MacExplorer.ViewModels;
 namespace MacExplorer.Services;
 
 internal sealed record FolderTabGroupSession(Guid Id, string Name, int ColorIndex, bool IsCollapsed,
-    int[] TabIndices, PaneLayout Layout, int[] PaneIndices, int SelectedIndex, int ActivePaneSlotIndex);
+    int[] TabIndices, PaneLayout Layout, int[] PaneIndices, int SelectedIndex, int ActivePaneSlotIndex)
+{
+    public Guid? PresetId { get; init; }
+}
 
 /// <summary>A folder-only session. Virtual pages, searches and credentials are not persisted.</summary>
 internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)

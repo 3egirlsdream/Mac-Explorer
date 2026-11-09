@@ -1189,6 +1189,7 @@ public partial class MainWindow : AppWindow
 
     private void TogglePaneLayoutPopup(object? sender, RoutedEventArgs e)
     {
+        _tabContextMenu?.Close();
         PaneLayoutPopup.IsOpen = !PaneLayoutPopup.IsOpen;
         if (PaneLayoutPopup.IsOpen)
             Dispatcher.UIThread.Post(UpdatePaneLayoutPickerSelection);
