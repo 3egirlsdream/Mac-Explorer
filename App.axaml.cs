@@ -31,9 +31,11 @@ public partial class App : Application
 
     public override void Initialize()
     {
+        Platforms.MacOS.MacFontTableLifetime.Prepare();
         // Runtime XAML loading keeps startup behavior consistent across desktop platforms.
         // This ensures Application.Current is available before theme services initialize.
         AvaloniaXamlLoader.Load(this);
+        Platforms.MacOS.MacFontLifetime.Prepare();
         MacExplorer.Services.Markdown.MarkdownLocalization.Register();
         Services = ConfigureServices();
         FeatureAccess.Current = Services.GetRequiredService<FeatureAccessService>();

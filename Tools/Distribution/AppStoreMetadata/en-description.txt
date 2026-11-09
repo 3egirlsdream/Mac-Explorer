@@ -35,5 +35,5 @@ For Apple Silicon Macs running macOS 14.0 or later. Preview formats depend on sy
 APP TRIAL AND SUBSCRIPTION
 The app provides a continuous 168-hour full experience from first use, without subscribing or automatic charges. Basic features stay free afterward. An annual subscription starts when you choose to purchase, without an additional introductory trial for new subscribers; existing Apple trials keep their original entitlement. The subscription period is one year. Price is shown in the app and on the App Store confirmation sheet. Auto-renewal must be turned off at least 24 hours before the current subscription or existing Apple trial ends. The app-managed experience never renews or charges. Payment is charged to your Apple account. Manage or cancel in Apple account settings; access continues until the current entitlement expires. Existing subscribers can use Restore Purchases.
 
-Privacy: https://3egirlsdream.github.io/Mac-Explorer/privacy/
+Privacy: https://macexplorer.top/privacy/
 Terms of Use (Apple Standard EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

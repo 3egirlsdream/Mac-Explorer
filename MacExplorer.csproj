@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -47,6 +47,7 @@
     <ProjectReference Include="Plugins/SDK/MacExplorer.PluginSdk.csproj" />
     <ProjectReference Include="Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" ReferenceOutputAssembly="true" />
     <ProjectReference Include="ThirdParty/LiquidGlassAvaloniaUI/LiquidGlassAvaloniaUI.csproj" />
+    <ProjectReference Include="ThirdParty/Avalonia.TextShaping/MacExplorer.TextShaping.csproj" />
     <None Update="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" TargetPath="LiquidGlassAvaloniaUI.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="ThirdParty/Vex/LICENSE" TargetPath="Markdown/Vex.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="ThirdParty/Vex/NOTICE.md" TargetPath="Markdown/NOTICE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -196,6 +197,7 @@
     <Copy SourceFiles="LICENSE" DestinationFiles="$(_ResourcesDir)/Notices/Project.LICENSE.txt" />
     <Copy SourceFiles="Assets/localsend-logo.png;Assets/localsend-LICENSE.txt;Assets/localsend-ATTRIBUTION.txt" DestinationFolder="$(_ResourcesDir)/LocalSend" />
     <Copy SourceFiles="ThirdParty/LiquidGlassAvaloniaUI/LICENSE" DestinationFiles="$(_ResourcesDir)/LiquidGlassAvaloniaUI.LICENSE.txt" />
+    <Copy SourceFiles="ThirdParty/Avalonia.TextShaping/LICENSE;ThirdParty/Avalonia.TextShaping/NOTICE.md" DestinationFolder="$(_ResourcesDir)/TextShaping" />
     <Copy SourceFiles="ThirdParty/Vex/LICENSE;ThirdParty/Vex/NOTICE.md;ThirdParty/Vex/FluentIcons.LICENSE.txt" DestinationFolder="$(_ResourcesDir)/Markdown" />
     <Copy SourceFiles="ThirdParty/LibRaw/COPYRIGHT;ThirdParty/LibRaw/LICENSE.LGPL;ThirdParty/LibRaw/LICENSE.CDDL;ThirdParty/LibRaw/SOURCE.md" DestinationFolder="$(_ResourcesDir)/LibRaw" />
 

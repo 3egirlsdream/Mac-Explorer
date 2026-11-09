@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
@@ -13,12 +14,14 @@ using Avalonia.VisualTree;
 using LiquidGlassAvaloniaUI;
 using MacExplorer.Controls;
 using MacExplorer.Models;
+using MacExplorer.Services;
 using MacExplorer.ViewModels;
 
 namespace MacExplorer.Views;
 
 public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace, IDisposable
 {
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
     public static readonly StyledProperty<bool> ForceCompactProperty =
         AvaloniaProperty.Register<ExplorerWorkspaceView, bool>(nameof(ForceCompact));
 
@@ -40,12 +43,27 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private bool _previewResizeFramePending;
     private bool _disposed;
     private long _activationGeneration;
+    private IPointer? _zoomSliderPointer;
 
     public event Action<ExplorerTabViewModel>? WorkspaceActivated;
 
     public ExplorerWorkspaceView()
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Workspace);
         InitializeComponent();
+        ThumbnailZoomSlider.ValueChanged += OnThumbnailZoomValueChanged;
+        ThumbnailZoomSlider.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (!e.GetCurrentPoint(ThumbnailZoomSlider).Properties.IsLeftButtonPressed) return;
+            _zoomSliderPointer = e.Pointer;
+            UpdateThumbnailZoomLabel();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        ThumbnailZoomSlider.AddHandler(PointerReleasedEvent, (_, e) =>
+        {
+            if (ReferenceEquals(_zoomSliderPointer, e.Pointer)) CompleteThumbnailZoomGesture();
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
+        ThumbnailZoomSlider.AddHandler(Thumb.DragCompletedEvent, (_, _) => CompleteThumbnailZoomGesture(),
+            RoutingStrategies.Bubble, handledEventsToo: true);
         ApplySidebarAppearance();
         ActualThemeVariantChanged += (_, _) => ApplySidebarAppearance();
         AddHandler(PointerPressedEvent, OnWorkspacePointerPressed,
@@ -123,6 +141,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        _zoomSliderPointer = null;
         if (_tab != null)
         {
             _tab.PropertyChanged -= OnTabPropertyChanged;
@@ -131,6 +150,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
         base.OnDataContextChanged(e);
         _tab = Tab;
+        _memoryLifetime?.Link(_tab?.DiagnosticId ?? 0);
         if (_tab != null)
         {
             _tab.PropertyChanged += OnTabPropertyChanged;
@@ -166,6 +186,8 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         {
             UpdateInfoPanelVisibility();
         }
+        if (e.PropertyName is nameof(FileListViewModel.ViewMode) or nameof(FileListViewModel.ThumbnailZoomLevel))
+            SyncThumbnailZoomSlider();
     }
 
     public void RefreshState()
@@ -195,7 +217,45 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (NetworkViewHost.Content is Control network) network.IsVisible = NetworkViewHost.IsVisible;
         StatusBar.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
         ToolbarSurface.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
+        SyncThumbnailZoomSlider();
         UpdatePageSearchPresentation();
+    }
+
+    private void SyncThumbnailZoomSlider()
+    {
+        ThumbnailZoomHost.IsVisible = FileListControl.IsVisible && _tab?.FileList.ViewMode == ViewMode.Grid;
+        if (_tab is { FileList: var fileList } && (_zoomSliderPointer == null
+            || ThumbnailZoomSlider.Value != FileThumbnailSizing.GalleryLevel))
+            ThumbnailZoomSlider.Value = fileList.ThumbnailZoomLevel;
+    }
+
+    private void OnThumbnailZoomValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        UpdateThumbnailZoomLabel();
+        if (_zoomSliderPointer == null || e.NewValue != FileThumbnailSizing.GalleryLevel) ApplyThumbnailZoomSlider();
+    }
+
+    private void UpdateThumbnailZoomLabel()
+    {
+        var level = (int)ThumbnailZoomSlider.Value;
+        ThumbnailZoomSlider.Tag = level == FileThumbnailSizing.GalleryLevel
+            ? Services.Impl.LocalizationText.Get("file_gallery.title")
+            : Services.Impl.LocalizationText.Get("file_gallery.zoom_value", FileThumbnailSizing.GetGridSize(level));
+    }
+
+    private void ApplyThumbnailZoomSlider()
+        => _tab?.FileList.SetThumbnailZoomLevel((int)ThumbnailZoomSlider.Value);
+
+    private void CompleteThumbnailZoomGesture()
+    {
+        if (_zoomSliderPointer == null) return;
+        _zoomSliderPointer = null;
+        ApplyThumbnailZoomSlider();
+    }
+
+    private void OnGalleryButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (!FileListControl.TryExitGallery()) _tab?.FileList.SetThumbnailZoomLevel(FileThumbnailSizing.GalleryLevel);
     }
 
     private void UpdateInfoPanelVisibility()
@@ -333,6 +393,8 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     public void DeactivateTransientUi()
     {
+        _zoomSliderPointer = null;
+        SyncThumbnailZoomSlider();
         CloseTransientUi(null);
         FileListControl.DeactivateTabInteraction();
         if (IsCompact)
@@ -357,6 +419,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             FileListControl.Focus();
             return true;
         }
+        if (FileListControl.TryExitGallery()) return true;
         if (IsCompact && SidebarSplitView.IsPaneOpen)
         {
             SetCompactSidebarOpen(false);
@@ -625,6 +688,8 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (_disposed)
             return;
         _disposed = true;
+        _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
+        _infoPanel?.ReleaseDiagnosticLifetime();
         SizeChanged -= OnWorkspaceSizeChanged;
         if (_infoPanel != null) _infoPanel.PreviewExpandedChanged -= OnPreviewExpandedChanged;
         if (_tab != null)

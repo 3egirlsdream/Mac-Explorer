@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using MacExplorer.Models;
+using MacExplorer.Controls;
 using MacExplorer.Services;
 using Microsoft.Extensions.DependencyInjection;
 using SharpCompress.Common;
@@ -40,6 +41,10 @@ public partial class SuperPreviewView : UserControl
     private Control? _previousFocus;
     private int _operationVersion;
     private readonly bool _isCompactPreview;
+    private readonly bool _isGalleryPreview;
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    internal long DiagnosticId => _memoryLifetime?.Id ?? 0;
+    internal void ReleaseDiagnosticLifetime() => _memoryLifetime?.SetState(DiagnosticObjectState.Released);
 
     public event EventHandler? RequestClose;
 
@@ -48,10 +53,12 @@ public partial class SuperPreviewView : UserControl
 
     public SuperPreviewView() : this(isCompactPreview: false) { }
 
-    internal SuperPreviewView(bool isCompactPreview)
+    internal SuperPreviewView(bool isCompactPreview, bool isGalleryPreview = false)
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Preview);
         InitializeComponent();
         _isCompactPreview = isCompactPreview;
+        _isGalleryPreview = isGalleryPreview;
         if (isCompactPreview)
             ConfigureCompactLayout();
         ItemsList.ItemsSource = _entries;
@@ -91,8 +98,25 @@ public partial class SuperPreviewView : UserControl
         PreviewCard.Padding = new Thickness(0);
     }
 
+    internal async Task<bool> OpenGalleryFileAsync(FileSystemEntry entry, CancellationToken token)
+    {
+        MemoryDiagnostics.Operation(DiagnosticAction.PreviewOpen, DiagnosticId);
+        IsVisible = true;
+        PreviewListCard.IsVisible = false;
+        PreviewCard.IsVisible = true;
+        PreviewContentGrid.ColumnDefinitions = ColumnDefinitions.Parse("0,0,*");
+        try
+        {
+            await ShowEntryPreviewAsync(entry, token);
+            return !token.IsCancellationRequested && !PreviewPlaceholder.IsVisible;
+        }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (IOException) { return false; }
+    }
+
     public async Task OpenAsync(FileSystemEntry entry)
     {
+        MemoryDiagnostics.Operation(DiagnosticAction.PreviewOpen, DiagnosticId);
         if (!_isCompactPreview && !IsVisible)
             _previousFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
         CloseResources();
@@ -142,8 +166,16 @@ public partial class SuperPreviewView : UserControl
         await LoadLocationAsync(location, preferred, isolatePreferredEntry);
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _memoryLifetime?.Link((TopLevel.GetTopLevel(this) as AppWindow)?.DiagnosticId ?? 0);
+        _memoryLifetime?.SetState(DiagnosticObjectState.Attached);
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _memoryLifetime?.SetState(DiagnosticObjectState.Detached);
         CloseResources();
         base.OnDetachedFromVisualTree(e);
     }
@@ -153,6 +185,7 @@ public partial class SuperPreviewView : UserControl
         if (!IsVisible && _location == null)
             return;
 
+        MemoryDiagnostics.Operation(DiagnosticAction.PreviewClose, DiagnosticId, count: _entries.Count);
         IsVisible = false;
         CloseResources();
         PreviewText.Text = string.Empty;
@@ -417,6 +450,20 @@ public partial class SuperPreviewView : UserControl
 
     private async Task ShowEntryPreviewAsync(FileSystemEntry entry, CancellationToken? inheritedToken = null)
     {
+        using var operation = MemoryDiagnostics.BeginOperation(DiagnosticAction.PreviewSelection, DiagnosticId);
+        var expectedVersion = _operationVersion + 1;
+        try
+        {
+            await ShowEntryPreviewCoreAsync(entry, inheritedToken);
+            operation?.Complete(expectedVersion != _operationVersion || _previewCts?.IsCancellationRequested == true
+                ? DiagnosticOutcome.Cancelled : DiagnosticOutcome.Completed);
+        }
+        catch (OperationCanceledException) { operation?.Complete(DiagnosticOutcome.Cancelled); throw; }
+        catch { operation?.Complete(DiagnosticOutcome.Failed); throw; }
+    }
+
+    private async Task ShowEntryPreviewCoreAsync(FileSystemEntry entry, CancellationToken? inheritedToken)
+    {
         ClearDocumentPreview();
         _previewCts?.Cancel();
         _previewCts?.Dispose();
@@ -459,14 +506,15 @@ public partial class SuperPreviewView : UserControl
 
         try
         {
+            var maxPixels = _isCompactPreview && !_isGalleryPreview ? 720 : 1800;
             var bytes = _thumbnailService == null
                 ? null
-                : await _thumbnailService.GetThumbnailAsync(previewPath, _isCompactPreview ? 720 : 1800, token);
+                : await _thumbnailService.GetThumbnailAsync(previewPath, maxPixels, token);
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
             if (bytes != null && bytes.Length > 0)
             {
-                var bitmap = await Task.Run(() => MacExplorer.Services.BoundedImageDecoder.Decode(bytes, _isCompactPreview ? 720 : 1800, token), token);
+                var bitmap = await Task.Run(() => MacExplorer.Services.BoundedImageDecoder.Decode(bytes, maxPixels, token), token);
                 if (version != _operationVersion || token.IsCancellationRequested || !IsVisible) { bitmap?.Dispose(); return; }
                 if (bitmap == null) { ShowPlaceholder("系统无法为此文件生成预览"); return; }
                 SetPreviewBitmap(bitmap);
@@ -722,6 +770,7 @@ public partial class SuperPreviewView : UserControl
 
     private void OnSuperPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        if (_isGalleryPreview) return;
         if (e.Key == Key.Escape)
         {
             Close();

@@ -15,7 +15,9 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
     private int _maintenancePending;
     MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
     {
-        lock (_lock) return new("file-tasks", _tasks.Count, _tasks.Sum(t => t.RetainedRetryBytes), _queue.Count(e => e.Executing) + Volatile.Read(ref _releasingContexts));
+        if (!Monitor.TryEnter(_lock)) return new("file-tasks", 0, Owners: 0, Skipped: 1);
+        try { return new("file-tasks", _tasks.Count, _tasks.Sum(t => t.RetainedRetryBytes), _queue.Count(e => e.Executing) + Volatile.Read(ref _releasingContexts)); }
+        finally { Monitor.Exit(_lock); }
     }
     private sealed class Entry
     {

@@ -22,6 +22,8 @@ namespace MacExplorer.ViewModels;
 
 public partial class FileListViewModel : ObservableObject, IDisposable
 {
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    internal long DiagnosticId => _memoryLifetime?.Id ?? 0;
     private readonly IFileService _fileService;
     private readonly IFileIndex _fileIndex;
     private readonly IFileIndexWriter _fileIndexWriter;
@@ -523,6 +525,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IAirDropService? airDropService = null,
         Func<MacExplorer.Copilot.IAppCapabilityRegistry>? appCapabilitiesFactory = null)
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.FileList, navigation.DiagnosticId);
         _localizationService = localizationService ?? LocalizationService.Current;
         if (_localizationService != null) _localizationService.LanguageChanged += OnInterfaceLanguageChanged;
         _navigation = navigation;
@@ -901,6 +904,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     internal void SetWorkspaceVisible(bool visible)
     {
+        if (_workspaceVisible != visible)
+            MemoryDiagnostics.Operation(DiagnosticAction.WorkspaceVisibility, DiagnosticId, visible: visible);
         _workspaceVisible = visible;
         if (!visible || !_tagDirectoryRefreshPending) return;
         _tagDirectoryRefreshPending = false;
@@ -1039,6 +1044,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void OnNavigationPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(NavigationViewModel.CurrentPath) or nameof(NavigationViewModel.IsHomePage)
+            or nameof(NavigationViewModel.IsSearchMode))
+            MemoryDiagnostics.Operation(DiagnosticAction.LocationChanged, DiagnosticId, _navigation.DiagnosticId);
         // Forward property change notifications for properties that are delegated to _navigation
         if (e.PropertyName is nameof(NavigationViewModel.IsHomePage)
             or nameof(NavigationViewModel.CurrentPath)
@@ -1126,6 +1134,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void OnSortFilterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(SortFilterViewModel.ViewMode))
+            MemoryDiagnostics.Operation(DiagnosticAction.ViewMode, DiagnosticId, mode: (int)ViewMode);
         if (e.PropertyName == nameof(SortFilterViewModel.ColumnFilters))
         {
             BeginTreeQueryChange();
@@ -1201,6 +1211,18 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     public async Task NavigateToAsync(string path)
+    {
+        using var operation = MemoryDiagnostics.BeginOperation(DiagnosticAction.Navigate, DiagnosticId);
+        try
+        {
+            await NavigateToCoreAsync(path);
+            operation?.Complete(count: Entries.Count);
+        }
+        catch (OperationCanceledException) { operation?.Complete(DiagnosticOutcome.Cancelled); throw; }
+        catch { operation?.Complete(DiagnosticOutcome.Failed); throw; }
+    }
+
+    private async Task NavigateToCoreAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
         if (!FeatureAccess.TryUse(FeatureAccess.ForPath(path))) return;
@@ -4421,6 +4443,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public void SetViewMode(ViewMode viewMode)
     {
+        if (IsGalleryMode) SetThumbnailZoomLevel(FileThumbnailSizing.LargestGridLevel);
         if (_sortFilter.ViewMode == viewMode) return;
         _sortFilter.ViewMode = viewMode;
     }
@@ -4520,6 +4543,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     partial void OnIsInfoPanelVisibleChanged(bool value)
     {
+        MemoryDiagnostics.Operation(DiagnosticAction.InfoPanelVisibility, DiagnosticId, visible: value);
         _settingsService?.Set("IsInfoPanelVisible", value);
     }
 
@@ -4563,6 +4587,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task LoadDirectoryContentsAsync(bool forceRefresh = false, bool showPlaceholder = false)
     {
+        using var operation = MemoryDiagnostics.BeginOperation(DiagnosticAction.DirectoryLoad, DiagnosticId);
+        try
+        {
+            await LoadDirectoryContentsCoreAsync(forceRefresh, showPlaceholder, operation);
+        }
+        catch (OperationCanceledException) { operation?.Complete(DiagnosticOutcome.Cancelled); throw; }
+        catch { operation?.Complete(DiagnosticOutcome.Failed); throw; }
+    }
+
+    private async Task LoadDirectoryContentsCoreAsync(bool forceRefresh, bool showPlaceholder, MemoryDiagnosticOperation? operation)
+    {
         var work = BeginDirectoryWork();
         var path = _navigation.CurrentPath;
         showPlaceholder |= IsDirectoryLoading;
@@ -4591,11 +4626,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException)
         {
+            operation?.Complete(DiagnosticOutcome.Cancelled);
             return;
         }
         catch (Exception ex)
         {
-            if (!IsCurrentDirectoryWork(work)) return;
+            if (!IsCurrentDirectoryWork(work)) { operation?.Complete(DiagnosticOutcome.Cancelled); return; }
             ReadErrorMessage = ex.Message;
             if (showPlaceholder) ApplyEntries([]);
             throw;
@@ -4608,7 +4644,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 IsLoading = false;
             }
         }
-        if (!IsCurrentDirectoryWork(work)) return;
+        if (!IsCurrentDirectoryWork(work)) { operation?.Complete(DiagnosticOutcome.Cancelled); return; }
 
         if (forceRefresh || showPlaceholder) FolderCoversRefreshRequested?.Invoke();
         StartDirectoryBackgroundWork(entries, work, includeAnalysis: true);
@@ -4618,6 +4654,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         // Batch load ratings for current directory
         _ = _pinnedFolders.GetRating(_navigation.CurrentPath); // Just to initialize
+        operation?.Complete(count: entries.Count);
     }
 
     private void QueueDirectoryIndexUpdate(string directoryPath, IReadOnlyList<FileSystemEntry> entries, DirectoryWork work)
@@ -4867,6 +4904,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
+        _navigation.ReleaseDiagnosticLifetime();
         if (_localizationService != null) _localizationService.LanguageChanged -= OnInterfaceLanguageChanged;
         if (_settingsService != null) _settingsService.SettingChanged -= OnSettingsChanged;
         if (_pluginManager != null) _pluginManager.Changed -= OnPluginsChanged;

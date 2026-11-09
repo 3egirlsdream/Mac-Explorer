@@ -55,7 +55,7 @@ bash Tools/Distribution/prepare-store-pkg.sh \
 
 ## 资源与验证
 
-正式政策位于 [官网页面](https://3egirlsdream.github.io/Mac-Explorer/privacy/)，本地副本为 `Assets/PrivacyPolicy.txt`；未配置政策 URL 时，应用读取该正式副本。数据流见 [privacy-data-flow.md](privacy-data-flow.md)。
+正式政策位于 [官网页面](https://macexplorer.top/privacy/)，本地副本为 `Assets/PrivacyPolicy.txt`；未配置政策 URL 时，应用读取该正式副本。数据流见 [privacy-data-flow.md](privacy-data-flow.md)。
 
 第三方声明通过 `ThirdParty/Notices/dependencies.json` 校验，内容相同的许可证共用一个文件，项目许可证直接复制根目录 `LICENSE`。LibRaw 使用 arm64/x64 预编译库，保留许可证及 `SOURCE.md` 中的源码下载地址和哈希，不编译或打包源码归档。
 

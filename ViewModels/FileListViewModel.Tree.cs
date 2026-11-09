@@ -45,12 +45,14 @@ public partial class FileListViewModel
                          || path.StartsWith(entry.FullPath.TrimEnd('/') + '/', StringComparison.Ordinal)).ToArray())
                 RemoveTreeBranch(path);
             RebuildTreeRows(restoreSelection: true, collapsedPath: entry.FullPath);
+            MemoryDiagnostics.Operation(DiagnosticAction.TreeCollapse, DiagnosticId, count: _treeBranches.Count);
             return;
         }
 
         var branch = new TreeBranch();
         _treeBranches.Add(entry.FullPath, branch);
         await LoadTreeBranchAsync(entry.FullPath, branch);
+        MemoryDiagnostics.Operation(DiagnosticAction.TreeExpand, DiagnosticId, count: _treeBranches.Count);
     }
 
     public async Task ExpandTreeDirectoryAsync(FileSystemEntry entry)
@@ -66,6 +68,7 @@ public partial class FileListViewModel
                      || path.StartsWith(entry.FullPath.TrimEnd('/') + '/', StringComparison.Ordinal)).ToArray())
             RemoveTreeBranch(path);
         RebuildTreeRows(restoreSelection: true, collapsedPath: entry.FullPath);
+        MemoryDiagnostics.Operation(DiagnosticAction.TreeCollapse, DiagnosticId, count: _treeBranches.Count);
     }
 
     private void RemoveTreeBranch(string path)

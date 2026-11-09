@@ -2,9 +2,9 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-// Avalonia.Native 12.0.4 returns owned COM references from GetChildren/Get.
-// Its two native children builders omit Release. Keep the AX tree intact while
-// balancing those references. ABI slots are from the pinned IAvnAutomationPeer
+// Avalonia.Native 12.0.4 returns owned COM references from its AX getters.
+// Balance the references omitted by its native AX traversal. Keep the AX tree
+// intact. ABI slots are from the pinned IAvnAutomationPeer / IAvnTopLevel
 // and IAvnAutomationPeerArray interfaces (IUnknown occupies slots 0–2).
 static void *MEPeer(id object, const char *selector) {
     return ((void *(*)(id, SEL))objc_msgSend)(object, sel_registerName(selector));
@@ -12,6 +12,51 @@ static void *MEPeer(id object, const char *selector) {
 
 static void MERelease(void *object) {
     if (object) ((uint32_t (*)(void *))(*(void ***)object)[2])(object);
+}
+
+static IMP MEOriginalAcquire;
+
+static NSView *MERootView(void *peer) {
+    void *window = ((void *(*)(void *))(*(void ***)peer)[27])(peer);
+    if (!window) return nil;
+    @try {
+        void *view = nullptr;
+        int32_t result = ((int32_t (*)(void *, void **))(*(void ***)window)[12])(window, &view);
+        return result == 0 ? (__bridge NSView *)view : nil;
+    } @finally { MERelease(window); }
+}
+
+static id MEAcquire(id type, SEL selector, void *peer) {
+    if (!peer) return nil;
+    void *node = ((void *(*)(void *))(*(void ***)peer)[3])(peer);
+    if (node) {
+        @try {
+            return ((id (*)(id, SEL, void *))MEOriginalAcquire)(type, selector, peer);
+        } @finally {
+            // Our GetNode and the original acquire:'s GetNode each return an
+            // owned reference to the same existing node.
+            MERelease(node);
+            MERelease(node);
+        }
+    }
+    if (((int32_t (*)(void *))(*(void ***)peer)[26])(peer))
+        return [MERootView(peer) window];
+    return ((id (*)(id, SEL, void *))MEOriginalAcquire)(type, selector, peer);
+}
+
+static id MERelatedElement(id object, SEL selector) {
+    void *peer = MEPeer(object, "peer");
+    if (!peer) return nil;
+    int slot = selector == sel_registerName("accessibilityParent") ? 14
+        : selector == sel_registerName("accessibilityWindow") ? 15 : 23;
+    void *related = ((void *(*)(void *))(*(void ***)peer)[slot])(peer);
+    if (!related)
+        return slot == 14 ? [NSApplication sharedApplication] : nil;
+    @try {
+        if (slot == 14 && ((int32_t (*)(void *))(*(void ***)related)[26])(related))
+            return MERootView(related);
+        return MEAcquire(objc_getClass("AvnAccessibilityElement"), sel_registerName("acquire:"), related);
+    } @finally { MERelease(related); }
 }
 
 static NSMutableArray *MEChildren(void *peer) {
@@ -58,9 +103,18 @@ bool me_automation_fix_children() {
     Class view = objc_getClass("AvnView");
     Method elementMethod = class_getInstanceMethod(element, sel_registerName("recalculateChildren"));
     Method viewMethod = class_getInstanceMethod(view, sel_registerName("recalculateAccessibiltyChildren"));
+    Method acquireMethod = class_getClassMethod(element, sel_registerName("acquire:"));
+    Method parentMethod = class_getInstanceMethod(element, sel_registerName("accessibilityParent"));
+    Method windowMethod = class_getInstanceMethod(element, sel_registerName("accessibilityWindow"));
+    Method rootMethod = class_getInstanceMethod(element, sel_registerName("accessibilityTopLevelUIElement"));
     MEElementChildren = class_getInstanceVariable(element, "_children");
     MEViewChildren = class_getInstanceVariable(view, "_accessibilityChildren");
-    if (!elementMethod || !viewMethod || !MEElementChildren || !MEViewChildren) return false;
+    if (!elementMethod || !viewMethod || !acquireMethod || !parentMethod || !windowMethod || !rootMethod
+        || !MEElementChildren || !MEViewChildren) return false;
+    MEOriginalAcquire = method_setImplementation(acquireMethod, (IMP)MEAcquire);
+    method_setImplementation(parentMethod, (IMP)MERelatedElement);
+    method_setImplementation(windowMethod, (IMP)MERelatedElement);
+    method_setImplementation(rootMethod, (IMP)MERelatedElement);
     method_setImplementation(elementMethod, (IMP)MERecalculateChildren);
     method_setImplementation(viewMethod, (IMP)MERecalculateViewChildren);
     installed = true;

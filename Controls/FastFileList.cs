@@ -31,6 +31,9 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public static readonly StyledProperty<IBrush?> BackgroundProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Background));
     public static readonly StyledProperty<bool> IsLoadingProperty = AvaloniaProperty.Register<FastFileList, bool>(nameof(IsLoading));
     public static readonly StyledProperty<bool> IsGridProperty = AvaloniaProperty.Register<FastFileList, bool>(nameof(IsGrid));
+    public static readonly StyledProperty<int> GridIconSizeProperty =
+        AvaloniaProperty.Register<FastFileList, int>(nameof(GridIconSize), FileThumbnailSizing.DefaultGridSize,
+            coerce: (_, value) => Math.Clamp(value, 32, 128));
     public static readonly StyledProperty<IBrush?> ForegroundProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Foreground), Brushes.Black);
     public static readonly StyledProperty<IBrush?> SecondaryProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Secondary), Brushes.Gray);
     public static readonly StyledProperty<IBrush?> HoverProperty = AvaloniaProperty.Register<FastFileList, IBrush?>(nameof(Hover));
@@ -56,6 +59,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public IBrush? Background { get => GetValue(BackgroundProperty); set => SetValue(BackgroundProperty, value); }
     public bool IsLoading { get => GetValue(IsLoadingProperty); set => SetValue(IsLoadingProperty, value); }
     public bool IsGrid { get => GetValue(IsGridProperty); set => SetValue(IsGridProperty, value); }
+    public int GridIconSize { get => GetValue(GridIconSizeProperty); set => SetValue(GridIconSizeProperty, value); }
+    internal double GridNameWidth => GridIconSize + 36;
     public IBrush? Foreground { get => GetValue(ForegroundProperty); set => SetValue(ForegroundProperty, value); }
     public IBrush? Secondary { get => GetValue(SecondaryProperty); set => SetValue(SecondaryProperty, value); }
     public IBrush? Hover { get => GetValue(HoverProperty); set => SetValue(HoverProperty, value); }
@@ -151,6 +156,11 @@ public sealed class FastFileList : Control, ILogicalScrollable
 #endif
     internal int LastRenderedSkeletonRowCount { get; private set; }
     internal int LastRenderedHeaderCount { get; private set; }
+    internal bool HasThumbnail(FileSystemEntry entry)
+    {
+        _images.Get(entry, IsGrid && _folderCoversEnabled, out var isThumbnail);
+        return isThumbnail;
+    }
     internal int GridColumns => _layout.Columns;
     internal double ItemHeight => _layout.ItemHeight;
     internal double LastRenderMilliseconds { get; private set; }
@@ -191,7 +201,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     static FastFileList()
     {
-        AffectsRender<FastFileList>(IsGridProperty, IsLoadingProperty, BackgroundProperty, ForegroundProperty, SecondaryProperty, HoverProperty,
+        AffectsRender<FastFileList>(IsGridProperty, GridIconSizeProperty, IsLoadingProperty, BackgroundProperty, ForegroundProperty, SecondaryProperty, HoverProperty,
             SelectedProperty, SelectedHoverProperty, AlternateRowProperty, DropBrushProperty, FontFamilyProperty, FontWeightProperty,
             FontSizeProperty, DetailFontSizeProperty, CaptionFontSizeProperty, MetaFontSizeProperty, GroupMinHeightProperty,
             MutedProperty, DividerProperty, FocusRingProperty, SelectionOutlineProperty, FocusOutlineProperty, RowCornerRadiusProperty, ThumbnailShadowProperty);
@@ -234,19 +244,20 @@ public sealed class FastFileList : Control, ILogicalScrollable
         double nameHeight = 0, countHeight = 0;
         if (IsGrid)
         {
-            var name = Format("Ag\nAg", DetailFontSize, Foreground, 92, 2);
+            var name = Format("Ag\nAg", DetailFontSize, Foreground, GridNameWidth, 2);
             nameHeight = Math.Ceiling(name.Height);
             name.Release();
             if (_hasVirtualRows)
             {
-                var count = Format(MacExplorer.Services.Impl.LocalizationText.Get("{0} 张照片", 0), MetaFontSize, Secondary, 100);
+                var count = Format(MacExplorer.Services.Impl.LocalizationText.Get("{0} 张照片", 0), MetaFontSize, Secondary, GridNameWidth + 8);
                 countHeight = Math.Ceiling(count.Height);
                 count.Release();
             }
         }
+        var gridRowHeight = GridIconSize + 50 + nameHeight;
         _layout.Build(_rows.Count, _groups, IsGrid, Bounds.Width, _hasVirtualRows,
-            IsGrid ? index => 106 + nameHeight + (_rows[index].IsVirtual ? 2 + countHeight : 0) : null,
-            GroupMinHeight + 6);
+            IsGrid && _hasVirtualRows ? index => gridRowHeight + (_rows[index].IsVirtual ? 2 + countHeight : 0) : null,
+            GroupMinHeight + 6, GridIconSize + 64, gridRowHeight);
         ClearHeaderTexts();
     }
 
@@ -288,7 +299,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var typographyChanged = change.Property == FontFamilyProperty || change.Property == FontWeightProperty || change.Property == FontSizeProperty
             || change.Property == DetailFontSizeProperty || change.Property == MetaFontSizeProperty
             || change.Property == CaptionFontSizeProperty;
-        if (typographyChanged || change.Property == ForegroundProperty || change.Property == SecondaryProperty
+        var gridSizeChanged = IsGrid && change.Property == GridIconSizeProperty;
+        if (typographyChanged || gridSizeChanged || change.Property == ForegroundProperty || change.Property == SecondaryProperty
             || change.Property == MutedProperty || change.Property == IsGridProperty)
             ClearTexts();
         if (change.Property == IsGridProperty)
@@ -299,7 +311,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             ToolTip.SetTip(this, null);
             ScheduleVisibleUpdate();
         }
-        if (change.Property == BoundsProperty || change.Property == IsGridProperty || typographyChanged || change.Property == GroupMinHeightProperty)
+        if (change.Property == BoundsProperty || change.Property == IsGridProperty || gridSizeChanged || typographyChanged || change.Property == GroupMinHeightProperty)
         {
             var anchor = VisibleRange.First;
             var y = anchor < _rows.Count ? RowBounds(anchor).Y : 0;
@@ -392,18 +404,21 @@ public sealed class FastFileList : Control, ILogicalScrollable
     {
         var text = Texts(_rows[index], index).Name;
         var row = RowBounds(index);
-        var width = Math.Ceiling(Math.Min(IsGrid ? 92 : _columns.Name - 16, text.WidthIncludingTrailingWhitespace));
+        var width = Math.Ceiling(Math.Min(IsGrid ? GridNameWidth : _columns.Name - 16, text.WidthIncludingTrailingWhitespace));
         var height = Math.Ceiling(text.Height);
         if (IsGrid)
-            return new Rect(Math.Round(row.Center.X - width / 2), row.Y + 91, width, height);
+            return new Rect(Math.Round(row.Center.X - width / 2), row.Y + GridIconSize + 35, width, height);
         return new Rect(NameX(index), row.Y + Math.Round((RowHeight - height) / 2), width, height);
     }
 
     internal Rect GridIconTargetBounds(int index)
     {
         var row = RowBounds(index);
-        return new Rect(row.Center.X - 36, row.Y + 14, 72, 72);
+        return GridImageBounds(row.Center.X, row.Y).Inflate(8);
     }
+
+    private Rect GridImageBounds(double centerX, double rowY)
+        => new(centerX - GridIconSize / 2d, rowY + 22, GridIconSize, GridIconSize);
 
     internal Rect GridNameTargetBounds(int index) => NameBounds(index).Inflate(new Thickness(4, 1));
 
@@ -416,7 +431,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             foreach (var cached in _gridNames.Values) cached.Release();
             _gridNames.Clear();
         }
-        return _gridNames[name] = Format(name, DetailFontSize, Foreground, 92, 2);
+        return _gridNames[name] = Format(name, DetailFontSize, Foreground, GridNameWidth, 2);
     }
 
     private IEnumerable<Rect> ContentBounds(int index)
@@ -555,8 +570,9 @@ public sealed class FastFileList : Control, ILogicalScrollable
             var (first, end) = VisibleRange;
             var visible = IsEffectivelyVisible && !IsLoading ? Enumerable.Range(first, end - first).Select(i => _rows[i]).ToArray() : [];
             ObserveRows(visible);
-            _images.UpdateVisible(DetailTextProvider == null ? visible : [], FileThumbnailSizing.GetPixelSize(IsGrid ? 56 : 18, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1),
-                IsGrid ? 128 : 48, IsGrid && _folderCoversEnabled);
+            var pixels = FileThumbnailSizing.GetPixelSize(IsGrid ? GridIconSize : 18, _topLevel?.RenderScaling ?? 1);
+            _images.UpdateVisible(DetailTextProvider == null ? visible : [], pixels,
+                IsGrid ? Math.Max(128, pixels) : 48, IsGrid && _folderCoversEnabled, reuseSizes: IsGrid);
         }, DispatcherPriority.Background);
     }
 
@@ -597,9 +613,11 @@ public sealed class FastFileList : Control, ILogicalScrollable
             {
                 for (var column = 0; column < _layout.Columns; column++)
                 {
-                    var center = FastFileListLayout.GridInset + column * FastFileListLayout.CellWidth + FastFileListLayout.CellWidth / 2;
-                    Bar(center - 28, y + 22, 56, 56);
-                    Bar(center - 40, y + 93, 80, 10);
+                    var center = FastFileListLayout.GridInset + (column + 0.5) * _layout.CellWidth;
+                    var image = GridImageBounds(center, y);
+                    Bar(image.X, image.Y, image.Width, image.Height);
+                    var captionWidth = GridNameWidth - 12;
+                    Bar(center - captionWidth / 2, y + GridIconSize + 37, captionWidth, 10);
                 }
                 continue;
             }
@@ -720,7 +738,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         using var opacity = context.PushOpacity(entry.IsCut ? 0.45 : 1);
         DrawTarget(GridIconTargetBounds(index), RowCornerRadius);
         if (entry.FullPath != EditingPath) DrawTarget(GridNameTargetBounds(index), new CornerRadius(4));
-        DrawIcon(context, entry, new Rect(row.Center.X - 28, row.Y + 22, 56, 56));
+        DrawIcon(context, entry, GridImageBounds(row.Center.X, row.Y));
         var text = Texts(entry, index);
         if (entry.FullPath != EditingPath) text.Name.Draw(context, name.Position);
         if (entry.IsVirtual)
@@ -794,7 +812,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private RowText Texts(FileSystemEntry entry, int index)
     {
-        var nameWidth = IsGrid ? 92 : Math.Max(1, _columns.Name - 16 - TreeIndent(index));
+        var nameWidth = IsGrid ? GridNameWidth : Math.Max(1, _columns.Name - 16 - TreeIndent(index));
         if (_texts.TryGetValue(entry.FullPath, out var node))
         {
             if (node.Value.Matches(entry, nameWidth))
@@ -810,7 +828,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var text = new RowText(entry,
             IsGrid ? GridName(entry).Retain() : Format(entry.DisplayName, FontSize, Foreground, nameWidth),
             CellText(FileListColumn.Modified, IsGrid ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
-            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, 100) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
+            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, GridNameWidth + 8) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
             CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth);
         _texts[entry.FullPath] = _textLru.AddFirst(text);
         if (_texts.Count > TextCacheLimit && _textLru.Last is { } last)

@@ -14,7 +14,21 @@ public class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache
     private static long Size(GitRepoStatus status) => 128L + status.RepoRoot.Length * 2L
         + status.FileStatuses.Keys.Sum(path => 80L + path.Length * 2L);
     MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
-    { lock (_cacheSync) return new("git-status", _cache.Count, _cache.Values.Sum(Size)); }
+    {
+        if (!Monitor.TryEnter(_cacheSync)) return new("git-status", 0, Owners: 0, Skipped: 1);
+        try { return new("git-status", _cache.Count, _cache.Values.Sum(DiagnosticSize)); }
+        finally { Monitor.Exit(_cacheSync); }
+    }
+    private static long DiagnosticSize(GitRepoStatus status)
+    {
+        long lengths = 0; var sampled = 0;
+        foreach (var path in status.FileStatuses.Keys)
+        {
+            lengths += path.Length;
+            if (++sampled == 32) break;
+        }
+        return 128L + status.RepoRoot.Length * 2L + status.FileStatuses.Count * (80L + (sampled == 0 ? 0 : lengths * 2 / sampled));
+    }
     internal static readonly string[] StoreGitCandidates =
     [
         "/Library/Developer/CommandLineTools/usr/bin/git",

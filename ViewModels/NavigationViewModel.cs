@@ -26,6 +26,9 @@ public sealed class NavigationHistoryEntry
 
 public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSource
 {
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    internal long DiagnosticId => _memoryLifetime?.Id ?? 0;
+    internal void ReleaseDiagnosticLifetime() => _memoryLifetime?.SetState(DiagnosticObjectState.Released);
     private readonly IFileService _fileService;
     private readonly IFrequentFolderService? _frequentFolderService;
     private readonly IFSEventsWatcher? _fsEventsWatcher;
@@ -120,6 +123,7 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
         IFSEventsWatcher? fsEventsWatcher = null,
         IDisplayNameService? displayNameService = null)
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Navigation);
         MemoryDiagnostics.Register(this);
         _fileService = fileService;
         _frequentFolderService = frequentFolderService;

@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using MacExplorer.Platforms.MacOS;
+using MacExplorer.Services;
 
 namespace MacExplorer.Controls;
 
@@ -19,9 +20,11 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
     private IntPtr _view;
     private bool _attached;
     private bool _disposed;
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
 
     internal DocumentPreviewHost(Action<Key> onKey)
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.DocumentPreview);
         Focusable = false;
         ActualThemeVariantChanged += (_, _) => ApplyAppearance();
         _keyCallback = code => Dispatcher.UIThread.Post(() =>
@@ -46,6 +49,8 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _memoryLifetime?.Link((TopLevel.GetTopLevel(this) as AppWindow)?.DiagnosticId ?? 0);
+        _memoryLifetime?.SetState(DiagnosticObjectState.Attached);
         base.OnAttachedToVisualTree(e);
         ApplyAppearance();
     }
@@ -74,6 +79,7 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
         if (_view == IntPtr.Zero) return;
         if (TopLevel.GetTopLevel(this)?.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle root)
             me_document_preview_restore_focus(_view, root.NSView);

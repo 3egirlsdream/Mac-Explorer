@@ -16,6 +16,8 @@ using MacExplorer.Views.Dialogs;
 
 internal static class Program
 {
+    internal static int NativeWindowsChecked { get; private set; }
+    internal static int NativeWindowsRetained { get; private set; }
     private static readonly List<object> Samples = [];
     private static string Output = "";
     private static readonly BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -30,12 +32,30 @@ internal static class Program
         }
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MACEXPLORER_TEST_ROOT")))
             throw new InvalidOperationException("Run through Tools/Testing/run-isolated.sh.");
-        Output = Path.GetFullPath(args.FirstOrDefault() ?? "outputs/memory-benchmark");
+        Output = Path.GetFullPath(args.FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal)) ?? "outputs/memory-benchmark");
+        var soakArgument = args.FirstOrDefault(arg => arg.StartsWith("--soak-minutes=", StringComparison.Ordinal));
+        var soakMinutes = soakArgument == null ? 0 : double.Parse(soakArgument.Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
+        var lifetimeKind = args.FirstOrDefault(arg => arg.StartsWith("--lifetime-kind=", StringComparison.Ordinal))?.Split('=')[1];
+        if (lifetimeKind != null && lifetimeKind is not ("tab" or "window" or "settings"))
+            throw new ArgumentException("Unknown lifetime scenario.");
+        if (soakArgument != null && (!double.IsFinite(soakMinutes) || soakMinutes < 1 || soakMinutes > 720))
+            throw new ArgumentOutOfRangeException(nameof(args), "Soak duration must be between 1 and 720 minutes.");
         Directory.CreateDirectory(Output);
         using var diagnostics = MacExplorer.Services.MemoryDiagnostics.Start(Path.Combine(Output, "diagnostics"));
+        using var jitListener = MemoryRetentionProbe.Enabled ? new RetentionJitListener() : null;
         foreach (var name in new[] { "samples.json", "verification.json", "error.txt" }) File.Delete(Path.Combine(Output, name));
-        AppBuilder.Configure<MacExplorer.App>().UsePlatformDetect()
-            .AfterSetup(_ => Dispatcher.UIThread.Post(async () => await RunAsync()))
+        var builder = AppBuilder.Configure<MacExplorer.App>().UsePlatformDetect();
+        if (args.Contains("--software-rendering", StringComparer.Ordinal))
+            builder.With(new AvaloniaNativePlatformOptions { RenderingMode = [AvaloniaNativeRenderingMode.Software] });
+        builder
+            .AfterSetup(_ =>
+            {
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    if (soakArgument != null) await MemorySoak.RunAsync(Output, TimeSpan.FromMinutes(soakMinutes), lifetimeKind);
+                    else await RunAsync();
+                });
+            })
             .StartWithClassicDesktopLifetime([]);
     }
 
@@ -68,6 +88,7 @@ internal static class Program
             var model = (MainWindowViewModel)window.DataContext!;
             Require(MacExplorer.Platforms.MacOS.MacAutomationLifetime.NativeChildrenFixActive,
                 "The pinned native accessibility reference fix was not installed.");
+            VerifyNativeFontReuse();
             await Task.Delay(quick ? 100 : 5000); Sample("startup", false);
             await Task.Delay(quick ? 100 : 20000); Sample("idle", false); Sample("baseline-gc");
             var data = Path.Combine(Environment.GetEnvironmentVariable("MACEXPLORER_TEST_ROOT")!, "fixtures");
@@ -169,22 +190,92 @@ internal static class Program
     }
 
     // Force native AX wrappers to exist even when no screen reader is currently connected.
-    private static int ReadAccessibility(Window window)
+    internal static int ReadAccessibility(Window window)
     {
         var handle = window.TryGetPlatformHandle()!;
         var native = handle is IMacOSTopLevelPlatformHandle mac
             ? Send(mac.NSView, Selector("window"))
             : handle.HandleDescriptor == "NSView" ? Send(handle.Handle, Selector("window")) : handle.Handle;
         var seen = new HashSet<IntPtr>(); var pending = new Stack<IntPtr>(); pending.Push(native);
+        var elementType = ObjCClass("AvnAccessibilityElement");
         while (pending.TryPop(out var current) && seen.Count < 10000)
         {
             if (current == IntPtr.Zero || !seen.Add(current)) continue;
+            if (SendArgument(current, Selector("isKindOfClass:"), elementType) != IntPtr.Zero)
+            {
+                Require(Send(current, Selector("accessibilityParent")) != IntPtr.Zero,
+                    "An active accessibility element lost its parent.");
+                Require(Send(current, Selector("accessibilityWindow")) == native
+                    && Send(current, Selector("accessibilityTopLevelUIElement")) == native,
+                    "An active accessibility element lost its native window.");
+            }
             var children = Send(current, Selector("accessibilityChildren"));
             var count = children == IntPtr.Zero ? 0 : (int)Send(children, Selector("count"));
             for (var i = 0; i < count; i++) pending.Push(SendIndex(children, Selector("objectAtIndex:"), (nuint)i));
         }
         return seen.Count;
     }
+
+    internal static void VerifyNativeFontReuse()
+    {
+        Require(MacExplorer.TextShaping.PohTextShaping.IsActive,
+            "The production POH font-table allocator was not installed.");
+        FontShapingRegression.Verify();
+        foreach (var name in new[] { "Helvetica", "Helvetica Neue" })
+        foreach (var weight in new[] { Avalonia.Media.FontWeight.SemiBold, Avalonia.Media.FontWeight.Bold })
+        {
+            var typeface = new Avalonia.Media.Typeface(name, weight: weight);
+            Require(Avalonia.Media.FontManager.Current.TryGetGlyphTypeface(typeface, out var first),
+                "A required native benchmark font was unavailable.");
+            for (var index = 0; index < 50; index++)
+                Require(Avalonia.Media.FontManager.Current.TryGetGlyphTypeface(typeface, out var repeated)
+                    && ReferenceEquals(first, repeated), "Repeated native font lookup created another typeface.");
+        }
+    }
+
+    internal static object ReadNativeWindows()
+    {
+        var app = Send(ObjCClass("NSApplication"), Selector("sharedApplication"));
+        var windows = Send(app, Selector("windows"));
+        var count = (int)Send(windows, Selector("count"));
+        var shadowType = ObjCClass("MEWindowShadowWindow");
+        var shadows = 0;
+        var visible = 0;
+        for (var index = 0; index < Math.Min(count, 4096); index++)
+        {
+            var window = SendIndex(windows, Selector("objectAtIndex:"), (nuint)index);
+            if (SendArgument(window, Selector("isKindOfClass:"), shadowType) != IntPtr.Zero) shadows++;
+            if (Send(window, Selector("isVisible")) != IntPtr.Zero) visible++;
+        }
+        return new { total = count, shadows, visible };
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate uint NativeReferenceCall(IntPtr instance);
+
+    internal static IntPtr RetainNativeWindow(Window window)
+    {
+        var platform = typeof(TopLevel).GetProperty("PlatformImpl", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(window)!;
+        var native = platform.GetType().GetField("_native", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(platform)!;
+        var pointer = (IntPtr)native.GetType().GetProperty("NativePointer")!.GetValue(native)!;
+        var call = Marshal.GetDelegateForFunctionPointer<NativeReferenceCall>(Marshal.ReadIntPtr(Marshal.ReadIntPtr(pointer), IntPtr.Size));
+        call(pointer);
+        return pointer;
+    }
+
+    internal static void ReleaseNativeWindow(IntPtr pointer)
+    {
+        var call = Marshal.GetDelegateForFunctionPointer<NativeReferenceCall>(Marshal.ReadIntPtr(Marshal.ReadIntPtr(pointer), 2 * IntPtr.Size));
+        var remaining = call(pointer);
+        NativeWindowsChecked++;
+        if (remaining != 0) NativeWindowsRetained++;
+        MacExplorer.Services.MemoryDiagnostics.Record("soak.native_window_references", new { remaining });
+    }
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_getClass")]
+    private static extern IntPtr ObjCClass(string name);
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr SendArgument(IntPtr target, IntPtr selector, IntPtr argument);
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "sel_registerName")]
     private static extern IntPtr Selector(string name);

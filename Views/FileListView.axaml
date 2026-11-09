@@ -129,6 +129,7 @@
                 <ScrollViewer x:Name="FastListHost" IsVisible="False"
                               HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <controls:FastFileList x:Name="FastList"
+                        IsVisible="False"
                         Background="{DynamicResource WorkspaceContentBrush}"
                         Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextMutedBrush}"
                         AlternateRow="{DynamicResource WorkspaceStripeBrush}"
@@ -144,6 +145,8 @@
                         SelectionOutline="{DynamicResource SelectionOutlineShadow}" FocusOutline="{DynamicResource FocusOutlineShadow}"
                         AutomationProperties.Name="{loc:Loc ui.083}"/>
                 </ScrollViewer>
+                <ContentControl x:Name="GalleryHost" IsVisible="False" HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"/>
                 <Canvas x:Name="FastRenameOverlay" ZIndex="90"/>
 
 

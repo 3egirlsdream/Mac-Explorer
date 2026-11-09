@@ -30,9 +30,21 @@
             <SolidColorBrush x:Key="WindowCloseBrush" Color="#FF5F57"/>
             <SolidColorBrush x:Key="WindowMinimizeBrush" Color="#FEBC2E"/>
             <SolidColorBrush x:Key="WindowMaximizeBrush" Color="#28C840"/>
+            <SolidColorBrush x:Key="SliderFillBrush" Color="#3778F5"/>
+            <SolidColorBrush x:Key="SliderThumbBrush" Color="#FDFDFE"/>
+            <SolidColorBrush x:Key="SliderThumbFocusBrush" Color="#A4BCF2"/>
+            <SolidColorBrush x:Key="SliderValueBackgroundBrush" Color="#292D35"/>
+            <SolidColorBrush x:Key="SliderValueForegroundBrush" Color="#FFFFFF"/>
+            <BoxShadows x:Key="SliderThumbShadow">0 2 5 0 #320F1A2C</BoxShadows>
+            <BoxShadows x:Key="SliderThumbHoverShadow">0 2 5 0 #433778F5</BoxShadows>
+            <BoxShadows x:Key="SliderThumbFocusShadow">0 2 7 1 #663778F5</BoxShadows>
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="SliderRailBrush" Color="#DFE3EC"/>
+                    <SolidColorBrush x:Key="SliderThumbBorderBrush" Color="#CED4DE"/>
+                    <SolidColorBrush x:Key="SliderDisabledFillBrush" Color="#C9CFD9"/>
+                    <SolidColorBrush x:Key="SliderDisabledThumbBrush" Color="#EBEDF2"/>
                     <SolidColorBrush x:Key="ProgressRingEndBrush" Color="#13AFC4"/>
                     <!-- Shared sidebar/menu hover and restrained popup glass. -->
                     <SolidColorBrush x:Key="SidebarHoverBrush" Color="Transparent"/>
@@ -216,6 +228,10 @@
                     <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#FFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="SliderRailBrush" Color="#454B56"/>
+                    <SolidColorBrush x:Key="SliderThumbBorderBrush" Color="#B6C0CE"/>
+                    <SolidColorBrush x:Key="SliderDisabledFillBrush" Color="#535C6A"/>
+                    <SolidColorBrush x:Key="SliderDisabledThumbBrush" Color="#89919E"/>
                     <SolidColorBrush x:Key="ProgressRingEndBrush" Color="#54D6E6"/>
                     <!-- Shared sidebar/menu hover and restrained popup glass. -->
                     <SolidColorBrush x:Key="SidebarHoverBrush" Color="#0CFFFFFF"/>

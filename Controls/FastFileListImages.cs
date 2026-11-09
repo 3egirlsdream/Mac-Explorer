@@ -19,6 +19,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
     private HashSet<ImageKey> _visible = [];
     private int _pixelSize = 64;
     private int _typePixelSize = 48;
+    private bool _reuseSizes;
     private int _lifetime;
     private long _bytes;
     private CancellationTokenSource? _coverSchedule;
@@ -40,7 +41,8 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
     {
         isThumbnail = false;
         var key = ImageKey.ForView(entry, _pixelSize, folderCoversEnabled && FolderCoverProvider != null);
-        if (_cache.TryGetValue(key, out var node))
+        var node = FindThumbnail(key, allowSmaller: true);
+        if (node != null)
         {
             node.Value.LastUsed = DateTime.UtcNow;
             isThumbnail = !entry.IsDirectory;
@@ -52,10 +54,11 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
     }
 
     public void UpdateVisible(IReadOnlyList<FileSystemEntry> entries, int pixelSize, int typePixelSize = 48,
-        bool folderCoversEnabled = false)
+        bool folderCoversEnabled = false, bool reuseSizes = false)
     {
         _pixelSize = pixelSize;
         _typePixelSize = typePixelSize;
+        _reuseSizes = reuseSizes;
         var loadCovers = folderCoversEnabled && FolderCoverProvider != null;
         var nextVisible = entries.Select(e => ImageKey.ForView(e, pixelSize, loadCovers)).ToHashSet();
         var viewportChanged = !_visible.SetEquals(nextVisible);
@@ -81,12 +84,12 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             var key = ImageKey.ForView(entry, pixelSize, loadCovers);
             if (key.IsFolderCover)
             {
-                if (_coverSchedule == null && !_cache.ContainsKey(key) && !_requests.ContainsKey(key)
+                if (_coverSchedule == null && FindThumbnail(key) == null && !_requests.ContainsKey(key)
                     && (!_failed.TryGetValue(key, out var coverUntil) || coverUntil <= DateTime.UtcNow))
                     (coversToSchedule ??= []).Add(entry);
                 continue;
             }
-            if (_cache.ContainsKey(key) || _requests.ContainsKey(key)
+            if (FindThumbnail(key) != null || _requests.ContainsKey(key)
                 || _failed.TryGetValue(key, out var until) && until > DateTime.UtcNow) continue;
             if (string.IsNullOrEmpty(key.Source) && !key.IsFolderCover
                 && (entry.IsDirectory || entry.IsVirtual || !Path.IsPathRooted(entry.FullPath) || ThumbnailProvider == null)) continue;
@@ -111,7 +114,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             {
                 schedule.Token.ThrowIfCancellationRequested();
                 var key = ImageKey.ForView(entry, pixels, true);
-                if (!key.IsFolderCover || !_visible.Contains(key) || _cache.ContainsKey(key) || _requests.ContainsKey(key)
+                if (!key.IsFolderCover || !_visible.Contains(key) || FindThumbnail(key) != null || _requests.ContainsKey(key)
                     || _failed.TryGetValue(key, out var until) && until > DateTime.UtcNow) continue;
                 var request = new CancellationTokenSource();
                 _requests[key] = request;
@@ -125,6 +128,20 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             if (ReferenceEquals(_coverSchedule, schedule)) _coverSchedule = null;
             schedule.Dispose();
         }
+    }
+
+    private LinkedListNode<CachedImage>? FindThumbnail(ImageKey key, bool allowSmaller = false)
+    {
+        if (_cache.TryGetValue(key, out var node)) return node;
+        if (!_reuseSizes || _cache.Count == 0) return null;
+        // The cache uses at most eight pixel buckets. Keep the file revision and
+        // thumbnail source in every lookup, including the temporary fallback.
+        for (var pixels = key.Pixels + 32; pixels <= 256; pixels += 32)
+            if (_cache.TryGetValue(key with { Pixels = pixels }, out node)) return node;
+        if (allowSmaller)
+            for (var pixels = key.Pixels - 32; pixels >= 32; pixels -= 32)
+                if (_cache.TryGetValue(key with { Pixels = pixels }, out node)) return node;
+        return null;
     }
 
     private async Task LoadTypeAsync(TypeKey key, int lifetime)
@@ -269,7 +286,9 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
 
     public void TrimMemory(DateTime unusedBefore)
     {
-        foreach (var node in _cache.Values.Where(n => !_visible.Contains(n.Value.Key) && n.Value.LastUsed < unusedBefore).ToArray())
+        foreach (var node in _cache.Values.Where(n => n.Value.LastUsed < unusedBefore
+            && !_visible.Contains(n.Value.Key)
+            && (!_reuseSizes || !_visible.Contains(n.Value.Key with { Pixels = _pixelSize }))).ToArray())
         {
             _cache.Remove(node.Value.Key); _lru.Remove(node); _bytes -= node.Value.Bytes;
             node.Value.Bitmap.Dispose();

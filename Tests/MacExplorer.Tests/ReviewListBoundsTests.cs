@@ -12,7 +12,7 @@ public sealed class ReviewListBoundsTests
     [AvaloniaFact(Explicit = true)]
     public void RightCanvasDoesNotSelectRowsButCrossingIntoTheRowDoes()
     {
-        var list = new FastFileList();
+        var list = new FastFileList { ColumnWidths = new(420, 170, 110, 110) };
         var rows = Enumerable.Range(0, 3).Select(FastFileListTests.Entry).ToArray();
         list.SetRows(rows);
         list.Measure(new Size(900, 300));

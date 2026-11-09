@@ -19,7 +19,7 @@ public partial class FileListView
     private ViewMode? _fastSourceMode;
     private bool _fastSourceUsesTree;
     private string? _fastRowsPath;
-    private bool FastListActive => FastListHost.IsVisible;
+    private bool FastListActive => FastList.IsVisible;
 
     private void InitializeFastFileList()
     {
@@ -84,6 +84,7 @@ public partial class FileListView
             else if (groups == null) FastList.SetRows(vm.Entries);
             else FastList.SetRows(groups.SelectMany(group => group.Entries).ToArray(),
                 groups.Select(group => new FastFileListGroup(group.Name, group.Entries.Count)).ToArray());
+            QueueGalleryRefresh();
         }
         UpdateFastListLoading();
         PositionFastRenameEditor();
@@ -111,7 +112,7 @@ public partial class FileListView
 
     private void HandleFastListNavigation(KeyEventArgs e)
     {
-        if (!FastListActive || FastList.IsLoading || ViewModel == null || e.Handled || IsTextInputSource(e.Source)
+        if (!FastListActive || IsGalleryVisible || FastList.IsLoading || ViewModel == null || e.Handled || IsTextInputSource(e.Source)
             || (e.KeyModifiers & (KeyModifiers.Meta | KeyModifiers.Control | KeyModifiers.Alt)) != 0
             || FastList.Rows.Count == 0) return;
         var current = _fastFocusedPath == null ? -1 : FastList.IndexOfPath(_fastFocusedPath);
@@ -215,8 +216,9 @@ public partial class FileListView
         }
         var bounds = FastList.NameBounds(index);
         var origin = FastList.TranslatePoint(default, FastRenameOverlay) ?? default;
-        Canvas.SetLeft(_renameEditor, origin.X + (FastList.IsGrid ? FastList.RowBounds(index).Center.X - 50 : bounds.X));
+        var gridEditorWidth = FastList.GridNameWidth + 8;
+        Canvas.SetLeft(_renameEditor, origin.X + (FastList.IsGrid ? FastList.RowBounds(index).Center.X - gridEditorWidth / 2 : bounds.X));
         Canvas.SetTop(_renameEditor, origin.Y + (FastList.IsGrid ? bounds.Y : FastList.RowBounds(index).Y + Math.Round((FastFileList.RowHeight - _renameEditor.Height) / 2)));
-        _renameEditor.Width = FastList.IsGrid ? 100 : Math.Min(Math.Max(72, bounds.Width + 12), Math.Max(1, FastList.ColumnWidths.Name - 8));
+        _renameEditor.Width = FastList.IsGrid ? gridEditorWidth : Math.Min(Math.Max(72, bounds.Width + 12), Math.Max(1, FastList.ColumnWidths.Name - 8));
     }
 }

@@ -34,6 +34,8 @@ bash Tools/Testing/run-isolated.sh Tools/Performance/FastListBench/bin/Release/n
 
 `scroll-results.json` 记录绘制 CPU 时间、8ms UI 心跳和 `RequestAnimationFrame` 回调间隔，以及超过 25／50ms 的回调数；回调间隔并非 GPU 呈现 FPS。可设置 `FASTLIST_BENCH_FONT_FAMILY` 覆盖本次字体资源，使用同一二进制做字体配置 A/B 对比；默认运行同时检查主字体直接解析。`FASTLIST_BENCH_KEEP_OPEN=1` 在测量完成后保留隔离主窗口用于原生交互验证。
 
+追加 `--gallery-only` 比较默认图标、最大图标和画廊。每组使用独立的 512 张 PNG，首次访问后再热跑一次。输出 `gallery-results.json`，记录目录导航至首张可用缩略图或清晰画廊预览的时间、滚动回调 P95、网格绘制 P95 及进程物理内存采样峰值。画廊快速连切另验证取消旧预览，并检查最后显示的图片颜色。
+
 在项目根目录构建（运行中的基准窗口应先关闭）：
 
 ```sh

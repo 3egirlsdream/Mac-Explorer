@@ -35,7 +35,8 @@ internal static class Program
         FolderCoverOnly = args.Contains("--folder-cover-only", StringComparer.Ordinal);
         Directory.CreateDirectory(OutputDirectory);
         if (args.Contains("--navigation-only", StringComparer.Ordinal) || args.Contains("--scroll-only", StringComparer.Ordinal)
-            || args.Contains("--tasks-only", StringComparer.Ordinal) || args.Contains("--interaction-only", StringComparer.Ordinal))
+            || args.Contains("--tasks-only", StringComparer.Ordinal) || args.Contains("--interaction-only", StringComparer.Ordinal)
+            || args.Contains("--gallery-only", StringComparer.Ordinal))
         {
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MACEXPLORER_TEST_ROOT")))
                 throw new InvalidOperationException("Run native checks through Tools/Testing/run-isolated.sh.");
@@ -47,6 +48,7 @@ internal static class Program
                     else if (args.Contains("--tasks-only", StringComparer.Ordinal))
                         await TaskPanelPerformance.RunAsync(OutputDirectory, args.Contains("--tasks-stress", StringComparer.Ordinal));
                     else if (args.Contains("--scroll-only", StringComparer.Ordinal)) await ScrollPerformance.RunAsync(OutputDirectory);
+                    else if (args.Contains("--gallery-only", StringComparer.Ordinal)) await GalleryPerformance.RunAsync(OutputDirectory);
                     else await NavigationPerformance.RunAsync(OutputDirectory);
                 }))
                 .StartWithClassicDesktopLifetime([]);

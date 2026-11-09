@@ -1,4 +1,5 @@
 using MacExplorer.Services.Subscriptions;
+using MacExplorer.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -39,6 +40,8 @@ internal sealed record PaneLayoutDefinition(
 
 public sealed partial class ExplorerTabViewModel : ObservableObject, IDisposable
 {
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    internal long DiagnosticId => _memoryLifetime?.Id ?? 0;
     public Guid Id { get; } = Guid.NewGuid();
     public FileListViewModel FileList { get; }
     internal MacExplorer.Services.FileListTabViewState? CachedListState { get; set; }
@@ -67,6 +70,7 @@ public sealed partial class ExplorerTabViewModel : ObservableObject, IDisposable
 
     public ExplorerTabViewModel(FileListViewModel fileList)
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Tab, fileList.DiagnosticId);
         FileList = fileList;
         _title = GetTitle(fileList);
         fileList.PropertyChanged += OnFileListPropertyChanged;
@@ -86,6 +90,7 @@ public sealed partial class ExplorerTabViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
         FileList.PropertyChanged -= OnFileListPropertyChanged;
     }
 }

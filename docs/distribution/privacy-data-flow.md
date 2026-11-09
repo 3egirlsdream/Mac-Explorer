@@ -1,6 +1,6 @@
 # 文件与网络数据流
 
-当前渠道与发布说明见 [双渠道构建与发布](mac-app-store.md)。正式隐私政策位于 [官网页面](https://3egirlsdream.github.io/Mac-Explorer/privacy/)，本文件记录代码中的数据流。
+当前渠道与发布说明见 [双渠道构建与发布](mac-app-store.md)。正式隐私政策位于 [官网页面](https://macexplorer.top/privacy/)，本文件记录代码中的数据流。
 
 应用配置、索引、收藏、标签、页签、对话历史和缓存保存在本机。网站版使用 Application Support / Caches；商店版由系统映射至自己的沙盒容器。不会将用户主目录误作应用数据目录。商店版只浏览系统选择器授予的位置，保存 security-scoped bookmark，支持移动路径恢复、离线重试和移除授权。移除授权不会删除文件；本地历史与索引可仍含之前记录的名称。
 

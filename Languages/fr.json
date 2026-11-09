@@ -5,6 +5,11 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "file_gallery.zoom": "Taille des vignettes",
+    "file_gallery.zoom_value": "{0} pt",
+    "file_gallery.zoom_hint": "Faites glisser le curseur ou utilisez Ctrl et la molette pour redimensionner les vignettes",
+    "file_gallery.title": "Galerie",
+    "file_gallery.filmstrip": "Vignettes de la galerie",
     "file_list.kind": "Type",
     "file_kind.generic": "Fichier",
     "file_kind.unknown_extension": "Fichier {0}",

@@ -5,6 +5,11 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "file_gallery.zoom": "Thumbnail size",
+    "file_gallery.zoom_value": "{0} pt",
+    "file_gallery.zoom_hint": "Drag the slider or Ctrl-scroll to resize thumbnails",
+    "file_gallery.title": "Gallery",
+    "file_gallery.filmstrip": "Gallery thumbnails",
     "file_list.kind": "Kind",
     "file_kind.generic": "File",
     "file_kind.unknown_extension": "{0} File",

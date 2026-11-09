@@ -2,22 +2,46 @@
 
 GitHub 版运行日志位于 `~/Library/Application Support/MacExplorer/Logs/memory-*.jsonl`。商店版通过 `RuntimePaths.LogDirectory` 写入容器中的 Application Support；隔离测试写入 `MACEXPLORER_TEST_ROOT/.macexplorer/MacExplorer/Logs`。MemoryBench 将同样的诊断日志写入结果目录的 `diagnostics/`。
 
-每次启动创建独立会话，退出前尽量排空写入队列。每 30 秒记录一次进程内存，首条在启动约 5 秒后。每文件最多 2 MiB，保留最近 8 个文件，写入队列最多 128 条。事件超过队列容量时丢弃并计数，不阻塞操作线程。日志只记录尺寸、数量、类型与内存量，不包含文件路径、搜索词、文件内容或凭据。
+每次启动创建独立会话，退出前最多等待 2 秒排空后台写入队列。每 30 秒记录一次进程内存，首条在启动约 5 秒后。总预算仍为 8 个文件、约 16 MiB：低频趋势 `memory-trend-*.jsonl` 最多 2 个／4 MiB，操作事件 `memory-<时间>-<PID>-*.jsonl` 最多 6 个／12 MiB；每文件最多 2 MiB。分开轮转，避免大量操作把两小时趋势挤掉，但容量限制不保证能保存完整七天。每个新文件首行都有 `session.context`，保留 schema、会话 ID、版本、系统、运行时、GC 配置和日志策略，单独取出最后几个文件仍能分析。
+
+日志按最后写入时间最多保留 7 天，启动、轮转以及持续写入时每小时清理；单文件写入满一天也会轮转。扫描、写入、批量 Flush 和删除均在后台写入线程，只处理符合本程序文件名格式的日志。不会删除仍被其他进程打开的文件或名称相似的手工文件。删除失败会计数；无法腾出容量时停用本次诊断，防止无限增长。权限不足／磁盘故障时无法保证旧文件成功删除，需要恢复目录可写后重启再清理。
+
+写入队列最多 128 条，只保存已序列化字符串，不持有业务对象。操作事件最多占 96 个槽，为趋势保留余量；每秒最多接受 128 个操作事件，超限在序列化前丢弃。单条最多 8192 个字符。队满、限流、超长、序列化失败分别计数，不等待磁盘或队列空位。写盘失败后停止采样和事件序列化，不反复重试；窗口级诊断也不再安排稳定采样。小事件仍有有限的序列化成本，不能理解为零开销。日志不包含文件路径、文件名、搜索词、文件内容、路径哈希或凭据。
 
 | 事件 | 主要用途 |
 | --- | --- |
 | `session.start` | 应用版本、Avalonia、运行时、系统、架构、发行渠道和 PID |
+| `session.context` | 每文件的独立分析上下文、GC 配置与容量／过期策略 |
 | `memory.sample` | macOS physical footprint、RSS、托管存活量、GC 堆／碎片／提交量、累计分配、GC 次数、线程及解码活动 |
 | `memory.ui` | 窗口、页签、各类缓存／搜索历史／任务的实例数、条目数、估算字节与待处理数 |
+| `memory.observer` | 本次后台采样与 UI 观察本身的耗时，用于发现诊断开销 |
+| `memory.gc` | 最近的各类 GC 编号、回收代数、后台／压缩标记、晋升量、固定对象、待终结对象、暂停与内存负载；Gen0／Gen1／Gen2／LOH／POH 回收前后的容量和碎片 |
+| `operation` / `operation.start` / `operation.end` | 导航、位置切换、目录加载、视图切换、目录展开／收起、页签选择、窗口／工作区可见性、信息面板及预览操作；记录匿名对象／操作 ID、数量、模式、结果和耗时 |
+| `lifetime.object` | 窗口、页签、工作区、文件列表／导航 VM、预览／信息面板和原生文档宿主的创建、关联、挂接／脱离、释放／关闭／Dispose |
+| `lifetime.sample` / `lifetime.retained` | 弱引用观察到的存活／已回收数量，以及结束后至少 30 秒且经历 Gen2 回收仍存活的对象候选 |
 | `image.decode_rejected` / `image.large_decode` | 压缩文件尺寸、源／目标像素尺寸、格式与估算解码工作集 |
 | `image.raw_decode` / `image.helper_failed` / `image.helper_cancelled` | RAW 回退和原生 helper 的活动与失败 |
 | `search.history_trimmed` / `search.history_reloaded` | 结果快照淘汰与返回搜索时的重新查询 |
 | `task.finished` / `task.retry_state_released` | 失败类型、断点状态容量、重试状态淘汰 |
 | `lifetime.native_nodes_released` | 永久关闭页面／窗口后的原生无障碍节点释放 |
 
-`highMemory` 在 footprint 达到 2 GiB 或一次采样增长至少 256 MiB 时标记。所有字节量均以 bytes 为单位；`allocatedBytes` 是累计分配量，正常情况下也会不断增长，不代表泄漏。`heapBytes`、`committedBytes`、`fragmentedBytes` 是最近一次 GC 的信息；只有 `managedBytes` 是采样时的托管存活量估计。RSS 与 physical footprint 不等价，截图中的 macOS 应用内存更应结合后者判断。生产日志不会强制 GC。
+`highMemory` 在 footprint 达到 2 GiB 或一次采样增长至少 256 MiB 时标记。所有字节量均以 bytes 为单位；`allocatedBytes` 是累计分配量，正常情况下也会不断增长，不代表泄漏。`heapBytes`、`committedBytes`、`fragmentedBytes` 是最近一次 GC 的信息；`liveAfterGcBytes = heapBytes - fragmentedBytes` 是该次 GC 后的存活量，必须结合对应 GC index 使用，不能当作当前时刻的存活量。兼容字段 `managedBytes` 来自 `GC.GetTotalMemory(false)`；本机 .NET 10.0.5 的 macOS segment GC 存在重复估计，16 MiB 存活数组可报告约 32 MiB，不可直接据此判断泄漏，也不可统一除以二。RSS 与 physical footprint 不等价，截图中的 macOS 应用内存更应结合后者判断。生产日志不会强制 GC。
+
+诊断 schema 3 的每条记录带 `sessionId` 和 `sequence`，合并两个日志系列时按会话、事件 UTC 与创建序号对齐，不依赖文件枚举顺序。并发提交和轮转上下文的创建会使磁盘顺序与创建序号不同。周期记录通过 `sampleId` 对齐进程、GC、生命周期与 UI 采样；UI 数据可能延后执行，应同时看 `dispatcherDelayMs`。`allocationRateBytesPerSecond` 是相邻进程采样间的累计分配速率，首条为空。它不是保留量。
+
+`memory.sample` 同时提供 JIT 编译 IL 字节／方法数、Skia **CPU** 资源与字体缓存大小；JIT IL 字节不等于原生代码页，Skia CPU 缓存也不覆盖 Metal／GPU 内存。`diagnosticHealth` 提供队列、各类丢弃、源登记淘汰和日志删除失败计数。UI 数据记录 POH 字体表回补是否启用。缓存锁忙时立即跳过，以 `Owners=0, Skipped=1` 标记，聚合后 `Owners` 为成功采样数量，`Skipped` 为未采样数量，不能将缺失项的 0 解释为缓存已清空。统计源最多弱登记 512 个，超限淘汰最早登记项并记录 `sourcesEvicted`。Git 的字节量只抽样每个仓库最多 32 个路径长度估算，不扫描整个仓库。周期原生窗口尺寸观察最多覆盖 8 个可见窗口，窗口自己的缩放／状态事件观察仍保留。
+
+GC 详情保持 30 秒周期，分别读取 `Ephemeral`、`FullBlocking` 和 `Background` 的最近一次完成结果，各类编号不变时不重复写入，避免频繁年轻代回收掩盖少见的完整／后台回收。`available=false` 表示该类尚无回收记录。`generations` 是该次 GC 的前后快照，并非记录时的实时堆；不会追踪期间每一次 GC，也不订阅分配事件。
+
+对象 ID 仅在当前进程内递增，不由路径、名称或内容派生。`relatedId` 关联窗口→所选页签、页签→文件列表、文件列表→导航 VM、工作区→页签及预览→宿主；`Released` 表示拥有者结束使用，`Disposed`／`Closed` 表示对应生命周期入口已执行，隐藏和暂时脱离不算释放。生命周期注册最多保留 2048 个弱引用，容量超限先淘汰最早的跟踪记录并累计 `evicted`；已结束对象的诊断元数据最多观察 24 小时，之后淘汰并累计 `expired`，被回收的弱引用在下一周期清理。不会持有被观察对象。每次仅列出最多 16 个结束后仍存活的候选；需结合淘汰／过期计数解释缺失。候选不是泄漏结论，仍需结合宿主状态、后续回收和堆引用链。收集统计不添加终结器，不强制 GC，不扫描对象图，不记录路径哈希、文件名、搜索词、异常消息或文件内容。
+
+导航与预览的 `Completed` 表示方法正常返回，界面仍可能显示既有错误／占位状态；目录加载的失败和取消另外记录。没有 `operation.end` 时，先检查会话是否异常退出及 `droppedEvents`，不能直接认定操作一直未完成。操作事件不触发额外进程采样，沿用有界、非阻塞写入队列与日志轮转。
+
+异常退出或写盘中断可能没有 `session.stop`，末行也可能不完整；分析时应忽略不完整末行并查看健康计数。诊断停用后，尚未执行的 UI 观察会直接退出，不再读取已关闭对象。
 
 再次发生异常时，保留上述日志文件，并记录反馈时间、截图、应用版本和大致操作。可结合 `vmmap -summary <PID>` 与 `sample <PID> 3` 的现场输出分析：托管堆持续增大时检查历史、任务和未回收的页面；footprint 增大而托管堆平稳时检查像素、原生文档／渲染资源。无需先强制 GC 或重启，否则会丢失现场。
+
+这些常驻日志足够分析增长趋势、关联操作、区分存活量／碎片／缓存并筛选生命周期异常；不保证仅凭日志还原每次 GC、原生分配栈、GPU 分配或完整对象持有链。这类根因仍需按需、短时现场取证，不能为“全量”而默认持续记录分配事件、强制 GC 或自动保存包含用户内容的堆转储。
 
 ## 当前保护策略
 

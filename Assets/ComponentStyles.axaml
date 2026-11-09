@@ -86,6 +86,101 @@
 
     <Styles.Resources>
 
+        <ControlTheme x:Key="CompactSliderTrackButtonTheme" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Background="Transparent" Content="{TemplateBinding Content}"
+                                      HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+
+        <ControlTheme x:Key="CompactSliderThumbTheme" TargetType="Thumb">
+            <Setter Property="Width" Value="21"/>
+            <Setter Property="Height" Value="21"/>
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="Background" Value="{DynamicResource SliderThumbBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SliderThumbBorderBrush}"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Border x:Name="SliderKnob" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0.75" CornerRadius="{DynamicResource RadiusFull}"
+                                BoxShadow="{DynamicResource SliderThumbShadow}"/>
+                        <Canvas IsHitTestVisible="False">
+                            <Border x:Name="SliderValueTip" IsVisible="False" Width="100" Canvas.Left="-39.5" Canvas.Top="-34">
+                                <StackPanel HorizontalAlignment="Center" Spacing="-0.5">
+                                    <Border MinWidth="46" Height="23" Padding="9,0" CornerRadius="6"
+                                            Background="{DynamicResource SliderValueBackgroundBrush}">
+                                        <TextBlock Text="{TemplateBinding Tag}" TextAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource SliderValueForegroundBrush}"/>
+                                    </Border>
+                                    <Path Data="M0,0 L12,0 L6,6 Z" Fill="{DynamicResource SliderValueBackgroundBrush}" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </Canvas>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover, ^:pressed">
+                <Setter Property="BorderBrush" Value="{DynamicResource SliderThumbFocusBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#SliderKnob">
+                <Setter Property="BoxShadow" Value="{DynamicResource SliderThumbHoverShadow}"/>
+            </Style>
+            <Style Selector="^:pressed /template/ Border#SliderKnob">
+                <Setter Property="BoxShadow" Value="{DynamicResource SliderThumbFocusShadow}"/>
+            </Style>
+            <Style Selector="^:pressed:not(:disabled) /template/ Border#SliderValueTip">
+                <Setter Property="IsVisible" Value="True"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Background" Value="{DynamicResource SliderDisabledThumbBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource SliderThumbBorderBrush}"/>
+            </Style>
+            <Style Selector="^:disabled /template/ Border#SliderKnob">
+                <Setter Property="BoxShadow" Value="none"/>
+            </Style>
+        </ControlTheme>
+
+        <ControlTheme x:Key="CompactSliderTheme" TargetType="Slider">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Background="Transparent">
+                        <Border x:Name="SliderRail" Height="6" Margin="10.5,0" VerticalAlignment="Center"
+                                CornerRadius="3" Background="{DynamicResource SliderRailBrush}" IsHitTestVisible="False"/>
+                        <Track x:Name="PART_Track" Orientation="Horizontal"
+                               Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                               Value="{TemplateBinding Value, Mode=TwoWay}">
+                            <Track.DecreaseButton>
+                                <RepeatButton x:Name="PART_DecreaseButton" Theme="{StaticResource CompactSliderTrackButtonTheme}">
+                                    <Border x:Name="SliderFill" Height="6" Margin="10.5,0,-10.5,0"
+                                            VerticalAlignment="Center" CornerRadius="3"
+                                            Background="{DynamicResource SliderFillBrush}"/>
+                                </RepeatButton>
+                            </Track.DecreaseButton>
+                            <Track.IncreaseButton>
+                                <RepeatButton x:Name="PART_IncreaseButton" Theme="{StaticResource CompactSliderTrackButtonTheme}"/>
+                            </Track.IncreaseButton>
+                            <Track.Thumb>
+                                <Thumb x:Name="SliderThumb" Theme="{StaticResource CompactSliderThumbTheme}" Tag="{TemplateBinding Tag}"/>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:focus-visible /template/ Thumb#SliderThumb">
+                <Setter Property="BorderBrush" Value="{DynamicResource SliderThumbFocusBrush}"/>
+            </Style>
+            <Style Selector="^:disabled /template/ Border#SliderFill">
+                <Setter Property="Background" Value="{DynamicResource SliderDisabledFillBrush}"/>
+            </Style>
+        </ControlTheme>
+
         <ControlTheme x:Key="IconActionButtonTheme" TargetType="Button">
             <Setter Property="Template">
                 <ControlTemplate>
@@ -1345,5 +1440,27 @@
     </Style>
     <Style Selector="Border.tab-group-header.active TextBlock">
         <Setter Property="FontWeight" Value="{DynamicResource FontWeightSemiBold}"/>
+    </Style>
+    <Style Selector="Slider.compact-slider:horizontal">
+        <Setter Property="Theme" Value="{StaticResource CompactSliderTheme}"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="6,4"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem">
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Margin" Value="2,0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:selected">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+    </Style>
+    <Style Selector="controls|HomeFileImage.gallery-thumbnail">
+        <Setter Property="ThumbnailShadow" Value="{DynamicResource ThumbnailShadow}"/>
     </Style>
 </Styles>

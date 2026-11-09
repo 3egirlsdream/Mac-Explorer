@@ -11,6 +11,11 @@
     "zh-CHT"
   ],
   "strings": {
+    "file_gallery.zoom": "縮圖大小",
+    "file_gallery.zoom_value": "{0} pt",
+    "file_gallery.zoom_hint": "拖曳滑桿或按住 Ctrl 捲動以調整縮圖大小",
+    "file_gallery.title": "畫廊",
+    "file_gallery.filmstrip": "畫廊縮圖",
     "file_list.kind": "種類",
     "file_kind.generic": "檔案",
     "file_kind.unknown_extension": "{0} 檔案",

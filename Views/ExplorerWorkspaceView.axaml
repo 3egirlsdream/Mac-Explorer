@@ -251,7 +251,7 @@
 
                                 <Border Grid.Row="2" x:Name="StatusBar" MinHeight="28" Padding="0,4" BorderBrush="{DynamicResource WorkspaceDividerBrush}" BorderThickness="0,1,0,0"
                                         IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,0">
                                         <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
                                                    FontSize="{DynamicResource FontSizeCaption}"
                                                    VerticalAlignment="Center"
@@ -280,6 +280,20 @@
                                                            Foreground="{DynamicResource TextMutedBrush}"/>
                                             </StackPanel>
                                         </Border>
+                                        <StackPanel x:Name="ThumbnailZoomHost" Grid.Column="3" Orientation="Horizontal"
+                                                    VerticalAlignment="Center" Margin="10,0,0,0" Spacing="4" IsVisible="False">
+                                            <Slider x:Name="ThumbnailZoomSlider" Classes="compact-slider" Minimum="0" Maximum="4" Value="1"
+                                                    Width="116" SmallChange="1" LargeChange="1"
+                                                    IsSnapToTickEnabled="True" TickFrequency="1"
+                                                    AutomationProperties.Name="{loc:Loc file_gallery.zoom}"
+                                                    AutomationProperties.HelpText="{loc:Loc file_gallery.zoom_hint}"/>
+                                            <Button Classes="ghost icon-action compact" Width="24" Height="24" Padding="0"
+                                                    Click="OnGalleryButtonClick"
+                                                    AutomationProperties.Name="{loc:Loc file_gallery.title}"
+                                                    ToolTip.Tip="{loc:Loc file_gallery.title}">
+                                                <PathIcon Data="{x:Static icons:Icons.Image}" Width="14" Height="14"/>
+                                            </Button>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </Grid>

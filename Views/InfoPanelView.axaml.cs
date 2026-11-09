@@ -59,6 +59,8 @@ public partial class InfoPanelView : UserControl
     private string? _renderedTagPath;
     private readonly HashSet<string> _selectedSystemTags = new(StringComparer.OrdinalIgnoreCase);
     private const int PreviewSelectionDebounceMs = 120;
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    internal void ReleaseDiagnosticLifetime() => _memoryLifetime?.SetState(DiagnosticObjectState.Released);
     private bool _isPreviewExpanded;
     private ILocalizationService? _language;
     private ImageMetadata? _displayedImageMetadata;
@@ -93,6 +95,7 @@ public partial class InfoPanelView : UserControl
     internal InfoPanelView(IFileTagService? fileTagService,
         Func<string, CancellationToken, Task<DirectorySizeResult>>? directorySizeLoader = null)
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.InfoPanel);
         InitializeComponent();
         _directorySizeLoader = directorySizeLoader ?? DirectorySizeCalculator.CalculateAsync;
         _imageAnalysisService = App.Services?.GetService<IImageAnalysisService>();
@@ -176,6 +179,7 @@ public partial class InfoPanelView : UserControl
         }
 
         base.OnDataContextChanged(e);
+        _memoryLifetime?.Link(ViewModel?.DiagnosticId ?? 0);
         if (ViewModel != null)
         {
             _subscribedViewModel = ViewModel;
@@ -219,7 +223,7 @@ public partial class InfoPanelView : UserControl
             ApplyCurrentMetadata();
         else if (e.PropertyName == nameof(FileListViewModel.SidebarTags))
             UpdateSystemTagNames(ViewModel?.SidebarTags);
-        else if (e.PropertyName == nameof(FileListViewModel.IsInfoPanelVisible))
+        else if (e.PropertyName is nameof(FileListViewModel.IsInfoPanelVisible) or nameof(FileListViewModel.IsGalleryMode))
         {
             if (ViewModel?.IsInfoPanelVisible == true)
             {
@@ -264,6 +268,10 @@ public partial class InfoPanelView : UserControl
     {
         CancelPanelLoad();
         var viewModel = ViewModel;
+        var gallery = viewModel?.IsGalleryMode == true;
+        PreviewImageArea.IsVisible = !gallery;
+        ExpandPreviewBtn.IsVisible = !gallery;
+        if (gallery) ResetPreviewContent("选择文件以预览");
         if (viewModel == null || !viewModel.IsInfoPanelVisible || viewModel.SelectedEntries.Count != 1)
         {
             ClearPanel();
@@ -271,6 +279,7 @@ public partial class InfoPanelView : UserControl
         }
 
         var entry = viewModel.SelectedEntries[0];
+        MemoryDiagnostics.Operation(DiagnosticAction.PreviewSelection, _memoryLifetime?.Id ?? 0, viewModel.DiagnosticId, count: 1);
         if (_currentFilePath != entry.FullPath)
         {
             CloseTagSuggestions();
@@ -278,7 +287,7 @@ public partial class InfoPanelView : UserControl
         }
         _currentFilePath = entry.FullPath;
 
-        DetailsPanel.IsVisible = !_isPreviewExpanded;
+        DetailsPanel.IsVisible = gallery || !_isPreviewExpanded;
         SelectedFileName.Text = entry.DisplayName;
         ToolTip.SetTip(SelectedFileName, entry.DisplayName);
         SelectedFileSummary.Text = $"{entry.KindText} · {entry.FormattedSize}";
@@ -311,6 +320,7 @@ public partial class InfoPanelView : UserControl
 
         PrepareHash(entry);
         ApplyCurrentMetadata();
+        if (gallery) return;
         if (!IsLivePreviewEnabled)
         {
             ResetPreviewContent("激活窗格以加载预览");
@@ -956,6 +966,7 @@ public partial class InfoPanelView : UserControl
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _memoryLifetime?.SetState(DiagnosticObjectState.Attached);
         base.OnAttachedToVisualTree(e);
         _language = LocalizationService.Current;
         if (_language != null) _language.LanguageChanged += RefreshLocalizedDetails;
@@ -965,6 +976,7 @@ public partial class InfoPanelView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _memoryLifetime?.SetState(DiagnosticObjectState.Detached);
         CancelQueuedPanelUpdate();
         CancelPanelLoad();
         CloseTagSuggestions();

@@ -12,7 +12,7 @@ def verify(app):
     notices = resources / 'Notices'
     inventory = json.loads((notices / 'dependencies.json').read_text())
     covered = {'MacExplorer.dll', 'MacExplorer.PluginSdk.dll', 'MacExplorer.PluginUi.dll',
-               'MacExplorer.FileConversion.Plugin.dll', 'LiquidGlassAvaloniaUI.dll',
+               'MacExplorer.FileConversion.Plugin.dll', 'LiquidGlassAvaloniaUI.dll', 'MacExplorer.TextShaping.dll',
                'libMacExplorerNativeDrag.dylib', 'libMacExplorerPreview.dylib',
                'libMacExplorerStoreKit.dylib', 'libraw.dylib'}
     packages = {record['package'].lower() for record in inventory['packages']}

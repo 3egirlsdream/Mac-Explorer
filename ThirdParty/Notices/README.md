@@ -12,4 +12,8 @@ The resource inventory separately checks project license, Fluent icons, LiquidGl
 
 SharpZipLib 1.4.2 and SSH.NET 2026.0.0 use the MIT notices in `Dependencies/`. DotNetZip is no longer shipped; its old notice has been removed. The legacy archive test fixture remains for extraction compatibility.
 
+The fixed Avalonia 12.0.4 font-table allocation backport is attributed in the
+resource inventory and `TextShaping/LICENSE` / `TextShaping/NOTICE.md` in the
+bundle; its local code artifact is `MacExplorer.TextShaping.dll`.
+
 When changing a package/runtime/resource version, review the actual distribution's license and transitive notices, update the pinned inventory and artifact list, and run both channel audits. An automated inventory does not replace a review of new upstream terms or App Store distribution compatibility.

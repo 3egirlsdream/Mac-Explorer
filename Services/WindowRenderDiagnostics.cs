@@ -12,8 +12,7 @@ namespace MacExplorer.Services;
 /// <summary>Observes resize races without invalidating layout or touching the render loop.</summary>
 internal sealed class WindowRenderDiagnostics : IDisposable
 {
-    private static int _nextId;
-    private readonly int _id = Interlocked.Increment(ref _nextId);
+    private readonly long _id;
     private readonly AppWindow _window;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly byte[] _buffer = new byte[4096];
@@ -25,6 +24,7 @@ internal sealed class WindowRenderDiagnostics : IDisposable
 
     internal WindowRenderDiagnostics(AppWindow window)
     {
+        _id = window.DiagnosticId;
         _window = window;
         window.PropertyChanged += OnPropertyChanged;
         window.ScalingChanged += OnScalingChanged;
@@ -62,6 +62,7 @@ internal sealed class WindowRenderDiagnostics : IDisposable
 
     private void ScheduleSettled()
     {
+        if (!MemoryDiagnostics.IsEnabled) { _settled.Stop(); return; }
         _geometryAt = _clock.ElapsedMilliseconds;
         _mismatchSamples = 0;
         _lastMismatch = "";

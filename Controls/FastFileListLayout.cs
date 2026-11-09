@@ -8,25 +8,31 @@ internal readonly record struct FastFileListGroup(string Name, int Count, int? D
 internal sealed class FastFileListLayout
 {
     internal const double HeaderHeight = 34;
-    internal const double CellWidth = 120;
+    internal const double DefaultCellWidth = 120;
     internal const double GridInset = 0;
     internal readonly record struct Section(int First, int Count, double Top, double ContentTop, double Bottom, string? Name, double[] RowOffsets);
 
     private Section[] _sections = [];
+    private double _uniformRowHeight = FastFileList.RowHeight;
     public int Columns { get; private set; } = 1;
+    public double CellWidth { get; private set; } = DefaultCellWidth;
     public double ItemHeight { get; private set; } = FastFileList.RowHeight;
     public double Height { get; private set; }
     public double Width { get; private set; }
     public bool IsGrid { get; private set; }
     public int Count { get; private set; }
 
-    public void Build(int count, IReadOnlyList<FastFileListGroup> groups, bool grid, double width, bool hasVirtualRows, Func<int, double>? gridHeight = null, double headerHeight = HeaderHeight)
+    public void Build(int count, IReadOnlyList<FastFileListGroup> groups, bool grid, double width, bool hasVirtualRows,
+        Func<int, double>? gridHeight = null, double headerHeight = HeaderHeight,
+        double cellWidth = DefaultCellWidth, double? uniformGridHeight = null)
     {
         Count = count;
         Width = width;
         IsGrid = grid;
+        CellWidth = cellWidth;
         Columns = grid ? Math.Max(1, (int)Math.Floor(Math.Max(CellWidth, width - 16) / CellWidth)) : 1;
-        ItemHeight = grid ? hasVirtualRows ? 136 : 116 : FastFileList.RowHeight;
+        ItemHeight = grid ? (hasVirtualRows ? 136 : 116) + cellWidth - DefaultCellWidth : FastFileList.RowHeight;
+        _uniformRowHeight = grid ? uniformGridHeight ?? ItemHeight : ItemHeight;
         var sections = new List<Section>(Math.Max(1, groups.Count));
         var first = 0;
         double top = 0;
@@ -47,7 +53,7 @@ internal sealed class FastFileListLayout
                     height = Math.Max(height, gridHeight!(first + row * Columns + column));
                 offsets[row + 1] = offsets[row] + height;
             }
-            var bottom = contentTop + (offsets.Length > 0 ? offsets[^1] : rowCount * ItemHeight);
+            var bottom = contentTop + (offsets.Length > 0 ? offsets[^1] : rowCount * _uniformRowHeight);
             sections.Add(new Section(first, size, top, contentTop, bottom, name, offsets));
             first += size;
             top = bottom;
@@ -122,11 +128,11 @@ internal sealed class FastFileListLayout
     }
 
     private double RowTop(Section section, int row)
-        => section.RowOffsets.Length > 0 ? section.RowOffsets[row] : row * ItemHeight;
+        => section.RowOffsets.Length > 0 ? section.RowOffsets[row] : row * _uniformRowHeight;
 
     private int RowAt(Section section, double y)
     {
-        if (section.RowOffsets.Length == 0) return (int)Math.Floor(y / ItemHeight);
+        if (section.RowOffsets.Length == 0) return (int)Math.Floor(y / _uniformRowHeight);
         if (y < 0) return -1;
         var index = Array.BinarySearch(section.RowOffsets, y);
         return index >= 0 ? index : ~index - 1;

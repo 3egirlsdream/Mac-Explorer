@@ -581,6 +581,8 @@ public partial class MainWindow : AppWindow
         else if (e.PropertyName is nameof(MainWindowViewModel.SelectedTab)
                  or nameof(MainWindowViewModel.ActivePaneSlotIndex))
         {
+            if (e.PropertyName == nameof(MainWindowViewModel.SelectedTab))
+                MemoryDiagnostics.Operation(DiagnosticAction.TabSelected, DiagnosticId, _vm.SelectedTab?.DiagnosticId ?? 0);
             CloseHomeFolderImmediately();
             TouchSelectedWorkspace();
             _ = ActivateSelectedWorkspaceAsync();
@@ -848,6 +850,7 @@ public partial class MainWindow : AppWindow
         DisposeMarkdownEditor();
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
+        SuperPreviewControl.ReleaseDiagnosticLifetime();
         _taskManager.TasksChanged -= OnTasksChanged;
         if (_taskLocalization != null) _taskLocalization.LanguageChanged -= OnTasksChanged;
         if (_taskHistory != null) _taskHistory.HistoryChanged -= OnTasksChanged;

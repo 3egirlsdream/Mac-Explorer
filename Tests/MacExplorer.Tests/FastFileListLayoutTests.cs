@@ -15,6 +15,27 @@ namespace MacExplorer.Tests;
 [Trait("Area", "FileList")]
 public sealed class FastFileListLayoutTests
 {
+    [AvaloniaTheory]
+    [Trait("Kind", "UI")]
+    [InlineData(32)]
+    [InlineData(56)]
+    [InlineData(96)]
+    [InlineData(128)]
+    public void GridZoomUsesOneSizeForCellAndHitTarget(int size)
+    {
+        using var theme = new FastListTestTheme();
+        var list = new FastFileList { IsGrid = true, GridIconSize = size };
+        var rows = Enumerable.Range(0, 30).Select(FastFileListTests.Entry).ToArray();
+        list.SetRows(rows);
+        list.Measure(new Size(450, 460));
+        list.Arrange(new Rect(0, 0, 450, 460));
+        var icon = list.GridIconTargetBounds(0);
+        Assert.Equal(size + 16, icon.Width);
+        Assert.Equal(size + 64, list.RowBounds(0).Width);
+        Assert.True(list.NameBounds(0).Top > icon.Bottom);
+        Assert.Same(rows[0], list.EntryAt(icon.Center, contentOnly: true));
+    }
+
     [AvaloniaFact]
     [Trait("Kind", "UI")]
     public void LargeGridDoesNotShapeOffscreenNamesAndReservesTwoLines()
@@ -153,6 +174,46 @@ public sealed class FastFileListLayoutTests
             await loaded.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.NotNull(images.Get(cover));
             Assert.Equal(0, calls);
+        }
+        finally { images.Clear(); }
+    }
+
+    [AvaloniaFact]
+    [Trait("Kind", "UI")]
+    public async Task GridZoomUsesCachedThumbnailUntilLargerImageIsReady()
+    {
+        var images = new FastFileListImages();
+        var entry = new FileSystemEntry { Name = "picture.png", FullPath = "/grid/picture.png" };
+        using var source = new SkiaSharp.SKBitmap(256, 256);
+        using var png = source.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        var bytes = png.ToArray();
+        var requests = new List<int>();
+        images.ThumbnailProvider = (_, pixels, _) =>
+        {
+            lock (requests) requests.Add(pixels);
+            return Task.FromResult<MacExplorer.Services.ThumbnailResult?>(new(bytes, string.Empty));
+        };
+        var smallReady = new TaskCompletionSource<Bitmap>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var largeReady = new TaskCompletionSource<Bitmap>(TaskCreationOptions.RunContinuationsAsynchronously);
+        images.Changed += () =>
+        {
+            var bitmap = images.Get(entry, folderCoversEnabled: false, out var isThumbnail);
+            if (!isThumbnail || bitmap == null) return;
+            if (!smallReady.Task.IsCompleted) smallReady.TrySetResult(bitmap);
+            else if (!ReferenceEquals(bitmap, smallReady.Task.Result)) largeReady.TrySetResult(bitmap);
+        };
+        try
+        {
+            images.UpdateVisible([entry], 128, reuseSizes: true);
+            var small = await smallReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            images.UpdateVisible([entry], 256, reuseSizes: true);
+            Assert.Same(small, images.Get(entry));
+            var large = await largeReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Same(large, images.Get(entry));
+            images.UpdateVisible([entry], 96, reuseSizes: true);
+            Assert.Same(small, images.Get(entry));
+            Assert.Equal(0, images.PendingCount);
+            lock (requests) Assert.Equal([128, 256], requests);
         }
         finally { images.Clear(); }
     }

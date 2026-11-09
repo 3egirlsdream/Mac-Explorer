@@ -164,6 +164,7 @@ public partial class FileListView : UserControl
         InitializeComponent();
         InitializeSnapshotAnchoring();
         InitializeFastFileList();
+        InitializeGallery();
         SizeChanged += (_, _) =>
         {
             if (_sizeRefreshQueued) return;
@@ -190,6 +191,10 @@ public partial class FileListView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        ReleaseGalleryContent();
+        GalleryHost.IsVisible = false;
+        GalleryHost.Content = null;
+        _galleryEntry = null;
         CancelActiveRename();
         ResetDragState();
         ColumnFilterPopup.IsOpen = false;
@@ -281,6 +286,7 @@ public partial class FileListView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(FileListViewModel.ThumbnailZoomLevel)) ApplyThumbnailZoom();
         if (e.PropertyName == nameof(FileListViewModel.IsContextMenuVisible) && ViewModel?.IsContextMenuVisible == false)
             DismissContextMenu();
 
@@ -357,7 +363,10 @@ public partial class FileListView : UserControl
             UpdateEmptyState();
 
         if (e.PropertyName is nameof(FileListViewModel.IsLoading) or nameof(FileListViewModel.IsDirectoryLoading))
+        {
             UpdateFastListLoading();
+            QueueGalleryRefresh();
+        }
 
         if (e.PropertyName == nameof(FileListViewModel.CutPaths))
             Dispatcher.UIThread.Post(UpdateCutStates);
@@ -711,6 +720,7 @@ public partial class FileListView : UserControl
     private void OnSelectedEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         QueueSelectionSynchronization();
+        QueueGalleryRefresh();
     }
 
     private void OnScrollToSelectionRequested()
@@ -725,6 +735,7 @@ public partial class FileListView : UserControl
     private void OnRenameRequested(FileSystemEntry entry)
     {
         if (ViewModel?.IsBrowseOnly == true || !FastListActive) return;
+        TryExitGallery();
         CancelActiveRename();
         BeginFastRename(entry);
     }
@@ -1415,13 +1426,14 @@ public partial class FileListView : UserControl
 
         ViewModel.NotifyTransientInteractionStarted();
         var sourceVisual = e.Source as Visual;
-        var entry = EntryAtPointer(e);
+        var entry = IsGalleryVisible ? GalleryItemFromSource(e.Source) : EntryAtPointer(e);
+        if (IsGalleryVisible && entry == null) return;
         if (FastListActive && entry != null) _fastFocusedPath = entry.FullPath;
         if (entry == null && !IsWithinVisual(sourceVisual, FileScroll))
             return;
         DismissContextMenu();
         _rightPressedEntry = entry;
-        _rightPressedAnchor = entry == null ? FileScroll : FastList;
+        _rightPressedAnchor = IsGalleryVisible ? GalleryStrip : entry == null ? FileScroll : FastList;
         if (entry != null && !ViewModel.IsEntrySelected(entry))
         {
             ViewModel.SelectEntryForContextMenu(entry);
@@ -1947,7 +1959,10 @@ public partial class FileListView : UserControl
             ? allowedEffects & DragDropEffects.Copy : DragDropEffects.None;
 
     private FileSystemEntry? FindDropTarget(DragEventArgs e)
-        => FastList.EntryAt(e.GetPosition(FastList)) is { IsDirectory: true } directory ? directory : null;
+    {
+        var entry = IsGalleryVisible ? GalleryItemFromSource(e.Source) : FastList.EntryAt(e.GetPosition(FastList));
+        return entry?.IsDirectory == true ? entry : null;
+    }
 
     private void ClearDragOverVisual() => FastList.DropTargetPath = null;
 
@@ -1962,7 +1977,7 @@ public partial class FileListView : UserControl
 
     private void OnEmptyAreaPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (ViewModel == null || IsTextInputSource(e.Source)) return;
+        if (ViewModel == null || IsGalleryVisible || IsTextInputSource(e.Source)) return;
         var wasRenaming = _renameEditor != null;
         CancelSlowRename();
 
@@ -2243,13 +2258,13 @@ public partial class FileListView : UserControl
     {
         var visible = ViewModel is { IsHomePage: false };
         if (visible != FastListActive) CancelActiveRename();
-        FastListHost.IsVisible = visible;
         FastList.IsVisible = visible;
         FastList.IsGrid = ViewModel?.ViewMode == ViewMode.Grid;
         FastList.FolderCoversEnabled = visible && FastList.IsGrid
             && ViewModel?.ShowFolderPhotoCovers == true
             && ViewModel.IsRemoteView == false && ViewModel.IsArchiveView == false;
         SyncFastListRows();
+        ApplyThumbnailZoom();
         ListHeaderPanel.IsVisible = visible && !FastList.IsGrid;
         UpdateSortHeaders();
     }
@@ -2296,6 +2311,7 @@ public partial class FileListView : UserControl
 
     private void OnFileListKeyDown(object? sender, KeyEventArgs e)
     {
+        if (TryHandleGalleryKey(e)) return;
         TryHandleFileShortcut(e);
         HandleFastListNavigation(e);
     }

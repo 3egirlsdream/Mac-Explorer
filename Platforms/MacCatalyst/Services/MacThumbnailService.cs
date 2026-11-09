@@ -52,7 +52,11 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
     };
 
     MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
-    { lock (_memorySync) return new("thumbnail-bytes", _memoryCache.Count, _memoryBytes); }
+    {
+        if (!Monitor.TryEnter(_memorySync)) return new("thumbnail-bytes", 0, Owners: 0, Skipped: 1);
+        try { return new("thumbnail-bytes", _memoryCache.Count, _memoryBytes); }
+        finally { Monitor.Exit(_memorySync); }
+    }
 
     private const int MaxMemoryEntries = 300;
     private const long MaxMemoryBytes = 32L * 1024 * 1024;

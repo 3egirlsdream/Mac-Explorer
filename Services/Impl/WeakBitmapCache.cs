@@ -15,7 +15,12 @@ internal sealed class WeakBitmapCache(long maxBytes, int maxEntries = 512) : IId
     private long _bytes;
     private bool _registered;
 
-    public MemoryDiagnosticState GetMemoryState() { lock (_sync) return new("shared-images-weak", _entries.Count, _bytes); }
+    public MemoryDiagnosticState GetMemoryState()
+    {
+        if (!Monitor.TryEnter(_sync)) return new("shared-images-weak", 0, Owners: 0, Skipped: 1);
+        try { return new("shared-images-weak", _entries.Count, _bytes); }
+        finally { Monitor.Exit(_sync); }
+    }
 
     public bool TryGet(string key, out Bitmap? bitmap)
     {

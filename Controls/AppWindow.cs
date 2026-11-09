@@ -15,6 +15,8 @@ namespace MacExplorer.Controls;
 
 public class AppWindow : Window
 {
+    private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    internal long DiagnosticId => _memoryLifetime?.Id ?? 0;
     private WindowState _stateBeforeFullScreen = WindowState.Normal;
     internal IShortcutService Shortcuts { get; set; } = ShortcutService.Resolve();
     private ShortcutHintController? _shortcutHints;
@@ -99,6 +101,7 @@ public class AppWindow : Window
 
     internal AppWindow(SubscriptionService? subscription)
     {
+        _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Window);
         _subscription = subscription;
         WindowDecorations = WindowDecorations.BorderOnly;
         ExtendClientAreaToDecorationsHint = true;
@@ -113,6 +116,8 @@ public class AppWindow : Window
 
         Opened += (_, _) =>
         {
+            _memoryLifetime?.SetState(DiagnosticObjectState.Attached);
+            MemoryDiagnostics.Operation(DiagnosticAction.WindowOpened, DiagnosticId);
             MacAutomationLifetime.Prepare();
             MacNativeFileDrop.Enable(this);
             _nativeLifetime = PlatformImpl;
@@ -128,6 +133,7 @@ public class AppWindow : Window
         };
         Closed += (_, _) =>
         {
+            _memoryLifetime?.SetState(DiagnosticObjectState.Closed);
             RenderDiagnostics?.Dispose();
             RenderDiagnostics = null;
             MacNativeFileDrop.Disable(this);
@@ -251,6 +257,8 @@ public class AppWindow : Window
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == IsVisibleProperty)
+            MemoryDiagnostics.Operation(DiagnosticAction.WindowVisibility, DiagnosticId, visible: IsVisible);
         if (change.Property == WindowStateProperty)
         {
             if (WindowState is WindowState.Normal or WindowState.Maximized)

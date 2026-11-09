@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="[12.0.4]" GeneratePathProperty="true" />
+    <PackageReference Include="Avalonia.HarfBuzz" Version="[12.0.4]" />
+    <InternalsVisibleTo Include="MacExplorer.Tests" />
+    <InternalsVisibleTo Include="MemoryBench" />
+  </ItemGroup>
+  <!-- Only this fixed-version adapter implements Avalonia's backend interfaces.
+       The reference assembly intentionally hides them from application code. -->
+  <Target Name="UsePinnedAvaloniaBackendInterface" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)" Condition="'%(Filename)' == 'Avalonia.Base'" />
+      <ReferencePathWithRefAssemblies Include="$(PkgAvalonia)/lib/net10.0/Avalonia.Base.dll" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -1877,6 +1877,13 @@
       "notices": {
         "Notices/Dependencies/TextMate-component-notices.txt": "44b6db887e4a11e11388f38451b7fcbe663874dc7e13d53aed85a0eb719b0f81"
       }
+    },
+    {
+      "name": "Avalonia 12.0.4 font-table allocation backport",
+      "notices": {
+        "TextShaping/LICENSE": "213814d306090074d234d760239ff0f67eb9b8d20eefb4d5631bb39dbe0b769b",
+        "TextShaping/NOTICE.md": "0d78e83db87f5c9d2c65a5b742de7a8030715f187a93003887d0c57013f4c634"
+      }
     }
   ]
 }

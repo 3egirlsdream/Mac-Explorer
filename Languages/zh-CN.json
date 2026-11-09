@@ -4,6 +4,11 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "file_gallery.zoom": "缩略图大小",
+    "file_gallery.zoom_value": "{0} pt",
+    "file_gallery.zoom_hint": "拖动滑杆或按住 Ctrl 滚动以调整缩略图大小",
+    "file_gallery.title": "画廊",
+    "file_gallery.filmstrip": "画廊缩略图",
     "file_list.kind": "种类",
     "file_kind.generic": "文件",
     "file_kind.unknown_extension": "{0} 文件",

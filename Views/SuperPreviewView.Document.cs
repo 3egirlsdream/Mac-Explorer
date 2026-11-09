@@ -31,7 +31,8 @@ public partial class SuperPreviewView
             RaiseEvent(new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = key }));
         try
         {
-            var result = host.Load(path, Path.GetExtension(name).Equals(".pdf", StringComparison.OrdinalIgnoreCase), !_isCompactPreview);
+            var result = host.Load(path, Path.GetExtension(name).Equals(".pdf", StringComparison.OrdinalIgnoreCase),
+                !_isCompactPreview || _isGalleryPreview);
             if (result != 1)
             {
                 host.Dispose();
