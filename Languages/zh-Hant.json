@@ -11,6 +11,11 @@
     "zh-CHT"
   ],
   "strings": {
+    "preview.diff-before": "修改前",
+    "preview.diff-after": "修改後",
+    "preview.text-too-large": "文字檔案過大（僅支援 4 MB 以內）",
+    "preview.text-unreadable": "無法讀取文字內容",
+    "ui.preview-video-unplayable": "無法播放此影片，檔案可能已損壞或系統不支援其編碼。",
     "tabs.preset.title": "工作組預設",
     "tabs.preset.item": "{0} · {1} 個資料夾",
     "tabs.preset.none": "尚無工作組預設",

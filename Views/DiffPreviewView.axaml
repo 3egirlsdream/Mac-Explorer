@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             xmlns:loc="using:MacExplorer.Controls"
+             x:Class="MacExplorer.Views.DiffPreviewView">
+    <UserControl.Styles>
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
+        <Style Selector="edit|TextEditor.diff-preview">
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}"/>
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+    </UserControl.Styles>
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,1,*">
+        <TextBlock x:Name="BeforeLabel" Text="{loc:Loc preview.diff-before}" Margin="8,6" FontSize="{DynamicResource FontSizeLabel}"
+                   Foreground="{DynamicResource TextMutedBrush}"/>
+        <TextBlock x:Name="AfterLabel" Grid.Column="2" Text="{loc:Loc preview.diff-after}" Margin="8,6" FontSize="{DynamicResource FontSizeLabel}"
+                   Foreground="{DynamicResource TextMutedBrush}"/>
+        <Border x:Name="Divider" Grid.Column="1" Grid.RowSpan="2" Background="{DynamicResource ColorDivider}"/>
+        <edit:TextEditor x:Name="Editor" Grid.Row="1" Classes="diff-preview" IsReadOnly="True" WordWrap="False"
+                         AutomationProperties.Name="{loc:Loc preview.diff-before}"
+                         ShowLineNumbers="False" HorizontalScrollBarVisibility="Visible" VerticalScrollBarVisibility="Auto"/>
+        <edit:TextEditor x:Name="AfterEditor" Grid.Row="1" Grid.Column="2" Classes="diff-preview" IsReadOnly="True" WordWrap="False"
+                         AutomationProperties.Name="{loc:Loc preview.diff-after}"
+                         ShowLineNumbers="False" HorizontalScrollBarVisibility="Visible" VerticalScrollBarVisibility="Auto"/>
+    </Grid>
+</UserControl>

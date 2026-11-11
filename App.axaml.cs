@@ -164,6 +164,11 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_VIDEO_PREVIEW_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.VideoPreviewSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_GROUP_PRESETS_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;

@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -10,6 +9,8 @@ using Avalonia.VisualTree;
 using MacExplorer.Models;
 using MacExplorer.Controls;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
+using MacExplorer.Services.Preview;
 using Microsoft.Extensions.DependencyInjection;
 using SharpCompress.Common;
 
@@ -22,7 +23,6 @@ namespace MacExplorer.Views;
 /// </summary>
 public partial class SuperPreviewView : UserControl
 {
-    private const long MaxTextPreviewBytes = 4L * 1024 * 1024;
     private const int MaxListThumbnailCandidates = 48;
     private readonly ObservableCollection<FileSystemEntry> _entries = [];
     private readonly List<PreviewLocation> _history = [];
@@ -57,6 +57,7 @@ public partial class SuperPreviewView : UserControl
     {
         _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Preview);
         InitializeComponent();
+        AddHandler(KeyDownEvent, OnDiffPreviewKeyDown, RoutingStrategies.Tunnel);
         _isCompactPreview = isCompactPreview;
         _isGalleryPreview = isGalleryPreview;
         if (isCompactPreview)
@@ -464,6 +465,8 @@ public partial class SuperPreviewView : UserControl
 
     private async Task ShowEntryPreviewCoreAsync(FileSystemEntry entry, CancellationToken? inheritedToken)
     {
+        ClearDiffPreview();
+        ClearVideoPreview();
         ClearDocumentPreview();
         _previewCts?.Cancel();
         _previewCts?.Dispose();
@@ -481,20 +484,36 @@ public partial class SuperPreviewView : UserControl
         string? previewPath;
         try { previewPath = await ResolvePreviewPathAsync(entry, token); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
+        catch (Exception ex) when (DiffPreviewDocument.IsDiff(entry.Name) && ex is IOException or UnauthorizedAccessException)
+        {
+            if (version == _operationVersion && !token.IsCancellationRequested && IsVisible)
+                ShowPlaceholder(LocalizationText.Get("preview.text-unreadable"));
+            return;
+        }
         if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
             return;
         if (string.IsNullOrWhiteSpace(previewPath))
         {
-            ShowPlaceholder("无法读取此文件");
+            ShowPlaceholder(DiffPreviewDocument.IsDiff(entry.Name)
+                ? LocalizationText.Get("preview.text-unreadable") : "无法读取此文件");
             return;
         }
 
         if (TryShowDocumentPreview(previewPath, entry.Name))
             return;
 
+        if (TryShowVideoPreview(previewPath, entry, token, version))
+            return;
+
         if (MacExplorer.Services.Markdown.MarkdownDocument.IsMarkdown(entry.Name))
         {
             await ShowMarkdownPreviewAsync(previewPath, entry, token, version);
+            return;
+        }
+
+        if (DiffPreviewDocument.IsDiff(entry.Name))
+        {
+            await ShowDiffPreviewAsync(previewPath, token, version);
             return;
         }
 
@@ -687,17 +706,10 @@ public partial class SuperPreviewView : UserControl
     {
         try
         {
-            var info = new FileInfo(path);
-            if (info.Length > MaxTextPreviewBytes)
-            {
-                ShowPlaceholder("文本文件过大（仅支持 4 MB 以内）");
-                return;
-            }
-
-            var bytes = await File.ReadAllBytesAsync(path, token);
+            var text = await TextPreviewReader.ReadAsync(path, token);
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
-            PreviewText.Text = DecodeText(bytes);
+            PreviewText.Text = text;
             PreviewTextScroll.IsVisible = true;
             PreviewText.IsVisible = true;
             PreviewImage.IsVisible = false;
@@ -707,11 +719,12 @@ public partial class SuperPreviewView : UserControl
         catch (OperationCanceledException)
         {
         }
-        catch
+        catch (Exception ex)
         {
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
-            ShowPlaceholder("无法读取文本内容");
+            ShowPlaceholder(LocalizationText.Get(ex is TextPreviewTooLargeException
+                ? "preview.text-too-large" : "preview.text-unreadable"));
         }
     }
 
@@ -801,12 +814,12 @@ public partial class SuperPreviewView : UserControl
         => TextFileTypes.IsText(entry.Name);
 
     private static bool IsVideoFile(FileSystemEntry entry)
-        => entry.Extension is ".mp4" or ".mov" or ".m4v" or ".avi" or ".mkv" or ".webm"
-            or ".wmv" or ".flv" or ".3gp" or ".mpeg" or ".mpg" or ".mts" or ".m2ts" or ".mxf"
-            or ".mpv" or ".ogv" or ".dv" or ".asf" or ".rm" or ".rmvb" or ".vob" or ".m2v";
+        => MacExplorer.Services.Impl.FileIconResolver.ResolveIconKey(Path.GetExtension(entry.Name), entry.Name) == "file-video";
 
     private void SetPreviewBitmap(Bitmap? bitmap)
     {
+        ClearDiffPreview();
+        ClearVideoPreview();
         ClearDocumentPreview();
         ClearMarkdownPreview();
         var previous = _previewBitmap;
@@ -845,17 +858,6 @@ public partial class SuperPreviewView : UserControl
             catch { }
         }
         _temporaryFiles.Clear();
-    }
-
-    private static string DecodeText(byte[] bytes)
-    {
-        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-            return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
-        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-            return Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
-        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-            return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
-        return Encoding.UTF8.GetString(bytes);
     }
 
     private sealed record PreviewLocation(

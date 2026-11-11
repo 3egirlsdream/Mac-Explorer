@@ -19,6 +19,36 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task CompactAndGalleryVideosContinueUsingStaticThumbnails(bool gallery)
+    {
+        var root = Directory.CreateTempSubdirectory("FKFinder_StaticVideoPreview_");
+        try
+        {
+            var entry = new FileSystemEntry { FullPath = Path.Combine(root.FullName, "video.MP4"), Name = "video.MP4", Extension = ".MP4" };
+            await File.WriteAllTextAsync(entry.FullPath, "fixture");
+            var thumbnails = new PreviewThumbnailStub(entry.FullPath);
+            await using var fixture = await TabCacheFixture.CreateAsync(entries: 0,
+                configureServices: services => services.AddSingleton<IThumbnailService>(thumbnails));
+            var preview = new SuperPreviewView(isCompactPreview: true, isGalleryPreview: gallery);
+            var window = new Window { Width = 800, Height = 600, Content = preview };
+            try
+            {
+                window.Show();
+                if (gallery) Assert.True(await preview.OpenGalleryFileAsync(entry, TestContext.Current.CancellationToken));
+                else await preview.OpenAsync(entry);
+                Assert.Equal(1, thumbnails.CallCount);
+                Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
+                Assert.NotNull(preview.FindControl<Image>("PreviewImage")!.Source);
+                Assert.Empty(preview.FindControl<Grid>("PreviewHost")!.Children.OfType<MacExplorer.Controls.VideoPreviewHost>());
+            }
+            finally { preview.Close(); window.Close(); }
+        }
+        finally { root.Delete(true); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task SvgPreviewUsesSharedThumbnailService(bool compact)
     {
         var root = Directory.CreateTempSubdirectory("FKFinder_SvgPreview_");

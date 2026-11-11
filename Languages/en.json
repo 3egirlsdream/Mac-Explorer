@@ -5,6 +5,11 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "preview.diff-before": "Before",
+    "preview.diff-after": "After",
+    "preview.text-too-large": "Text file is too large (maximum 4 MB)",
+    "preview.text-unreadable": "Unable to read text content",
+    "ui.preview-video-unplayable": "Unable to play this video. The file may be damaged or its codec is not supported by macOS.",
     "tabs.preset.title": "Group presets",
     "tabs.preset.item": "{0} · {1} folders",
     "tabs.preset.none": "No group presets yet",

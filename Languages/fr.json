@@ -5,6 +5,11 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "preview.diff-before": "Avant",
+    "preview.diff-after": "Après",
+    "preview.text-too-large": "Le fichier texte est trop volumineux (4 Mo maximum)",
+    "preview.text-unreadable": "Impossible de lire le contenu du fichier texte",
+    "ui.preview-video-unplayable": "Impossible de lire cette vidéo. Le fichier est peut-être endommagé ou son codec n’est pas pris en charge par macOS.",
     "tabs.preset.title": "Préréglages de groupes",
     "tabs.preset.item": "{0} · {1} dossiers",
     "tabs.preset.none": "Aucun préréglage de groupe",

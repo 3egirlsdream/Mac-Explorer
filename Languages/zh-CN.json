@@ -4,6 +4,11 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "preview.diff-before": "修改前",
+    "preview.diff-after": "修改后",
+    "preview.text-too-large": "文本文件过大（仅支持 4 MB 以内）",
+    "preview.text-unreadable": "无法读取文本内容",
+    "ui.preview-video-unplayable": "无法播放此视频，文件可能已损坏或系统不支持其编码。",
     "tabs.preset.title": "工作组预设",
     "tabs.preset.item": "{0} · {1} 个文件夹",
     "tabs.preset.none": "尚无工作组预设",

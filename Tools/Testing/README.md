@@ -170,3 +170,20 @@ MACEXPLORER_TAB_GROUPS_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 ```
 
 仅 Debug 且配置独立测试目录时启用；数据全部写入本次测试目录。`tab-groups/report.json` 记录结果，并保存四语浅／深色、窄窗口、长组名、菜单、重命名、背景主题及恢复后的真实合成截图。设为 `interactive` 可保留实例供原生指针验收；不操作真实用户目录。
+
+## 空格视频预览验证
+
+使用系统 AVKit 播放器。`ui --area Preview` 检查普通预览及 Cmd+K／画廊的静态视频缩略图；`integration --area Preview` 编译原生检查并生成临时 MP4／MOV，覆盖首帧暂停、播放／暂停、进度／音量、主题／缩放、原生焦点下的空格／Escape、异步替换、错误处理及媒体和视图释放。已完成本轮测试构建时可追加 `--no-build`。
+
+真实窗口检查仅在 Debug 隔离实例中启用，所有视频和压缩包均为合成数据；截图及 `report.json` 写入打印的测试目录 `video-preview/`：
+
+```bash
+clang++ -fobjc-arc -std=c++17 -mmacosx-version-min=14.0 Tests/Native/VideoPreviewTests.mm \
+  -framework AppKit -framework AVKit -framework AVFoundation -framework CoreMedia \
+  -framework CoreVideo -framework QuartzCore -o /tmp/macexplorer-video-native
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
+MACEXPLORER_VIDEO_PREVIEW_SMOKE=1 MACEXPLORER_VIDEO_FIXTURE_HELPER=/tmp/macexplorer-video-native \
+  bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+```
+
+检查浅／深色、窄窗口和中文长文件名、模态遮挡、最小化、原生焦点关闭、损坏视频、快速切换、压缩包视频、重复开关回收和播放中关闭窗口。最小化检查等待真实原生状态及动画完成后再恢复，避免渲染暂停期间的待处理队列影响回收判断。

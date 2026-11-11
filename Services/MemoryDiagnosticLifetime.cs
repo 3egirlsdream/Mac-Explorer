@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace MacExplorer.Services;
 
-internal enum DiagnosticObjectKind { Window, Tab, Workspace, FileList, Navigation, Preview, InfoPanel, DocumentPreview }
+internal enum DiagnosticObjectKind { Window, Tab, Workspace, FileList, Navigation, Preview, InfoPanel, DocumentPreview, VideoPreview }
 internal enum DiagnosticObjectState { Created, Attached, Detached, Released, Disposed, Closed }
 internal enum DiagnosticAction
 {
