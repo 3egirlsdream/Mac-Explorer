@@ -81,6 +81,7 @@ int main() {
         assert(NSEqualRects(contentLayer.bounds, owner.contentView.bounds));
         assert(shadow.window.ignoresMouseEvents && !shadow.window.canBecomeKeyWindow
             && !shadow.window.canBecomeMainWindow && !shadow.window.hasShadow);
+        assert(!(shadow.window.collectionBehavior & NSWindowCollectionBehaviorTransient));
         assert(NSEqualRects(shadow.window.frame, NSInsetRect(owner.frame, -40, -40)));
 
         MERedrawProbe *probe = [[MERedrawProbe alloc] initWithFrame:shadow.surface.frame];
