@@ -166,6 +166,19 @@ internal static class TabGroupsSmoke
             await CaptureAsync(owner, "long-group-name");
             second.Name = "素材";
             var settings = App.Services.GetRequiredService<ISettingsService>();
+            for (var i = 0; i < tabs.Length; i++)
+            {
+                var fileList = tabs[i].FileList;
+                fileList.SetViewMode((ViewMode)(i % 3));
+                fileList.GroupField = (GroupField)(i % 4);
+                fileList.SetSort((SortField)(i % 4), i % 2 == 0);
+                fileList.SortPriority = (SortPriority)(i % 3);
+                fileList.FileNameFilter = "Example";
+                fileList.IsPreviewPaneVisible = i % 2 == 0;
+                fileList.IsMetadataPanelVisible = i % 3 == 0;
+                fileList.IsInfoPanelVisible = i % 2 != 0;
+                fileList.ColumnLayoutService.Preview(FileListColumn.Name, 300 + i * 20);
+            }
             settings.Set(FolderTabSession.EnabledKey, true);
             var saved = owner.CaptureFolderTabs();
             FolderWindowSession.Capture([saved], 0).Save(settings);
@@ -174,8 +187,23 @@ internal static class TabGroupsSmoke
             await Task.Delay(250);
             await restoredWindow.RestoreFolderTabSessionAsync(filtered);
             var captured = restoredWindow.CaptureFolderTabs();
-            Require(JsonSerializer.Serialize(saved) == JsonSerializer.Serialize(captured), "Native window roundtrip preserves duplicate folders, group colors and pane mapping");
+            Require(JsonSerializer.Serialize(saved) == JsonSerializer.Serialize(captured), "Native window roundtrip preserves duplicate folders, independent view states, group colors and pane mapping");
             await CaptureAsync(restoredWindow, "restored");
+            var preset = TabGroupPreset.Capture("View state regression", saved.Paths,
+                saved.Groups.Single(group => group.Id == first.Id), viewStates: saved.ViewStates)!;
+            TabGroupPresets.Save(settings, preset);
+            var restoredModel = (MainWindowViewModel)restoredWindow.DataContext!;
+            await restoredWindow.CloseGroupAsync(restoredModel.Groups.Single(group => group.Id == first.Id));
+            var defaultView = settings.Get("ViewMode", ViewMode.List);
+            var defaultGroup = settings.Get("GroupField", GroupField.None);
+            await restoredWindow.OpenGroupPresetAsync(TabGroupPresets.Read(settings).Single(item => item.Id == preset.Id));
+            var reopened = restoredModel.Members(restoredModel.Groups.Single(group => group.PresetId == preset.Id)).ToArray();
+            Require(reopened.Length == preset.Session.Paths.Length && reopened.Select((tab, i) =>
+                JsonSerializer.Serialize(tab.FileList.CaptureTabViewState()) == JsonSerializer.Serialize(preset.Session.ViewStates[i])).All(value => value),
+                "Closing and reopening a preset restores every pane and hidden tab independently");
+            Require(settings.Get("ViewMode", ViewMode.List) == defaultView && settings.Get("GroupField", GroupField.None) == defaultGroup,
+                "Restoring a preset leaves global view and group defaults unchanged");
+            await CaptureAsync(restoredWindow, "reopened-preset");
             restoredWindow.Close(); restoredWindow = null;
             using (owner.BlockModalParentInteraction())
             {

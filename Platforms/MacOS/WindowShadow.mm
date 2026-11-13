@@ -26,7 +26,10 @@ static void PrepareContentLayer(NSView *view) {
 static char MEPreparedContentViewKey;
 @interface MEContentLayerPreparation : NSObject
 @property(nonatomic, weak) NSView *view;
+@property(nonatomic, strong) NSColor *backgroundColor;
+@property(nonatomic) CGFloat cornerRadius;
 - (instancetype)initWithView:(NSView *)view;
+- (void)prepareLayer;
 @end
 @implementation MEContentLayerPreparation
 - (instancetype)initWithView:(NSView *)view {
@@ -39,21 +42,34 @@ static char MEPreparedContentViewKey;
     return self;
 }
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
-    if (context == &MEPreparedContentViewKey) PrepareContentLayer(self.view);
+    if (context == &MEPreparedContentViewKey) [self prepareLayer];
     else [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
 }
-- (void)backingChanged:(NSNotification *)notification { PrepareContentLayer(self.view); }
+- (void)prepareLayer {
+    PrepareContentLayer(self.view);
+    if (!self.backgroundColor) return;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    // The previous drawable stays pixel-aligned; fill the newly exposed area independently.
+    self.view.layer.backgroundColor = self.backgroundColor.CGColor;
+    self.view.layer.cornerRadius = self.cornerRadius;
+    self.view.layer.masksToBounds = YES;
+    [CATransaction commit];
+}
+- (void)backingChanged:(NSNotification *)notification { [self prepareLayer]; }
 - (void)dealloc {
     [_view removeObserver:self forKeyPath:@"layer" context:&MEPreparedContentViewKey];
     [NSNotificationCenter.defaultCenter removeObserver:self];
 }
 @end
 
-static void PrepareContentView(NSView *view) {
+static MEContentLayerPreparation *PrepareContentView(NSView *view) {
     if (!objc_getAssociatedObject(view, &MEPreparedContentViewKey))
         objc_setAssociatedObject(view, &MEPreparedContentViewKey,
             [[MEContentLayerPreparation alloc] initWithView:view], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    PrepareContentLayer(view);
+    MEContentLayerPreparation *preparation = objc_getAssociatedObject(view, &MEPreparedContentViewKey);
+    [preparation prepareLayer];
+    return preparation;
 }
 
 extern "C" __attribute__((visibility("default")))
@@ -64,6 +80,20 @@ void me_window_chrome_prepare(void *viewPointer) {
     window.animationBehavior = NSWindowAnimationBehaviorNone;
     PrepareContentView(view);
     if (window.contentView != view) PrepareContentView(window.contentView);
+}
+
+extern "C" __attribute__((visibility("default")))
+void me_window_background_update(void *viewPointer, double red, double green, double blue, double alpha,
+    double cornerRadius) {
+    NSView *view = (__bridge NSView *)viewPointer;
+    if (!view.window || !NSThread.isMainThread) return;
+    NSColor *color = [NSColor colorWithSRGBRed:red green:green blue:blue alpha:alpha];
+    for (NSView *surface in view.window.contentView == view ? @[view] : @[view, view.window.contentView]) {
+        MEContentLayerPreparation *preparation = PrepareContentView(surface);
+        preparation.backgroundColor = color;
+        preparation.cornerRadius = cornerRadius;
+        [preparation prepareLayer];
+    }
 }
 
 static char MEWindowShadowKey;

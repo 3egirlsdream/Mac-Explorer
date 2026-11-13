@@ -299,6 +299,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     internal FileTag ResolveTag(FileTag tag) => _navigation.ResolveTag(tag);
 
     public ObservableCollection<PinnedFolder> PinnedFolders => _pinnedFolders.PinnedFolders;
+    public IReadOnlyList<PinnedFolder> AllPinnedFolders => _pinnedFolders.AllPinnedFolders;
+    public IReadOnlyList<PinnedFolderGroup> CustomGroups => _pinnedFolders.CustomGroups;
 
     // ── Sidebar items (instance-based for localized names) ──
     private IReadOnlyList<SidebarItem> _sidebarFavorites = [];
@@ -450,7 +452,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private void CaptureCurrentNavigationViewState()
     {
         if (_navigation.CurrentHistoryEntry is { } history) history.Preferences = CaptureDirectoryPreferences();
-        SaveDirectoryPreferences();
         _capturedNavigationAnchorViewportY = null;
         _capturedNavigationScrollOffsetY = null;
         CaptureNavigationAnchorRequested?.Invoke();
@@ -556,6 +557,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _directoryChangeNotifier = directoryChangeNotifier;
         _logger = loggerFactory?.CreateLogger<FileListViewModel>();
         _gitStatusService = gitStatusService;
+        if (_gitStatusService != null) _gitStatusService.RepositoryChanged += OnGitRepositoryChanged;
         _displayNameService = displayNameService;
         _volumeMonitorService = volumeMonitorService;
         _remoteConnectionService = remoteConnectionService;
@@ -661,6 +663,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private int _locationStatusGeneration;
     private Task<IReadOnlyList<DriveSpaceSnapshot>>? _driveSpaceTask;
+    private string? _driveSpacePath;
     private static readonly object DriveEnumerationGate = new();
 
     private void RefreshLocationStatus()
@@ -710,8 +713,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         LocationStatus? status = null;
         try
         {
-            if (_driveSpaceTask == null || _driveSpaceTask.IsCompleted)
-                _driveSpaceTask = Task.Run(GetDriveSpaceSnapshots);
+            if (_driveSpaceTask == null || _driveSpaceTask.IsCompleted || _driveSpacePath != path)
+            {
+                _driveSpacePath = path;
+                _driveSpaceTask = Task.Run(() => GetDriveSpaceSnapshots(path));
+            }
             status = FileListStatusFormatter.GetLocalLocationStatus(path, await _driveSpaceTask);
         }
         catch { }
@@ -755,8 +761,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             Dispatcher.UIThread.Post(RefreshLocationStatus);
     }
 
-    private static IReadOnlyList<DriveSpaceSnapshot> GetDriveSpaceSnapshots()
+    private static IReadOnlyList<DriveSpaceSnapshot> GetDriveSpaceSnapshots(string path)
     {
+        if (OperatingSystem.IsMacOS() && Platforms.MacOS.MacSandboxNative.TryGetVolumeSpace(
+                path, out var available, out var freeSpace, out var total))
+            return [new DriveSpaceSnapshot(path, freeSpace, total, available)];
+
         var snapshots = new List<DriveSpaceSnapshot>();
         DriveInfo[] drives;
         try
@@ -1137,7 +1147,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void OnPinnedFoldersPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(PinnedFoldersViewModel.PinnedFolders))
+        if (e.PropertyName == nameof(PinnedFoldersViewModel.LoadError) && _pinnedFolders.LoadError != null)
+            StatusText = _pinnedFolders.LoadError;
+        if (e.PropertyName is nameof(PinnedFoldersViewModel.PinnedFolders)
+            or nameof(PinnedFoldersViewModel.AllPinnedFolders) or nameof(PinnedFoldersViewModel.CustomGroups))
         {
             OnPropertyChanged(e.PropertyName);
         }
@@ -1320,6 +1333,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
 
         if (_navigation.CurrentPath == path && Entries.Count > 0
+            && _pendingTabViewState == null
             && string.IsNullOrEmpty(PendingSelectFileName)
             && !_navigation.IsAiView && !_navigation.IsArchiveView && !_navigation.IsRemoteView) return;
 
@@ -2241,6 +2255,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _ = Task.Run(ActivateAppWindow);
 
         ContextMenuEntry = entry;
+        _contextGitMenu = BuildGitMenuForEntry(entry);
         ContextMenuX = x;
         ContextMenuY = y;
 
@@ -2266,7 +2281,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         else
         {
             ContextMenuActions = new ObservableCollection<ContextMenuAction>(
-                await BuildFileContextMenuAsync(entry, includeDynamicActions: false));
+                await BuildFileContextMenuAsync(entry, includeDynamicActions: false, _contextGitMenu));
         }
 
         IsContextMenuVisible = true;
@@ -2314,12 +2329,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     // ── Direct menu builders (no service dependency) ──────────────
 
-    public async Task<IReadOnlyList<ContextMenuAction>> LoadCompleteFileContextMenuAsync(FileSystemEntry entry)
-        => IsBrowseOnly ? [] : await BuildFileContextMenuAsync(entry, includeDynamicActions: true);
+    public async Task<IReadOnlyList<ContextMenuAction>> LoadCompleteFileContextMenuAsync(FileSystemEntry entry, bool preserveGitMenu = false)
+        => IsBrowseOnly ? [] : await BuildFileContextMenuAsync(entry, includeDynamicActions: true,
+            preserveGitMenu ? _contextGitMenu : BuildGitMenuForEntry(entry));
 
     private async Task<List<ContextMenuAction>> BuildFileContextMenuAsync(
         FileSystemEntry entry,
-        bool includeDynamicActions)
+        bool includeDynamicActions, ContextMenuAction? gitMenu)
     {
         var actions = new List<ContextMenuAction>();
         var isRemote = VirtualPath.IsRemotePath(entry.FullPath);
@@ -2581,8 +2597,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             });
         }
 
-        if (includeDynamicActions && !isRemote && !IsArchiveView)
+        if (!isRemote && !IsArchiveView)
+        {
             actions.Add(await BuildTagsContextMenuAsync(entry));
+            if (gitMenu != null) actions.Add(gitMenu);
+        }
 
         // Info
         actions.Add(ContextMenuAction.Separator);
@@ -2750,6 +2769,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         };
     }
 
+    public async Task<IReadOnlyList<ContextMenuAction>> LoadCompleteBackgroundContextMenuAsync()
+        => IsBrowseOnly || IsTrashActive || IsArchiveView || IsTagView || IsAiView
+            ? ContextMenuActions.ToArray() : await BuildBackgroundContextMenuAsync();
+
     private async Task<List<ContextMenuAction>> BuildBackgroundContextMenuAsync()
     {
         var actions = new List<ContextMenuAction>();
@@ -2793,6 +2816,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             Execute = () => _clipboardService?.CopyTextAsync(currentPath) ?? Task.CompletedTask
         });
 
+        var gitMenu = BuildBackgroundGitMenu();
+        if (gitMenu != null) { actions.Add(ContextMenuAction.Separator); actions.Add(gitMenu); }
         return actions;
     }
 
@@ -2838,7 +2863,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var selectedEntries = GetContextEntries(entry);
         var destinations = new List<(string Path, string DisplayName)>();
 
-        foreach (var pinnedFolder in PinnedFolders)
+        foreach (var pinnedFolder in AllPinnedFolders)
             AddMoveDestination(destinations, pinnedFolder.FolderPath, pinnedFolder.DisplayName);
 
         var home = _fileService.HomeDirectory;
@@ -4373,9 +4398,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (_volumeMonitorService == null) return;
         if (vol.IsNetwork && !await ConfirmNetworkUnmountAsync()) return;
         NetworkError = null;
-        var success = await _volumeMonitorService.EjectVolumeAsync(vol.Path);
-        if (!success)
-            StatusText = NetworkError = LocalizationText.Get("network.eject-error", vol.DisplayName);
+        var result = await _volumeMonitorService.EjectVolumeWithResultAsync(vol.Path);
+        if (!result.Success)
+            StatusText = NetworkError = string.IsNullOrWhiteSpace(result.ErrorMessage)
+                ? LocalizationText.Get("network.eject-error", vol.DisplayName)
+                : LocalizationText.Get("network.eject-error-detail", vol.DisplayName, result.ErrorMessage);
     }
 
     [RelayCommand]
@@ -4556,12 +4583,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     partial void OnIsPreviewPaneVisibleChanged(bool value)
     {
+        if (_restoringDirectoryPreferences) return;
         if (_directoryPreferences == null) _settingsService?.Set(PreviewPaneVisibleSettingKey, value);
         else SaveDirectoryPreferences();
     }
 
     partial void OnIsMetadataPanelVisibleChanged(bool value)
     {
+        if (_restoringDirectoryPreferences) return;
         if (_directoryPreferences == null) _settingsService?.Set(MetadataPanelVisibleSettingKey, value);
         else SaveDirectoryPreferences();
     }
@@ -4569,6 +4598,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     partial void OnIsInfoPanelVisibleChanged(bool value)
     {
         MemoryDiagnostics.Operation(DiagnosticAction.InfoPanelVisibility, DiagnosticId, visible: value);
+        if (_restoringDirectoryPreferences) return;
         if (_directoryPreferences == null) _settingsService?.Set("IsInfoPanelVisible", value);
         else SaveDirectoryPreferences();
     }
@@ -4603,6 +4633,20 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         await _fileOps.UnpinFolderAsync(path);
         await _pinnedFolders.LoadPinnedFoldersAsync();
     }
+
+    public async Task PinFolderAsync(string path, string displayName, int groupId)
+    {
+        if (IsBrowseOnly) return;
+        await _pinnedFolders.PinFolderAsync(path, displayName, groupId);
+    }
+
+    public async Task UnpinFolderAsync(string path, int groupId)
+    {
+        if (IsBrowseOnly) return;
+        await _pinnedFolders.UnpinFolderAsync(path, groupId);
+    }
+
+    public void ToggleCustomGroupCollapsed(int groupId) => _pinnedFolders.ToggleGroupCollapsed(groupId);
 
     public Task ReorderPinnedFolderAsync(string sourcePath, string targetPath)
         => _pinnedFolders.ReorderPinnedFolderAsync(sourcePath, targetPath);
@@ -4855,7 +4899,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var snapshot = new List<FileSystemEntry>(Entries);
             _logger?.LogDebug("[GIT] ResolveGitStatusAsync start, path={Path}, entries={Count}", directoryPath, snapshot.Count);
             var repoStatus = await _gitStatusService.GetRepoStatusAsync(directoryPath);
-            if (repoStatus == null || !IsCurrentDirectoryWork(work)) { _logger?.LogDebug("[GIT] repoStatus is null or stale"); return; }
+            if (!IsCurrentDirectoryWork(work)) return;
+            if (repoStatus == null)
+            {
+                _directoryGitRepository = null;
+                return;
+            }
 
             var repoRoot = repoStatus.RepoRoot;
             var changed = false;
@@ -4865,15 +4914,20 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             for (int i = 0; i < snapshot.Count; i++)
             {
                 var entry = snapshot[i];
-                if (entry.IsVirtual || entry.GitStatus != GitFileStatus.None) continue;
-                if (!entry.FullPath.StartsWith(repoRoot, StringComparison.OrdinalIgnoreCase)) continue;
+                if (entry.IsVirtual || !entry.FullPath.StartsWith(repoRoot + "/", StringComparison.Ordinal)) continue;
+                if (entry.GitStatus != GitFileStatus.None)
+                {
+                    snapshot[i] = CopyWithGit(entry, repoRoot, entry.GitStatus, entry.HasGitChanges);
+                    changed = true;
+                    continue;
+                }
 
                 var relativePath = entry.FullPath[repoRoot.Length..].TrimStart('/');
 
                 if (repoStatus.FileStatuses.TryGetValue(relativePath, out var status))
                 {
                     if (status == GitFileStatus.Ignored) continue;
-                    snapshot[i] = CopyWithGit(entry, gitStatus: status);
+                    snapshot[i] = CopyWithGit(entry, repoRoot, gitStatus: status);
                     changed = true;
                 }
                 else
@@ -4882,12 +4936,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 }
             }
 
+            var currentRelativePath = Path.GetRelativePath(repoRoot, directoryPath);
+            var ignoredPaths = candidates.Count > 0 || currentRelativePath != "."
+                ? await Task.Run(() => GitStatusService.GetIgnoredPaths(repoRoot), work.Token) : [];
+            if (!IsCurrentDirectoryWork(work)) return;
+            _directoryGitRepository = GitStatusService.IsRepositoryPath(currentRelativePath)
+                && !ignoredPaths.Contains(currentRelativePath) && !HasAncestorPath(currentRelativePath, ignoredPaths)
+                ? (directoryPath, repoRoot) : null;
+
             // Distinguish ignored, untracked, and tracked-clean among candidates
             if (candidates.Count > 0)
             {
-                var ignoredPaths = await Task.Run(() => Services.Impl.GitStatusService.GetIgnoredPaths(repoRoot), work.Token);
-                if (!IsCurrentDirectoryWork(work)) return;
-
                 foreach (var (index, relativePath) in candidates)
                 {
                     // Skip files inside ignored directories (e.g. node_modules/express/index.js)
@@ -4899,13 +4958,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     if (entry.IsDirectory)
                     {
                         if (repoStatus.HasAnyChange(relativePath))
-                            snapshot[index] = CopyWithGit(entry, hasGitChanges: true);
+                            snapshot[index] = CopyWithGit(entry, repoRoot, hasGitChanges: true);
                         else
-                            snapshot[index] = CopyWithGit(entry, gitStatus: GitFileStatus.Unmodified);
+                            snapshot[index] = CopyWithGit(entry, repoRoot, gitStatus: GitFileStatus.Unmodified);
                     }
                     else
                     {
-                        snapshot[index] = CopyWithGit(entry, gitStatus: GitFileStatus.Unmodified);
+                        snapshot[index] = CopyWithGit(entry, repoRoot, gitStatus: GitFileStatus.Unmodified);
                     }
                     changed = true;
                 }
@@ -4938,6 +4997,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         CancelDocumentIndex();
         _columnLayoutService.Committed -= SaveDirectoryPreferences;
         _disposed = true;
+        if (_gitStatusService != null) _gitStatusService.RepositoryChanged -= OnGitRepositoryChanged;
         _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
         _navigation.ReleaseDiagnosticLifetime();
         if (_localizationService != null) _localizationService.LanguageChanged -= OnInterfaceLanguageChanged;
@@ -4967,6 +5027,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _ai.PropertyChanged -= OnAiPropertyChanged;
         _archive.PropertyChanged -= OnArchivePropertyChanged;
         _pinnedFolders.PropertyChanged -= OnPinnedFoldersPropertyChanged;
+        _pinnedFolders.Dispose();
         _sortFilter.PropertyChanged -= OnSortFilterPropertyChanged;
         _fileOps.PropertyChanged -= OnFileOpsPropertyChanged;
         if (_fileTagService != null)
@@ -5035,7 +5096,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         return false;
     }
 
-    private static FileSystemEntry CopyWithGit(FileSystemEntry src, GitFileStatus gitStatus = GitFileStatus.None, bool hasGitChanges = false) => new()
+    private static FileSystemEntry CopyWithGit(FileSystemEntry src, string repoRoot, GitFileStatus gitStatus = GitFileStatus.None, bool hasGitChanges = false) => new()
     {
         FullPath = src.FullPath,
         Name = src.Name,
@@ -5055,6 +5116,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         VirtualFolderType = src.VirtualFolderType,
         VirtualFolderKey = src.VirtualFolderKey,
         VirtualItemCount = src.VirtualItemCount,
+        GitRepoRoot = repoRoot,
         GitStatus = gitStatus,
         HasGitChanges = hasGitChanges
     };

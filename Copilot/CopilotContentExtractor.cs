@@ -73,7 +73,7 @@ public sealed class CopilotContentExtractor(
                 return new Page(cached.Text, offset, cached.NextOffset, cached.HasMore) { Source = "analysis-database" };
             }
         }
-        if (new FileInfo(path).Length > MaxDocumentBytes)
+        if (!DocumentContentExtractor.IsOffice(path) && new FileInfo(path).Length > MaxDocumentBytes)
             throw new IOException("非文本文件超过 25 MB，请先缩小范围。");
         if (extension == ".pdf")
         {

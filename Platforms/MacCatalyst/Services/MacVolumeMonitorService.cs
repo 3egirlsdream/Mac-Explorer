@@ -39,27 +39,43 @@ public class MacVolumeMonitorService : IVolumeMonitorService, IDisposable
     }
 
     public async Task<bool> EjectVolumeAsync(string volumePath)
+        => (await EjectVolumeWithResultAsync(volumePath)).Success;
+
+    public async Task<VolumeEjectResult> EjectVolumeWithResultAsync(string volumePath)
     {
         try
         {
             if (OperatingSystem.IsMacOS())
-                return await Task.Run(() => Platforms.MacOS.MacSandboxNative.EjectVolume(volumePath));
+            {
+                var result = await Task.Run(() => Platforms.MacOS.MacSandboxNative.EjectVolumeWithResult(volumePath));
+                if (!result.Success) _logger?.LogWarning("Volume eject failed: {Reason}", result.ErrorMessage);
+                else RefreshVolumes();
+                return result;
+            }
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "diskutil",
-                Arguments = $"eject \"{volumePath}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
+            psi.ArgumentList.Add("eject");
+            psi.ArgumentList.Add(volumePath);
             using var process = System.Diagnostics.Process.Start(psi);
-            if (process == null) return false;
+            if (process == null) return new(false);
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await process.WaitForExitAsync(timeout.Token);
-            return process.ExitCode == 0;
+            await output;
+            return new(process.ExitCode == 0, process.ExitCode == 0 ? null : await error);
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Volume eject failed");
+            return new(false, ex.Message);
+        }
     }
 
     public bool IsExternalVolume(string path) => ExternalVolumes.Any(volume => DirectoryAccess.IsWithin(path, volume.Path));

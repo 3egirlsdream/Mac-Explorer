@@ -71,6 +71,7 @@ public class FileSystemEntry : INotifyPropertyChanged
     public string? VirtualFolderType { get; init; }
     public string? VirtualFolderKey { get; init; }
     public int VirtualItemCount { get; init; }
+    public string? GitRepoRoot { get; set; }
     public GitFileStatus GitStatus
     {
         get => _gitStatus;

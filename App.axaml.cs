@@ -173,7 +173,12 @@ public partial class App : Application
         }
 
 #if DEBUG
-        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_RESIZE_SMOKE") == "1" && mainWindow != null)
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_SIDEBAR_GROUPS_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.SidebarGroupsSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_RESIZE_SMOKE") is "1" or "interactive" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.WindowResizeSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
@@ -182,6 +187,11 @@ public partial class App : Application
         {
             var smokeWindow = mainWindow;
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.FileConflictSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_GIT_MENU_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.GitMenuSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
         }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FEATURE_UPGRADE_SMOKE") == "1" && mainWindow != null)
         {
@@ -216,6 +226,11 @@ public partial class App : Application
         {
             var smokeWindow = mainWindow;
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.BackgroundThemeSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_BULK_PASTE_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.BulkPasteSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
         }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_TAG_CLIPBOARD_SMOKE") == "1" && mainWindow != null)
         {

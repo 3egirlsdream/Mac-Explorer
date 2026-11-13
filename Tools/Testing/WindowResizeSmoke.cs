@@ -30,7 +30,6 @@ internal static class WindowResizeSmoke
         Window? window = null;
         try
         {
-            if (!CGPreflightPostEventAccess()) throw new InvalidOperationException("Native pointer event access is unavailable.");
             FolderTabRestoreSmoke.ActivateApplication();
             owner.ShowAndActivate();
             App.Services.GetRequiredService<ILocalizationService>().SetLanguage("zh-CN");
@@ -38,9 +37,23 @@ internal static class WindowResizeSmoke
             await File.WriteAllTextAsync(path, "Window resize preview\nneedle\n");
             var entry = new FileSystemEntry { Name = "图片 2026-11-10 13.52.05.png", FullPath = path, Size = 1667236,
                 LastModified = new DateTime(2026, 11, 10, 13, 52, 0) };
+            if (Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_RESIZE_SMOKE") == "interactive")
+            {
+                window = new FileConflictDialog(new(entry, entry, false, false))
+                {
+                    Width = 440, Height = 420, SizeToContent = SizeToContent.Manual,
+                    RequestedThemeVariant = ThemeVariant.Light
+                };
+                Console.Error.WriteLine($"Interactive resize dialog: {output}");
+                await window.ShowDialog(owner);
+                window = null;
+                return;
+            }
+            if (!CGPreflightPostEventAccess()) throw new InvalidOperationException("Native pointer event access is unavailable.");
             (string Name, Func<Window> Create)[] cases =
             [
                 ("conflict", () => new FileConflictDialog(new(entry, entry, false, false))),
+                ("git", () => new GitDiffDialog("--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-before\n+after\n", false)),
                 ("content", () => new ContentMatchDialog(entry, "needle")),
                 ("remote-edit", () => new RemoteEditDialog(App.Services.GetRequiredService<IRemoteFileEditService>()))
             ];
@@ -78,9 +91,12 @@ internal static class WindowResizeSmoke
                 var preservesPixels = samples.All(sample => sample.GetProperty("contentsGravity").GetString() is "topLeft" or "bottomLeft"
                     && sample.GetProperty("contentsScale").GetDouble() == sample.GetProperty("windowScale").GetDouble()
                     && sample.GetProperty("animationCount").GetInt32() == 0);
-                results.Add(new { name, dark, resized, liveSamples, preservesPixels, start, grown, end = window.ClientSize, samples });
+                var fillsBackground = samples.All(sample => sample.GetProperty("backgroundAlpha").GetDouble() == 1
+                    && sample.GetProperty("cornerRadius").GetDouble() > 0);
+                results.Add(new { name, dark, resized, liveSamples, preservesPixels, fillsBackground, start, grown, end = window.ClientSize, samples });
                 if (!resized || liveSamples == 0) throw new InvalidOperationException($"No native live resize observed: {prefix}.");
                 if (!preservesPixels) throw new InvalidOperationException($"Render layer stretches outstanding frames: {prefix}.");
+                if (!fillsBackground) throw new InvalidOperationException($"Dialog background is transparent during resize: {prefix}.");
                 window.Close(); await closed; window = null;
             }
         }
@@ -96,7 +112,7 @@ internal static class WindowResizeSmoke
 
     private static async Task DragAsync(Window window, double dx, double dy, nint number, string output, string prefix)
     {
-        var origin = window.PointToScreen(new Point(window.ClientSize.Width - 2, window.ClientSize.Height - 2));
+        var origin = window.PointToScreen(new Point(window.ClientSize.Width - 6, window.ClientSize.Height - 6));
         var start = new NativePoint(origin.X, origin.Y);
         var drag = Task.Run(() =>
         {

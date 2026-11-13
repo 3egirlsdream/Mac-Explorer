@@ -18,6 +18,7 @@ public class GitRepoStatus
 {
     public string RepoRoot { get; init; } = string.Empty;
     public Dictionary<string, GitFileStatus> FileStatuses { get; init; } = new(StringComparer.Ordinal);
+    public Dictionary<string, GitPathState> PathStates { get; init; } = new(StringComparer.Ordinal);
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 
     public bool IsValid => (DateTime.UtcNow - LastUpdated) < TimeSpan.FromSeconds(5);

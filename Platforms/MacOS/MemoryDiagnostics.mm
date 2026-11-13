@@ -58,6 +58,8 @@ int me_window_render_snapshot(void *viewPointer, uint8_t *buffer, int capacity) 
                 @"layerTransform": layer ? DiagnosticTransform(layer.transform) : NSNull.null,
                 @"sublayerTransform": layer ? DiagnosticTransform(layer.sublayerTransform) : NSNull.null,
                 @"animationCount": @(layer.animationKeys.count),
+                @"backgroundAlpha": @(layer.backgroundColor ? CGColorGetAlpha(layer.backgroundColor) : 0),
+                @"cornerRadius": @(layer.cornerRadius),
                 @"presentationBounds": presentation ? DiagnosticRect(presentation.bounds) : NSNull.null,
                 @"presentationTransform": presentation ? DiagnosticTransform(presentation.transform) : NSNull.null,
                 @"drawableSize": metal ? DiagnosticSize(metal.drawableSize) : NSNull.null,

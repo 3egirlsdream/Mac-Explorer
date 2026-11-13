@@ -46,6 +46,16 @@ public sealed partial class FeatureUpgradeTests : IDisposable
         var files = new CompositeFileService(local, null!, manager, history: () => store, conflicts: choice);
         store = new FileOperationHistoryService(files, tasks: manager); history = store; tasks = manager; return files;
     }
+    [Theory]
+    [InlineData("DD")]
+    [InlineData("AU")]
+    [InlineData("UD")]
+    [InlineData("UA")]
+    [InlineData("DU")]
+    [InlineData("AA")]
+    [InlineData("UU")]
+    public void AllGitConflictPairsAreRecognized(string pair) => Assert.Equal(GitFileStatus.Conflicted, GitStatusService.ParsePorcelainStatus(pair));
+
     [Fact]
     public async Task LocalReplacementCanBeUndoneWithoutTouchingSourceOrTrash()
     {
@@ -127,7 +137,7 @@ public sealed partial class FeatureUpgradeTests : IDisposable
         Assert.Equal("one\ntwo", (await new MacExplorer.Copilot.CopilotContentExtractor(null!, null!).ExtractPageAsync(path, cancellationToken: Token)).Text);
     }
     [Fact]
-    public async Task DirectoryPreferencesAndPresetStatesRoundTripWithoutViewOrGroup()
+    public async Task DirectoryPreferencesAndLegacySessionStatesRoundTripWithoutViewOrGroup()
     {
         var service = new DirectoryPreferencesService(Database());
         var a = new DirectoryPreferences(SortField.Size, false, SortPriority.Files, FileListFilterState.Empty with { FileName = "invoice" }, [300, 160, 100, 230], true, false, true);

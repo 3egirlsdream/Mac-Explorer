@@ -70,7 +70,7 @@ public partial class MainWindow
         var savedGroup = _vm.CaptureGroups().Single(item => item.Id == group.Id);
         var preset = TabGroupPreset.Capture(name, _vm.Tabs.Select(tab =>
             tab.FileList.IsSearchMode || tab.FileList.IsArchiveView ? null : tab.FileList.CurrentPath), savedGroup,
-            preferences: _vm.Tabs.Select((tab, i) => (tab, i)).ToDictionary(p => p.i, p => p.tab.FileList.CaptureDirectoryPreferences()));
+            viewStates: _vm.Tabs.Select((tab, i) => (tab, i)).ToDictionary(p => p.i, p => p.tab.FileList.CaptureTabViewState()));
         if (preset == null) { AppToast.ShowError(this, LocalizationText.Get("tabs.preset.empty")); return; }
         var existing = TabGroupPresets.Read(settings).FirstOrDefault(item => SamePresetName(item.Name, name));
         if (existing != null)

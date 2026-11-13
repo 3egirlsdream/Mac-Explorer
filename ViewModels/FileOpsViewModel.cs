@@ -115,8 +115,10 @@ public partial class FileOpsViewModel : ObservableObject
         var clipboardEntry = _clipboardService?.GetClipboardEntry();
         var paths = clipboardEntry?.SourcePaths.ToArray() ?? [];
         var kind = clipboardEntry?.Operation == ClipboardOperation.Cut ? BackgroundTaskKind.Move : BackgroundTaskKind.Copy;
-        return FileTaskContext.RunAsync(_taskManager, new(kind, Services.Impl.LocalizationText.Get("粘贴文件"), paths, currentPath),
-            async _ => { await PasteCoreAsync(currentPath, overwrite, clipboardEntry, paths); return true; });
+        var request = new FileTaskRequest(kind, Services.Impl.LocalizationText.Get("粘贴文件"), paths, currentPath);
+        // Queue path normalization can touch every source on a slow or disconnected volume.
+        return Task.Run(() => FileTaskContext.RunAsync(_taskManager, request,
+            async _ => { await PasteCoreAsync(currentPath, overwrite, clipboardEntry, paths); return true; }));
     }
 
     private async Task PasteCoreAsync(string currentPath, bool overwrite, ClipboardEntry? entry, string[] sourcePaths)
@@ -295,7 +297,7 @@ public partial class FileOpsViewModel : ObservableObject
                             await _fileService.MoveWithProgressAsync([path], targetFolder.FullPath,
                                 new FileProgress(p => _taskManager?.UpdateProgress(context.Task.Id, p.Percentage, p.CurrentFile)), context.CancellationToken);
                         else await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
-                        if (_fileOperationHistoryService != null)
+                        if (_fileOperationHistoryService != null && _fileService is not CompositeFileService { HandlesConflicts: true })
                         {
                             if (replaced) await _fileOperationHistoryService.RecordIrreversibleAsync(output,
                                 Services.Impl.LocalizationText.Get("覆盖操作不可撤销。"));

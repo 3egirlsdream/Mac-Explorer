@@ -156,7 +156,7 @@ public class MacClipboardService : IClipboardService
         try
         {
             var paths = ReadPasteboardFilePaths()
-                .Where(path => File.Exists(path) || Directory.Exists(path))
+                .Where(Path.IsPathFullyQualified)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
             if (paths.Length == 0 || changeCount < 0 || changeCount != CurrentChangeCount()) return false;
@@ -225,21 +225,22 @@ public class MacClipboardService : IClipboardService
             Dispatcher.UIThread.InvokeAsync(() => SetClipboardEntry(paths, operation, sourceTag)).GetAwaiter().GetResult();
             return;
         }
-        var existingPaths = paths
-            .Where(path => File.Exists(path) || Directory.Exists(path))
+        // Existence and access checks belong to the background file task, including offline volumes and dangling links.
+        var selectedPaths = paths
+            .Where(Path.IsPathFullyQualified)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
         _entry = new ClipboardEntry
         {
-            SourcePaths = existingPaths.ToList(),
+            SourcePaths = selectedPaths.ToList(),
             Operation = operation,
             SourceTag = sourceTag
         };
         _entryChangeCount = -1;
 
-        if (existingPaths.Length > 0)
-            WriteToSystemPasteboard(existingPaths);
+        if (selectedPaths.Length > 0)
+            WriteToSystemPasteboard(selectedPaths);
     }
 
     private ClipboardPasteKind ProbeExternalKind()
@@ -361,7 +362,9 @@ public class MacClipboardService : IClipboardService
             foreach (var path in paths)
             {
                 var name = CreateString(path);
-                var url = SendIntPtr(objc_getClass("NSURL"), "fileURLWithPath:", name);
+                // Clipboard URLs carry absolute paths; avoid NSURL probing the disk for a directory hint.
+                var url = objc_msgSend_intptr_intptr_bool(objc_getClass("NSURL"),
+                    sel_registerName("fileURLWithPath:isDirectory:"), name, 0);
                 if (url == IntPtr.Zero) throw new IOException("无法创建剪贴板文件地址。");
                 objc_msgSend_void_intptr(urls, sel_registerName("addObject:"), url);
                 objc_msgSend_void_intptr(filenames, sel_registerName("addObject:"), name);
@@ -459,6 +462,10 @@ public class MacClipboardService : IClipboardService
         IntPtr receiver,
         IntPtr selector,
         IntPtr argument);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_intptr_intptr_bool(
+        IntPtr receiver, IntPtr selector, IntPtr argument, byte isDirectory);
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern long objc_msgSend_long(IntPtr receiver, IntPtr selector);

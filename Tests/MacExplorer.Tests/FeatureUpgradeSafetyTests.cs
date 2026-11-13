@@ -112,7 +112,7 @@ public sealed partial class FeatureUpgradeTests
         SqliteSchema.Initialize(connection);
         using var verify = connection.CreateCommand();
         verify.CommandText = "SELECT name FROM files WHERE path='/kept'"; Assert.Equal("kept", verify.ExecuteScalar());
-        verify.CommandText = "SELECT max(version) FROM schema_version"; Assert.Equal(12L, verify.ExecuteScalar());
+        verify.CommandText = "SELECT max(version) FROM schema_version"; Assert.Equal((long)SqliteSchema.CurrentVersion, verify.ExecuteScalar());
         verify.CommandText = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='saved_searches'"; Assert.Equal(0L, verify.ExecuteScalar());
         verify.CommandText = "SELECT count(*) FROM document_segments"; Assert.Equal(0L, verify.ExecuteScalar());
         verify.CommandText = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='face_corrections'"; Assert.Equal(0L, verify.ExecuteScalar());

@@ -5,7 +5,7 @@ namespace MacExplorer.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 12;
+    public const int CurrentVersion = 14;
 
     /// <summary>
     /// Whether FTS5 is available (set during Initialize).
@@ -129,6 +129,8 @@ public static class SqliteSchema
             FileTagSchema.Ensure(connection, transaction);
 
         FeatureUpgradeSchema.Ensure(connection, transaction);
+        if (storedVersion < 14)
+            MigrateToV14(connection, transaction);
 
         // Record current version
         ExecuteNonQuery(connection, """
@@ -137,6 +139,36 @@ public static class SqliteSchema
             ("@version", CurrentVersion));
 
         transaction.Commit();
+    }
+
+    private static void MigrateToV14(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        ExecuteNonQuery(connection, """
+            CREATE TABLE IF NOT EXISTS pinned_folder_groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL
+            );
+            """, transaction);
+        using var column = connection.CreateCommand();
+        column.Transaction = transaction;
+        column.CommandText = "SELECT count(*) FROM pragma_table_info('pinned_folders') WHERE name='group_id'";
+        if (Convert.ToInt32(column.ExecuteScalar()) > 0) return;
+        ExecuteNonQuery(connection, """
+            ALTER TABLE pinned_folders RENAME TO pinned_folders_legacy;
+            CREATE TABLE pinned_folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER NOT NULL DEFAULT 0,
+                folder_path TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                pinned_at INTEGER NOT NULL,
+                UNIQUE(group_id, folder_path)
+            );
+            INSERT INTO pinned_folders(id, folder_path, display_name, sort_order, pinned_at)
+                SELECT id, folder_path, display_name, sort_order, pinned_at FROM pinned_folders_legacy;
+            DROP TABLE pinned_folders_legacy;
+            CREATE INDEX idx_pf_sort_order ON pinned_folders(group_id, sort_order);
+            """, transaction);
     }
 
     private static void MigrateToV10(SqliteConnection connection, SqliteTransaction transaction)

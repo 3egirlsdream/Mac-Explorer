@@ -22,11 +22,15 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
     private readonly SemaphoreSlim _undoGate = new(1, 1);
     private static readonly AsyncLocal<bool> Undoing = new();
     internal static bool IsUndoing => Undoing.Value;
-    private sealed class ReplacementBaseline { internal FileIdentitySnapshot? Snapshot; }
+    private sealed class ReplacementBaseline
+    { internal FileIdentitySnapshot? Snapshot, BackupSnapshot; }
     private static ReplacementBaseline GetReplacementBaseline(FileTaskContext context, string target)
         => context.Remember("replacement-baseline:" + target, () => new ReplacementBaseline());
-    internal static void PrepareReplacementBaseline(FileTaskContext context, string target, FileIdentitySnapshot snapshot)
-        => GetReplacementBaseline(context, target).Snapshot = snapshot;
+    internal static void PrepareReplacementBaseline(FileTaskContext context, string target, FileIdentitySnapshot snapshot, FileIdentitySnapshot backupSnapshot)
+    {
+        var baseline = GetReplacementBaseline(context, target);
+        baseline.Snapshot = snapshot; baseline.BackupSnapshot = backupSnapshot;
+    }
     public event Action? HistoryChanged;
     public IReadOnlyList<FileOperationRecord> Records { get { lock (_lock) return _records.ToArray(); } }
     public bool CanUndo => Records.Any(r => r.HasUndoableItems);
@@ -52,10 +56,13 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
         var taskId = FileTaskContext.Current?.Task.Id;
         var existing = Records.SelectMany(r => r.Children.Prepend(r)).FirstOrDefault(r => r.TaskId == taskId && r.Kind == FileOperationKind.Replace && r.CurrentPath == target);
         if (existing != null) { if (source.Length > 0) existing.OriginalPath = source; return; }
+        var context = FileTaskContext.Current;
+        var baseline = context == null ? null : GetReplacementBaseline(context, target);
+        var token = context?.CancellationToken ?? CancellationToken.None;
         var record = new FileOperationRecord { Kind = FileOperationKind.Replace, OriginalPath = source, CurrentPath = target,
             BackupPath = backup, BackupDirectory = ownerDirectory,
-            Snapshot = FileTaskContext.Current is { } context ? GetReplacementBaseline(context, target).Snapshot : null,
-            BackupSnapshot = await Task.Run(() => FileIdentitySnapshot.Capture(backup, true)) };
+            Snapshot = baseline?.Snapshot,
+            BackupSnapshot = baseline?.BackupSnapshot ?? await Task.Run(() => FileIdentitySnapshot.Capture(backup, true, token), token) };
         await AddAsync(FileOperationKind.Replace, source, target, replacement: record);
     }
 
@@ -75,7 +82,8 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
         {
             try
             {
-                record.Snapshot ??= await Task.Run(() => FileIdentitySnapshot.Capture(current, kind is FileOperationKind.Copy or FileOperationKind.Create or FileOperationKind.Replace));
+                var token = FileTaskContext.Current?.CancellationToken ?? CancellationToken.None;
+                record.Snapshot ??= await Task.Run(() => FileIdentitySnapshot.Capture(current, kind is FileOperationKind.Copy or FileOperationKind.Create or FileOperationKind.Replace, token), token);
                 if (record.Snapshot == null && kind is FileOperationKind.Copy or FileOperationKind.Create)
                     record.UnavailableReason = LocalizationText.Get("项目已不存在。");
             }
@@ -213,7 +221,8 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
                     foreach (var item in record.Children.Prepend(record).Reverse().Where(r => r.CanUndo).ToArray())
                     {
                         await context.CheckpointAsync();
-                        try { await UndoRecordAsync(item, warnings); item.IsUndone = true; }
+                        try { await UndoRecordAsync(item, warnings, context.CancellationToken); item.IsUndone = true; }
+                        catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested) { throw; }
                         catch (Exception ex) { failures.Add(ex.Message); _logger?.LogWarning(ex, "Undo failed for {Id}", item.Id); }
                     }
                     Changed();
@@ -227,7 +236,7 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
         finally { _undoGate.Release(); }
     }
 
-    private async Task UndoRecordAsync(FileOperationRecord record, List<string> warnings)
+    private async Task UndoRecordAsync(FileOperationRecord record, List<string> warnings, CancellationToken token)
     {
         if (record.Kind == FileOperationKind.RemoveEmptyDirectory)
         {
@@ -236,8 +245,8 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
         }
         if (record.Kind == FileOperationKind.Replace)
         {
-            if (record.BackupPath == null || record.Snapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.CurrentPath, true))
-                || record.BackupSnapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.BackupPath, true)))
+            if (record.BackupPath == null || record.Snapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.CurrentPath, true, token), token)
+                || record.BackupSnapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.BackupPath, true, token), token))
                 throw new IOException(LocalizationText.Get("项目已被修改或替换，无法安全撤销。"));
             if (record.OriginalPath.Length > 0)
             {
@@ -269,7 +278,7 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
             foreach (var item in record.RenameItems)
             {
                 if (record.RenameSnapshots.GetValueOrDefault(item.NewPath) is { } identity
-                    && identity != FileIdentitySnapshot.Capture(item.NewPath, false))
+                    && identity != FileIdentitySnapshot.Capture(item.NewPath, false, token))
                     throw new IOException(LocalizationText.Get("项目已被修改或替换，无法安全撤销。"));
                 var entry = await _files.GetEntryAsync(item.NewPath) ?? throw new FileNotFoundException(LocalizationText.Get("重命名后的项目已不存在"), item.NewPath);
                 inverse.Add(new() { Entry = entry, OriginalPath = item.NewPath, OriginalName = item.NewName,
@@ -286,7 +295,7 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
         }
         if (!await _files.ExistsAsync(record.CurrentPath)) throw new FileNotFoundException(LocalizationText.Get("项目已不存在。"), record.CurrentPath);
         var content = record.Kind is FileOperationKind.Copy or FileOperationKind.Create;
-        if (record.Snapshot is { } snapshot && snapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.CurrentPath, content)))
+        if (record.Snapshot is { } snapshot && snapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.CurrentPath, content, token), token))
             throw new IOException(LocalizationText.Get("项目已被修改或替换，无法安全撤销。"));
         string? restoredPath = null;
         if (content)

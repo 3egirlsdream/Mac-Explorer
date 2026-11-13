@@ -1,4 +1,5 @@
 #import "../../Platforms/MacOS/FileDeliveryStatusItem.mm"
+#import "../../Platforms/MacOS/WindowShadow.mm"
 #include <cassert>
 #include <cstdio>
 
@@ -84,8 +85,23 @@ static void CheckStagingDrag()
     [@"unchanged" writeToFile:file atomically:YES encoding:NSUTF8StringEncoding error:nil];
     [NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
     [pasteboard writeObjects:@[[NSURL fileURLWithPath:file], [NSURL fileURLWithPath:folder]]];
-    NSView* dropView = [NSView new];
-    ConfigureDeliveryDrop(dropView);
+    NSWindow* dropWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 240, 170)
+        styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
+    dropWindow.releasedWhenClosed = NO;
+    NSView* dropView = dropWindow.contentView;
+    dropView.wantsLayer = YES;
+    MacExplorerDeliveryPrepareDrop((__bridge void*)dropView);
+    me_window_chrome_prepare((__bridge void*)dropView);
+    Class observedDrop = object_getClass(dropView);
+    for (int i = 0; i < 3; i++) {
+        MacExplorerDeliveryPlaceDrop((__bridge void*)dropView);
+        assert(object_getClass(dropView) == observedDrop);
+        assert([dropView class] != Nil && dropView.observationInfo);
+        dropView.layer = [CAMetalLayer new];
+        assert([dropView.layer.contentsGravity isEqualToString:kCAGravityBottomLeft]
+            || [dropView.layer.contentsGravity isEqualToString:kCAGravityTopLeft]);
+        [dropWindow orderOut:nil];
+    }
     assert([dropView draggingEntered:(id<NSDraggingInfo>)info] == NSDragOperationCopy);
     assert([dropView prepareForDragOperation:(id<NSDraggingInfo>)info]);
     assert([dropView performDragOperation:(id<NSDraggingInfo>)info]);
@@ -101,6 +117,7 @@ static void CheckStagingDrag()
     [pasteboard releaseGlobally];
     MacExplorerDeliveryClearStagingAccess();
     MacExplorerDeliveryDestroy();
+    [dropWindow close];
 }
 
 int main() {
@@ -114,15 +131,19 @@ int main() {
         MEDeliveryTestView *view = [MEDeliveryTestView new];
         panel.contentView = view;
         // Install before the first Show, then exercise the first and subsequent gestures.
-        ConfigureDeliveryDragActivation(view);
+        MacExplorerDeliveryPrepare((__bridge void*)view);
+        view.wantsLayer = YES;
+        me_window_chrome_prepare((__bridge void*)view);
         Class prepared = object_getClass(view);
         NSEvent *down = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:NSMakePoint(30, 30)
             modifierFlags:0 timestamp:1 windowNumber:panel.windowNumber context:nil eventNumber:1 clickCount:1 pressure:1];
         NSEvent *drag = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDragged location:NSMakePoint(45, 45)
             modifierFlags:0 timestamp:2 windowNumber:panel.windowNumber context:nil eventNumber:2 clickCount:1 pressure:1];
         for (NSUInteger iteration = 0; iteration < 3; iteration++) {
-            ConfigureDeliveryDragActivation(view);
+            MacExplorerDeliveryPlace((__bridge void*)view);
             assert(object_getClass(view) == prepared);
+            assert([view class] != Nil && view.observationInfo);
+            view.layer = [CAMetalLayer new];
             [view mouseDown:down];
             view.previousPreventions = app.orderingPreventions;
             [view mouseDragged:drag];

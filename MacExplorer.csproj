@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>2.0.4</Version>
+    <Version>2.0.5</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -189,6 +189,7 @@
     <Copy SourceFiles="$(_IconSource)" DestinationFolder="$(_ResourcesDir)" Condition="Exists('$(_IconSource)')" />
 
     <Copy SourceFiles="Assets/ConversionNotices.txt;Assets/PrivacyPolicy.txt" DestinationFolder="$(_ResourcesDir)" />
+    <Copy SourceFiles="Platforms/MacOS/PrivacyInfo.xcprivacy" DestinationFolder="$(_ResourcesDir)" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :PrivacyPolicyURL string $(PrivacyPolicyUrl)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :DistributionChannel string $(DistributionChannel)&quot; '$(_AppBundleDir)/Contents/Info.plist'" />
     <Exec Command="/usr/libexec/PlistBuddy -c &quot;Add :AppStoreSubscriptionProductID string $(AppStoreSubscriptionProductId)&quot; '$(_AppBundleDir)/Contents/Info.plist'" Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' != ''" />

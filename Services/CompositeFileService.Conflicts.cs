@@ -7,12 +7,28 @@ namespace MacExplorer.Services;
 public sealed partial class CompositeFileService
 {
     private sealed class BatchConflictPolicy { internal FileConflictDecision? Decision; }
+    private sealed record LocalReplacementPublication(string Backup, string Root, FileIdentitySnapshot Snapshot, FileIdentitySnapshot? SourceIdentity)
+    { internal bool SourceRemoved; }
+    private static string ReplacementKey(string source, string target, bool move)
+        => "local-replacement:" + source + ":" + target + ":" + move;
     private async Task<string> CopyOrMovePlannedAsync(string source, string directory, bool move,
         FileTaskContext context, IProgress<FileOperationProgress>? progress)
     {
         await context.CheckpointAsync();
         var target = CombinePath(directory, Path.GetFileName(source));
         if (source == target && move) return target;
+        if (!VirtualPath.IsRemotePath(target) && context.Recall<LocalReplacementPublication>(ReplacementKey(source, target, move)) is { } publication)
+        {
+            if (publication.Snapshot != await Task.Run(() => FileIdentitySnapshot.Capture(target, true, context.CancellationToken), context.CancellationToken))
+                throw new IOException(LocalizationText.Get("conflict.changed"));
+            if (move && !publication.SourceRemoved)
+            {
+                if (publication.SourceIdentity is { } identity && identity != FileIdentitySnapshot.Capture(source, false, context.CancellationToken))
+                    throw new IOException(LocalizationText.Get("源项目已变化，请重新创建任务。"));
+                await VerifyCopyAsync(source, target, context);
+            }
+            return await CompleteLocalReplacementAsync(source, target, move, publication, context);
+        }
         var entry = await GetEntryAsync(source) ?? throw new FileNotFoundException(source);
         if (entry.IsDirectory && !entry.IsSymbolicLink)
         {
@@ -117,42 +133,57 @@ public sealed partial class CompositeFileService
     }
     private async Task<string> ReplaceLocalAsync(string source, string target, bool move, FileTaskContext context, IProgress<FileOperationProgress>? progress)
     {
-        var original = await Task.Run(() => FileIdentitySnapshot.Capture(target, true), context.CancellationToken)
+        var original = await Task.Run(() => FileIdentitySnapshot.Capture(target, true, context.CancellationToken), context.CancellationToken)
             ?? throw new IOException(LocalizationText.Get("conflict.changed"));
+        var sourceIdentity = move ? FileIdentitySnapshot.Capture(source, false, context.CancellationToken) : null;
         var root = Path.Combine(Path.GetDirectoryName(target)!, ".MacExplorer-replace-" + Guid.NewGuid().ToString("N") + ".fkfinder-tmp");
-        var incoming = Path.Combine(root, "incoming"); var backup = Path.Combine(root, "previous");
-        Directory.CreateDirectory(incoming);
-        await File.WriteAllTextAsync(Path.Combine(root, "recovery.json"), JsonSerializer.Serialize(new { Source = source, Destination = target, Backup = backup, Move = move }), context.CancellationToken);
+        var incoming = Path.Combine(root, "incoming");
+        var backup = Path.Combine(root, "previous", Path.GetFileName(target));
         var committed = false; var backedUp = false;
         try
         {
+            Directory.CreateDirectory(incoming);
+            Directory.CreateDirectory(Path.GetDirectoryName(backup)!);
+            await File.WriteAllTextAsync(Path.Combine(root, "recovery.json"), JsonSerializer.Serialize(new { Source = source, Destination = target, Backup = backup, Move = move }), context.CancellationToken);
             var staged = await CopyToExactAsync(source, Path.Combine(incoming, Path.GetFileName(target)), context, progress);
             if (move) await VerifyCopyAsync(source, staged, context);
-            var published = await Task.Run(() => FileIdentitySnapshot.Capture(staged, true), context.CancellationToken)
+            var published = await Task.Run(() => FileIdentitySnapshot.Capture(staged, true, context.CancellationToken), context.CancellationToken)
                 ?? throw new IOException(LocalizationText.Get("conflict.changed"));
-            FileOperationHistoryService.PrepareReplacementBaseline(context, target, published);
+            FileOperationHistoryService.PrepareReplacementBaseline(context, target, published, original);
             await context.CheckpointAsync();
-            if (await Task.Run(() => FileIdentitySnapshot.Capture(target, true), context.CancellationToken) != original)
+            if (await Task.Run(() => FileIdentitySnapshot.Capture(target, true, context.CancellationToken), context.CancellationToken) != original)
                 throw new IOException(LocalizationText.Get("conflict.changed"));
             MoveOwnedPath(target, backup); backedUp = true;
             try { MoveOwnedPath(staged, target); }
             catch { if (!File.Exists(target) && !Directory.Exists(target)) { MoveOwnedPath(backup, target); backedUp = false; } throw; }
             committed = true;
+            var publication = new LocalReplacementPublication(backup, root, published, sourceIdentity);
+            context.Remember(ReplacementKey(source, target, move), () => publication);
             await SyncPlannedMetadataAsync(target, backup, true);
             await SyncPlannedMetadataAsync(source, target, false);
-            await RecordAsync(h => h.RecordReplacementAsync("", target, backup, root));
-            if (move)
-            {
-                await Resolve(source).DeleteAsync(source, false);
-                await SyncPlannedMetadataAsync(source, target, true);
-                await RecordAsync(h => h.RecordReplacementAsync(source, target, backup, root));
-            }
-            context.ReportItem(source, target, FileTaskItemState.Completed); return target;
+            return await CompleteLocalReplacementAsync(source, target, move, publication, context);
         }
         finally
         {
             if (!committed && !backedUp && Directory.Exists(root)) Directory.Delete(root, true);
         }
+    }
+    private async Task<string> CompleteLocalReplacementAsync(string source, string target, bool move,
+        LocalReplacementPublication publication, FileTaskContext context)
+    {
+        await RecordAsync(h => h.RecordReplacementAsync("", target, publication.Backup, publication.Root));
+        if (move)
+        {
+            if (!publication.SourceRemoved)
+            {
+                await context.CheckpointAsync();
+                await Resolve(source).DeleteAsync(source, false);
+                publication.SourceRemoved = true;
+            }
+            await SyncPlannedMetadataAsync(source, target, true);
+            await RecordAsync(h => h.RecordReplacementAsync(source, target, publication.Backup, publication.Root));
+        }
+        context.ReportItem(source, target, FileTaskItemState.Completed); return target;
     }
     internal static void MoveOwnedPath(string source, string target)
     { if (Directory.Exists(source) && new FileInfo(source).LinkTarget == null) Directory.Move(source, target); else File.Move(source, target); }

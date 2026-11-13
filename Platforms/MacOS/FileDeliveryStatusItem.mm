@@ -185,8 +185,10 @@ static BOOL DeliveryDropPerform(id view, SEL selector, id<NSDraggingInfo> info)
     return accepted;
 }
 
+static char MEDeliveryDropConfiguredKey;
 static void ConfigureDeliveryDrop(NSView* view)
 {
+    if (objc_getAssociatedObject(view, &MEDeliveryDropConfiguredKey)) return;
     static Class dropClass;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -201,12 +203,15 @@ static void ConfigureDeliveryDrop(NSView* view)
         objc_registerClassPair(dropClass);
     });
     object_setClass(view, dropClass);
+    objc_setAssociatedObject(view, &MEDeliveryDropConfiguredKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [view registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
 }
 
 
+static char MEDeliveryActivationConfiguredKey;
 static void ConfigureDeliveryDragActivation(NSView* view)
 {
+    if (objc_getAssociatedObject(view, &MEDeliveryActivationConfiguredKey)) return;
     // Only the delivery view delays activation; ordinary browser windows keep
     // Avalonia's input behavior. A click still activates on mouse-up.
     static Class deliveryViewClass;
@@ -229,6 +234,7 @@ static void ConfigureDeliveryDragActivation(NSView* view)
         objc_registerClassPair(deliveryViewClass);
     });
     object_setClass(view, deliveryViewClass);
+    objc_setAssociatedObject(view, &MEDeliveryActivationConfiguredKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 void MacExplorerDeliveryPrepareDrag(NSView* view)
@@ -371,12 +377,19 @@ void MacExplorerDeliveryPlace(void* viewHandle)
 }
 
 extern "C" __attribute__((visibility("default")))
-void MacExplorerDeliveryPlaceDrop(void* viewHandle)
+void MacExplorerDeliveryPrepareDrop(void* viewHandle)
 {
     NSView* view = (__bridge NSView*)viewHandle;
     if (!view.window) return;
     delivery.dropPanel = view.window;
     ConfigureDeliveryDrop(view);
+}
+
+extern "C" __attribute__((visibility("default")))
+void MacExplorerDeliveryPlaceDrop(void* viewHandle)
+{
+    NSView* view = (__bridge NSView*)viewHandle;
+    MacExplorerDeliveryPrepareDrop(viewHandle);
     PlaceDeliveryWindow(view.window);
 }
 

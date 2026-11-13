@@ -1,6 +1,7 @@
 <controls:DialogWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
+        xmlns:models="using:MacExplorer.Models"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:imaging="using:Avalonia.Media.Imaging"
         xmlns:avconv="using:Avalonia.Data.Converters"
@@ -510,6 +511,41 @@
                                         <Border Classes="settings-compact-row settings-divider"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Calendar}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.200}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.211}" Tag="sidebar_show_ai_dates" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                                         <Border Classes="settings-compact-row"><Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12"><PathIcon Classes="settings-row-icon" Data="{x:Static icons:Icons.Search}"/><TextBlock Grid.Column="1" Classes="settings-label" FontWeight="{StaticResource FontWeightRegular}" Text="{loc:Loc ui.196}"/><ToggleSwitch Grid.Column="2" Classes="settings-toggle compact" AutomationProperties.Name="{loc:Loc ui.209}" Tag="sidebar_show_ai_text_search" IsCheckedChanged="OnSidebarSettingChanged"/></Grid></Border>
                                     </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="4" HorizontalAlignment="Left">
+                                    <TextBlock Classes="settings-section-title" Text="{loc:Loc sidebar.groups.title}"
+                                               VerticalAlignment="Center"/>
+                                    <controls:AppButton Grid.Column="1" Name="AddSidebarGroupButton" Classes="icon-action small"
+                                                        Click="OnAddSidebarGroup" ToolTip.Tip="{loc:Loc sidebar.groups.add}"
+                                                        AutomationProperties.Name="{loc:Loc sidebar.groups.add}">
+                                        <PathIcon Data="{x:Static icons:Icons.Plus}" Width="12" Height="12"/>
+                                    </controls:AppButton>
+                                </Grid>
+                                <Border Classes="settings-group" IsVisible="{Binding CustomGroups.Count, FallbackValue=0}" x:CompileBindings="False">
+                                    <ItemsControl ItemsSource="{Binding CustomGroups}" x:Name="SidebarGroupsList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="models:PinnedFolderGroup">
+                                                <Border Classes="settings-compact-row settings-divider">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                        <TextBlock Classes="settings-label" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                                   ToolTip.Tip="{Binding Name}" VerticalAlignment="Center"/>
+                                                        <controls:AppButton Grid.Column="1" Classes="icon-action compact" Tag="{Binding .}"
+                                                                            Click="OnRenameSidebarGroup" ToolTip.Tip="{loc:Loc sidebar.groups.rename}"
+                                                                            AutomationProperties.Name="{loc:Loc sidebar.groups.rename}">
+                                                            <PathIcon Data="{x:Static icons:Icons.Rename}" Width="16" Height="16"/>
+                                                        </controls:AppButton>
+                                                        <controls:AppButton Grid.Column="2" Classes="icon-action compact" Tag="{Binding .}"
+                                                                            Click="OnDeleteSidebarGroup" ToolTip.Tip="{loc:Loc sidebar.groups.delete}"
+                                                                            AutomationProperties.Name="{loc:Loc sidebar.groups.delete}">
+                                                            <PathIcon Data="{x:Static icons:Icons.Delete}" Width="16" Height="16"/>
+                                                        </controls:AppButton>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </Border>
                             </StackPanel>
                         </StackPanel>

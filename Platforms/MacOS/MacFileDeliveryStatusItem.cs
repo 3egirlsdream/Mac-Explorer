@@ -48,6 +48,12 @@ internal sealed class MacFileDeliveryStatusItem : IDisposable
         MacExplorerDeliveryCreate(_callback, _dropCallback);
     }
 
+    internal static void PrepareWindow(TopLevel window, IntPtr view)
+    {
+        if (window is Views.FileDeliveryDropWindow) MacExplorerDeliveryPrepareDrop(view);
+        else if (window is Views.FileDeliveryWindow) MacExplorerDeliveryPrepare(view);
+    }
+
     public void Prepare(Window window)
     {
         if (GetNSView(window) is var view && view != IntPtr.Zero)
@@ -98,6 +104,7 @@ internal sealed class MacFileDeliveryStatusItem : IDisposable
 
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryCreate(StatusCallback callback, DropCallback dropCallback);
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryDestroy();
+    [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryPrepareDrop(IntPtr view);
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryPlaceDrop(IntPtr view);
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryClearStagingAccess();
     [DllImport("MacExplorerNativeDrag")] private static extern void MacExplorerDeliveryPrepare(IntPtr view);

@@ -10,6 +10,27 @@ namespace MacExplorer.Tests;
 public sealed class FileTaskQueueTests
 {
     [Fact]
+    public async Task BulkItemReportsAvoidPerFileSnapshotsAndKeepLatestResult()
+    {
+        var task = new BackgroundTaskInfo();
+        var notifications = 0;
+        var context = new FileTaskContext(task, changed: () => notifications++);
+        var allocated = GC.GetAllocatedBytesForCurrentThread();
+        await context.ExecuteAsync(_ =>
+        {
+            for (var i = 0; i < 4000; i++)
+                context.ReportItem("source/" + i, "destination/" + i, FileTaskItemState.Completed);
+            context.ReportItem("source/0", "destination/retried", FileTaskItemState.Completed);
+            return Task.FromResult(true);
+        });
+        allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
+        Assert.Equal(4000, task.Items.Count);
+        Assert.Equal("destination/retried", Assert.Single(task.Items, item => item.Source == "source/0").Destination);
+        Assert.True(notifications < 1000, $"Published {notifications} snapshots for 4000 items.");
+        Assert.True(allocated < 16 * 1024 * 1024, $"Allocated {allocated} bytes for 4000 items.");
+    }
+
+    [Fact]
     public async Task CompletedTaskKeepsItsSummaryWithoutRetainingCapturedDataOrCheckpoints()
     {
         var manager = new BackgroundTaskManager();

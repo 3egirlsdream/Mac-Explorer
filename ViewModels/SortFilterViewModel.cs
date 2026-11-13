@@ -10,6 +10,7 @@ public partial class SortFilterViewModel : ObservableObject
 {
     private readonly ISettingsService? _settingsService;
     internal bool DirectoryScoped { get; set; }
+    internal bool SuppressSettingsPersistence { get; set; }
     private readonly Microsoft.Extensions.Logging.ILogger<SortFilterViewModel>? _logger;
 
     private IReadOnlyList<FileSystemEntry> _rawEntries = [];
@@ -79,11 +80,11 @@ public partial class SortFilterViewModel : ObservableObject
         }
     }
 
-    partial void OnViewModeChanged(ViewMode value) => _settingsService?.Set("ViewMode", value);
-    partial void OnSortFieldChanged(SortField value) { if (!DirectoryScoped) _settingsService?.Set("SortField", value); }
-    partial void OnSortAscendingChanged(bool value) { if (!DirectoryScoped) _settingsService?.Set("SortAscending", value); }
-    partial void OnSortPriorityChanged(SortPriority value) { if (!DirectoryScoped) _settingsService?.Set("SortPriority", value); }
-    partial void OnGroupFieldChanged(GroupField value) { _settingsService?.Set("GroupField", value); }
+    partial void OnViewModeChanged(ViewMode value) { if (!SuppressSettingsPersistence) _settingsService?.Set("ViewMode", value); }
+    partial void OnSortFieldChanged(SortField value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.Set("SortField", value); }
+    partial void OnSortAscendingChanged(bool value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.Set("SortAscending", value); }
+    partial void OnSortPriorityChanged(SortPriority value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.Set("SortPriority", value); }
+    partial void OnGroupFieldChanged(GroupField value) { if (!SuppressSettingsPersistence) _settingsService?.Set("GroupField", value); }
     partial void OnHideSystemFilesChanged(bool value) => _settingsService?.Set("HideSystemFiles", value);
     partial void OnHideDotFilesChanged(bool value) => _settingsService?.Set("HideDotFiles", value);
     partial void OnHideDotFoldersChanged(bool value) => _settingsService?.Set("HideDotFolders", value);

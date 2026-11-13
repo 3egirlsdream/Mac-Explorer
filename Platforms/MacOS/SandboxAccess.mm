@@ -6,6 +6,8 @@
 #import <CoreServices/CoreServices.h>
 #include <sys/xattr.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <limits.h>
 #include <vector>
 
@@ -125,6 +127,22 @@ int64_t me_application_size(const char *path) {
         return size > 1 ? size : -1;
     }
 }
+bool me_volume_space(const char *path, int64_t *available, int64_t *freeSpace, int64_t *total) {
+    @autoreleasepool {
+        NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]].URLByResolvingSymlinksInPath;
+        NSNumber *freeValue = nil, *totalValue = nil, *importantValue = nil;
+        if (![url getResourceValue:&freeValue forKey:NSURLVolumeAvailableCapacityKey error:nil] ||
+            ![url getResourceValue:&totalValue forKey:NSURLVolumeTotalCapacityKey error:nil] ||
+            !freeValue || !totalValue || freeValue.longLongValue < 0 || totalValue.longLongValue < 0)
+            return false;
+        // Some external/network volumes do not provide a reclaimable-space estimate.
+        [url getResourceValue:&importantValue forKey:NSURLVolumeAvailableCapacityForImportantUsageKey error:nil];
+        *freeSpace = freeValue.longLongValue;
+        *total = totalValue.longLongValue;
+        *available = MAX(*freeSpace, importantValue ? importantValue.longLongValue : *freeSpace);
+        return true;
+    }
+}
 char *me_metadata(const char *path) {
     @autoreleasepool {
         MDItemRef item = MDItemCreate(kCFAllocatorDefault, (__bridge CFStringRef)[NSString stringWithUTF8String:path]);
@@ -222,16 +240,44 @@ char *me_trash_result(const char *path, char **result) {
         return MEString(error.localizedDescription ?: @"无法移入废纸篓。");
     }
 }
-char *me_file_identity(const char *path) {
+int me_open_regular_read(const char *path) {
+    int descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+    if (descriptor < 0) return -1;
     struct stat status;
-    if (lstat(path, &status) != 0) return nullptr;
-    return MEString([NSString stringWithFormat:@"%llu:%llu:%lld:%ld", (unsigned long long)status.st_dev,
-        (unsigned long long)status.st_ino, (long long)status.st_birthtimespec.tv_sec, status.st_birthtimespec.tv_nsec]);
+    if (fstat(descriptor, &status) != 0) {
+        int failure = errno; close(descriptor); errno = failure; return -1;
+    }
+    if (!S_ISREG(status.st_mode)) {
+        close(descriptor); errno = ENOTSUP; return -1;
+    }
+    return descriptor;
 }
-bool me_eject_volume(const char *path) {
+char *me_file_identity(const char *path) {
     @autoreleasepool {
+        struct stat status;
+        if (lstat(path, &status) != 0) return nullptr;
+        return MEString([NSString stringWithFormat:@"%llu:%llu:%lld:%ld", (unsigned long long)status.st_dev,
+            (unsigned long long)status.st_ino, (long long)status.st_birthtimespec.tv_sec, status.st_birthtimespec.tv_nsec]);
+    }
+}
+bool me_eject_volume(const char *path, char **failure) {
+    @autoreleasepool {
+        *failure = nullptr;
         NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
-        return [NSWorkspace.sharedWorkspace unmountAndEjectDeviceAtURL:url error:nil];
+        NSError *error = nil;
+        if ([NSWorkspace.sharedWorkspace unmountAndEjectDeviceAtURL:url error:&error]) return true;
+        NSMutableArray *errors = [NSMutableArray array];
+        NSNumber *processId = nil;
+        for (NSError *current = error; current && errors.count < 8; current = current.userInfo[NSUnderlyingErrorKey]) {
+            [errors addObject:@{@"domain": current.domain, @"code": @(current.code)}];
+            if (!processId) processId = current.userInfo[NSFileManagerUnmountDissentingProcessIdentifierErrorKey];
+        }
+        NSMutableDictionary *details = [@{@"errors": errors} mutableCopy];
+        if (error.localizedDescription) details[@"message"] = error.localizedDescription;
+        if (processId) details[@"processId"] = processId;
+        NSData *json = [NSJSONSerialization dataWithJSONObject:details options:0 error:nil];
+        *failure = MEString([[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]);
+        return false;
     }
 }
 void me_string_free(void *string) { free(string); }

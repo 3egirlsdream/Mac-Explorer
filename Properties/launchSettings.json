@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "macOS App Bundle": {
+      "commandName": "Executable",
+      "executablePath": "bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer",
+      "workingDirectory": ".."
+    }
+  }
+}

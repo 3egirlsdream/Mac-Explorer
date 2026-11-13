@@ -9,9 +9,18 @@ namespace MacExplorer.Services;
 public sealed class DocumentContentExtractor(IPdfTextExtractionService pdf)
 {
     public const long MaxFileBytes = 25 * 1024 * 1024;
+    public const long MaxOfficeFileBytes = 128 * 1024 * 1024;
     public const int MaxCharacters = 1_000_000;
     internal static SemaphoreSlim ExtractionGate { get; } = new(1, 1);
-    public static bool Supports(string path) => Path.GetExtension(path).ToLowerInvariant() is ".txt" or ".md" or ".markdown" or ".docx" or ".xlsx" or ".pptx" or ".pdf";
+    internal static bool IsOffice(string path) => Path.GetExtension(path).ToLowerInvariant() is ".docx" or ".xlsx" or ".pptx";
+    internal static bool IsTemporaryOfficeFile(string path)
+    {
+        var name = Path.GetFileName(path);
+        return IsOffice(path) && (name.StartsWith("~$", StringComparison.Ordinal)
+            || name.StartsWith(".~", StringComparison.Ordinal) || name.StartsWith("._", StringComparison.Ordinal));
+    }
+    public static bool Supports(string path) => !IsTemporaryOfficeFile(path)
+        && Path.GetExtension(path).ToLowerInvariant() is ".txt" or ".md" or ".markdown" or ".docx" or ".xlsx" or ".pptx" or ".pdf";
     public async Task<DocumentContent> ExtractAsync(string path, CancellationToken token = default)
     {
         await ExtractionGate.WaitAsync(token);
@@ -22,7 +31,8 @@ public sealed class DocumentContentExtractor(IPdfTextExtractionService pdf)
     {
         DirectoryAccess.Current.EnsureAccess(path);
         if (!File.Exists(path)) throw new FileNotFoundException(path);
-        if (new FileInfo(path).Length > MaxFileBytes) throw new IOException(LocalizationText.Get("content.too-large"));
+        if (new FileInfo(path).Length > (IsOffice(path) ? MaxOfficeFileBytes : MaxFileBytes))
+            throw new IOException(LocalizationText.Get(IsOffice(path) ? "content.office-too-large" : "content.too-large"));
         if (Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
         {
             var texts = await pdf.ExtractAsync(path, ct: token);
@@ -42,6 +52,7 @@ public sealed class DocumentContentExtractor(IPdfTextExtractionService pdf)
     }
     internal static DocumentContent ExtractSegments(string path, CancellationToken token)
     {
+        if (IsTemporaryOfficeFile(path)) throw new IOException(LocalizationText.Get("content.temporary-document"));
         var extension = Path.GetExtension(path).ToLowerInvariant();
         var result = new List<DocumentTextSegment>(); var characters = 0; var truncated = false;
         void Add(string text, DocumentLocation location)
@@ -75,13 +86,13 @@ public sealed class DocumentContentExtractor(IPdfTextExtractionService pdf)
         CheckOfficeArchive(path, token);
         if (extension == ".docx")
         {
-            using var document = WordprocessingDocument.Open(path, false); var number = 0;
+            using var document = WordprocessingDocument.Open(path, false, OfficeSettings()); var number = 0;
             foreach (var paragraph in document.MainDocumentPart?.Document.Body?.Descendants<DocumentFormat.OpenXml.Wordprocessing.Paragraph>() ?? [])
             { Add(paragraph.InnerText, new("paragraph", ++number)); if (truncated) break; }
         }
         else if (extension == ".xlsx")
         {
-            using var document = SpreadsheetDocument.Open(path, false);
+            using var document = SpreadsheetDocument.Open(path, false, OfficeSettings());
             var workbook = document.WorkbookPart; var shared = new List<string>(); var sharedSize = 0;
             foreach (var item in workbook?.SharedStringTablePart?.SharedStringTable?.Elements<DocumentFormat.OpenXml.Spreadsheet.SharedStringItem>() ?? [])
             {
@@ -105,7 +116,7 @@ public sealed class DocumentContentExtractor(IPdfTextExtractionService pdf)
         }
         else
         {
-            using var document = PresentationDocument.Open(path, false); var presentation = document.PresentationPart; var number = 0;
+            using var document = PresentationDocument.Open(path, false, OfficeSettings()); var presentation = document.PresentationPart; var number = 0;
             foreach (var id in presentation?.Presentation.SlideIdList?.Elements<DocumentFormat.OpenXml.Presentation.SlideId>() ?? [])
             {
                 token.ThrowIfCancellationRequested();
@@ -124,15 +135,25 @@ public sealed class DocumentContentExtractor(IPdfTextExtractionService pdf)
         }
         return new(result, truncated);
     }
+    private static OpenSettings OfficeSettings() => new() { MaxCharactersInPart = 12 * 1024 * 1024 };
+
     private static void CheckOfficeArchive(string path, CancellationToken token)
     {
-        using var archive = ZipFile.OpenRead(path);
+        if (new FileInfo(path).Length > MaxOfficeFileBytes) throw new IOException(LocalizationText.Get("content.office-too-large"));
+        ZipArchive archive;
+        try { archive = ZipFile.OpenRead(path); }
+        catch (InvalidDataException ex) { throw new InvalidDataException(LocalizationText.Get("content.invalid-document"), ex); }
+        using var lease = archive;
         if (archive.Entries.Count > 2048) throw new IOException(LocalizationText.Get("content.expanded-limit"));
-        long total = 0;
+        long total = 0, xmlTotal = 0;
         foreach (var entry in archive.Entries)
         {
             token.ThrowIfCancellationRequested();
-            if (entry.Length > 12 * 1024 * 1024 || (total += entry.Length) > 32 * 1024 * 1024)
+            // Images and embedded attachments are never read for content extraction.
+            var xml = entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                || entry.FullName.EndsWith(".rels", StringComparison.OrdinalIgnoreCase);
+            if ((total += entry.Length) > MaxOfficeFileBytes
+                || (xml && (entry.Length > 12 * 1024 * 1024 || (xmlTotal += entry.Length) > 32 * 1024 * 1024)))
                 throw new IOException(LocalizationText.Get("content.expanded-limit"));
         }
     }

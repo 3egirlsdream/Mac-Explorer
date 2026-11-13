@@ -1234,7 +1234,7 @@ public partial class FileListView : UserControl
 
     private async System.Threading.Tasks.Task LoadCompleteMenuAsync(
         ContextMenu menu,
-        FileSystemEntry entry,
+        FileSystemEntry? entry,
         int requestVersion)
     {
         try
@@ -1242,7 +1242,9 @@ public partial class FileListView : UserControl
             var viewModel = ViewModel;
             if (viewModel == null || requestVersion != _menuRequestVersion || !ReferenceEquals(_openMenu, menu)) return;
 
-            var completeActions = await viewModel.LoadCompleteFileContextMenuAsync(entry);
+            var completeActions = entry == null
+                ? await viewModel.LoadCompleteBackgroundContextMenuAsync()
+                : await viewModel.LoadCompleteFileContextMenuAsync(entry, preserveGitMenu: true);
             if (requestVersion != _menuRequestVersion || !ReferenceEquals(_openMenu, menu) || ViewModel == null)
                 return;
 

@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
+using Avalonia.Media;
 using Avalonia.Styling;
 
 namespace MacExplorer.Platforms.MacOS;
@@ -30,7 +31,13 @@ internal static class MacWindowChrome
         if (!OperatingSystem.IsMacOS()) return;
         var nsView = GetNSView(topLevel);
         if (nsView == IntPtr.Zero) return;
-        try { me_window_chrome_prepare(nsView); }
+        try
+        {
+            // Install the delivery subclass before KVO creates its own notifying subclass.
+            MacFileDeliveryStatusItem.PrepareWindow(topLevel, nsView);
+            me_window_chrome_prepare(nsView);
+            ApplyDialogBackground(topLevel, nsView);
+        }
         catch (DllNotFoundException) { }
         catch (EntryPointNotFoundException) { }
     }
@@ -52,6 +59,7 @@ internal static class MacWindowChrome
 
             if (topLevel is Controls.AppWindow window)
             {
+                MacFileDeliveryStatusItem.PrepareWindow(topLevel, nsView);
                 me_window_chrome_prepare(nsView);
                 // WindowServer adds a dark rim even to borderless windows with a shadow.
                 // AppWindow supplies the themed outline; retain resize and modal behavior.
@@ -77,6 +85,7 @@ internal static class MacWindowChrome
             if (contentView != IntPtr.Zero && contentView != nsView)
                 ApplyClearLayer(contentView, clearCgColor);
 
+            ApplyDialogBackground(topLevel, nsView);
             SendVoid(nsWindow, "invalidateShadow");
         }
         catch (DllNotFoundException)
@@ -87,6 +96,20 @@ internal static class MacWindowChrome
         {
             // Same fallback as above.
         }
+    }
+
+    private static void ApplyDialogBackground(TopLevel topLevel, IntPtr nsView)
+    {
+        if (topLevel is not Controls.DialogWindow window) return;
+        var brushKey = window.ExtendContentToTop ? "DialogContentBrush" : "WindowBackgroundBrush";
+        if (!window.TryFindResource(brushKey, window.ActualThemeVariant, out var brush)
+            || brush is not ISolidColorBrush solid) return;
+        var radius = window.WindowState == WindowState.Normal
+            && window.TryFindResource("RadiusXl", out var value) && value is CornerRadius corners
+                ? corners.TopLeft : 0;
+        var color = solid.Color;
+        me_window_background_update(nsView, color.R / 255d, color.G / 255d, color.B / 255d,
+            color.A / 255d * solid.Opacity, radius);
     }
 
     public static bool IsCurrentMouseDoubleClick() =>
@@ -297,6 +320,10 @@ internal static class MacWindowChrome
 
     [DllImport(NativeDragLibrary)]
     private static extern void me_window_chrome_prepare(IntPtr nsView);
+
+    [DllImport(NativeDragLibrary)]
+    private static extern void me_window_background_update(IntPtr nsView, double red, double green,
+        double blue, double alpha, double cornerRadius);
 
     [DllImport(NativeDragLibrary)]
     private static extern void me_window_shadow_update(IntPtr nsView, double cornerRadius,

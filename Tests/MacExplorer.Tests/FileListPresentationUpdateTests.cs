@@ -72,6 +72,17 @@ public sealed class FileListPresentationUpdateTests
     }
 
     [Fact]
+    public void GitMembershipUpdatesWithoutInvalidatingAnUnchangedBadge()
+    {
+        var original = Entry("/repo/a"); original.GitStatus = GitFileStatus.Modified;
+        var resolved = Entry("/repo/a"); resolved.GitStatus = GitFileStatus.Modified; resolved.GitRepoRoot = "/repo";
+        var notifications = new List<string?>(); original.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        Assert.Equal(0, FileGitPresentationUpdater.Apply([original], [resolved]));
+        Assert.Equal("/repo", original.GitRepoRoot);
+        Assert.Empty(notifications);
+    }
+
+    [Fact]
     public void GitDeltaIgnoresOtherPathsAndChangedMetadata()
     {
         var original = Entry("/repo/a");

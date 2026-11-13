@@ -64,11 +64,15 @@ static void CheckRenderLayerReplacementAndBackingChanges() {
         NSView *view = window.contentView;
         view.wantsLayer = YES;
         me_window_chrome_prepare((__bridge void *)view);
+        assert(!view.layer.backgroundColor || CGColorGetAlpha(view.layer.backgroundColor) == 0);
+        me_window_background_update((__bridge void *)view, 1, 1, 1, 1, 14);
 
         // Avalonia installs its actual render target after the first window preparation.
         CAMetalLayer *metal = [CAMetalLayer new];
         metal.drawableSize = CGSizeMake(1200, 800);
         view.layer = metal;
+        assert(CGColorGetAlpha(metal.backgroundColor) == 1);
+        assert(metal.cornerRadius == 14 && metal.masksToBounds);
         assert(![metal.contentsGravity isEqualToString:kCAGravityResize]);
         assert(metal.contentsScale == 2);
         assert(![metal actionForKey:@"bounds"] && ![metal actionForKey:@"contents"]);
@@ -83,6 +87,8 @@ static void CheckRenderLayerReplacementAndBackingChanges() {
         CALayer *software = [CALayer new];
         view.layer = software;
         assert(![software.contentsGravity isEqualToString:kCAGravityResize]);
+        assert(CGColorGetAlpha(software.backgroundColor) == 1);
+        assert(software.cornerRadius == 14 && software.masksToBounds);
         released = view;
         window.contentView = [NSView new];
         view = nil;
@@ -92,12 +98,53 @@ static void CheckRenderLayerReplacementAndBackingChanges() {
     assert(!released);
 }
 
+static NSColor *RenderedPixel(CALayer *layer, NSInteger x, NSInteger y) {
+    NSInteger width = layer.bounds.size.width, height = layer.bounds.size.height;
+    NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nullptr
+        pixelsWide:width pixelsHigh:height bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES
+        isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+    memset(bitmap.bitmapData, 0, bitmap.bytesPerRow * height);
+    [layer renderInContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap].CGContext];
+    return [bitmap colorAtX:x y:y];
+}
+
+static void CheckPendingFrameBackground() {
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 600, 400)
+        styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
+    window.releasedWhenClosed = NO;
+    NSView *view = window.contentView;
+    view.wantsLayer = YES;
+    CALayer *layer = view.layer;
+    me_window_background_update((__bridge void *)view, 1, 1, 1, 1, 14);
+    // Simulate a renderer that has not delivered another frame after a large resize.
+    NSBitmapImageRep *frame = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nullptr pixelsWide:600 pixelsHigh:400
+        bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace
+        bytesPerRow:0 bitsPerPixel:0];
+    CGContextRef context = [NSGraphicsContext graphicsContextWithBitmapImageRep:frame].CGContext;
+    CGContextSetRGBFillColor(context, 0.8, 0.2, 0, 1);
+    CGContextFillRect(context, CGRectMake(0, 0, 600, 400));
+    layer.contents = (__bridge id)frame.CGImage;
+    [window setContentSize:NSMakeSize(900, 550)];
+    assert(NSEqualSizes(layer.bounds.size, NSMakeSize(900, 550)));
+    NSColor *exposed = RenderedPixel(layer, 850, 450);
+    assert(exposed.alphaComponent == 1 && exposed.redComponent > 0.99);
+    assert(RenderedPixel(layer, 0, 0).alphaComponent < 0.01);
+    me_window_background_update((__bridge void *)view, 0.1, 0.12, 0.14, 1, 14);
+    exposed = RenderedPixel(layer, 850, 450);
+    assert(exposed.alphaComponent == 1 && fabs(exposed.redComponent - 0.1) < 0.01);
+    // Maximized/fullscreen surfaces have square corners and remain filled.
+    me_window_background_update((__bridge void *)view, 0.1, 0.12, 0.14, 1, 0);
+    assert(RenderedPixel(layer, 0, 0).alphaComponent == 1);
+    [window close];
+}
+
 int main() {
     @autoreleasepool {
         assert(getenv("MACEXPLORER_TEST_ROOT"));
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
         CheckRenderLayerReplacementAndBackingChanges();
+        CheckPendingFrameBackground();
         CheckReadOnlyRenderSnapshot();
         NSWindow *owner = [[NSWindow alloc] initWithContentRect:NSMakeRect(100, 100, 600, 400)
             styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskResizable

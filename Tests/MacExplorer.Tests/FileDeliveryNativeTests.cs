@@ -21,7 +21,7 @@ public sealed class FileDeliveryNativeTests
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(45));
             var executable = Path.Combine(root, "FileDeliveryActivationTests");
-            await RunAsync("/usr/bin/clang++", ["-fobjc-arc", "-framework", "AppKit", "-framework", "Foundation",
+            await RunAsync("/usr/bin/clang++", ["-fobjc-arc", "-framework", "AppKit", "-framework", "Foundation", "-framework", "QuartzCore",
                 Path.Combine(repository.FullName, "Tests/Native/FileDeliveryActivationTests.mm"), "-o", executable], timeout.Token);
             var output = await RunAsync("/bin/bash", [Path.Combine(repository.FullName, "Tools/Testing/run-isolated.sh"), executable], timeout.Token);
             Assert.Contains("File delivery activation native checks passed", output);

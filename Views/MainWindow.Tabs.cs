@@ -31,7 +31,7 @@ public partial class MainWindow
         return FolderTabSession.Capture(_vm.Tabs.Select(tab =>
             tab.FileList.IsSearchMode || tab.FileList.IsArchiveView ? null : tab.FileList.CurrentPath),
             _vm.Tabs.IndexOf(_vm.SelectedTab!), _vm.CaptureGroups(),
-            _vm.Tabs.Select((tab, i) => (tab, i)).ToDictionary(p => p.i, p => p.tab.FileList.CaptureDirectoryPreferences()));
+            viewStates: _vm.Tabs.Select((tab, i) => (tab, i)).ToDictionary(p => p.i, p => p.tab.FileList.CaptureTabViewState()));
     }
 
     internal bool CanStartFolderRestore => !_shutdownStarted && _vm?.Tabs.Count == 1
@@ -104,7 +104,7 @@ public partial class MainWindow
                 : await AddTabAsync(select: false, directoryPath: path, loadDirectory: false, inheritGroup: false);
             if (tab == null) continue;
             if (i == 0 && !append) await tab.FileList.PrepareRestoredDirectoryViewAsync(path);
-            tab.FileList.PrepareDirectoryPreferences(session.Preferences.GetValueOrDefault(i));
+            tab.FileList.PrepareTabViewState(path, session.ViewStates.GetValueOrDefault(i), session.Preferences.GetValueOrDefault(i));
             _restoringFolderTabs[tab.Id] = (tab, path);
             tabs.Add(tab);
             restored[i] = tab;

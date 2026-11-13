@@ -6,6 +6,8 @@ namespace MacExplorer.Services;
 internal sealed record DirectoryPreferences(SortField Sort, bool Ascending, SortPriority Priority,
     FileListFilterState Filters, double[] Columns, bool PreviewPane, bool MetadataPanel, bool InfoPanel);
 
+internal sealed record FolderTabViewState(ViewMode ViewMode, GroupField GroupField, DirectoryPreferences Preferences);
+
 internal interface IDirectoryPreferencesService
 {
     Task<DirectoryPreferences?> ReadAsync(string path);

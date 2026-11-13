@@ -51,6 +51,37 @@ public sealed class FeatureUpgradeUiTests : FileListViewModelTestBase
         finally { dialog.Close(); File.Delete(path); }
     }
 
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GitDiffFillsTheWindowAndKeepsTheTitleBarCloseActionWhenResized(bool dark)
+    {
+        using var theme = new FastListTestTheme();
+        const string patch = "--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-before\n+after\n";
+        var dialog = new GitDiffDialog(patch, false) { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        try
+        {
+            dialog.Show(); dialog.UpdateLayout();
+            var preview = dialog.GetVisualDescendants().OfType<DiffPreviewView>().Single();
+            Assert.Equal(1000, dialog.Bounds.Width); Assert.Equal(660, dialog.Bounds.Height);
+            Assert.Equal(584, preview.Bounds.Height);
+            Assert.Equal(60, preview.TranslatePoint(default, dialog)!.Value.Y);
+            var editors = preview.GetVisualDescendants().OfType<AvaloniaEdit.TextEditor>().ToArray();
+            Assert.Equal(2, editors.Length);
+            Assert.Contains(editors, editor => editor.Document.Text.Contains("before"));
+            Assert.Contains(editors, editor => editor.Document.Text.Contains("after"));
+            dialog.Width = 420; dialog.Height = 360; Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
+            Assert.Equal(284, preview.Bounds.Height);
+            Assert.All(editors, editor => Assert.True(editor.Bounds.Width > 0 && editor.Bounds.Height > 0));
+            Assert.Equal(dialog.Bounds.Height - 16, preview.TranslatePoint(default, dialog)!.Value.Y + preview.Bounds.Height);
+            Assert.Empty(((Control)dialog.Content!).GetVisualDescendants().OfType<MacExplorer.Controls.AppButton>());
+            dialog.GetVisualDescendants().OfType<MacExplorer.Controls.WindowTitleBar>().Single()
+                .FindControl<Button>("CloseButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.False(dialog.IsVisible);
+        }
+        finally { dialog.Close(); }
+    }
+
     [AvaloniaFact(Explicit = true)]
     public async Task FullWidthTextPreviewNavigatesToTheRequestedHitWithoutASidePanel()
     {

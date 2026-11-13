@@ -30,8 +30,9 @@ public sealed class PinnedFolderOmniboxProvider : IOmniboxProvider
             return [];
 
         var pins = await _pinnedFolderService.GetAllAsync();
+        var groups = (await _pinnedFolderService.GetGroupsAsync()).ToDictionary(group => group.Id, group => group.Name);
         var suggestions = new List<OmniboxSuggestion>();
-        foreach (var pin in pins)
+        foreach (var pin in pins.DistinctBy(pin => pin.FolderPath, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!pin.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
@@ -41,7 +42,7 @@ public sealed class PinnedFolderOmniboxProvider : IOmniboxProvider
             suggestions.Add(new OmniboxSuggestion(
                 OmniboxSuggestionKind.Path,
                 pin.DisplayName,
-                $"常用位置 · {pin.FolderPath}",
+                $"{(pin.GroupId == 0 ? LocalizationText.Get("ui.318") : groups.GetValueOrDefault(pin.GroupId))} · {pin.FolderPath}",
                 pin.FolderPath,
                 AppIcons.Folder,
                 "#F59E0B"));

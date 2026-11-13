@@ -39,6 +39,33 @@
             </ResourceDictionary.ThemeDictionaries>
             <!-- The demo uses a transparent button inside an interactive glass surface, not a filled hover theme. -->
 
+            <DataTemplate x:Key="PinnedFolderTemplate" x:DataType="models:PinnedFolder">
+                <Border Classes="sidebar-item"
+                        Tag="{Binding FolderPath}"
+                        PointerPressed="OnPinnedFolderPressed" Loaded="OnPinnedFolderLoaded"
+                        ToolTip.Tip="{Binding DisplayName}" AutomationProperties.Name="{Binding DisplayName}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Grid Grid.Column="0" ColumnDefinitions="15,*" Background="Transparent">
+                            <PathIcon Data="{x:Static icons:Icons.Folder}"
+                                      Classes="sidebar-icon"/>
+                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                        <controls:AppButton Grid.Column="1"
+                            Classes="ghost sidebar-item-action pinned-unpin"
+                            Tag="{Binding .}"
+                            ToolTip.Tip="{loc:Loc ui.315}" AutomationProperties.Name="{loc:Loc ui.315}"
+                            PointerPressed="OnUnpinPointerPressed"
+                            Click="UnpinFolder">
+                            <PathIcon Data="{x:Static icons:Icons.Pin}"
+                                      Width="12" Height="12"
+                                      Foreground="{DynamicResource TextMutedBrush}"/>
+                        </controls:AppButton>
+                    </Grid>
+                </Border>
+            </DataTemplate>
             <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
             <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
         </ResourceDictionary>
@@ -122,7 +149,7 @@
         <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
                     <!-- ═══ 收藏 Favorites ═══ -->
-                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="{loc:Loc ui.318}" Margin="0,0,0,2"/>
+                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" x:Name="PinnedFoldersHeader" Text="{loc:Loc ui.318}" Margin="0,0,0,2"/>
 
                     <!-- Username -->
                     <Border Classes="sidebar-item"
@@ -223,37 +250,8 @@
                     <!-- Pinned folders (kept from existing, already working) -->
                     <ItemsControl x:Name="PinnedFoldersControl" Classes="sidebar-items rail-secondary"
                                   ItemsSource="{Binding PinnedFolders}"
-                                  MinHeight="8"
-                                  >
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="models:PinnedFolder">
-                                <Border Classes="sidebar-item"
-                                        Tag="{Binding FolderPath}"
-                                        PointerPressed="OnPinnedFolderPressed">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
-                                            <PathIcon Data="{x:Static icons:Icons.Folder}"
-                                                      Classes="sidebar-icon"/>
-                                            <TextBlock Text="{Binding DisplayName}"
-                                                       Margin="8,0,0,0"
-                                                       VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
-                                        <controls:AppButton Grid.Column="1"
-                                            Classes="ghost sidebar-item-action pinned-unpin"
-                                            Tag="{Binding FolderPath}"
-                                            ToolTip.Tip="{loc:Loc ui.315}" AutomationProperties.Name="{loc:Loc ui.315}"
-                                            PointerPressed="OnUnpinPointerPressed"
-                                            Click="UnpinFolder">
-                                            <PathIcon Data="{x:Static icons:Icons.Pin}"
-                                                      Width="12" Height="12"
-                                                      Foreground="{DynamicResource TextMutedBrush}"/>
-                                        </controls:AppButton>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                  ItemTemplate="{StaticResource PinnedFolderTemplate}"
+                                  MinHeight="8"/>
 
                     <!-- ═══ 位置 Locations ═══ -->
                     <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="{loc:Loc ui.145}"/>
@@ -464,6 +462,30 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+
+                    <ItemsControl x:Name="CustomGroupsControl" Classes="sidebar-items rail-secondary"
+                                  ItemsSource="{Binding CustomGroups}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:PinnedFolderGroup">
+                                <StackPanel Classes="pinned-folder-group" Background="Transparent">
+                                    <Grid ColumnDefinitions="*,Auto" Classes="sidebar-section-header sidebar-category-header custom-group-header"
+                                          Focusable="True" FocusAdorner="{StaticResource SidebarGlassFocusAdorner}"
+                                          AutomationProperties.Name="{Binding Name}" PointerPressed="OnToggleCustomGroupCollapsed">
+                                        <TextBlock Classes="sidebar-section-title" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                   Padding="18,4,0,4" ToolTip.Tip="{Binding Name}"/>
+                                        <PathIcon Grid.Column="1" Data="{x:Static icons:Icons.ChevronRight}"
+                                                  Classes="sidebar-header-reveal sidebar-collapse-icon" Classes.expanded="{Binding !IsCollapsed}"
+                                                  Margin="0,4,12,4"/>
+                                    </Grid>
+                                    <StackPanel IsVisible="{Binding !IsCollapsed}">
+                                        <ItemsControl Classes="sidebar-items" ItemsSource="{Binding Folders}"
+                                                      ItemTemplate="{StaticResource PinnedFolderTemplate}"/>
+                                        <Border Height="8" Background="Transparent"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                 </StackPanel>
             </ScrollViewer>

@@ -10,6 +10,28 @@ namespace MacExplorer.Tests;
 public sealed class MacClipboardNativeTests
 {
     [AvaloniaFact(Explicit = true)]
+    public void ClipboardKeepsDanglingLinksAndUnavailablePathsForBackgroundValidation()
+    {
+        var root = Directory.CreateTempSubdirectory("clipboard-paths-");
+        try
+        {
+            var missing = Path.Combine(root.FullName, "offline.txt");
+            var link = Path.Combine(root.FullName, "broken-link");
+            var directory = Directory.CreateDirectory(Path.Combine(root.FullName, "folder")).FullName;
+            File.CreateSymbolicLink(link, "missing-target");
+            var name = "MacExplorer.ClipboardTest." + Guid.NewGuid().ToString("N");
+            var writer = new MacClipboardService(name);
+            var reader = new MacClipboardService(name);
+            writer.CopyFiles([link, missing, directory]);
+            Assert.Equal(new[] { link, missing, directory }, writer.GetClipboardEntry()!.SourcePaths);
+            Assert.Equal(ClipboardPasteKind.ExternalFiles, reader.GetPasteKind());
+            Assert.True(reader.TryAdoptExternalFiles());
+            Assert.Equal(new[] { link, missing, directory }, reader.GetClipboardEntry()!.SourcePaths);
+        }
+        finally { root.Delete(true); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public async Task ExternalFilesReplaceOldTagCutAndTextInvalidatesAdoptedFiles()
     {
         Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS AppKit.");

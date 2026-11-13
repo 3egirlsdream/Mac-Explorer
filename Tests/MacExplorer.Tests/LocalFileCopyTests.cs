@@ -51,6 +51,21 @@ public sealed class LocalFileCopyTests : IDisposable
     private static extern int MkFifo(string path, ushort mode);
 
     [Fact]
+    public async Task CopyPreservesLongLegalFileNames()
+    {
+        var source = DirectoryAt("long-names");
+        var name = new string('a', 240) + ".txt";
+        await File.WriteAllTextAsync(Path.Combine(source, name), "long filename contents");
+        var clipboard = new TestClipboard();
+        clipboard.CopyFiles([source]);
+        var manager = new BackgroundTaskManager();
+        await new FileOpsViewModel(clipboard, _files, manager).PasteAsync(DirectoryAt("target"));
+        Assert.Equal("long filename contents", await File.ReadAllTextAsync(Path.Combine(_root, "target/long-names", name)));
+        Assert.Equal(BackgroundTaskState.Completed, Assert.Single(manager.Tasks).State);
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(_root, "target"), "*.fkfinder-tmp", SearchOption.AllDirectories));
+    }
+
+    [Fact]
     public async Task CopyPreservesGitFilesPermissionsAndLinksWithoutFollowingThem()
     {
         var source = DirectoryAt("project/.git/objects");
@@ -175,6 +190,29 @@ public sealed class LocalFileCopyTests : IDisposable
         Assert.True(task.Progress < 100);
         Assert.Equal("keep copying", await File.ReadAllTextAsync(Path.Combine(target, "project/good.txt")));
         Assert.True(clipboard.HasClipboardFiles);
+    }
+
+    [Fact]
+    public async Task RetryRescansPreviouslyUnreadableDirectoryInsteadOfReportingIncompleteCopyAsSuccess()
+    {
+        var source = DirectoryAt("project");
+        var locked = DirectoryAt("project/locked");
+        await File.WriteAllTextAsync(Path.Combine(locked, "hidden.txt"), "must not be omitted");
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+        var clipboard = new TestClipboard();
+        clipboard.CopyFiles([source]);
+        var manager = new BackgroundTaskManager();
+        var target = DirectoryAt("target");
+        try
+        {
+            await Assert.ThrowsAsync<AggregateException>(() => new FileOpsViewModel(clipboard, _files, manager).PasteAsync(target));
+        }
+        finally { File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }
+        var task = Assert.Single(manager.Tasks);
+        manager.RetryTask(task.Id);
+        await manager.WaitForCompletionAsync(task.Id).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(BackgroundTaskState.Completed, task.State);
+        Assert.Equal("must not be omitted", await File.ReadAllTextAsync(Path.Combine(target, "project/locked/hidden.txt")));
     }
 
     [Fact]

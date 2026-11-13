@@ -14,13 +14,14 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
 {
     public FolderTabGroupSession[] Groups { get; init; } = [];
     public Dictionary<int, DirectoryPreferences> Preferences { get; init; } = [];
+    public Dictionary<int, FolderTabViewState> ViewStates { get; init; } = [];
 
     internal const string EnabledKey = "restore_folder_tabs";
     internal const string SessionKey = "navigation_folder_tabs";
 
     internal static FolderTabSession Capture(IEnumerable<string?> paths, int selectedIndex, FolderTabGroupSession[]? groups = null,
-        Dictionary<int, DirectoryPreferences>? preferences = null)
-        => Filter(paths, selectedIndex, _ => true, groups, preferences);
+        Dictionary<int, DirectoryPreferences>? preferences = null, Dictionary<int, FolderTabViewState>? viewStates = null)
+        => Filter(paths, selectedIndex, _ => true, groups, preferences, viewStates);
 
     internal static FolderTabSession? Read(ISettingsService settings, Func<string, bool> canRestore)
     {
@@ -31,7 +32,7 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
         {
             var saved = JsonSerializer.Deserialize<FolderTabSession>(json);
             if (saved?.Paths == null) return null;
-            var session = Filter(saved.Paths, saved.SelectedIndex, canRestore, saved.Groups, saved.Preferences);
+            var session = Filter(saved.Paths, saved.SelectedIndex, canRestore, saved.Groups, saved.Preferences, saved.ViewStates);
             return session.Paths.Length == 0 ? null : session;
         }
         catch (JsonException) { return null; }
@@ -44,7 +45,7 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
     }
 
     internal static FolderTabSession Filter(IEnumerable<string?> paths, int selectedIndex, Func<string, bool> accept, FolderTabGroupSession[]? groups = null,
-        Dictionary<int, DirectoryPreferences>? preferences = null)
+        Dictionary<int, DirectoryPreferences>? preferences = null, Dictionary<int, FolderTabViewState>? viewStates = null)
     {
         var result = new List<string>();
         var remap = new Dictionary<int, int>();
@@ -99,7 +100,9 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
             });
         }
         return new FolderTabSession(result.ToArray(), selected) { Groups = filteredGroups.ToArray(),
-            Preferences = (preferences ?? []).Where(p => remap.ContainsKey(p.Key)).ToDictionary(p => remap[p.Key], p => p.Value) };
+            Preferences = (preferences ?? []).Where(p => remap.ContainsKey(p.Key)).ToDictionary(p => remap[p.Key], p => p.Value),
+            ViewStates = (viewStates ?? []).Where(p => remap.ContainsKey(p.Key) && p.Value?.Preferences != null)
+                .ToDictionary(p => remap[p.Key], p => p.Value) };
     }
 }
 
@@ -150,7 +153,7 @@ internal sealed record FolderWindowSession(FolderTabSession[] Windows, int Selec
         {
             if (window?.Paths != null)
             {
-                var tabs = FolderTabSession.Filter(window.Paths, window.SelectedIndex, canRestore, window.Groups, window.Preferences);
+                var tabs = FolderTabSession.Filter(window.Paths, window.SelectedIndex, canRestore, window.Groups, window.Preferences, window.ViewStates);
                 if (tabs.Paths.Length > 0)
                 {
                     if (index == selectedWindowIndex) selected = result.Count;

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using MacExplorer.Services.Subscriptions;
 using MacExplorer.Models;
 
@@ -28,6 +29,7 @@ public sealed class FileTaskContext
         DisposeResources();
         _checkpoints.Clear();
         Results.Clear();
+        _resultIndices.Clear();
         Warnings.Clear();
         _pause = null;
         _changed = null;
@@ -39,6 +41,7 @@ public sealed class FileTaskContext
             var size = new RetainedStateSize(limit);
             size.Measure(_checkpoints);
             size.Measure(Results);
+            size.Measure(_resultIndices);
             size.Measure(Warnings);
             return size.Measure(Task.Request);
         }
@@ -59,6 +62,9 @@ public sealed class FileTaskContext
     public BackgroundTaskInfo Task { get; }
     public CancellationToken CancellationToken => Task.Cts.Token;
     public List<FileTaskItemResult> Results { get; } = [];
+    private readonly Dictionary<string, int> _resultIndices = new(StringComparer.Ordinal);
+    private long _lastItemPublish;
+
     private readonly Dictionary<string, IDisposable> _resources = new();
     internal T Resource<T>(string key, Func<T> create) where T : class, IDisposable
     {
@@ -132,6 +138,9 @@ public sealed class FileTaskContext
         var result = create(); _checkpoints.Add(key, result); return result;
     }
 
+    internal T? Recall<T>(string key) where T : class
+        => _checkpoints.TryGetValue(key, out var value) ? (T?)value : null;
+
     public bool IsDone(string key) => _checkpoints.ContainsKey("done:" + key);
     public void MarkDone(string key) => _checkpoints["done:" + key] = true;
 
@@ -146,13 +155,22 @@ public sealed class FileTaskContext
 
     public void ReportItem(string source, string? destination, FileTaskItemState state, string? error = null)
     {
-        Results.RemoveAll(i => i.Source == source);
-        Results.Add(new(source, destination, state, error));
+        var result = new FileTaskItemResult(source, destination, state, error);
+        if (_resultIndices.TryGetValue(source, out var index)) Results[index] = result;
+        else
+        {
+            _resultIndices.Add(source, Results.Count);
+            Results.Add(result);
+        }
+        Task.TotalItems = Math.Max(Task.TotalItems, Results.Count);
+        var now = Stopwatch.GetTimestamp();
+        if (_lastItemPublish != 0 && Stopwatch.GetElapsedTime(_lastItemPublish, now).TotalMilliseconds < 50) return;
         Publish();
     }
 
     public void Publish()
     {
+        _lastItemPublish = Stopwatch.GetTimestamp();
         Task.TotalItems = Math.Max(Task.TotalItems, Results.Count);
         Task.Items = Results.ToArray(); Task.Warnings = Warnings.ToArray(); _changed?.Invoke();
     }

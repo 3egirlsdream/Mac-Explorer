@@ -6,9 +6,11 @@ using Microsoft.Data.Sqlite;
 namespace MacExplorer.Services.Impl;
 
 public sealed class DocumentIndexService(DatabaseConnectionFactory database, DocumentContentExtractor extractor,
-    IAiTagService tags, IBackgroundTaskManager tasks)
+    IAiTagService tags, IBackgroundTaskManager tasks, TimeProvider? clock = null)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    internal static readonly TimeSpan FailureRetryDelay = TimeSpan.FromMinutes(10);
     public event Action<string>? Changed;
     public async Task IndexDirectoryAsync(IReadOnlyList<FileSystemEntry> entries, CancellationToken token)
     {
@@ -16,20 +18,26 @@ public sealed class DocumentIndexService(DatabaseConnectionFactory database, Doc
         foreach (var entry in entries.Where(e => !e.IsDirectory && !e.IsVirtual && !e.IsSymbolicLink && Path.IsPathFullyQualified(e.FullPath) && DocumentContentExtractor.Supports(e.FullPath)))
         { token.ThrowIfCancellationRequested(); await IndexFileAsync(entry.FullPath, token); }
     }
-    public async Task IndexFileAsync(string path, CancellationToken token = default)
+    public async Task IndexFileAsync(string path, CancellationToken token = default, bool retryFailed = false)
     {
+        if (!DocumentContentExtractor.Supports(path)) return;
         FeatureAccess.Require(PremiumFeature.ContentSearch);
         await _gate.WaitAsync(token);
         BackgroundTaskInfo? task = null;
+        long modified = 0, size = -1;
         try
         {
             DirectoryAccess.Current.EnsureAccess(path);
-            var info = new FileInfo(path); var modified = info.LastWriteTimeUtc.Ticks; var size = info.Length;
+            var info = new FileInfo(path); modified = info.LastWriteTimeUtc.Ticks; size = info.Length;
             using (var connection = database.GetConnection())
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "SELECT 1 FROM document_index WHERE path=@path AND modified=@mtime AND size=@size AND status IN ('Ready','Truncated')";
+                command.CommandText = """
+                    SELECT 1 FROM document_index WHERE path=@path AND modified=@mtime AND size=@size
+                    AND (status IN ('Ready','Truncated') OR (status='Failed' AND retry_after>@now AND @retry=0))
+                    """;
                 command.Parameters.AddWithValue("@path", path); command.Parameters.AddWithValue("@mtime", modified); command.Parameters.AddWithValue("@size", size);
+                command.Parameters.AddWithValue("@now", _clock.GetUtcNow().UtcTicks); command.Parameters.AddWithValue("@retry", retryFailed ? 1 : 0);
                 if (command.ExecuteScalar() != null) return;
             }
             task = tasks.AddTask(LocalizationText.Get("content.analyzing", Path.GetFileName(path)));
@@ -53,7 +61,7 @@ public sealed class DocumentIndexService(DatabaseConnectionFactory database, Doc
                     command.Parameters["@n"].Value = i; command.Parameters["@text"].Value = content.Segments[i].Text;
                     command.Parameters["@location"].Value = JsonSerializer.Serialize(content.Segments[i].Location); command.ExecuteNonQuery();
                 }
-                command.Parameters.Clear(); command.CommandText = "INSERT INTO document_index(path,modified,size,status) VALUES(@p,@m,@s,@status) ON CONFLICT(path) DO UPDATE SET modified=excluded.modified,size=excluded.size,status=excluded.status,error=NULL";
+                command.Parameters.Clear(); command.CommandText = "INSERT INTO document_index(path,modified,size,status) VALUES(@p,@m,@s,@status) ON CONFLICT(path) DO UPDATE SET modified=excluded.modified,size=excluded.size,status=excluded.status,error=NULL,retry_after=0";
                 command.Parameters.AddWithValue("@p", path); command.Parameters.AddWithValue("@m", modified); command.Parameters.AddWithValue("@s", size); command.Parameters.AddWithValue("@status", content.IsTruncated ? "Truncated" : "Ready"); command.ExecuteNonQuery();
                 info.Refresh(); linked.Token.ThrowIfCancellationRequested();
                 if (!info.Exists || info.LastWriteTimeUtc.Ticks != modified || info.Length != size) throw new IOException(LocalizationText.Get("content.changed"));
@@ -64,12 +72,17 @@ public sealed class DocumentIndexService(DatabaseConnectionFactory database, Doc
         catch (OperationCanceledException) { if (task != null) tasks.CancelTask(task.Id); throw; }
         catch (Exception ex)
         {
-            if (task != null) tasks.FailTask(task.Id, ex.Message);
+            if (task != null) tasks.FailTask(task.Id, ex.Message, ex.ToString());
             await Task.Run(() =>
             {
                 using var connection = database.GetConnection(); using var command = connection.CreateCommand();
-                command.CommandText = "INSERT INTO document_index(path,modified,size,status,error) VALUES(@p,0,0,'Failed',@e) ON CONFLICT(path) DO UPDATE SET status='Failed',error=excluded.error";
-                command.Parameters.AddWithValue("@p", path); command.Parameters.AddWithValue("@e", ex.Message[..Math.Min(1000, ex.Message.Length)]); command.ExecuteNonQuery();
+                command.CommandText = """
+                    INSERT INTO document_index(path,modified,size,status,error,retry_after) VALUES(@p,@m,@s,'Failed',@e,@retry)
+                    ON CONFLICT(path) DO UPDATE SET modified=excluded.modified,size=excluded.size,status='Failed',error=excluded.error,retry_after=excluded.retry_after
+                    """;
+                command.Parameters.AddWithValue("@p", path); command.Parameters.AddWithValue("@m", modified); command.Parameters.AddWithValue("@s", size);
+                command.Parameters.AddWithValue("@retry", (_clock.GetUtcNow() + FailureRetryDelay).UtcTicks);
+                command.Parameters.AddWithValue("@e", ex.Message[..Math.Min(1000, ex.Message.Length)]); command.ExecuteNonQuery();
             });
         }
         finally { _gate.Release(); }

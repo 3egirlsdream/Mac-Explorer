@@ -9,7 +9,7 @@ public partial class FileListViewModel
     private IDirectoryPreferencesService? _directoryPreferences;
     private DirectoryPreferences? _directoryDefaults;
     private bool _restoringDirectoryPreferences;
-    private DirectoryPreferences? _pendingRestoredPreferences;
+    private (string Path, FolderTabViewState? ViewState, DirectoryPreferences? Preferences)? _pendingTabViewState;
     private string? _restoredPreferencePath;
     internal void UseDirectoryPreferences(IDirectoryPreferencesService service)
     {
@@ -23,11 +23,18 @@ public partial class FileListViewModel
         return new(SortField, SortAscending, SortPriority, ColumnFilters,
             [widths.Name, widths.Modified, widths.Size, widths.Type], IsPreviewPaneVisible, IsMetadataPanelVisible, IsInfoPanelVisible);
     }
-    internal void PrepareDirectoryPreferences(DirectoryPreferences? preferences) => _pendingRestoredPreferences = preferences;
+    internal FolderTabViewState CaptureTabViewState()
+    {
+        if (_pendingTabViewState is { } pending && pending.Path == CurrentPath)
+            return pending.ViewState ?? new(ViewMode, GroupField, pending.Preferences ?? CaptureDirectoryPreferences());
+        return new(ViewMode, GroupField, CaptureDirectoryPreferences());
+    }
+    internal void PrepareTabViewState(string path, FolderTabViewState? viewState, DirectoryPreferences? preferences = null)
+        => _pendingTabViewState = (path, viewState, preferences);
     private static bool IsPreferenceDirectory(string path) => Path.IsPathFullyQualified(path) || VirtualPath.IsRemotePath(path);
     private void SaveDirectoryPreferences()
     {
-        if (_directoryPreferences == null || _restoringDirectoryPreferences || _disposed || _restoredPreferencePath != CurrentPath || !IsPreferenceDirectory(CurrentPath) || IsSearchMode) return;
+        if (_directoryPreferences == null || _restoringDirectoryPreferences || _pendingTabViewState != null || _disposed || _restoredPreferencePath != CurrentPath || !IsPreferenceDirectory(CurrentPath) || IsSearchMode) return;
         var path = CurrentPath; var snapshot = CaptureDirectoryPreferences();
         _ = SaveDirectoryPreferencesAsync(path, snapshot);
     }
@@ -38,19 +45,31 @@ public partial class FileListViewModel
     }
     private async Task RestoreDirectoryPreferencesAsync(string path, DirectoryPreferences? explicitState = null)
     {
-        if (_directoryPreferences == null || !IsPreferenceDirectory(path)) return;
-        if (explicitState == null && _pendingRestoredPreferences == null && _restoredPreferencePath == path) return;
-        var state = explicitState ?? _pendingRestoredPreferences ?? await _directoryPreferences.ReadAsync(path) ?? _directoryDefaults;
-        _pendingRestoredPreferences = null;
+        if (!IsPreferenceDirectory(path) || (_directoryPreferences == null && _pendingTabViewState == null)) return;
+        var pending = _pendingTabViewState;
+        _pendingTabViewState = null;
+        if (pending?.Path != path) pending = null;
+        if (explicitState == null && pending == null && _restoredPreferencePath == path) return;
+        var viewState = pending?.ViewState;
+        var state = viewState?.Preferences ?? explicitState ?? pending?.Preferences
+            ?? (_directoryPreferences == null ? null : await _directoryPreferences.ReadAsync(path)) ?? _directoryDefaults;
         if (CurrentPath != path || state == null || _disposed) return;
         _restoredPreferencePath = path;
-        ApplyDirectoryPreferences(state);
+        ApplyDirectoryPreferences(state, viewState);
     }
-    private void ApplyDirectoryPreferences(DirectoryPreferences state)
+    private void ApplyDirectoryPreferences(DirectoryPreferences state, FolderTabViewState? viewState = null)
     {
+        var previousViewMode = ViewMode;
+        var suppressPersistence = _sortFilter.SuppressSettingsPersistence;
+        _sortFilter.SuppressSettingsPersistence = true;
         _restoringDirectoryPreferences = true;
         try
         {
+            if (viewState != null)
+            {
+                if (Enum.IsDefined(viewState.ViewMode)) _sortFilter.ViewMode = viewState.ViewMode;
+                if (Enum.IsDefined(viewState.GroupField)) _sortFilter.GroupField = viewState.GroupField;
+            }
             if (Enum.IsDefined(state.Sort)) _sortFilter.SortField = state.Sort;
             _sortFilter.SortAscending = state.Ascending;
             if (Enum.IsDefined(state.Priority)) _sortFilter.SortPriority = state.Priority;
@@ -59,7 +78,12 @@ public partial class FileListViewModel
             IsPreviewPaneVisible = state.PreviewPane; IsMetadataPanelVisible = state.MetadataPanel; IsInfoPanelVisible = state.InfoPanel;
             OnPropertyChanged(nameof(ColumnFilters)); OnPropertyChanged(nameof(FileNameFilter)); OnPropertyChanged(nameof(HasFileListFilters));
         }
-        finally { _restoringDirectoryPreferences = false; }
+        finally
+        {
+            _restoringDirectoryPreferences = false;
+            _sortFilter.SuppressSettingsPersistence = suppressPersistence;
+        }
+        if (ViewMode != previousViewMode) OnTreeModeChanged();
     }
     public async Task ResetDirectoryPreferencesAsync()
     {

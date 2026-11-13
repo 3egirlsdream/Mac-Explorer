@@ -159,6 +159,7 @@ public class AppWindow : Window
         };
         Activated += (_, _) => { RequestNativeWindowChrome(); UpdateWindowPseudoClasses(); if (_subscription != null) _ = _subscription.RefreshAsync(); };
         Deactivated += (_, _) => UpdateWindowPseudoClasses();
+        ActualThemeVariantChanged += (_, _) => RequestNativeWindowChrome();
         KeyDown += OnWindowKeyDown;
         AddHandler(KeyDownEvent, (_, e) =>
         {

@@ -154,6 +154,10 @@ public partial class FinderSidebarView : UserControl
         {
             UpdateActiveStates();
         }
+        else if (e.PropertyName is nameof(FileListViewModel.PinnedFolders) or nameof(FileListViewModel.CustomGroups))
+        {
+            Dispatcher.UIThread.Post(UpdateActiveStates);
+        }
         else if (e.PropertyName == "SidebarVisibilityChanged")
         {
             ViewModel!.LoadSidebarVisibility();
@@ -266,6 +270,8 @@ public partial class FinderSidebarView : UserControl
         if (e.Source is Grid header && ViewModel != null)
         {
             if (header == AiSectionHeader) ViewModel.ToggleAiCollapsedCommand.Execute(null);
+            else if (header.Classes.Contains("custom-group-header") && header.DataContext is PinnedFolderGroup group)
+                ViewModel.ToggleCustomGroupCollapsed(group.Id);
             else return;
             e.Handled = true;
             return;
@@ -329,12 +335,23 @@ public partial class FinderSidebarView : UserControl
         ViewModel?.ToggleAiCollapsedCommand.Execute(null);
     }
 
+    private void OnToggleCustomGroupCollapsed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Grid { DataContext: PinnedFolderGroup group } header
+            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        header.Focus();
+        ViewModel?.ToggleCustomGroupCollapsed(group.Id);
+        e.Handled = true;
+    }
+
     private async void OnPinnedFolderPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Border { Tag: string path } || ViewModel == null) return;
         await ViewModel.NavigateToCommand.ExecuteAsync(path);
         UpdateActiveStates();
     }
+
+    private void OnPinnedFolderLoaded(object? sender, RoutedEventArgs e) => UpdateDynamicActiveStates();
 
     private void OnUnpinPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -398,7 +415,7 @@ public partial class FinderSidebarView : UserControl
             }
         }
         ClearFolderDropTarget();
-        if (row == null && IsPinnedFolderDropArea(e) && paths.Length > 0 && paths.All(Directory.Exists))
+        if (row == null && GetPinnedFolderDropGroup(e) != null && paths.Length > 0 && paths.All(Directory.Exists))
             e.DragEffects = DragDropEffects.Copy;
     }
 
@@ -458,11 +475,11 @@ public partial class FinderSidebarView : UserControl
                 return;
             }
 
-            if (row != null || !IsPinnedFolderDropArea(e) || paths.Length == 0 || !paths.All(Directory.Exists)) return;
+            var groupId = GetPinnedFolderDropGroup(e);
+            if (row != null || groupId == null || paths.Length == 0 || !paths.All(Directory.Exists)) return;
             e.DragEffects = DragDropEffects.Copy;
             foreach (var path in paths)
-                if (!await viewModel.IsFolderPinnedAsync(path))
-                    await viewModel.PinFolderAsync(path, new DirectoryInfo(path).Name);
+                await viewModel.PinFolderAsync(path, new DirectoryInfo(path).Name, groupId.Value);
         }
         catch (Exception ex)
         {
@@ -471,8 +488,15 @@ public partial class FinderSidebarView : UserControl
         }
     }
 
-    private bool IsPinnedFolderDropArea(DragEventArgs e)
-        => this.InputHitTest(e.GetPosition(this)) is Visual hit && IsDescendantOf(hit, PinnedFoldersControl);
+    private int? GetPinnedFolderDropGroup(DragEventArgs e)
+    {
+        if (this.InputHitTest(e.GetPosition(this)) is not Visual hit) return null;
+        if (IsDescendantOf(hit, PinnedFoldersControl) || IsDescendantOf(hit, PinnedFoldersHeader)) return 0;
+        for (Visual? current = hit; current != null && current != this; current = current.GetVisualParent())
+            if (current is Control { DataContext: PinnedFolderGroup group } control
+                && control.Classes.Contains("pinned-folder-group")) return group.Id;
+        return null;
+    }
 
     private static string[] GetDroppedPaths(IDataTransfer data) => FileListView.GetDroppedPaths(data);
 
@@ -549,8 +573,9 @@ public partial class FinderSidebarView : UserControl
 
     private async void UnpinFolder(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button btn || btn.Tag is not string path || ViewModel == null) return;
-        await ViewModel.UnpinFolderAsync(path);
+        if (sender is not Button { Tag: PinnedFolder pin } || ViewModel == null) return;
+        try { await ViewModel.UnpinFolderAsync(pin.FolderPath, pin.GroupId); }
+        catch (Exception ex) { ViewModel.StatusText = Services.Impl.LocalizationText.Get("sidebar.groups.operation_failed", ex.Message); }
     }
 
     private async void EjectVolume(object? sender, RoutedEventArgs e)

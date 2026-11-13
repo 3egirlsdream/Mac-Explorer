@@ -21,6 +21,41 @@ namespace MacExplorer.Tests;
 public sealed class RemoteEditDialogTests : FileListViewModelTestBase
 {
     [AvaloniaTheory(Explicit = true)]
+    [InlineData("zh-CN")]
+    [InlineData("zh-Hant")]
+    [InlineData("en")]
+    [InlineData("fr")]
+    public void ActionsKeepTheirNaturalWidthAndReturnToOneRowAfterResizing(string locale)
+    {
+        using var theme = new FastListTestTheme();
+        using var language = new LocalizationService(new StartupSettings(), () => AppLanguage.English);
+        language.SetLanguage(locale);
+        var dialog = Create(new Edits(Session("example.txt", RemoteEditState.Failed)), 650, false);
+        dialog.SizeToContent = SizeToContent.Manual;
+        dialog.Height = 650;
+        try
+        {
+            dialog.Show();
+            foreach (var width in new[] { 900d, 650, 420, 400, 900 })
+            {
+                dialog.Width = width; Settle(dialog);
+                var buttons = new[] { "StopRemoteEdit", "ReconnectRemoteEdit", "RetryRemoteEdit" }
+                    .Select(name => Find<AppButton>(dialog, name)).ToArray();
+                var bounds = buttons.Select(button => new Rect(button.TranslatePoint(default, dialog)!.Value, button.Bounds.Size)).ToArray();
+                foreach (var rect in bounds)
+                {
+                    Assert.InRange(rect.Left, 20, dialog.Bounds.Width - 20 - rect.Width + 0.01);
+                    Assert.InRange(rect.Top, 44, dialog.Bounds.Height - rect.Height);
+                }
+                if (width == 900 || locale == "en" && width == 650 || locale.StartsWith("zh", StringComparison.Ordinal))
+                    Assert.True(bounds.All(rect => rect.Top == bounds[0].Top),
+                        $"Actions unexpectedly stacked at {locale}/{width}, actual {dialog.Bounds.Size}: {string.Join(", ", buttons.Select(button => $"{button.Content}: {button.DesiredSize}"))}");
+            }
+        }
+        finally { dialog.Close(); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("zh-CN", false, 650)]
     [InlineData("zh-Hant", true, 650)]
     [InlineData("en", false, 420)]

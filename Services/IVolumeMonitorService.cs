@@ -13,6 +13,10 @@ public interface IVolumeMonitorService : IDisposable
     /// <summary>Safely eject/unmount an external volume. Returns true on success.</summary>
     Task<bool> EjectVolumeAsync(string volumePath);
 
+    /// <summary>Safely ejects a volume and preserves the system failure reason.</summary>
+    async Task<VolumeEjectResult> EjectVolumeWithResultAsync(string volumePath)
+        => new(await EjectVolumeAsync(volumePath));
+
     /// <summary>Raised when the external volume list changes (mount/unmount).</summary>
     event Action? VolumesChanged;
 }

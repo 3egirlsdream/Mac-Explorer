@@ -5,7 +5,8 @@ namespace MacExplorer.Services.Impl;
 internal readonly record struct DriveSpaceSnapshot(
     string RootPath,
     long AvailableFreeSpace,
-    long TotalSize);
+    long TotalSize,
+    long? AvailableCapacity = null);
 
 internal readonly record struct LocationStatus(
     string Text,
@@ -46,9 +47,12 @@ internal static class FileListStatusFormatter
         if (string.IsNullOrWhiteSpace(drive.RootPath))
             return null;
 
-        var available = FormatBytes(Math.Max(0, drive.AvailableFreeSpace));
-        var total = FormatBytes(Math.Max(0, drive.TotalSize));
-        return new LocationStatus(LocalizationText.Get("可用 {0}", available), LocalizationText.Get("{0} 可用，共 {1}", available, total));
+        var available = FormatBytes(Math.Max(0, drive.AvailableCapacity ?? drive.AvailableFreeSpace), 1000);
+        var total = FormatBytes(Math.Max(0, drive.TotalSize), 1000);
+        var tooltip = LocalizationText.Get("{0} 可用，共 {1}", available, total);
+        if (drive.AvailableCapacity.HasValue)
+            tooltip += "\n" + LocalizationText.Get("file_list.storage_free", FormatBytes(Math.Max(0, drive.AvailableFreeSpace), 1000));
+        return new LocationStatus(LocalizationText.Get("可用 {0}", available), tooltip);
     }
 
     public static LocationStatus GetRemoteLocationStatus(string serverName, bool connected)
@@ -57,7 +61,9 @@ internal static class FileListStatusFormatter
         return new LocationStatus(text, text);
     }
 
-    public static string FormatBytes(long bytes)
+    public static string FormatBytes(long bytes) => FormatBytes(bytes, 1024);
+
+    private static string FormatBytes(long bytes, int unitBase)
     {
         if (bytes <= 0)
             return "0 B";
@@ -65,9 +71,9 @@ internal static class FileListStatusFormatter
         string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
         var size = (double)bytes;
         var unit = 0;
-        while (size >= 1024 && unit < units.Length - 1)
+        while (size >= unitBase && unit < units.Length - 1)
         {
-            size /= 1024;
+            size /= unitBase;
             unit++;
         }
 

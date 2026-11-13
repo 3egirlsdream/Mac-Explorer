@@ -148,6 +148,16 @@ internal static class FeatureUpgradeSmoke
             Check(model.Tabs.Any(t => t.FileList.CurrentPath == folderA && t.FileList.SortField == SortField.Size && t.FileList.FileNameFilter == "合同"), "工作组预设恢复各栏偏好");
             vm = model.FileList;
 
+            var repository = Directory.CreateDirectory(Path.Combine(samples, "Git 项目")).FullName;
+            await Git(repository, "init", "-q"); var tracked = Path.Combine(repository, "release.md"); await File.WriteAllTextAsync(tracked, "# Release\nOriginal plan\n");
+            await Git(repository, "add", "release.md"); await Git(repository, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture");
+            await File.WriteAllTextAsync(tracked, "# Release\nSearch and sync improvements\n"); await Git(repository, "add", "release.md");
+            await File.AppendAllTextAsync(tracked, "Final review\n");
+            var git = services.GetRequiredService<IGitStatusService>(); var diff = await git.GetDiffAsync(tracked, false);
+            Check(diff.Contains("Final review"), "读取未暂存 Git 差异");
+            var gitDialog = new GitDiffDialog(diff, false); var gitTask = gitDialog.ShowDialog(owner); await Capture(gitDialog, "09-git-diff-light"); gitDialog.Close(); await gitTask;
+            Check((await git.GetDiffAsync(tracked, true)).Contains("Search and sync"), "读取已暂存 Git 差异");
+
             var portraits = Directory.CreateDirectory(Path.Combine(samples, "人物照片")).FullName;
             var alice = Path.Combine(portraits, "测试人物-甲.png"); var bob = Path.Combine(portraits, "测试人物-乙.png"); MakePortrait(alice, false); MakePortrait(bob, true);
             var ai = services.GetRequiredService<IAiTagService>();
@@ -204,6 +214,7 @@ internal static class FeatureUpgradeSmoke
             await edits.StopAsync(); connections.DisconnectAll();
 
             owner.RequestedThemeVariant = ThemeVariant.Dark;
+            var darkGit = new GitDiffDialog(diff, false) { RequestedThemeVariant = ThemeVariant.Dark }; darkGit.Width = 780; var darkGitTask = darkGit.ShowDialog(owner); await Capture(darkGit, "09-git-diff-dark"); darkGit.Close(); await darkGitTask;
             await owner.SetPaneLayoutAsync(PaneLayout.Single);
             vm = model.FileList; await vm.NavigateToAsync(docs); vm.IsInfoPanelVisible = false;
             await vm.SearchAsync("Launch review 4826"); vm.SelectEntry(vm.Entries.Single(entry => entry.FullPath == note));
@@ -257,9 +268,11 @@ internal static class FeatureUpgradeSmoke
     }
     private static async Task Wait(Func<bool> ready)
     { var timer = Stopwatch.StartNew(); while (!ready()) { if (timer.Elapsed > TimeSpan.FromSeconds(35)) throw new TimeoutException("Feature smoke state did not settle."); await Task.Delay(40); } }
+    private static Task Git(string directory, params string[] args) => Run("/usr/bin/git", args, directory);
     private static async Task Run(string executable, string[] arguments, string? directory = null)
     {
         var start = new ProcessStartInfo(executable) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false }; if (directory != null) start.WorkingDirectory = directory;
+        if (executable.EndsWith("/git", StringComparison.Ordinal)) { start.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null"; start.Environment["GIT_CONFIG_NOSYSTEM"] = "1"; }
         foreach (var argument in arguments) start.ArgumentList.Add(argument); using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync(); var error = process.StandardError.ReadToEndAsync(); await process.WaitForExitAsync();
         if (process.ExitCode != 0) throw new IOException(await error + await output);

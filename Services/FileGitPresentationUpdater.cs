@@ -16,6 +16,7 @@ public static class FileGitPresentationUpdater
         {
             if (!byPath.TryGetValue(entry.FullPath, out var state)
                 || entry.LastModified != state.LastModified) continue;
+            entry.GitRepoRoot = state.GitRepoRoot;
             if (entry.GitStatus == state.GitStatus && entry.HasGitChanges == state.HasGitChanges) continue;
             entry.GitStatus = state.GitStatus;
             entry.HasGitChanges = state.HasGitChanges;

@@ -49,11 +49,11 @@ public sealed class FileListStatusFormatterTests
     [Fact]
     public void LocalStatusUsesLongestMatchingVolumeRoot()
     {
-        var gib = 1024L * 1024 * 1024;
+        var gb = 1000L * 1000 * 1000;
         var drives = new[]
         {
-            new DriveSpaceSnapshot("/", 100 * gib, 500 * gib),
-            new DriveSpaceSnapshot("/Volumes/Work", 412 * gib, 994 * gib)
+            new DriveSpaceSnapshot("/", 100 * gb, 500 * gb),
+            new DriveSpaceSnapshot("/Volumes/Work", 412 * gb, 994 * gb)
         };
 
         var status = FileListStatusFormatter.GetLocalLocationStatus("/Volumes/Work/Projects/FKFinder", drives);
@@ -61,6 +61,45 @@ public sealed class FileListStatusFormatterTests
         Assert.NotNull(status);
         Assert.Equal("可用 412 GB", status.Value.Text);
         Assert.Equal("412 GB 可用，共 994 GB", status.Value.Tooltip);
+    }
+
+    [Fact]
+    public void LocalStatusUsesSystemAvailableCapacityAndShowsFreeSpaceInDecimalUnits()
+    {
+        var drives = new[]
+        {
+            new DriveSpaceSnapshot("/", 133_561_421_824, 994_610_155_520, 142_969_185_185)
+        };
+
+        var status = FileListStatusFormatter.GetLocalLocationStatus("/Users/test/Documents", drives);
+
+        Assert.NotNull(status);
+        Assert.Equal("可用 142.97 GB", status.Value.Text);
+        Assert.Equal("142.97 GB 可用，共 994.61 GB\n空闲 133.56 GB", status.Value.Tooltip);
+    }
+
+    [Fact]
+    public void LocalStatusFallsBackToFreeSpaceWhenSystemEstimateIsUnavailable()
+    {
+        var status = FileListStatusFormatter.GetLocalLocationStatus("/Volumes/Work", [
+            new DriveSpaceSnapshot("/Volumes/Work", 133_561_421_824, 994_610_155_520)
+        ]);
+
+        Assert.NotNull(status);
+        Assert.Equal("可用 133.56 GB", status.Value.Text);
+        Assert.Equal("133.56 GB 可用，共 994.61 GB", status.Value.Tooltip);
+    }
+
+    [Fact]
+    public void FullVolumeDisplaysZeroAvailableSpace()
+    {
+        var status = FileListStatusFormatter.GetLocalLocationStatus("/", [
+            new DriveSpaceSnapshot("/", 0, 1_000_000_000, 0)
+        ]);
+
+        Assert.NotNull(status);
+        Assert.Equal("可用 0 B", status.Value.Text);
+        Assert.Equal("0 B 可用，共 1 GB\n空闲 0 B", status.Value.Tooltip);
     }
 
     [Fact]

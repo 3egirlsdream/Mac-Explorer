@@ -15,6 +15,7 @@ internal static class LocalFileCopy
         public bool Committed;
         public string? Identity;
     }
+    private sealed class OutputIdentity { public FileIdentitySnapshot? Snapshot; }
     private sealed record CopyEntry(string Path, bool IsDirectory, string? LinkTarget, long Length, DateTime Modified, string? Identity, bool IsRuntimeFile = false);
 
     public static string Copy(string sourcePath, string destinationDirectory,
@@ -101,9 +102,10 @@ internal static class LocalFileCopy
 
         Report(sourcePath, scanning: true, force: true);
         var manifest = context?.Remember("local-copy-manifest:" + sourcePath + ":" + destinationDirectory, () =>
-        { Scan(source); return entries.ToArray(); });
-        if (manifest == null) Scan(source);
-        else if (entries.Count == 0) { entries.AddRange(manifest); total = entries.Sum(e => e.Length + 1); }
+        { Scan(source); return errors.Count == 0 ? entries.ToArray() : null; });
+        // An incomplete scan must run again on retry; its missing children are not a manifest.
+        if (manifest == null && entries.Count == 0) Scan(source);
+        else if (manifest != null && entries.Count == 0) { entries.AddRange(manifest); total = entries.Sum(e => e.Length + 1); }
         if (context != null) context.Task.TotalItems = entries.Count;
         var buffer = new byte[128 * 1024];
         foreach (var entry in entries)
@@ -116,7 +118,8 @@ internal static class LocalFileCopy
             var before = completed;
             if (context?.IsDone("local-copy:" + entry.Path + ":" + destination) == true)
             {
-                if (context.Remember("local-output-identity:" + destination, () => FileIdentitySnapshot.Capture(destination, false))
+                if (context.Remember("local-output-identity:" + destination, () => new OutputIdentity
+                    { Snapshot = FileIdentitySnapshot.Capture(destination, false) }).Snapshot
                     != FileIdentitySnapshot.Capture(destination, false))
                     throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("暂存文件已变化，无法继续。"));
                 completed += entry.Length + 1; continue;
@@ -136,8 +139,8 @@ internal static class LocalFileCopy
                 else
                 {
                     var state = context?.Remember("local-file:" + destination, () => new PartialCopy
-                    { Temporary = destination + "." + context.Task.Id + ".fkfinder-tmp" })
-                        ?? new PartialCopy { Temporary = destination + "." + Guid.NewGuid().ToString("N") + ".fkfinder-tmp" };
+                    { Temporary = GetTemporaryPath(destination, context.Task.Id) })
+                        ?? new PartialCopy { Temporary = GetTemporaryPath(destination, Guid.NewGuid().ToString("N")) };
                     context?.RegisterCleanup("local-file:" + destination, () =>
                     {
                         if (state.Created && !state.Committed && File.Exists(state.Temporary)
@@ -194,15 +197,19 @@ internal static class LocalFileCopy
                 completed = before + entry.Length + 1;
                 continue;
             }
-            context?.Remember("local-output-identity:" + destination, () => FileIdentitySnapshot.Capture(destination, false));
+            context?.Remember("local-output-identity:" + destination, () => new OutputIdentity
+            { Snapshot = FileIdentitySnapshot.Capture(destination, false) });
             context?.MarkDone("local-copy:" + entry.Path + ":" + destination);
             context?.ReportItem(entry.Path, destination, FileTaskItemState.Completed);
             completed = before + entry.Length + 1;
             Report(entry.Path);
         }
 
-        // Apply directory permissions last so read-only folders can be populated first.
-        foreach (var entry in entries.AsEnumerable().Reverse().Where(e => e.IsDirectory && e.LinkTarget == null))
+        // Leave failed copies writable so a retry can populate the remaining children.
+        var directories = errors.Count == 0
+            ? entries.AsEnumerable().Reverse().Where(e => e.IsDirectory && e.LinkTarget == null)
+            : [];
+        foreach (var entry in directories)
         {
             ct.ThrowIfCancellationRequested();
             FileTaskContext.Checkpoint();
@@ -210,7 +217,13 @@ internal static class LocalFileCopy
                 : Path.Combine(destinationPath, Path.GetRelativePath(sourcePath, entry.Path));
             try
             {
+                var identity = context?.Remember("local-output-identity:" + destination, () => new OutputIdentity
+                { Snapshot = FileIdentitySnapshot.Capture(destination, false) });
+                if (identity != null && identity.Snapshot != FileIdentitySnapshot.Capture(destination, false))
+                    throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("暂存文件已变化，无法继续。"));
                 CopyMetadata(entry.Path, destination);
+                // copyfile also restores birth time, which is part of the native identity.
+                if (identity != null) identity.Snapshot = FileIdentitySnapshot.Capture(destination, false);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -223,6 +236,17 @@ internal static class LocalFileCopy
             throw new AggregateException($"复制未完整完成，{errors.Count} 项失败。目标中保留了已复制的文件。", errors);
         progress?.Report(new FileOperationProgress { Percentage = 100, CurrentFile = sourcePath, SkippedCount = skipped });
         return destinationPath;
+    }
+
+    private static string GetTemporaryPath(string destination, string id)
+    {
+        var name = Path.GetFileName(destination) + "." + id + ".fkfinder-tmp";
+        if (System.Text.Encoding.UTF8.GetByteCount(name) > 255)
+        {
+            var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(destination));
+            name = ".fkfinder-" + Convert.ToHexString(hash.AsSpan(0, 16)) + "." + id + ".fkfinder-tmp";
+        }
+        return Path.Combine(Path.GetDirectoryName(destination)!, name);
     }
 
     private static CopyEntry ReadEntry(string path)

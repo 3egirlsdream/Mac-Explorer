@@ -20,6 +20,11 @@ internal static class FileDeliverySmoke
 {
     public static async Task RunAsync(MainWindow owner)
     {
+        if (Environment.GetEnvironmentVariable("MACEXPLORER_DELIVERY_SMOKE") == "native-drag")
+        {
+            await SidebarNativeDragSmoke.RunAsync(owner);
+            return;
+        }
         var root = RuntimePaths.TestRoot ?? throw new InvalidOperationException("An isolated test profile is required.");
         var output = Path.Combine(root, "file-delivery");
         Directory.CreateDirectory(output);

@@ -96,25 +96,38 @@ internal sealed class FileConflictDialog : DialogWindow
         };
         AutomationProperties.SetName(replace, replace.Content.ToString());
         replace.Click += (_, _) => Choose(FileConflictAction.Replace);
-        var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
+            ItemSpacing = 11, LineSpacing = 8 };
         foreach (var button in new Control[] { skip, replace, keep })
         {
             button.MinWidth = button == skip ? 74 : button == keep ? 92 : 90;
-            button.Margin = button == keep ? default : new Thickness(0, 0, 11, 0);
             buttons.Children.Add(button);
         }
-        var footer = new Grid { ColumnDefinitions = new("Auto,*,Auto"), RowDefinitions = new("Auto,Auto,Auto"), RowSpacing = 16 };
+        var footer = new Grid { ColumnDefinitions = new("Auto,*,Auto"), RowDefinitions = new("Auto,Auto"), RowSpacing = 16 };
         var footerDivider = Divider(); footerDivider.Height = 1; Grid.SetColumnSpan(footerDivider, 3); footer.Children.Add(footerDivider);
         Grid.SetRow(cancel, 1); footer.Children.Add(cancel);
         Grid.SetRow(buttons, 1); Grid.SetColumn(buttons, 2); footer.Children.Add(buttons);
         var root = new Grid { Margin = new Thickness(16, 12, 16, 18), RowDefinitions = new("*,Auto"), RowSpacing = 6 };
         var scroll = new ScrollViewer { Content = body, MaxHeight = 620, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         root.Children.Add(scroll); Grid.SetRow(footer, 1); root.Children.Add(footer); Content = root;
-        bool? wasNarrow = null;
+        bool? wasNarrow = null, wereActionsStacked = null;
         root.SizeChanged += (_, _) =>
         {
             kind.Measure(Size.Infinity);
             name.MaxWidth = Math.Max(30, root.Bounds.Width - 74 - kind.DesiredSize.Width - 21);
+            cancel.Measure(Size.Infinity);
+            buttons.Measure(Size.Infinity);
+            var stackActions = cancel.DesiredSize.Width + buttons.DesiredSize.Width + 16 > root.Bounds.Width;
+            if (wereActionsStacked != stackActions)
+            {
+                wereActionsStacked = stackActions;
+                footer.ColumnDefinitions = new(stackActions ? "*" : "Auto,*,Auto");
+                footer.RowDefinitions = new(stackActions ? "Auto,Auto,Auto" : "Auto,Auto");
+                Grid.SetColumnSpan(footerDivider, stackActions ? 1 : 3);
+                Grid.SetRow(cancel, stackActions ? 2 : 1);
+                Grid.SetColumn(buttons, stackActions ? 0 : 2);
+                buttons.HorizontalAlignment = stackActions ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
+            }
             var narrow = root.Bounds.Width < 570;
             if (wasNarrow == narrow) return;
             wasNarrow = narrow;
@@ -124,12 +137,6 @@ internal sealed class FileConflictDialog : DialogWindow
             Grid.SetColumn(destination, narrow ? 0 : 2); Grid.SetRow(destination, narrow ? 2 : 0);
             divider.Width = narrow ? double.NaN : 1; divider.Height = narrow ? 1 : double.NaN;
             divider.Margin = narrow ? new Thickness(0, 14) : default;
-            footer.ColumnDefinitions = new(narrow ? "*" : "Auto,*,Auto");
-            footer.RowDefinitions = new(narrow ? "Auto,Auto,Auto" : "Auto,Auto");
-            Grid.SetColumnSpan(footerDivider, narrow ? 1 : 3);
-            Grid.SetRow(cancel, narrow ? 2 : 1);
-            Grid.SetColumn(buttons, narrow ? 0 : 2);
-            buttons.HorizontalAlignment = narrow ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
         };
     }
 

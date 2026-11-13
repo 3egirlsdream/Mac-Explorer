@@ -5,14 +5,15 @@ using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
 
-public class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache, IMemoryDiagnosticSource
+public partial class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache, IMemoryDiagnosticSource
 {
     internal const int CacheEntryLimit = 16;
     internal const long CacheByteLimit = 8L * 1024 * 1024;
     private readonly object _cacheSync = new();
     private bool _disposed;
     private static long Size(GitRepoStatus status) => 128L + status.RepoRoot.Length * 2L
-        + status.FileStatuses.Keys.Sum(path => 80L + path.Length * 2L);
+        + status.FileStatuses.Keys.Sum(path => 80L + path.Length * 2L)
+        + status.PathStates.Values.Sum(state => 80L + state.Path.Length * 2L + (state.OriginalPath?.Length ?? 0) * 2L);
     MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState()
     {
         if (!Monitor.TryEnter(_cacheSync)) return new("git-status", 0, Owners: 0, Skipped: 1);
@@ -27,7 +28,8 @@ public class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache
             lengths += path.Length;
             if (++sampled == 32) break;
         }
-        return 128L + status.RepoRoot.Length * 2L + status.FileStatuses.Count * (80L + (sampled == 0 ? 0 : lengths * 2 / sampled));
+        return 128L + status.RepoRoot.Length * 2L + status.FileStatuses.Count * (80L + (sampled == 0 ? 0 : lengths * 2 / sampled))
+            + status.PathStates.Count * 80L;
     }
     internal static readonly string[] StoreGitCandidates =
     [
@@ -65,12 +67,14 @@ public class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache
                 return cached;
 
             var statuses = new Dictionary<string, GitFileStatus>(StringComparer.Ordinal);
-            if (!RunGitStatus(repoRoot, statuses)) return null;
+            var states = new Dictionary<string, GitPathState>(StringComparer.Ordinal);
+            if (!RunGitStatus(repoRoot, statuses, states)) return null;
 
             var result = new GitRepoStatus
             {
                 RepoRoot = repoRoot,
                 FileStatuses = statuses,
+                PathStates = states,
                 LastUpdated = DateTime.UtcNow
             };
 
@@ -106,35 +110,16 @@ public class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache
         return null;
     }
 
-    private static bool RunGitStatus(string repoRoot, Dictionary<string, GitFileStatus> statuses)
+    private static bool RunGitStatus(string repoRoot, Dictionary<string, GitFileStatus> statuses, Dictionary<string, GitPathState> states)
     {
         var output = RunGitCommand(repoRoot, "status");
         if (output == null) return false;
-
-        var entries = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
-        for (int i = 0; i < entries.Length; i++)
+        foreach (var state in ParsePathStates(output))
         {
-            if (entries[i].Length < 4) continue;
-            var xy = entries[i][..2];
-            var path = entries[i][3..];
-
-            if (xy[0] is 'R' or 'C')
-            {
-                if (path.EndsWith('/')) path = path[..^1];
-                statuses[path] = xy[0] == 'R' ? GitFileStatus.Renamed : GitFileStatus.Added;
-                if (i + 1 < entries.Length)
-                    i++;
-                continue;
-            }
-
-            // Strip trailing slash from untracked directory paths (e.g. "宣传/" → "宣传")
-            // so they match relativePath computed without trailing slash
-            if (path.EndsWith('/'))
-                path = path[..^1];
-
-            var status = ParsePorcelainStatus(xy);
-            if (status != GitFileStatus.Unmodified)
-                statuses[path] = status;
+            var path = state.Path.TrimEnd('/');
+            states[path] = state with { Path = path };
+            var status = ParsePorcelainStatus(new string([state.Index, state.WorkTree]));
+            if (status != GitFileStatus.Unmodified) statuses[path] = status;
         }
         return true;
     }
@@ -290,18 +275,19 @@ public class GitStatusService : IGitStatusService, IDisposable, IIdleMemoryCache
         return System.Text.Encoding.UTF8.GetString(ms.ToArray());
     }
 
-    private static GitFileStatus ParsePorcelainStatus(string xy)
+    internal static GitFileStatus ParsePorcelainStatus(string xy)
     {
         var (x, y) = (xy[0], xy[1]);
         return (x, y) switch
         {
+            ('U', _) or (_, 'U') or ('A', 'A') or ('D', 'D') => GitFileStatus.Conflicted,
             ('?', '?') => GitFileStatus.Untracked,
             ('!', _) or (_, '!') => GitFileStatus.Ignored,
+            ('R', _) or (_, 'R') => GitFileStatus.Renamed,
             ('A', _) or ('C', _) => GitFileStatus.Added,
             ('D', _) or (_, 'D') => GitFileStatus.Deleted,
             ('M', _) => GitFileStatus.Staged,
             (_, 'M') => GitFileStatus.Modified,
-            ('U', _) or (_, 'U') or ('A', 'A') or ('D', 'U') or ('U', 'D') or ('D', 'D') => GitFileStatus.Conflicted,
             _ => GitFileStatus.Unmodified
         };
     }

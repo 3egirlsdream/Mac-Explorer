@@ -232,4 +232,12 @@
         <Setter Property="CornerRadius" Value="5"/>
     </Style>
 
+    <Style Selector="ListBox.git-history">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.git-history ListBoxItem">
+        <Setter Property="Padding" Value="8"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
 </Styles>

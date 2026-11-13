@@ -1,3 +1,5 @@
+using System.Text.Json;
+using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.ViewModels;
 using Xunit;
@@ -8,6 +10,48 @@ namespace MacExplorer.UnitTests;
 [Trait("Area", "GroupPresets")]
 public sealed class TabGroupPresetTests
 {
+    [Fact]
+    public void PresetAndStartupRoundTripsRemapIndependentViewStatesForDuplicateFolders()
+    {
+        var settings = new MemorySettings();
+        var preferences = new DirectoryPreferences(SortField.Size, false, SortPriority.Folders,
+            FileListFilterState.Empty, [300, 160, 100, 230], true, false, true);
+        var first = new FolderTabViewState(ViewMode.Grid, GroupField.Type, preferences);
+        var hidden = new FolderTabViewState(ViewMode.Tree, GroupField.Size, preferences with { Sort = SortField.Name });
+        var group = Group([1, 2, 3, 4]) with { PaneIndices = [1, 2], SelectedIndex = 1 };
+        var preset = TabGroupPreset.Capture("Work", ["/outside", "/same", "/missing", "home://", "/same"], group,
+            viewStates: new() { [0] = first, [1] = first, [2] = first, [3] = first, [4] = hidden })!;
+        TabGroupPresets.Save(settings, preset);
+        var opened = Assert.Single(TabGroupPresets.Read(settings)).CreateSession(path => path != "/missing")!;
+        Assert.Equal(new[] { "/same", "/same" }, opened.Paths);
+        Assert.Equal(2, opened.ViewStates.Count);
+        Assert.Equal(JsonSerializer.Serialize(first), JsonSerializer.Serialize(opened.ViewStates[0]));
+        Assert.Equal(JsonSerializer.Serialize(hidden), JsonSerializer.Serialize(opened.ViewStates[1]));
+        Assert.Equal(3, preset.Session.ViewStates.Count);
+
+        settings.Set(FolderTabSession.EnabledKey, true);
+        FolderWindowSession.Capture([preset.Session], 0).Save(settings);
+        var startup = Assert.Single(FolderWindowSession.Read(settings, path => path != "/missing")!.Windows);
+        Assert.Equal(JsonSerializer.Serialize(opened.ViewStates), JsonSerializer.Serialize(startup.ViewStates));
+        preset.Session.Save(settings);
+        Assert.Equal(JsonSerializer.Serialize(opened.ViewStates),
+            JsonSerializer.Serialize(FolderTabSession.Read(settings, path => path != "/missing")!.ViewStates));
+    }
+
+    [Fact]
+    public void LegacyPreferencesSurvivePresetNormalizationWithoutInventingViewStates()
+    {
+        var settings = new MemorySettings();
+        var preferences = new DirectoryPreferences(SortField.Modified, false, SortPriority.None,
+            FileListFilterState.Empty, [300, 160, 100, 230], false, true, false);
+        var preset = TabGroupPreset.Capture("Old", ["/a"], Group([0]), preferences: new() { [0] = preferences })!;
+        settings.Set(TabGroupPresets.SettingKey, JsonSerializer.Serialize(new[] { preset }).Replace(
+            ",\"ViewStates\":{}", string.Empty));
+        var opened = Assert.Single(TabGroupPresets.Read(settings)).CreateSession(_ => true)!;
+        Assert.Empty(opened.ViewStates);
+        Assert.Equal(JsonSerializer.Serialize(preferences), JsonSerializer.Serialize(opened.Preferences[0]));
+    }
+
     private static FolderTabGroupSession Group(int[]? members = null) => new(Guid.NewGuid(), "Source", 2, true,
         members ?? [0, 1, 2], PaneLayout.TwoColumns, [2, 0], 2, 0);
 

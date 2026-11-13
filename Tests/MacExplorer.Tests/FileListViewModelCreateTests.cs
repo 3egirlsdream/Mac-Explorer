@@ -1178,7 +1178,8 @@ public abstract partial class FileListViewModelTestBase
         IBackgroundTaskManager? backgroundTaskManager = null,
         bool browseOnly = false, IQuickLookService? quickLookService = null,
         ILocalSendService? localSendService = null, ISearchService? searchService = null,
-        IAirDropService? airDropService = null)
+        IAirDropService? airDropService = null, IGitStatusService? gitStatusService = null,
+        IPinnedFolderService? pinnedFolderService = null, PinnedFoldersViewModel? pinnedFolders = null)
     {
         navigation ??= new NavigationViewModel(fileService)
         {
@@ -1192,7 +1193,7 @@ public abstract partial class FileListViewModelTestBase
             fileService: fileService,
             taskManager: backgroundTaskManager,
             directoryChangeNotifier: directoryChangeNotifier,
-            fileTagService: fileTagService);
+            fileTagService: fileTagService, pinnedFolderService: pinnedFolderService);
 
         return new FileListViewModel(
             navigation,
@@ -1200,7 +1201,7 @@ public abstract partial class FileListViewModelTestBase
             new SearchViewModel(searchService),
             new ArchiveViewModel(archiveService: archiveService, fileService: fileService),
             new AiViewModel(fileIndex: index),
-            new PinnedFoldersViewModel(),
+            pinnedFolders ?? new PinnedFoldersViewModel(pinnedFolderService),
             sortFilter ?? new SortFilterViewModel(),
             fileService,
             index,
@@ -1217,7 +1218,7 @@ public abstract partial class FileListViewModelTestBase
             openWithAppService: openWithAppService,
             pluginManager: pluginManager,
             conversionTaskManager: backgroundTaskManager, quickLookService: quickLookService,
-            localSendService: localSendService, airDropService: airDropService) { IsBrowseOnly = browseOnly };
+            localSendService: localSendService, airDropService: airDropService, gitStatusService: gitStatusService) { IsBrowseOnly = browseOnly };
     }
 
     protected sealed class StaleRenamedDisplayNames(string renamedPath) : IDisplayNameService

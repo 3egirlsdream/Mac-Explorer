@@ -24,6 +24,7 @@ public partial class SettingsDialog : DialogWindow
 {
     private sealed record SearchLocationRow(string Path, string DisplayPath);
 
+    private readonly IPinnedFolderService? _pinnedFolderService;
     private readonly IDefaultAppService _defaultAppService;
     private readonly ISettingsService _settingsService;
     private readonly ILocalizationService _localizationService;
@@ -62,7 +63,8 @@ public partial class SettingsDialog : DialogWindow
             App.Services.GetRequiredService<IInteractionStyleService>(),
             App.Services.GetRequiredService<IGlobalSearchScopeService>(),
             App.Services.GetRequiredService<ILocalSendService>(),
-            App.Services.GetRequiredService<ILocalizationService>())
+            App.Services.GetRequiredService<ILocalizationService>(),
+            pinnedFolderService: App.Services.GetRequiredService<IPinnedFolderService>())
     {
     }
 
@@ -77,11 +79,13 @@ public partial class SettingsDialog : DialogWindow
         IGlobalSearchScopeService? globalSearchScopeService = null,
         ILocalSendService? localSendService = null,
         ILocalizationService? localizationService = null,
-        Avalonia.Platform.Storage.ILauncher? launcher = null)
+        Avalonia.Platform.Storage.ILauncher? launcher = null,
+        IPinnedFolderService? pinnedFolderService = null)
     {
         _ownsLocalizationService = localizationService == null;
         _localizationService = localizationService ?? new Services.Impl.LocalizationService(settingsService);
         InitializeComponent();
+        _pinnedFolderService = pinnedFolderService;
         _defaultAppService = defaultAppService;
         _settingsService = settingsService;
         _themeService = themeService;
