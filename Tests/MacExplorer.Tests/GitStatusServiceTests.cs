@@ -97,6 +97,8 @@ public sealed class GitStatusServiceTests : IDisposable
     [InlineData(null, true)]
     [InlineData("", false)]
     [InlineData("filter.lfs.clean\ngit-lfs clean -- %f\0", true)]
+    [InlineData("filter.lfs.smudge\ngit-lfs smudge -- %f\0", true)]
+    [InlineData("filter.lfs.smudge\ngit-lfs smudge -- %f\0filter.lfs.smudge\n\0", false)]
     [InlineData("filter.lfs.clean\ngit-lfs clean -- %f\0filter.lfs.clean\n\0", false)]
     [InlineData("filter.lfs.clean\n\0filter.lfs.clean\nexternal-command\0", true)]
     [InlineData("remote.origin.partialclonefilter\nblob:none\0", true)]
@@ -109,6 +111,7 @@ public sealed class GitStatusServiceTests : IDisposable
         await RunAsync(git, "init", "-q");
         // CI machines may enable LFS globally; this fixture has no external filters.
         await RunAsync(git, "config", "filter.lfs.clean", "");
+        await RunAsync(git, "config", "filter.lfs.smudge", "");
         await RunAsync(git, "config", "filter.lfs.process", "");
     }
 

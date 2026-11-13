@@ -22,6 +22,9 @@ public sealed partial class SftpLoopbackTests
         if (python == null) Assert.Skip("Requires the isolated SFTP QA environment.");
         var token = TestContext.Current.CancellationToken;
         var root = Directory.CreateDirectory(Path.Combine(RuntimePaths.TestRoot!, "remote-conflict-upgrade-" + Guid.NewGuid().ToString("N"))).FullName;
+        using var access = new DirectoryAccess(Path.Combine(root, "access.json"), true,
+            internalRoots: [root, RuntimePaths.DataDirectory]);
+        using var accessScope = DirectoryAccess.UseForTests(access);
         try
         {
             var fixture = await StartServer(python!, root, "replacing", 0, token);
