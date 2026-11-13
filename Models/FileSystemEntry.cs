@@ -25,6 +25,7 @@ public class FileSystemEntry : INotifyPropertyChanged
     public DateTime LastModified { get; init; }
     public DateTime Created { get; init; }
     public string Extension { get; init; } = string.Empty;
+    public IReadOnlyList<DocumentMatch> SearchMatches { get; init; } = [];
     public bool IsHidden { get; init; }
     public bool IsSymbolicLink { get; init; }
     public bool IsReadable { get; init; } = true;

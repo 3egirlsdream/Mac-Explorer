@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -891,21 +892,17 @@ public partial class FileListView : UserControl
                     HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center
                 }, AppTypography.Meta));
 
-                var btn = new Button
+                var btn = new AppButton
                 {
                     Content = btnContent,
-                    Background = Brushes.Transparent,
-                    BorderThickness = new Thickness(0),
-                    CornerRadius = new CornerRadius(6),
-                    Padding = new Thickness(0),
+                    Classes = { "ghost", "menu-quick-action" },
                     IsEnabled = qa.IsEnabled,
                     HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Stretch,
                     HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                     VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 };
-                btn.Classes.Add("ghost");
-                btn.Classes.Add("menu-quick-action");
+
                 var buttonSurface = new Border
                 {
                     Width = 44,

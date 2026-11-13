@@ -11,8 +11,11 @@ public interface IFileOperationHistoryService
     event Action? HistoryChanged { add { } remove { } }
     Task<UndoOperationResult> UndoAsync(Guid id) => Task.FromResult(new UndoOperationResult(false, "", []));
     void ClearHistory() { }
+    Task ClearHistoryAsync() { ClearHistory(); return Task.CompletedTask; }
     Task RecordCreatedAsync(string path, bool isCopy = false) => Task.CompletedTask;
     Task RecordIrreversibleAsync(string path, string reason) => Task.CompletedTask;
+    Task RecordReplacementAsync(string source, string target, string backup, string ownerDirectory) => Task.CompletedTask;
+    Task RecordRemovedDirectoryAsync(string path) => Task.CompletedTask;
     /// <summary>Record a rename operation for potential undo.</summary>
     Task RecordRenameAsync(string oldPath, string newPath);
 
@@ -45,12 +48,17 @@ public enum FileOperationKind
     BatchRename,
     Copy,
     Create,
-    Irreversible
+    Irreversible,
+    Replace,
+    RemoveEmptyDirectory
 }
 
 /// <summary>Represents a recorded file operation that can be undone.</summary>
 public class FileOperationRecord
 {
+    public string? BackupPath { get; set; }
+    public string? BackupDirectory { get; set; }
+    internal FileIdentitySnapshot? BackupSnapshot { get; set; }
     public string? TaskId { get; set; }
     public string? UnavailableReason { get; set; }
     public bool IsUndone { get; set; }

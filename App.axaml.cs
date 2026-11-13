@@ -113,11 +113,20 @@ public partial class App : Application
                 e.Cancel = true;
                 if (stoppingPlugins) return;
                 stoppingPlugins = true;
+                if (Services.GetRequiredService<IRemoteFileEditService>().HasPendingChanges)
+                {
+                    var owner = desktop.Windows.OfType<MainWindow>().FirstOrDefault(w => w.IsActive)
+                        ?? desktop.Windows.OfType<MainWindow>().FirstOrDefault();
+                    if (owner != null && !await new ConfirmDialog("remote-edit.exit-title", "remote-edit.exit-message", "remote-edit.exit").ShowDialog<bool>(owner))
+                    { stoppingPlugins = false; return; }
+                }
                 IsShuttingDown = true;
                 SaveFolderTabSession();
                 _startupUpdateCancellation.Cancel();
                 await _startupServicesTask;
+                await Services.GetRequiredService<IRemoteFileEditService>().StopAsync();
                 await Services.GetRequiredService<IBackgroundTaskManager>().ShutdownAsync();
+                await Services.GetRequiredService<IFileOperationHistoryService>().ClearHistoryAsync();
                 try
                 {
                     try { await ((IAsyncDisposable)Services.GetRequiredService<ILocalSendService>()).DisposeAsync(); }
@@ -164,6 +173,21 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_RESIZE_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.WindowResizeSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FILE_CONFLICT_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FileConflictSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FEATURE_UPGRADE_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FeatureUpgradeSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_VIDEO_PREVIEW_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -594,11 +618,13 @@ public partial class App : Application
         services.AddSingleton<SftpFileService>();
         services.AddSingleton<IRemoteFileService>(sp => sp.GetRequiredService<SftpFileService>());
         services.AddSingleton<IRemoteFileEditService, Services.Impl.RemoteFileEditService>();
+        services.AddSingleton<IFileConflictResolver, UiFileConflictResolver>();
         services.AddSingleton<IFileService>(sp => new CompositeFileService(
             sp.GetRequiredService<Platforms.MacCatalyst.Services.MacFileService>(),
             sp.GetRequiredService<IRemoteFileService>(),
             sp.GetService<IBackgroundTaskManager>(), sp.GetRequiredService<IRemoteConnectionService>(),
-            () => sp.GetRequiredService<IFileOperationHistoryService>(), sp.GetRequiredService<IRatingService>()));
+            () => sp.GetRequiredService<IFileOperationHistoryService>(), sp.GetRequiredService<IRatingService>(),
+            sp.GetRequiredService<IFileConflictResolver>(), sp.GetService<IFileTagService>(), sp.GetService<IAiTagService>()));
         services.AddSingleton<IApplicationLauncherService, Platforms.MacCatalyst.Services.MacApplicationLauncherService>();
         services.AddSingleton<IContextMenuService, Platforms.MacCatalyst.Services.MacContextMenuService>();
         services.AddSingleton<IOpenWithAppService>(sp => new OpenWithAppService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILogger<OpenWithAppService>>()));
@@ -646,7 +672,8 @@ public partial class App : Application
             logger: sp.GetService<ILogger<FeatureAccessService>>()));
         services.AddSingleton<HomeScriptRunner>();
         services.AddSingleton<IGlobalSearchScopeService, Services.Impl.GlobalSearchScopeService>();
-        services.AddSingleton<FileListColumnLayoutService>();
+        services.AddTransient<FileListColumnLayoutService>();
+        services.AddSingleton<IDirectoryPreferencesService, DirectoryPreferencesService>();
         services.AddSingleton<WindowPlacementService>();
         services.AddSingleton<IRatingService, Services.Impl.RatingService>();
         services.AddSingleton<IFinderTagQueryService, Platforms.MacCatalyst.Services.MacFinderTagQueryService>();
@@ -679,6 +706,8 @@ public partial class App : Application
         services.AddSingleton<IImageAnalysisService, Platforms.MacCatalyst.Services.MacImageAnalysisService>();
         services.AddSingleton<IPdfTextExtractionService, Platforms.MacCatalyst.Services.MacPdfTextExtractionService>();
         services.AddSingleton<PdfAnalysisService>();
+        services.AddSingleton<DocumentContentExtractor>();
+        services.AddSingleton<DocumentIndexService>();
         services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
         services.AddSingleton<IThemeService, Platforms.MacCatalyst.Services.MacThemeService>();
         services.AddSingleton<IInteractionStyleService, Services.Impl.InteractionStyleService>();
@@ -731,6 +760,8 @@ public partial class App : Application
                 sp.GetService<ILocalSendService>(), airDropService: sp.GetRequiredService<IAirDropService>(),
                 appCapabilitiesFactory: () => sp.GetRequiredService<Copilot.IAppCapabilityRegistry>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());
+            viewModel.UseDirectoryPreferences(sp.GetRequiredService<IDirectoryPreferencesService>());
+            viewModel.UseDocumentIndex(sp.GetRequiredService<DocumentIndexService>());
             return viewModel;
         });
         services.AddScoped<MainWindowViewModel>();

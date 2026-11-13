@@ -25,6 +25,7 @@
                             <local:WindowTitleBar x:Name="WindowTitleBar"
                                                   Grid.Row="0"
                                                   Title="{TemplateBinding Title}"
+                                                  ShowDivider="{TemplateBinding ShowTitleBarDivider}"
                                                   TitleBarBackgroundContent="{TemplateBinding TitleBarBackgroundContent}"
                                                   TitleBarContent="{TemplateBinding TitleBarContent}"/>
                             <Grid x:Name="WindowOverlayHost" Grid.RowSpan="2" chrome:WindowDecorationProperties.ElementRole="User"/>

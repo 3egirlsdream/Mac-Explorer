@@ -32,6 +32,13 @@ public sealed class CopilotContentExtractor(
     public async Task<Page> ExtractPageAsync(string path, long offset = 0,
         CancellationToken cancellationToken = default)
     {
+        await DocumentContentExtractor.ExtractionGate.WaitAsync(cancellationToken);
+        try { return await ExtractPageCoreAsync(path, offset, cancellationToken); }
+        finally { DocumentContentExtractor.ExtractionGate.Release(); }
+    }
+
+    private async Task<Page> ExtractPageCoreAsync(string path, long offset, CancellationToken cancellationToken)
+    {
         MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(path);
         if (!Path.IsPathFullyQualified(path) || !File.Exists(path))
             throw new FileNotFoundException("只能提取本地文件内容。", path);
@@ -106,109 +113,19 @@ public sealed class CopilotContentExtractor(
         return new Page(new string(content[..length]), offset, offset + length, hasUnreadText || length < content.Length);
     }
 
-    private sealed class BoundedOfficeText(CancellationToken cancellationToken)
-    {
-        private readonly StringBuilder _text = new();
-        private bool _hasItem;
-        public void Add(string? value, string separator = "\n")
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            value ??= string.Empty;
-            if (_text.Length + value.Length + (_hasItem ? separator.Length : 0) > MaxOfficeCharacters)
-                throw new IOException("Office 文档提取文字超过 100 万字符上限，请先缩小文档范围。");
-            if (_hasItem) _text.Append(separator);
-            _text.Append(value);
-            _hasItem = true;
-        }
-        public override string ToString() => _text.ToString();
-    }
-
-    private static void CheckOfficeArchive(string path, CancellationToken cancellationToken)
-    {
-        using var archive = ZipFile.OpenRead(path);
-        if (archive.Entries.Count > 2048)
-            throw new IOException("Office 文档压缩条目过多，请先缩小文档范围。");
-        long total = 0;
-        foreach (var entry in archive.Entries)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (entry.Length > 12 * 1024 * 1024 || (total += entry.Length) > MaxOfficeExpandedBytes)
-                throw new IOException("Office 文档解压后超过资源上限，请先缩小文档范围。");
-        }
-    }
-
     private static string ExtractOffice(string path, string extension, CancellationToken cancellationToken)
     {
-        CheckOfficeArchive(path, cancellationToken);
-        var output = new BoundedOfficeText(cancellationToken);
-        switch (extension)
+        var content = DocumentContentExtractor.ExtractSegments(path, cancellationToken);
+        if (content.IsTruncated) throw new IOException("Office 文档提取文字超过 100 万字符上限，请先缩小文档范围。");
+        if (extension != ".xlsx") return string.Join("\n", content.Segments.Select(s => s.Text));
+        var output = new StringBuilder(); string? previousRow = null;
+        foreach (var segment in content.Segments)
         {
-            case ".docx":
-                using (var document = WordprocessingDocument.Open(path, false))
-                {
-                    foreach (var paragraph in document.MainDocumentPart?.Document.Body?
-                                 .Descendants<Paragraph>() ?? [])
-                        output.Add(paragraph.InnerText);
-                    return output.ToString();
-                }
-            case ".xlsx":
-                using (var document = SpreadsheetDocument.Open(path, false))
-                {
-                    var shared = new List<string>();
-                    var sharedCharacters = 0;
-                    foreach (var item in document.WorkbookPart?.SharedStringTablePart?.SharedStringTable?
-                                 .Elements<DocumentFormat.OpenXml.Spreadsheet.SharedStringItem>() ?? [])
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        var value = item.InnerText;
-                        sharedCharacters += value.Length;
-                        if (sharedCharacters > MaxOfficeCharacters)
-                            throw new IOException("Office 文档共享文字超过 100 万字符上限，请先缩小文档范围。");
-                        shared.Add(value);
-                    }
-                    var workbook = document.WorkbookPart;
-                    foreach (var sheet in workbook?.Workbook.Sheets?
-                                 .Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>() ?? [])
-                    {
-                        // Relationship enumeration is not the user-visible sheet order; chart sheets have no cells.
-                        if (sheet.Id?.Value is not { Length: > 0 } relationshipId
-                            || workbook!.GetPartById(relationshipId) is not WorksheetPart worksheet) continue;
-                        output.Add($"[工作表：{sheet.Name?.Value}]");
-                        foreach (var row in worksheet.Worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.Row>())
-                        {
-                            var values = row.Elements<DocumentFormat.OpenXml.Spreadsheet.Cell>().Select(cell =>
-                            {
-                                var value = cell.CellValue?.Text ?? cell.InlineString?.InnerText ?? string.Empty;
-                                if (cell.DataType?.Value == DocumentFormat.OpenXml.Spreadsheet.CellValues.SharedString
-                                    && int.TryParse(value, out var index) && index >= 0 && index < shared.Count)
-                                    value = shared[index];
-                                // XLSX omits empty cells. Keep coordinates so A1/C1 cannot be mistaken for A1/B1.
-                                return cell.CellReference?.Value is { Length: > 0 } reference
-                                    ? $"{reference}: {value}" : value;
-                            });
-                            output.Add(string.Join("\t", values));
-                        }
-                    }
-                    return output.ToString();
-                }
-            case ".pptx":
-                using (var document = PresentationDocument.Open(path, false))
-                {
-                    var presentation = document.PresentationPart;
-                    foreach (var id in presentation?.Presentation.SlideIdList?
-                                 .Elements<DocumentFormat.OpenXml.Presentation.SlideId>() ?? [])
-                    {
-                        if (id.RelationshipId?.Value is not { Length: > 0 } relationshipId
-                            || presentation!.GetPartById(relationshipId) is not SlidePart slide)
-                            throw new InvalidDataException("幻灯片引用无效。");
-                        var slideText = new BoundedOfficeText(cancellationToken);
-                        foreach (var text in slide.Slide.Descendants<DocumentFormat.OpenXml.Drawing.Text>())
-                            slideText.Add(text.Text, " ");
-                        output.Add(slideText.ToString());
-                    }
-                    return output.ToString();
-                }
-            default: throw new NotSupportedException("不支持的 Office 文档类型。");
+            var cell = segment.Location.Cell;
+            var row = string.IsNullOrEmpty(cell) ? null : segment.Location.Sheet + ":" + new string(cell.Where(char.IsDigit).ToArray());
+            if (output.Length > 0) output.Append(row != null && row == previousRow ? '\t' : '\n');
+            output.Append(segment.Text); previousRow = row;
         }
+        return output.ToString();
     }
 }

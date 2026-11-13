@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using MacExplorer.Services;
 using Avalonia;
 using Avalonia.Controls;
@@ -73,13 +74,13 @@ public partial class SettingsDialog
                 enabled.Classes.Add("settings-toggle");
                 enabled.IsCheckedChanged += async (_, _) => await RunPluginActionAsync(() => _plugins.SetEnabledAsync(plugin.Manifest.Id, enabled.IsChecked == true));
                 header.Children.Add(enabled);
-                var uninstall = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("卸载") };
+                var uninstall = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("卸载") };
                 uninstall.Click += async (_, _) => await RunPluginActionAsync(() => _plugins.UninstallAsync(plugin.Manifest.Id));
                 actions.Children.Add(uninstall);
             }
             if (plugin.LogPath is { } path && File.Exists(path))
             {
-                var log = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("查看日志") };
+                var log = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("查看日志") };
                 log.Click += async (_, _) => await RunPluginActionAsync(async () =>
                 {
                     var dialog = new MacExplorer.Controls.DialogWindow
@@ -107,7 +108,7 @@ public partial class SettingsDialog
             }
             if (plugin.Manifest.HasUserInterface)
             {
-                var account = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("账号 / 授权"), IsEnabled = plugin.Enabled && !plugin.Running };
+                var account = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("账号 / 授权"), IsEnabled = plugin.Enabled && !plugin.Running };
                 account.Click += async (_, _) => await RunPluginActionAsync(async () =>
                 {
                     await using var session = await _plugins.StartAccountAsync(plugin.Manifest.Id, _marketLifetime.Token);
@@ -118,7 +119,7 @@ public partial class SettingsDialog
             }
             if (plugin.Running)
             {
-                var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消任务") };
+                var cancel = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消任务") };
                 cancel.Click += async (_, _) => await RunPluginActionAsync(() => _plugins.CancelAsync(plugin.Manifest.Id));
                 actions.Children.Add(cancel);
             }

@@ -70,7 +70,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
         _count = new TextBlock { Text = "…", Classes = { "home-secondary" }, Margin = new Thickness(8, 0),
             VerticalAlignment = VerticalAlignment.Center };
         Grid.SetColumn(_count, 2); header.Children.Add(_count);
-        var more = new Button { Content = new PathIcon { Data = Geometry.Parse(MacExplorer.Assets.Icons.MoreHorizontal), Width = 16, Height = 16 },
+        var more = new AppButton { Content = new PathIcon { Data = Geometry.Parse(MacExplorer.Assets.Icons.MoreHorizontal), Width = 16, Height = 16 },
             Classes = { "ghost", "home-card-menu" }, ContextMenu = menu };
         AutomationProperties.SetName(more, MacExplorer.Services.Impl.LocalizationText.Get("{0}收藏夹选项", tag.DisplayName));
         more.Click += (_, _) => menu.Open(more);
@@ -93,7 +93,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
             if (ReferenceEquals(e.Source, this) && e.Key is Key.Enter or Key.Space)
             { _expand(); e.Handled = true; }
         };
-        _grip = new Button { Classes = { "ghost", "home-resize-grip" },
+        _grip = new AppButton { Classes = { "ghost", "home-resize-grip" },
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 0, 0), Cursor = new Cursor(StandardCursorType.BottomRightCorner) };
         ToolTip.SetTip(_grip, MacExplorer.Services.Impl.LocalizationText.Get("拖动调整大小；聚焦后用方向键调整行列数"));
@@ -184,7 +184,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
             }
             else if (index == 0 && Paths.Count == 0)
             {
-                var add = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("添加文件"), Classes = { "ghost", "home-grid-item" } };
+                var add = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("添加文件"), Classes = { "ghost", "home-grid-item" } };
                 add.Click += (_, _) => _add();
                 _grid.Children.Add(add);
             }
@@ -204,7 +204,7 @@ public sealed class HomeFolderCard : UserControl, IDisposable
             mosaic.VerticalAlignment = VerticalAlignment.Center;
             var expandContent = MacExplorer.Views.HomeItemActions.CreateGridContent(mosaic,
                 AppTypography.BindFontSize(new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("全部 {0}", Paths.Count) }, AppTypography.Label));
-            var expand = new Button { Content = expandContent, Classes = { "ghost", "home-grid-item", "home-overflow" } };
+            var expand = new AppButton { Content = expandContent, Classes = { "ghost", "home-grid-item", "home-overflow" } };
             AutomationProperties.SetName(expand, MacExplorer.Services.Impl.LocalizationText.Get("展开{0}收藏夹，共{1}项", TagDefinition.DisplayName, Paths.Count));
             ToolTip.SetTip(expand, MacExplorer.Services.Impl.LocalizationText.Get("展开全部 · 还有 {0} 项", Paths.Count - capacity));
             expand.Click += (_, _) => _expand();

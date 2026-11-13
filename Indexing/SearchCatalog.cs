@@ -21,6 +21,7 @@ public sealed partial class SearchCatalog
         {
             using var connection = _connections.GetConnection();
             var fts = SearchSchema.Initialize(connection);
+            using (var transaction = connection.BeginTransaction()) { FeatureUpgradeSchema.Ensure(connection, transaction); transaction.Commit(); }
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT 1 FROM sqlite_master WHERE name='ai_tags'";
             _hasAiTags = command.ExecuteScalar() != null;
@@ -100,7 +101,7 @@ public sealed partial class SearchCatalog
                     ? $"(instr(e.name_key, {parameter}) > 0 OR instr(e.initials_key, {parameter}) > 0)"
                     : $"instr(e.name_key, {parameter}) > 0";
                 predicates.Add(ai
-                    ? $"({nameMatch} OR EXISTS (SELECT 1 FROM ai_tags a WHERE a.file_path=e.path AND instr(search_fold(a.tag_value), {parameter}) > 0))"
+                    ? $"({nameMatch} OR EXISTS (SELECT 1 FROM ai_tags a WHERE a.file_path=e.path AND instr(search_fold(a.tag_value), {parameter}) > 0) OR EXISTS(SELECT 1 FROM document_segments ds JOIN document_index di ON di.path=ds.path WHERE ds.path=e.path AND di.modified=e.modified_ticks AND di.size=e.size AND di.status IN ('Ready','Truncated') AND instr(search_fold(ds.text),{parameter})>0))"
                     : nameMatch);
             }
             for (var i = 0; i < query.PathTerms.Count; i++)
@@ -145,7 +146,7 @@ public sealed partial class SearchCatalog
             // Scope, hidden paths, literal %, _, quotes, extension, and ALL terms are
             // evaluated before LIMIT. FTS is never allowed to decide final membership.
             var source = ai
-                ? $"(SELECT DISTINCT file_path FROM ai_tags WHERE {ScopePredicate("file_path")}) tagged JOIN search_entry_details e ON e.path=tagged.file_path"
+                ? $"(SELECT DISTINCT file_path FROM ai_tags WHERE {ScopePredicate("file_path")} UNION SELECT path AS file_path FROM document_index WHERE {ScopePredicate("path")}) tagged JOIN search_entry_details e ON e.path=tagged.file_path"
                 : "search_entry_details e";
             command.CommandText = $"""
                 SELECT {Columns} FROM {source}
@@ -160,7 +161,9 @@ public sealed partial class SearchCatalog
             while (reader.Read())
             {
                 ct.ThrowIfCancellationRequested();
-                results.Add(ReadEntry(reader));
+                var entry = ReadEntry(reader);
+                if (ai) entry = entry with { ContentMatches = DocumentIndexService.ReadMatches(connection, entry.Path, query.NameTerms.FirstOrDefault() ?? "") };
+                results.Add(entry);
             }
         }
     }, ct);

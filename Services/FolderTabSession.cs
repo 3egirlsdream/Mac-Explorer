@@ -13,12 +13,14 @@ internal sealed record FolderTabGroupSession(Guid Id, string Name, int ColorInde
 internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
 {
     public FolderTabGroupSession[] Groups { get; init; } = [];
+    public Dictionary<int, DirectoryPreferences> Preferences { get; init; } = [];
 
     internal const string EnabledKey = "restore_folder_tabs";
     internal const string SessionKey = "navigation_folder_tabs";
 
-    internal static FolderTabSession Capture(IEnumerable<string?> paths, int selectedIndex, FolderTabGroupSession[]? groups = null)
-        => Filter(paths, selectedIndex, _ => true, groups);
+    internal static FolderTabSession Capture(IEnumerable<string?> paths, int selectedIndex, FolderTabGroupSession[]? groups = null,
+        Dictionary<int, DirectoryPreferences>? preferences = null)
+        => Filter(paths, selectedIndex, _ => true, groups, preferences);
 
     internal static FolderTabSession? Read(ISettingsService settings, Func<string, bool> canRestore)
     {
@@ -29,7 +31,7 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
         {
             var saved = JsonSerializer.Deserialize<FolderTabSession>(json);
             if (saved?.Paths == null) return null;
-            var session = Filter(saved.Paths, saved.SelectedIndex, canRestore, saved.Groups);
+            var session = Filter(saved.Paths, saved.SelectedIndex, canRestore, saved.Groups, saved.Preferences);
             return session.Paths.Length == 0 ? null : session;
         }
         catch (JsonException) { return null; }
@@ -41,7 +43,8 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
             settings.Set(SessionKey, JsonSerializer.Serialize(this));
     }
 
-    internal static FolderTabSession Filter(IEnumerable<string?> paths, int selectedIndex, Func<string, bool> accept, FolderTabGroupSession[]? groups = null)
+    internal static FolderTabSession Filter(IEnumerable<string?> paths, int selectedIndex, Func<string, bool> accept, FolderTabGroupSession[]? groups = null,
+        Dictionary<int, DirectoryPreferences>? preferences = null)
     {
         var result = new List<string>();
         var remap = new Dictionary<int, int>();
@@ -95,7 +98,8 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
                 SelectedIndex = groupSelected, ActivePaneSlotIndex = panes.IndexOf(groupSelected)
             });
         }
-        return new FolderTabSession(result.ToArray(), selected) { Groups = filteredGroups.ToArray() };
+        return new FolderTabSession(result.ToArray(), selected) { Groups = filteredGroups.ToArray(),
+            Preferences = (preferences ?? []).Where(p => remap.ContainsKey(p.Key)).ToDictionary(p => remap[p.Key], p => p.Value) };
     }
 }
 
@@ -146,7 +150,7 @@ internal sealed record FolderWindowSession(FolderTabSession[] Windows, int Selec
         {
             if (window?.Paths != null)
             {
-                var tabs = FolderTabSession.Filter(window.Paths, window.SelectedIndex, canRestore, window.Groups);
+                var tabs = FolderTabSession.Filter(window.Paths, window.SelectedIndex, canRestore, window.Groups, window.Preferences);
                 if (tabs.Paths.Length > 0)
                 {
                     if (index == selectedWindowIndex) selected = result.Count;

@@ -34,7 +34,7 @@ public sealed class HomeFolderCardTests
         Assert.Equal(overflow ? 7 : 8, card.PreviewCapacity);
         if (overflow)
         {
-            var last = Assert.IsType<Button>(grid.Children[^1]);
+            var last = Assert.IsType<AppButton>(grid.Children[^1]);
             Assert.Contains("home-overflow", last.Classes);
             last.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.True(expanded);
@@ -66,7 +66,7 @@ public sealed class HomeFolderCardTests
         var committed = 0;
         card.LayoutCommitted += _ => committed++;
         var root = Assert.IsType<Grid>(card.Content);
-        var grip = Assert.IsType<Button>(root.Children[2]);
+        var grip = Assert.IsType<AppButton>(root.Children[2]);
         grip.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Right });
         Assert.Equal(new HomeFolderLayout(5, 2), card.PreferredLayout);
         Assert.Equal(10, card.PreviewCapacity);
@@ -82,7 +82,7 @@ public sealed class HomeFolderCardTests
         var opened = 0;
         Button? item = null;
         using var card = new HomeFolderCard(new FileTag("Work", "#808080", FileTagKind.Custom), new(),
-            entry => { item = new Button { Content = entry.Name }; item.Click += (_, _) => opened++; return item; },
+            entry => { item = new AppButton { Content = entry.Name }; item.Click += (_, _) => opened++; return item; },
             () => expanded++, () => { }, new ContextMenu());
         card.SetPaths(["/tmp/file"]);
         card.SetEntries([new FileSystemEntry { Name = "file", FullPath = "/tmp/file" }], default);
@@ -95,7 +95,7 @@ public sealed class HomeFolderCardTests
             var point = card.TranslatePoint(new Point(42, 15), window)!.Value;
             window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left);
             Assert.Equal(1, expanded);
-            var fileButton = Assert.IsType<Button>(item);
+            var fileButton = Assert.IsType<AppButton>(item);
             point = fileButton.TranslatePoint(new Point(fileButton.Bounds.Width / 2, fileButton.Bounds.Height / 2), window)!.Value;
             window.MouseMove(point);
             var hit = window.InputHitTest(point);
@@ -136,6 +136,6 @@ public sealed class HomeFolderCardTests
 
     private static HomeFolderCard CreateCard(Action expand)
         => new(new FileTag("Work", "#808080", FileTagKind.Custom), new HomeFolderLayout(),
-            entry => new Button { Content = entry.Name }, expand, () => { }, new ContextMenu());
+            entry => new AppButton { Content = entry.Name }, expand, () => { }, new ContextMenu());
 
 }

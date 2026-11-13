@@ -20,7 +20,7 @@ internal sealed class TagMenuHeader : Grid
         _title = AppTypography.BindFontSize(new TextBlock { VerticalAlignment = VerticalAlignment.Center,
             FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
             Classes = { "tag-tree-title" } }, AppTypography.Body);
-        _create = new Button { Name = "CreateTagButton", Classes = { "icon-action", "tag-tree-create" },
+        _create = new AppButton { Name = "CreateTagButton", Classes = { "icon-action", "tag-tree-create" },
             Content = TagTreePanel.Icon(Icons.StarAdd, 16), VerticalAlignment = VerticalAlignment.Center };
         _create.Click += (_, _) => create();
         SetColumn(_create, 1); Children.Add(_title); Children.Add(_create);

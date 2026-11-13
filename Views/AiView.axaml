@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
@@ -21,13 +22,11 @@
                          AutomationProperties.Name="{loc:Loc ui.423}"
                          PlaceholderText="{loc:Loc ui.424}"
                          KeyDown="OnAiSearchKeyDown"/>
-                <Button Grid.Column="2" x:Name="ClearSearchButton" AutomationProperties.Name="{loc:Loc ui.425}" ToolTip.Tip="{loc:Loc ui.425}"
-                        Classes="ghost close-btn"
-                        Width="28" Height="28" MinHeight="28" IsVisible="False"
-                        Background="Transparent" BorderThickness="0"
+                <controls:AppButton Grid.Column="2" x:Name="ClearSearchButton" AutomationProperties.Name="{loc:Loc ui.425}" ToolTip.Tip="{loc:Loc ui.425}"
+                        Classes="ghost close-btn search-clear-btn" IsVisible="False"
                         Click="ClearSearch">
                     <PathIcon Data="{x:Static icons:Icons.Close}" Width="16" Height="16"/>
-                </Button>
+                </controls:AppButton>
             </Grid>
             </Border>
         </Border>

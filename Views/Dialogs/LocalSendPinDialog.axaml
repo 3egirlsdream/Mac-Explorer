@@ -13,8 +13,8 @@
         <TextBox x:Name="PinBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc ui.501}"
                  MaxLength="12" Height="32"/>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
-            <Button Classes="primary compact" Content="{loc:Loc ui.502}" IsDefault="True" Click="OnContinue"/>
+            <controls:AppButton Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
+            <controls:AppButton Classes="primary compact" Content="{loc:Loc ui.502}" IsDefault="True" Click="OnContinue"/>
         </StackPanel>
     </Grid>
 </controls:DialogWindow>

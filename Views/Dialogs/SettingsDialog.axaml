@@ -40,9 +40,9 @@
                                         <Border Classes="settings-row settings-divider">
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                                 <TextBlock Classes="settings-label" Text="{loc:Loc settings.language}" VerticalAlignment="Center"/>
-                                                <ComboBox Grid.Column="1" x:Name="LanguageCombo" Width="148" VerticalAlignment="Center"
-                                                          AutomationProperties.Name="{loc:Loc ui.031}" SelectionChanged="OnLanguageChanged">
-                                                </ComboBox>
+                                                <controls:AppComboBox Grid.Column="1" x:Name="LanguageCombo" Width="148" VerticalAlignment="Center"
+                                                          AutomationProperties.Name="{loc:Loc ui.031}" SelectionChanged="OnLanguageChanged" Classes="compact">
+                                                </controls:AppComboBox>
                                             </Grid>
                                         </Border>
                                         <Border x:Name="DefaultManagerRow" Classes="settings-row settings-divider">
@@ -101,8 +101,8 @@
                                         <StackPanel x:Name="DirectoryAccessRows"/>
                                         <Border Classes="settings-row">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <Button Content="{loc:Loc settings.choose_folder}" Classes="secondary compact" Click="OnGrantDirectory"/>
-                                                <Button Content="{loc:Loc settings.retry_access}" Classes="ghost compact" Click="OnRetryDirectoryAccess"/>
+                                                <controls:AppButton Content="{loc:Loc settings.choose_folder}" Classes="secondary compact" Click="OnGrantDirectory"/>
+                                                <controls:AppButton Content="{loc:Loc settings.retry_access}" Classes="ghost compact" Click="OnRetryDirectoryAccess"/>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -220,12 +220,12 @@
                                             <TextBlock Classes="settings-label" Text="{loc:Loc ui.182}" VerticalAlignment="Center"/>
                                             <TextBlock x:Name="LocalSendDirectoryText" Grid.Column="1" Classes="settings-description"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="2" Content="{loc:Loc ui.215}" Classes="secondary compact" Click="OnChooseLocalSendDirectory"/>
+                                            <controls:AppButton Grid.Column="2" Content="{loc:Loc ui.215}" Classes="secondary compact" Click="OnChooseLocalSendDirectory"/>
                                         </Grid>
                                     </Border>
                                 </StackPanel>
                             </Border>
-                            <Button x:Name="LocalSendRetryButton" Content="{loc:Loc ui.265}" Classes="ghost compact" IsVisible="False" Click="OnRetryLocalSendDisable" HorizontalAlignment="Right"/>
+                            <controls:AppButton x:Name="LocalSendRetryButton" Content="{loc:Loc ui.265}" Classes="ghost compact" IsVisible="False" Click="OnRetryLocalSendDisable" HorizontalAlignment="Right"/>
                             <TextBlock x:Name="LocalSendStatus" Classes="settings-description" TextWrapping="Wrap"
                                        HorizontalAlignment="Stretch" TextAlignment="Right"/>
                         </StackPanel>
@@ -254,12 +254,12 @@
                             <TextBlock Text="{loc:Loc ui.171}" Classes="settings-section-title"/>
                             <TextBlock Grid.Column="1" Text="{loc:Loc ui.185}" Classes="settings-section-title"/>
                             <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-                                <Button Classes="secondary plugin-action" Content="{loc:Loc ui.167}" Click="OnInstallPlugin"/>
-                                <Button Classes="secondary plugin-action" Content="{loc:Loc ui.176}" Click="OnRestoreBuiltInPlugin"/>
+                                <controls:AppButton Classes="secondary plugin-action" Content="{loc:Loc ui.167}" Click="OnInstallPlugin"/>
+                                <controls:AppButton Classes="secondary plugin-action" Content="{loc:Loc ui.176}" Click="OnRestoreBuiltInPlugin"/>
                             </StackPanel>
                             <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <TextBox x:Name="PluginMarketSearch" Watermark="{loc:Loc ui.189}" Height="32" MinHeight="32" Padding="10,5" KeyDown="OnMarketSearchKey"/>
-                                <Button Grid.Column="1" Classes="secondary plugin-action" Content="{loc:Loc ui.186}" Click="OnSearchMarket"/>
+                                <controls:AppButton Grid.Column="1" Classes="secondary plugin-action" Content="{loc:Loc ui.186}" Click="OnSearchMarket"/>
                             </Grid>
                             <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
                                 <StackPanel x:Name="PluginRows" Spacing="8" Margin="0,0,8,12"/>
@@ -293,14 +293,14 @@
                                     <TextBlock Classes="settings-title" Text="{loc:Loc ui.145}"/>
                                     <TextBlock Classes="settings-description" Text="{loc:Loc ui.240}"/>
                                 </StackPanel>
-                                <Button Grid.Column="1"
+                                <controls:AppButton Grid.Column="1"
                                         x:Name="AddSearchLocationButton"
                                         Classes="settings-location-action"
                                         ToolTip.Tip="{loc:Loc ui.232}"
                                         AutomationProperties.Name="{loc:Loc ui.232}"
                                         Click="OnAddSearchLocation">
                                     <PathIcon Data="{x:Static icons:Icons.Plus}"/>
-                                </Button>
+                                </controls:AppButton>
                             </Grid>
                             <StackPanel Spacing="6">
                                 <TextBlock Classes="settings-section-title"
@@ -353,13 +353,13 @@
                                     </StackPanel>
                                 </Border>
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
-                                    <Button x:Name="RemoveSearchLocationButton"
+                                    <controls:AppButton x:Name="RemoveSearchLocationButton"
                                             Classes="settings-location-action"
                                             ToolTip.Tip="{loc:Loc ui.239}"
                                             AutomationProperties.Name="{loc:Loc ui.239}"
                                             Click="OnRemoveSearchLocation">
                                         <PathIcon Data="{x:Static icons:Icons.Subtract}"/>
-                                    </Button>
+                                    </controls:AppButton>
                                     <TextBlock Grid.Column="1"
                                                Classes="settings-description"
                                                VerticalAlignment="Center"
@@ -545,11 +545,11 @@
                                                     <TextBlock Classes="settings-label" Text="{loc:Loc ui.236}"/>
                                                     <TextBlock Classes="settings-description" Text="{loc:Loc ui.249}"/>
                                                 </StackPanel>
-                                                <ComboBox Grid.Column="1" x:Name="ThemeModeCombo" AutomationProperties.Name="{loc:Loc ui.236}" Width="148" VerticalAlignment="Center" SelectionChanged="OnThemeModeChanged">
+                                                <controls:AppComboBox Grid.Column="1" x:Name="ThemeModeCombo" AutomationProperties.Name="{loc:Loc ui.236}" Width="148" VerticalAlignment="Center" SelectionChanged="OnThemeModeChanged" Classes="compact">
                                                     <ComboBoxItem Content="{loc:Loc ui.248}" Tag="system"/>
                                                     <ComboBoxItem Content="{loc:Loc ui.224}" Tag="light"/>
                                                     <ComboBoxItem Content="{loc:Loc ui.227}" Tag="dark"/>
-                                                </ComboBox>
+                                                </controls:AppComboBox>
                                             </Grid>
                                         </Border>
                                     </StackPanel>
@@ -567,12 +567,12 @@
                                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.237}"/>
                                                 <TextBlock Classes="settings-description" Text="{loc:Loc ui.157}"/>
                                             </StackPanel>
-                                            <ComboBox Grid.Column="1" x:Name="TypographyPresetCombo" AutomationProperties.Name="{loc:Loc ui.237}" Width="148"
-                                                      VerticalAlignment="Center" SelectionChanged="OnTypographyPresetChanged">
+                                            <controls:AppComboBox Grid.Column="1" x:Name="TypographyPresetCombo" AutomationProperties.Name="{loc:Loc ui.237}" Width="148"
+                                                      VerticalAlignment="Center" SelectionChanged="OnTypographyPresetChanged" Classes="compact">
                                                 <ComboBoxItem Content="{loc:Loc ui.169}" Tag="small"/>
                                                 <ComboBoxItem Content="{loc:Loc ui.218}" Tag="standard"/>
                                                 <ComboBoxItem Content="{loc:Loc ui.165}" Tag="large"/>
-                                            </ComboBox>
+                                            </controls:AppComboBox>
                                         </Grid>
                                     </Border>
                                 </Border>
@@ -588,10 +588,10 @@
                                                     <TextBlock Classes="settings-label" Text="{loc:Loc ui.262}"/>
                                                     <TextBlock Classes="settings-description" Text="{loc:Loc ui.225}"/>
                                                 </StackPanel>
-                                                <ComboBox Grid.Column="1" x:Name="InteractionThemeVariantCombo" AutomationProperties.Name="{loc:Loc ui.263}" Width="148" VerticalAlignment="Center" SelectionChanged="OnInteractionThemeVariantChanged">
+                                                <controls:AppComboBox Grid.Column="1" x:Name="InteractionThemeVariantCombo" AutomationProperties.Name="{loc:Loc ui.263}" Width="148" VerticalAlignment="Center" SelectionChanged="OnInteractionThemeVariantChanged" Classes="compact">
                                                     <ComboBoxItem Content="{loc:Loc ui.226}" Tag="light"/>
                                                     <ComboBoxItem Content="{loc:Loc ui.228}" Tag="dark"/>
-                                                </ComboBox>
+                                                </controls:AppComboBox>
                                             </Grid>
                                         </Border>
                                         <Border Classes="settings-row">
@@ -601,34 +601,34 @@
                                                     <TextBlock Classes="settings-description" Text="{loc:Loc ui.260}"/>
                                                 </StackPanel>
                                                 <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
-                                                    <Button x:Name="InteractionHoverColorButton" AutomationProperties.Name="{loc:Loc ui.179}" Classes="interaction-token-row" Tag="hover" Click="OnInteractionTokenSelected">
+                                                    <controls:AppButton x:Name="InteractionHoverColorButton" AutomationProperties.Name="{loc:Loc ui.179}" Classes="interaction-token-row" Tag="hover" Click="OnInteractionTokenSelected">
                                                         <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                             <Border x:Name="InteractionHoverColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
                                                             <TextBlock Grid.Column="1" Text="{loc:Loc ui.178}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                             <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         </Grid>
-                                                    </Button>
-                                                    <Button Grid.Column="1" x:Name="InteractionSelectedColorButton" AutomationProperties.Name="{loc:Loc ui.255}" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
+                                                    </controls:AppButton>
+                                                    <controls:AppButton Grid.Column="1" x:Name="InteractionSelectedColorButton" AutomationProperties.Name="{loc:Loc ui.255}" Classes="interaction-token-row" Tag="selected" Click="OnInteractionTokenSelected">
                                                         <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                             <Border x:Name="InteractionSelectedColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
                                                             <TextBlock Grid.Column="1" Text="{loc:Loc ui.254}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                             <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionSelectedColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         </Grid>
-                                                    </Button>
-                                                    <Button Grid.Row="1" x:Name="InteractionSelectedHoverColorButton" AutomationProperties.Name="{loc:Loc ui.257}" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
+                                                    </controls:AppButton>
+                                                    <controls:AppButton Grid.Row="1" x:Name="InteractionSelectedHoverColorButton" AutomationProperties.Name="{loc:Loc ui.257}" Classes="interaction-token-row" Tag="selected-hover" Click="OnInteractionTokenSelected">
                                                         <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                             <Border x:Name="InteractionSelectedHoverColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
                                                             <TextBlock Grid.Column="1" Text="{loc:Loc ui.256}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                             <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionSelectedHoverColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         </Grid>
-                                                    </Button>
-                                                    <Button Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorButton" AutomationProperties.Name="{loc:Loc ui.198}" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
+                                                    </controls:AppButton>
+                                                    <controls:AppButton Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorButton" AutomationProperties.Name="{loc:Loc ui.198}" Classes="interaction-token-row" Tag="text-highlight" Click="OnInteractionTokenSelected">
                                                         <Grid ColumnDefinitions="24,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
                                                             <Border x:Name="InteractionTextHighlightColorPreview" Grid.RowSpan="2" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"/>
                                                             <TextBlock Grid.Column="1" Text="{loc:Loc ui.197}" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"/>
                                                             <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InteractionTextHighlightColorValue" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         </Grid>
-                                                    </Button>
+                                                    </controls:AppButton>
                                                 </Grid>
                                                 <controls:ColorPalette x:Name="InteractionPalette"/>
 
@@ -657,12 +657,12 @@
                     <Grid Classes="settings-page" RowDefinitions="Auto,Auto,*" RowSpacing="16">
                         <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
                             <TextBlock Grid.Row="0" Grid.Column="0" Classes="settings-title" Text="{loc:Loc ui.180}"/>
-                            <Button x:Name="AddApplicationButton" AutomationProperties.Name="{loc:Loc ui.231}" Grid.Row="0" Grid.Column="1" Classes="secondary" Padding="12,7" VerticalAlignment="Top" Click="ToggleAddApplicationPopup">
+                            <controls:AppButton x:Name="AddApplicationButton" AutomationProperties.Name="{loc:Loc ui.231}" Grid.Row="0" Grid.Column="1" Classes="secondary" VerticalAlignment="Top" Click="ToggleAddApplicationPopup">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{x:Static icons:Icons.Plus}" Width="13" Height="13"/>
                                     <TextBlock Text="{loc:Loc ui.229}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                            </Button>
+                            </controls:AppButton>
                             <Popup x:Name="AddApplicationPopup" PlacementTarget="AddApplicationButton" Placement="BottomEdgeAlignedRight"
                                    IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False">
                                 <Border Classes="toolbar-popup" Width="360" MaxHeight="300">
@@ -746,7 +746,7 @@
                                             <TextBox Grid.Column="1" x:Name="CopilotKeyBox" Classes="settings-inline-input"
                                                      PasswordChar="●" Watermark="{loc:Loc ui.251}"
                                                      AutomationProperties.Name="Copilot API Key"/>
-                                            <Button Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.149}"
+                                            <controls:AppButton Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.149}"
                                                     Click="SaveCopilotConnection"/>
                                         </Grid>
                                     </Border>
@@ -762,7 +762,7 @@
                                             <TextBlock Classes="settings-label" Text="{loc:Loc ui.193}"/>
                                             <TextBlock x:Name="CopilotConsentStatus" Classes="settings-description" TextWrapping="Wrap"/>
                                         </StackPanel>
-                                        <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.191}" Click="OnRevokeCopilotConsent"
+                                        <controls:AppButton Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.191}" Click="OnRevokeCopilotConsent"
                                                 ToolTip.Tip="{loc:Loc ui.266}"/>
                                     </Grid>
                                 </Border>
@@ -771,11 +771,11 @@
                             <Border Classes="settings-group" Padding="12">
                                 <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
-                                        <ComboBox x:Name="CopilotSkillPicker" SelectionChanged="OnCopilotSkillSelectionChanged"
-                                                  AutomationProperties.Name="{loc:Loc ui.258}"/>
-                                        <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.021}" Click="NewCopilotSkill"/>
-                                        <Button Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.159}" Click="ToggleCopilotSkill"/>
-                                        <Button Grid.Column="3" Classes="secondary compact" Content="{loc:Loc ui.264}" Click="ResetCopilotSkill"/>
+                                        <controls:AppComboBox x:Name="CopilotSkillPicker" SelectionChanged="OnCopilotSkillSelectionChanged"
+                                                  AutomationProperties.Name="{loc:Loc ui.258}" Classes="compact"/>
+                                        <controls:AppButton Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.021}" Click="NewCopilotSkill"/>
+                                        <controls:AppButton Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.159}" Click="ToggleCopilotSkill"/>
+                                        <controls:AppButton Grid.Column="3" Classes="secondary compact" Content="{loc:Loc ui.264}" Click="ResetCopilotSkill"/>
                                     </Grid>
                                     <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
                                         <TextBlock Classes="settings-label" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
@@ -785,7 +785,7 @@
                                     <TextBox x:Name="CopilotSkillContentBox" Classes="settings-command-editor"
                                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="170" MaxHeight="300"
                                              Watermark="---&#10;name: my-skill&#10;description: ...&#10;---"/>
-                                    <Button Classes="primary compact" Content="{loc:Loc ui.148}" Click="SaveCopilotSkill"
+                                    <controls:AppButton Classes="primary compact" Content="{loc:Loc ui.148}" Click="SaveCopilotSkill"
                                             HorizontalAlignment="Right"/>
                                 </StackPanel>
                             </Border>
@@ -827,7 +827,7 @@
                                                 <TextBlock x:Name="UpdateStatus" Classes="settings-description" TextWrapping="Wrap"
                                                            IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
                                             </StackPanel>
-                                            <Button Grid.Column="1" x:Name="UpdateButton" VerticalAlignment="Center" Classes="secondary compact" Content="{loc:Loc ui.220}" Click="OnUpdateButtonClick"/>
+                                            <controls:AppButton Grid.Column="1" x:Name="UpdateButton" VerticalAlignment="Center" Classes="secondary compact" Content="{loc:Loc ui.220}" Click="OnUpdateButtonClick"/>
                                         </Grid>
                                     </Border>
                                     <Border Classes="settings-row settings-divider">
@@ -836,13 +836,13 @@
                                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.267}"/>
                                                 <TextBlock x:Name="PrivacyPolicyStatus" Classes="settings-description" TextWrapping="Wrap"/>
                                             </StackPanel>
-                                            <Button Grid.Column="1" Classes="secondary compact" VerticalAlignment="Center" Content="{loc:Loc ui.217}" Click="OnPrivacyPolicy"/>
+                                            <controls:AppButton Grid.Column="1" Classes="secondary compact" VerticalAlignment="Center" Content="{loc:Loc ui.217}" Click="OnPrivacyPolicy"/>
                                         </Grid>
                                     </Border>
                                     <Border Classes="settings-row settings-divider">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                             <TextBlock Classes="settings-label" Text="{loc:Loc settings.feedback}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                            <Button Grid.Column="1" x:Name="FeedbackButton" Classes="secondary compact"
+                                            <controls:AppButton Grid.Column="1" x:Name="FeedbackButton" Classes="secondary compact"
                                                     Content="{loc:Loc settings.feedback.github}" ToolTip.Tip="{loc:Loc settings.feedback.github.tip}"
                                                     AutomationProperties.Name="{loc:Loc settings.feedback.github.tip}" Click="OnFeedback"/>
                                         </Grid>
@@ -850,7 +850,7 @@
                                     <Border Classes="settings-row">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                             <TextBlock Classes="settings-label" Text="{loc:Loc settings.review}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                            <Button Grid.Column="1" x:Name="ReviewButton" Classes="secondary compact"
+                                            <controls:AppButton Grid.Column="1" x:Name="ReviewButton" Classes="secondary compact"
                                                     Content="{loc:Loc settings.review.store}" Click="OnReview"/>
                                         </Grid>
                                     </Border>
@@ -887,7 +887,7 @@
                                 <Border Classes="settings-row">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                         <TextBlock Classes="settings-label" Text="{loc:Loc ui.134}" VerticalAlignment="Center"/>
-                                        <Button Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.241}" Click="OnManageSubscription"/>
+                                        <controls:AppButton Grid.Column="1" Classes="secondary compact" Content="{loc:Loc ui.241}" Click="OnManageSubscription"/>
                                     </Grid>
                                 </Border>
                             </Border>

@@ -163,7 +163,7 @@ public partial class HomeFolderContent : UserControl
             if (button == null)
             {
                 button = _actions.CreateItemButton(desired[i], _tag, beforeOpen: Close);
-                button.Width = 116; button.Height = 116; button.Margin = new Thickness(4, 6);
+                button.Classes.Add("expanded");
                 FolderEntries.Children.Insert(i, button);
             }
             else if (FolderEntries.Children.IndexOf(button) != i)

@@ -16,15 +16,15 @@
         <TextBlock Grid.Row="1" x:Name="ErrorText" IsVisible="False" TextWrapping="Wrap"
                    Margin="0,8,0,0" Foreground="{DynamicResource DangerBrush}"/>
         <DockPanel Grid.Row="2" LastChildFill="False" Margin="0,14,0,0">
-            <Button x:Name="AddButton" DockPanel.Dock="Left" Classes="ghost compact" Click="OnAdd">
+            <controls:AppButton x:Name="AddButton" DockPanel.Dock="Left" Classes="ghost compact" Click="OnAdd">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <PathIcon Data="{x:Static icons:Icons.Plus}" Width="12" Height="12"/>
                     <TextBlock Text="{loc:Loc ui.493}" VerticalAlignment="Center"/>
                 </StackPanel>
-            </Button>
+            </controls:AppButton>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
-                <Button Content="{loc:Loc ui.094}" Classes="secondary compact" Click="OnCancel"/>
-                <Button Content="{loc:Loc ui.095}" Classes="primary compact" Click="OnSave"/>
+                <controls:AppButton Content="{loc:Loc ui.094}" Classes="secondary compact" Click="OnCancel"/>
+                <controls:AppButton Content="{loc:Loc ui.095}" Classes="primary compact" Click="OnSave"/>
             </StackPanel>
         </DockPanel>
     </Grid>

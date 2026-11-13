@@ -3,6 +3,7 @@
 import argparse
 import json
 import subprocess
+import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
@@ -21,6 +22,9 @@ def main():
     parser.add_argument("--configuration", default="Debug", choices=["Debug", "Release"])
     parser.add_argument("--budget", type=float, help="Fail if build + execution exceeds this many seconds")
     args = parser.parse_args()
+    audit_code = subprocess.call([sys.executable, str(ROOT / "Tools/Testing/check-buttons.py")])
+    if audit_code:
+        return audit_code
     started = time.monotonic()
     results = Path(tempfile.mkdtemp(prefix="fkfinder-tests-"))
     print(f"Test profile: {args.profile}; results: {results}", flush=True)

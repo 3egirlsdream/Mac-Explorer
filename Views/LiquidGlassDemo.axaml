@@ -14,29 +14,7 @@
             <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
-        <Style Selector="Button.glass-btn">
-            <Setter Property="Background" Value="#14000000"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-            <Setter Property="Padding" Value="28,10"/>
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="Button.glass-btn:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-        <Style Selector="Button.glass-btn-cancel">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-            <Setter Property="Padding" Value="28,10"/>
-            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="Button.glass-btn-cancel:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
+
     </UserControl.Styles>
 
     <Panel>
@@ -104,8 +82,8 @@
                                TextWrapping="Wrap" HorizontalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" Spacing="14"
                                 HorizontalAlignment="Center" Margin="0,8,0,0">
-                        <Button Content="Confirm" Classes="primary glass-btn"/>
-                        <Button Content="Cancel" Classes="ghost glass-btn-ghost"/>
+                        <controls:AppButton Content="Confirm" Classes="primary"/>
+                        <controls:AppButton Content="Cancel" Classes="ghost"/>
                     </StackPanel>
                 </StackPanel>
             </controls:SurfaceCard.Content>

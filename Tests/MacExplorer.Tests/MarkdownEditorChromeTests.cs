@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Automation;
@@ -45,9 +46,9 @@ public sealed class MarkdownEditorChromeTests
     {
         var view = new MarkdownEditorView();
 
-        var split = Assert.IsType<ToggleButton>(view.FindControl<ToggleButton>("SplitMode"));
-        var preview = Assert.IsType<ToggleButton>(view.FindControl<ToggleButton>("PreviewMode"));
-        var source = Assert.IsType<ToggleButton>(view.FindControl<ToggleButton>("SourceMode"));
+        var split = Assert.IsType<AppToggleButton>(view.FindControl<ToggleButton>("SplitMode"));
+        var preview = Assert.IsType<AppToggleButton>(view.FindControl<ToggleButton>("PreviewMode"));
+        var source = Assert.IsType<AppToggleButton>(view.FindControl<ToggleButton>("SourceMode"));
         Assert.All(new[] { source, split, preview }, toggle => Assert.Contains("view-mode-toggle", toggle.Classes));
         Assert.True(split.IsChecked);
         Assert.False(source.IsChecked);

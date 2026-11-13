@@ -38,20 +38,21 @@ public sealed class MarkdownPreviewTests
 
             var copyButton = window.GetVisualDescendants()
                 .OfType<Button>()
-                .Single(button => button.Classes.Contains(MarkdownStyleKeys.CopyButton));
+                .Single(button => button.Classes.Contains("markdown-copy"));
 
             var icon = Assert.IsType<PathIcon>(copyButton.Content);
             Assert.Equal(Geometry.Parse(Icons.Copy).Bounds, icon.Data!.Bounds);
             Assert.Equal("复制", AutomationProperties.GetName(copyButton));
             Assert.Equal("复制", ToolTip.GetTip(copyButton));
-            Assert.True(copyButton.Classes.Contains("md-copy"));
+            Assert.True(copyButton.Classes.Contains("icon-action"));
+            Assert.False(copyButton.Classes.Contains(MarkdownStyleKeys.CopyButton));
 
             // Geometry and centring follow the app's icon buttons.
             Assert.Equal(28d, copyButton.Width);
             Assert.Equal(28d, copyButton.Height);
             Assert.Equal(28d, copyButton.MinWidth);
             Assert.Equal(28d, copyButton.MinHeight);
-            Assert.Equal(default, copyButton.Padding);
+            Assert.Equal(new Thickness(5), copyButton.Padding);
             Assert.Equal(new Thickness(0), copyButton.BorderThickness);
             Assert.Equal(HorizontalAlignment.Center, copyButton.HorizontalContentAlignment);
             Assert.Equal(VerticalAlignment.Center, copyButton.VerticalContentAlignment);
@@ -63,7 +64,7 @@ public sealed class MarkdownPreviewTests
             // must still reach both the button and the template presenter.
             var presenter = copyButton.GetVisualDescendants().OfType<ContentPresenter>()
                 .Single(candidate => candidate.Name == "PART_ContentPresenter");
-            Assert.Equal(radius, presenter.CornerRadius);
+            Assert.Equal(default, presenter.CornerRadius);
             AssertTransparent(copyButton.Background);
             AssertTransparent(presenter.Background);
 
@@ -81,12 +82,12 @@ public sealed class MarkdownPreviewTests
             var point = copyButton.TranslatePoint(buttonCentre, window)!.Value;
             window.MouseMove(point);
             Dispatcher.UIThread.RunJobs();
-            AssertBrush(window, "InteractionHoverBrush", copyButton.Background);
-            AssertBrush(window, "InteractionHoverBrush", presenter.Background);
+            AssertTransparent(copyButton.Background);
+            AssertTransparent(presenter.Background);
 
             window.MouseDown(point, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
-            AssertBrush(window, "InteractionHoverBrush", presenter.Background);
+            AssertTransparent(presenter.Background);
             window.MouseUp(point, MouseButton.Left);
         }
         finally
@@ -106,12 +107,6 @@ public sealed class MarkdownPreviewTests
         Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(actual).Color);
     }
 
-    private static void AssertBrush(Window window, string key, IBrush? actual)
-    {
-        Assert.True(window.TryFindResource(key, window.ActualThemeVariant, out var expected), $"Missing resource {key}");
-        Assert.Equal(
-            Assert.IsAssignableFrom<ISolidColorBrush>(expected).Color,
-            Assert.IsAssignableFrom<ISolidColorBrush>(actual).Color);
-    }
+
 
 }

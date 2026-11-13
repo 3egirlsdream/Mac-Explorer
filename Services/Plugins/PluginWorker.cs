@@ -24,6 +24,12 @@ internal static class PluginWorker
         {
             Name = PluginPackage.ReadManifest(Directory).Name;
             Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
+            Resources.MergedDictionaries.Add((Avalonia.Controls.ResourceDictionary)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+                new Uri("avares://MacExplorer/Assets/TypographyTokens.axaml")));
+            Styles.Add((Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+                new Uri("avares://MacExplorer/Assets/ThemeTokens.axaml")));
+            Styles.Add((Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+                new Uri("avares://MacExplorer/Assets/ButtonStyles.axaml")));
         }
         public override void OnFrameworkInitializationCompleted()
         {

@@ -31,7 +31,7 @@
                         <TextBlock Classes="settings-label" Text="{loc:Loc ui.505}" VerticalAlignment="Center"/>
                         <TextBlock x:Name="DirectoryName" Grid.Column="1" Classes="settings-description"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                        <Button Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.215}" Click="OnChooseDirectory"/>
+                        <controls:AppButton Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.215}" Click="OnChooseDirectory"/>
                     </Grid>
                 </Border>
             </StackPanel>
@@ -45,8 +45,8 @@
             </ListBox.ItemTemplate>
         </ListBox>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
-            <Button Classes="primary compact" Content="{loc:Loc ui.506}" IsDefault="True" Click="OnAccept"/>
+            <controls:AppButton Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
+            <controls:AppButton Classes="primary compact" Content="{loc:Loc ui.506}" IsDefault="True" Click="OnAccept"/>
         </StackPanel>
     </Grid>
 </controls:DialogWindow>

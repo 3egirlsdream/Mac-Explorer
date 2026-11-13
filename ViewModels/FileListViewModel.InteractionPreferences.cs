@@ -39,6 +39,15 @@ public partial class FileListViewModel
 
     private void OnSettingsChanged(string key)
     {
+        if (key == "ai_analysis_enabled" && !_disposed)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_disposed) return;
+                if (_settingsService?.Get(key, true) == true) ResumeDocumentIndex(); else CancelDocumentIndex();
+            });
+            return;
+        }
         if (key.StartsWith("sidebar_show_ai_", StringComparison.Ordinal) && !_disposed)
         {
             if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())

@@ -9,6 +9,7 @@ namespace MacExplorer.ViewModels;
 public partial class SortFilterViewModel : ObservableObject
 {
     private readonly ISettingsService? _settingsService;
+    internal bool DirectoryScoped { get; set; }
     private readonly Microsoft.Extensions.Logging.ILogger<SortFilterViewModel>? _logger;
 
     private IReadOnlyList<FileSystemEntry> _rawEntries = [];
@@ -79,9 +80,9 @@ public partial class SortFilterViewModel : ObservableObject
     }
 
     partial void OnViewModeChanged(ViewMode value) => _settingsService?.Set("ViewMode", value);
-    partial void OnSortFieldChanged(SortField value) { _settingsService?.Set("SortField", value); }
-    partial void OnSortAscendingChanged(bool value) { _settingsService?.Set("SortAscending", value); }
-    partial void OnSortPriorityChanged(SortPriority value) => _settingsService?.Set("SortPriority", value);
+    partial void OnSortFieldChanged(SortField value) { if (!DirectoryScoped) _settingsService?.Set("SortField", value); }
+    partial void OnSortAscendingChanged(bool value) { if (!DirectoryScoped) _settingsService?.Set("SortAscending", value); }
+    partial void OnSortPriorityChanged(SortPriority value) { if (!DirectoryScoped) _settingsService?.Set("SortPriority", value); }
     partial void OnGroupFieldChanged(GroupField value) { _settingsService?.Set("GroupField", value); }
     partial void OnHideSystemFilesChanged(bool value) => _settingsService?.Set("HideSystemFiles", value);
     partial void OnHideDotFilesChanged(bool value) => _settingsService?.Set("HideDotFiles", value);

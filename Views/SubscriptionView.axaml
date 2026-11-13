@@ -53,16 +53,16 @@
                 <TextBlock x:Name="TermsText" Classes="settings-description" TextAlignment="Center" TextWrapping="Wrap"/>
             </StackPanel>
             <TextBlock x:Name="MessageText" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" IsVisible="False"/>
-            <Button x:Name="SubscribeButton" Classes="primary" MinHeight="36" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Subscribe"/>
+            <controls:AppButton x:Name="SubscribeButton" Classes="primary large" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Subscribe"/>
             <WrapPanel HorizontalAlignment="Center">
-                <Button x:Name="RestoreButton" Classes="ghost compact" Content="{loc:Loc ui.594}" Click="Restore"/>
-                <Button x:Name="RetryButton" Classes="ghost compact" Content="{loc:Loc ui.595}" Click="Retry"/>
-                <Button x:Name="ManageButton" Classes="ghost compact" Content="{loc:Loc ui.241}" Click="Manage"/>
+                <controls:AppButton x:Name="RestoreButton" Classes="ghost compact" Content="{loc:Loc ui.594}" Click="Restore"/>
+                <controls:AppButton x:Name="RetryButton" Classes="ghost compact" Content="{loc:Loc ui.595}" Click="Retry"/>
+                <controls:AppButton x:Name="ManageButton" Classes="ghost compact" Content="{loc:Loc ui.241}" Click="Manage"/>
             </WrapPanel>
             <WrapPanel HorizontalAlignment="Center">
-                <Button Classes="ghost compact" Content="{loc:Loc ui.267}" Click="Privacy"/>
-                <Button Classes="ghost compact" Content="{loc:Loc ui.596}" Click="Terms"/>
-                <Button x:Name="ContinueButton" Classes="ghost compact" Content="{loc:Loc access.continue}" Click="ContinueFree"/>
+                <controls:AppButton Classes="ghost compact" Content="{loc:Loc ui.267}" Click="Privacy"/>
+                <controls:AppButton Classes="ghost compact" Content="{loc:Loc ui.596}" Click="Terms"/>
+                <controls:AppButton x:Name="ContinueButton" Classes="ghost compact" Content="{loc:Loc access.continue}" Click="ContinueFree"/>
             </WrapPanel>
         </StackPanel>
     </Grid>

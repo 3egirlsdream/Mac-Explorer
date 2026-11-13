@@ -21,9 +21,13 @@ internal static class WindowOpenSmoke
     {
         var root = RuntimePaths.TestRoot ?? throw new InvalidOperationException("An isolated test profile is required.");
         var results = new List<object>();
+        var auditButtons = Environment.GetEnvironmentVariable("MACEXPLORER_BUTTON_AUDIT_SMOKE") == "1";
+        var buttonOutput = Path.Combine(root, "button-components");
+        if (auditButtons) Directory.CreateDirectory(buttonOutput);
         string? error = null;
         try
         {
+            if (auditButtons) await ButtonComponentsSmoke.CaptureGalleryAsync(owner, buttonOutput);
             var title = LocalizationText.Get("settings.general");
             var message = LocalizationText.Get("settings.general.description");
             var script = Path.Combine(root, "Documents", "window-smoke.sh");
@@ -52,7 +56,18 @@ internal static class WindowOpenSmoke
                 for (var iteration = 0; iteration < 2; iteration++)
                 {
                     var timer = Stopwatch.StartNew();
+                    if (auditButtons)
+                    {
+                        App.Services.GetRequiredService<ILocalizationService>().SetLanguage(iteration == 0 ? "zh-CN" : "en");
+                        title = LocalizationText.Get("settings.general");
+                        message = LocalizationText.Get("settings.general.description");
+                    }
                     var window = create();
+                    if (auditButtons)
+                    {
+                        window.RequestedThemeVariant = iteration == 0 ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark;
+                        if (iteration == 1) window.Width = Math.Max(window.MinWidth, Math.Min(window.Width, 430));
+                    }
                     var constructMs = timer.Elapsed.TotalMilliseconds;
                     using var modal = owner.BlockModalParentInteraction();
                     try
@@ -62,6 +77,7 @@ internal static class WindowOpenSmoke
                         var filled = FrameFillsWindow(window);
                         await CommitAsync(window);
                         var commitMs = timer.Elapsed.TotalMilliseconds;
+                        if (auditButtons) await ButtonComponentsSmoke.CaptureAsync(window, Path.Combine(buttonOutput, $"{name}-{iteration}.png"));
                         var frame = window.GetVisualDescendants().OfType<Border>().Single(c => c.Name == "WindowFrame");
                         results.Add(new { name, iteration, constructMs, showMs, commitMs, filled,
                             clientWidth = window.ClientSize.Width, clientHeight = window.ClientSize.Height,
@@ -83,6 +99,7 @@ internal static class WindowOpenSmoke
                                 await CommitAsync(settings);
                                 results.Add(new { page = page.PageKey, readyMs, layoutMs, commitMs = pageTimer.Elapsed.TotalMilliseconds,
                                     loaded = page.IsContentLoaded });
+                                if (auditButtons) await ButtonComponentsSmoke.CaptureAsync(settings, Path.Combine(buttonOutput, $"settings-{page.PageKey}.png"));
                             }
                         }
                         window.Close();
@@ -99,6 +116,7 @@ internal static class WindowOpenSmoke
                 main.Closed += (_, _) => closed.TrySetResult();
                 var showMs = timer.Elapsed.TotalMilliseconds;
                 await CommitAsync(main);
+                if (auditButtons) await ButtonComponentsSmoke.CaptureAsync(main, Path.Combine(buttonOutput, $"main-{iteration}.png"));
                 results.Add(new { name = "main", iteration, showMs, commitMs = timer.Elapsed.TotalMilliseconds, filled = FrameFillsWindow(main) });
                 main.Close();
                 await closed.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -108,6 +126,7 @@ internal static class WindowOpenSmoke
             var desktop = (IClassicDesktopStyleApplicationLifetime)Avalonia.Application.Current!.ApplicationLifetime!;
             var delivery = desktop.Windows.OfType<FileDeliveryWindow>().Single();
             await CommitAsync(delivery);
+            if (auditButtons) await ButtonComponentsSmoke.CaptureAsync(delivery, Path.Combine(buttonOutput, "file-delivery.png"));
             results.Add(new { name = "file-delivery", commitMs = deliveryTimer.Elapsed.TotalMilliseconds, filled = FrameFillsWindow(delivery) });
         }
         catch (Exception ex) { error = ex.ToString(); }

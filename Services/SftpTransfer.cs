@@ -21,7 +21,7 @@ internal static class SftpTransfer
     }
     internal static async Task<string> CopyAsync(string source, string directory, FileTaskContext context,
         Func<string, SftpClient> client, IProgress<FileOperationProgress>? progress,
-        string? exactTarget = null, bool replaceExisting = false)
+        string? exactTarget = null, bool replaceExisting = false, Action? beforeCommit = null)
     {
         return await Task.Run(async () =>
         {
@@ -158,6 +158,7 @@ internal static class SftpTransfer
                     if (Inspect(item.Source, item.Relative) != item) throw new IOException(Impl.LocalizationText.Get("源项目已变化，请重新创建任务。"));
                     using (context.Atomic())
                     {
+                        beforeCommit?.Invoke();
                         if (replaceExisting && Remote(target) && Exists(target))
                         {
                             if (original == null || Inspect(target, "") != original)

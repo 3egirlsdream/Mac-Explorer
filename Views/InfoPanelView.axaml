@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
@@ -13,23 +14,21 @@
         <Grid RowDefinitions="Auto,*">
                 <!-- Header with preview controls -->
                 <DockPanel Grid.Row="0" Margin="16,0" MinHeight="40" LastChildFill="True">
-                    <Button DockPanel.Dock="Right" x:Name="ClosePanelBtn" AutomationProperties.Name="{loc:Loc ui.569}" ToolTip.Tip="{loc:Loc ui.569}"
-                            Classes="ghost info-panel-icon"
-                            Padding="0" Click="ClosePanel" HorizontalAlignment="Right"
+                    <controls:AppButton DockPanel.Dock="Right" x:Name="ClosePanelBtn" AutomationProperties.Name="{loc:Loc ui.569}" ToolTip.Tip="{loc:Loc ui.569}"
+                            Classes="ghost info-panel-icon" Click="ClosePanel" HorizontalAlignment="Right"
                             VerticalAlignment="Center">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="11" Height="11"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                    </Button>
-                    <Button DockPanel.Dock="Right" x:Name="ExpandPreviewBtn" AutomationProperties.Name="{loc:Loc ui.570}"
-                            Classes="ghost info-panel-icon" Margin="0,0,6,0"
-                            Padding="0" Click="TogglePreviewExpanded"
+                    </controls:AppButton>
+                    <controls:AppButton DockPanel.Dock="Right" x:Name="ExpandPreviewBtn" AutomationProperties.Name="{loc:Loc ui.570}"
+                            Classes="ghost info-panel-icon" Margin="0,0,6,0" Click="TogglePreviewExpanded"
                             ToolTip.Tip="{loc:Loc ui.570}" HorizontalAlignment="Right"
                             VerticalAlignment="Center">
                         <PathIcon x:Name="ExpandPreviewIcon"
                                   Data="{x:Static icons:Icons.ExpandPreview}"
                                   Width="11" Height="11"
                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                    </Button>
+                    </controls:AppButton>
                     <TextBlock x:Name="PanelTitle" Text="{loc:Loc ui.571}" FontWeight="{StaticResource FontWeightMedium}" FontSize="{DynamicResource FontSizeBodyLarge}"
                                Foreground="{DynamicResource TextPrimaryBrush}"
                                VerticalAlignment="Center"/>
@@ -64,20 +63,19 @@
                                 Background="{DynamicResource WorkspacePreviewBadgeBrush}">
                             <TextBlock x:Name="PreviewKindText" FontSize="{DynamicResource FontSizeMeta}" Foreground="{DynamicResource TextOnAccentBrush}"/>
                         </Border>
-                        <Button AutomationProperties.Name="{loc:Loc ui.573}" x:Name="CopyImageTextBtn" IsVisible="False"
-                                Classes="ghost compact" Click="CopyImageText"
+                        <controls:AppButton AutomationProperties.Name="{loc:Loc ui.573}" x:Name="CopyImageTextBtn" IsVisible="False"
+                                Classes="ghost compact preview-action" Click="CopyImageText"
                                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                Margin="8" Padding="9,5" CornerRadius="{DynamicResource InteractionCornerRadius}"
-                                Background="{DynamicResource WorkspacePreviewActionBrush}" Foreground="{DynamicResource TextOnAccentBrush}"
-                                Content="{loc:Loc ui.574}" FontSize="{DynamicResource FontSizeLabel}"
+                                Margin="8"
+                                Content="{loc:Loc ui.574}"
                                 ToolTip.Tip="{loc:Loc ui.573}">
-                        </Button>
+                        </controls:AppButton>
                     </Panel>
                 </Border>
 
                 <StackPanel x:Name="PreviewFeedback" Margin="16,10,16,0" Spacing="8" IsVisible="False">
                     <TextBlock x:Name="PreviewFeedbackText" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <Button x:Name="RetryPreviewButton" Content="{loc:Loc ui.093}" Classes="secondary compact" Click="RetryPreview" HorizontalAlignment="Left"/>
+                    <controls:AppButton x:Name="RetryPreviewButton" Content="{loc:Loc ui.093}" Classes="secondary compact" Click="RetryPreview" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <StackPanel x:Name="DetailsPanel" Spacing="0" IsVisible="False">
                     <TextBlock x:Name="SelectedFileName" Margin="8,16,8,0" FontSize="{DynamicResource FontSizeBodyLarge}" FontWeight="{StaticResource FontWeightSemibold}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
@@ -125,17 +123,17 @@
                         <Grid ColumnDefinitions="72,*,Auto">
                             <TextBlock Text="SHA-256" Classes="info-field-label"/>
                             <TextBlock Grid.Column="1" x:Name="InfoHash" Text="—" Classes="info-field-value" Margin="0,0,4,0"/>
-                            <Button Grid.Column="2" x:Name="ComputeHashBtn" IsVisible="False"
-                                    Content="{loc:Loc ui.577}" Classes="ghost compact" Padding="6,2" MinHeight="24"
+                            <controls:AppButton Grid.Column="2" x:Name="ComputeHashBtn" IsVisible="False"
+                                    Content="{loc:Loc ui.577}" Classes="ghost compact small"
                                     AutomationProperties.Name="{loc:Loc ui.578}"
                                     VerticalAlignment="Center" Click="ComputeHash"/>
-                            <Button Grid.Column="2" x:Name="CopyHashBtn" IsVisible="False"
+                            <controls:AppButton Grid.Column="2" x:Name="CopyHashBtn" IsVisible="False"
                                     AutomationProperties.Name="{loc:Loc ui.579}" ToolTip.Tip="{loc:Loc ui.579}"
-                                    Classes="ghost info-panel-icon" Padding="0" Margin="2,0,0,0"
+                                    Classes="ghost info-panel-icon" Margin="2,0,0,0"
                                     VerticalAlignment="Center" Click="CopyHash">
                                 <PathIcon Data="{x:Static icons:Icons.Copy}" Width="11" Height="11"
                                           Foreground="{DynamicResource TextMutedBrush}"/>
-                            </Button>
+                            </controls:AppButton>
                         </Grid>
                     </Border>
                 </StackPanel>
@@ -193,7 +191,7 @@
                 <Border Height="1" Background="{DynamicResource WorkspaceDividerBrush}" Margin="8,16,8,12"/>
                 <StackPanel Margin="8,0,8,14" Spacing="8">
                     <TextBlock Text="{loc:Loc ui.583}" Classes="info-section-title" Margin="0"/>
-                    <Button Classes="ghost info-quick-action" Click="CopyPath" AutomationProperties.Name="{loc:Loc ui.355}" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">
+                    <controls:AppButton Classes="ghost info-quick-action" Click="CopyPath" AutomationProperties.Name="{loc:Loc ui.355}">
                         <Grid ColumnDefinitions="24,*">
                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.CopyPath}"
                                       Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"
@@ -202,8 +200,8 @@
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </Grid>
-                    </Button>
-                    <Button Classes="ghost info-quick-action" Click="OpenInTerminal" AutomationProperties.Name="{loc:Loc ui.584}" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">
+                    </controls:AppButton>
+                    <controls:AppButton Classes="ghost info-quick-action" Click="OpenInTerminal" AutomationProperties.Name="{loc:Loc ui.584}">
                         <Grid ColumnDefinitions="24,*">
                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Terminal}"
                                       Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"
@@ -212,8 +210,8 @@
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </Grid>
-                    </Button>
-                    <Button Classes="ghost info-quick-action" Click="CompressFile" AutomationProperties.Name="{loc:Loc ui.354}" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,4">
+                    </controls:AppButton>
+                    <controls:AppButton Classes="ghost info-quick-action" Click="CompressFile" AutomationProperties.Name="{loc:Loc ui.354}">
                         <Grid ColumnDefinitions="24,*">
                             <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Compress}"
                                       Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"
@@ -222,7 +220,7 @@
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </Grid>
-                    </Button>
+                    </controls:AppButton>
                 </StackPanel>
                 </StackPanel>
             </StackPanel>

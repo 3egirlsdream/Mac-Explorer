@@ -6,7 +6,7 @@ using System.Text;
 
 namespace MacExplorer.Services.Impl;
 
-public class AiTagService : IAiTagService
+public partial class AiTagService : IAiTagService
 {
     private const int CurrentAnalysisVersion = 1;
     private readonly SqliteConnection _connection;
@@ -18,6 +18,9 @@ public class AiTagService : IAiTagService
     {
         _connection = connectionFactory.GetConnection();
         _logger = loggerFactory?.CreateLogger<AiTagService>();
+        using var transaction = _connection.BeginTransaction();
+        MacExplorer.Indexing.FeatureUpgradeSchema.Ensure(_connection, transaction);
+        transaction.Commit();
     }
 
     // ── Analysis status ──
@@ -247,6 +250,7 @@ public class AiTagService : IAiTagService
         try
         {
             await DeleteAnalysisDataAsync(filePath, transaction);
+            DeleteFeaturePaths(filePath, transaction, false);
 
             using var cmd = _connection.CreateCommand();
             cmd.Transaction = transaction;
@@ -274,6 +278,7 @@ public class AiTagService : IAiTagService
             foreach (var path in filePaths)
             {
                 await DeleteAnalysisDataAsync(path, transaction);
+                DeleteFeaturePaths(path, transaction, false);
 
                 using var cmd = _connection.CreateCommand();
                 cmd.Transaction = transaction;
@@ -309,6 +314,7 @@ public class AiTagService : IAiTagService
                 cmd.Parameters.AddWithValue("@prefix", oldPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
                 await cmd.ExecuteNonQueryAsync();
             }
+            UpdateFeaturePaths(oldPath, newPath, transaction);
             transaction.Commit();
         }
         catch
@@ -348,6 +354,7 @@ public class AiTagService : IAiTagService
                 """;
             await cleanupCmd.ExecuteNonQueryAsync();
 
+            DeleteFeaturePaths(pathPrefix, transaction, true);
             transaction.Commit();
         }
         catch

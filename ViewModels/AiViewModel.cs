@@ -397,7 +397,7 @@ public partial class AiViewModel : ObservableObject
 
             await Task.WhenAll(
                 RunAnalysisBatchAsync(toAnalyze.Where(f => !IsPdf(f.Path)).ToList(), false, token),
-                RunAnalysisBatchAsync(toAnalyze.Where(f => IsPdf(f.Path)).ToList(), true, token));
+                RunAnalysisBatchAsync(toAnalyze.Where(f => !UsesDocumentIndex && IsPdf(f.Path)).ToList(), true, token));
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _logger?.LogError(ex, "AI analysis trigger failed"); }
@@ -409,6 +409,7 @@ public partial class AiViewModel : ObservableObject
     }
 
     private bool AnalysisEnabled => IsAiAnalysisEnabled && (_settingsService?.Get(SettingKeyAiEnabled, true) ?? true);
+    internal bool UsesDocumentIndex { get; set; }
     private static bool IsPdf(string path) => Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
 
     private async Task RunAnalysisBatchAsync(List<(string Path, long ModifiedTicks)> files, bool pdf, CancellationToken ct)

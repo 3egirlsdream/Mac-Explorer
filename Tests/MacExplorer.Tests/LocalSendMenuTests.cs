@@ -245,6 +245,31 @@ public sealed class LocalSendMenuViewModelTests : FileListViewModelTestBase
         finally { dialog.Close(); Dispatcher.UIThread.RunJobs(); }
     }
 
+    [AvaloniaFact(Explicit = true)]
+    public void ManualAddressDialogCollapsesTheFooterAfterConnecting()
+    {
+        using var theme = new FastListTestTheme();
+        var dialog = new LocalSendAddressDialog(new FakeLocalSend());
+        dialog.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
+            var actions = dialog.FindControl<StackPanel>("DialogActions")!;
+            Assert.True(actions.IsVisible);
+            dialog.FindControl<TextBox>("AddressBox")!.Text = "127.0.0.1";
+            dialog.FindControl<Button>("ConnectButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
+            Assert.False(actions.IsVisible);
+            Assert.False(dialog.FindControl<TextBox>("AddressBox")!.IsEnabled);
+            var body = Assert.IsType<Grid>(dialog.Content);
+            Assert.Equal(body.Bounds.Height, dialog.FindControl<ScrollViewer>("StatusScroller")!.Bounds.Bottom);
+            dialog.GetVisualDescendants().OfType<WindowTitleBar>().Single()
+                .FindControl<Button>("CloseButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.False(dialog.IsVisible);
+        }
+        finally { dialog.Close(); Dispatcher.UIThread.RunJobs(); }
+    }
+
 }
 
 public abstract partial class FileListViewModelTestBase

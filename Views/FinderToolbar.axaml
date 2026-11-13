@@ -14,9 +14,7 @@
             <Setter Property="Width" Value="13"/>
             <Setter Property="Height" Value="13"/>
         </Style>
-        <Style Selector="Button#DeleteButton:pointerover PathIcon, Button#DeleteOverflowButton:pointerover PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
-        </Style>
+
         <Style Selector="Image.new-item-icon">
             <Setter Property="Width" Value="18"/>
             <Setter Property="Height" Value="18"/>
@@ -44,7 +42,7 @@
                             <DataTemplate>
                                 <StackPanel>
                                     <Separator IsVisible="{Binding IsSeparator}"/>
-                                    <Button AutomationProperties.Name="{Binding Label}" Classes="toolbar-popup-item"
+                                    <controls:AppButton AutomationProperties.Name="{Binding Label}" Classes="toolbar-popup-item"
                                             IsVisible="{Binding !IsSeparator}" IsEnabled="{Binding IsEnabled}"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                             Click="CreateNewItem">
@@ -52,7 +50,7 @@
                                             <Image Classes="new-item-icon" Source="{Binding IconImage}"/>
                                             <TextBlock Text="{Binding Label}" FontSize="{DynamicResource FontSizeBody}"/>
                                         </StackPanel>
-                                    </Button>
+                                    </controls:AppButton>
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -61,32 +59,32 @@
             </Popup>
 
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.021}"
+                <controls:AppButton Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.021}"
                         AutomationProperties.Name="{loc:Loc ui.021}" x:Name="NewBtn" Click="ToggleNewDropdown">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Plus}"/>
                         <TextBlock Classes="compact-label" Text="{loc:Loc ui.021}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                     </StackPanel>
-                </Button>
+                </controls:AppButton>
                 <Separator Classes="toolbar-separator toolbar-regular-action"/>
 
                 <!-- Clipboard -->
-                <Button x:Name="CutButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.cut" AutomationProperties.Name="{loc:Loc ui.007}" Click="CutSelected">
+                <controls:AppButton x:Name="CutButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.cut" AutomationProperties.Name="{loc:Loc ui.007}" Click="CutSelected">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
-                </Button>
-                <Button x:Name="CopyButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.copy" AutomationProperties.Name="{loc:Loc ui.012}" Click="CopySelected">
+                </controls:AppButton>
+                <controls:AppButton x:Name="CopyButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.copy" AutomationProperties.Name="{loc:Loc ui.012}" Click="CopySelected">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
-                </Button>
-                <Button x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="{loc:Loc ui.026}" Click="PasteItems">
+                </controls:AppButton>
+                <controls:AppButton x:Name="PasteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="{loc:Loc ui.026}" Click="PasteItems">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
-                </Button>
-                <Button x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Click="DeleteSelected">
+                </controls:AppButton>
+                <controls:AppButton x:Name="DeleteButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Click="DeleteSelected">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
-                </Button>
+                </controls:AppButton>
 
-                <Button x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="{loc:Loc ui.029}" Click="GoHome">
+                <controls:AppButton x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="{loc:Loc ui.029}" Click="GoHome">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
-                </Button>
+                </controls:AppButton>
             </StackPanel>
 
             <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="4">
@@ -99,30 +97,30 @@
                 <Path Data="{DynamicResource ViewModeTrackThreeGeometry}"
                       Fill="{DynamicResource ViewModeToggleBg}" IsHitTestVisible="False"/>
                 <StackPanel Orientation="Horizontal" Margin="2">
-                    <ToggleButton x:Name="GridViewToggle" Classes="view-mode-toggle"
+                    <controls:AppToggleButton x:Name="GridViewToggle" Classes="view-mode-toggle"
                                   ToolTip.Tip="{loc:Loc ui.011}" AutomationProperties.Name="{loc:Loc ui.011}" Click="ToggleGridView">
                         <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Grid}"/>
-                    </ToggleButton>
-                    <ToggleButton x:Name="ListViewToggle" Classes="view-mode-toggle"
+                    </controls:AppToggleButton>
+                    <controls:AppToggleButton x:Name="ListViewToggle" Classes="view-mode-toggle"
                                   ToolTip.Tip="{loc:Loc ui.005}" AutomationProperties.Name="{loc:Loc ui.005}" Click="ToggleListView">
                         <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.List}"/>
-                    </ToggleButton>
-                    <ToggleButton x:Name="TreeViewToggle" Classes="view-mode-toggle"
+                    </controls:AppToggleButton>
+                    <controls:AppToggleButton x:Name="TreeViewToggle" Classes="view-mode-toggle"
                                   ToolTip.Tip="{loc:Loc ui.023}" AutomationProperties.Name="{loc:Loc ui.023}" Click="ToggleTreeView">
                         <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.ListTree}"/>
-                    </ToggleButton>
+                    </controls:AppToggleButton>
                 </StackPanel>
             </Grid>
 
             <Separator Grid.Column="4" Classes="toolbar-separator toolbar-regular-action"/>
 
             <!-- Sort & Group -->
-            <Button Grid.Column="5" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="{loc:Loc ui.017}" AutomationProperties.Name="{loc:Loc ui.017}" Click="ToggleSortDropdown">
+            <controls:AppButton Grid.Column="5" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="{loc:Loc ui.017}" AutomationProperties.Name="{loc:Loc ui.017}" Click="ToggleSortDropdown">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.SortUpDown}"/>
                     <TextBlock Classes="compact-label" Text="{loc:Loc ui.015}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                 </StackPanel>
-            </Button>
+            </controls:AppButton>
             <Popup x:Name="SortDropdown" Placement="BottomEdgeAlignedLeft" PlacementTarget="SortButton"
                    IsOpen="False" IsLightDismissEnabled="True"
                    OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False"
@@ -130,92 +128,98 @@
                 <Border Classes="toolbar-popup" MinWidth="190">
                     <StackPanel>
                         <TextBlock Text="{loc:Loc ui.018}" Classes="toolbar-popup-header"/>
-                        <Button Tag="Name" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.010}">
+                        <controls:AppButton Tag="Name" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.010}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="Modified" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.003}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="Modified" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.003}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.003}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="Size" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.013}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="Size" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.013}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.013}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="Type" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.025}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="Type" Classes="toolbar-popup-item sort-field" Click="SelectSortField" AutomationProperties.Name="{loc:Loc ui.025}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.025}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
+                        </controls:AppButton>
                         <Separator/>
-                        <Button x:Name="SortDirectionButton" Content="{loc:Loc ui.008}" Classes="toolbar-popup-item" Click="ToggleSortDirection"/>
+                        <controls:AppButton x:Name="SortDirectionButton" Content="{loc:Loc ui.008}" Classes="toolbar-popup-item" Click="ToggleSortDirection"/>
                         <Separator/>
                         <TextBlock Text="{loc:Loc ui.016}" Classes="toolbar-popup-header"/>
-                        <Button Tag="Files" Classes="toolbar-popup-item sort-priority" Click="SelectPriorityField" AutomationProperties.Name="{loc:Loc ui.019}">
+                        <controls:AppButton Tag="Files" Classes="toolbar-popup-item sort-priority" Click="SelectPriorityField" AutomationProperties.Name="{loc:Loc ui.019}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.019}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="Folders" Classes="toolbar-popup-item sort-priority" Click="SelectPriorityField" AutomationProperties.Name="{loc:Loc ui.020}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="Folders" Classes="toolbar-popup-item sort-priority" Click="SelectPriorityField" AutomationProperties.Name="{loc:Loc ui.020}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.020}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="None" Classes="toolbar-popup-item sort-priority" Click="SelectPriorityField" AutomationProperties.Name="{loc:Loc ui.001}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="None" Classes="toolbar-popup-item sort-priority" Click="SelectPriorityField" AutomationProperties.Name="{loc:Loc ui.001}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.001}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
+                        </controls:AppButton>
                         <Separator/>
                         <TextBlock Text="{loc:Loc ui.004}" Classes="toolbar-popup-header"/>
-                        <Button Tag="None" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.000}">
+                        <controls:AppButton Tag="None" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.000}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.000}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="Type" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.025}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="Type" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.025}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.025}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="Modified" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.003}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="Modified" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.003}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.003}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
-                        <Button Tag="Size" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.013}">
+                        </controls:AppButton>
+                        <controls:AppButton Tag="Size" Classes="toolbar-popup-item sort-group" Click="SelectGroupField" AutomationProperties.Name="{loc:Loc ui.013}">
                             <StackPanel Orientation="Horizontal">
                                 <PathIcon Classes="toolbar-popup-check" Data="{x:Static icons:Icons.Checkmark}"/>
                                 <TextBlock Text="{loc:Loc ui.013}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </Button>
+                        </controls:AppButton>
+                        <Separator/>
+                        <controls:AppButton Classes="toolbar-popup-item" Content="{loc:Loc directory.reset}" Click="ResetDirectoryPreferences"/>
                     </StackPanel>
                 </Border>
             </Popup>
 
             <!-- Info panel toggle -->
-            <Button Grid.Column="7" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.002}" AutomationProperties.Name="{loc:Loc ui.002}" Click="ToggleInfoPanel">
+            <controls:AppButton Grid.Column="7" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.002}" AutomationProperties.Name="{loc:Loc ui.002}" Click="ToggleInfoPanel">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Info}"/>
-            </Button>
+            </controls:AppButton>
 
             <!-- More button -->
-            <Button Grid.Column="8" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.022}"
+            <controls:AppButton Grid.Column="9" x:Name="RemoteEditButton" Classes="ghost toolbar-btn w32" IsVisible="{Binding IsRemoteView}"
+                    ToolTip.Tip="{loc:Loc remote-edit.title}" AutomationProperties.Name="{loc:Loc remote-edit.title}" Click="ShowRemoteEdits">
+                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Refresh}"/>
+            </controls:AppButton>
+            <controls:AppButton Grid.Column="8" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.022}"
                     AutomationProperties.Name="{loc:Loc ui.022}" x:Name="MoreBtn" Click="ToggleMoreDropdown">
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.MoreHorizontal}"/>
-            </Button>
+            </controls:AppButton>
 
             <Popup x:Name="TagManagementDropdown" Placement="BottomEdgeAlignedRight" PlacementTarget="MoreBtn"
                    IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False">
@@ -229,7 +233,7 @@
                    Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
                 <Border Classes="toolbar-popup" MinWidth="180">
                     <StackPanel>
-                        <Button x:Name="CutOverflowButton" AutomationProperties.Name="{loc:Loc ui.007}" Classes="toolbar-popup-item compact-overflow-item"
+                        <controls:AppButton x:Name="CutOverflowButton" AutomationProperties.Name="{loc:Loc ui.007}" Classes="toolbar-popup-item compact-overflow-item"
                                 controls:ShortcutTip.Command="file.cut"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="CutSelected">
@@ -237,8 +241,8 @@
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
                                 <TextBlock Text="{loc:Loc ui.007}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
-                        </Button>
-                        <Button x:Name="CopyOverflowButton" AutomationProperties.Name="{loc:Loc ui.012}" Classes="toolbar-popup-item compact-overflow-item"
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="CopyOverflowButton" AutomationProperties.Name="{loc:Loc ui.012}" Classes="toolbar-popup-item compact-overflow-item"
                                 controls:ShortcutTip.Command="file.copy"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="CopySelected">
@@ -246,8 +250,8 @@
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
                                 <TextBlock Text="{loc:Loc ui.012}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
-                        </Button>
-                        <Button x:Name="PasteOverflowButton" AutomationProperties.Name="{loc:Loc ui.026}" Classes="toolbar-popup-item compact-overflow-item"
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="PasteOverflowButton" AutomationProperties.Name="{loc:Loc ui.026}" Classes="toolbar-popup-item compact-overflow-item"
                                 controls:ShortcutTip.Command="file.paste"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="PasteItems">
@@ -255,8 +259,8 @@
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
                                 <TextBlock Text="{loc:Loc ui.026}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
-                        </Button>
-                        <Button x:Name="DeleteOverflowButton" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Classes="toolbar-popup-item compact-overflow-item"
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="DeleteOverflowButton" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Classes="toolbar-popup-item compact-overflow-item"
                                 controls:ShortcutTip.Command="file.trash"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="DeleteSelected">
@@ -264,8 +268,8 @@
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
                                 <TextBlock Text="{loc:Loc ui.006}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
-                        </Button>
-                        <Button x:Name="HomeOverflowButton" AutomationProperties.Name="{loc:Loc ui.029}" Classes="toolbar-popup-item compact-overflow-item"
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="HomeOverflowButton" AutomationProperties.Name="{loc:Loc ui.029}" Classes="toolbar-popup-item compact-overflow-item"
                                 controls:ShortcutTip.Command="navigation.home"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="GoHome">
@@ -273,9 +277,9 @@
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
                                 <TextBlock Text="{loc:Loc ui.027}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
-                        </Button>
+                        </controls:AppButton>
                         <Separator Classes="compact-overflow-item"/>
-                        <Button x:Name="BatchRenameButton" Classes="toolbar-popup-item"
+                        <controls:AppButton x:Name="BatchRenameButton" Classes="toolbar-popup-item"
                                 controls:ShortcutTip.Command="file.batch-rename"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 AutomationProperties.Name="{loc:Loc ui.014}" Click="OnBatchRename">
@@ -283,15 +287,15 @@
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Rename}"/>
                                 <TextBlock Text="{loc:Loc ui.014}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
-                        </Button>
-                        <Button Classes="toolbar-popup-item"
+                        </controls:AppButton>
+                        <controls:AppButton Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 AutomationProperties.Name="{loc:Loc ui.028}" Click="OnConnectRemoteServer">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.ExternalDrive}"/>
                                 <TextBlock Text="{loc:Loc ui.028}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
-                        </Button>
+                        </controls:AppButton>
                     </StackPanel>
                 </Border>
             </Popup>

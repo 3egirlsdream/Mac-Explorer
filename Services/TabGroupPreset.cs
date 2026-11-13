@@ -6,19 +6,19 @@ namespace MacExplorer.Services;
 internal sealed record TabGroupPreset(Guid Id, string Name, FolderTabSession Session)
 {
     internal static TabGroupPreset? Capture(string name, IEnumerable<string?> paths, FolderTabGroupSession group,
-        Guid? id = null)
+        Guid? id = null, Dictionary<int, DirectoryPreferences>? preferences = null)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         var members = group.TabIndices.ToHashSet();
         var session = FolderTabSession.Capture(paths.Select((path, index) => members.Contains(index) ? path : null),
-            group.SelectedIndex, [group]);
+            group.SelectedIndex, [group], preferences);
         return session.Groups.Length != 1 ? null : new(id ?? Guid.NewGuid(), name.Trim(),
             session with { SelectedIndex = session.Groups[0].SelectedIndex });
     }
 
     internal FolderTabSession? CreateSession(Func<string, bool> canRestore)
     {
-        var session = FolderTabSession.Filter(Session.Paths, Session.SelectedIndex, canRestore, Session.Groups);
+        var session = FolderTabSession.Filter(Session.Paths, Session.SelectedIndex, canRestore, Session.Groups, Session.Preferences);
         if (session.Groups.Length != 1) return null;
         // Each invocation opens an independent, expanded group in the receiving window.
         return session with { SelectedIndex = session.Groups[0].SelectedIndex,
@@ -43,7 +43,7 @@ internal static class TabGroupPresets
             {
                 if (preset?.Session?.Paths == null || preset.Session.Groups is not { Length: 1 }
                     || preset.Session.Groups[0]?.TabIndices == null || !ids.Add(preset.Id)) continue;
-                if (TabGroupPreset.Capture(preset.Name, preset.Session.Paths, preset.Session.Groups[0], preset.Id) is { } normalized)
+                if (TabGroupPreset.Capture(preset.Name, preset.Session.Paths, preset.Session.Groups[0], preset.Id, preset.Session.Preferences) is { } normalized)
                     result.Add(normalized);
             }
             return result.ToArray();

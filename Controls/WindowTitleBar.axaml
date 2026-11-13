@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:MacExplorer.Controls"
              xmlns:chrome="using:Avalonia.Controls.Chrome"
@@ -25,27 +26,7 @@
             <SolidColorBrush x:Key="TrafficLightFullScreenPressedBrush" Color="#20AD35"/>
             <StreamGeometry x:Key="TrafficLightEnterFullScreenGeometry">M3,3 H7 L3,7 Z M9,9 H5 L9,5 Z</StreamGeometry>
             <StreamGeometry x:Key="TrafficLightExitFullScreenGeometry">M5.25,5.25 H2.75 L5.25,2.75 Z M6.75,6.75 H9.25 L6.75,9.25 Z</StreamGeometry>
-            <ControlTheme x:Key="TrafficLightButtonTheme" TargetType="Button">
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <Grid Background="Transparent">
-                            <ContentPresenter x:Name="PART_ContentPresenter"
-                                              Content="{TemplateBinding Content}"
-                                              HorizontalContentAlignment="Center"
-                                              VerticalContentAlignment="Center"/>
-                            <Ellipse x:Name="FocusRing" Width="22" Height="22"
-                                     Stroke="{DynamicResource AccentBrush}" StrokeThickness="2"
-                                     IsHitTestVisible="False"/>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter>
-                <Style Selector="^ /template/ Ellipse#FocusRing">
-                    <Setter Property="Opacity" Value="0"/>
-                </Style>
-                <Style Selector="^:focus-visible /template/ Ellipse#FocusRing">
-                    <Setter Property="Opacity" Value="1"/>
-                </Style>
-            </ControlTheme>
+
         </ResourceDictionary>
     </UserControl.Resources>
     <UserControl.Styles>
@@ -55,83 +36,14 @@
         <Style Selector="local|WindowTitleBar:overlay Grid#TitleBarSurface">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
-        <Style Selector="Button.window-control">
-            <Setter Property="Theme" Value="{StaticResource TrafficLightButtonTheme}"/>
-            <Setter Property="Width" Value="24"/>
-            <Setter Property="Height" Value="24"/>
-            <Setter Property="MinWidth" Value="24"/>
-            <Setter Property="MinHeight" Value="24"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Arrow"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="RenderTransform" Value="scale(1)"/>
-            <Setter Property="Transitions" Value="{x:Null}"/>
-        </Style>
-        <Style Selector="Button.window-control:pointerover">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="RenderTransform" Value="scale(1)"/>
-        </Style>
-        <Style Selector="Button.window-control:pressed">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="RenderTransform" Value="scale(1)"/>
-        </Style>
-        <Style Selector="Button.window-control:disabled">
-            <Setter Property="IsHitTestVisible" Value="False"/>
-            <Setter Property="Opacity" Value="1"/>
-            <Setter Property="RenderTransform" Value="scale(1)"/>
-        </Style>
-        <Style Selector="Button.window-control:focus-visible">
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="Ellipse.traffic-light">
-            <Setter Property="Stroke" Value="{DynamicResource TrafficLightOutlineBrush}"/>
-            <Setter Property="StrokeThickness" Value="0.5"/>
-        </Style>
-        <Style Selector="Ellipse.traffic-close">
-            <Setter Property="Fill" Value="{DynamicResource WindowCloseBrush}"/>
-        </Style>
-        <Style Selector="Ellipse.traffic-minimize">
-            <Setter Property="Fill" Value="{DynamicResource WindowMinimizeBrush}"/>
-        </Style>
-        <Style Selector="Ellipse.traffic-fullscreen">
-            <Setter Property="Fill" Value="{DynamicResource WindowMaximizeBrush}"/>
-        </Style>
-        <Style Selector="Path.window-control-symbol">
-            <Setter Property="Width" Value="12"/>
-            <Setter Property="Height" Value="12"/>
-            <Setter Property="Stretch" Value="None"/>
-            <Setter Property="Opacity" Value="0"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="IsHitTestVisible" Value="False"/>
-        </Style>
+
         <Style Selector="Path.fullscreen-symbol">
             <Setter Property="Data" Value="{StaticResource TrafficLightEnterFullScreenGeometry}"/>
         </Style>
         <Style Selector="local|WindowTitleBar:fullscreen Path.fullscreen-symbol">
             <Setter Property="Data" Value="{StaticResource TrafficLightExitFullScreenGeometry}"/>
         </Style>
-        <Style Selector="StackPanel.window-controls:pointerover Button.window-control:not(:disabled) Path.window-control-symbol,
-                         Button.window-control:not(:disabled):focus-visible Path.window-control-symbol">
-            <Setter Property="Opacity" Value="1"/>
-        </Style>
-        <Style Selector="local|WindowTitleBar:inactive StackPanel.window-controls:not(:pointerover) Ellipse.traffic-light,
-                         Button.window-control:disabled Ellipse.traffic-light">
-            <Setter Property="Fill" Value="{DynamicResource TrafficLightInactiveBrush}"/>
-        </Style>
-        <Style Selector="Button.window-control:pressed Ellipse.traffic-close">
-            <Setter Property="Fill" Value="{DynamicResource TrafficLightClosePressedBrush}"/>
-        </Style>
-        <Style Selector="Button.window-control:pressed Ellipse.traffic-minimize">
-            <Setter Property="Fill" Value="{DynamicResource TrafficLightMinimizePressedBrush}"/>
-        </Style>
-        <Style Selector="Button.window-control:pressed Ellipse.traffic-fullscreen">
-            <Setter Property="Fill" Value="{DynamicResource TrafficLightFullScreenPressedBrush}"/>
-        </Style>
+
     </UserControl.Styles>
 
     <Grid x:Name="TitleBarSurface" Height="44">
@@ -146,7 +58,7 @@
                 <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="0" Background="Transparent"
                             VerticalAlignment="Center"
                             chrome:WindowDecorationProperties.ElementRole="User">
-                    <Button x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
+                    <controls:AppButton x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
                             AutomationProperties.Name="关闭窗口">
                         <Viewbox Width="14" Height="14" IsHitTestVisible="False">
                             <Grid Width="12" Height="12">
@@ -156,8 +68,8 @@
                                       StrokeThickness="1.25" StrokeLineCap="Round"/>
                             </Grid>
                         </Viewbox>
-                    </Button>
-                    <Button x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
                             AutomationProperties.Name="最小化窗口">
                         <Viewbox Width="14" Height="14" IsHitTestVisible="False">
                             <Grid Width="12" Height="12">
@@ -167,8 +79,8 @@
                                       StrokeThickness="1.25" StrokeLineCap="Round"/>
                             </Grid>
                         </Viewbox>
-                    </Button>
-                    <Button x:Name="FullScreenButton" Classes="window-control" ToolTip.Tip="进入全屏"
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="FullScreenButton" Classes="window-control" ToolTip.Tip="进入全屏"
                             AutomationProperties.Name="进入全屏">
                         <Viewbox Width="14" Height="14" IsHitTestVisible="False">
                             <Grid Width="12" Height="12">
@@ -177,7 +89,7 @@
                                       Fill="{DynamicResource TrafficLightFullScreenSymbolBrush}"/>
                             </Grid>
                         </Viewbox>
-                    </Button>
+                    </controls:AppButton>
                 </StackPanel>
             </Border>
 
@@ -200,5 +112,7 @@
                                   chrome:WindowDecorationProperties.ElementRole="TitleBar"/>
             </Border>
         </Grid>
+        <Border x:Name="TitleBarDivider" Height="1" VerticalAlignment="Bottom"
+                Background="{DynamicResource DialogDividerBrush}" IsVisible="False" IsHitTestVisible="False"/>
     </Grid>
 </UserControl>

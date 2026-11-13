@@ -18,6 +18,27 @@ namespace MacExplorer.Tests;
 public sealed class AppWindowTests
 {
     [AvaloniaFact(Explicit = true)]
+    public void TitleDividerFollowsTheVisibleHeaderAndCanBeDisabledWithoutChangingLayout()
+    {
+        var window = new DialogWindow { Width = 480, Height = 300, Title = "Dialog", TitleBarContent = new TextBlock { Text = "Dialog" } };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var title = window.GetVisualDescendants().OfType<WindowTitleBar>().Single();
+            var divider = title.FindControl<Border>("TitleBarDivider")!;
+            Assert.True(divider.IsVisible); Assert.Equal(44, title.Bounds.Height);
+            window.ShowTitleBarDivider = false; Assert.False(divider.IsVisible);
+            window.ShowTitleBarDivider = true; Assert.True(divider.IsVisible);
+            window.TitleBarContent = null; Assert.False(divider.IsVisible);
+            window.ExtendContentToTop = false; Assert.True(divider.IsVisible);
+            window.Title = ""; Assert.False(divider.IsVisible);
+            Assert.Equal(44, title.Bounds.Height);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public void WindowOverlayCoversTitleBarAndContentWithoutDisablingThem()
     {
         var content = new Button { Content = "Content" };

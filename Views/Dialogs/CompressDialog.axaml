@@ -32,12 +32,12 @@
                         <TextBlock Classes="settings-label" Text="{loc:Loc ui.485}"/>
                         <Border Grid.Column="1" Classes="segmented-control">
                             <Grid ColumnDefinitions="*,*,*">
-                                <Button x:Name="BtnZip" Classes="segment-btn"
-                                        Click="OnFormatChanged" Tag="Zip">ZIP</Button>
-                                <Button Grid.Column="1" x:Name="BtnTarGz" Classes="segment-btn"
-                                        Click="OnFormatChanged" Tag="TarGz">tar.gz</Button>
-                                <Button Grid.Column="2" x:Name="BtnTarBz2" Classes="segment-btn"
-                                        Click="OnFormatChanged" Tag="TarBz2">tar.bz2</Button>
+                                <controls:AppButton x:Name="BtnZip" Classes="segment-btn"
+                                        Click="OnFormatChanged" Tag="Zip">ZIP</controls:AppButton>
+                                <controls:AppButton Grid.Column="1" x:Name="BtnTarGz" Classes="segment-btn"
+                                        Click="OnFormatChanged" Tag="TarGz">tar.gz</controls:AppButton>
+                                <controls:AppButton Grid.Column="2" x:Name="BtnTarBz2" Classes="segment-btn"
+                                        Click="OnFormatChanged" Tag="TarBz2">tar.bz2</controls:AppButton>
                             </Grid>
                         </Border>
                     </Grid>
@@ -48,12 +48,12 @@
                         <TextBlock Classes="settings-label" Text="{loc:Loc ui.486}"/>
                         <Border Grid.Column="1" Classes="segmented-control">
                             <Grid ColumnDefinitions="*,*,*">
-                                <Button x:Name="BtnFast" Classes="segment-btn"
-                                        Click="OnLevelChanged" Tag="Fast" Content="{loc:Loc ui.658}"></Button>
-                                <Button Grid.Column="1" x:Name="BtnStandard" Classes="segment-btn"
-                                        Click="OnLevelChanged" Tag="Standard" Content="{loc:Loc ui.659}"></Button>
-                                <Button Grid.Column="2" x:Name="BtnMaximum" Classes="segment-btn"
-                                        Click="OnLevelChanged" Tag="Maximum" Content="{loc:Loc ui.660}"></Button>
+                                <controls:AppButton x:Name="BtnFast" Classes="segment-btn"
+                                        Click="OnLevelChanged" Tag="Fast" Content="{loc:Loc ui.658}"></controls:AppButton>
+                                <controls:AppButton Grid.Column="1" x:Name="BtnStandard" Classes="segment-btn"
+                                        Click="OnLevelChanged" Tag="Standard" Content="{loc:Loc ui.659}"></controls:AppButton>
+                                <controls:AppButton Grid.Column="2" x:Name="BtnMaximum" Classes="segment-btn"
+                                        Click="OnLevelChanged" Tag="Maximum" Content="{loc:Loc ui.660}"></controls:AppButton>
                             </Grid>
                         </Border>
                     </Grid>
@@ -67,14 +67,13 @@
                             <TextBox x:Name="PasswordBox" Classes="settings-inline-input"
                                      PasswordChar="●" PlaceholderText="{loc:Loc ui.489}"
                                      AutomationProperties.Name="{loc:Loc ui.490}"/>
-                            <Button Grid.Column="1" x:Name="TogglePasswordBtn"
-                                    Width="28" Height="28" Padding="0"
-                                    Classes="secondary compact"
+                            <controls:AppButton Grid.Column="1" x:Name="TogglePasswordBtn"
+                                    Classes="icon-action"
                                     ToolTip.Tip="{loc:Loc ui.491}"
                                     AutomationProperties.Name="{loc:Loc ui.491}"
                                     Click="TogglePasswordVisibility">
                                 <PathIcon Data="{x:Static icons:Icons.Eye}" Width="16" Height="16"/>
-                            </Button>
+                            </controls:AppButton>
                         </Grid>
                     </Grid>
                 </Border>
@@ -83,13 +82,13 @@
 
         <StackPanel Grid.Row="1" Orientation="Horizontal"
                     HorizontalAlignment="Right" Spacing="8">
-            <Button Content="{loc:Loc ui.094}" Width="72" Height="30" Padding="0"
+            <controls:AppButton Content="{loc:Loc ui.094}"
                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                    Classes="secondary compact"
+                    Classes="secondary compact dialog-action"
                     Click="CancelClick"/>
-            <Button Content="{loc:Loc ui.354}" Width="72" Height="30" Padding="0"
+            <controls:AppButton Content="{loc:Loc ui.354}"
                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                    Classes="primary compact"
+                    Classes="primary compact dialog-action"
                     x:Name="ConfirmBtn" IsDefault="True"
                     Click="ConfirmClick"/>
         </StackPanel>

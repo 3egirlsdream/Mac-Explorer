@@ -25,12 +25,12 @@ public sealed class ButtonLocalizationLayoutTests
         var panel = new StackPanel { Spacing = 8, Margin = new Thickness(16) };
         foreach (var classes in new[] { "primary compact", "secondary compact", "ghost compact", "danger compact", "secondary" })
         {
-            var button = new Button { Width = 180, Height = 44 };
+            var button = new AppButton { Width = 180 };
             foreach (var name in classes.Split(' ')) button.Classes.Add(name);
             button.Bind(ContentControl.ContentProperty, (Avalonia.Data.Binding)new LocExtension("ui.148").ProvideValue(null!));
             panel.Children.Add(button);
         }
-        var autoButton = new Button { HorizontalAlignment = HorizontalAlignment.Left };
+        var autoButton = new AppButton { HorizontalAlignment = HorizontalAlignment.Left };
         autoButton.Classes.Add("secondary");
         autoButton.Classes.Add("compact");
         autoButton.Bind(ContentControl.ContentProperty, (Avalonia.Data.Binding)new LocExtension("ui.159").ProvideValue(null!));

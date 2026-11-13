@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
@@ -26,89 +27,89 @@
                         <TextBlock x:Name="PathText" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
-                    <Button x:Name="SaveAsButton" Grid.Column="1" Classes="ghost compact"
+                    <controls:AppButton x:Name="SaveAsButton" Grid.Column="1" Classes="ghost compact"
                             IsEnabled="False" Click="OnSaveAs" ToolTip.Tip="{loc:Loc ui.288}" AutomationProperties.Name="{loc:Loc ui.286}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{x:Static icons:Icons.SaveCopy}" Width="13" Height="13"/>
                             <TextBlock Text="{loc:Loc ui.287}"/>
                         </StackPanel>
-                    </Button>
-                    <Button x:Name="SaveButton" Grid.Column="2" Classes="primary compact"
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="SaveButton" Grid.Column="2" Classes="primary compact"
                             IsEnabled="False" Click="OnSave" ToolTip.Tip="{loc:Loc ui.280}" AutomationProperties.Name="{loc:Loc ui.095}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{x:Static icons:Icons.Save}" Width="13" Height="13"/>
                             <TextBlock Text="{loc:Loc ui.095}"/>
                         </StackPanel>
-                    </Button>
-                    <Button Grid.Column="3" Classes="ghost compact" Width="30" Height="30" Padding="7"
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="3" Classes="ghost icon-action"
                             Click="OnClose" ToolTip.Tip="{loc:Loc ui.283}" AutomationProperties.Name="{loc:Loc ui.282}">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
                 <Border Grid.Row="1" BorderBrush="{DynamicResource ColorDivider}" BorderThickness="0,1" Padding="16,7,12,4">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <WrapPanel x:Name="FormatTools" IsEnabled="False" ItemSpacing="2" LineSpacing="2">
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.293}" AutomationProperties.Name="{loc:Loc ui.108}" Click="OnUndo">
+                            <controls:AppButton Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.293}" AutomationProperties.Name="{loc:Loc ui.108}" Click="OnUndo">
                                 <PathIcon Data="{x:Static icons:Icons.ArrowUndo}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.312}" AutomationProperties.Name="{loc:Loc ui.109}" Click="OnRedo">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.312}" AutomationProperties.Name="{loc:Loc ui.109}" Click="OnRedo">
                                 <PathIcon Data="{x:Static icons:Icons.ArrowRedo}"/>
-                            </Button>
+                            </controls:AppButton>
                             <Separator Classes="toolbar-separator"/>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.307}" AutomationProperties.Name="{loc:Loc ui.307}" Click="OnHeadingMenu">
+                            <controls:AppButton Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.307}" AutomationProperties.Name="{loc:Loc ui.307}" Click="OnHeadingMenu">
                                 <PathIcon Data="{x:Static icons:Icons.TextHeader1}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Bold" ToolTip.Tip="{loc:Loc ui.310}" AutomationProperties.Name="{loc:Loc ui.309}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Bold" ToolTip.Tip="{loc:Loc ui.310}" AutomationProperties.Name="{loc:Loc ui.309}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextBold}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Italic" ToolTip.Tip="{loc:Loc ui.296}" AutomationProperties.Name="{loc:Loc ui.295}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Italic" ToolTip.Tip="{loc:Loc ui.296}" AutomationProperties.Name="{loc:Loc ui.295}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextItalic}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Quote" ToolTip.Tip="{loc:Loc ui.289}" AutomationProperties.Name="{loc:Loc ui.289}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Quote" ToolTip.Tip="{loc:Loc ui.289}" AutomationProperties.Name="{loc:Loc ui.289}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextQuote}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Bullet" ToolTip.Tip="{loc:Loc ui.297}" AutomationProperties.Name="{loc:Loc ui.297}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Bullet" ToolTip.Tip="{loc:Loc ui.297}" AutomationProperties.Name="{loc:Loc ui.297}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextBulletList}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Numbered" ToolTip.Tip="{loc:Loc ui.302}" AutomationProperties.Name="{loc:Loc ui.302}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Numbered" ToolTip.Tip="{loc:Loc ui.302}" AutomationProperties.Name="{loc:Loc ui.302}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TextNumberListLtr}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Task" ToolTip.Tip="{loc:Loc ui.277}" AutomationProperties.Name="{loc:Loc ui.277}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Task" ToolTip.Tip="{loc:Loc ui.277}" AutomationProperties.Name="{loc:Loc ui.277}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.TaskListSquareLtr}"/>
-                            </Button>
+                            </controls:AppButton>
                             <Separator Classes="toolbar-separator"/>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Link" ToolTip.Tip="{loc:Loc ui.313}" AutomationProperties.Name="{loc:Loc ui.292}" Click="OnFormat">
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Link" ToolTip.Tip="{loc:Loc ui.313}" AutomationProperties.Name="{loc:Loc ui.292}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Link}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Image" ToolTip.Tip="{loc:Loc ui.160}" AutomationProperties.Name="{loc:Loc ui.290}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Image" ToolTip.Tip="{loc:Loc ui.160}" AutomationProperties.Name="{loc:Loc ui.290}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Image}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="CodeBlock" ToolTip.Tip="{loc:Loc ui.276}" AutomationProperties.Name="{loc:Loc ui.276}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="CodeBlock" ToolTip.Tip="{loc:Loc ui.276}" AutomationProperties.Name="{loc:Loc ui.276}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Code}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" Tag="Table" ToolTip.Tip="{loc:Loc ui.311}" AutomationProperties.Name="{loc:Loc ui.291}" Click="OnFormat">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" Tag="Table" ToolTip.Tip="{loc:Loc ui.311}" AutomationProperties.Name="{loc:Loc ui.291}" Click="OnFormat">
                                 <PathIcon Data="{x:Static icons:Icons.Table}"/>
-                            </Button>
+                            </controls:AppButton>
                             <Separator Classes="toolbar-separator"/>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.305}" AutomationProperties.Name="{loc:Loc ui.306}" Click="OnFind">
+                            <controls:AppButton Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.305}" AutomationProperties.Name="{loc:Loc ui.306}" Click="OnFind">
                                 <PathIcon Data="{x:Static icons:Icons.Search}"/>
-                            </Button>
+                            </controls:AppButton>
                         </WrapPanel>
                         <Grid Grid.Column="1" Classes="markdown-mode" VerticalAlignment="Top">
                             <Border Background="{DynamicResource ViewModeToggleBg}" CornerRadius="11" IsHitTestVisible="False"/>
                             <StackPanel Orientation="Horizontal" Margin="2">
-                                <ToggleButton x:Name="SourceMode" Classes="view-mode-toggle" Tag="Source"
+                                <controls:AppToggleButton x:Name="SourceMode" Classes="view-mode-toggle" Tag="Source"
                                               ToolTip.Tip="{loc:Loc ui.308}" AutomationProperties.Name="{loc:Loc ui.308}" Click="OnMode">
                                     <PathIcon Data="{x:Static icons:Icons.CodeEditor}" Width="13" Height="13"/>
-                                </ToggleButton>
-                                <ToggleButton x:Name="SplitMode" Classes="view-mode-toggle" Tag="Split"
+                                </controls:AppToggleButton>
+                                <controls:AppToggleButton x:Name="SplitMode" Classes="view-mode-toggle" Tag="Split"
                                               ToolTip.Tip="{loc:Loc ui.284}" AutomationProperties.Name="{loc:Loc ui.284}" Click="OnMode">
                                     <PathIcon Data="{x:Static icons:Icons.SplitVertical}" Width="13" Height="13"/>
-                                </ToggleButton>
-                                <ToggleButton x:Name="PreviewMode" Classes="view-mode-toggle" Tag="Preview"
+                                </controls:AppToggleButton>
+                                <controls:AppToggleButton x:Name="PreviewMode" Classes="view-mode-toggle" Tag="Preview"
                                               ToolTip.Tip="{loc:Loc ui.314}" AutomationProperties.Name="{loc:Loc ui.314}" Click="OnMode">
                                     <PathIcon Data="{x:Static icons:Icons.Preview}" Width="13" Height="13"/>
-                                </ToggleButton>
+                                </controls:AppToggleButton>
                             </StackPanel>
                         </Grid>
                     </Grid>
@@ -121,20 +122,20 @@
                         <TextBox x:Name="ReplaceText" Grid.Column="1" Width="180" Watermark="{loc:Loc ui.299}"/>
                         <CheckBox x:Name="MatchCase" Grid.Column="2" Content="{loc:Loc ui.285}" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2">
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.273}" AutomationProperties.Name="{loc:Loc ui.273}" Click="OnFindPrevious">
+                            <controls:AppButton Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.273}" AutomationProperties.Name="{loc:Loc ui.273}" Click="OnFindPrevious">
                                 <PathIcon Data="{x:Static icons:Icons.ChevronUp}"/>
-                            </Button>
-                            <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.274}" AutomationProperties.Name="{loc:Loc ui.274}" Click="OnFindNext">
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.274}" AutomationProperties.Name="{loc:Loc ui.274}" Click="OnFindNext">
                                 <PathIcon Data="{x:Static icons:Icons.ChevronDown}"/>
-                            </Button>
-                            <Button Classes="ghost compact" Click="OnReplace" ToolTip.Tip="{loc:Loc ui.301}" AutomationProperties.Name="{loc:Loc ui.298}" Content="{loc:Loc ui.298}"></Button>
-                            <Button Classes="ghost compact" Click="OnReplaceAll" ToolTip.Tip="{loc:Loc ui.300}" AutomationProperties.Name="{loc:Loc ui.281}" Content="{loc:Loc ui.281}"></Button>
+                            </controls:AppButton>
+                            <controls:AppButton Classes="ghost compact" Click="OnReplace" ToolTip.Tip="{loc:Loc ui.301}" AutomationProperties.Name="{loc:Loc ui.298}" Content="{loc:Loc ui.298}"></controls:AppButton>
+                            <controls:AppButton Classes="ghost compact" Click="OnReplaceAll" ToolTip.Tip="{loc:Loc ui.300}" AutomationProperties.Name="{loc:Loc ui.281}" Content="{loc:Loc ui.281}"></controls:AppButton>
                         </StackPanel>
                         <TextBlock x:Name="SearchMessage" Grid.Column="4" VerticalAlignment="Center" Margin="6,0"
                                    FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
-                        <Button Grid.Column="5" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.294}" AutomationProperties.Name="{loc:Loc ui.294}" Click="OnHideSearch">
+                        <controls:AppButton Grid.Column="5" Classes="ghost toolbar-btn w32" ToolTip.Tip="{loc:Loc ui.294}" AutomationProperties.Name="{loc:Loc ui.294}" Click="OnHideSearch">
                             <PathIcon Data="{x:Static icons:Icons.Close}"/>
-                        </Button>
+                        </controls:AppButton>
                     </Grid>
                 </Border>
                 <Border x:Name="ErrorBanner" Grid.Row="3" IsVisible="False" Padding="18,10"
@@ -170,9 +171,9 @@
                         <TextBlock Text="{loc:Loc ui.303}" TextWrapping="Wrap"
                                    FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                            <Button x:Name="CancelCloseButton" Content="{loc:Loc ui.094}" Classes="secondary" Click="OnCancelClose"/>
-                            <Button Content="{loc:Loc ui.275}" Classes="danger" Click="OnDiscardClose"/>
-                            <Button Content="{loc:Loc ui.279}" Classes="primary" Click="OnSaveAndClose"/>
+                            <controls:AppButton x:Name="CancelCloseButton" Content="{loc:Loc ui.094}" Classes="secondary" Click="OnCancelClose"/>
+                            <controls:AppButton Content="{loc:Loc ui.275}" Classes="danger" Click="OnDiscardClose"/>
+                            <controls:AppButton Content="{loc:Loc ui.279}" Classes="primary" Click="OnSaveAndClose"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

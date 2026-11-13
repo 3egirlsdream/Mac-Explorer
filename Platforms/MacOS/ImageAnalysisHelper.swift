@@ -22,6 +22,7 @@ struct TextResult: Codable {
     let Text: String
     let Confidence: Float
     let Keywords: [String]
+    var Page: Int? = nil
 }
 
 struct ClassificationResult: Codable {
@@ -133,6 +134,7 @@ func extractPdf(at url: URL) throws -> AnalysisResult {
     }
     var result = AnalysisResult()
     var characterCount = 0
+    var currentPage = 1
     func append(_ text: String, confidence: Float) throws {
         for line in text.components(separatedBy: .newlines) {
             // PDF font maps may emit compatibility radicals/ligatures; normalize the search text.
@@ -142,7 +144,9 @@ func extractPdf(at url: URL) throws -> AnalysisResult {
             guard characterCount <= 5_000_000 else {
                 throw PdfExtractionError.failed("PDF 文字超过 500 万字符，已停止分析。")
             }
-            result.RecognizedTexts.append(TextResult(Text: line, Confidence: confidence, Keywords: keywords(from: line)))
+            var item = TextResult(Text: line, Confidence: confidence, Keywords: keywords(from: line))
+            item.Page = currentPage
+            result.RecognizedTexts.append(item)
         }
     }
     func report(_ completed: Int) {
@@ -151,6 +155,7 @@ func extractPdf(at url: URL) throws -> AnalysisResult {
     }
     report(0)
     for index in 0..<document.pageCount {
+        currentPage = index + 1
         try autoreleasepool {
             guard let page = document.page(at: index) else {
                 throw PdfExtractionError.failed("无法读取 PDF 第 \(index + 1) 页。")

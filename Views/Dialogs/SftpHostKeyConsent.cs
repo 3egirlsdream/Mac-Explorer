@@ -29,8 +29,8 @@ internal static class SftpHostKeyConsent
             MaxHeight = 540, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
         dialog.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/")) { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
-        var reject = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
-        var trust = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("信任并连接"), Classes = { "primary", "compact" } };
+        var reject = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
+        var trust = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("信任并连接"), Classes = { "primary", "compact" } };
         reject.Click += (_, _) => dialog.Close(false);
         trust.Click += (_, _) => dialog.Close(true);
         var identity = new TextBlock { Text = $"{key.Host}:{key.Port}\n{key.Algorithm}", TextWrapping = TextWrapping.Wrap,

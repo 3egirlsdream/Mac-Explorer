@@ -22,6 +22,11 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
     private readonly SemaphoreSlim _undoGate = new(1, 1);
     private static readonly AsyncLocal<bool> Undoing = new();
     internal static bool IsUndoing => Undoing.Value;
+    private sealed class ReplacementBaseline { internal FileIdentitySnapshot? Snapshot; }
+    private static ReplacementBaseline GetReplacementBaseline(FileTaskContext context, string target)
+        => context.Remember("replacement-baseline:" + target, () => new ReplacementBaseline());
+    internal static void PrepareReplacementBaseline(FileTaskContext context, string target, FileIdentitySnapshot snapshot)
+        => GetReplacementBaseline(context, target).Snapshot = snapshot;
     public event Action? HistoryChanged;
     public IReadOnlyList<FileOperationRecord> Records { get { lock (_lock) return _records.ToArray(); } }
     public bool CanUndo => Records.Any(r => r.HasUndoableItems);
@@ -41,18 +46,36 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
     public Task RecordCreatedAsync(string path, bool isCopy = false)
         => AddAsync(isCopy ? FileOperationKind.Copy : FileOperationKind.Create, "", path);
     public Task RecordIrreversibleAsync(string path, string reason) => AddAsync(FileOperationKind.Irreversible, path, path, reason);
+    public Task RecordRemovedDirectoryAsync(string path) => AddAsync(FileOperationKind.RemoveEmptyDirectory, path, path);
+    public async Task RecordReplacementAsync(string source, string target, string backup, string ownerDirectory)
+    {
+        var taskId = FileTaskContext.Current?.Task.Id;
+        var existing = Records.SelectMany(r => r.Children.Prepend(r)).FirstOrDefault(r => r.TaskId == taskId && r.Kind == FileOperationKind.Replace && r.CurrentPath == target);
+        if (existing != null) { if (source.Length > 0) existing.OriginalPath = source; return; }
+        var record = new FileOperationRecord { Kind = FileOperationKind.Replace, OriginalPath = source, CurrentPath = target,
+            BackupPath = backup, BackupDirectory = ownerDirectory,
+            Snapshot = FileTaskContext.Current is { } context ? GetReplacementBaseline(context, target).Snapshot : null,
+            BackupSnapshot = await Task.Run(() => FileIdentitySnapshot.Capture(backup, true)) };
+        await AddAsync(FileOperationKind.Replace, source, target, replacement: record);
+    }
 
-    private async Task AddAsync(FileOperationKind kind, string original, string current, string? reason = null)
+    private async Task AddAsync(FileOperationKind kind, string original, string current, string? reason = null, FileOperationRecord? replacement = null)
     {
         if (IsUndoing) return;
-        var record = new FileOperationRecord { Kind = kind, OriginalPath = original, CurrentPath = current,
-            TaskId = FileTaskContext.Current?.Task.Id, UnavailableReason = reason };
+        var taskId = FileTaskContext.Current?.Task.Id;
+        if (kind is FileOperationKind.Copy or FileOperationKind.Create or FileOperationKind.Move)
+        {
+            if (FileTaskContext.Current?.IsDone("merge-output:" + current) == true) return;
+            if (Records.SelectMany(r => r.Children.Prepend(r)).Any(r => r.TaskId == taskId && r.Kind == FileOperationKind.Replace && r.CurrentPath == current)) return;
+        }
+        var record = replacement ?? new FileOperationRecord { Kind = kind, OriginalPath = original, CurrentPath = current, UnavailableReason = reason };
+        record.TaskId = taskId;
         if (VirtualPath.IsRemotePath(original) || VirtualPath.IsRemotePath(current)) record.UnavailableReason = LocalizationText.Get("远程修改不可撤销。");
         if (record.UnavailableReason == null)
         {
             try
             {
-                record.Snapshot = await Task.Run(() => FileIdentitySnapshot.Capture(current, kind is FileOperationKind.Copy or FileOperationKind.Create));
+                record.Snapshot ??= await Task.Run(() => FileIdentitySnapshot.Capture(current, kind is FileOperationKind.Copy or FileOperationKind.Create or FileOperationKind.Replace));
                 if (record.Snapshot == null && kind is FileOperationKind.Copy or FileOperationKind.Create)
                     record.UnavailableReason = LocalizationText.Get("项目已不存在。");
             }
@@ -103,7 +126,37 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
         var record = Records.LastOrDefault(r => r.HasUndoableItems);
         return record != null && (await UndoAsync(record.Id)).Success;
     }
-    public void ClearHistory() { lock (_lock) _records.Clear(); Changed(); }
+    public void ClearHistory()
+        => _ = ClearHistoryAsync();
+
+    public async Task ClearHistoryAsync()
+    {
+        var active = _tasks?.Tasks.Where(t => t.IsActive).Select(t => t.Id).ToHashSet() ?? [];
+        FileOperationRecord[] records;
+        lock (_lock)
+        {
+            records = _records.Where(r => r.TaskId == null || !active.Contains(r.TaskId)).ToArray();
+            foreach (var record in records) _records.Remove(record);
+        }
+        Changed(); await CleanupBackups(records);
+    }
+    private static Task CleanupBackups(IEnumerable<FileOperationRecord> records)
+    {
+        var backups = records.SelectMany(r => r.Children.Prepend(r)).Where(r => r.BackupDirectory != null).ToArray();
+        if (backups.Length == 0) return Task.CompletedTask;
+        return Task.Run(() =>
+        {
+            foreach (var record in backups)
+                try
+                {
+                    if (Directory.Exists(record.BackupDirectory) && record.BackupPath != null
+                        && record.BackupSnapshot == FileIdentitySnapshot.Capture(record.BackupPath, true)
+                        && Path.GetFileName(record.BackupDirectory).StartsWith(".MacExplorer-replace-", StringComparison.Ordinal))
+                        Directory.Delete(record.BackupDirectory, true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { System.Diagnostics.Debug.WriteLine(ex); }
+        });
+    }
 
     private void TrimHistory()
     {
@@ -121,7 +174,7 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
             foreach (var record in candidates)
             {
                 if (_records.Count <= HistoryLimit) break;
-                if (record.TaskId == null || !active.Contains(record.TaskId)) _records.Remove(record);
+                if (record.TaskId == null || !active.Contains(record.TaskId)) { _records.Remove(record); _ = CleanupBackups([record]); }
             }
         }
     }
@@ -176,6 +229,39 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
 
     private async Task UndoRecordAsync(FileOperationRecord record, List<string> warnings)
     {
+        if (record.Kind == FileOperationKind.RemoveEmptyDirectory)
+        {
+            if (File.Exists(record.OriginalPath)) throw new IOException(LocalizationText.Get("conflict.changed"));
+            Directory.CreateDirectory(record.OriginalPath); return;
+        }
+        if (record.Kind == FileOperationKind.Replace)
+        {
+            if (record.BackupPath == null || record.Snapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.CurrentPath, true))
+                || record.BackupSnapshot != await Task.Run(() => FileIdentitySnapshot.Capture(record.BackupPath, true)))
+                throw new IOException(LocalizationText.Get("项目已被修改或替换，无法安全撤销。"));
+            if (record.OriginalPath.Length > 0)
+            {
+                if (await _files.ExistsAsync(record.OriginalPath)) throw new IOException(LocalizationText.Get("恢复位置已被占用，未覆盖现有项目。"));
+                await _files.MoveAsync(record.CurrentPath, Path.GetDirectoryName(record.OriginalPath)!);
+                foreach (var action in MetadataActions(record.CurrentPath, record.OriginalPath))
+                    try { await action(); } catch (Exception ex) { warnings.Add(ex.Message); }
+            }
+            else
+            {
+                var discarded = Path.Combine(record.BackupDirectory!, "replaced-output");
+                await Task.Run(() => CompositeFileService.MoveOwnedPath(record.CurrentPath, discarded));
+                try { await Task.Run(() => CompositeFileService.MoveOwnedPath(record.BackupPath, record.CurrentPath)); }
+                catch { await Task.Run(() => CompositeFileService.MoveOwnedPath(discarded, record.CurrentPath)); throw; }
+                if (_tags != null) await _tags.DeletePathAsync(record.CurrentPath);
+                if (_analysis != null) await _analysis.DeleteAnalysisForPathPrefixAsync(record.CurrentPath);
+            }
+            if (record.OriginalPath.Length > 0) await Task.Run(() => CompositeFileService.MoveOwnedPath(record.BackupPath, record.CurrentPath));
+            foreach (var action in MetadataActions(record.BackupPath, record.CurrentPath))
+                try { await action(); } catch (Exception ex) { warnings.Add(ex.Message); }
+            if (record.BackupDirectory != null && Directory.Exists(record.BackupDirectory)) Directory.Delete(record.BackupDirectory, true);
+            _changes?.NotifyChanged(new[] { Path.GetDirectoryName(record.CurrentPath)!, Path.GetDirectoryName(record.OriginalPath) ?? Path.GetDirectoryName(record.CurrentPath)! }, null);
+            return;
+        }
         if (record.Kind == FileOperationKind.BatchRename)
         {
             var rename = _rename ?? new BatchRenameService(_files, directoryChangeNotifier: _changes, fileTagService: _tags);

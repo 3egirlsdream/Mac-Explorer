@@ -24,7 +24,10 @@ public sealed record IndexedFileQuery
 public sealed record IndexedTagFilter(string Type, string Value);
 public sealed record IndexedFileMatch(string FullPath, string Name, string Extension, long Size,
     bool IsDirectory, DateTimeOffset Created, DateTimeOffset LastModified, bool HasCurrentAnalysis,
-    int Rating, IReadOnlyList<string> MatchedSources);
+    int Rating, IReadOnlyList<string> MatchedSources)
+{
+    public IReadOnlyList<Models.DocumentMatch> ContentMatches { get; init; } = [];
+}
 public sealed record IndexedFileSearchResult(IReadOnlyList<IndexedFileMatch> Items,
     int Offset, int? NextOffset, long AnalyzedFiles, IReadOnlyList<string> IndexStatus)
 {

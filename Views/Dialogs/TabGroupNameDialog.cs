@@ -34,8 +34,8 @@ internal sealed class TabGroupNameDialog : DialogWindow
         row.Children.Add(label);
         Grid.SetColumn(input, 1);
         row.Children.Add(input);
-        var cancel = new Button { Content = LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
-        var save = new Button { Name = "SaveButton", Content = LocalizationText.Get("保存"), Classes = { "primary", "compact" },
+        var cancel = new AppButton { Content = LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
+        var save = new AppButton { Name = "SaveButton", Content = LocalizationText.Get("保存"), Classes = { "primary", "compact" },
             IsEnabled = !string.IsNullOrWhiteSpace(initial) };
         void Save() { if (!string.IsNullOrWhiteSpace(input.Text)) Close(input.Text.Trim()); }
         input.TextChanged += (_, _) => save.IsEnabled = !string.IsNullOrWhiteSpace(input.Text);

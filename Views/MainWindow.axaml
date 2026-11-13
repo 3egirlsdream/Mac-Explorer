@@ -14,6 +14,7 @@
         x:Class="MacExplorer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel" x:CompileBindings="False"
         Title="{Binding FileList.CurrentLocationTitle}"
+        ShowTitleBarDivider="False"
         Width="1280" Height="800"
         MinWidth="1000" MinHeight="680">
 
@@ -62,77 +63,7 @@
         <Style Selector="ListBox.tab-strip ListBoxItem:selected:pointerover">
             <Setter Property="ZIndex" Value="3"/>
         </Style>
-        <Style Selector="Button.tab-close-button">
-            <Setter Property="Width" Value="22"/>
-            <Setter Property="Height" Value="22"/>
-            <Setter Property="MinWidth" Value="22"/>
-            <Setter Property="MinHeight" Value="22"/>
-            <Setter Property="Padding" Value="6"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <ContentPresenter Background="{TemplateBinding Background}"
-                                      BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="{TemplateBinding BorderThickness}"
-                                      CornerRadius="{TemplateBinding CornerRadius}"
-                                      Padding="{TemplateBinding Padding}"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                </ControlTemplate>
-            </Setter>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.1" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.tab-close-button:pointerover">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-        <Style Selector="Button.layout-choice">
-            <Setter Property="Height" Value="64"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="Padding" Value="5,4"/>
-            <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.layout-choice controls|PaneLayoutIcon">
-            <Setter Property="Width" Value="52"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="Foreground" Value="{DynamicResource PanePreviewFillBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource PanePreviewBorderBrush}"/>
-        </Style>
-        <Style Selector="Button.layout-choice TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        </Style>
-        <Style Selector="Button.layout-choice:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        </Style>
-        <Style Selector="Button.layout-choice.selected">
-            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-        </Style>
-        <Style Selector="Button.layout-choice.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-        </Style>
-        <Style Selector="Button.layout-choice.selected controls|PaneLayoutIcon">
-            <Setter Property="Foreground" Value="{DynamicResource PanePreviewSelectedFillBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource PanePreviewSelectedBorderBrush}"/>
-        </Style>
-        <Style Selector="Button.layout-choice.selected TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-        </Style>
+
         <Style Selector="Border.global-search-panel">
             <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
             <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
@@ -230,40 +161,40 @@
                                                        FontSize="{DynamicResource FontSizeBody}"
                                                        VerticalAlignment="Center"
                                                        ToolTip.Tip="{Binding Title}"/>
-                                            <Button Grid.Column="2" Classes="tab-close-button"
+                                            <controls:AppButton Grid.Column="2" Classes="tab-close-button"
                                                     HorizontalAlignment="Right"
                                                     IsVisible="{Binding CanClose}"
                                                     Click="CloseTab"
                                                     controls:ShortcutTip.Command="tab.close"
                                                     AutomationProperties.Name="{loc:Loc ui.043}">
                                                 <PathIcon Data="{x:Static icons:Icons.Close}" Width="9" Height="9"/>
-                                            </Button>
+                                            </controls:AppButton>
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.DataTemplates>
                         </ListBox>
                     </ScrollViewer>
-                    <Button Grid.Column="1" x:Name="NewTabButton" Classes="title-nav-button tab-add"
+                    <controls:AppButton Grid.Column="1" x:Name="NewTabButton" Classes="title-nav-button tab-add"
                             Click="AddTab"
                             controls:ShortcutTip.Command="tab.new"
                             AutomationProperties.Name="{loc:Loc ui.066}">
                         <PathIcon Data="{x:Static icons:Icons.Plus}"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
             </Grid>
-                    <Button Grid.Column="1" x:Name="GroupPresetsButton" Classes="title-nav-button"
+                    <controls:AppButton Grid.Column="1" x:Name="GroupPresetsButton" Classes="title-nav-button"
                             Click="ShowGroupPresets"
                             ToolTip.Tip="{loc:Loc tabs.preset.title}"
                             AutomationProperties.Name="{loc:Loc tabs.preset.title}">
                         <PathIcon Data="{x:Static icons:Icons.SquareMultiple}"/>
-                    </Button>
-                    <Button Grid.Column="2" x:Name="PaneLayoutButton" Classes="title-nav-button"
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="2" x:Name="PaneLayoutButton" Classes="title-nav-button"
                             Click="TogglePaneLayoutPopup"
                             ToolTip.Tip="{loc:Loc ui.071}"
                             AutomationProperties.Name="{loc:Loc ui.071}">
                         <PathIcon Data="{x:Static icons:Icons.SplitVertical}"/>
-                    </Button>
+                    </controls:AppButton>
                     <Popup x:Name="PaneLayoutPopup" Placement="BottomEdgeAlignedRight"
                            PlacementTarget="PaneLayoutButton" IsLightDismissEnabled="False"
                            ShouldUseOverlayLayer="True"
@@ -275,92 +206,92 @@
                                            FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <UniformGrid Grid.Row="1" Columns="4" Rows="3">
-                                    <Button Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.044}" AutomationProperties.Name="{loc:Loc ui.044}">
+                                    <controls:AppButton Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.044}" AutomationProperties.Name="{loc:Loc ui.044}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="Single"/>
                                             <TextBlock Text="{loc:Loc ui.044}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.059}" AutomationProperties.Name="{loc:Loc ui.059}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.059}" AutomationProperties.Name="{loc:Loc ui.059}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="TwoColumns"/>
                                             <TextBlock Text="{loc:Loc ui.059}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.037}" AutomationProperties.Name="{loc:Loc ui.037}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.037}" AutomationProperties.Name="{loc:Loc ui.037}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="TwoRows"/>
                                             <TextBlock Text="{loc:Loc ui.037}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.035}" AutomationProperties.Name="{loc:Loc ui.035}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.035}" AutomationProperties.Name="{loc:Loc ui.035}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="ThreeColumns"/>
                                             <TextBlock Text="{loc:Loc ui.035}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.036}" AutomationProperties.Name="{loc:Loc ui.036}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.036}" AutomationProperties.Name="{loc:Loc ui.036}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="ThreeRows"/>
                                             <TextBlock Text="{loc:Loc ui.036}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.056}" AutomationProperties.Name="{loc:Loc ui.056}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.056}" AutomationProperties.Name="{loc:Loc ui.056}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight"/>
                                             <TextBlock Text="{loc:Loc ui.056}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.058}" AutomationProperties.Name="{loc:Loc ui.058}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.058}" AutomationProperties.Name="{loc:Loc ui.058}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft"/>
                                             <TextBlock Text="{loc:Loc ui.058}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.050}" AutomationProperties.Name="{loc:Loc ui.050}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.050}" AutomationProperties.Name="{loc:Loc ui.050}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourGrid"/>
                                             <TextBlock Text="{loc:Loc ui.050}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.049}" AutomationProperties.Name="{loc:Loc ui.049}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.049}" AutomationProperties.Name="{loc:Loc ui.049}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourColumns"/>
                                             <TextBlock Text="{loc:Loc ui.049}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.051}" AutomationProperties.Name="{loc:Loc ui.051}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.051}" AutomationProperties.Name="{loc:Loc ui.051}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="FourRows"/>
                                             <TextBlock Text="{loc:Loc ui.051}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.055}" AutomationProperties.Name="{loc:Loc ui.055}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.055}" AutomationProperties.Name="{loc:Loc ui.055}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight"/>
                                             <TextBlock Text="{loc:Loc ui.055}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.057}" AutomationProperties.Name="{loc:Loc ui.057}">
+                                    </controls:AppButton>
+                                    <controls:AppButton Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.057}" AutomationProperties.Name="{loc:Loc ui.057}">
                                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                                             <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft"/>
                                             <TextBlock Text="{loc:Loc ui.057}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
                                         </StackPanel>
-                                    </Button>
+                                    </controls:AppButton>
                                 </UniformGrid>
                             </Grid>
                         </Border>
                     </Popup>
-                    <Button Grid.Column="3" x:Name="TaskButton" IsVisible="False"
+                    <controls:AppButton Grid.Column="3" x:Name="TaskButton" IsVisible="False"
                             Classes="title-nav-button"
                             Click="ToggleTaskPanel">
                         <controls:AnimatedProgressRing x:Name="TaskProgressRing"/>
-                    </Button>
-                    <Button Grid.Column="4" x:Name="CopilotStatusButton" IsVisible="False" Classes="title-nav-button"
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="4" x:Name="CopilotStatusButton" IsVisible="False" Classes="title-nav-button"
                             Click="ToggleCopilot"
                             ToolTip.Tip="Copilot" AutomationProperties.Name="{loc:Loc ui.060}">
                         <PathIcon Data="{x:Static icons:Icons.Copilot}"/>
-                    </Button>
+                    </controls:AppButton>
         </Grid>
     </controls:AppWindow.TitleBarContent>
 
@@ -406,18 +337,18 @@
                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="Copilot" FontWeight="{StaticResource FontWeightSemibold}" VerticalAlignment="Center"/>
                 </StackPanel>
-                <Button x:Name="CopilotHistoryToggle" Grid.Column="1" Classes="ghost compact copilot-history-toggle"
+                <controls:AppButton x:Name="CopilotHistoryToggle" Grid.Column="1" Classes="ghost compact copilot-history-toggle"
                         Click="ToggleCopilotHistory" ToolTip.Tip="{loc:Loc ui.045}"
                         AutomationProperties.Name="{loc:Loc ui.054}">
                     <PathIcon Data="{x:Static icons:Icons.ListTree}" Width="16" Height="16"/>
-                </Button>
-                <Button Grid.Column="2" Classes="ghost compact" Content="{loc:Loc ui.064}"
+                </controls:AppButton>
+                <controls:AppButton Grid.Column="2" Classes="ghost compact" Content="{loc:Loc ui.064}"
                         Click="NewCopilotSession" AutomationProperties.Name="{loc:Loc ui.065}"/>
-                <Button Grid.Column="3" Classes="ghost compact copilot-close"
+                <controls:AppButton Grid.Column="3" Classes="ghost compact copilot-close"
                         Click="ToggleCopilot" ToolTip.Tip="{loc:Loc ui.042}"
                         AutomationProperties.Name="{loc:Loc ui.042}">
                     <PathIcon Data="{x:Static icons:Icons.Close}" Width="11" Height="11"/>
-                </Button>
+                </controls:AppButton>
             </Grid>
             <ScrollViewer Grid.Row="1" x:Name="CopilotTranscriptScroll"
                           VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -431,8 +362,8 @@
                         <TextBlock x:Name="CopilotApprovalText" TextWrapping="Wrap"/>
                     </ScrollViewer>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                        <Button Classes="secondary compact" Content="{loc:Loc ui.061}" Click="RejectCopilotPlan"/>
-                        <Button x:Name="CopilotApproveButton" Classes="primary compact"
+                        <controls:AppButton Classes="secondary compact" Content="{loc:Loc ui.061}" Click="RejectCopilotPlan"/>
+                        <controls:AppButton x:Name="CopilotApproveButton" Classes="primary compact"
                                 Content="{loc:Loc ui.070}" Click="ApproveCopilotPlan"/>
                     </StackPanel>
                 </StackPanel>
@@ -464,18 +395,18 @@
                              TextWrapping="Wrap"
                              PlaceholderText="{loc:Loc ui.073}"
                              AutomationProperties.Name="{loc:Loc ui.032}"/>
-                    <Button x:Name="CopilotSendButton" Grid.Row="1" HorizontalAlignment="Right"
+                    <controls:AppButton x:Name="CopilotSendButton" Grid.Row="1" HorizontalAlignment="Right"
                             Classes="primary compact copilot-send"
                             Click="SendCopilotMessage" ToolTip.Tip="{loc:Loc ui.047}"
                             AutomationProperties.Name="{loc:Loc ui.046}">
                         <PathIcon Data="{x:Static icons:Icons.Up}" Width="14" Height="14"/>
-                    </Button>
-                    <Button x:Name="CopilotStopButton" Grid.Row="1" HorizontalAlignment="Right"
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="CopilotStopButton" Grid.Row="1" HorizontalAlignment="Right"
                             Margin="0,0,38,0" IsVisible="False" Classes="secondary compact"
                             Click="StopCopilotResponse" ToolTip.Tip="{loc:Loc ui.040}"
                             AutomationProperties.Name="{loc:Loc ui.039}">
                         <PathIcon Data="{x:Static icons:Icons.Stop}" Width="12" Height="12"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
             </Border>
           </Grid>
@@ -513,11 +444,11 @@
                                        Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" x:Name="TaskRunningCountText" Classes="task-meta"
                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                            <Button Grid.Column="2" x:Name="ClosePanelButton" Classes="icon-action"
+                            <controls:AppButton Grid.Column="2" x:Name="ClosePanelButton" Classes="icon-action"
                                     ToolTip.Tip="{loc:Loc tasks.collapse}" AutomationProperties.Name="{loc:Loc tasks.collapse}"
                                     Click="CloseTaskPanel">
                                 <PathIcon Data="{x:Static icons:Icons.ChevronDown}" Width="14" Height="14"/>
-                            </Button>
+                            </controls:AppButton>
                         </Grid>
                     </Border>
                     <ScrollViewer Grid.Row="1" x:Name="TaskListScrollViewer" HorizontalScrollBarVisibility="Disabled"
@@ -555,15 +486,15 @@
 	                    <TextBlock Grid.Column="1" Text="{loc:Loc ui.041}" Margin="10,0,0,0"
 	                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeHeading}"
 	                               FontWeight="{StaticResource FontWeightSemibold}"/>
-	                    <ComboBox Grid.Column="2" x:Name="GlobalSearchScopeCombo"
-	                              Width="150" Height="28" Margin="8,0,8,0"
+	                    <controls:AppComboBox Grid.Column="2" x:Name="GlobalSearchScopeCombo"
+	                              Width="150" Classes="compact" Margin="8,0,8,0"
 	                              SelectionChanged="OnGlobalSearchScopeChanged">
 	                        <ComboBoxItem Tag="CurrentFolder" Content="{loc:Loc ui.661}"></ComboBoxItem>
 	                        <ComboBoxItem Tag="ThisMac" Content="{loc:Loc ui.662}"></ComboBoxItem>
 	                        <ComboBoxItem Tag="CustomFolders" Content="{loc:Loc ui.663}"></ComboBoxItem>
-	                    </ComboBox>
-	                    <Button AutomationProperties.Name="{loc:Loc ui.067}" Grid.Column="3" x:Name="GlobalSearchAddFolderButton"
-	                            Classes="ghost compact" Content="＋" Width="28" Height="28"
+	                    </controls:AppComboBox>
+	                    <controls:AppButton AutomationProperties.Name="{loc:Loc ui.067}" Grid.Column="3" x:Name="GlobalSearchAddFolderButton"
+	                            Classes="ghost icon-action" Content="＋"
 	                            IsVisible="False" ToolTip.Tip="{loc:Loc ui.067}"
 	                            Click="OnAddGlobalSearchFolder"/>
 	                    <TextBlock Grid.Column="4" Text="{loc:Loc ui.033}"
@@ -614,12 +545,12 @@
                                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
-                                        <Button Grid.Column="2" Classes="icon-action" Width="28" Height="28"
+                                        <controls:AppButton Grid.Column="2" Classes="icon-action"
                                                 VerticalAlignment="Center" IsVisible="{Binding CanLocate}"
                                                 AutomationProperties.Name="{loc:Loc ui.052}" ToolTip.Tip="{loc:Loc ui.052}"
                                                 Click="OnLocateGlobalSearchResult">
                                             <PathIcon Data="{x:Static icons:Icons.Location}" Width="16" Height="16"/>
-                                        </Button>
+                                        </controls:AppButton>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

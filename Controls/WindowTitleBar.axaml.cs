@@ -11,6 +11,15 @@ public partial class WindowTitleBar : UserControl
     public static readonly StyledProperty<string?> TitleProperty =
         AvaloniaProperty.Register<WindowTitleBar, string?>(nameof(Title));
 
+    public static readonly StyledProperty<bool> ShowDividerProperty =
+        AvaloniaProperty.Register<WindowTitleBar, bool>(nameof(ShowDivider), true);
+
+    public bool ShowDivider
+    {
+        get => GetValue(ShowDividerProperty);
+        set => SetValue(ShowDividerProperty, value);
+    }
+
     public static readonly StyledProperty<Control?> TitleBarContentProperty =
         AvaloniaProperty.Register<WindowTitleBar, Control?>(nameof(TitleBarContent));
 
@@ -80,7 +89,7 @@ public partial class WindowTitleBar : UserControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == TitleBarContentProperty)
+        if (change.Property == TitleBarContentProperty || change.Property == TitleProperty || change.Property == ShowDividerProperty)
             UpdateTitleBarContentState();
     }
 
@@ -105,6 +114,7 @@ public partial class WindowTitleBar : UserControl
         var hasContent = TitleBarContent is not null;
         TitleBarContentRow.IsVisible = hasContent;
         TitleText.IsVisible = !hasContent && _ownerWindow?.ExtendContentToTop != true;
+        TitleBarDivider.IsVisible = ShowDivider && (hasContent || TitleText.IsVisible && !string.IsNullOrWhiteSpace(Title));
     }
 
     private void UpdateWindowControlState()

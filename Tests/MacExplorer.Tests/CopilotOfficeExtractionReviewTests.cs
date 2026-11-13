@@ -79,6 +79,10 @@ public sealed partial class CopilotReviewRegressionTests
         var page = await new CopilotContentExtractor(null!, null!).ExtractPageAsync(path);
         Assert.Equal("[工作表：Second]\nB3: second\n[工作表：First]\nA1: one\tC1: three", page.Text);
         Assert.False(page.HasMore);
+        var segments = (await new MacExplorer.Services.DocumentContentExtractor(null!).ExtractAsync(path)).Segments;
+        Assert.Equal("Second", segments[1].Location.Sheet);
+        Assert.Equal("B3", segments[1].Location.Cell);
+        Assert.Equal("C1", segments[^1].Location.Cell);
     }
 
     [Fact]
@@ -100,6 +104,11 @@ public sealed partial class CopilotReviewRegressionTests
         var page = await new CopilotContentExtractor(null!, null!).ExtractPageAsync(path);
         Assert.Equal("second\nfirst", page.Text);
         Assert.False(page.HasMore);
+        var segments = (await new MacExplorer.Services.DocumentContentExtractor(null!).ExtractAsync(path)).Segments;
+        Assert.Equal("second", segments[0].Text);
+        Assert.Equal("slide", segments[0].Location.Kind);
+        Assert.Equal(1, segments[0].Location.Number);
+        Assert.Equal(2, segments[1].Location.Number);
     }
 
     private static S.Cell InlineCell(string reference, string text) => new()

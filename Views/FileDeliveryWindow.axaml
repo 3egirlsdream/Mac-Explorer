@@ -15,25 +15,25 @@
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <StackPanel x:Name="EntryTabs" Orientation="Horizontal" Spacing="4"/>
                     </ScrollViewer>
-                    <Button Grid.Column="1" x:Name="AddEntryButton" Classes="workspace-nav-button" Click="OnAddEntry"
+                    <controls:AppButton Grid.Column="1" x:Name="AddEntryButton" Classes="workspace-nav-button" Click="OnAddEntry"
                             ToolTip.Tip="{loc:Loc ui.553}" AutomationProperties.Name="{loc:Loc ui.553}">
                         <PathIcon Data="{x:Static icons:Icons.Plus}"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
                 <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="8,6" ColumnSpacing="2">
-                    <Button x:Name="BackButton" Classes="workspace-nav-button" Click="OnBack" ToolTip.Tip="{loc:Loc ui.543}" AutomationProperties.Name="{loc:Loc ui.543}">
+                    <controls:AppButton x:Name="BackButton" Classes="workspace-nav-button icon-action" Click="OnBack" ToolTip.Tip="{loc:Loc ui.543}" AutomationProperties.Name="{loc:Loc ui.543}">
                         <PathIcon Data="{x:Static icons:Icons.Back}"/>
-                    </Button>
-                    <Button Grid.Column="1" x:Name="ForwardButton" Classes="workspace-nav-button" Click="OnForward" ToolTip.Tip="{loc:Loc ui.544}" AutomationProperties.Name="{loc:Loc ui.544}">
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="1" x:Name="ForwardButton" Classes="workspace-nav-button" Click="OnForward" ToolTip.Tip="{loc:Loc ui.544}" AutomationProperties.Name="{loc:Loc ui.544}">
                         <PathIcon Data="{x:Static icons:Icons.Forward}"/>
-                    </Button>
-                    <Button Grid.Column="2" x:Name="UpButton" Classes="workspace-nav-button" Click="OnUp" ToolTip.Tip="{loc:Loc ui.554}" AutomationProperties.Name="{loc:Loc ui.554}">
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="2" x:Name="UpButton" Classes="workspace-nav-button" Click="OnUp" ToolTip.Tip="{loc:Loc ui.554}" AutomationProperties.Name="{loc:Loc ui.554}">
                         <PathIcon Data="{x:Static icons:Icons.Up}"/>
-                    </Button>
+                    </controls:AppButton>
                     <views:BreadcrumbBar Grid.Column="3" x:Name="LocationBreadcrumb" Margin="4,0" VerticalAlignment="Center"/>
-                    <Button Grid.Column="4" x:Name="ViewModeButton" Classes="workspace-nav-button" Click="OnViewMode" ToolTip.Tip="{loc:Loc ui.555}" AutomationProperties.Name="{loc:Loc ui.555}">
+                    <controls:AppButton Grid.Column="4" x:Name="ViewModeButton" Classes="workspace-nav-button" Click="OnViewMode" ToolTip.Tip="{loc:Loc ui.555}" AutomationProperties.Name="{loc:Loc ui.555}">
                         <PathIcon x:Name="ViewModeIcon" Data="{x:Static icons:Icons.Grid}"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
                 <views:FileListView Grid.Row="2" x:Name="Files"/>
                 <StackPanel Grid.Row="2" x:Name="EmptyEntries" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
@@ -41,7 +41,7 @@
                 </StackPanel>
                 <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="14,6" ColumnSpacing="8">
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <Button Grid.Column="1" x:Name="ClearStagingButton" Classes="secondary compact" Content="{loc:Loc delivery.clear}" AutomationProperties.Name="{loc:Loc delivery.clear}" Click="OnClearStaging" IsVisible="False"/>
+                    <controls:AppButton Grid.Column="1" x:Name="ClearStagingButton" Classes="secondary compact" Content="{loc:Loc delivery.clear}" AutomationProperties.Name="{loc:Loc delivery.clear}" Click="OnClearStaging" IsVisible="False"/>
                 </Grid>
             </Grid>
         </Grid>

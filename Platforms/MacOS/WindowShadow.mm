@@ -5,15 +5,55 @@
 static char MEPreparedContentLayerKey;
 static void PrepareContentLayer(NSView *view) {
     CALayer *layer = view.layer;
-    if (!layer || objc_getAssociatedObject(layer, &MEPreparedContentLayerKey)) return;
-    NSMutableDictionary *actions = [layer.actions mutableCopy] ?: [NSMutableDictionary new];
-    // AppKit can implicitly animate a new render surface to its final bounds after Show.
-    for (NSString *key in @[@"bounds", @"position", @"transform", @"contents", @"contentsRect", @"contentsScale"]) {
-        actions[key] = NSNull.null;
-        [layer removeAnimationForKey:key];
+    if (!layer) return;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    // Keep an outstanding frame at its original pixel size while the renderer catches up.
+    layer.contentsGravity = layer.contentsAreFlipped ? kCAGravityBottomLeft : kCAGravityTopLeft;
+    layer.contentsScale = view.window.backingScaleFactor;
+    if (!objc_getAssociatedObject(layer, &MEPreparedContentLayerKey)) {
+        NSMutableDictionary *actions = [layer.actions mutableCopy] ?: [NSMutableDictionary new];
+        for (NSString *key in @[@"bounds", @"position", @"transform", @"contents", @"contentsRect", @"contentsScale"]) {
+            actions[key] = NSNull.null;
+            [layer removeAnimationForKey:key];
+        }
+        layer.actions = actions;
+        objc_setAssociatedObject(layer, &MEPreparedContentLayerKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
-    layer.actions = actions;
-    objc_setAssociatedObject(layer, &MEPreparedContentLayerKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [CATransaction commit];
+}
+
+static char MEPreparedContentViewKey;
+@interface MEContentLayerPreparation : NSObject
+@property(nonatomic, weak) NSView *view;
+- (instancetype)initWithView:(NSView *)view;
+@end
+@implementation MEContentLayerPreparation
+- (instancetype)initWithView:(NSView *)view {
+    if (!(self = [super init])) return nil;
+    _view = view;
+    // Avalonia replaces the placeholder layer with its render target after Show.
+    [view addObserver:self forKeyPath:@"layer" options:0 context:&MEPreparedContentViewKey];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(backingChanged:)
+        name:NSWindowDidChangeBackingPropertiesNotification object:view.window];
+    return self;
+}
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    if (context == &MEPreparedContentViewKey) PrepareContentLayer(self.view);
+    else [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+}
+- (void)backingChanged:(NSNotification *)notification { PrepareContentLayer(self.view); }
+- (void)dealloc {
+    [_view removeObserver:self forKeyPath:@"layer" context:&MEPreparedContentViewKey];
+    [NSNotificationCenter.defaultCenter removeObserver:self];
+}
+@end
+
+static void PrepareContentView(NSView *view) {
+    if (!objc_getAssociatedObject(view, &MEPreparedContentViewKey))
+        objc_setAssociatedObject(view, &MEPreparedContentViewKey,
+            [[MEContentLayerPreparation alloc] initWithView:view], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    PrepareContentLayer(view);
 }
 
 extern "C" __attribute__((visibility("default")))
@@ -22,8 +62,8 @@ void me_window_chrome_prepare(void *viewPointer) {
     NSWindow *window = view.window;
     if (!window || !NSThread.isMainThread) return;
     window.animationBehavior = NSWindowAnimationBehaviorNone;
-    PrepareContentLayer(view);
-    if (window.contentView != view) PrepareContentLayer(window.contentView);
+    PrepareContentView(view);
+    if (window.contentView != view) PrepareContentView(window.contentView);
 }
 
 static char MEWindowShadowKey;

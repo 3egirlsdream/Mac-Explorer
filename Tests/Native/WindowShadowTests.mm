@@ -47,11 +47,57 @@ static void CheckReadOnlyRenderSnapshot() {
     [window close];
 }
 
+@interface MEScaleWindow : NSWindow
+@property(nonatomic) CGFloat testScale;
+@end
+@implementation MEScaleWindow
+- (CGFloat)backingScaleFactor { return self.testScale ?: 1; }
+@end
+
+static void CheckRenderLayerReplacementAndBackingChanges() {
+    __weak NSView *released;
+    @autoreleasepool {
+        MEScaleWindow *window = [[MEScaleWindow alloc] initWithContentRect:NSMakeRect(0, 0, 600, 400)
+            styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
+        window.releasedWhenClosed = NO;
+        window.testScale = 2;
+        NSView *view = window.contentView;
+        view.wantsLayer = YES;
+        me_window_chrome_prepare((__bridge void *)view);
+
+        // Avalonia installs its actual render target after the first window preparation.
+        CAMetalLayer *metal = [CAMetalLayer new];
+        metal.drawableSize = CGSizeMake(1200, 800);
+        view.layer = metal;
+        assert(![metal.contentsGravity isEqualToString:kCAGravityResize]);
+        assert(metal.contentsScale == 2);
+        assert(![metal actionForKey:@"bounds"] && ![metal actionForKey:@"contents"]);
+        // Changing frame geometry must not stretch an outstanding drawable or resize it here.
+        view.frame = NSMakeRect(0, 0, 900, 450);
+        assert(CGSizeEqualToSize(metal.drawableSize, CGSizeMake(1200, 800)));
+        assert(![metal.contentsGravity isEqualToString:kCAGravityResize]);
+        assert(!metal.presentsWithTransaction);
+        window.testScale = 1;
+        [NSNotificationCenter.defaultCenter postNotificationName:NSWindowDidChangeBackingPropertiesNotification object:window];
+        assert(metal.contentsScale == 1);
+        CALayer *software = [CALayer new];
+        view.layer = software;
+        assert(![software.contentsGravity isEqualToString:kCAGravityResize]);
+        released = view;
+        window.contentView = [NSView new];
+        view = nil;
+        [window close];
+        window = nil;
+    }
+    assert(!released);
+}
+
 int main() {
     @autoreleasepool {
         assert(getenv("MACEXPLORER_TEST_ROOT"));
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+        CheckRenderLayerReplacementAndBackingChanges();
         CheckReadOnlyRenderSnapshot();
         NSWindow *owner = [[NSWindow alloc] initWithContentRect:NSMakeRect(100, 100, 600, 400)
             styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskResizable

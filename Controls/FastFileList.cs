@@ -424,14 +424,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private CachedText GridName(FileSystemEntry entry)
     {
-        var name = entry.IconDisplayName;
+        var name = entry.DisplayName;
         if (_gridNames.TryGetValue(name, out var text)) return text;
         if (_gridNames.Count >= TextCacheLimit)
         {
             foreach (var cached in _gridNames.Values) cached.Release();
             _gridNames.Clear();
         }
-        return _gridNames[name] = Format(name, DetailFontSize, Foreground, GridNameWidth, 2);
+        return _gridNames[name] = FormatName(name, DetailFontSize, GridNameWidth, 2);
     }
 
     private IEnumerable<Rect> ContentBounds(int index)
@@ -826,7 +826,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             node.Value.Release();
         }
         var text = new RowText(entry,
-            IsGrid ? GridName(entry).Retain() : Format(entry.DisplayName, FontSize, Foreground, nameWidth),
+            IsGrid ? GridName(entry).Retain() : FormatName(entry.DisplayName, FontSize, nameWidth),
             CellText(FileListColumn.Modified, IsGrid ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
             IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, GridNameWidth + 8) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
             CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth);
@@ -839,6 +839,12 @@ public sealed class FastFileList : Control, ILogicalScrollable
         }
         return text;
     }
+    private CachedText FormatName(string value, double size, double width, int lines = 1)
+        => new(FileNameText.CreateLayout(value, name => new TextLayout(name,
+            new Typeface(FontFamily, weight: FontWeight), size, Foreground,
+            textWrapping: lines > 1 ? TextWrapping.Wrap : TextWrapping.NoWrap,
+            maxWidth: Math.Max(1, width), maxLines: lines)));
+
     private CachedText Format(string value, double size, IBrush? foreground, double width, int lines = 1, FontWeight? weight = null)
         => new(new TextLayout(value, new Typeface(FontFamily, weight: weight ?? FontWeight), size, foreground,
             textWrapping: lines > 1 ? TextWrapping.Wrap : TextWrapping.NoWrap,

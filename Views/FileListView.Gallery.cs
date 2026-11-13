@@ -66,10 +66,9 @@ public partial class FileListView
         GalleryStrip.ItemTemplate = new FuncDataTemplate<FileSystemEntry>((entry, _) =>
         {
             if (entry == null) return null;
-            var label = new TextBlock
+            var label = new FileNameText
             {
-                Text = entry.IconDisplayName, TextAlignment = TextAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                Text = entry.DisplayName, TextAlignment = TextAlignment.Center
             };
             AppTypography.BindFontSize(label, AppTypography.Caption);
             var cell = new StackPanel

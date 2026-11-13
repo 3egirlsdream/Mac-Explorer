@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LiquidGlassAvaloniaUI;
 using Xunit;
+using MacExplorer.Controls;
 
 namespace MacExplorer.Tests;
 
@@ -202,7 +203,7 @@ public sealed class PopupGlassTests
     [Trait("Kind", "UI")]
     public void DropdownShadowFitsItsPopupWindow(bool dark)
     {
-        var combo = new ComboBox { Width = 220, ItemsSource = new[] { "First", "Second", "Third" }, SelectedIndex = 0 };
+        var combo = new AppComboBox { Width = 220, ItemsSource = new[] { "First", "Second", "Third" }, SelectedIndex = 0 };
         var window = InputAppearanceTests.CreateWindow(combo, dark);
         try
         {

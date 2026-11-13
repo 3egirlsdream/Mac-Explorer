@@ -17,9 +17,9 @@
                    Margin="0,8"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal"
                     HorizontalAlignment="Right" Spacing="8">
-            <Button Content="{loc:Loc ui.094}" Width="80" Classes="secondary"
+            <controls:AppButton Content="{loc:Loc ui.094}" Classes="secondary dialog-action"
                     Click="Cancel"/>
-            <Button x:Name="ConfirmButton" Content="{loc:Loc ui.006}" Width="80" Classes="danger"
+            <controls:AppButton x:Name="ConfirmButton" Content="{loc:Loc ui.006}" Classes="danger dialog-action"
                     Click="Confirm"/>
         </StackPanel>
     </Grid>

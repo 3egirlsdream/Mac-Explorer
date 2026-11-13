@@ -1,0 +1,10 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Keep the app's Fluent scrollbar even inside third-party preview themes. -->
+    <Style Selector="ScrollBar">
+        <Setter Property="Theme" Value="{DynamicResource AppScrollBarTheme}"/>
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
+    </Style>
+</Styles>

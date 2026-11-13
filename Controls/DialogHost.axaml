@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="MacExplorer.Controls.DialogHost"
              x:Name="Host"
@@ -24,9 +25,9 @@
                                TextWrapping="Wrap"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <Button x:Name="CancelButton" Classes="secondary compact" Content="取消" MinWidth="82"
+                    <controls:AppButton x:Name="CancelButton" Classes="secondary compact dialog-action" Content="取消"
                             AutomationProperties.Name="取消"/>
-                    <Button x:Name="ConfirmButton" Classes="danger compact" Content="确认" MinWidth="82"
+                    <controls:AppButton x:Name="ConfirmButton" Classes="danger compact dialog-action" Content="确认"
                             AutomationProperties.Name="确认"/>
                 </StackPanel>
             </StackPanel>

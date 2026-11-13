@@ -1,4 +1,5 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls" xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:icons="using:MacExplorer.Assets" x:Class="MacExplorer.Views.HomeFolderContent">
     <Border Padding="28" Background="Transparent">
         <Grid RowDefinitions="*,Auto" RowSpacing="20">
@@ -10,14 +11,14 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" TextWrapping="Wrap"/>
             </Grid>
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button x:Name="PreviousButton" Classes="ghost home-page-button" Click="OnPrevious"
+                <controls:AppButton x:Name="PreviousButton" Classes="ghost home-page-button" Click="OnPrevious"
                         ToolTip.Tip="{loc:Loc ui.561}" AutomationProperties.Name="{loc:Loc ui.561}">
                     <PathIcon Data="{x:Static icons:Icons.Back}" Width="16" Height="16"/>
-                </Button>
-                <Button x:Name="NextButton" Classes="ghost home-page-button" Click="OnNext"
+                </controls:AppButton>
+                <controls:AppButton x:Name="NextButton" Classes="ghost home-page-button" Click="OnNext"
                         ToolTip.Tip="{loc:Loc ui.562}" AutomationProperties.Name="{loc:Loc ui.562}">
                     <PathIcon Data="{x:Static icons:Icons.Forward}" Width="16" Height="16"/>
-                </Button>
+                </controls:AppButton>
             </StackPanel>
         </Grid>
     </Border>

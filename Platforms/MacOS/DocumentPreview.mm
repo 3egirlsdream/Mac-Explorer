@@ -1,5 +1,6 @@
 #import <AppKit/AppKit.h>
 #import <Quartz/Quartz.h>
+#import "DocumentPreviewScrollbars.h"
 
 // Owned by NativeControlHost; all calls and callbacks run on the AppKit main thread.
 typedef void (*DocumentKeyCallback)(unsigned short key);
@@ -10,6 +11,7 @@ typedef void (*DocumentKeyCallback)(unsigned short key);
 @property(nonatomic) DocumentKeyCallback callback;
 @property(nonatomic) BOOL navigationKeys;
 @property(nonatomic) CGFloat documentWidth;
+@property(nonatomic, strong) MEDocumentScrollStyle *scrollStyle;
 - (void)clearDocument;
 - (void)fitWidth;
 @end
@@ -31,6 +33,7 @@ typedef void (*DocumentKeyCallback)(unsigned short key);
     }
 }
 - (void)clearDocument {
+    [self.scrollStyle clear];
     NSResponder *responder = self.window.firstResponder;
     if ([responder isKindOfClass:NSView.class] && [(NSView *)responder isDescendantOf:self])
         [self.window makeFirstResponder:self.window.contentView];
@@ -54,6 +57,7 @@ void *me_document_preview_create(DocumentKeyCallback callback, bool navigationKe
     view.layer.masksToBounds = YES;
     view.callback = callback;
     view.navigationKeys = navigationKeys;
+    view.scrollStyle = [MEDocumentScrollStyle new];
     __weak MEDocumentPreview *weakView = view;
     view.keyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
         MEDocumentPreview *current = weakView;
@@ -72,6 +76,21 @@ void *me_document_preview_create(DocumentKeyCallback callback, bool navigationKe
     return (__bridge_retained void *)view;
 }
 // 0: unreadable, 1: loaded (Quick Look completes asynchronously), 2: locked PDF.
+void me_document_preview_navigate(void *handle, int number, const char *text) {
+    MEDocumentPreview *view = (__bridge MEDocumentPreview *)handle;
+    if (!view.pdf.document || number < 1 || number > view.pdf.document.pageCount) return;
+    PDFPage *page = [view.pdf.document pageAtIndex:number - 1];
+    [view.pdf goToPage:page];
+    NSString *query = text ? [NSString stringWithUTF8String:text] : @"";
+    if (query.length == 0 || page.string.length == 0) return;
+    NSRange range = [page.string rangeOfString:query options:NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch];
+    if (range.location == NSNotFound) return;
+    PDFSelection *selection = [page selectionForRange:range];
+    selection.color = NSColor.selectedTextBackgroundColor;
+    [view.pdf setCurrentSelection:selection animate:NO];
+    [view.pdf goToSelection:selection];
+}
+
 int me_document_preview_load(void *handle, const char *path, bool pdf) {
     @autoreleasepool {
         MEDocumentPreview *view = (__bridge MEDocumentPreview *)handle;
@@ -112,6 +131,7 @@ int me_document_preview_load(void *handle, const char *path, bool pdf) {
             [view addSubview:view.quickLook];
             view.quickLook.previewItem = url;
         }
+        [view.scrollStyle prepareContent:view.pdf ?: view.quickLook];
         return 1;
     }
 }
@@ -128,6 +148,10 @@ void me_document_preview_appearance(void *handle, bool dark, double radius) {
     view.appearance = [NSAppearance appearanceNamed:dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     view.layer.cornerRadius = MAX(0, radius);
     [view.appearance performAsCurrentDrawingAppearance:^{ view.pdf.backgroundColor = NSColor.windowBackgroundColor; }];
+}
+void me_document_preview_scrollbars(void *handle, double width, uint32_t thumb, uint32_t hover, uint32_t pressed) {
+    MEDocumentPreview *view = (__bridge MEDocumentPreview *)handle;
+    [view.scrollStyle setWidth:width thumb:thumb hover:hover pressed:pressed];
 }
 void me_document_preview_clear(void *handle) { [(__bridge MEDocumentPreview *)handle clearDocument]; }
 void me_document_preview_destroy(void *handle) {

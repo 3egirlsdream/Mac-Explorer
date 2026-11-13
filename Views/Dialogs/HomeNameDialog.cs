@@ -20,9 +20,9 @@ internal sealed class HomeNameDialog : DialogWindow
         panel.Children.Add(error);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8,
             HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary" } };
+        var cancel = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary" } };
         cancel.Click += (_, _) => Close();
-        var save = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("保存"), Classes = { "primary" } };
+        var save = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("保存"), Classes = { "primary" } };
         save.Click += (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(input.Text)) { error.Text = MacExplorer.Services.Impl.LocalizationText.Get("请输入标签名称。"); return; }

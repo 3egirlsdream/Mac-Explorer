@@ -35,7 +35,7 @@ public partial class ColorPalette : UserControl
             foreach (var value in choices)
             {
                 var dot = new Border { Classes = { "color-palette-dot" }, Background = new SolidColorBrush(Color.Parse(value)) };
-                var button = new Button { Classes = { "ghost", "color-palette-swatch" }, Tag = value,
+                var button = new AppButton { Classes = { "ghost", "color-palette-swatch" }, Tag = value,
                     Content = dot, Margin = new(0, 0, 6, 6) };
                 ToolTip.SetTip(button, value);
                 AutomationProperties.SetName(button, value);

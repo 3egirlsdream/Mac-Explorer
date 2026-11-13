@@ -178,12 +178,12 @@ public partial class NetworkView : UserControl
                 Child = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Children = { dot, statusText } } };
             Canvas.SetLeft(status, 35 + widths.Take(3).Sum()); Canvas.SetTop(status, bounds.Top + 3);
             RowActions.Children.Add(status);
-            var open = new Button { Content = row.ActionText, Tag = row, Height = 24, MinHeight = 24, Width = 70, Padding = new Thickness(8, 0), Classes = { "secondary", "compact" } };
-            open.Bind(Button.ForegroundProperty, open.GetResourceObservable(row.IsConnected ? "AccentBrush" : "TextPrimaryBrush"));
+            var open = new AppButton { Content = row.ActionText, Tag = row, Classes = { "secondary", "compact", "small", "row-action" } };
+            open.Classes.Set("connected", row.IsConnected);
             open.Click += OnOpen;
             Avalonia.Automation.AutomationProperties.SetName(open, $"{row.ActionText} — {row.Name}");
             open.PointerEntered += (_, e) => ServersList.UpdatePointerPosition(e.GetPosition(ServersList));
-            var more = new Button { Tag = row, Width = 24, MinWidth = 24, Height = 24, MinHeight = 24, Padding = new Thickness(0), Classes = { "secondary", "compact" },
+            var more = new AppButton { Tag = row, Classes = { "secondary", "compact", "small", "row-more" },
                 Content = new PathIcon { Data = Geometry.Parse(Assets.Icons.MoreHorizontal), Width = 12, Height = 12 } };
             more.Click += OnMore;
             ToolTip.SetTip(more, LocalizationText.Get("network.more"));

@@ -122,7 +122,7 @@ public partial class SettingsDialog : DialogWindow
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             label.Classes.Add("settings-label");
             ToolTip.SetTip(label, path);
-            var remove = new Button { Content = Services.Impl.LocalizationText.Get("移除"), Classes = { "ghost", "compact" } };
+            var remove = new AppButton { Content = Services.Impl.LocalizationText.Get("移除"), Classes = { "ghost", "compact" } };
             AutomationProperties.SetName(remove, Services.Impl.LocalizationText.Get("移除授权 {0}", path));
             remove.Click += (_, _) =>
             {
@@ -701,19 +701,15 @@ public partial class SettingsDialog : DialogWindow
         var apps = query.Take(5).ToList();
         foreach (var app in apps)
         {
-            var row = new Button
+            var row = new AppButton
             {
                 Tag = app,
                 HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Left,
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(8, 3),
+                Classes = { "ghost", "toolbar-popup-item" },
                 Content = CreateAppIdentity(app.Name, app.IconBase64, 18)
             };
-            row.Classes.Add("ghost");
-            row.Classes.Add("toolbar-popup-item");
+
             AutomationProperties.SetName(row, MacExplorer.Services.Impl.LocalizationText.Get("添加 {0}", app.Name));
             row.Click += AddApplication;
             InstalledAppsPanel.Children.Add(row);
@@ -794,7 +790,7 @@ public partial class SettingsDialog : DialogWindow
             AutomationProperties.SetName(toggle, MacExplorer.Services.Impl.LocalizationText.Get("在右键菜单首层显示 {0}", app.DisplayLabel));
             toggle.IsCheckedChanged += OnTopLevelChanged;
 
-            var delete = new Button
+            var delete = new AppButton
             {
                 Tag = app,
                 Classes = { "ghost", "openwith-delete" },

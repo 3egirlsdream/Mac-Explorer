@@ -18,8 +18,8 @@ internal sealed class ConfirmDialog : DialogWindow
         cancelText = MacExplorer.Services.Impl.LocalizationText.Get(cancelText);
         Title = title; Width = 440; MinWidth = 340; SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var cancel = new Button { Content = cancelText, Classes = { "secondary", "compact" } };
-        var confirm = new Button { Content = accept, Classes = { "primary", "compact" } };
+        var cancel = new AppButton { Content = cancelText, Classes = { "secondary", "compact" } };
+        var confirm = new AppButton { Content = accept, Classes = { "primary", "compact" } };
         cancel.Click += (_, _) => Close(false);
         confirm.Click += (_, _) => Close(true);
         Content = new StackPanel { Margin = new Thickness(16), Spacing = 12, Children =

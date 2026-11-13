@@ -27,7 +27,7 @@ public partial class MarkdownPreviewView : UserControl
     {
         var copyButton = e.HeaderPanel.Children
             .OfType<Button>()
-            .FirstOrDefault(button => button.Classes.Contains(MarkdownStyleKeys.CopyButton));
+            .FirstOrDefault(button => button.Classes.Contains(MarkdownStyleKeys.CopyButton) || button.Classes.Contains("markdown-copy"));
         if (copyButton is null)
         {
             return;
@@ -39,14 +39,12 @@ public partial class MarkdownPreviewView : UserControl
             AutomationProperties.SetName(copyButton, label);
         }
 
-        // Release the renderer's brush bindings so the scoped app styles supply the
-        // fill, hover and pressed states.
+        // Use the shared icon-action appearance instead of renderer-specific brushes.
         copyButton.ClearValue(Button.BackgroundProperty);
         copyButton.ClearValue(Button.ForegroundProperty);
-        copyButton.Classes.Add("md-copy");
-        // The box is 28px wide and the icon 13px, so every inset lands on a half
-        // pixel; rounding them is what pushed the glyph off centre.
-        copyButton.UseLayoutRounding = false;
+        copyButton.Classes.Remove(MarkdownStyleKeys.CopyButton);
+        copyButton.Classes.Add("markdown-copy");
+        copyButton.Classes.Add("icon-action");
         copyButton.Content = new PathIcon { Data = CopyIcon, Width = 13, Height = 13 };
     }
 

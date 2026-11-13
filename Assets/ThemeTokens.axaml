@@ -20,11 +20,11 @@
             <CornerRadius x:Key="RadiusXl">14</CornerRadius>
             <CornerRadius x:Key="RadiusFull">999</CornerRadius>
             <!-- Shared geometry for ordinary interactive states. -->
-            <CornerRadius x:Key="InteractionCornerRadius">10</CornerRadius>
+            <CornerRadius x:Key="InteractionCornerRadius">8</CornerRadius>
             <sys:Double x:Key="InteractionDisabledOpacity">0.45</sys:Double>
 
-            <Thickness x:Key="ControlPadding">12,7</Thickness>
-            <Thickness x:Key="CompactControlPadding">9,5</Thickness>
+            <Thickness x:Key="ControlPadding">12,0</Thickness>
+            <Thickness x:Key="CompactControlPadding">9,0</Thickness>
             <Thickness x:Key="CardPadding">16</Thickness>
 
             <SolidColorBrush x:Key="WindowCloseBrush" Color="#FF5F57"/>
@@ -130,6 +130,7 @@
                     <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#C9C9C9"/>
                     <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#B8B8B8"/>
                     <SolidColorBrush x:Key="ScrollBarTrackFill" Color="Transparent"/>
+                    <SolidColorBrush x:Key="ScrollBarTrackStroke" Color="Transparent"/>
                     <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver" Color="Transparent"/>
                     <SolidColorBrush x:Key="ScrollBarButtonBackgroundPointerOver" Color="Transparent"/>
                     <SolidColorBrush x:Key="ScrollBarButtonBackgroundPressed" Color="Transparent"/>
@@ -316,6 +317,7 @@
                     <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#8B8E94"/>
                     <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#A2A5AB"/>
                     <SolidColorBrush x:Key="ScrollBarTrackFill" Color="Transparent"/>
+                    <SolidColorBrush x:Key="ScrollBarTrackStroke" Color="Transparent"/>
                     <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver" Color="Transparent"/>
                     <SolidColorBrush x:Key="ScrollBarButtonBackgroundPointerOver" Color="Transparent"/>
                     <SolidColorBrush x:Key="ScrollBarButtonBackgroundPressed" Color="Transparent"/>

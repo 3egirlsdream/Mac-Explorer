@@ -96,6 +96,7 @@ public partial class FileOpsViewModel : ObservableObject
 
     public List<string> GetPasteConflicts(string currentPath)
     {
+        if (_fileService is CompositeFileService { HandlesConflicts: true }) return [];
         if (_clipboardService == null || !_clipboardService.HasClipboardFiles) return [];
         var entry = _clipboardService.GetClipboardEntry();
         if (entry == null || entry.Operation != ClipboardOperation.Cut) return [];
@@ -149,9 +150,16 @@ public partial class FileOpsViewModel : ObservableObject
             {
                 await FileTaskContext.Current!.StepAsync("paste-cut:" + sourcePath, async () =>
                 { await _fileService.MoveAsync(sourcePath, currentPath, overwrite); return true; });
-                var movedPath = CombineDestinationPath(currentPath, Path.GetFileName(sourcePath));
+                if (FileTaskContext.Current.Results.Any(r => r.Source == sourcePath && r.State == FileTaskItemState.Skipped)) continue;
+                var movedPath = FileTaskContext.Current.Results.LastOrDefault(r => r.Source == sourcePath)?.Destination
+                    ?? CombineDestinationPath(currentPath, Path.GetFileName(sourcePath));
                 completed.Add(movedPath);
                 // Consume only confirmed moves so a retry cannot move a missing source.
+                if (FileTaskContext.Current.IsDone("merge-output:" + movedPath) && await _fileService.ExistsAsync(sourcePath))
+                {
+                    warnings.Add(Services.Impl.LocalizationText.Get("来源包含未复制的项目，已保留源文件。"));
+                    continue;
+                }
                 entry.SourcePaths.Remove(sourcePath);
                 if (ReferenceEquals(_clipboardService.GetClipboardEntry(), entry) && CutPaths.Remove(sourcePath))
                     OnPropertyChanged(nameof(CutPaths));
@@ -159,7 +167,8 @@ public partial class FileOpsViewModel : ObservableObject
                 {
                     try
                     {
-                        await _fileTagService.UpdatePathAsync(sourcePath, movedPath);
+                        if (_fileService is not CompositeFileService { HandlesConflicts: true })
+                            await _fileTagService.UpdatePathAsync(sourcePath, movedPath);
                         if (entry.SourceTag is { } sourceTag)
                         {
                             var sync = await _fileTagService.SetTagAsync([movedPath], sourceTag, false);
@@ -231,6 +240,7 @@ public partial class FileOpsViewModel : ObservableObject
 
     public List<string> GetMoveConflicts(IReadOnlyList<FileSystemEntry> entries, string targetDirectory)
     {
+        if (_fileService is CompositeFileService { HandlesConflicts: true }) return [];
         // For remote paths, skip local conflict detection (SFTP will handle it)
         if (VirtualPath.IsRemotePath(targetDirectory)) return [];
 
@@ -293,8 +303,10 @@ public partial class FileOpsViewModel : ObservableObject
                         }
                         return true;
                     });
+                    if (context.Results.Any(r => r.Source == path && r.State == FileTaskItemState.Skipped)) continue;
+                    output = context.Results.LastOrDefault(r => r.Source == path)?.Destination ?? output;
                     completed.Add(output); context.ReportItem(path, output, FileTaskItemState.Completed);
-                    if (_fileTagService != null)
+                    if (_fileTagService != null && _fileService is not CompositeFileService { HandlesConflicts: true })
                         try { await _fileTagService.UpdatePathAsync(path, output); }
                         catch (Exception ex) { warnings.Add(ex.Message); }
                 }

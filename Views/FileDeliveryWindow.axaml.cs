@@ -155,7 +155,7 @@ public partial class FileDeliveryWindow : AppWindow
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
             content.Children.Add(new PathIcon { Data = Geometry.Parse(_files.GetLocationIcon(entry.Location)), Width = 14, Height = 14 });
             content.Children.Add(new TextBlock { Text = displayName, VerticalAlignment = VerticalAlignment.Center });
-            var button = new Button { Content = content, Classes = { "ghost", "compact", "delivery-tab" } };
+            var button = new AppButton { Content = content, Classes = { "ghost", "compact", "delivery-tab" } };
             AutomationProperties.SetName(button, displayName);
             button.Classes.Set("selected", entry.Id == _entryId);
             ToolTip.SetTip(button, entry.Id == FileDeliveryService.StagingId ? displayName : entry.Location);

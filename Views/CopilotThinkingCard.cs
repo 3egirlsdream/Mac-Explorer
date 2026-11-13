@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -39,7 +40,7 @@ public sealed class CopilotThinkingCard : Border
         });
         header.Children.Add(_title);
         header.Children.Add(_chevron);
-        _button = new Button
+        _button = new AppButton
         {
             Content = header,
             HorizontalAlignment = HorizontalAlignment.Left,

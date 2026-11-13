@@ -9,7 +9,7 @@
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
-    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10" Margin="16">
+    <Grid RowDefinitions="Auto,Auto,Auto" Margin="16">
         <Border Classes="settings-group">
             <StackPanel>
                 <Border Classes="settings-compact-row settings-divider">
@@ -28,12 +28,12 @@
                 </Border>
             </StackPanel>
         </Border>
-        <ScrollViewer x:Name="StatusScroller" Grid.Row="1" MaxHeight="90" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer x:Name="StatusScroller" Grid.Row="1" Margin="0,10,0,0" MaxHeight="90" HorizontalScrollBarVisibility="Disabled">
             <TextBlock x:Name="StatusText" Classes="settings-description" TextWrapping="Wrap"/>
         </ScrollViewer>
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button x:Name="CancelButton" Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
-            <Button x:Name="ConnectButton" Classes="primary compact" Content="{loc:Loc ui.499}" IsDefault="True" Click="OnConnect"/>
+        <StackPanel x:Name="DialogActions" Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <controls:AppButton x:Name="CancelButton" Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
+            <controls:AppButton x:Name="ConnectButton" Classes="primary compact" Content="{loc:Loc ui.499}" IsDefault="True" Click="OnConnect"/>
         </StackPanel>
     </Grid>
 </controls:DialogWindow>

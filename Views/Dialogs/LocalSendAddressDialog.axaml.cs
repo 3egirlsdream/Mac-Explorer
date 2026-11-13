@@ -28,8 +28,7 @@ public partial class LocalSendAddressDialog : DialogWindow
 
     private async void OnConnect(object? sender, RoutedEventArgs e)
     {
-        if (_connecting) return;
-        if (_connected) { Close(true); return; }
+        if (_connecting || _connected) return;
         if (!int.TryParse(PortBox.Text, out var port) || port is < 1 or > 65535)
         {
             StatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("端口须为 1–65535。");
@@ -46,8 +45,7 @@ public partial class LocalSendAddressDialog : DialogWindow
             if (_closed.IsCancellationRequested) return;
             _connected = true;
             StatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("已连接 {0}。重新打开菜单选择设备发送。", peer.Alias);
-            ConnectButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("完成");
-            CancelButton.Content = MacExplorer.Services.Impl.LocalizationText.Get("关闭");
+            DialogActions.IsVisible = false;
         }
         catch (OperationCanceledException) when (_closed.IsCancellationRequested) { return; }
         catch (OperationCanceledException)

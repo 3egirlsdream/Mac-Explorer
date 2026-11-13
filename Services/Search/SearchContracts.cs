@@ -46,9 +46,10 @@ public sealed record SearchEntry(string Path, string Name, string ParentPath, st
     string NameKey, string InitialsKey, string ParentKey, long Size, bool IsDirectory, bool IsHidden,
     long CreatedTicks, long ModifiedTicks, bool IsSymbolicLink = false)
 {
+    public IReadOnlyList<DocumentMatch> ContentMatches { get; init; } = [];
     public FileSystemEntry ToFileSystemEntry() => new()
     {
-        FullPath = Path, Name = Name, Extension = Extension, Size = Size,
+        FullPath = Path, Name = Name, Extension = Extension, Size = Size, SearchMatches = ContentMatches,
         IsDirectory = IsDirectory, IsHidden = IsHidden, IsSymbolicLink = IsSymbolicLink,
         Created = new DateTime(CreatedTicks, DateTimeKind.Utc).ToLocalTime(),
         LastModified = new DateTime(ModifiedTicks, DateTimeKind.Utc).ToLocalTime(),

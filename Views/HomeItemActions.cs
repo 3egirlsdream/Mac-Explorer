@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -51,15 +52,14 @@ public sealed class HomeItemActions : IDisposable
     public Button CreateItemButton(FileSystemEntry entry, FileTag? tag = null, bool compact = false,
         Action? beforeOpen = null, DateTime? addedUtc = null)
     {
-        var button = new Button { DataContext = entry, Classes = { "ghost", compact ? "home-recent-item" : "home-grid-item" },
+        var button = new AppButton { DataContext = entry, Classes = { "ghost", compact ? "home-recent-item" : "home-grid-item" },
             Opacity = entry.IsReadable ? 1 : 0.5 };
         var image = new MacExplorer.Controls.HomeFileImage(entry, compact ? 30 : 48, _navigation.GetListThumbnailAsync, _thumbnails)
         { HorizontalAlignment = HorizontalAlignment.Center };
-        var name = AppTypography.BindFontSize(new TextBlock { Text = InterfaceLocationNames.Get(entry.FullPath, _navigation.HomeDirectory) ?? entry.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis,
+        var name = AppTypography.BindFontSize(new FileNameText { Text = InterfaceLocationNames.Get(entry.FullPath, _navigation.HomeDirectory) ?? entry.DisplayName,
             VerticalAlignment = VerticalAlignment.Center }, AppTypography.Label);
         if (compact)
         {
-            button.Width = 192;
             button.Margin = new Thickness(0, 0, 6, 2);
             var content = new Grid { ColumnDefinitions = new ColumnDefinitions("32,*") };
             content.Children.Add(image);
@@ -109,7 +109,6 @@ public sealed class HomeItemActions : IDisposable
             HorizontalAlignment = HorizontalAlignment.Center });
         name.TextAlignment = TextAlignment.Center;
         name.VerticalAlignment = VerticalAlignment.Center;
-        name.TextTrimming = TextTrimming.CharacterEllipsis;
         Grid.SetRow(name, 1);
         content.Children.Add(name);
         return content;

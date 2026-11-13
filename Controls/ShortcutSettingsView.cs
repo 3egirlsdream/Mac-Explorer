@@ -60,7 +60,7 @@ internal sealed class ShortcutSettingsView : StackPanel
                 fields.Children.Add(name);
                 if (definition.Context != null) ToolTip.SetTip(name, MacExplorer.Services.Impl.LocalizationText.Get("{0} · 固定快捷键", definition.DisplayContext));
                 else ToolTip.SetTip(name, definition.DisplayName);
-                var keys = new Button { Classes = { "ghost", "compact", "shortcut-binding" },
+                var keys = new AppButton { Classes = { "ghost", "compact", "shortcut-binding" },
                     Name = "ShortcutBinding_" + definition.Id.Replace('.', '_'), IsEnabled = definition.IsEditable };
                 var keyGroup = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
                 var modifiers = new Dictionary<KeyModifiers, Button>();
@@ -77,7 +77,7 @@ internal sealed class ShortcutSettingsView : StackPanel
                     foreach (var (modifier, caption, label) in new[]
                     { (KeyModifiers.Control, "Control", "Control"), (KeyModifiers.Alt, "⌥", "Option"), (KeyModifiers.Shift, "⇧", "Shift") })
                     {
-                        var button = new Button { Content = caption, Classes = { "ghost", "compact", "shortcut-modifier" },
+                        var button = new AppButton { Content = caption, Classes = { "ghost", "compact", "shortcut-modifier" },
                             Name = "ShortcutModifier_" + definition.Id.Replace('.', '_') + "_" + label };
                         AutomationProperties.SetName(button, $"{definition.DisplayName} {label}");
                         button.Click += (_, _) =>
@@ -94,7 +94,7 @@ internal sealed class ShortcutSettingsView : StackPanel
                     AutomationProperties.SetName(keys, MacExplorer.Services.Impl.LocalizationText.Get("{0}主键", definition.DisplayName));
                     keys.Click += (_, _) => StartRecording(definition.Id);
                     keys.LostFocus += (_, _) => { if (_recordingId == definition.Id) CancelRecording(); };
-                    reset = new Button { Classes = { "ghost", "compact", "icon-action" },
+                    reset = new AppButton { Classes = { "ghost", "compact", "icon-action" },
                         Content = new PathIcon { Data = Geometry.Parse(Assets.Icons.Refresh), Width = 14, Height = 14 } };
                     AutomationProperties.SetName(reset, MacExplorer.Services.Impl.LocalizationText.Get("恢复{0}默认快捷键", definition.DisplayName));
                     ToolTip.SetTip(reset, MacExplorer.Services.Impl.LocalizationText.Get("恢复默认"));
@@ -118,7 +118,7 @@ internal sealed class ShortcutSettingsView : StackPanel
             section.Children.Add(new Border { Classes = { "settings-group" }, Child = rows });
             Children.Add(section);
         }
-        var resetAll = _resetAll = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("恢复全部默认"), Classes = { "secondary", "compact" }, HorizontalAlignment = HorizontalAlignment.Right };
+        var resetAll = _resetAll = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("恢复全部默认"), Classes = { "secondary", "compact" }, HorizontalAlignment = HorizontalAlignment.Right };
         resetAll.Click += (_, _) =>
         {
             CancelRecording(); shortcuts.ResetAll();

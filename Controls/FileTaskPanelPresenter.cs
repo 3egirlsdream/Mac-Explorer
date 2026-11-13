@@ -188,7 +188,7 @@ internal sealed class FileTaskPanelPresenter
 
     private Button UndoButton(Guid id)
     {
-        var button = new Button { Content = new PathIcon { Data = Geometry.Parse(Icons.ArrowUndo), Width = 16, Height = 16 },
+        var button = new AppButton { Content = new PathIcon { Data = Geometry.Parse(Icons.ArrowUndo), Width = 16, Height = 16 },
             Classes = { "icon-action" } };
         AutomationProperties.SetName(button, LocalizationText.Get("撤销"));
         ToolTip.SetTip(button, LocalizationText.Get("撤销"));
@@ -284,7 +284,7 @@ internal sealed class FileTaskPanelPresenter
     private static Button IconButton(string label, string icon)
     {
         var glyph = FileTaskIcons.Create(icon, 22);
-        var button = new Button { Content = glyph, Padding = default, Classes = { "icon-action" } };
+        var button = new AppButton { Content = glyph, Classes = { "icon-action" } };
         ((Avalonia.Controls.Shapes.Path)glyph.Child!).Bind(Shape.StrokeProperty, button.GetObservable(TemplatedControl.ForegroundProperty));
         AutomationProperties.SetName(button, LocalizationText.Get(label));
         ToolTip.SetTip(button, LocalizationText.Get(label));

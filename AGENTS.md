@@ -39,12 +39,13 @@ feat: 优化文件夹恢复
 - 文件列表视图切换复用全局 `view-mode-segmented`；三项工具栏追加 `three` 样式和 `ViewModeTrackThreeGeometry`，保持统一高度、圆角及选中态。
 - 文字搜索页使用紧凑间距；热门文字复用全局 `Button.tag-chip` 胶囊标签，`tag-label` 与 `tag-count` / `tag-count-text` 分别显示文字和文件数，内容双向居中，长标签省略并通过提示显示完整文字。
 - 脚本命令编辑复用 `SettingsStyles.axaml` 的分组和紧凑字段行；组内输入使用 `settings-inline-input` 透明表面，命令使用 `settings-command-editor` 等宽多行编辑，分隔线使用 `settings-divider-row`。标题栏透明并与窗口表面一体，说明放入提示，不重复显示标题与完整路径。
-- `ComboBox.icon-picker` 宽 64px、内边距 `8,6`，为 Fluent 模板的 32px 箭头列与 16px 图标保留完整空间。
+- `ComboBox.icon-picker` 宽 64px、内边距 `8,0`，为 Fluent 模板的 32px 箭头列与 16px 图标保留完整空间。
 - 首页脚本命令的右键菜单图标在名称左侧通过全局 `ComboBox.icon-picker` 选择，收起时仅显示图标，下拉项显示图标与文字，支持不配置／启动／中断，启动与中断复用 Fluent Play／Stop 图标及 `SuccessBrush`／`DangerBrush` 主题色，配置选项与菜单共用图标渲染；不配置在选择器中显示灰色横线，菜单不显示图标。多行编辑复用 `TextBox.multiline`，文字左上对齐并自动换行。
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
 - 文件列表「种类」与信息面板共用 `FileSystemEntry.KindText`，通过 `FileKindNames` 和四语资源显示格式全名，未知后缀显示「后缀 文件」，无后缀显示「文件」；普通目录、应用和已知项目包分别标识。种类列沿用全局列宽布局与单行省略，默认 230px，悬停显示完整名称。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
+- 有窗口关闭入口的预览、说明及只读弹窗不再单独添加底部“关闭”按钮或占位，正文铺满可用区域，保留标题栏关闭与 Escape；底部仅保留保存、取消、重试等实际操作，无操作时整组收起并移除分隔线与间距。
 - 关于页产品信息使用透明的 `settings-about-card`，更新、隐私与反馈入口复用 `settings-group` / `settings-row` 和 `secondary compact`；反馈下方“给个好评”按渠道显示“跳转商店”或“github star”，分别打开 App Store 评分页或项目 GitHub 首页。反馈群文字与二维码并排，二维码通过 `CroppedBitmap` 展示原图码面与白色边距，不缩放整张海报。
 - 隐私与主机信任确认复用 `ConfirmDialog` / `DialogWindow`、紧凑全局按钮与设置文字样式；标题栏透明，正文只显示数据接收方、用途或需要核对的指纹，默认聚焦取消。
 - Copilot 对话与输入框复用 `ComponentStyles.axaml` 的 `copilot-*` 样式：助手气泡靠左、用户气泡靠右，过程用左侧细线，工具与确认用轻边框卡片；输入框和卡片使用全局 `RadiusLg`，发送按钮使用全局 `RadiusFull`。
@@ -63,6 +64,12 @@ feat: 优化文件夹恢复
 
 - 信息面板使用单页分区；标题、字段行统一复用全局 `info-section-title` / `info-field-row` / `info-field-label` / `info-field-value`，字段值右对齐，行底部使用主题细分割线。
 
+- 滚动条统一复用 `Assets/ScrollBarStyles.axaml` 与 `AppScrollBarTheme`，沿用 Fluent 原生交互、8px 尺寸、透明无描边轨道和圆角滑块；Markdown 等第三方预览在局部主题之后引用同一全局样式，避免替换模板。PDF／Office 的原生滚动条由 `DocumentPreviewHost` 传入同一组全局尺寸与浅深色资源；Office 网页预览铺满宿主，滚动条位于预览最右侧，不保留居中的纸张宽度滚动视口，也不增加右侧命中面板。
+
+- 同名冲突、编辑同步和正文命中弹窗直接继承 `DialogWindow`，复用 `WindowTitleBar`、全局 `AppButton` / `AppSplitButton` 与 `SettingsStyles.axaml`，不增加中间弹窗基类。冲突和编辑同步保留紧凑分组、滚动正文与固定底部操作；正文命中由预览填满正文区域，不限制预览的固定高度，滚动由预览控件处理。正文命中使用 `ContentMatchDialog` / `DocumentPreviewHost` 的整页预览，沿用原搜索入口，不追加右侧命中片段面板，也不自动展开信息面板；信息面板保持原有单选展示，多选时回到选择提示。
+- 显示独立标题的弹窗由 `WindowTitleBar` 统一在底部绘制 1px `DialogDividerBrush` 细线，标题和内容更新时同步显隐；主窗口页签通过 `ShowTitleBarDivider=False` 保留原衔接。编辑同步使用居中标题、全局 `dialog-status-*` 状态图标与单层文件信息分组；本地副本通过 `Button.dialog-location` 定位，长路径按段省略，技术错误可选择复制；底部仅保留处理操作，窄窗口按操作实际宽度自动纵排，多文件通过全局 `AppComboBox` 切换。重试仅禁用当前文件的重复请求，停止、定位及其他会话继续可用。
+- 目录偏好只保存排序、筛选、列宽和面板状态，默认视图与分组沿用原逻辑；工作组和会话通过可选 `Preferences` 快照恢复，各窗格独立，不反写全局偏好。
+
 - 全局 CheckBox 使用 16px 无边框圆角色块；文本／搜索／数字输入复用 `ComponentStyles.axaml`，无边框和聚焦描边，蓝色 2px 输入光标由 `InputCaret` 统一绘制。
 - 输入框内部不单独绘制悬停或点击背景；搜索／地址输入保持透明，首页与文件列表搜索框的外层背景在悬停、点击和聚焦时均保持不变。
 - 面包屑与右侧搜索共用 `breadcrumb-bar`：透明背景、1px `ColorBorderSubtle` 浅色主题边框；单击面包屑空白处进入路径编辑，文字导航与箭头下拉保持独立。
@@ -78,12 +85,14 @@ feat: 优化文件夹恢复
 
 - 设置入口固定在侧栏底部、位于目录滚动区域之外，复用 Fluent Settings 图标与 `sidebar-item` 的 Border／StackPanel 结构，不嵌套按钮悬停表面；Copilot 通过设置中的启用开关控制，默认关闭，所有窗口同步按钮可见性。
 
-- macOS 所有应用窗口统一继承 `AppWindow`，外沿由 `AppWindow.WindowOutline` 绘制 0.5px 细线，复用 `WindowBorderBrush`（浅色 `#E8E8E8`、深色 `#3A3D42`）；`MacWindowChrome` 统一关闭带深色外圈的原生阴影并保留窗口交互能力，通过 `WindowShadow.mm` 的不接收输入的原生附属层绘制轻柔外阴影（18px 模糊、向下 4px，激活 16%／未激活 10% 黑色），排除窗口内部并随移动、缩放、最小化及关闭同步；主窗口、对话框、任务窗口与文件速递共用该实现，隐藏后重显及浮动层级变化同步更新；阴影附属层允许越过菜单栏及屏幕边缘，不受可见区域约束，保持与主体外框对齐；最大化和全屏隐藏描边与轻阴影，勿通过内部 `ColorBorder*` 调整窗口外框。首次显示前通过基类 `WindowOpenedEvent` 初始化外观，关闭原生开窗动画和内容渲染层的隐式几何／纹理动画，首帧按最终尺寸铺满，不从中心扩散。显示前仅做轻量动画准备，显示后的外观更新合并执行；渲染层按实例初始化一次，阴影仅在尺寸、圆角或激活强度变化时重绘。
+- macOS 所有应用窗口统一继承 `AppWindow`，外沿由 `AppWindow.WindowOutline` 绘制 0.5px 细线，复用 `WindowBorderBrush`（浅色 `#E8E8E8`、深色 `#3A3D42`）；`MacWindowChrome` 统一关闭带深色外圈的原生阴影并保留窗口交互能力，通过 `WindowShadow.mm` 的不接收输入的原生附属层绘制轻柔外阴影（18px 模糊、向下 4px，激活 16%／未激活 10% 黑色），排除窗口内部并随移动、缩放、最小化及关闭同步；主窗口、对话框、任务窗口与文件速递共用该实现，隐藏后重显及浮动层级变化同步更新；阴影附属层允许越过菜单栏及屏幕边缘，不受可见区域约束，保持与主体外框对齐；最大化和全屏隐藏描边与轻阴影，勿通过内部 `ColorBorder*` 调整窗口外框。首次显示前通过基类 `WindowOpenedEvent` 初始化外观，关闭原生开窗动画和内容渲染层的隐式几何／纹理动画，首帧按最终尺寸铺满，不从中心扩散。显示前仅做轻量动画准备，显示后的外观更新合并执行；渲染层按实例初始化一次，并在 Avalonia 替换实际渲染层时同步准备；旧帧按内容坐标方向固定在左上角，以窗口 backing scale 保持原像素比例，跨屏缩放时同步更新，拖拽调整大小不拉伸旧纹理，也不在外观层修改 drawable 尺寸或呈现方式。原生观察器随视图释放，阴影仅在尺寸、圆角或激活强度变化时重绘。
 
 - GitHub Pages 官网正文使用本地托管的 `Montserrat, system-ui, sans-serif`，中文回退系统字体；软件界面展示保留系统默认字体，复用 `docs/landing.css` 的按钮、分区与亮色网格主题，真实界面展示统一经 `replica-stage` 按当前截图的 1280×800 等比缩放，首屏默认文件列表与右键菜单并随视口剩余高度完整显示，正文仅介绍产品功能；底部开源与插件入口复用 `community-section` 的居中介绍和并排胶囊按钮；文案在 `docs/locales` 四语文件维护，由 `Tools/Website/build.py` 生成独立静态语言页面。
 - 官网首屏堆叠复用 `showcase-stack` / `showcase-window`，前景保留完整文件列表与两级菜单；装饰窗口从无障碍树排除。主题 SVG 经 `Tools/Website/build.py` 从应用预置同步，保持原比例和 35% 图案强度；组件透明表面、菜单 65% 白色与 8px 模糊，不降低文字或图标透明度。 首页图标在构建时从本地 Fluent sprite 内嵌路径并保留 viewBox，避免外部 SVG use 引用在预览浏览器中丢失。 展示中的工具栏标签复用 `browser-toolbar-tags`，右侧面板使用 `browser-info-*` 的单页分区、透明预览、右对齐字段和主题细分隔线，新增文案由四语 `browserDemo` 提供。 官网展示的标题栏保留无纹理渐变，通过单层裁切为激活页签留出开口；页签直接透出窗口背景，不复制背景图，避免缩放拼接细线。 页签下缘不绘制分隔线或阴影。
 
 - 官网指南复用 `landing.css` 的 `guide-index` / `guide-page` 与现有语言选择器；四语正文由 `docs/locales/guides` 生成静态页面，使用真实界面截图，规范网址和语言互链随页面生成并加入站点地图。
+
+- 文件名显示统一复用 `FileNameText` 的实际宽度排版；空间不足时仅从中间省略，保留完整扩展名（含点号），不再按固定字符数预先截断。文件列表与图标视图复用同一排版规则，首页和画廊使用该共享文字控件。
 
 # 多语言
 - 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `Languages` 目录下简体中文、繁体中文、英文和法语的已发布语言文件，不直接显示硬编码文案。语言列表从 `Languages/*.json` 构建生成，新增语言不修改设置列表；中文原文查询需将 key 加入中文文件的 `literalKeys`。运行时只查内存缓存，不扫描目录或读取 JSON，规则见 `Languages/README.md`。
@@ -184,3 +193,13 @@ feat: 优化文件夹恢复
 - 空格视频预览复用 `VideoPreviewHost` 与 macOS `AVPlayerView`，等比显示并点击后播放，空格／Escape 关闭；系统控件提供进度和音量，隐藏、最小化及应用弹窗覆盖时暂停，恢复后不自动继续。切换和关闭时取消异步加载、移除观察者并释放播放器后再清理临时文件；Cmd+K 和画廊继续显示静态缩略图。
 
 - Diff／Patch 预览复用 `DiffPreviewView` 的双栏只读 AvaloniaEdit、`diff-preview` 样式与全局等宽字体／字号；按区块配对增删行并补齐空位，页边显示原文件行号，双向同步纵向滚动，各栏保留横向滚动。增删行使用 `SuccessBrush`／`DangerBrush` 文字与淡色背景，文件头与区块使用 `AccentBrush`；复制跳过对齐空位并保留原换行，无有效区块、格式不支持或超过十万行时显示补丁原文，读取上限和编码共用 `TextPreviewReader`。
+
+- 同名文件弹窗以全局默认按钮的实际尺寸为比例基准，按钮固定 32px 高、默认面板约 616×380px，不叠加 compact 字号或局部按钮高度；使用共享文件类型图标与左右元数据对照，窄窗口改为上下排列；标题居中复用 `dialog-window-title centered`；底部取消任务与处理操作分开，保留两者为默认操作，替换的附加选项复用全局 `SplitButton.secondary` 与标准菜单；其外观直接由 `Button.secondary` 和 `Button.icon-action` 组合，不复制颜色、圆角或边框样式，弹窗按钮不局部覆盖颜色和内边距。
+
+- 应用按钮统一使用 `Controls/AppButton.cs` 的 `AppButton` / `AppToggleButton` / `AppSplitButton`，所有按钮样式、主题和专用变体集中在 `Assets/ButtonStyles.axaml`，经 `ComponentStyles.axaml` 全局加载；页面只指定 Classes、内容、行为和布局，不设置颜色、字体、圆角、边框、内边距或固定高度。普通操作使用 primary／secondary／ghost／danger，按需追加 compact／small／dialog-action，图标操作用 icon-action；透明表面共用 SurfaceButtonTheme，组合下拉复用现有按钮。`Tools/Testing/check-buttons.py` 在统一测试入口自动检查，详见 `docs/development/buttons.md`。
+
+- 独立插件 UI 宿主同样加载全局字体、主题及 `ButtonStyles.axaml`；SDK 示例保持已发布的 Avalonia Button API，通过统一 Classes 接入，不复制样式、不依赖主程序控件类型。
+
+- 普通按钮尺寸固定为默认 32px、compact 28px、small 24px、large 36px，同档 primary／secondary／ghost／danger 高度一致；上下不叠加内容内边距，由全局模板居中文字和图标，水平内边距分别保留 12／9／8／12px；字体仍跟随全局字号资源，验证四语、三档字号与图标组合不裁切。
+
+- 下拉选择统一使用 `Controls/AppButton.cs` 的 `AppComboBox`，字段、选项及四档高度均在 `Assets/ButtonStyles.axaml` 定义，设置行显式使用 compact，页面不再覆盖样式；ComboBox 下拉与 MenuFlyout（含组合按钮菜单）共用标准 `context-submenu-surface` / `PopupGlass`，保留统一圆角、内边距、悬停与阴影空间。

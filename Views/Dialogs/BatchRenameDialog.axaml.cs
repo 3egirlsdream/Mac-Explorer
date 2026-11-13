@@ -160,7 +160,7 @@ public partial class BatchRenameDialog : DialogWindow
     {
         if (RuleEditor == null || RuleList.SelectedItem is not BatchRenameRule rule) return;
         _numericErrors.Clear(); _conditionalFields.Clear(); RuleEditor.Children.Clear(); _fieldHost = RuleEditor;
-        var type = new ComboBox { ItemsSource = Enum.GetValues<BatchRenameRuleType>().Select(t => new BatchRenameRule { Type = t }.Label).ToArray(), SelectedIndex = (int)rule.Type };
+        var type = new AppComboBox { Classes = { "compact" }, ItemsSource = Enum.GetValues<BatchRenameRuleType>().Select(t => new BatchRenameRule { Type = t }.Label).ToArray(), SelectedIndex = (int)rule.Type };
         type.Classes.Add("settings-inline-input");
         type.SelectionChanged += (_, _) => { if (type.SelectedIndex >= 0) rule.Type = (BatchRenameRuleType)type.SelectedIndex; };
         Field("规则", type);
@@ -193,7 +193,7 @@ public partial class BatchRenameDialog : DialogWindow
                 var tokens = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal };
                 foreach (var (label, value) in new[] { ("名称", "{name}"), ("目录", "{parent}"), ("编号", "{n}"), ("拍摄日期", "{taken:yyyyMMdd}"), ("修改日期", "{modified:yyyyMMdd}") })
                 {
-                    var button = new Button { Content = label }; button.Classes.Add("ghost"); button.Classes.Add("compact");
+                    var button = new AppButton { Content = label }; button.Classes.Add("ghost"); button.Classes.Add("compact");
                     button.Click += (_, _) => rule.TemplateText += value; tokens.Children.Add(button);
                 }
                 Field("插入字段", tokens);
@@ -246,7 +246,7 @@ public partial class BatchRenameDialog : DialogWindow
             () => NumberField("位数", rule, nameof(rule.SequencePadding), 0, 12));
         ConditionalSection(() => _multipleDirectories || _options.RestartPerDirectory, () =>
         {
-            var restart = new ComboBox { ItemsSource = new[] { "整批连续", "按目录重新开始" }, SelectedIndex = _options.RestartPerDirectory ? 1 : 0 };
+            var restart = new AppComboBox { Classes = { "compact" }, ItemsSource = new[] { "整批连续", "按目录重新开始" }, SelectedIndex = _options.RestartPerDirectory ? 1 : 0 };
             restart.Classes.Add("settings-inline-input");
             restart.SelectionChanged += (_, _) => { _options.RestartPerDirectory = restart.SelectedIndex == 1; PresetCombo.SelectedIndex = -1; UpdateParameterVisibility(); QueuePreview(); };
             Field("编号范围", restart);
@@ -261,7 +261,7 @@ public partial class BatchRenameDialog : DialogWindow
         {
             var choices = new[] { "yyyy-MM-dd", "yyyyMMdd", "yyyyMMdd_HHmmss", "yyyy-MM-dd_HH-mm-ss", "自定义…" };
             var index = Array.IndexOf(choices, rule.DateFormat);
-            var formats = new ComboBox { ItemsSource = choices, SelectedIndex = index >= 0 ? index : 4 };
+            var formats = new AppComboBox { Classes = { "compact" }, ItemsSource = choices, SelectedIndex = index >= 0 ? index : 4 };
             formats.Classes.Add("settings-inline-input");
             Field("日期格式", formats);
             ConditionalSection(() => formats.SelectedIndex == 4, () => TextField("自定义格式", rule, nameof(rule.DateFormat)));
@@ -317,7 +317,7 @@ public partial class BatchRenameDialog : DialogWindow
     private void EnumField(string label, BatchRenameRule rule, string property, string[] labels)
     {
         var info = typeof(BatchRenameRule).GetProperty(property)!;
-        var input = new ComboBox { ItemsSource = labels, SelectedIndex = Convert.ToInt32(info.GetValue(rule)) };
+        var input = new AppComboBox { Classes = { "compact" }, ItemsSource = labels, SelectedIndex = Convert.ToInt32(info.GetValue(rule)) };
         input.Classes.Add("settings-inline-input");
         input.SelectionChanged += (_, _) => { if (input.SelectedIndex >= 0) info.SetValue(rule, Enum.ToObject(info.PropertyType, input.SelectedIndex)); };
         AutomationProperties.SetName(input, label); Field(label, input);
@@ -623,8 +623,8 @@ public partial class BatchRenameDialog : DialogWindow
         var dialog = new DialogWindow { Title = MacExplorer.Services.Impl.LocalizationText.Get("保存预设"), Width = 340, Height = 170 };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
         var name = new TextBox { PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("预设名称") }; name.Classes.Add("settings-inline-input");
-        var save = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("保存") }; save.Classes.Add("primary"); save.Classes.Add("compact");
-        var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消") }; cancel.Classes.Add("secondary"); cancel.Classes.Add("compact");
+        var save = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("保存") }; save.Classes.Add("primary"); save.Classes.Add("compact");
+        var cancel = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消") }; cancel.Classes.Add("secondary"); cancel.Classes.Add("compact");
         var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
         actions.Children.Add(cancel); actions.Children.Add(save);
         var body = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Margin = new Thickness(16), RowSpacing = 12 };

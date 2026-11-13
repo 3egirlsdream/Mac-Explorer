@@ -1,4 +1,5 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
              x:Class="MacExplorer.Controls.BackgroundThemeSettingsView">
     <StackPanel Spacing="6">
@@ -22,10 +23,10 @@
                 <UniformGrid x:Name="PatternRows" Columns="3" Margin="7,5"/>
                 <Border Classes="settings-row settings-divider">
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                        <Button x:Name="UseImageButton" Classes="icon-action" Width="28" Height="28" ToolTip.Tip="{loc:Loc background.custom}" AutomationProperties.Name="{loc:Loc background.custom}" Click="UseCustomImage" IsVisible="False">
+                        <controls:AppButton x:Name="UseImageButton" Classes="icon-action" ToolTip.Tip="{loc:Loc background.custom}" AutomationProperties.Name="{loc:Loc background.custom}" Click="UseCustomImage" IsVisible="False">
                             <PathIcon Data="{x:Static icons:Icons.Image}" Width="16" Height="16"/>
-                        </Button>
-                        <Button x:Name="ChooseButton" Classes="secondary compact" Content="{loc:Loc background.choose}" Click="ChooseImage"/>
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="ChooseButton" Classes="secondary compact" Content="{loc:Loc background.choose}" Click="ChooseImage"/>
                     </StackPanel>
                 </Border>
                 <Border x:Name="StrengthRow" Classes="settings-row">

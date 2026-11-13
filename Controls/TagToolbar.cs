@@ -23,7 +23,7 @@ namespace MacExplorer.Controls;
 public sealed class TagToolbar : UserControl
 {
     private readonly StackPanel _strip = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
-    private readonly Button _overflow = new() { Width = 28, Height = 30, Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-more" }, Content = new PathIcon { Data = Geometry.Parse(Icons.MoreHorizontal), Classes = { "toolbar-icon" } } };
+    private readonly AppButton _overflow = new() { Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-more" }, Content = new PathIcon { Data = Geometry.Parse(Icons.MoreHorizontal), Classes = { "toolbar-icon" } } };
     private readonly List<(FileTagNode Node, Control Control, double Width)> _items = [];
     private FileListViewModel? _viewModel;
     private ContextMenu? _menu;
@@ -102,7 +102,7 @@ public sealed class TagToolbar : UserControl
             text.Measure(new Size(double.PositiveInfinity, 30));
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6,
                 Children = { TagIcon(node.Tag, toolbar: true), text } };
-            var name = new Button { Content = content, Width = Math.Clamp(text.DesiredSize.Width + 35, 52, 163), Height = 28,
+            var name = new AppButton { Content = content, Width = Math.Clamp(text.DesiredSize.Width + 35, 52, 163),
                 VerticalAlignment = VerticalAlignment.Center, Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-name" }, Tag = node.Tag };
             ToolTip.SetTip(name, node.Tag.DisplayName); AutomationProperties.SetName(name, node.Tag.DisplayName);
             name.Click += async (_, _) => await NavigateAsync(node.Tag);

@@ -449,6 +449,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void CaptureCurrentNavigationViewState()
     {
+        if (_navigation.CurrentHistoryEntry is { } history) history.Preferences = CaptureDirectoryPreferences();
+        SaveDirectoryPreferences();
         _capturedNavigationAnchorViewportY = null;
         _capturedNavigationScrollOffsetY = null;
         CaptureNavigationAnchorRequested?.Invoke();
@@ -904,9 +906,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     internal void SetWorkspaceVisible(bool visible)
     {
+        var changed = _workspaceVisible != visible;
         if (_workspaceVisible != visible)
             MemoryDiagnostics.Operation(DiagnosticAction.WorkspaceVisibility, DiagnosticId, visible: visible);
         _workspaceVisible = visible;
+        if (!visible) CancelDocumentIndex();
+        else if (changed) ResumeDocumentIndex();
         if (!visible || !_tagDirectoryRefreshPending) return;
         _tagDirectoryRefreshPending = false;
         if (!_disposed && IsTagView && !_directoryNotificationsPaused) _ = RefreshTagContentsAsync();
@@ -1067,7 +1072,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             OnPropertyChanged(nameof(IsNetworkPage));
             OnTreeLocationChanged();
-            ClearFileListFilters();
+            _restoredPreferencePath = null;
+            _restoringDirectoryPreferences = true;
+            try { ClearFileListFilters(); } finally { _restoringDirectoryPreferences = false; }
             StatusText = string.Empty;
             ReadErrorMessage = string.Empty;
             OnPropertyChanged(nameof(IsTagView));
@@ -1103,6 +1110,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void OnAiPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(AiViewModel.IsAiAnalysisEnabled))
+        {
+            if (IsAiAnalysisEnabled) ResumeDocumentIndex(); else CancelDocumentIndex();
+        }
         if (e.PropertyName is nameof(AiViewModel.AiViewMode)
             or nameof(AiViewModel.CurrentFaceClusterId)
             or nameof(AiViewModel.CurrentAiContextLabel)
@@ -1134,6 +1145,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void OnSortFilterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (_restoringDirectoryPreferences) { OnPropertyChanged(e.PropertyName); return; }
+        if (e.PropertyName is nameof(SortFilterViewModel.SortField) or nameof(SortFilterViewModel.SortAscending)
+            or nameof(SortFilterViewModel.SortPriority) or nameof(SortFilterViewModel.ColumnFilters)) SaveDirectoryPreferences();
         if (e.PropertyName == nameof(SortFilterViewModel.ViewMode))
             MemoryDiagnostics.Operation(DiagnosticAction.ViewMode, DiagnosticId, mode: (int)ViewMode);
         if (e.PropertyName == nameof(SortFilterViewModel.ColumnFilters))
@@ -1318,6 +1332,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _navigation.IsHomePage = false;
 
         await _navigation.NavigateToAsync(path);
+        await RestoreDirectoryPreferencesAsync(path);
 
         try
         {
@@ -1442,6 +1457,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         try
         {
+            await RestoreDirectoryPreferencesAsync(CurrentPath, _navigation.CurrentHistoryEntry?.Preferences);
             if (!FeatureAccess.TryUse(FeatureAccess.ForPath(_navigation.CurrentPath))) { GoHome(); return; }
             if (_navigation.CurrentHistoryEntry is { IsHomePage: true })
             {
@@ -1732,6 +1748,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IsDirectoryLoading = IsLoading = true;
         _navigation.CurrentPath = sentinelPath;
         _navigation.UpdateBreadcrumbsForRemote(remotePath);
+        await RestoreDirectoryPreferencesAsync(sentinelPath);
         ClearSelection();
 
         try
@@ -2307,6 +2324,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var actions = new List<ContextMenuAction>();
         var isRemote = VirtualPath.IsRemotePath(entry.FullPath);
         var builtInStates = await GetBuiltInOpenWithStatesAsync();
+        if (entry.SearchMatches.Count > 0)
+            actions.Add(new ContextMenuAction { Label = LocalizationText.Get("content.matches"), Execute = async () =>
+            {
+                if (_topLevelWindow != null) await new MacExplorer.Views.Dialogs.ContentMatchDialog(entry, SearchQuery).ShowDialog(_topLevelWindow);
+            } });
 
         // Open
         var opensInsideMacExplorer = entry.IsDirectory
@@ -4173,6 +4195,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
+        await RestoreDirectoryPreferencesAsync(CurrentPath, _navigation.CurrentHistoryEntry?.Preferences);
         await RefreshAsync();
     }
 
@@ -4533,18 +4556,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     partial void OnIsPreviewPaneVisibleChanged(bool value)
     {
-        _settingsService?.Set(PreviewPaneVisibleSettingKey, value);
+        if (_directoryPreferences == null) _settingsService?.Set(PreviewPaneVisibleSettingKey, value);
+        else SaveDirectoryPreferences();
     }
 
     partial void OnIsMetadataPanelVisibleChanged(bool value)
     {
-        _settingsService?.Set(MetadataPanelVisibleSettingKey, value);
+        if (_directoryPreferences == null) _settingsService?.Set(MetadataPanelVisibleSettingKey, value);
+        else SaveDirectoryPreferences();
     }
 
     partial void OnIsInfoPanelVisibleChanged(bool value)
     {
         MemoryDiagnostics.Operation(DiagnosticAction.InfoPanelVisibility, DiagnosticId, visible: value);
-        _settingsService?.Set("IsInfoPanelVisible", value);
+        if (_directoryPreferences == null) _settingsService?.Set("IsInfoPanelVisible", value);
+        else SaveDirectoryPreferences();
     }
 
     // ── Ratings ──
@@ -4709,11 +4735,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private async Task TriggerImageAnalysisAsync(IReadOnlyList<FileSystemEntry> entries, DirectoryWork work)
     {
-        await _ai.TriggerImageAnalysisAsync(
+        var images = _ai.TriggerImageAnalysisAsync(
             entries,
             _navigation.CurrentPath,
             work.Token
         );
+        try
+        {
+            await Task.WhenAll(images, IndexVisibleDocumentsAsync(entries, work.Token));
+        }
+        catch (OperationCanceledException) when (work.Token.IsCancellationRequested) { }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Document indexing failed"); }
     }
 
     private void ResolveRealEntries(IReadOnlyList<FileSystemEntry> entries, DirectoryWork? existingWork = null)
@@ -4903,6 +4935,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         if (_disposed) return;
+        CancelDocumentIndex();
+        _columnLayoutService.Committed -= SaveDirectoryPreferences;
         _disposed = true;
         _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
         _navigation.ReleaseDiagnosticLifetime();

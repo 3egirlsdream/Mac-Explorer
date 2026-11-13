@@ -34,8 +34,8 @@ internal static class SftpPrivateKeyConsent
         var input = new TextBox { PasswordChar = '•', Classes = { "settings-inline-input" }, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("私钥解密口令") };
         Avalonia.Automation.AutomationProperties.SetName(input, MacExplorer.Services.Impl.LocalizationText.Get("私钥解密口令"));
         var remember = new CheckBox { Content = MacExplorer.Services.Impl.LocalizationText.Get("将私钥口令保存到本机数据库"), IsChecked = false };
-        var cancel = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
-        var connect = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("连接"), Classes = { "primary", "compact" } };
+        var cancel = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
+        var connect = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("连接"), Classes = { "primary", "compact" } };
         cancel.Click += (_, _) => dialog.Close();
         connect.Click += (_, _) => dialog.Close((input.Text ?? "", remember.IsChecked == true));
         dialog.Content = new StackPanel { Margin = new Thickness(16), Spacing = 8, Children =

@@ -72,12 +72,13 @@ public sealed class FileOperationService(
                 var context = FileTaskContext.Current!;
                 var destination = await context.StepAsync("copy-item:" + sourcePath, () => files.CopyWithProgressAsync(sourcePath,
                     destinationDirectory, progress, token));
+                if (context.Results.Any(r => r.Source == sourcePath && r.State == FileTaskItemState.Skipped)) continue;
                 if (history != null) await context.StepAsync("copy-history:" + sourcePath, async () =>
                 { await history.RecordCreatedAsync(destination, true); return true; });
                 context.ReportItem(sourcePath, destination, FileTaskItemState.Completed);
                 outputs.Add(destination);
                 skippedCount += itemSkipped;
-                if (tags != null && !VirtualPath.IsRemotePath(destinationDirectory))
+                if (tags != null && !VirtualPath.IsRemotePath(destinationDirectory) && files is not CompositeFileService { HandlesConflicts: true })
                 {
                     try { await tags.CopyPathAsync(sourcePaths[index], destination, CancellationToken.None); }
                     catch (Exception ex)
@@ -246,6 +247,9 @@ public sealed class FileOperationService(
         {
             await FileTaskContext.Current!.StepAsync("move-item:" + source.FullPath, async () =>
             { await files.MoveAsync(source.FullPath, targetFolder.FullPath); return true; });
+            var actual = FileTaskContext.Current.Results.LastOrDefault(r => r.Source == source.FullPath);
+            if (actual?.State == FileTaskItemState.Skipped) return new([], [], []);
+            movedPath = actual?.Destination ?? movedPath;
             FileTaskContext.Current.ReportItem(source.FullPath, movedPath, FileTaskItemState.Completed);
         }
         catch (Exception ex)
@@ -257,7 +261,7 @@ public sealed class FileOperationService(
         {
             changes?.NotifyChanged([Path.GetDirectoryName(source.FullPath) ?? "", targetFolder.FullPath], null);
         }
-        try { if (tags != null) await tags.UpdatePathAsync(source.FullPath, movedPath); }
+        try { if (tags != null && files is not CompositeFileService { HandlesConflicts: true }) await tags.UpdatePathAsync(source.FullPath, movedPath); }
         catch (Exception ex)
         {
             if (throwOnMetadataFailure) throw;

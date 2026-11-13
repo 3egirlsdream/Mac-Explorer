@@ -61,6 +61,14 @@ internal sealed class FileListColumnLayoutService
     }
 
     public event EventHandler? PreferredWidthsChanged;
+    internal event Action? Committed;
+    internal bool DirectoryScoped { get; set; }
+    internal void Restore(double[] widths)
+    {
+        if (widths.Length != 4 || widths.Any(w => !double.IsFinite(w))) return;
+        PreferredWidths = Clamp(new(widths[0], widths[1], widths[2], widths[3]));
+        PreferredWidthsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public FileListColumnWidths PreferredWidths { get; private set; }
 
@@ -76,6 +84,7 @@ internal sealed class FileListColumnLayoutService
 
     public void Commit(FileListColumn column)
     {
+        if (DirectoryScoped) { Committed?.Invoke(); return; }
         if (_settings == null)
             return;
 

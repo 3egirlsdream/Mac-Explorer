@@ -40,12 +40,12 @@ public partial class HomeScriptCommandsDialog : DialogWindow
             MaxLength = 16384 };
         var directory = new TextBox { Text = command.WorkingDirectory, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("脚本所在文件夹"),
             Classes = { "settings-inline-input" } };
-        var shell = new ComboBox { ItemsSource = Shells, SelectedItem = command.Shell, MinWidth = 110,
-            Classes = { "settings-inline-input" } };
-        var menuIcon = new ComboBox
+        var shell = new AppComboBox { ItemsSource = Shells, SelectedItem = command.Shell, MinWidth = 110,
+            Classes = { "compact", "settings-inline-input" } };
+        var menuIcon = new AppComboBox
         {
             ItemsSource = Enum.GetValues<HomeScriptMenuIcon>(), SelectedItem = command.MenuIcon,
-            Classes = { "icon-picker", "settings-inline-input" },
+            Classes = { "compact", "icon-picker", "settings-inline-input" },
             SelectionBoxItemTemplate = new FuncDataTemplate<HomeScriptMenuIcon>((kind, _) => CreateMenuIconOption(kind, false)),
             ItemTemplate = new FuncDataTemplate<HomeScriptMenuIcon>((kind, _) => CreateMenuIconOption(kind, true))
         };
@@ -62,7 +62,7 @@ public partial class HomeScriptCommandsDialog : DialogWindow
         header.Children.Add(menuIcon);
         Grid.SetColumn(name, 1);
         header.Children.Add(name);
-        var remove = new Button
+        var remove = new AppButton
         {
             Content = new PathIcon { Data = Geometry.Parse(Assets.Icons.Subtract), Width = 14, Height = 14 },
             Classes = { "ghost", "compact", "icon" }

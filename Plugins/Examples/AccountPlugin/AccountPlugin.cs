@@ -19,11 +19,11 @@ public sealed class ExamplePlugin : IFileActionPlugin, IPluginAccessProvider
         {
             var window = new Window { Title = "插件账号 · 开发示例", Width = 430, Height = 300, CanResize = false };
             var status = new TextBlock { Text = "此窗口由插件进程创建，不会进行真实支付。", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-            var login = new Button { Content = "模拟登录" };
-            var buy = new Button { Content = "模拟已购买并继续", IsEnabled = _signedIn };
+            var login = new Button { Content = "模拟登录", Classes = { "secondary" } };
+            var buy = new Button { Content = "模拟已购买并继续", IsEnabled = _signedIn, Classes = { "primary" } };
             login.Click += (_, _) => { _signedIn = true; buy.IsEnabled = true; status.Text = "已模拟登录。生产插件应在此调用自己的账号服务。"; };
             buy.Click += (_, _) => { _paid = true; PluginWindows.Complete(window); };
-            var cancel = new Button { Content = "取消" }; cancel.Click += (_, _) => window.Close();
+            var cancel = new Button { Content = "取消", Classes = { "secondary" } }; cancel.Click += (_, _) => window.Close();
             window.Content = new StackPanel { Margin = new Thickness(24), Spacing = 18, Children = { status, login, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { buy, cancel } } } };
             return window;
         }, cancellationToken));

@@ -20,14 +20,14 @@ public sealed partial class SearchCatalog
     /// <summary>Query analysis independently of the evictable files cache and search index coverage.
     /// Returns metadata and match sources, never OCR/PDF excerpts or face feature prints.</summary>
     public Task<IndexedFileSearchResult> SearchResourcesAsync(string root, IndexedFileQuery query,
-        SearchOptions options, CancellationToken ct = default)
+        SearchOptions options, CancellationToken ct = default, bool includeContentMatches = false)
     {
         Services.Subscriptions.FeatureAccess.Require(Services.Subscriptions.PremiumFeature.ContentSearch);
-        return SearchResourcesCoreAsync(root, query, options, ct);
+        return SearchResourcesCoreAsync(root, query, options, ct, includeContentMatches);
     }
 
     private Task<IndexedFileSearchResult> SearchResourcesCoreAsync(string root, IndexedFileQuery query,
-        SearchOptions options, CancellationToken ct) => RunAsync(false, (connection, _) =>
+        SearchOptions options, CancellationToken ct, bool includeContentMatches) => RunAsync(false, (connection, _) =>
     {
         root = SearchPath.Normalize(RuntimePaths.ResolveSearchRoot(root));
         Validate(query);
@@ -74,6 +74,7 @@ public sealed partial class SearchCatalog
         string Contains(string column, string value) => $"instr(resource_fold({column}),{Parameter(SearchQuery.Fold(value))})>0";
         const string current = "EXISTS(SELECT 1 FROM ai_analysis_status s WHERE s.file_path=p.path AND s.analysis_version>=1 AND resource_current(s.file_path,s.file_modified_at))";
         string TagMatch(string predicate) => $"({current} AND EXISTS(SELECT 1 FROM ai_tags a WHERE a.file_path=p.path AND {predicate}))";
+        var documentMatch = $"EXISTS(SELECT 1 FROM document_index di JOIN document_segments ds ON ds.path=di.path WHERE di.path=p.path AND di.modified=resource_modified(p.path) AND di.size=resource_size(p.path) AND di.status IN ('Ready','Truncated') AND {Contains("ds.text", query.Query)})";
         var textPredicate = string.IsNullOrEmpty(query.Query) ? "1" : Contains("a.tag_value", query.Query);
         var namePredicate = string.IsNullOrEmpty(query.Query) ? "0" : Contains("p.name", query.Query);
         var personPredicate = string.IsNullOrEmpty(query.Query) ? "0" : Contains("c.display_name", query.Query);
@@ -84,9 +85,9 @@ public sealed partial class SearchCatalog
             filters.Add(query.Source switch
             {
                 "name" => namePredicate,
-                "content" => TagMatch($"a.tag_type='text' AND {textPredicate}"),
+                "content" => $"({TagMatch($"a.tag_type='text' AND {textPredicate}")} OR {documentMatch})",
                 "analysis" => $"({TagMatch(textPredicate)} OR {PersonMatch(personPredicate)})",
-                _ => $"({namePredicate} OR {TagMatch(textPredicate)} OR {PersonMatch(personPredicate)} OR {fileTagPredicate})"
+                _ => $"({namePredicate} OR {TagMatch(textPredicate)} OR {PersonMatch(personPredicate)} OR {fileTagPredicate} OR {documentMatch})"
             });
         if (query.Extensions.Length > 0)
             filters.Add($"resource_fold(p.extension) IN ({string.Join(",", query.Extensions.Select(e => Parameter(SearchQuery.Fold("." + e.TrimStart('.')))))})");
@@ -112,13 +113,13 @@ public sealed partial class SearchCatalog
         (string Table, string Path)[] pathSources =
         {
             ("search_entries", "path"), ("files", "path"), ("ai_analysis_status", "file_path"),
-            ("file_tags", "file_path"), ("file_ratings", "file_path")
+            ("file_tags", "file_path"), ("file_ratings", "file_path"), ("document_index", "path")
         };
         // Content-only and AI-filtered queries need no enumeration of millions of
         // filename rows. Their candidate paths already live in the analysis PK.
         if (query.Tags.Length > 0 || query.Person != null || query.TakenFrom != null || query.TakenTo != null
             || (!string.IsNullOrEmpty(query.Query) && query.Source is "content" or "analysis"))
-            pathSources = [("ai_analysis_status", "file_path")];
+            pathSources = query.Source == "content" ? [("ai_analysis_status", "file_path"), ("document_index", "path")] : [("ai_analysis_status", "file_path")];
         var paths = string.Join(" UNION ", pathSources.Select(item =>
             $"SELECT {item.Path} AS path FROM {item.Table} WHERE {ScopePredicate(item.Path)}"));
         command.CommandText = $"""
@@ -137,7 +138,7 @@ public sealed partial class SearchCatalog
                 CASE WHEN {current} THEN (SELECT group_concat(DISTINCT a.tag_type) FROM ai_tags a
                     WHERE a.file_path=p.path AND {textPredicate}
                     {(query.Source == "content" ? "AND a.tag_type='text'" : "")}) END,
-                {PersonMatch(personPredicate)}, {fileTagPredicate}
+                {PersonMatch(personPredicate)}, {fileTagPredicate}, {documentMatch}
             FROM p WHERE {string.Join(" AND ", filters)} ORDER BY p.path COLLATE BINARY LIMIT 101 OFFSET @offset
             """;
         var matches = new List<IndexedFileMatch>();
@@ -153,6 +154,7 @@ public sealed partial class SearchCatalog
                 if (query.Person != null) sources.Add("person");
                 if (reader.GetBoolean(11) && query.Source is "all" or "analysis") sources.Add("person");
                 if (reader.GetBoolean(12) && query.Source == "all") sources.Add("file-tag");
+                if (reader.GetBoolean(13)) sources.Add("content");
                 if (query.MinRating != null) sources.Add("rating");
                 if (query.Extensions.Length > 0) sources.Add("extension");
                 if (query.MinSize != null || query.MaxSize != null) sources.Add("size");
@@ -162,7 +164,8 @@ public sealed partial class SearchCatalog
                 matches.Add(new(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetInt64(3),
                     reader.GetBoolean(4), new DateTimeOffset(reader.GetInt64(5), TimeSpan.Zero),
                     new DateTimeOffset(reader.GetInt64(6), TimeSpan.Zero), reader.GetBoolean(8), reader.GetInt32(7),
-                    sources.Distinct().ToArray()));
+                    sources.Distinct().ToArray()) { ContentMatches = includeContentMatches && reader.GetBoolean(13)
+                        ? Services.Impl.DocumentIndexService.ReadMatches(connection, reader.GetString(0), query.Query) : [] });
             }
         using var coverage = connection.CreateCommand();
         AddScopeParameters(coverage, root);

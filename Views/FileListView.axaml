@@ -25,64 +25,64 @@
                 CornerRadius="0" Margin="0,0,0,6" Height="38" Padding="12,0">
             <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,230,*">
                 <Grid Grid.Column="1" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <Button x:Name="NameSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Name}"
+                    <controls:AppButton x:Name="NameSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Name}"
                             Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.080}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <TextBlock x:Name="NameHeader" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
                             <PathIcon x:Name="NameSortIcon" Classes="file-header-sort-icon"
                                       Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
                         </StackPanel>
-                    </Button>
-                    <Button Grid.Column="1" x:Name="NameFilterButton" Classes="file-header-button file-header-filter"
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="1" x:Name="NameFilterButton" Classes="file-header-button file-header-filter"
                             Tag="{x:Static vm:SortField.Name}" Click="OnColumnFilterClicked"
                             AutomationProperties.Name="{loc:Loc ui.090}" ToolTip.Tip="{loc:Loc ui.090}">
                         <PathIcon x:Name="NameFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
                 <Grid Grid.Column="2" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <Button x:Name="ModifiedSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Modified}"
+                    <controls:AppButton x:Name="ModifiedSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Modified}"
                             Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.079}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <TextBlock x:Name="ModifiedHeader" Text="{loc:Loc ui.003}" VerticalAlignment="Center"/>
                             <PathIcon x:Name="ModifiedSortIcon" Classes="file-header-sort-icon"
                                       Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
                         </StackPanel>
-                    </Button>
-                    <Button Grid.Column="1" x:Name="ModifiedFilterButton" Classes="file-header-button file-header-filter"
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="1" x:Name="ModifiedFilterButton" Classes="file-header-button file-header-filter"
                             Tag="{x:Static vm:SortField.Modified}" Click="OnColumnFilterClicked"
                             AutomationProperties.Name="{loc:Loc ui.089}" ToolTip.Tip="{loc:Loc ui.089}">
                         <PathIcon x:Name="ModifiedFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
                 <Grid Grid.Column="3" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <Button x:Name="SizeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Size}"
+                    <controls:AppButton x:Name="SizeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Size}"
                             Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.081}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <TextBlock x:Name="SizeHeader" Text="{loc:Loc ui.013}" VerticalAlignment="Center"/>
                             <PathIcon x:Name="SizeSortIcon" Classes="file-header-sort-icon"
                                       Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
                         </StackPanel>
-                    </Button>
-                    <Button Grid.Column="1" x:Name="SizeFilterButton" Classes="file-header-button file-header-filter"
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="1" x:Name="SizeFilterButton" Classes="file-header-button file-header-filter"
                             Tag="{x:Static vm:SortField.Size}" Click="OnColumnFilterClicked"
                             AutomationProperties.Name="{loc:Loc ui.091}" ToolTip.Tip="{loc:Loc ui.091}">
                         <PathIcon x:Name="SizeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
                 <Grid Grid.Column="4" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <Button x:Name="TypeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Type}"
+                    <controls:AppButton x:Name="TypeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Type}"
                             Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.082}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <TextBlock x:Name="TypeHeader" Text="{loc:Loc file_list.kind}" VerticalAlignment="Center"/>
                             <PathIcon x:Name="TypeSortIcon" Classes="file-header-sort-icon"
                                       Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
                         </StackPanel>
-                    </Button>
-                    <Button Grid.Column="1" x:Name="TypeFilterButton" Classes="file-header-button file-header-filter"
+                    </controls:AppButton>
+                    <controls:AppButton Grid.Column="1" x:Name="TypeFilterButton" Classes="file-header-button file-header-filter"
                             Tag="{x:Static vm:SortField.Type}" Click="OnColumnFilterClicked"
                             AutomationProperties.Name="{loc:Loc ui.092}" ToolTip.Tip="{loc:Loc ui.092}">
                         <PathIcon x:Name="TypeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
                 <Border Grid.Column="2" Tag="1" Width="8" HorizontalAlignment="Left"
                         Background="Transparent" Cursor="SizeWestEast"
@@ -120,11 +120,10 @@
                               HorizontalAlignment="Center"/>
                     <TextBlock Classes="empty-state-text" x:Name="EmptyStateText" Text="{loc:Loc ui.084}"/>
                     <TextBlock x:Name="EmptyStateHint" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <Button x:Name="ClearEmptySearchButton" Content="{loc:Loc ui.086}" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Click="ClearEmptySearch"/>
-                    <Button x:Name="ClearEmptyFiltersButton" Content="{loc:Loc ui.088}" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Click="OnClearAllColumnFilters"/>
-                    <Button x:Name="RetryReadButton" Content="{loc:Loc ui.093}" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Command="{Binding RefreshCommand}"/>
+                    <controls:AppButton x:Name="ClearEmptySearchButton" Content="{loc:Loc ui.086}" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Click="ClearEmptySearch"/>
+                    <controls:AppButton x:Name="ClearEmptyFiltersButton" Content="{loc:Loc ui.088}" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Click="OnClearAllColumnFilters"/>
+                    <controls:AppButton x:Name="RetryReadButton" Content="{loc:Loc ui.093}" Classes="secondary" HorizontalAlignment="Center" IsVisible="False" Command="{Binding RefreshCommand}"/>
                 </StackPanel>
-
 
                 <ScrollViewer x:Name="FastListHost" IsVisible="False"
                               HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
@@ -149,8 +148,6 @@
                                 VerticalContentAlignment="Stretch"/>
                 <Canvas x:Name="FastRenameOverlay" ZIndex="90"/>
 
-
-
                 <Border x:Name="SelectionMarquee" IsVisible="False" IsHitTestVisible="False"
                         ZIndex="100" HorizontalAlignment="Left" VerticalAlignment="Top"
                         Background="#263B82F6" BorderBrush="{DynamicResource ColorAccent}"
@@ -166,7 +163,7 @@
                         <TextBlock x:Name="ColumnFilterTitle" VerticalAlignment="Center"
                                    FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <Button Grid.Column="1" Content="{loc:Loc ui.085}" Classes="file-header-button" Padding="8,0"
+                        <controls:AppButton Grid.Column="1" Content="{loc:Loc ui.085}" Classes="file-header-button text-column"
                                 Click="OnClearColumnFilter" AutomationProperties.Name="{loc:Loc ui.087}"/>
                     </Grid>
                     <TextBlock Text="{loc:Loc ui.077}" FontSize="{DynamicResource FontSizeMeta}"
@@ -178,7 +175,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock x:Name="ColumnFilterResult" VerticalAlignment="Center"
                                    FontSize="{DynamicResource FontSizeMeta}" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <Button Grid.Column="1" Content="{loc:Loc ui.078}" Classes="file-header-button" Padding="8,0"
+                        <controls:AppButton Grid.Column="1" Content="{loc:Loc ui.078}" Classes="file-header-button text-column"
                                 Click="OnColumnFilterDone" AutomationProperties.Name="{loc:Loc ui.076}"/>
                     </Grid>
                 </StackPanel>

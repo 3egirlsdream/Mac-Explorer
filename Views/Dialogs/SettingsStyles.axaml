@@ -120,15 +120,7 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="FocusAdorner" Value="{StaticResource KeyboardFocusAdorner}"/>
     </Style>
-    <Style Selector="ComboBox">
-        <Setter Property="Padding" Value="8,3"/>
-        <Setter Property="MinHeight" Value="28"/>
-    </Style>
-    <Style Selector="Button.interaction-token-row">
-        <Setter Property="MinHeight" Value="48"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource DialogDividerBrush}"/>
-    </Style>
+
     <Style Selector="TextBlock.settings-title">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
         <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
@@ -173,7 +165,7 @@
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
 
-    <Style Selector="TextBox.settings-inline-input, ComboBox.settings-inline-input">
+    <Style Selector="TextBox.settings-inline-input">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Padding" Value="8,3"/>
         <Setter Property="MinHeight" Value="28"/>
@@ -223,37 +215,6 @@
         <Setter Property="MinWidth" Value="36"/>
     </Style>
 
-    <Style Selector="Button.openwith-delete">
-        <Setter Property="Width" Value="28"/>
-        <Setter Property="Height" Value="28"/>
-        <Setter Property="Padding" Value="7"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-    </Style>
-
-    <Style Selector="Button.openwith-delete:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
-    </Style>
-
-    <Style Selector="Button.interaction-token-row">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="10,6"/>
-        <Setter Property="HorizontalAlignment" Value="Stretch"/>
-        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-    </Style>
-
-    <Style Selector="Button.interaction-token-row:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-    </Style>
-
-    <Style Selector="Button.interaction-token-row.selected">
-        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-    </Style>
-
     <Style Selector="ListBox.settings-locations">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -271,33 +232,4 @@
         <Setter Property="CornerRadius" Value="5"/>
     </Style>
 
-    <Style Selector="Button.settings-location-action">
-        <Setter Property="Width" Value="32"/>
-        <Setter Property="Height" Value="32"/>
-        <Setter Property="Padding" Value="7"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="8"/>
-        <Setter Property="HorizontalContentAlignment" Value="Center"/>
-        <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
-
-    <Style Selector="Button.settings-location-action:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-    </Style>
-
-    <Style Selector="Button.settings-location-action PathIcon">
-        <Setter Property="Width" Value="16"/>
-        <Setter Property="Height" Value="16"/>
-    </Style>
-
-    <Style Selector="Button.plugin-action">
-        <Setter Property="Height" Value="32"/>
-        <Setter Property="MinHeight" Value="32"/>
-        <Setter Property="Padding" Value="10,5"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-        <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
 </Styles>

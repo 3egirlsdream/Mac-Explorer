@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using MacExplorer.Services.Subscriptions;
 using System.Text.Json;
 using Avalonia;
@@ -149,7 +150,7 @@ public partial class MainWindow
             var row = new Border { Classes = { "copilot-history-row" } };
             row.Classes.Set("active", session.Id == Copilot.SessionId);
             var content = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-            var title = new Button
+            var title = new AppButton
             {
                 Content = new TextBlock
                 {
@@ -183,7 +184,7 @@ public partial class MainWindow
             };
             content.Children.Add(title);
 
-            var more = new Button
+            var more = new AppButton
             {
                 Content = new PathIcon { Data = Geometry.Parse(Icons.MoreHorizontal), Width = 14, Height = 14 },
                 Classes = { "ghost", "compact", "copilot-history-more" }
@@ -191,7 +192,7 @@ public partial class MainWindow
             AutomationProperties.SetName(more, MacExplorer.Services.Impl.LocalizationText.Get("{0} 的更多操作", session.Title));
             ToolTip.SetTip(more, MacExplorer.Services.Impl.LocalizationText.Get("更多操作"));
             Grid.SetColumn(more, 1);
-            var delete = new Button
+            var delete = new AppButton
             {
                 Content = new StackPanel
                 {
@@ -378,7 +379,7 @@ public partial class MainWindow
         layout.Children.Add(chip);
         if (removable)
         {
-            var remove = new Button
+            var remove = new AppButton
             {
                 Content = new PathIcon
                 {

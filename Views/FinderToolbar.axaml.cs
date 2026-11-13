@@ -66,6 +66,13 @@ public partial class FinderToolbar : UserControl
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
+    private async void ShowRemoteEdits(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner && App.Services?.GetService<IRemoteFileEditService>() is { } edits)
+            await new RemoteEditDialog(edits).ShowDialog(owner);
+    }
+    private async void ResetDirectoryPreferences(object? sender, RoutedEventArgs e)
+    { CloseDropdowns(); if (ViewModel != null) await ViewModel.ResetDirectoryPreferencesAsync(); }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

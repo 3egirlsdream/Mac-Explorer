@@ -26,6 +26,13 @@ public sealed class TestApplication : Application
             new Uri("avares://MacExplorer/Controls/AppWindow.axaml")));
     }
 
+    public override void OnFrameworkInitializationCompleted()
+    {
+        Styles.Add((Styles)AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/ButtonStyles.axaml")));
+        base.OnFrameworkInitializationCompleted();
+    }
+
     public static AppBuilder BuildAvaloniaApp() => AppBuilder
         .Configure<TestApplication>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions());

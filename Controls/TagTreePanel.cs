@@ -158,7 +158,7 @@ public sealed class TagTreePanel : UserControl
         var isAssignmentMenu = _filePaths != null;
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(isAssignmentMenu ? "*,16" : "16,*"),
             Margin = new Thickness(8 + indent, 0, 8, 0) };
-        var arrow = new Button { Classes = { "ghost", "compact", "tag-tree-arrow" }, Width = FastFileList.TreeDisclosureWidth, Height = 22,
+        var arrow = new AppButton { Classes = { "ghost", "compact", "tag-tree-arrow" },
             Content = Icon(_expanded.Contains(tag.Name) ? Icons.ChevronDown : Icons.ChevronRight, 12),
             VerticalAlignment = VerticalAlignment.Center, IsVisible = node.Children.Count > 0 };
         AutomationProperties.SetName(arrow, LocalizationText.Get("展开或收起标签“{0}”", tag.DisplayName));
@@ -171,9 +171,9 @@ public sealed class TagTreePanel : UserControl
         var text = new TextBlock { Text = tag.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
         Grid.SetColumn(text, 1); content.Children.Add(text);
-        var label = new Button { Classes = { "ghost", "compact", "tag-tree-name" }, Content = content,
+        var label = new AppButton { Classes = { "ghost", "compact", "tag-tree-name" }, Content = content,
             HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Tag = tag, Height = FastFileList.RowHeight };
+            Tag = tag };
         ToolTip.SetTip(label, tag.DisplayName);
         AutomationProperties.SetName(label, tag.DisplayName);
         Grid.SetColumn(label, isAssignmentMenu ? 0 : 1); grid.Children.Add(label); _nameButtons[tag.Name] = label;
@@ -202,7 +202,7 @@ public sealed class TagTreePanel : UserControl
                 else { await _viewModel.NavigateToTagAsync(tag); NavigationRequested?.Invoke(); }
             });
         };
-        var row = new Border { Child = grid, Tag = tag, Height = FastFileList.RowHeight, Classes = { "tag-tree-row" } };
+        var row = new Border { Child = grid, Tag = tag, Classes = { "tag-tree-row" } };
         row.Classes.Set("active", _filePaths == null && _viewModel.CurrentTag?.Name == tag.Name);
         if (!_hideEmpty) row.ContextMenu = CreateRowMenu(tag);
         DragDrop.SetAllowDrop(row, true);

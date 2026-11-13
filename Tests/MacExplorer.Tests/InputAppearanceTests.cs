@@ -29,7 +29,7 @@ public sealed class InputAppearanceTests
     [InlineData(true)]
     public void DropdownStaysFlatAndSharesContextMenuSurface(bool dark)
     {
-        var combo = new ComboBox { Width = 220, ItemsSource = new[] { "第一项", "第二项", "第三项" }, SelectedIndex = 0 };
+        var combo = new AppComboBox { Width = 220, ItemsSource = new[] { "第一项", "第二项", "第三项" }, SelectedIndex = 0 };
         var menu = new Border { Classes = { "context-submenu-surface" } };
         var window = CreateWindow(new StackPanel { Children = { combo, menu } }, dark);
         try
@@ -215,7 +215,7 @@ public sealed class InputAppearanceTests
         foreach (var control in new[] { content }.Concat(content.GetLogicalDescendants().OfType<Control>()))
         {
             if (control is TextBox or CheckBox or ComboBox)
-                control.Theme = (ControlTheme)Application.Current!.FindResource(control.GetType())!;
+                control.Theme = (ControlTheme)Application.Current!.FindResource(control is ComboBox ? typeof(ComboBox) : control.GetType())!;
         }
         window.Show();
         Dispatcher.UIThread.RunJobs();

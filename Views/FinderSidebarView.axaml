@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
@@ -37,58 +38,14 @@
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <!-- The demo uses a transparent button inside an interactive glass surface, not a filled hover theme. -->
-            <Template x:Key="SidebarGlassFocusAdorner">
-                <Border BorderBrush="{DynamicResource FocusRingBrush}" BorderThickness="2"
-                    CornerRadius="{DynamicResource InteractionCornerRadius}" IsHitTestVisible="False"
-                    glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
-            </Template>
-            <ControlTheme x:Key="SidebarGlassButton" TargetType="Button">
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <glass:LiquidGlassInteractiveSurface x:Name="ButtonGlass"
-                            CornerRadius="{TemplateBinding CornerRadius}"
-                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                            TintColor="Transparent" SurfaceColor="Transparent"
-                            BackdropOpacity="{DynamicResource SidebarActionBackdropOpacity}"
-                            BlurRadius="0" RefractionHeight="8" RefractionAmount="0"
-                            HighlightOpacity="0" HighlightWidth="0.75"
-                            ShadowEnabled="False" InnerShadowEnabled="False"
-                            InteractiveMaxScaleDip="0.8">
-                            <ContentPresenter x:Name="PART_ContentPresenter"
-                                Background="Transparent" BorderBrush="Transparent"
-                                Padding="{TemplateBinding Padding}"
-                                Content="{TemplateBinding Content}"
-                                ContentTemplate="{TemplateBinding ContentTemplate}"
-                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </glass:LiquidGlassInteractiveSurface>
-                    </ControlTemplate>
-                </Setter>
-                <Style Selector="^:pointerover /template/ glass|LiquidGlassInteractiveSurface#ButtonGlass">
-                    <Setter Property="RefractionAmount" Value="{DynamicResource SidebarActionRefraction}"/>
-                    <Setter Property="HighlightOpacity" Value="{DynamicResource SidebarActionHoverHighlight}"/>
-                </Style>
-                <Style Selector="^:focus-visible /template/ glass|LiquidGlassInteractiveSurface#ButtonGlass">
-                    <Setter Property="RefractionAmount" Value="{DynamicResource SidebarActionRefraction}"/>
-                    <Setter Property="HighlightOpacity" Value="{DynamicResource SidebarActionFocusHighlight}"/>
-                </Style>
-                <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
-                </Style>
-            </ControlTheme>
+
             <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
             <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
         </ResourceDictionary>
     </UserControl.Resources>
 
     <UserControl.Styles>
-        <Style Selector="Button.sidebar-item-action, Button.sidebar-header-action, Button.sidebar-inline-confirm">
-            <Setter Property="Theme" Value="{StaticResource SidebarGlassButton}"/>
-            <Setter Property="FocusAdorner" Value="{StaticResource SidebarGlassFocusAdorner}"/>
-        </Style>
-        <Style Selector="Button.sidebar-item-action:pressed, Button.sidebar-header-action:pressed, Button.sidebar-inline-confirm:pressed">
-            <Setter Property="RenderTransform" Value="{x:Null}"/>
-        </Style>
+
         <Style Selector=":is(Control).sidebar-category-header">
             <Setter Property="Margin" Value="0,8,0,2"/>
             <Setter Property="MinHeight" Value="26"/>
@@ -282,7 +239,7 @@
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
-                                        <Button Grid.Column="1"
+                                        <controls:AppButton Grid.Column="1"
                                             Classes="ghost sidebar-item-action pinned-unpin"
                                             Tag="{Binding FolderPath}"
                                             ToolTip.Tip="{loc:Loc ui.315}" AutomationProperties.Name="{loc:Loc ui.315}"
@@ -291,7 +248,7 @@
                                             <PathIcon Data="{x:Static icons:Icons.Pin}"
                                                       Width="12" Height="12"
                                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                                        </Button>
+                                        </controls:AppButton>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -373,7 +330,7 @@
                                         <TextBlock Grid.Column="1" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center"/>
-                                        <Button Grid.Column="2"
+                                        <controls:AppButton Grid.Column="2"
                                                 Classes="ghost sidebar-item-action"
                                                 Tag="{Binding .}"
                                                 ToolTip.Tip="{loc:Loc network.disconnect}" AutomationProperties.Name="{loc:Loc network.disconnect}"
@@ -382,7 +339,7 @@
                                             <PathIcon Data="{x:Static icons:Icons.Eject}"
                                                       Width="12" Height="12"
                                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                                        </Button>
+                                        </controls:AppButton>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -405,7 +362,7 @@
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <Button Grid.Column="1"
+                                        <controls:AppButton Grid.Column="1"
                                                 Classes="ghost sidebar-item-action"
                                                 Tag="{Binding .}"
                                                 ToolTip.Tip="{loc:Loc ui.319}" AutomationProperties.Name="{loc:Loc ui.319}"
@@ -414,7 +371,7 @@
                                             <PathIcon Data="{x:Static icons:Icons.Eject}"
                                                       Width="12" Height="12"
                                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                                        </Button>
+                                        </controls:AppButton>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -510,14 +467,14 @@
 
                 </StackPanel>
             </ScrollViewer>
-    <Button Grid.Row="1" x:Name="AccessStatusButton" Classes="ghost compact" Margin="8,4"
+    <controls:AppButton Grid.Row="1" x:Name="AccessStatusButton" Classes="ghost compact" Margin="8,4"
             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnUpgradeAccess"
             IsVisible="False">
         <Grid ColumnDefinitions="16,*" ColumnSpacing="8">
             <PathIcon Data="{x:Static icons:Icons.StarOutline}" Width="16" Height="16"/>
             <TextBlock Grid.Column="1" x:Name="AccessStatusText" TextTrimming="CharacterEllipsis"/>
         </Grid>
-    </Button>
+    </controls:AppButton>
     <Border Grid.Row="2" x:Name="SidebarSettingsItem" Classes="sidebar-item" Margin="8,4,8,8"
             PointerPressed="OnSidebarItemPressed" ToolTip.Tip="{loc:Loc ui.072}"
             AutomationProperties.Name="{loc:Loc ui.072}">

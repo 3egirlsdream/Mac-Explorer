@@ -4,7 +4,7 @@ using Renci.SshNet;
 
 namespace MacExplorer.Services;
 
-public sealed class CompositeFileService : IFileService, ITrashResultFileService
+public sealed partial class CompositeFileService : IFileService, ITrashResultFileService
 {
     private readonly IFileService _localService;
     private readonly IRemoteFileService _remoteService;
@@ -12,10 +12,16 @@ public sealed class CompositeFileService : IFileService, ITrashResultFileService
     private readonly IRemoteConnectionService? _connections;
     private readonly Func<IFileOperationHistoryService?>? _history;
     private readonly IRatingService? _ratings;
+    private readonly IFileConflictResolver? _conflicts;
+    private readonly IFileTagService? _tags;
+    private readonly IAiTagService? _analysis;
+    internal bool HandlesConflicts => _conflicts != null;
     public CompositeFileService(IFileService localService, IRemoteFileService remoteService,
         IBackgroundTaskManager? taskManager = null, IRemoteConnectionService? connections = null,
-        Func<IFileOperationHistoryService?>? history = null, IRatingService? ratings = null)
-    { _localService = localService; _remoteService = remoteService; _taskManager = taskManager; _connections = connections; _history = history; _ratings = ratings; }
+        Func<IFileOperationHistoryService?>? history = null, IRatingService? ratings = null,
+        IFileConflictResolver? conflicts = null, IFileTagService? tags = null, IAiTagService? analysis = null)
+    { _localService = localService; _remoteService = remoteService; _taskManager = taskManager; _connections = connections; _history = history; _ratings = ratings;
+        _conflicts = conflicts; _tags = tags; _analysis = analysis; }
     private IFileService Resolve(string? path) => VirtualPath.IsRemotePath(path) ? _remoteService : _localService;
     public string HomeDirectory => _localService.HomeDirectory;
     public string RootDirectory => _localService.RootDirectory;
@@ -100,6 +106,8 @@ public sealed class CompositeFileService : IFileService, ITrashResultFileService
         IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
         => Run(BackgroundTaskKind.Copy, "复制文件", [sourcePath], destinationDirectory, async context =>
         {
+            if (_conflicts != null && !FileOperationHistoryService.IsUndoing)
+                return await CopyOrMovePlannedAsync(sourcePath, destinationDirectory, false, context, progress);
             var output = await context.StepAsync("copy:" + sourcePath + ":" + destinationDirectory, async () =>
                 !VirtualPath.IsRemotePath(sourcePath) && !VirtualPath.IsRemotePath(destinationDirectory)
                     ? await _localService.CopyWithProgressAsync(sourcePath, destinationDirectory, progress, context.CancellationToken)
@@ -111,6 +119,8 @@ public sealed class CompositeFileService : IFileService, ITrashResultFileService
     public Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false)
         => Run(BackgroundTaskKind.Move, "移动文件", [sourcePath], destinationDirectory, async context =>
         {
+            if (_conflicts != null && !FileOperationHistoryService.IsUndoing)
+            { await CopyOrMovePlannedAsync(sourcePath, destinationDirectory, true, context, null); return true; }
             var output = CombinePath(destinationDirectory, Path.GetFileName(sourcePath));
             var existed = context.Remember("overwrite:" + output, () => ExistsAsync(output).GetAwaiter().GetResult());
             await context.StepAsync("move:" + sourcePath + ":" + output, async () =>

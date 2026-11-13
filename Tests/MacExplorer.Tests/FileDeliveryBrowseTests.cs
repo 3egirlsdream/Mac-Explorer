@@ -76,7 +76,7 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
             Assert.Equal(2, vm.Entries.Count);
             Assert.Contains("1", vm.StatusText);
             Assert.True(clear.IsVisible && clear.IsEnabled);
-            Assert.Null(Assert.IsType<Button>(window.FindControl<StackPanel>("EntryTabs")!.Children[0]).ContextMenu);
+            Assert.Null(Assert.IsType<AppButton>(window.FindControl<StackPanel>("EntryTabs")!.Children[0]).ContextMenu);
             Assert.False(window.FindControl<Button>("UpButton")!.IsEnabled);
             await vm.OpenEntryAsync(vm.Entries.Single(e => e.IsDirectory));
             Assert.Equal(folder, vm.CurrentPath);
@@ -155,7 +155,7 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
             await window.ResumeAsync();
             Assert.False(vm.IsDeliveryStaging);
             Assert.Equal(service.Preferences.Entries[0].Location, vm.CurrentPath);
-            var staging = Assert.IsType<Button>(window.FindControl<StackPanel>("EntryTabs")!.Children[0]);
+            var staging = Assert.IsType<AppButton>(window.FindControl<StackPanel>("EntryTabs")!.Children[0]);
             Assert.Equal(localization["delivery.staging"], Assert.IsType<StackPanel>(staging.Content).Children.OfType<TextBlock>().Single().Text);
             drop.Show();
             service.StagePaths([Path.Combine(fixture.Root, "test.txt")]);
@@ -271,7 +271,7 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
                 Assert.DoesNotContain(service.Preferences.Entries, e => e.Name == name);
             }
             Assert.Single(tabs.Children);
-            Assert.Null(Assert.IsType<Button>(tabs.Children[0]).ContextMenu);
+            Assert.Null(Assert.IsType<AppButton>(tabs.Children[0]).ContextMenu);
             Assert.Contains(await fixture.Tags.GetSidebarTagsAsync(), t => t.Name == tag.Name);
             Assert.Equal("keep", await File.ReadAllTextAsync(file));
         }

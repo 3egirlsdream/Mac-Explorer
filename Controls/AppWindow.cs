@@ -37,6 +37,15 @@ public class AppWindow : Window
         set => SetValue(ShowTitleBarProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowTitleBarDividerProperty =
+        AvaloniaProperty.Register<AppWindow, bool>(nameof(ShowTitleBarDivider), true);
+
+    public bool ShowTitleBarDivider
+    {
+        get => GetValue(ShowTitleBarDividerProperty);
+        set => SetValue(ShowTitleBarDividerProperty, value);
+    }
+
     public static readonly StyledProperty<bool> ExtendContentToTopProperty =
         AvaloniaProperty.Register<AppWindow, bool>(nameof(ExtendContentToTop));
 

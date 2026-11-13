@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using System;
 using System.ComponentModel;
 using Avalonia.Controls;
@@ -88,7 +89,7 @@ public partial class AiView : UserControl
                 ColumnSpacing = 8,
                 Children = { label, count }
             };
-            var button = new Button
+            var button = new AppButton
             {
                 Content = content,
                 Classes = { "ghost", "compact", "tag-chip" },

@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using Avalonia.Controls;
 using MacExplorer.PluginSdk;
 
@@ -42,7 +43,7 @@ public static class PluginAuthorization
         var dialog = new MacExplorer.Controls.DialogWindow { Title = title, Width = 440, SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8 };
-        void Add(string label, string result) { var button = new Button { Content = label }; button.Click += (_, _) => dialog.Close(result); buttons.Children.Add(button); }
+        void Add(string label, string result) { var button = new AppButton { Content = label, Classes = { "secondary", "compact" } }; button.Click += (_, _) => dialog.Close(result); buttons.Children.Add(button); }
         if (trial) Add("开始试用", "trial");
         if (account) Add("登录 / 购买", "account");
         Add("取消", "cancel");

@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -906,17 +907,11 @@ public partial class InfoPanelView : UserControl
         foreach (var (name, color) in FinderTagColors)
         {
             var tagBrush = Brush.Parse(color);
-            var tagBtn = new Button
+            var tagBtn = new AppButton
             {
-                Width = 24, Height = 24,
-                Background = Brushes.Transparent,
-                CornerRadius = new CornerRadius(999),
-                Padding = new Thickness(0),
-                Tag = name,
-                BorderThickness = new Thickness(0),
-                Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Hand)
+                Classes = { "ghost", "system-tag-dot" },
+                Tag = name
             };
-            tagBtn.Classes.Add("system-tag-dot");
             SetLocalized(tagBtn, ToolTip.TipProperty, name);
 
             // Checkmark overlay (hidden by default)
@@ -1056,20 +1051,14 @@ public partial class InfoPanelView : UserControl
 
     private Border CreateTagChip(string tag, string filePath)
     {
-        var removeBtn = new Button
+        var removeBtn = new AppButton
         {
             Content = new PathIcon
             {
                 Data = Geometry.Parse(MacExplorer.Assets.Icons.Close),
                 Width = 10, Height = 10
             },
-            Width = 24, Height = 24,
-            MinWidth = 24, MinHeight = 24,
-            Background = Brushes.Transparent,
-            Padding = new Thickness(0),
-            CornerRadius = new CornerRadius(7),
-            [!Button.ForegroundProperty] = new DynamicResourceExtension("TextMutedBrush"),
-            Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Hand),
+            Classes = { "icon-action", "small" },
             VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,

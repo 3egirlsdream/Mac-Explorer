@@ -5,6 +5,7 @@ using Avalonia.Styling;
 using Avalonia.Input;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.Media;
 using MacExplorer.Platforms.MacOS;
 using MacExplorer.Services;
 
@@ -40,6 +41,8 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
         if (_view == IntPtr.Zero) return 0;
         return me_document_preview_load(_view, path, pdf);
     }
+    internal void NavigateTo(int page, string text)
+    { if (!_disposed && _view != IntPtr.Zero) me_document_preview_navigate(_view, page, text); }
 
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
@@ -61,6 +64,11 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
         var radius = this.TryFindResource("RadiusLg", out var value) && value is CornerRadius corners
             ? corners.TopLeft : 10;
         me_document_preview_appearance(_view, ActualThemeVariant == ThemeVariant.Dark, radius);
+        var width = this.TryFindResource("ScrollBarSize", ActualThemeVariant, out var size) && size is double pixels ? pixels : 8;
+        uint Color(string key) => this.TryFindResource(key, ActualThemeVariant, out var color) && color is ISolidColorBrush brush
+            ? brush.Color.ToUInt32() : Colors.Gray.ToUInt32();
+        me_document_preview_scrollbars(_view, width, Color("ScrollBarPanningThumbBackground"),
+            Color("ScrollBarThumbFillPointerOver"), Color("ScrollBarThumbFillPressed"));
     }
 
     protected override void DestroyNativeControlCore(IPlatformHandle control)
@@ -98,9 +106,11 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
     }
 
     [DllImport(Library)] private static extern IntPtr me_document_preview_create(KeyCallback callback, [MarshalAs(UnmanagedType.I1)] bool navigationKeys);
+    [DllImport(Library)] private static extern void me_document_preview_navigate(IntPtr view, int page, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
     [DllImport(Library)] private static extern int me_document_preview_load(IntPtr view, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.I1)] bool pdf);
     [DllImport(Library)] private static extern void me_document_preview_restore_focus(IntPtr view, IntPtr root);
     [DllImport(Library)] private static extern void me_document_preview_appearance(IntPtr view, [MarshalAs(UnmanagedType.I1)] bool dark, double radius);
+    [DllImport(Library)] private static extern void me_document_preview_scrollbars(IntPtr view, double width, uint thumb, uint hover, uint pressed);
     [DllImport(Library)] private static extern void me_document_preview_clear(IntPtr view);
     [DllImport(Library)] private static extern void me_document_preview_destroy(IntPtr view);
 }

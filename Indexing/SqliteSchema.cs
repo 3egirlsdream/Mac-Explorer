@@ -5,7 +5,7 @@ namespace MacExplorer.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 11;
+    public const int CurrentVersion = 12;
 
     /// <summary>
     /// Whether FTS5 is available (set during Initialize).
@@ -127,6 +127,8 @@ public static class SqliteSchema
 
         if (storedVersion < 11)
             FileTagSchema.Ensure(connection, transaction);
+
+        FeatureUpgradeSchema.Ensure(connection, transaction);
 
         // Record current version
         ExecuteNonQuery(connection, """

@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using System.Text.Json;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -37,7 +38,7 @@ public sealed class CopilotToolGroupCard : Border
         });
         header.Children.Add(_title);
         header.Children.Add(_chevron);
-        _button = new Button
+        _button = new AppButton
         {
             Content = header,
             HorizontalAlignment = HorizontalAlignment.Left,

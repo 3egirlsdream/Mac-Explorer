@@ -25,11 +25,11 @@
                         <Border Classes="settings-row">
                             <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc remote.type}" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Column="1" x:Name="ServiceTypeBox" Classes="settings-inline-input" SelectedIndex="0" SelectionChanged="OnServiceTypeChanged" AutomationProperties.Name="{loc:Loc remote.type}">
+                                <controls:AppComboBox Grid.Column="1" x:Name="ServiceTypeBox" Classes="compact settings-inline-input" SelectedIndex="0" SelectionChanged="OnServiceTypeChanged" AutomationProperties.Name="{loc:Loc remote.type}">
                                     <ComboBoxItem Content="SFTP"/>
                                     <ComboBoxItem Content="SMB"/>
                                     <ComboBoxItem Content="WebDAV"/>
-                                </ComboBox>
+                                </controls:AppComboBox>
                             </Grid>
                         </Border>
                     </StackPanel>
@@ -82,7 +82,7 @@
                             <Grid ColumnDefinitions="90,*,Auto" ColumnSpacing="8">
                                 <TextBlock Classes="settings-label" Text="{loc:Loc ui.521}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Column="1" x:Name="KeyPathBox" Classes="settings-inline-input" AutomationProperties.Name="{loc:Loc ui.522}"/>
-                                <Button Grid.Column="2" Content="{loc:Loc ui.523}" Classes="secondary compact" Click="OnBrowseKeyFile"/>
+                                <controls:AppButton Grid.Column="2" Content="{loc:Loc ui.523}" Classes="secondary compact" Click="OnBrowseKeyFile"/>
                             </Grid>
                         </Border>
                         <Border x:Name="KeyPassphrasePanel" Classes="settings-row settings-divider" IsVisible="False">
@@ -115,11 +115,11 @@
                     </StackPanel>
                 </Border>
                 </StackPanel>
-                <Button x:Name="SystemConnectButton" Classes="ghost compact" IsVisible="False" Content="{loc:Loc network.system-connect}" Click="OnSystemConnect"/>
+                <controls:AppButton x:Name="SystemConnectButton" Classes="ghost compact" IsVisible="False" Content="{loc:Loc network.system-connect}" Click="OnSystemConnect"/>
                 <StackPanel x:Name="AuxiliaryActions" Orientation="Horizontal" Spacing="8">
-                    <Button Classes="ghost compact" Content="{loc:Loc ui.530}" Click="OnRetryCredentials"
+                    <controls:AppButton Classes="ghost compact" Content="{loc:Loc ui.530}" Click="OnRetryCredentials"
                             ToolTip.Tip="{loc:Loc ui.531}"/>
-                    <Button x:Name="ForgetHostKeyButton" Classes="ghost compact" Content="{loc:Loc ui.532}" Click="OnForgetHostKey"
+                    <controls:AppButton x:Name="ForgetHostKeyButton" Classes="ghost compact" Content="{loc:Loc ui.532}" Click="OnForgetHostKey"
                             ToolTip.Tip="{loc:Loc ui.533}"/>
                 </StackPanel>
             </StackPanel>
@@ -129,9 +129,9 @@
         </ScrollViewer>
         <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,4,0,0">
 
-            <Button Grid.Column="2" Content="{loc:Loc ui.094}" Classes="secondary compact" Click="OnCancel"/>
-            <Button Grid.Column="3" x:Name="SaveButton" Content="{loc:Loc ui.095}" Classes="secondary compact" Click="OnSave"/>
-            <Button Grid.Column="4" x:Name="ConnectButton" Content="{loc:Loc ui.499}" Classes="primary compact" Click="OnConnect"/>
+            <controls:AppButton Grid.Column="2" Content="{loc:Loc ui.094}" Classes="secondary compact" Click="OnCancel"/>
+            <controls:AppButton Grid.Column="3" x:Name="SaveButton" Content="{loc:Loc ui.095}" Classes="secondary compact" Click="OnSave"/>
+            <controls:AppButton Grid.Column="4" x:Name="ConnectButton" Content="{loc:Loc ui.499}" Classes="primary compact" Click="OnConnect"/>
         </Grid>
         </Grid>
     </Border>

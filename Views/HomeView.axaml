@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
@@ -70,15 +71,15 @@
                 </Popup>
             </Grid>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateHomeDirectory" ToolTip.Tip="{loc:Loc ui.565}" AutomationProperties.Name="{loc:Loc ui.566}">
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><controls:AppButton Classes="ghost home-quick-action" Click="NavigateHomeDirectory" ToolTip.Tip="{loc:Loc ui.565}" AutomationProperties.Name="{loc:Loc ui.566}">
                     <PathIcon Data="{x:Static icons:Icons.Home}" Width="18" Height="18"/>
-                </Button></glass:LiquidGlassSurface>
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateDesktop" ToolTip.Tip="{loc:Loc ui.219}" AutomationProperties.Name="{loc:Loc ui.567}">
+                </controls:AppButton></glass:LiquidGlassSurface>
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><controls:AppButton Classes="ghost home-quick-action" Click="NavigateDesktop" ToolTip.Tip="{loc:Loc ui.219}" AutomationProperties.Name="{loc:Loc ui.567}">
                     <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="18" Height="18"/>
-                </Button></glass:LiquidGlassSurface>
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><Button Classes="ghost home-quick-action" Click="NavigateMacintoshHd" ToolTip.Tip="Macintosh HD" AutomationProperties.Name="{loc:Loc ui.568}">
+                </controls:AppButton></glass:LiquidGlassSurface>
+                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><controls:AppButton Classes="ghost home-quick-action" Click="NavigateMacintoshHd" ToolTip.Tip="Macintosh HD" AutomationProperties.Name="{loc:Loc ui.568}">
                     <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="18" Height="18"/>
-                </Button></glass:LiquidGlassSurface>
+                </controls:AppButton></glass:LiquidGlassSurface>
             </StackPanel>
             </Grid>
         </Grid>

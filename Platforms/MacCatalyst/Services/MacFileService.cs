@@ -738,6 +738,14 @@ end tell");
 
     public bool IsCrossVolume(string sourcePath, string destinationPath)
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            var directory = new DirectoryInfo(destinationPath);
+            var resolvedDestination = directory.ResolveLinkTarget(true)?.FullName ?? destinationPath;
+            var sourceIdentity = MacExplorer.Platforms.MacOS.MacSandboxNative.FileIdentity(sourcePath)?.Split(':')[0];
+            var destinationIdentity = MacExplorer.Platforms.MacOS.MacSandboxNative.FileIdentity(resolvedDestination)?.Split(':')[0];
+            if (sourceIdentity != null && destinationIdentity != null) return sourceIdentity != destinationIdentity;
+        }
         return !string.Equals(GetVolumeRoot(sourcePath), GetVolumeRoot(destinationPath), StringComparison.Ordinal);
     }
 

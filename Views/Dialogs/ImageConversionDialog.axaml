@@ -15,14 +15,7 @@
         <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox,
-                         NumericUpDown /template/ ButtonSpinner,
-                         NumericUpDown /template/ ButtonSpinner /template/ RepeatButton">
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        </Style>
-        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_DecreaseButton /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="CornerRadius" Value="0,6,6,0"/>
-        </Style>
+
     </controls:DialogWindow.Styles>
     <StackPanel Margin="16" Spacing="12">
         <TextBlock x:Name="Heading" FontSize="{DynamicResource FontSizeTitle}"
@@ -32,12 +25,12 @@
             <TextBlock Text="{loc:Loc ui.415}" Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBlock Grid.Column="2" Text="{loc:Loc ui.416}" Foreground="{DynamicResource TextSecondaryBrush}"/>
             <Grid Grid.Row="1" Classes="image-size-field">
-                <NumericUpDown x:Name="WidthInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
+                <NumericUpDown Classes="image-size-input" x:Name="WidthInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
                                FormatString="0" ValueChanged="WidthChanged" AutomationProperties.Name="{loc:Loc ui.415}"/>
             </Grid>
             <TextBlock Grid.Row="1" Grid.Column="1" Text="×" VerticalAlignment="Center"/>
             <Grid Grid.Row="1" Grid.Column="2" Classes="image-size-field">
-                <NumericUpDown x:Name="HeightInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
+                <NumericUpDown Classes="image-size-input" x:Name="HeightInput" Minimum="1" Maximum="8192" Increment="1" BorderBrush="Transparent"
                                FormatString="0" ValueChanged="HeightChanged" AutomationProperties.Name="{loc:Loc ui.416}"/>
             </Grid>
         </Grid>
@@ -45,8 +38,8 @@
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
         <TextBlock x:Name="ErrorText" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="False"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="{loc:Loc ui.094}" Classes="secondary" IsCancel="True" Click="CancelClick"/>
-            <Button Content="{loc:Loc ui.418}" Classes="primary" IsDefault="True" Click="ConvertClick"/>
+            <controls:AppButton Content="{loc:Loc ui.094}" Classes="secondary" IsCancel="True" Click="CancelClick"/>
+            <controls:AppButton Content="{loc:Loc ui.418}" Classes="primary" IsDefault="True" Click="ConvertClick"/>
         </StackPanel>
     </StackPanel>
 </controls:DialogWindow>

@@ -187,3 +187,24 @@ MACEXPLORER_VIDEO_PREVIEW_SMOKE=1 MACEXPLORER_VIDEO_FIXTURE_HELPER=/tmp/macexplo
 ```
 
 检查浅／深色、窄窗口和中文长文件名、模态遮挡、最小化、原生焦点关闭、损坏视频、快速切换、压缩包视频、重复开关回收和播放中关闭窗口。最小化检查等待真实原生状态及动画完成后再恢复，避免渲染暂停期间的待处理队列影响回收判断。
+
+## 文档预览与滚动条
+
+文档与滚动条回归使用 `ui --area Preview --area Markdown --area FeatureUpgrade` 和 `integration --area Preview`，检查文本、Diff、Markdown 预览与编辑器的全局 8px 滚动条、圆角和透明轨道；原生检查生成独立 PDF／DOCX，验证 Office 视口铺满、8px 网页滚动区、浅深色、实际滚动、缩放和释放。`DocumentPreviewSmoke.mm` 单独编译需链接 `AppKit`、`Quartz` 和 `WebKit`，通过 `run-isolated.sh` 运行。
+
+## 同名文件弹窗验证
+
+Debug 构建后，使用 `MACEXPLORER_FILE_CONFLICT_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'` 检查四语浅色与深色窄窗口、长文件名、处理按钮与替换下拉菜单。该入口只创建隔离窗口，不执行文件替换；截图与 `report.json` 写入测试目录的 `file-conflict/`。
+
+## 窗口拖拽缩放验证
+
+Debug 构建后，使用 `MACEXPLORER_WINDOW_RESIZE_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'`。该入口需要原生指针事件权限，对同名冲突、编辑同步和正文命中的浅深色隔离窗口实际拖动右下角，分别放大、缩小，记录拖拽中间帧及原生层状态，结果保存在测试目录的 `window-resize/`。中间帧使用 WindowServer 截图，不能用合成树截图替代；检查必须观察到 `liveResize`，并验证实际渲染层使用左上角原像素对齐、正确的 backing scale，且没有几何动画。
+
+`integration --area Window` 同时检查首次显示后替换 Metal／软件渲染层、1×／2× backing scale 更新、保留未提交 drawable 尺寸，以及视图和原生观察器释放；`ui --area FeatureUpgrade --area RemoteEdit --area Window` 检查拖拽结束后的布局与操作。只验证最后一帧不足以判断拖拽过程中是否失真。
+
+
+## 全局按钮与下拉选择检查
+
+所有测试配置首先执行 `python3 Tools/Testing/check-buttons.py`，检查应用按钮与 ComboBox 的公共组件入口、页面外观覆盖和局部主题。扫描器自身用 `python3 -m unittest discover -s Tools/Testing -p 'test_button_audit.py'` 验证。
+
+`ui --area Buttons --area Localization` 覆盖统一主题、鼠标点击、禁用、切换、默认／取消快捷键和下拉菜单；此次全局迁移需运行完整 `ui`。Debug 构建后，通过 `MACEXPLORER_WINDOW_OPEN_SMOKE=1 MACEXPLORER_BUTTON_AUDIT_SMOKE=1 bash Tools/Testing/run-isolated.sh <Debug应用可执行文件>` 输出四语浅深色按钮与 ComboBox 组件画廊（含展开面板）、常用弹窗浅色／深色窄窗口及设置各页截图，位于测试目录的 `button-components/`，窗口检查结果位于 `window-open-smoke.json`。

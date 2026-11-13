@@ -1,3 +1,4 @@
+using MacExplorer.Controls;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -56,14 +57,14 @@ public partial class SettingsDialog
             var types = string.Join("、", m.Commands.SelectMany(c => c.Match.Extensions.Concat(c.Match.FileNames).Concat(c.Match.TextFiles ? new[] { MacExplorer.Services.Impl.LocalizationText.Get("文本文件") } : [])).Distinct());
             info.Children.Add(new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("支持：") + types, TextWrapping = TextWrapping.Wrap });
             var actions = new WrapPanel();
-            var details = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("详情"), Margin = new Thickness(0, 0, 8, 0) };
+            var details = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("详情"), Margin = new Thickness(0, 0, 8, 0) };
             details.Click += async (_, _) =>
             {
                 var dialog = new MacExplorer.Controls.DialogWindow { Title = m.Name, Width = 480, Height = 360, WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Content = new ScrollViewer { Content = new TextBlock { Margin = new Thickness(20), Text = MacExplorer.Services.Impl.LocalizationText.Get("{0} {1}\n{2}\n{3}\n\n{4}\n\n支持：{5}", m.Name, m.Version, m.Developer, pricing, m.Description, types), TextWrapping = TextWrapping.Wrap } } };
                 await dialog.ShowDialog(this);
             };
-            var install = new Button { Content = installed == null ? MacExplorer.Services.Impl.LocalizationText.Get("安装") : update ? MacExplorer.Services.Impl.LocalizationText.Get("更新") : MacExplorer.Services.Impl.LocalizationText.Get("已安装"), IsEnabled = !_marketBusy && (installed == null || update) };
+            var install = new AppButton { Content = installed == null ? MacExplorer.Services.Impl.LocalizationText.Get("安装") : update ? MacExplorer.Services.Impl.LocalizationText.Get("更新") : MacExplorer.Services.Impl.LocalizationText.Get("已安装"), IsEnabled = !_marketBusy && (installed == null || update) };
             install.Click += async (_, _) =>
             {
                 var client = App.Services?.GetService<PluginMarketClient>(); if (client == null || _plugins == null) return;
@@ -88,7 +89,7 @@ public partial class SettingsDialog
         }
         if (_marketHasMore)
         {
-            var more = new Button { Content = MacExplorer.Services.Impl.LocalizationText.Get("加载更多") }; more.Classes.Add("secondary"); more.Classes.Add("plugin-action"); more.Click += async (_, _) => await LoadMarketAsync(true); PluginMarketRows.Children.Add(more);
+            var more = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("加载更多") }; more.Classes.Add("secondary"); more.Classes.Add("plugin-action"); more.Click += async (_, _) => await LoadMarketAsync(true); PluginMarketRows.Children.Add(more);
         }
     }
 }

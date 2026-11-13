@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="using:MacExplorer.Models"
              xmlns:icons="using:MacExplorer.Assets"
@@ -41,10 +42,9 @@
             <Border CornerRadius="{Binding CornerRadius, ElementName=Shell}" ClipToBounds="True">
             <Grid RowDefinitions="Auto,Auto,*">
                 <Grid Grid.Row="0" x:Name="PreviewHeader" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12,12,8">
-                    <Button AutomationProperties.Name="{loc:Loc ui.598}" Grid.Column="0" x:Name="BackButton" Classes="ghost compact" Width="30" Height="30"
-                            Padding="6" Click="GoBack" ToolTip.Tip="{loc:Loc ui.598}">
+                    <controls:AppButton AutomationProperties.Name="{loc:Loc ui.598}" Grid.Column="0" x:Name="BackButton" Classes="ghost icon-action" Click="GoBack" ToolTip.Tip="{loc:Loc ui.598}">
                         <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
-                    </Button>
+                    </controls:AppButton>
                     <StackPanel Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center">
                         <TextBlock x:Name="TitleText" Text="{loc:Loc ui.599}" FontSize="{DynamicResource FontSizeTitle}"
                                    FontWeight="{StaticResource FontWeightSemibold}"
@@ -55,10 +55,10 @@
                     </StackPanel>
                     <TextBlock Grid.Column="2" x:Name="ItemCountText" VerticalAlignment="Center"
                                FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
-                    <Button AutomationProperties.Name="{loc:Loc ui.600}" Grid.Column="3" x:Name="ClosePreviewButton" Classes="ghost compact" Width="30" Height="30" Padding="6"
+                    <controls:AppButton AutomationProperties.Name="{loc:Loc ui.600}" Grid.Column="3" x:Name="ClosePreviewButton" Classes="ghost icon-action"
                             Click="ClosePreview" ToolTip.Tip="{loc:Loc ui.600}">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
-                    </Button>
+                    </controls:AppButton>
                 </Grid>
 
                 <Border Grid.Row="1" x:Name="HeaderDivider" Height="1" Background="{DynamicResource ColorDivider}"/>

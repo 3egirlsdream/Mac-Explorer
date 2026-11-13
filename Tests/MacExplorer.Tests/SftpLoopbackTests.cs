@@ -10,7 +10,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Sftp")]
-public sealed class SftpLoopbackTests : IDisposable
+public sealed partial class SftpLoopbackTests : IDisposable
 {
     private readonly GrantedFeatureAccess _featureAccess = new();
     public void Dispose() => _featureAccess.Dispose();

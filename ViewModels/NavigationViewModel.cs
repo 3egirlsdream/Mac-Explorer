@@ -9,6 +9,7 @@ namespace MacExplorer.ViewModels;
 
 public sealed class NavigationHistoryEntry
 {
+    internal DirectoryPreferences? Preferences { get; set; }
     public string Path { get; set; } = string.Empty;
     public bool IsHomePage { get; set; }
     public bool IsSearchMode { get; set; }

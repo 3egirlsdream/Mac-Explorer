@@ -1,4 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
@@ -9,52 +10,12 @@
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
-    <UserControl.Resources>
-        <ControlTheme x:Key="BreadcrumbButtonTheme" TargetType="Button">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <ContentPresenter Name="PART_ContentPresenter"
-                                      Content="{TemplateBinding Content}"
-                                      Background="{TemplateBinding Background}"
-                                      CornerRadius="{TemplateBinding CornerRadius}"
-                                      Padding="{TemplateBinding Padding}"
-                                      HorizontalContentAlignment="Center"
-                                      VerticalContentAlignment="Center"/>
-                </ControlTemplate>
-            </Setter>
-        </ControlTheme>
-    </UserControl.Resources>
-
     <UserControl.Styles>
-        <Style Selector="Button.breadcrumb-button">
-            <Setter Property="Theme" Value="{StaticResource BreadcrumbButtonTheme}"/>
-            <Setter Property="Height" Value="24"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="MinWidth" Value="0"/>
-            <Setter Property="Padding" Value="6,0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="RenderTransform" Value="none"/>
-        </Style>
-        <Style Selector="Button.breadcrumb-label:pointerover, Button.breadcrumb-label:pressed">
-            <Setter Property="Background" Value="Transparent"/>
-        </Style>
-        <Style Selector="Button.breadcrumb-dropdown">
-            <Setter Property="Width" Value="22"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}"/>
-        </Style>
+
         <Style Selector="Button.breadcrumb-segment-dropdown">
             <Setter Property="IsVisible" Value="{Binding HasDropdown}"/>
         </Style>
-        <Style Selector="Button.breadcrumb-dropdown:pointerover, Button.breadcrumb-dropdown.open">
-            <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-        <Style Selector="Button.breadcrumb-dropdown.open PathIcon">
-            <Setter Property="RenderTransform" Value="rotate(90deg)"/>
-        </Style>
+
         <Style Selector="TextBlock.breadcrumb-segment-label">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
@@ -105,7 +66,7 @@
                         <DataTemplate x:DataType="models:BreadcrumbSegment">
                             <StackPanel Orientation="Horizontal" Spacing="0"
                                         Background="Transparent">
-                                <Button Classes="breadcrumb-button breadcrumb-label"
+                                <controls:AppButton Classes="breadcrumb-button breadcrumb-label"
                                         Click="OnSegmentClicked"
                                         Tag="{Binding FullPath}"
                                         ToolTip.Tip="{Binding ToolTip}">
@@ -113,14 +74,14 @@
                                                FontSize="{DynamicResource FontSizeLabel}"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center"/>
-                                </Button>
-                                <Button Classes="breadcrumb-button breadcrumb-dropdown breadcrumb-segment-dropdown"
+                                </controls:AppButton>
+                                <controls:AppButton Classes="breadcrumb-button breadcrumb-dropdown breadcrumb-segment-dropdown"
                                         Click="OnDirectoryDropdownClicked"
                                         KeyDown="OnDropdownKeyDown"
                                         AutomationProperties.Name="{loc:LocFormat Path=DisplayName, Text='显示 {0} 的子目录'}"
                                         ToolTip.Tip="{loc:Loc ui.432}">
                                     <PathIcon Data="{x:Static icons:Icons.ChevronRight}" Width="10" Height="10"/>
-                                </Button>
+                                </controls:AppButton>
                                 <Border IsVisible="{Binding HasDropdown, Converter={StaticResource BoolNotConverter}}">
                                     <PathIcon Classes="breadcrumb-separator"
                                               Data="{x:Static icons:Icons.ChevronRight}"
@@ -131,14 +92,13 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Button Grid.Column="0" x:Name="OverflowButton"
-                        Classes="breadcrumb-button breadcrumb-dropdown"
-                        Width="28" IsVisible="False" HorizontalAlignment="Left"
+                <controls:AppButton Grid.Column="0" x:Name="OverflowButton"
+                        Classes="breadcrumb-button breadcrumb-dropdown overflow" IsVisible="False" HorizontalAlignment="Left"
                         Click="OnOverflowClicked"
                         ToolTip.Tip="{loc:Loc ui.433}"
                         AutomationProperties.Name="{loc:Loc ui.433}">
                     <PathIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="14" Height="14"/>
-                </Button>
+                </controls:AppButton>
                 <Border Grid.Column="1" Background="Transparent"
                         ToolTip.Tip="{loc:Loc ui.434}"/>
             </Grid>

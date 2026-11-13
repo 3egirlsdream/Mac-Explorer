@@ -35,7 +35,7 @@ public partial class BackgroundThemeSettingsView
             foreach (var preset in BackgroundThemePresets.All)
             {
                 var image = new Image { Stretch = Stretch.UniformToFill };
-                var button = new Button { Classes = { "ghost", "theme-swatch" }, Name = "ThemeSwatch_" + preset.Id,
+                var button = new AppButton { Classes = { "ghost", "theme-swatch" }, Name = "ThemeSwatch_" + preset.Id,
                     Content = new Border { Classes = { "theme-swatch-image" }, Child = image } };
                 PatternRows.Children.Add(button);
                 _swatches[preset.Id] = (button, image);
