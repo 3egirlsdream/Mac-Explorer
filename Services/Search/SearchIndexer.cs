@@ -23,6 +23,8 @@ public sealed class SearchIndexer : IAsyncDisposable
     private readonly Task _worker;
     private bool _disposed;
     private Task? _disposeTask;
+    private DateTimeOffset _lastDiagnosticsWrite = DateTimeOffset.MinValue;
+    private bool _diagnosticsFlushScheduled;
 
     private static readonly HashSet<string> ExcludedNames = new(StringComparer.Ordinal)
     {
@@ -63,6 +65,8 @@ public sealed class SearchIndexer : IAsyncDisposable
         public bool IncludeHiddenFolders;
         public ulong ObservedId, Checkpoint;
         public DateTimeOffset LastAttempt;
+        public DateTimeOffset LastFullScanCompleted;
+        public bool ForceFullScan;
         public long LastProgressTick;
     }
 
@@ -165,6 +169,7 @@ public sealed class SearchIndexer : IAsyncDisposable
             state.RestartWatcher |= change.RestartWatcher;
             if (change.MustRescan)
             {
+                state.ForceFullScan = true; // A missed-event journal must still rescan immediately.
                 AddDirty(state, SearchPath.IsWithin(change.Path, state.Root) ? change.Path : state.Root, true);
                 return;
             }
@@ -222,6 +227,26 @@ public sealed class SearchIndexer : IAsyncDisposable
                     state.LastAttempt = _timeProvider.GetUtcNow();
                 }
                 var fullScan = pending.Any(item => item.Key == state.Root && item.Value);
+                if (fullScan && !restart && !state.ForceFullScan && state.LastFullScanCompleted != default)
+                {
+                    var quietFor = _timeProvider.GetUtcNow() - state.LastFullScanCompleted;
+                    if (quietFor < _configuration.FullScanCooldown)
+                    {
+                        // A whole-root pass finished moments ago. Starting another one now only
+                        // rewrites the same pages: that is what kept a 620 MB index at a steady
+                        // 2 MB/s for days. Keep the root dirty and retry once the cooldown
+                        // elapses - no change is dropped, it is only delayed.
+                        lock (_gate)
+                        {
+                            state.Pending[state.Root] = true;
+                            state.Status = state.Status with { Phase = SearchIndexPhase.Building };
+                            state.Queued = false;
+                            Pulse(state);
+                        }
+                        _ = RequeueAfterAsync(state, _configuration.FullScanCooldown - quietFor);
+                        continue;
+                    }
+                }
                 if (fullScan) state.DirectoryErrors.Clear();
                 string? batchError = null;
                 var unavailable = false;
@@ -276,6 +301,12 @@ public sealed class SearchIndexer : IAsyncDisposable
                 {
                     unavailable |= !_access.CanAccess(state.Root);
                     state.Status = CompletedStatus(state, unavailable, batchError);
+                    if (fullScan)
+                    {
+                        state.ForceFullScan = false;
+                        if (batchError == null && !unavailable)
+                            state.LastFullScanCompleted = _timeProvider.GetUtcNow();
+                    }
                     if (state.Pending.Count > 0)
                     {
                         state.Status = state.Status with { Phase = SearchIndexPhase.Building };
@@ -284,7 +315,7 @@ public sealed class SearchIndexer : IAsyncDisposable
                     else state.Queued = false;
                     Pulse(state);
                 }
-                WriteDiagnostics();
+                WriteDiagnosticsThrottled();
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
@@ -303,7 +334,7 @@ public sealed class SearchIndexer : IAsyncDisposable
             {
                 json = JsonSerializer.Serialize(new
                 {
-                    UpdatedUtc = DateTimeOffset.UtcNow,
+                    UpdatedUtc = _timeProvider.GetUtcNow(),
                     ProcessId = Environment.ProcessId,
                     Roots = _roots.Values.OrderBy(state => state.Root, StringComparer.Ordinal).Select(state => new
                     {
@@ -331,6 +362,61 @@ public sealed class SearchIndexer : IAsyncDisposable
             try { File.Delete(temporary); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
+    }
+
+    // Every finished work batch used to rewrite the whole status file. On a busy root that is
+    // a steady 26 KB per batch, so the write is now throttled and the last state is flushed late.
+    private void WriteDiagnosticsThrottled()
+    {
+        var interval = _configuration.DiagnosticWriteInterval;
+        if (interval <= TimeSpan.Zero)
+        {
+            WriteDiagnostics();
+            return;
+        }
+        TimeSpan? flushIn = null;
+        lock (_gate)
+        {
+            var now = _timeProvider.GetUtcNow();
+            if (_lastDiagnosticsWrite == DateTimeOffset.MinValue || now - _lastDiagnosticsWrite >= interval)
+                _lastDiagnosticsWrite = now;
+            else if (_diagnosticsFlushScheduled) return;
+            else
+            {
+                _diagnosticsFlushScheduled = true;
+                flushIn = interval - (now - _lastDiagnosticsWrite);
+            }
+        }
+        if (flushIn == null) WriteDiagnostics();
+        else _ = FlushDiagnosticsAsync(flushIn.Value);
+    }
+
+    private async Task FlushDiagnosticsAsync(TimeSpan delay)
+    {
+        if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+        try { await Task.Delay(delay, _lifetime.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) { return; }
+        lock (_gate)
+        {
+            _diagnosticsFlushScheduled = false;
+            _lastDiagnosticsWrite = _timeProvider.GetUtcNow();
+        }
+        WriteDiagnostics();
+    }
+
+    // Keeps the root dirty while a whole-root rescan is cooling down, then hands it back to
+    // the worker. The worker itself must never wait here: other roots share the same reader.
+    private async Task RequeueAfterAsync(RootState state, TimeSpan delay)
+    {
+        if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+        try { await Task.Delay(delay, _lifetime.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) { return; }
+        var queued = false;
+        lock (_gate)
+        {
+            if (!_disposed && !state.Queued) { state.Queued = true; queued = true; }
+        }
+        if (queued) _work.Writer.TryWrite(state);
     }
 
     private static SearchIndexStatus CompletedStatus(RootState state, bool unavailable, string? batchError = null)
