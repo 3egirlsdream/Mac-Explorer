@@ -14,6 +14,9 @@ public class IndexConfiguration
         "/sbin",
         "/var/folders",
         "/private/var/folders",
+        "/private/var",
+        "/private/tmp",
+        "/cores",
         "/.vol",
         "/dev",
         "/.Trashes"
@@ -28,6 +31,18 @@ public class IndexConfiguration
     /// Database file path.
     /// </summary>
     public string DatabasePath { get; set; } = RuntimePaths.DatabasePath;
+
+    /// <summary>
+    /// Minimum interval between two whole-root scans of the same root. A filesystem storm
+    /// on a large root otherwise restarts a pass before the previous one finishes and never
+    /// converges, rewriting the same index pages indefinitely.
+    /// </summary>
+    public TimeSpan FullScanCooldown { get; set; } = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Minimum interval between two writes of the search index status file.
+    /// </summary>
+    public TimeSpan DiagnosticWriteInterval { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
     /// Check if a path should be indexed.
