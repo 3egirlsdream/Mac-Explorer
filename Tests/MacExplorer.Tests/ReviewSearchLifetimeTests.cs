@@ -138,7 +138,7 @@ public sealed class ReviewSearchLifetimeTests
         var pinyin = new Pinyin();
         pinyin.FailedNames.Add("bad-report.txt");
         var changes = new Changes();
-        await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = databasePath }, pinyin, changes);
+        await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = databasePath, DiagnosticWriteInterval = TimeSpan.Zero }, pinyin, changes);
         indexer.EnsureRoot(db.Root);
         Assert.Equal(SearchIndexPhase.Partial, (await WaitSettled(indexer, db.Root)).Phase);
         var path = Path.Combine(db.Root, "Logs", "search-index-status.json");
