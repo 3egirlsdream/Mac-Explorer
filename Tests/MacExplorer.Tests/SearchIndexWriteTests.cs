@@ -157,6 +157,18 @@ public sealed class SearchIndexWriteTests : IDisposable
 
     [Fact]
     [Trait("Kind", "Unit")]
+    public async Task SharedParentSearchKeyCanChangeWithoutRewritingFileRows()
+    {
+        var catalog = Catalog(); var entry = Entry(Path.Combine(Root, "report.txt"));
+        await catalog.ApplyEntriesAsync([entry]);
+        var id = Scalar("SELECT id FROM search_entries");
+        Assert.Equal(default, await catalog.ApplyEntriesAsync([entry with { ParentKey = "UPDATED_PARENT" }]));
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("path:UPDATED_PARENT"), new(), 10, false));
+        Assert.Equal(id, Scalar("SELECT id FROM search_entries"));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
     public async Task DirectoryLeaseSerializesIndexWritesWithoutKeepingASqlWriteTransactionOpen()
     {
         var catalog = Catalog();
@@ -215,6 +227,17 @@ public sealed class SearchIndexWriteTests : IDisposable
         Assert.True(pending.Bytes <= 512);
         pending.Add(new("/scope", SearchWorkKind.Recursive, SearchWorkReason.Refresh));
         Assert.True(Assert.Single(pending.Take()).Urgent);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public void FlatFilePressureNeedsOnlyAShallowDirectoryReconciliation()
+    {
+        var pending = new SearchPendingWork("/scope", 2, 1024 * 1024);
+        for (var i = 0; i < 3; i++) pending.Add(new($"/scope/file-{i}", SearchWorkKind.Entry));
+        var work = Assert.Single(pending.Take());
+        Assert.Equal(SearchWorkKind.Directory, work.Kind);
+        Assert.False(work.Covers(new("/scope/child/file", SearchWorkKind.Entry)));
     }
 
     [Theory]
@@ -344,6 +367,29 @@ public sealed class SearchIndexWriteTests : IDisposable
 
     [Fact(Explicit = true)]
     [Trait("Kind", "Integration")]
+    public async Task OverflowCollectedDuringInitialScanWaitsAfterThatScanCompletes()
+    {
+        File.WriteAllText(Path.Combine(Root, "trigger.txt"), "entry");
+        var clock = new FakeTimeProvider(); var changes = new Changes();
+        var pinyin = new Pinyin { Inspect = _ =>
+        {
+            for (var i = 0; i < 3; i++) changes.Emit(Path.Combine(Root, $"directory-{i}", "event.txt"));
+        } };
+        var catalog = Catalog();
+        await using var indexer = new SearchIndexer(catalog, new()
+        { DatabasePath = Database, PendingLimit = 2, EventMergeDelay = TimeSpan.Zero }, pinyin, changes, clock);
+        indexer.EnsureRoot(Root);
+        await Eventually(() => Task.FromResult(indexer.GetStatistics().DeferredRoots == 1));
+        Assert.Equal(1, indexer.GetStatistics().FullScans);
+        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root));
+        pinyin.Inspect = null;
+        indexer.Refresh(Root); await Ready(indexer, Root);
+        Assert.Equal(2, indexer.GetStatistics().FullScans);
+        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root));
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public async Task RecoveryReceivedDuringScanIsNotClearedByItsCompletion()
     {
         File.WriteAllText(Path.Combine(Root, "trigger.txt"), "entry");
@@ -354,6 +400,79 @@ public sealed class SearchIndexWriteTests : IDisposable
         indexer.Refresh(Root); await Ready(indexer, Root);
         Assert.Equal(3, indexer.GetStatistics().FullScans);
         Assert.Equal(1, indexer.GetStatistics().FullScanReasons["JournalRecovery"]);
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task NewRootRecoveryPreemptsAnUrgentTraversalAtADirectoryBoundary()
+    {
+        var a = Directory.CreateDirectory(Path.Combine(Root, "a")).FullName;
+        var b = Directory.CreateDirectory(Path.Combine(Root, "b")).FullName;
+        File.WriteAllText(Path.Combine(a, "a.txt"), "a"); File.WriteAllText(Path.Combine(b, "b.txt"), "b");
+        var changes = new Changes(); var pinyin = new Pinyin();
+        await using var indexer = new SearchIndexer(Catalog(), new() { DatabasePath = Database }, pinyin, changes);
+        indexer.EnsureRoot(Root); await Ready(indexer, Root);
+        long firstVisitB = 0; var requested = false;
+        pinyin.Inspect = name =>
+        {
+            if (name == "a.txt" && !requested) { requested = true; changes.Emit(Root, true, true); }
+            if (name == "b.txt" && firstVisitB == 0) firstVisitB = indexer.GetStatistics().FullScans;
+        };
+        indexer.Refresh(Root); await Ready(indexer, Root);
+        Assert.Equal(3, firstVisitB);
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task CoalescedDirectoryCreateAndRemoveStillDiscoversItsFinalContents()
+    {
+        var changes = new Changes(); var catalog = Catalog();
+        await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database }, new Pinyin(), changes);
+        indexer.EnsureRoot(Root); await Ready(indexer, Root);
+        var directory = Directory.CreateDirectory(Path.Combine(Root, "recreated")).FullName;
+        File.WriteAllText(Path.Combine(directory, "child-report.txt"), "child");
+        changes.Emit(directory, true, kind: SearchChangeKind.Created | SearchChangeKind.Removed);
+        await Ready(indexer, Root);
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false));
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task YoungerRecoveryCannotAcknowledgeOverflowDeferredDuringARootScan()
+    {
+        var a = Directory.CreateDirectory(Path.Combine(Root, "a")).FullName;
+        var b = Directory.CreateDirectory(Path.Combine(Root, "b")).FullName;
+        File.WriteAllText(Path.Combine(a, "a.txt"), "a"); File.WriteAllText(Path.Combine(b, "b.txt"), "b");
+        var clock = new FakeTimeProvider(); var changes = new Changes(); var pinyin = new Pinyin(); var catalog = Catalog();
+        await using var indexer = new SearchIndexer(catalog, new()
+        { DatabasePath = Database, PendingLimit = 2, EventMergeDelay = TimeSpan.Zero }, pinyin, changes, clock);
+        indexer.EnsureRoot(Root); await Ready(indexer, Root);
+        var boundary = new TaskCompletionSource<Task>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitted = false;
+        pinyin.Inspect = name =>
+        {
+            if (name == "a.txt" && !emitted)
+            {
+                emitted = true;
+                for (var i = 0; i < 3; i++)
+                {
+                    var directory = Directory.CreateDirectory(Path.Combine(Root, $"lost-{i}")).FullName;
+                    var path = Path.Combine(directory, "lost-report.txt"); File.WriteAllText(path, "new"); changes.Emit(path);
+                }
+                changes.Emit(a, true, true);
+            }
+            if (name == "b.txt") boundary.TrySetResult(indexer.Observe(Root).Changed);
+        };
+        indexer.Refresh(Root);
+        var finished = await boundary.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await finished.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, indexer.GetStatistics().DeferredRoots);
+        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root));
+        Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false));
+        pinyin.Inspect = null;
+        indexer.Refresh(Root); await Ready(indexer, Root);
+        Assert.Equal(3, (await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false)).Count);
+        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root));
     }
 
     [Fact(Explicit = true)]

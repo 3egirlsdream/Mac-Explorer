@@ -20,6 +20,7 @@ internal sealed class SearchPendingWork(string root, int limit, long byteLimit)
     internal int Count => _items.Count;
     internal long Bytes { get; private set; }
     internal bool HasUrgent => _items.Values.Any(item => item.Urgent);
+    internal bool HasUrgentRoot => _items.TryGetValue(root, out var item) && item.Kind == SearchWorkKind.Recursive && item.Urgent;
 
     internal void Add(SearchWork work)
     {
@@ -51,8 +52,10 @@ internal sealed class SearchPendingWork(string root, int limit, long byteLimit)
             var affected = _items.Values.Where(item => SearchPath.IsWithin(item.Path, target)).ToArray();
             var urgent = affected.FirstOrDefault(item => item.Urgent);
             foreach (var item in affected) Remove(item.Path);
-            var replacement = new SearchWork(target, SearchWorkKind.Recursive,
-                urgent?.Reason ?? (target == root ? SearchWorkReason.OverflowFallback : SearchWorkReason.Change));
+            var kind = affected.All(item => item.Kind == SearchWorkKind.Entry && System.IO.Path.GetDirectoryName(item.Path) == target)
+                ? SearchWorkKind.Directory : SearchWorkKind.Recursive;
+            var replacement = new SearchWork(target, kind,
+                urgent?.Reason ?? (target == root && kind == SearchWorkKind.Recursive ? SearchWorkReason.OverflowFallback : SearchWorkReason.Change));
             _items[target] = replacement; Bytes += replacement.Bytes;
         }
     }

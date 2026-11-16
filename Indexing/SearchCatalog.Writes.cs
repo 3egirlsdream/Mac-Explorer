@@ -14,6 +14,8 @@ public sealed partial class SearchCatalog
 {
     internal long ScanMemoryLimitBytes { get; set; } = 8 * 1024 * 1024;
     internal string? ScanScratchDirectory { get; set; }
+    // Directory scans own _writer, so their bounded membership buffer can be reused without retaining paths.
+    private readonly HashSet<string> _scanPaths = new(StringComparer.Ordinal);
 
     private const string UpsertSql = """
         INSERT INTO search_entries(path,name,parent_id,extension,extension_key,name_key,initials_key,
@@ -60,9 +62,16 @@ public sealed partial class SearchCatalog
             {
                 var name = "@p" + i; lookup.Parameters.AddWithValue(name, entry.Path); return name;
             });
-            lookup.CommandText = $"SELECT {Columns} FROM search_entry_details e WHERE e.path IN ({string.Join(',', parameters)})";
+            lookup.CommandText = $"SELECT {Columns},e.parent_id FROM search_entry_details e WHERE e.path IN ({string.Join(',', parameters)})";
+            var parentValues = new Dictionary<long, (string Path, string Key)>();
             using var reader = lookup.ExecuteReader();
-            while (reader.Read()) { var entry = ReadEntry(reader); existing[entry.Path] = entry; }
+            while (reader.Read())
+            {
+                var id = reader.GetInt64(13);
+                if (!parentValues.TryGetValue(id, out var values))
+                    parentValues[id] = values = (reader.GetString(2), reader.GetString(6));
+                var entry = ReadEntry(reader, values.Path, values.Key); existing[entry.Path] = entry;
+            }
         }
         if (entries.All(entry => existing.TryGetValue(entry.Path, out var old) && SameMetadata(old, entry))) return default;
         using var transaction = connection.BeginTransaction();
@@ -75,7 +84,9 @@ public sealed partial class SearchCatalog
         using var parent = connection.CreateCommand();
         parent.Transaction = transaction;
         parent.CommandText = """
-            INSERT INTO search_directories(path,parent_key) VALUES(@path,@key) ON CONFLICT(path) DO NOTHING;
+            INSERT INTO search_directories(path,parent_key) VALUES(@path,@key)
+            ON CONFLICT(path) DO UPDATE SET parent_key=excluded.parent_key
+            WHERE search_directories.parent_key IS NOT excluded.parent_key;
             SELECT id FROM search_directories WHERE path=@path COLLATE BINARY;
             """;
         parent.Parameters.Add("@path", SqliteType.Text); parent.Parameters.Add("@key", SqliteType.Text);
@@ -137,7 +148,7 @@ public sealed partial class SearchCatalog
         {
             _owner = owner; _connection = connection;
             _remaining = new(owner.ScanMemoryLimitBytes, owner.ScanScratchDirectory ?? Path.Combine(
-                Path.GetDirectoryName(connection.DataSource)!, "Logs", "scan-scratch"));
+                Path.GetDirectoryName(connection.DataSource)!, "Logs", "scan-scratch"), owner._scanPaths);
             try
             {
                 using var registration = ct.Register(() => SQLitePCL.raw.sqlite3_interrupt(connection.Handle));
@@ -202,11 +213,11 @@ public sealed partial class SearchCatalog
         }
     }
 
-    private sealed class RemainingPaths(long limit, string directory) : IDisposable
+    private sealed class RemainingPaths(long limit, string directory, HashSet<string> paths) : IDisposable
     {
-        private readonly HashSet<string> _paths = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _paths = paths;
         private readonly List<string> _pending = new(256);
-        private long _bytes;
+        private long _stringBytes;
         private SqliteConnection? _disk;
         private string? _path;
         public Exception? Error { get; private set; }
@@ -228,8 +239,8 @@ public sealed partial class SearchCatalog
             InitialCount++;
             if (_disk == null)
             {
-                if (_paths.Add(path)) _bytes += 96L + path.Length * 2L;
-                if (_bytes <= limit) return;
+                if (_paths.Add(path)) _stringBytes += 32L + path.Length * 2L;
+                if (_stringBytes + _paths.EnsureCapacity(0) * 20L + 48 <= limit) return;
                 Directory.CreateDirectory(directory);
                 _path = Path.Combine(directory, $"remaining-{Environment.ProcessId}-{Guid.NewGuid():N}.db");
                 _disk = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _path, Pooling = false }.ToString());
@@ -289,6 +300,7 @@ public sealed partial class SearchCatalog
 
         public void Dispose()
         {
+            _paths.Clear();
             try { _disk?.Dispose(); }
             finally
             {

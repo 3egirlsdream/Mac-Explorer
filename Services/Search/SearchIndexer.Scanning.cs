@@ -2,7 +2,7 @@ namespace MacExplorer.Services.Search;
 
 public sealed partial class SearchIndexer
 {
-    private SearchEntry ReadEntry(FileSystemInfo entry, string parent)
+    private SearchEntry ReadEntry(FileSystemInfo entry, string parent, string parentKey)
     {
         lock (_gate) _checkedEntries++;
         var attributes = entry.Attributes;
@@ -10,7 +10,7 @@ public sealed partial class SearchIndexer
         var link = attributes.HasFlag(FileAttributes.ReparsePoint);
         var name = entry.Name;
         return new(entry.FullName, name, parent, Path.GetExtension(name), SearchQuery.Fold(name),
-            _pinyin.GetInitials(name), SearchQuery.Fold(parent), directory || link ? 0 : ((FileInfo)entry).Length,
+            _pinyin.GetInitials(name), parentKey, directory || link ? 0 : ((FileInfo)entry).Length,
             directory, attributes.HasFlag(FileAttributes.Hidden), entry.CreationTimeUtc.Ticks,
             entry.LastWriteTimeUtc.Ticks, link);
     }
@@ -18,6 +18,7 @@ public sealed partial class SearchIndexer
     private async Task UpdateEntriesAsync(RootState state, Generation generation, List<string> paths, CancellationToken ct)
     {
         var entries = new List<SearchEntry>(paths.Count);
+        var parentKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         var reconcile = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in paths)
         {
@@ -29,7 +30,8 @@ public sealed partial class SearchIndexer
                 _access.EnsureAccess(path);
                 var attributes = File.GetAttributes(path);
                 FileSystemInfo info = attributes.HasFlag(FileAttributes.Directory) ? new DirectoryInfo(path) : new FileInfo(path);
-                var entry = ReadEntry(info, parent); entries.Add(entry);
+                if (!parentKeys.TryGetValue(parent, out var key)) parentKeys[parent] = key = SearchQuery.Fold(parent);
+                var entry = ReadEntry(info, parent, key); entries.Add(entry);
                 lock (_gate) if (state.DirectoryErrors.ContainsKey(parent)) reconcile.Add(parent);
                 if (entry.IsDirectory && !entry.IsSymbolicLink && CanDescend(state, path)) reconcile.Add(path);
             }
@@ -60,6 +62,7 @@ public sealed partial class SearchIndexer
             if (!attributes.HasFlag(FileAttributes.Directory)) throw new DirectoryNotFoundException(current);
             if (current != state.Root && attributes.HasFlag(FileAttributes.ReparsePoint)) return children;
             await using var scan = await _catalog.BeginDirectoryScanAsync(current, ct).ConfigureAwait(false);
+            var parentKey = SearchQuery.Fold(current);
             foreach (var item in new DirectoryInfo(current).EnumerateFileSystemInfos("*", new EnumerationOptions
             { RecurseSubdirectories = false, IgnoreInaccessible = false, AttributesToSkip = 0 }))
             {
@@ -74,7 +77,7 @@ public sealed partial class SearchIndexer
                 }
                 try
                 {
-                    var entry = ReadEntry(item, current);
+                    var entry = ReadEntry(item, current, parentKey);
                     batch.Add(entry);
                     if (recursive && entry.IsDirectory && !entry.IsSymbolicLink && CanDescend(state, entry.Path)) children.Add(entry.Path);
                 }

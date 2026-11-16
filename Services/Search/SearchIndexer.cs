@@ -176,12 +176,21 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         }
         _pendingPeak = Math.Max(_pendingPeak, state.Pending.Count);
         _pendingBytesPeak = Math.Max(_pendingBytesPeak, state.Pending.Bytes);
+        DeferOverflow(state);
+        state.Status = state.Status with { Phase = SearchIndexPhase.Building };
+        Pulse(state);
+        if (state.Pending.Count != 0) Queue(state);
+    }
+
+    private void DeferOverflow(RootState state)
+    {
         if (state.LastFullScanTick is { } last)
         {
             var remaining = _configuration.OverflowFullScanCooldown - _timeProvider.GetElapsedTime(last);
             if (remaining > TimeSpan.Zero && state.Pending.RemoveOverflow() != null)
             {
                 state.Deferred = state.RequireReconciliation = true;
+                RequestDiagnostics();
                 if (state.Cooldown == null || state.Cooldown.IsCancellationRequested)
                 {
                     var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
@@ -190,9 +199,6 @@ public sealed partial class SearchIndexer : IAsyncDisposable
                 }
             }
         }
-        state.Status = state.Status with { Phase = SearchIndexPhase.Building };
-        Pulse(state);
-        if (state.Pending.Count != 0) Queue(state);
     }
 
     private async Task RequeueOverflowAsync(RootState state, TimeSpan delay, CancellationTokenSource cancellation)
@@ -205,6 +211,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
                 if (_disposed || cancellation.IsCancellationRequested || !state.Deferred) return;
                 state.Deferred = false;
                 state.Pending.Add(new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.OverflowFallback));
+                Pulse(state);
                 Queue(state);
             }
         }
@@ -248,7 +255,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             }
             AddWork(state, new(parent, SearchWorkKind.Directory));
             if (change.IsDirectory && CanDescend(state, change.Path)
-                && !change.Kind.HasFlag(SearchChangeKind.Removed))
+                && change.Kind != SearchChangeKind.Removed)
                 AddWork(state, new(change.Path, SearchWorkKind.Recursive));
         }
     }
@@ -284,11 +291,13 @@ public sealed partial class SearchIndexer : IAsyncDisposable
     {
         var work = state.Pending.Take();
         var generation = new Generation(++state.NextGeneration, state.ObservedId, work, state.RestartWatcher);
+        generation.FullScan = work.Any(item => item.Path == state.Root && item.Kind == SearchWorkKind.Recursive);
         state.RestartWatcher = false;
-        if (work.Any(item => item.Path == state.Root && item.Kind == SearchWorkKind.Recursive))
+        if (generation.FullScan)
         {
             // This traversal covers all earlier work; acknowledge it only when the new traversal finishes.
             state.Generations.Clear();
+            state.Deferred = false; state.Cooldown?.Cancel();
             state.RequireReconciliation = true;
         }
         state.Generations.Add(generation);
@@ -317,9 +326,11 @@ public sealed partial class SearchIndexer : IAsyncDisposable
                 SearchWork? item;
                 lock (_gate)
                 {
-                    var active = state.Generations.FirstOrDefault(g => g.Urgent);
-                    if (state.Pending.Count > 0 && (state.Generations.Count == 0 || active == null && state.Pending.HasUrgent)) Capture(state);
-                    generation = state.Generations.OrderByDescending(g => g.Urgent).ThenBy(g => g.Number).FirstOrDefault();
+                    DeferOverflow(state);
+                    var active = state.Generations.Where(g => g.Urgent).OrderBy(g => g.FullScan).ThenBy(g => g.Number).FirstOrDefault();
+                    if (state.Pending.Count > 0 && (state.Generations.Count == 0 || state.Pending.HasUrgentRoot
+                        || (active == null || active.FullScan) && state.Pending.HasUrgent)) Capture(state);
+                    generation = state.Generations.OrderByDescending(g => g.Urgent).ThenBy(g => g.FullScan).ThenBy(g => g.Number).FirstOrDefault();
                     item = generation?.Work.Dequeue();
                 }
                 if (generation != null && item != null)
@@ -382,7 +393,6 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             state.Watcher?.Dispose();
             lock (_gate) { state.Watcher = null; state.Checkpoint = state.RetiredObserved = 0; }
         }
-        generation.FullScan = first.Path == state.Root && first.Kind == SearchWorkKind.Recursive;
         if (generation.FullScan)
         {
             lock (_gate)
@@ -417,7 +427,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             if (generation.Work.Count != 0 || !state.Generations.Contains(generation)) return;
             if (generation.FullScan)
             {
-                state.RequireReconciliation = false;
+                state.RequireReconciliation = state.Deferred;
                 if (_access.CanAccess(state.Root)) state.LastFullScanTick = _timeProvider.GetTimestamp();
             }
             state.RetiredObserved = Math.Max(state.RetiredObserved, generation.Observed);

@@ -203,8 +203,10 @@ public sealed partial class SearchCatalog
         command.Parameters.AddWithValue("@upper", SearchPath.UpperBound(root));
     }
 
-    private static SearchEntry ReadEntry(SqliteDataReader reader) => new(
-        reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-        reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetInt64(7),
+    private static SearchEntry ReadEntry(SqliteDataReader reader) => ReadEntry(reader, reader.GetString(2), reader.GetString(6));
+
+    private static SearchEntry ReadEntry(SqliteDataReader reader, string parent, string parentKey) => new(
+        reader.GetString(0), reader.GetString(1), parent, reader.GetString(3),
+        reader.GetString(4), reader.GetString(5), parentKey, reader.GetInt64(7),
         reader.GetInt32(8) != 0, reader.GetInt32(9) != 0, reader.GetInt64(10), reader.GetInt64(11), reader.GetInt32(12) != 0);
 }
