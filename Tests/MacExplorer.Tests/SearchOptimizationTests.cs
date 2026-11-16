@@ -102,7 +102,7 @@ public sealed class SearchOptimizationTests
         var records = Enumerable.Range(0, 600).Select(i => Entry($"/outside/a-report-{i}.pdf"))
             .Concat(Enumerable.Range(0, 600).Select(i => Entry($"/scope/.hidden/a-report-{i}.pdf")))
             .Append(Entry("/scope/zzz-report.pdf")).ToArray();
-        await db.Catalog.UpsertBatchAsync(records, "one");
+        await db.Catalog.ApplyEntriesAsync(records);
         var results = await db.Catalog.SearchAsync("/scope", SearchQuery.Parse("report"), new(), 1, false);
         Assert.Equal("/scope/zzz-report.pdf", Assert.Single(results).Path);
     }
@@ -118,8 +118,8 @@ public sealed class SearchOptimizationTests
     public async Task LiteralsHaveIdenticalMembershipWithTrigramCandidates(string input, string expected)
     {
         using var db = new Database();
-        await db.Catalog.UpsertBatchAsync(new[] { "100%_final.pdf", "100XXfinal.pdf", "a_b.pdf", "axb.pdf", "项目合同.pdf", "a\"b.pdf" }
-            .Select(name => Entry("/scope/" + name)).ToArray(), "one");
+        await db.Catalog.ApplyEntriesAsync(new[] { "100%_final.pdf", "100XXfinal.pdf", "a_b.pdf", "axb.pdf", "项目合同.pdf", "a\"b.pdf" }
+            .Select(name => Entry("/scope/" + name)).ToArray());
         var result = await db.Catalog.SearchAsync("/scope", SearchQuery.Parse(input), new(), 50, false);
         Assert.Equal(expected, Assert.Single(result).Name);
     }
@@ -129,10 +129,10 @@ public sealed class SearchOptimizationTests
     public async Task PinyinAndMetadataUseOneQueryModel()
     {
         using var db = new Database();
-        await db.Catalog.UpsertBatchAsync([
+        await db.Catalog.ApplyEntriesAsync([
             Entry("/scope/My Projects/合同2026.PDF", "HT2026.PDF"),
             Entry("/scope/Other/合同2026.PDF", "HT2026.PDF"),
-            Entry("/scope/My Projects/合同2026.png", "HT2026.PNG")], "one");
+            Entry("/scope/My Projects/合同2026.png", "HT2026.PNG")]);
         var query = SearchQuery.Parse("ht 2026 ext:pdf path:\"My Projects\"");
         var hit = Assert.Single(await db.Catalog.SearchAsync("/scope", query, new(), 10, false));
         Assert.Equal(".PDF", hit.Extension);
@@ -145,7 +145,7 @@ public sealed class SearchOptimizationTests
     public async Task CaseDistinctPathsAreBothReturned()
     {
         using var db = new Database();
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/Report.pdf"), Entry("/scope/report.pdf")], "one");
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/Report.pdf"), Entry("/scope/report.pdf")]);
         Assert.Equal(2, (await db.Catalog.SearchAsync("/scope", SearchQuery.Parse("report"), new(), 20, false)).Count);
     }
 
@@ -155,7 +155,7 @@ public sealed class SearchOptimizationTests
     {
         using var db = new Database();
         var path = "/scope/report.pdf";
-        await db.Catalog.UpsertBatchAsync([Entry(path)], "one");
+        await db.Catalog.ApplyEntriesAsync([Entry(path)]);
         long Id()
         {
             using var c = db.Factory.GetConnection();
@@ -164,8 +164,7 @@ public sealed class SearchOptimizationTests
             return (long)cmd.ExecuteScalar()!;
         }
         var id = Id();
-        await db.Catalog.UpsertBatchAsync([Entry(path) with { Size = 123 }], "two");
-        await db.Catalog.CompleteDirectoryAsync("/scope", "two");
+        await db.Catalog.ReconcileDirectoryAsync("/scope", [Entry(path) with { Size = 123 }]);
         Assert.Equal(id, Id());
         Assert.Single(await db.Catalog.SearchAsync("/scope", SearchQuery.Parse("report"), new(), 10, false));
     }
@@ -175,8 +174,8 @@ public sealed class SearchOptimizationTests
     public async Task SuccessfulEmptyParentRemovesDeletedSubtrees()
     {
         using var db = new Database();
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/old", directory: true), Entry("/scope/old/secret.pdf")], "one");
-        await db.Catalog.CompleteDirectoryAsync("/scope", "two");
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/old", directory: true), Entry("/scope/old/secret.pdf")]);
+        await db.Catalog.ReconcileDirectoryAsync("/scope");
         Assert.Empty(await db.Catalog.SearchAsync("/scope", SearchQuery.Parse("secret"), new(), 10, false));
     }
 
@@ -187,8 +186,8 @@ public sealed class SearchOptimizationTests
     public async Task ReplacingDirectoryWithFileOrLinkPrunesItsOldChildren(bool link)
     {
         using var db = new Database();
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/item", directory: true), Entry("/scope/item/secret.pdf")], "one");
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/item", directory: link, link: link)], "two");
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/item", directory: true), Entry("/scope/item/secret.pdf")]);
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/item", directory: link, link: link)]);
         Assert.Empty(await db.Catalog.SearchAsync("/scope", SearchQuery.Parse("secret"), new(), 10, false));
     }
 
@@ -197,8 +196,8 @@ public sealed class SearchOptimizationTests
     public async Task UnchangedExplicitLinkRootKeepsItsIndexedChildren()
     {
         using var db = new Database();
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/link", directory: true, link: true), Entry("/scope/link/report.pdf")], "one");
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/link", directory: true, link: true)], "two");
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/link", directory: true, link: true), Entry("/scope/link/report.pdf")]);
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/link", directory: true, link: true)]);
         Assert.Single(await db.Catalog.SearchAsync("/scope", SearchQuery.Parse("report"), new(), 10, false));
     }
 
@@ -207,8 +206,8 @@ public sealed class SearchOptimizationTests
     public async Task InterruptedDirectoryScanDoesNotPruneOldRows()
     {
         using var db = new Database();
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/old-report.pdf")], "one");
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/new-report.pdf")], "two");
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/old-report.pdf")]);
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/new-report.pdf")]);
         // No CompleteDirectoryAsync: enumeration failed or was cancelled.
         Assert.Equal(2, (await db.Catalog.SearchAsync("/scope", SearchQuery.Parse("report"), new(), 10, false)).Count);
     }
@@ -218,7 +217,7 @@ public sealed class SearchOptimizationTests
     public async Task AiTagsAreScopedBeforeLimitAndDoNotDuplicateNameHits()
     {
         using var db = new Database(ai: true);
-        await db.Catalog.UpsertBatchAsync([Entry("/other/photo.png"), Entry("/scope/photo.png"), Entry("/scope/sunset.png")], "one");
+        await db.Catalog.ApplyEntriesAsync([Entry("/other/photo.png"), Entry("/scope/photo.png"), Entry("/scope/sunset.png")]);
         using (var c = db.Factory.GetConnection())
         using (var cmd = c.CreateCommand())
         {
@@ -236,7 +235,7 @@ public sealed class SearchOptimizationTests
     public async Task NameAndAiTermsCanBeCombined()
     {
         using var db = new Database(ai: true);
-        await db.Catalog.UpsertBatchAsync([Entry("/scope/holiday.png"), Entry("/scope/other.png")], "one");
+        await db.Catalog.ApplyEntriesAsync([Entry("/scope/holiday.png"), Entry("/scope/other.png")]);
         using (var c = db.Factory.GetConnection())
         using (var cmd = c.CreateCommand())
         {

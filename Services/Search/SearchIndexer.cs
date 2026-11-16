@@ -1,14 +1,10 @@
 using System.Threading.Channels;
-using System.Text.Json;
 using MacExplorer.Indexing;
 
 namespace MacExplorer.Services.Search;
 
-/// <summary>
-/// One bounded-batch scan worker; queries never launch recursive scans of their own.
-/// Watches are started before enumeration. Dirty work is coalesced, never silently dropped.
-/// </summary>
-public sealed class SearchIndexer : IAsyncDisposable
+/// <summary>One background writer, resumable directory traversals, and independent search readers.</summary>
+public sealed partial class SearchIndexer : IAsyncDisposable
 {
     private readonly SearchCatalog _catalog;
     private readonly IndexConfiguration _configuration;
@@ -18,11 +14,16 @@ public sealed class SearchIndexer : IAsyncDisposable
     private readonly DirectoryAccess _access;
     private readonly object _gate = new();
     private readonly Dictionary<string, RootState> _roots = new(StringComparer.Ordinal);
-    private readonly Channel<RootState> _work = Channel.CreateUnbounded<RootState>(new() { SingleReader = true });
+    private readonly Channel<byte> _work = Channel.CreateBounded<byte>(new BoundedChannelOptions(1)
+    { SingleReader = true, FullMode = BoundedChannelFullMode.DropWrite });
+    private readonly Queue<RootState> _ready = new(), _urgentReady = new();
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Task _worker;
     private bool _disposed;
     private Task? _disposeTask;
+    private long _receivedEvents, _filteredEvents, _checkedEntries, _inserted, _updated, _deleted, _directoryScans, _fullScans;
+    private long _pendingPeak, _pendingBytesPeak;
+    private readonly Dictionary<SearchWorkReason, long> _scanReasons = [];
 
     private static readonly HashSet<string> ExcludedNames = new(StringComparer.Ordinal)
     {
@@ -38,40 +39,58 @@ public sealed class SearchIndexer : IAsyncDisposable
     public SearchIndexer(SearchCatalog catalog, IndexConfiguration configuration, IPinyinInitials pinyin,
         ISearchChangeSource changes, TimeProvider? timeProvider = null)
     {
-        _catalog = catalog;
-        _configuration = configuration;
-        _pinyin = pinyin;
-        _changes = changes;
+        _catalog = catalog; _configuration = configuration; _pinyin = pinyin; _changes = changes;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _access = DirectoryAccess.Current;
         _access.GrantsChanged += OnGrantsChanged;
+        _diagnosticWorker = Task.Run(DiagnosticsAsync);
         _worker = Task.Run(WorkAsync);
     }
 
     private sealed record DirectoryError(string Directory, string? Entry, string ExceptionType, int HResult, string Message);
-
-    private sealed class RootState(string root)
+    private sealed class Traversal(SearchWork[] items)
+    {
+        private readonly LinkedList<SearchWork> _items = new(items);
+        public int Count => _items.Count;
+        public SearchWork? First => _items.First?.Value;
+        public void Enqueue(SearchWork work) => _items.AddLast(work);
+        public SearchWork Dequeue() { var work = _items.First!.Value; _items.RemoveFirst(); return work; }
+        public void AddChildren(List<string> children, SearchWorkReason reason)
+        { for (var i = children.Count - 1; i >= 0; i--) _items.AddFirst(new SearchWork(children[i], SearchWorkKind.Recursive, reason)); }
+    }
+    private sealed class Generation(long number, ulong observed, SearchWork[] work, bool restart)
+    {
+        public long Number = number;
+        public ulong Observed = observed;
+        public readonly Traversal Work = new(work);
+        public bool Restart = restart, Started;
+        public bool Urgent = work.Any(item => item.Urgent);
+        public bool FullScan;
+    }
+    private sealed class RootState(string root, IndexConfiguration configuration)
     {
         public string Root { get; } = root;
         public SearchIndexStatus Status = new(root, SearchIndexPhase.Building);
-        public readonly Dictionary<string, bool> Pending = new(StringComparer.Ordinal);
+        public readonly SearchPendingWork Pending = new(root, configuration.PendingLimit, configuration.PendingBytesLimit);
+        public readonly List<Generation> Generations = [];
         public readonly Dictionary<string, DirectoryError> DirectoryErrors = new(StringComparer.Ordinal);
         public string? WatcherError;
         public TaskCompletionSource<bool> Changed = NewSignal();
         public IDisposable? Watcher;
-        public bool Queued, Started, RestartWatcher;
-        public bool IncludeHiddenFolders;
-        public ulong ObservedId, Checkpoint;
-        public DateTimeOffset LastAttempt;
-        public long LastProgressTick;
+        public bool Queued, PriorityQueued, Running, Started, RestartWatcher, IncludeHiddenFolders, Deferred, RequireReconciliation;
+        public ulong ObservedId, Checkpoint, RetiredObserved;
+        public long? LastAttemptTick;
+        public long NextGeneration, LastProgressTick;
+        public long? LastFullScanTick;
+        public CancellationTokenSource? Cooldown;
+        public Task? CooldownTask;
     }
 
     private static TaskCompletionSource<bool> NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private static void Pulse(RootState state)
+    private void Pulse(RootState state, bool diagnostics = true)
     {
-        var previous = state.Changed;
-        state.Changed = NewSignal();
-        previous.TrySetResult(true);
+        var previous = state.Changed; state.Changed = NewSignal(); previous.TrySetResult(true);
+        if (diagnostics) RequestDiagnostics();
     }
 
     public bool EnsureRoot(string directory, bool includeHiddenFolders = false)
@@ -81,29 +100,24 @@ public sealed class SearchIndexer : IAsyncDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var coverageChanged = false;
             var state = FindState(root);
             if (state == null)
             {
-                state = new(root) { IncludeHiddenFolders = includeHiddenFolders };
-                coverageChanged = true;
+                state = new(root, _configuration) { IncludeHiddenFolders = includeHiddenFolders };
                 _roots.Add(root, state);
-                AddDirty(state, root, recursive: true);
+                AddWork(state, new(root, SearchWorkKind.Recursive, SearchWorkReason.Initial));
+                return true;
             }
-            else if (includeHiddenFolders && !state.IncludeHiddenFolders)
+            if (includeHiddenFolders && !state.IncludeHiddenFolders)
             {
                 state.IncludeHiddenFolders = true;
-                coverageChanged = true;
-                AddDirty(state, state.Root, recursive: true);
+                AddWork(state, new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.Coverage));
+                return true;
             }
-            // Partial coverage with a working watcher must not rescan on every
-            // query. A failed watcher, however, has no events with which to recover.
-            // Retry it after a cooldown, reconciling changes missed while unwatched.
-            else if (!state.Queued &&
-                     (state.Status.Phase == SearchIndexPhase.Unavailable || state.Watcher == null) &&
-                     _timeProvider.GetUtcNow() - state.LastAttempt > TimeSpan.FromSeconds(30))
-                AddDirty(state, state.Root, recursive: true);
-            return coverageChanged;
+            if (!state.Running && !state.Queued && (state.Status.Phase == SearchIndexPhase.Unavailable || state.Watcher == null)
+                && (state.LastAttemptTick is not { } attempt || _timeProvider.GetElapsedTime(attempt) > TimeSpan.FromSeconds(30)))
+                AddWork(state, new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.WatcherRecovery));
+            return false;
         }
     }
 
@@ -114,7 +128,7 @@ public sealed class SearchIndexer : IAsyncDisposable
         {
             var state = FindState(SearchPath.Normalize(directory))!;
             state.RestartWatcher = true;
-            AddDirty(state, state.Root, recursive: true);
+            AddWork(state, new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.Refresh));
         }
     }
 
@@ -129,30 +143,83 @@ public sealed class SearchIndexer : IAsyncDisposable
         }
     }
 
-    // Reuse an ancestor watch only if its indexing policy actually covers the requested directory.
     private RootState? FindState(string root) => _roots.Values
         .Where(state => SearchPath.IsWithin(root, state.Root) && CanDescend(state, root))
         .OrderByDescending(state => state.Root.Length).FirstOrDefault();
 
-    private void AddDirty(RootState state, string directory, bool recursive)
+    private void Queue(RootState state)
     {
-        if (!SearchPath.IsWithin(directory, state.Root)) return;
-        if (state.Pending.Any(item => item.Value && SearchPath.IsWithin(directory, item.Key))) return;
-        if (recursive)
-            foreach (var key in state.Pending.Keys.Where(key => SearchPath.IsWithin(key, directory)).ToArray())
-                state.Pending.Remove(key);
-        state.Pending[directory] = recursive || state.Pending.GetValueOrDefault(directory);
-        if (state.Pending.Count > 512)
+        if (_disposed || state.Running) return;
+        var urgent = state.Pending.HasUrgent || state.Generations.Any(generation => generation.Urgent);
+        if (state.Queued && (!urgent || state.PriorityQueued)) return;
+        state.Queued = true; state.PriorityQueued = urgent;
+        (urgent ? _urgentReady : _ready).Enqueue(state);
+        _work.Writer.TryWrite(0);
+    }
+
+    private RootState? TakeReady()
+    {
+        while (_urgentReady.TryDequeue(out var state))
+            if (state.Queued && state.PriorityQueued)
+            { state.Queued = state.PriorityQueued = false; return state; }
+        while (_ready.TryDequeue(out var state))
+            if (state.Queued && !state.PriorityQueued) { state.Queued = false; return state; }
+        return null;
+    }
+
+    private void AddWork(RootState state, SearchWork work)
+    {
+        state.Pending.Add(work);
+        if (work.Path == state.Root && work.Kind == SearchWorkKind.Recursive && work.Urgent)
         {
-            state.Pending.Clear();
-            state.Pending[state.Root] = true; // Backpressure: collapse to a rescan, never lose correctness.
+            state.Deferred = false; state.Cooldown?.Cancel();
         }
+        _pendingPeak = Math.Max(_pendingPeak, state.Pending.Count);
+        _pendingBytesPeak = Math.Max(_pendingBytesPeak, state.Pending.Bytes);
+        DeferOverflow(state);
         state.Status = state.Status with { Phase = SearchIndexPhase.Building };
         Pulse(state);
-        if (!state.Queued)
+        if (state.Pending.Count != 0) Queue(state);
+    }
+
+    private void DeferOverflow(RootState state)
+    {
+        if (state.LastFullScanTick is { } last)
         {
-            state.Queued = true;
-            _work.Writer.TryWrite(state);
+            var remaining = _configuration.OverflowFullScanCooldown - _timeProvider.GetElapsedTime(last);
+            if (remaining > TimeSpan.Zero && state.Pending.RemoveOverflow() != null)
+            {
+                state.Deferred = state.RequireReconciliation = true;
+                RequestDiagnostics();
+                if (state.Cooldown == null || state.Cooldown.IsCancellationRequested)
+                {
+                    var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+                    state.Cooldown = cancellation;
+                    state.CooldownTask = RequeueOverflowAsync(state, remaining, cancellation);
+                }
+            }
+        }
+    }
+
+    private async Task RequeueOverflowAsync(RootState state, TimeSpan delay, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(delay, _timeProvider, cancellation.Token).ConfigureAwait(false);
+            lock (_gate)
+            {
+                if (_disposed || cancellation.IsCancellationRequested || !state.Deferred) return;
+                state.Deferred = false;
+                state.Pending.Add(new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.OverflowFallback));
+                Pulse(state);
+                Queue(state);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        finally
+        {
+            lock (_gate) if (ReferenceEquals(state.Cooldown, cancellation)) state.Cooldown = null;
+            cancellation.Dispose();
         }
     }
 
@@ -160,18 +227,36 @@ public sealed class SearchIndexer : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (_disposed || !_access.CanAccess(state.Root) || !_access.CanAccess(change.Path) || IsIndexArtifact(change.Path)) return;
+            _receivedEvents++;
+            if (_disposed || !_access.CanAccess(state.Root) || !_access.CanAccess(change.Path) || IsIndexArtifact(change.Path))
+            { _filteredEvents++; return; }
             state.ObservedId = change.RestartWatcher ? change.EventId : Math.Max(state.ObservedId, change.EventId);
             state.RestartWatcher |= change.RestartWatcher;
             if (change.MustRescan)
             {
-                AddDirty(state, SearchPath.IsWithin(change.Path, state.Root) ? change.Path : state.Root, true);
+                var scope = SearchPath.IsWithin(change.Path, state.Root) ? change.Path : state.Root;
+                var scopeParent = Path.GetDirectoryName(scope);
+                if (scope != state.Root && scopeParent != null && CanDescend(state, scopeParent))
+                    AddWork(state, new(scopeParent, SearchWorkKind.Directory, SearchWorkReason.JournalRecovery));
+                AddWork(state, new(scope,
+                    SearchWorkKind.Recursive, SearchWorkReason.JournalRecovery));
                 return;
             }
-            if (!SearchPath.IsWithin(change.Path, state.Root)) return;
+            if (!SearchPath.IsWithin(change.Path, state.Root)) { _filteredEvents++; return; }
             var parent = Path.GetDirectoryName(change.Path);
-            if (parent != null && CanDescend(state, parent)) AddDirty(state, parent, false);
-            if (change.IsDirectory && CanDescend(state, change.Path)) AddDirty(state, change.Path, true);
+            if (change.Path == state.Root && change.IsDirectory)
+            { AddWork(state, new(state.Root, SearchWorkKind.Directory)); return; }
+            if (parent == null || !CanDescend(state, parent) || change.Path.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase))
+            { _filteredEvents++; return; }
+            if (change.Kind == SearchChangeKind.Modified)
+            {
+                AddWork(state, new(change.Path, SearchWorkKind.Entry));
+                return;
+            }
+            AddWork(state, new(parent, SearchWorkKind.Directory));
+            if (change.IsDirectory && CanDescend(state, change.Path)
+                && change.Kind != SearchChangeKind.Removed)
+                AddWork(state, new(change.Path, SearchWorkKind.Recursive));
         }
     }
 
@@ -181,24 +266,42 @@ public sealed class SearchIndexer : IAsyncDisposable
         lock (_gate)
         {
             if (_disposed) return;
-            foreach (var state in _roots.Values.Where(state => _access.CanAccess(state.Root)
-                         && state.Status.Phase == SearchIndexPhase.Unavailable))
-                AddDirty(state, state.Root, recursive: true);
-            foreach (var state in _roots.Values.Where(state => !_access.CanAccess(state.Root)))
+            foreach (var state in _roots.Values)
             {
-                if (state.Watcher != null) watchers.Add(state.Watcher);
-                state.Watcher = null;
-                state.Pending.Clear();
-                state.LastAttempt = DateTimeOffset.MinValue;
-                state.Status = state.Status with { Phase = SearchIndexPhase.Unavailable, Error = "目录授权已撤销。" };
-                Pulse(state);
+                if (_access.CanAccess(state.Root))
+                {
+                    if (state.Status.Phase == SearchIndexPhase.Unavailable)
+                        AddWork(state, new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.AccessRecovery));
+                }
+                else
+                {
+                    if (state.Watcher != null) watchers.Add(state.Watcher);
+                    state.Watcher = null; state.Pending.Clear(); state.Generations.Clear();
+                    state.Deferred = false; state.Cooldown?.Cancel(); state.LastAttemptTick = null;
+                    state.Status = state.Status with { Phase = SearchIndexPhase.Unavailable, Error = "目录授权已撤销。" };
+                    Pulse(state);
+                }
             }
         }
-        // Native callbacks take _gate; drain them after releasing it.
         foreach (var watcher in watchers) watcher.Dispose();
-        // A recovered or moved grant may not have had a root state at startup.
-        foreach (var root in _access.AuthorizedRoots)
-            if (Directory.Exists(root)) EnsureRoot(root);
+        foreach (var root in _access.AuthorizedRoots) if (Directory.Exists(root)) EnsureRoot(root);
+    }
+
+    private Generation Capture(RootState state)
+    {
+        var work = state.Pending.Take();
+        var generation = new Generation(++state.NextGeneration, state.ObservedId, work, state.RestartWatcher);
+        generation.FullScan = work.Any(item => item.Path == state.Root && item.Kind == SearchWorkKind.Recursive);
+        state.RestartWatcher = false;
+        if (generation.FullScan)
+        {
+            // This traversal covers all earlier work; acknowledge it only when the new traversal finishes.
+            state.Generations.Clear();
+            state.Deferred = false; state.Cooldown?.Cancel();
+            state.RequireReconciliation = true;
+        }
+        state.Generations.Add(generation);
+        return generation;
     }
 
     private async Task WorkAsync()
@@ -206,244 +309,170 @@ public sealed class SearchIndexer : IAsyncDisposable
         var ct = _lifetime.Token;
         try
         {
-            await foreach (var state in _work.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+            await foreach (var signal in _work.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+            while (true)
             {
-                await Task.Delay(200, ct).ConfigureAwait(false); // Merge a burst of filesystem events.
-                KeyValuePair<string, bool>[] pending;
-                ulong observed;
-                bool restart;
+                RootState? state;
+                bool merge;
                 lock (_gate)
                 {
-                    pending = state.Pending.ToArray();
-                    state.Pending.Clear();
-                    observed = state.ObservedId;
-                    restart = state.RestartWatcher;
-                    state.RestartWatcher = false;
-                    state.LastAttempt = _timeProvider.GetUtcNow();
+                    state = TakeReady();
+                    if (state == null) break;
+                    state.Running = true;
+                    merge = state.Generations.Count == 0 && state.Pending.Count > 0 && !state.Pending.HasUrgent;
                 }
-                var fullScan = pending.Any(item => item.Key == state.Root && item.Value);
-                if (fullScan) state.DirectoryErrors.Clear();
-                string? batchError = null;
-                var unavailable = false;
-                try
+                if (merge) await Task.Delay(_configuration.EventMergeDelay, _timeProvider, ct).ConfigureAwait(false);
+                Generation? generation;
+                SearchWork? item;
+                lock (_gate)
                 {
-                    _access.EnsureAccess(state.Root);
-                    if (!state.Started)
+                    DeferOverflow(state);
+                    var active = state.Generations.Where(g => g.Urgent).OrderBy(g => g.FullScan).ThenBy(g => g.Number).FirstOrDefault();
+                    if (state.Pending.Count > 0 && (state.Generations.Count == 0 || state.Pending.HasUrgentRoot
+                        || (active == null || active.FullScan) && state.Pending.HasUrgent)) Capture(state);
+                    generation = state.Generations.OrderByDescending(g => g.Urgent).ThenBy(g => g.FullScan).ThenBy(g => g.Number).FirstOrDefault();
+                    item = generation?.Work.Dequeue();
+                }
+                if (generation != null && item != null)
+                {
+                    try
                     {
-                        state.Checkpoint = await _catalog.GetCheckpointAsync(state.Root, ct).ConfigureAwait(false);
-                        state.Started = true;
-                    }
-                    if (restart)
-                    {
-                        state.Watcher?.Dispose();
-                        state.Watcher = null;
-                        state.Checkpoint = 0; // A wrapped journal or a different mount invalidates the old cursor.
-                    }
-                    if (state.Watcher == null)
-                    {
-                        try
+                        _access.EnsureAccess(state.Root);
+                        if (!generation.Started) await StartGenerationAsync(state, generation, item, ct).ConfigureAwait(false);
+                        if (item.Kind == SearchWorkKind.Entry)
                         {
-                            var watcher = _changes.Watch(state.Root, state.Checkpoint, change => OnChange(state, change), fullScan);
-                            var retained = false;
+                            var entries = new List<string>(256) { item.Path };
                             lock (_gate)
-                            {
-                                if (_access.CanAccess(state.Root)) { state.Watcher = watcher; retained = true; }
-                            }
-                            if (!retained) { watcher.Dispose(); _access.EnsureAccess(state.Root); }
-                            state.WatcherError = null;
+                                while (entries.Count < 256 && generation.Work.First is { Kind: SearchWorkKind.Entry })
+                                    entries.Add(generation.Work.Dequeue().Path);
+                            await UpdateEntriesAsync(state, generation, entries, ct).ConfigureAwait(false);
                         }
-                        catch (Exception ex) { state.WatcherError = "变更监听不可用: " + ex.Message; }
+                        else if (CanDescend(state, item.Path))
+                        {
+                            var children = await ScanDirectoryAsync(state, generation, item.Path, item.Kind == SearchWorkKind.Recursive, ct).ConfigureAwait(false);
+                            lock (_gate)
+                                if (state.Generations.Contains(generation))
+                                    generation.Work.AddChildren(children, item.Reason);
+                        }
                     }
-                    if (fullScan)
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                    catch (Exception ex)
                     {
-                        lock (_gate) state.Status = state.Status with { IndexedEntries = 0 };
+                        SetError(state, item.Kind == SearchWorkKind.Entry ? Path.GetDirectoryName(item.Path) ?? state.Root : item.Path,
+                            item.Kind == SearchWorkKind.Entry ? item.Path : null, ex);
                     }
-                    foreach (var item in pending)
+                    try { await FinishStepAsync(state, generation, ct).ConfigureAwait(false); }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                    catch (Exception ex)
                     {
-                        if (!CanDescend(state, item.Key)) continue;
-                        unavailable |= await ScanAsync(state, item.Key, item.Value, ct).ConfigureAwait(false);
+                        SetError(state, state.Root, null, ex);
+                        lock (_gate) { state.Status = CompletedStatus(state); Pulse(state); }
                     }
-                    // Only acknowledge the event IDs captured WITH this work batch, and only
-                    // after all corresponding writes and directory reconciliation succeeded.
-                    var completed = CompletedStatus(state, unavailable);
-                    if (completed.Phase == SearchIndexPhase.Ready) state.Checkpoint = Math.Max(state.Checkpoint, observed);
-                    await _catalog.SaveCheckpointAsync(state.Root, state.Checkpoint, completed.Phase, ct).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                catch (UnauthorizedAccessException ex) { batchError = ex.Message; unavailable = true; }
-                catch (Exception ex) { batchError = ex.Message; }
                 lock (_gate)
                 {
-                    unavailable |= !_access.CanAccess(state.Root);
-                    state.Status = CompletedStatus(state, unavailable, batchError);
-                    if (state.Pending.Count > 0)
-                    {
-                        state.Status = state.Status with { Phase = SearchIndexPhase.Building };
-                        _work.Writer.TryWrite(state);
-                    }
-                    else state.Queued = false;
-                    Pulse(state);
+                    state.Running = false;
+                    if (state.Pending.Count != 0 || state.Generations.Count != 0) Queue(state);
                 }
-                WriteDiagnostics();
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
     }
 
-    private string DiagnosticsDirectory => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(_configuration.DatabasePath))!, "Logs");
-
-    private void WriteDiagnostics()
+    private async Task StartGenerationAsync(RootState state, Generation generation, SearchWork first, CancellationToken ct)
     {
-        var path = Path.Combine(DiagnosticsDirectory, "search-index-status.json");
-        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
+        generation.Started = true;
+        state.LastAttemptTick = _timeProvider.GetTimestamp();
+        if (!state.Started)
         {
-            string json;
+            state.Checkpoint = state.RetiredObserved = await _catalog.GetCheckpointAsync(state.Root, ct).ConfigureAwait(false);
+            state.Started = true;
+        }
+        if (generation.Restart)
+        {
+            state.Watcher?.Dispose();
+            lock (_gate) { state.Watcher = null; state.Checkpoint = state.RetiredObserved = 0; }
+        }
+        if (generation.FullScan)
+        {
             lock (_gate)
             {
-                json = JsonSerializer.Serialize(new
-                {
-                    UpdatedUtc = DateTimeOffset.UtcNow,
-                    ProcessId = Environment.ProcessId,
-                    Roots = _roots.Values.OrderBy(state => state.Root, StringComparer.Ordinal).Select(state => new
-                    {
-                        state.Root,
-                        Phase = state.Status.Phase.ToString(),
-                        state.Status.IndexedEntries,
-                        state.Status.FailedDirectories,
-                        state.Status.Error,
-                        WatcherActive = state.Watcher != null,
-                        state.WatcherError,
-                        Failures = state.DirectoryErrors.Values.OrderBy(error => error.Directory, StringComparer.Ordinal).ToArray()
-                    }).ToArray()
-                }, new JsonSerializerOptions { WriteIndented = true });
+                state.DirectoryErrors.Clear(); state.Status = state.Status with { IndexedEntries = 0 };
+                _fullScans++; _scanReasons[first.Reason] = _scanReasons.GetValueOrDefault(first.Reason) + 1;
             }
-            Directory.CreateDirectory(DiagnosticsDirectory);
-            File.WriteAllText(temporary, json);
-            File.Move(temporary, path, overwrite: true);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        if (state.Watcher == null)
         {
-            // Diagnostic storage failures must not stop search or its index worker.
-        }
-        finally
-        {
-            try { File.Delete(temporary); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            try
+            {
+                var watcher = _changes.Watch(state.Root, state.Checkpoint, change => OnChange(state, change), generation.FullScan);
+                var retained = false;
+                lock (_gate)
+                {
+                    if (_access.CanAccess(state.Root) && !_disposed) { state.Watcher = watcher; retained = true; }
+                }
+                if (!retained) { watcher.Dispose(); _access.EnsureAccess(state.Root); }
+                lock (_gate) state.WatcherError = null;
+            }
+            catch (Exception ex) { lock (_gate) state.WatcherError = "变更监听不可用: " + ex.Message; }
         }
     }
 
-    private static SearchIndexStatus CompletedStatus(RootState state, bool unavailable, string? batchError = null)
+    private async Task FinishStepAsync(RootState state, Generation generation, CancellationToken ct)
     {
-        var error = batchError ?? state.WatcherError ?? state.DirectoryErrors.Values.LastOrDefault()?.Message;
+        ulong checkpoint;
+        SearchIndexPhase phase;
+        lock (_gate)
+        {
+            if (generation.Work.Count != 0 || !state.Generations.Contains(generation)) return;
+            if (generation.FullScan)
+            {
+                state.RequireReconciliation = state.Deferred;
+                if (_access.CanAccess(state.Root)) state.LastFullScanTick = _timeProvider.GetTimestamp();
+            }
+            state.RetiredObserved = Math.Max(state.RetiredObserved, generation.Observed);
+            state.Generations.Remove(generation);
+            var completed = CompletedStatus(state);
+            if (completed.Phase == SearchIndexPhase.Ready && !state.RequireReconciliation && state.Generations.Count == 0)
+                state.Checkpoint = Math.Max(state.Checkpoint, state.RetiredObserved);
+            if (state.Pending.Count != 0 || state.Generations.Count != 0 || state.Deferred)
+                completed = completed with { Phase = SearchIndexPhase.Building };
+            checkpoint = state.Checkpoint; phase = completed.Phase;
+        }
+        await _catalog.SaveCheckpointAsync(state.Root, checkpoint, phase, ct).ConfigureAwait(false);
+        lock (_gate)
+        {
+            state.Status = CompletedStatus(state);
+            if (state.Pending.Count != 0 || state.Generations.Count != 0 || state.Deferred)
+                state.Status = state.Status with { Phase = SearchIndexPhase.Building };
+            else state.Running = false;
+            Pulse(state);
+        }
+    }
+
+    private SearchIndexStatus CompletedStatus(RootState state)
+    {
+        var error = state.WatcherError ?? state.DirectoryErrors.Values.LastOrDefault()?.Message;
         return state.Status with
         {
-            Phase = unavailable ? SearchIndexPhase.Unavailable : error != null ? SearchIndexPhase.Partial : SearchIndexPhase.Ready,
-            FailedDirectories = state.DirectoryErrors.Count,
-            Error = error
+            Phase = !_access.CanAccess(state.Root) || !Directory.Exists(state.Root) ? SearchIndexPhase.Unavailable
+                : error != null ? SearchIndexPhase.Partial : SearchIndexPhase.Ready,
+            FailedDirectories = state.DirectoryErrors.Count, Error = error
         };
     }
 
-    private async Task<bool> ScanAsync(
-        RootState state, string directory, bool recursive, CancellationToken ct)
-    {
-        var stack = new Stack<string>();
-        stack.Push(directory);
-        var unavailable = false;
-        while (stack.TryPop(out var current))
-        {
-            ct.ThrowIfCancellationRequested();
-            var scan = Guid.NewGuid().ToString("N");
-            var batch = new List<SearchEntry>(256);
-            var children = new List<string>();
-            var complete = true;
-            try
-            {
-                _access.EnsureAccess(current);
-                var info = new DirectoryInfo(current);
-                // Reading Attributes throws for an absent/unreadable root instead of silently
-                // interpreting Directory.Exists(false) as an empty directory and deleting records.
-                var attributes = File.GetAttributes(current);
-                if (!attributes.HasFlag(FileAttributes.Directory)) throw new DirectoryNotFoundException(current);
-                if (current != state.Root && attributes.HasFlag(FileAttributes.ReparsePoint)) continue;
-                foreach (var entry in info.EnumerateFileSystemInfos("*", new EnumerationOptions
-                {
-                    RecurseSubdirectories = false, IgnoreInaccessible = false, AttributesToSkip = 0
-                }))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    _access.EnsureAccess(current);
-                    if (!_access.CanAccess(entry.FullName)) continue;
-                    if (IsIndexArtifact(entry.FullName) || entry.Name.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)) continue;
-                    try
-                    {
-                        var attrs = entry.Attributes;
-                        var isDirectory = attrs.HasFlag(FileAttributes.Directory);
-                        var isLink = attrs.HasFlag(FileAttributes.ReparsePoint);
-                        var name = entry.Name;
-                        batch.Add(new SearchEntry(entry.FullName, name, current, Path.GetExtension(name),
-                            SearchQuery.Fold(name), _pinyin.GetInitials(name), SearchQuery.Fold(current),
-                            isDirectory || isLink ? 0 : ((FileInfo)entry).Length, isDirectory,
-                            attrs.HasFlag(FileAttributes.Hidden), entry.CreationTimeUtc.Ticks, entry.LastWriteTimeUtc.Ticks, isLink));
-                        if (recursive && isDirectory && !isLink && CanDescend(state, entry.FullName))
-                            children.Add(entry.FullName);
-                    }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    {
-                        complete = false;
-                        state.DirectoryErrors[current] = new(current, entry.FullName, ex.GetType().Name, ex.HResult, ex.Message);
-                    }
-                    if (batch.Count < 256) continue;
-                    _access.EnsureAccess(current);
-                    await _catalog.UpsertBatchAsync(batch, scan, ct).ConfigureAwait(false);
-                    PublishProgress(state, batch.Count);
-                    batch.Clear();
-                }
-                if (batch.Count > 0)
-                {
-                    _access.EnsureAccess(current);
-                    await _catalog.UpsertBatchAsync(batch, scan, ct).ConfigureAwait(false);
-                    PublishProgress(state, batch.Count);
-                }
-                _access.EnsureAccess(current);
-                if (complete)
-                {
-                    await _catalog.CompleteDirectoryAsync(current, scan, ct).ConfigureAwait(false);
-                    state.DirectoryErrors.Remove(current);
-                }
-            }
-            catch (Exception ex) when (current != state.Root && (ex is DirectoryNotFoundException or FileNotFoundException))
-            {
-                // Rename/delete events commonly name the OLD directory. Confirm it via
-                // the parent instead of reporting an expected disappearance as a failure.
-                foreach (var failed in state.DirectoryErrors.Keys.Where(path => SearchPath.IsWithin(path, current)).ToArray())
-                    state.DirectoryErrors.Remove(failed);
-                var parent = Path.GetDirectoryName(current);
-                if (parent != null)
-                    lock (_gate) AddDirty(state, parent, recursive: false);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                state.DirectoryErrors[current] = new(current, null, ex.GetType().Name, ex.HResult, ex.Message);
-                unavailable |= current == state.Root;
-                // Keep existing rows on access failure. A confirmed parent enumeration removes
-                // deleted/renamed subtrees; absence of permission is not proof of deletion.
-            }
-            foreach (var child in children) stack.Push(child);
-        }
-        return unavailable;
-    }
+    private void SetError(RootState state, string directory, string? entry, Exception ex)
+    { lock (_gate) state.DirectoryErrors[directory] = new(directory, entry, ex.GetType().Name, ex.HResult, ex.Message); }
 
-    private void PublishProgress(RootState state, int count)
+    private void RecordWrites(SearchWriteResult result)
+    { lock (_gate) { _inserted += result.Inserted; _updated += result.Updated; _deleted += result.Deleted; } }
+
+    internal SearchIndexStatistics GetStatistics()
     {
-        lock (_gate)
-        {
-            state.Status = state.Status with { IndexedEntries = state.Status.IndexedEntries + count };
-            var now = Environment.TickCount64;
-            if (now - state.LastProgressTick < 200) return;
-            state.LastProgressTick = now;
-            Pulse(state);
-        }
+        lock (_gate) return new(_receivedEvents, _filteredEvents, _checkedEntries, _inserted, _updated, _deleted,
+            _directoryScans, _fullScans, _pendingPeak, _pendingBytesPeak, _diagnosticsWrites,
+            _scanReasons.ToDictionary(item => item.Key.ToString(), item => item.Value),
+            _roots.Values.Count(state => state.Deferred));
     }
 
     public bool CanDescend(string root, string directory)
@@ -478,30 +507,35 @@ public sealed class SearchIndexer : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (_disposeTask != null) return new ValueTask(_disposeTask);
-            _disposed = true;
-            _access.GrantsChanged -= OnGrantsChanged;
-            foreach (var state in _roots.Values) Pulse(state);
-            return new ValueTask(_disposeTask = DisposeCoreAsync());
+            if (_disposeTask != null) return new(_disposeTask);
+            _disposed = true; _access.GrantsChanged -= OnGrantsChanged;
+            foreach (var state in _roots.Values) { state.Cooldown?.Cancel(); Pulse(state, diagnostics: false); }
+            return new(_disposeTask = DisposeCoreAsync());
         }
     }
 
     private async Task DisposeCoreAsync()
     {
-        // Publish the shared task before cancellation can invoke callbacks. All
-        // callers must join the worker before they can dispose the database.
         await Task.Yield();
         try
         {
-            _lifetime.Cancel();
-            _work.Writer.TryComplete();
+            _lifetime.Cancel(); _work.Writer.TryComplete();
             await _worker.ConfigureAwait(false);
+            await Task.WhenAll(_roots.Values.Select(state => state.CooldownTask ?? Task.CompletedTask)).ConfigureAwait(false);
         }
         finally
         {
-            // Never hold _gate while draining native callbacks that also use it.
-            try { foreach (var state in _roots.Values) state.Watcher?.Dispose(); }
-            finally { _lifetime.Dispose(); }
+            _diagnosticRequests.Writer.TryComplete(); _diagnosticStop.Cancel();
+            try { await _diagnosticWorker.ConfigureAwait(false); }
+            finally
+            {
+                try { foreach (var state in _roots.Values) state.Watcher?.Dispose(); }
+                finally { _diagnosticStop.Dispose(); _lifetime.Dispose(); }
+            }
         }
     }
 }
+
+internal sealed record SearchIndexStatistics(long ReceivedEvents, long FilteredEvents, long CheckedEntries,
+    long InsertedEntries, long UpdatedEntries, long DeletedEntries, long DirectoryScans, long FullScans,
+    long PendingPeak, long PendingBytesPeak, long DiagnosticsWrites, IReadOnlyDictionary<string, long> FullScanReasons, int DeferredRoots);

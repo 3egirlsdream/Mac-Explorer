@@ -66,6 +66,11 @@ public static class SearchSchema
         CREATE TRIGGER IF NOT EXISTS search_directories_ad AFTER DELETE ON search_directories BEGIN
             INSERT INTO search_paths(search_paths,rowid,parent_key) VALUES('delete',old.id,old.parent_key);
         END;
+        CREATE TRIGGER IF NOT EXISTS search_directories_au AFTER UPDATE OF parent_key ON search_directories
+        WHEN old.parent_key IS NOT new.parent_key BEGIN
+            INSERT INTO search_paths(search_paths,rowid,parent_key) VALUES('delete',old.id,old.parent_key);
+            INSERT INTO search_paths(rowid,parent_key) VALUES(new.id,new.parent_key);
+        END;
         CREATE TRIGGER IF NOT EXISTS search_entries_ai AFTER INSERT ON search_entries BEGIN
             INSERT INTO search_names(rowid, name_key, initials_key)
             VALUES(new.id, new.name_key, new.initials_key);

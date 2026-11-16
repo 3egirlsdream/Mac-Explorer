@@ -18,9 +18,14 @@ public sealed class MacSearchChangeSource : ISearchChangeSource
         const uint droppedOrWrapped = 0x2 | 0x4 | 0x8;
         const uint rootOrMountChanged = 0x20 | 0x40 | 0x80;
         var reset = (flags & (rootOrMountChanged | 0x8)) != 0;
+        var kind = SearchChangeKind.Unknown;
+        if ((flags & 0x100) != 0) kind |= SearchChangeKind.Created;
+        if ((flags & 0x200) != 0) kind |= SearchChangeKind.Removed;
+        if ((flags & 0x800) != 0) kind |= SearchChangeKind.Renamed;
+        if ((flags & (0x400 | 0x1000 | 0x2000 | 0x4000 | 0x8000)) != 0) kind |= SearchChangeKind.Modified;
         return new SearchChange((flags & droppedOrWrapped) != 0 || reset ? root : path,
             (flags & 0x20000) != 0, (flags & (0x1 | droppedOrWrapped | rootOrMountChanged)) != 0,
-            id, reset);
+            id, reset, kind);
     }
 
     // FSEvents can return physical paths (/private/tmp) for a logical root (/tmp).

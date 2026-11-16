@@ -33,8 +33,11 @@ public interface IPinyinInitials
     string GetInitials(string name);
 }
 
+[Flags]
+public enum SearchChangeKind { Unknown = 0, Created = 1, Removed = 2, Renamed = 4, Modified = 8 }
+
 public sealed record SearchChange(string Path, bool IsDirectory, bool MustRescan, ulong EventId,
-    bool RestartWatcher = false);
+    bool RestartWatcher = false, SearchChangeKind Kind = SearchChangeKind.Unknown);
 
 public interface ISearchChangeSource
 {

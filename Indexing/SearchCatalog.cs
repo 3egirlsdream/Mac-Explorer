@@ -168,104 +168,6 @@ public sealed partial class SearchCatalog
         }
     }, ct);
 
-    public const string UpsertSql = """
-        INSERT INTO search_entries(path,name,parent_id,extension,extension_key,name_key,initials_key,
-            size,is_directory,is_hidden,created_ticks,modified_ticks,is_symbolic_link,scan_id)
-        VALUES(@path,@name,@parentId,@ext,@extKey,@nameKey,@initials,@size,@dir,@hidden,@created,@modified,@link,@scan)
-        ON CONFLICT(path) DO UPDATE SET name=excluded.name,parent_id=excluded.parent_id,
-            extension=excluded.extension,extension_key=excluded.extension_key,name_key=excluded.name_key,
-            initials_key=excluded.initials_key,size=excluded.size,
-            is_directory=excluded.is_directory,is_hidden=excluded.is_hidden,created_ticks=excluded.created_ticks,
-            modified_ticks=excluded.modified_ticks,is_symbolic_link=excluded.is_symbolic_link,scan_id=excluded.scan_id
-        """;
-
-    public Task UpsertBatchAsync(IReadOnlyList<SearchEntry> entries, string scanId, CancellationToken ct = default) =>
-        RunAsync(true, (connection, _) =>
-        {
-            using var transaction = connection.BeginTransaction();
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = UpsertSql;
-            foreach (var name in new[] { "@path", "@name", "@ext", "@extKey", "@nameKey", "@initials", "@scan" })
-                command.Parameters.Add(name, SqliteType.Text);
-            foreach (var name in new[] { "@parentId", "@size", "@dir", "@hidden", "@created", "@modified", "@link" })
-                command.Parameters.Add(name, SqliteType.Integer);
-            command.Prepare();
-            using var parent = connection.CreateCommand();
-            parent.Transaction = transaction;
-            parent.CommandText = """
-                INSERT INTO search_directories(path,parent_key) VALUES(@path,@key) ON CONFLICT(path) DO NOTHING;
-                SELECT id FROM search_directories WHERE path=@path COLLATE BINARY;
-                """;
-            parent.Parameters.Add("@path", SqliteType.Text);
-            parent.Parameters.Add("@key", SqliteType.Text);
-            var parents = new Dictionary<string, long>(StringComparer.Ordinal);
-            foreach (var entry in entries)
-            {
-                ct.ThrowIfCancellationRequested();
-                command.Parameters["@path"].Value = entry.Path;
-                command.Parameters["@name"].Value = entry.Name;
-                if (!parents.TryGetValue(entry.ParentPath, out var parentId))
-                {
-                    parent.Parameters["@path"].Value = entry.ParentPath;
-                    parent.Parameters["@key"].Value = entry.ParentKey;
-                    parents[entry.ParentPath] = parentId = (long)parent.ExecuteScalar()!;
-                }
-                command.Parameters["@parentId"].Value = parentId;
-                command.Parameters["@ext"].Value = entry.Extension;
-                command.Parameters["@extKey"].Value = SearchQuery.Fold(entry.Extension.TrimStart('.'));
-                command.Parameters["@nameKey"].Value = entry.NameKey;
-                command.Parameters["@initials"].Value = entry.InitialsKey;
-                command.Parameters["@size"].Value = entry.Size;
-                command.Parameters["@dir"].Value = entry.IsDirectory ? 1 : 0;
-                command.Parameters["@hidden"].Value = entry.IsHidden ? 1 : 0;
-                command.Parameters["@link"].Value = entry.IsSymbolicLink ? 1 : 0;
-                command.Parameters["@created"].Value = entry.CreatedTicks;
-                command.Parameters["@modified"].Value = entry.ModifiedTicks;
-                command.Parameters["@scan"].Value = scanId;
-                command.ExecuteNonQuery();
-            }
-            ct.ThrowIfCancellationRequested();
-            transaction.Commit();
-            return true;
-        }, ct);
-
-    /// <summary>Called ONLY after a complete, successful directory enumeration.</summary>
-    public Task CompleteDirectoryAsync(string directory, string scanId, CancellationToken ct = default) =>
-        RunAsync(true, (connection, _) =>
-        {
-            using var transaction = connection.BeginTransaction();
-            var removedDirectories = new List<string>();
-            using (var command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = "SELECT path FROM search_entries WHERE parent_id=(SELECT id FROM search_directories WHERE path=@parent) AND scan_id<>@scan AND is_directory=1";
-                command.Parameters.AddWithValue("@parent", directory);
-                command.Parameters.AddWithValue("@scan", scanId);
-                using var reader = command.ExecuteReader();
-                while (reader.Read()) { ct.ThrowIfCancellationRequested(); removedDirectories.Add(reader.GetString(0)); }
-            }
-            foreach (var removed in removedDirectories)
-            {
-                using var prune = connection.CreateCommand();
-                prune.Transaction = transaction;
-                prune.CommandText = "DELETE FROM search_entries WHERE " + ScopePredicate("path");
-                AddScopeParameters(prune, removed);
-                prune.ExecuteNonQuery();
-            }
-            using (var command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = "DELETE FROM search_entries WHERE parent_id=(SELECT id FROM search_directories WHERE path=@parent) AND scan_id<>@scan";
-                command.Parameters.AddWithValue("@parent", directory);
-                command.Parameters.AddWithValue("@scan", scanId);
-                command.ExecuteNonQuery();
-            }
-            ct.ThrowIfCancellationRequested();
-            transaction.Commit();
-            return true;
-        }, ct);
-
     public Task<ulong> GetCheckpointAsync(string root, CancellationToken ct = default) => RunAsync(false, (connection, _) =>
     {
         using var command = connection.CreateCommand();
@@ -281,6 +183,7 @@ public sealed partial class SearchCatalog
             command.CommandText = """
                 INSERT INTO search_roots(path,checkpoint,phase,updated_ticks) VALUES(@root,@checkpoint,@phase,@now)
                 ON CONFLICT(path) DO UPDATE SET checkpoint=excluded.checkpoint,phase=excluded.phase,updated_ticks=excluded.updated_ticks
+                WHERE search_roots.checkpoint IS NOT excluded.checkpoint OR search_roots.phase IS NOT excluded.phase
                 """;
             command.Parameters.AddWithValue("@root", root);
             command.Parameters.AddWithValue("@checkpoint", checkpoint.ToString(CultureInfo.InvariantCulture));
@@ -300,8 +203,10 @@ public sealed partial class SearchCatalog
         command.Parameters.AddWithValue("@upper", SearchPath.UpperBound(root));
     }
 
-    private static SearchEntry ReadEntry(SqliteDataReader reader) => new(
-        reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-        reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetInt64(7),
+    private static SearchEntry ReadEntry(SqliteDataReader reader) => ReadEntry(reader, reader.GetString(2), reader.GetString(6));
+
+    private static SearchEntry ReadEntry(SqliteDataReader reader, string parent, string parentKey) => new(
+        reader.GetString(0), reader.GetString(1), parent, reader.GetString(3),
+        reader.GetString(4), reader.GetString(5), parentKey, reader.GetInt64(7),
         reader.GetInt32(8) != 0, reader.GetInt32(9) != 0, reader.GetInt64(10), reader.GetInt64(11), reader.GetInt32(12) != 0);
 }

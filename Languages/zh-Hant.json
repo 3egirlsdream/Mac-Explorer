@@ -11,6 +11,7 @@
     "zh-CHT"
   ],
   "strings": {
+    "search.reconciliation-unavailable": "無法安全核對目錄，已保留原有索引。",
     "file.snapshot-read-error": "無法安全讀取檔案快照：{0}",
     "sidebar.groups.not_found": "群組已不存在。",
     "sidebar.groups.title": "自訂群組",
