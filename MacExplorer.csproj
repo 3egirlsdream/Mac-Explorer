@@ -264,7 +264,7 @@
     <Exec Command="ln -s /Applications '$(_DMGStaging)/Applications'" />
 
     <!-- Create DMG -->
-    <Exec Command="hdiutil create -volname 'Mac Explorer' -srcfolder '$(_DMGStaging)' -ov -format UDZO -imagekey zlib-level=9 '$(_ReleaseDMG)'" />
+    <Exec Command="python3 Tools/Distribution/create-dmg.py '$(_DMGStaging)' '$(_ReleaseDMG)'" />
 
     <!-- Clean up staging -->
     <RemoveDir Directories="$(_DMGStaging)" Condition="Exists('$(_DMGStaging)')" />

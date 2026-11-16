@@ -64,8 +64,22 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
             window.Show(); RenderIssue11(window);
             StackPanel Group() => sidebar.GetVisualDescendants().OfType<StackPanel>().Single(panel =>
                 panel.Classes.Contains("pinned-folder-group") && panel.DataContext is PinnedFolderGroup item && item.Id == group);
-            Point At(Control control, bool bottom = false) => control.TranslatePoint(
-                new Point(control.Bounds.Width / 2, bottom ? control.Bounds.Height - 2 : control.Bounds.Height / 2), sidebar)!.Value;
+            Point At(Control control) => control.TranslatePoint(
+                new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), sidebar)!.Value;
+            async Task<Point> GroupSpacerPointAsync()
+            {
+                Point point = default;
+                await WaitForIssue11Async(() =>
+                {
+                    RenderIssue11(window);
+                    var spacer = Group().Children.OfType<StackPanel>().Single().Children.OfType<Border>().Single();
+                    spacer.BringIntoView();
+                    RenderIssue11(window);
+                    point = At(spacer);
+                    return spacer.Bounds.Height > 0 && ReferenceEquals(sidebar.InputHitTest(point), spacer);
+                });
+                return point;
+            }
             using var folders = await Transfer(window, first, second);
             var header = Group().Children.OfType<Grid>().Single();
             await WaitForIssue11Async(() =>
@@ -80,7 +94,8 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
             hover.Fire();
             Assert.Equal(root, vm.CurrentPath);
             Assert.Equal(DragDropEffects.Copy, Raise(sidebar, folders, DragDrop.DropEvent, At(header)).DragEffects);
-            await WaitForIssue11Async(() => other.CustomGroups.Single().Folders.Count == 2);
+            await WaitForIssue11Async(() => vm.CustomGroups.Single().Folders.Count == 2
+                && other.CustomGroups.Single().Folders.Count == 2);
             RenderIssue11(window);
             Assert.True(await fixture.Store.IsPinnedAsync(first));
             Assert.True(await fixture.Store.IsPinnedAsync(first, group));
@@ -94,14 +109,17 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
             var destinations = menu.Single(action => action.Label == LocalizationText.Get("移动到")).SubItems!;
             Assert.Single(destinations.Where(action => action.Label == "First"));
             Assert.Single(destinations.Where(action => action.Label == "Second"));
-            Assert.Equal(DragDropEffects.Copy, Raise(sidebar, folders, DragDrop.DropEvent, At(Group(), true)).DragEffects);
+            await pins.LoadPinnedFoldersAsync();
+            Assert.Equal(DragDropEffects.Copy, Raise(sidebar, folders, DragDrop.DropEvent, await GroupSpacerPointAsync()).DragEffects);
             Assert.Equal(2, (await fixture.Store.GetAllAsync()).Count(pin => pin.GroupId == group));
             using var mixed = await Transfer(window, second, payload);
-            Assert.Equal(DragDropEffects.None, Raise(sidebar, mixed, DragDrop.DragOverEvent, At(Group(), true)).DragEffects);
-            Assert.Equal(DragDropEffects.None, Raise(sidebar, mixed, DragDrop.DropEvent, At(Group(), true)).DragEffects);
+            Assert.Equal(DragDropEffects.None, Raise(sidebar, mixed, DragDrop.DragOverEvent, await GroupSpacerPointAsync()).DragEffects);
+            Assert.Equal(DragDropEffects.None, Raise(sidebar, mixed, DragDrop.DropEvent, await GroupSpacerPointAsync()).DragEffects);
             Assert.Equal(2, (await fixture.Store.GetAllAsync()).Count(pin => pin.GroupId == group));
             var row = Group().GetVisualDescendants().OfType<Border>().Single(border => border.Tag is string path && path == first);
             using var file = await Transfer(window, payload);
+            RenderIssue11(window);
+            row = Group().GetVisualDescendants().OfType<Border>().Single(border => border.Tag is string path && path == first);
             Assert.Equal(DragDropEffects.Move, Raise(sidebar, file, DragDrop.DragOverEvent, At(row)).DragEffects);
             Assert.Contains("folder-drop-target", row.Classes);
             Assert.Equal(DragDropEffects.Move, Raise(sidebar, file, DragDrop.DropEvent, At(row)).DragEffects);
