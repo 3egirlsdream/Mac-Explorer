@@ -209,3 +209,5 @@ feat: 优化文件夹恢复
 - Git 文件及目录的右键操作统一收在「标签」下方的「GIT」子菜单，复用 `ContextMenuAction`；入口由列表已加载的 Git 状态与仓库归属同步决定，打开后不因异步补全插入或移除，展开二级菜单时才刷新详细状态；按暂存区／工作区独立状态启用操作，目录与多选保持明确范围，写操作后同步刷新相关窗格。提交历史使用 `GitHistoryDialog`、全局 `ListBox.git-history` 与 `DiffPreviewView`，窄窗口上下排列，保留标题栏关闭和 Escape。
 
 - 侧栏自定义分组的标题与收起箭头复用 `sidebar-section-header` / `sidebar-collapse-icon`，交互与 AI 智能一致；每组独立保存展开状态并同步窗口，收起时标题保留文件夹固定拖入区。
+
+- 搜索索引通过 `SearchIndexer` 的文件事件分类与有界局部待办执行增量更新；`SearchCatalog` 仅写真实变化的元数据，目录删除必须经扫描会话完整核对，取消或读取失败保留旧项，不再以更新所有行的 `scan_id` 检测删除。恢复和刷新优先于后台遍历，整根积压冷却不阻塞精确更新；检查点不得越过未完成或延迟的核对。诊断合并写入，索引自身产物不得触发扫描。规则与实测入口见 `docs/development/search-indexing.md` 和 `Tools/Performance/SearchWriteBench/README.md`。

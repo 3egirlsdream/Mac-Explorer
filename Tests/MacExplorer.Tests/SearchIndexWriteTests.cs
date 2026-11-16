@@ -15,6 +15,7 @@ public sealed class SearchIndexWriteTests : IDisposable
 {
     private readonly string _folder = Directory.CreateDirectory(Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(),
         "search-write-tests-" + Guid.NewGuid().ToString("N"))).FullName;
+    private readonly CancellationToken _cancellation = TestContext.Current.CancellationToken;
     private readonly DirectoryAccess _access;
     private readonly IDisposable _accessScope;
     private string Root => Path.Combine(_folder, "files");
@@ -56,7 +57,7 @@ public sealed class SearchIndexWriteTests : IDisposable
     public async Task RepeatedReconciliationDoesNotUpdateRowsOrRewriteScanMarkers()
     {
         var catalog = Catalog(); var entry = Entry(Path.Combine(Root, "report.txt"));
-        await catalog.ApplyEntriesAsync([entry]);
+        await catalog.ApplyEntriesAsync([entry], _cancellation);
         var id = Scalar("SELECT id FROM search_entries");
         using (var connection = new DatabaseConnectionFactory(Database).GetConnection())
         using (var command = connection.CreateCommand())
@@ -70,14 +71,14 @@ public sealed class SearchIndexWriteTests : IDisposable
         }
         for (var i = 0; i < 3; i++)
         {
-            await using var scan = await catalog.BeginDirectoryScanAsync(Root);
-            Assert.Equal(default, await scan.RecordAsync([entry]));
-            Assert.Equal(default, await scan.CompleteAsync());
+            await using var scan = await catalog.BeginDirectoryScanAsync(Root, _cancellation);
+            Assert.Equal(default, await scan.RecordAsync([entry], _cancellation));
+            Assert.Equal(default, await scan.CompleteAsync(_cancellation));
         }
         Assert.Equal(0, Scalar("SELECT count FROM observed_updates"));
         Assert.Equal(id, Scalar("SELECT id FROM search_entries"));
         Assert.Equal(1, Scalar("SELECT count(*) FROM search_entries WHERE scan_id='legacy'"));
-        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("report"), new(), 10, false));
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("report"), new(), 10, false, _cancellation));
     }
 
     [Theory]
@@ -90,12 +91,12 @@ public sealed class SearchIndexWriteTests : IDisposable
         var keep = Entry(Path.Combine(Root, "keep.txt"));
         var old = Entry(Path.Combine(Root, "old"), directory: true);
         var other = Entry(Path.Combine(Root, "old-other", "keep.txt"));
-        await catalog.ApplyEntriesAsync([keep, old, Entry(Path.Combine(old.Path, "deleted.txt")), other]);
-        await using (var scan = await catalog.BeginDirectoryScanAsync(Root))
+        await catalog.ApplyEntriesAsync([keep, old, Entry(Path.Combine(old.Path, "deleted.txt")), other], _cancellation);
+        await using (var scan = await catalog.BeginDirectoryScanAsync(Root, _cancellation))
         {
             Assert.Equal(spill, scan.Spilled);
-            Assert.Equal(default, await scan.RecordAsync([keep]));
-            Assert.Equal(2, (await scan.CompleteAsync()).Deleted);
+            Assert.Equal(default, await scan.RecordAsync([keep], _cancellation));
+            Assert.Equal(2, (await scan.CompleteAsync(_cancellation)).Deleted);
         }
         Assert.Equal(2, Scalar("SELECT count(*) FROM search_entries"));
         Assert.Empty(Directory.Exists(Path.Combine(_folder, "Logs", "scan-scratch"))
@@ -109,10 +110,10 @@ public sealed class SearchIndexWriteTests : IDisposable
     public async Task InterruptedOrCancelledSnapshotRetainsOldRows(bool cancel)
     {
         var catalog = Catalog(); catalog.ScanMemoryLimitBytes = 1;
-        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "old.txt"))]);
-        await using (var scan = await catalog.BeginDirectoryScanAsync(Root))
+        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "old.txt"))], _cancellation);
+        await using (var scan = await catalog.BeginDirectoryScanAsync(Root, _cancellation))
         {
-            await scan.RecordAsync([Entry(Path.Combine(Root, "new.txt"))]);
+            await scan.RecordAsync([Entry(Path.Combine(Root, "new.txt"))], _cancellation);
             if (cancel)
             {
                 using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
@@ -120,7 +121,7 @@ public sealed class SearchIndexWriteTests : IDisposable
             }
         }
         Assert.Equal(2, Scalar("SELECT count(*) FROM search_entries"));
-        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "after.txt"))]);
+        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "after.txt"))], _cancellation);
     }
 
     [Fact]
@@ -130,11 +131,11 @@ public sealed class SearchIndexWriteTests : IDisposable
         var catalog = Catalog(); catalog.ScanMemoryLimitBytes = 1;
         catalog.ScanScratchDirectory = Path.Combine(_folder, "not-a-directory");
         File.WriteAllText(catalog.ScanScratchDirectory, "occupied");
-        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "old.txt"))]);
-        await using (var scan = await catalog.BeginDirectoryScanAsync(Root))
+        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "old.txt"))], _cancellation);
+        await using (var scan = await catalog.BeginDirectoryScanAsync(Root, _cancellation))
         {
-            Assert.Equal(1, (await scan.RecordAsync([Entry(Path.Combine(Root, "new.txt"))])).Inserted);
-            await Assert.ThrowsAsync<IOException>(() => scan.CompleteAsync());
+            Assert.Equal(1, (await scan.RecordAsync([Entry(Path.Combine(Root, "new.txt"))], _cancellation)).Inserted);
+            await Assert.ThrowsAsync<IOException>(() => scan.CompleteAsync(_cancellation));
         }
         Assert.Equal(2, Scalar("SELECT count(*) FROM search_entries"));
     }
@@ -143,16 +144,16 @@ public sealed class SearchIndexWriteTests : IDisposable
     [Trait("Kind", "Unit")]
     public async Task UnchangedCheckpointAndPhaseDoNotWrite()
     {
-        var catalog = Catalog(); await catalog.SaveCheckpointAsync(Root, 7, SearchIndexPhase.Ready);
+        var catalog = Catalog(); await catalog.SaveCheckpointAsync(Root, 7, SearchIndexPhase.Ready, _cancellation);
         using (var connection = new DatabaseConnectionFactory(Database).GetConnection())
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "UPDATE search_roots SET updated_ticks=1"; command.ExecuteNonQuery();
         }
-        await catalog.SaveCheckpointAsync(Root, 7, SearchIndexPhase.Ready);
+        await catalog.SaveCheckpointAsync(Root, 7, SearchIndexPhase.Ready, _cancellation);
         Assert.Equal(1, Scalar("SELECT updated_ticks FROM search_roots"));
-        await catalog.SaveCheckpointAsync(Root, 8, SearchIndexPhase.Ready);
-        Assert.Equal(8ul, await catalog.GetCheckpointAsync(Root));
+        await catalog.SaveCheckpointAsync(Root, 8, SearchIndexPhase.Ready, _cancellation);
+        Assert.Equal(8ul, await catalog.GetCheckpointAsync(Root, _cancellation));
     }
 
     [Fact]
@@ -160,10 +161,10 @@ public sealed class SearchIndexWriteTests : IDisposable
     public async Task SharedParentSearchKeyCanChangeWithoutRewritingFileRows()
     {
         var catalog = Catalog(); var entry = Entry(Path.Combine(Root, "report.txt"));
-        await catalog.ApplyEntriesAsync([entry]);
+        await catalog.ApplyEntriesAsync([entry], _cancellation);
         var id = Scalar("SELECT id FROM search_entries");
-        Assert.Equal(default, await catalog.ApplyEntriesAsync([entry with { ParentKey = "UPDATED_PARENT" }]));
-        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("path:UPDATED_PARENT"), new(), 10, false));
+        Assert.Equal(default, await catalog.ApplyEntriesAsync([entry with { ParentKey = "UPDATED_PARENT" }], _cancellation));
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("path:UPDATED_PARENT"), new(), 10, false, _cancellation));
         Assert.Equal(id, Scalar("SELECT id FROM search_entries"));
     }
 
@@ -172,10 +173,10 @@ public sealed class SearchIndexWriteTests : IDisposable
     public async Task DirectoryLeaseSerializesIndexWritesWithoutKeepingASqlWriteTransactionOpen()
     {
         var catalog = Catalog();
-        var scan = await catalog.BeginDirectoryScanAsync(Root);
+        var scan = await catalog.BeginDirectoryScanAsync(Root, _cancellation);
         try
         {
-            var waiting = catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "later.txt"))]);
+            var waiting = catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "later.txt"))], _cancellation);
             Assert.False(waiting.IsCompleted);
             using (var connection = new DatabaseConnectionFactory(Database).GetConnection())
             using (var command = connection.CreateCommand())
@@ -183,7 +184,7 @@ public sealed class SearchIndexWriteTests : IDisposable
                 command.CommandText = "PRAGMA busy_timeout=0; CREATE TABLE independent_write(value INTEGER)";
                 command.ExecuteNonQuery();
             }
-            Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("later"), new(), 10, false));
+            Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("later"), new(), 10, false, _cancellation));
             await scan.DisposeAsync();
             Assert.Equal(1, (await waiting).Inserted);
         }
@@ -195,14 +196,42 @@ public sealed class SearchIndexWriteTests : IDisposable
     public async Task QueryAndIndexerHonorRestrictedFolderGrants()
     {
         var catalog = Catalog(); var outside = Path.Combine(_folder, "outside"); Directory.CreateDirectory(outside);
-        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "report.txt")), Entry(Path.Combine(outside, "secret-report.txt"))]);
+        await catalog.ApplyEntriesAsync([Entry(Path.Combine(Root, "report.txt")), Entry(Path.Combine(outside, "secret-report.txt"))], _cancellation);
         using var access = new DirectoryAccess(Path.Combine(_folder, "restricted.json"), true, new Bookmarks(), []);
         access.RememberSelection(Root);
         using var scope = DirectoryAccess.UseForTests(access);
-        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("report"), new(), 10, false));
-        Assert.Empty(await catalog.SearchAsync(outside, SearchQuery.Parse("report"), new(), 10, false));
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("report"), new(), 10, false, _cancellation));
+        Assert.Empty(await catalog.SearchAsync(outside, SearchQuery.Parse("report"), new(), 10, false, _cancellation));
         await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database }, new Pinyin(), new Changes());
         Assert.Throws<UnauthorizedAccessException>(() => indexer.EnsureRoot(outside));
+    }
+
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Stress")]
+    public async Task LargeDirectoryUsesTheRealMemoryLimitAndCleansScratchAfterAbortAndCompletion()
+    {
+        var catalog = Catalog();
+        SearchEntry Item(int index) => Entry(Path.Combine(Root, new string('x', 180) + $"-{index:00000}.txt"));
+        for (var offset = 0; offset < 50000; offset += 250)
+            await catalog.ApplyEntriesAsync(Enumerable.Range(offset, 250).Select(Item).ToArray(), _cancellation);
+        var scratch = Path.Combine(_folder, "Logs", "scan-scratch");
+        await using (var interrupted = await catalog.BeginDirectoryScanAsync(Root, _cancellation))
+        {
+            Assert.True(interrupted.Spilled);
+            Assert.Single(Directory.GetFiles(scratch));
+            await interrupted.RecordAsync(Enumerable.Range(0, 250).Select(Item).ToArray(), _cancellation);
+        }
+        Assert.Equal(50000, Scalar("SELECT count(*) FROM search_entries"));
+        Assert.Empty(Directory.GetFiles(scratch));
+        await using (var scan = await catalog.BeginDirectoryScanAsync(Root, _cancellation))
+        {
+            Assert.True(scan.Spilled);
+            for (var offset = 0; offset < 49995; offset += 250)
+                Assert.Equal(default, await scan.RecordAsync(Enumerable.Range(offset, Math.Min(250, 49995 - offset)).Select(Item).ToArray(), _cancellation));
+            Assert.Equal(5, (await scan.CompleteAsync(_cancellation)).Deleted);
+        }
+        Assert.Equal(49995, Scalar("SELECT count(*) FROM search_entries"));
+        Assert.Empty(Directory.GetFiles(scratch));
     }
 
     [Fact]
@@ -280,14 +309,16 @@ public sealed class SearchIndexWriteTests : IDisposable
         }
         internal void Advance(TimeSpan elapsed) => _clock.Advance(elapsed);
     }
-    private static async Task Eventually(Func<Task<bool>> condition)
+    private async Task Eventually(Func<Task<bool>> condition)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_cancellation);
+        deadline.CancelAfter(TimeSpan.FromSeconds(10));
         while (!await condition()) await Task.Delay(10, deadline.Token);
     }
-    private static async Task Ready(SearchIndexer indexer, string root)
+    private async Task Ready(SearchIndexer indexer, string root)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_cancellation);
+        deadline.CancelAfter(TimeSpan.FromSeconds(10));
         while (true)
         {
             var observation = indexer.Observe(root);
@@ -312,7 +343,7 @@ public sealed class SearchIndexWriteTests : IDisposable
         Assert.Equal(1, after.CheckedEntries - before.CheckedEntries);
         Assert.Equal(1, after.UpdatedEntries - before.UpdatedEntries);
         Assert.Equal(before.DirectoryScans, after.DirectoryScans);
-        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root));
+        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root, _cancellation));
     }
 
     [Theory(Explicit = true)]
@@ -328,18 +359,18 @@ public sealed class SearchIndexWriteTests : IDisposable
         indexer.EnsureRoot(Root); await Ready(indexer, Root);
         configuration.EventMergeDelay = TimeSpan.FromMilliseconds(200);
         changes.Emit(Path.Combine(Root, "directory-0", "event.txt"));
-        await clock.MergeScheduled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await clock.MergeScheduled.Task.WaitAsync(TimeSpan.FromSeconds(5), _cancellation);
         for (var i = 1; i < 3; i++) changes.Emit(Path.Combine(Root, $"directory-{i}", "event.txt"));
         Assert.Equal(1, indexer.GetStatistics().DeferredRoots);
         var added = Path.Combine(Root, "live.txt"); File.WriteAllText(added, "new");
         changes.Emit(added, kind: SearchChangeKind.Modified);
         configuration.EventMergeDelay = TimeSpan.Zero; clock.Advance(TimeSpan.FromMilliseconds(200));
-        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("live"), new(), 10, false)).Count == 1);
-        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root));
+        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("live"), new(), 10, false, _cancellation)).Count == 1);
+        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root, _cancellation));
         if (journal) changes.Emit(Root, true, true); else indexer.Refresh(Root);
         await Ready(indexer, Root);
         Assert.Equal(0, indexer.GetStatistics().DeferredRoots);
-        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root));
+        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root, _cancellation));
         var scans = indexer.GetStatistics().FullScans;
         clock.Advance(TimeSpan.FromHours(1));
         Assert.Equal(scans, indexer.GetStatistics().FullScans);
@@ -356,7 +387,7 @@ public sealed class SearchIndexWriteTests : IDisposable
         indexer.EnsureRoot(Root); await Ready(indexer, Root);
         configuration.EventMergeDelay = TimeSpan.FromMilliseconds(200);
         changes.Emit(Path.Combine(Root, "directory-0", "event.txt"));
-        await clock.MergeScheduled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await clock.MergeScheduled.Task.WaitAsync(TimeSpan.FromSeconds(5), _cancellation);
         for (var i = 1; i < 3; i++) changes.Emit(Path.Combine(Root, $"directory-{i}", "event.txt"));
         Assert.Equal(1, indexer.GetStatistics().DeferredRoots);
         configuration.EventMergeDelay = TimeSpan.Zero;
@@ -381,11 +412,11 @@ public sealed class SearchIndexWriteTests : IDisposable
         indexer.EnsureRoot(Root);
         await Eventually(() => Task.FromResult(indexer.GetStatistics().DeferredRoots == 1));
         Assert.Equal(1, indexer.GetStatistics().FullScans);
-        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root));
+        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root, _cancellation));
         pinyin.Inspect = null;
         indexer.Refresh(Root); await Ready(indexer, Root);
         Assert.Equal(2, indexer.GetStatistics().FullScans);
-        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root));
+        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root, _cancellation));
     }
 
     [Fact(Explicit = true)]
@@ -433,7 +464,7 @@ public sealed class SearchIndexWriteTests : IDisposable
         File.WriteAllText(Path.Combine(directory, "child-report.txt"), "child");
         changes.Emit(directory, true, kind: SearchChangeKind.Created | SearchChangeKind.Removed);
         await Ready(indexer, Root);
-        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false));
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false, _cancellation));
     }
 
     [Fact(Explicit = true)]
@@ -464,15 +495,15 @@ public sealed class SearchIndexWriteTests : IDisposable
             if (name == "b.txt") boundary.TrySetResult(indexer.Observe(Root).Changed);
         };
         indexer.Refresh(Root);
-        var finished = await boundary.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await finished.WaitAsync(TimeSpan.FromSeconds(5));
+        var finished = await boundary.Task.WaitAsync(TimeSpan.FromSeconds(5), _cancellation);
+        await finished.WaitAsync(TimeSpan.FromSeconds(5), _cancellation);
         Assert.Equal(1, indexer.GetStatistics().DeferredRoots);
-        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root));
-        Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false));
+        Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root, _cancellation));
+        Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false, _cancellation));
         pinyin.Inspect = null;
         indexer.Refresh(Root); await Ready(indexer, Root);
-        Assert.Equal(3, (await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false)).Count);
-        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root));
+        Assert.Equal(3, (await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false, _cancellation)).Count);
+        Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root, _cancellation));
     }
 
     [Fact(Explicit = true)]
@@ -510,24 +541,24 @@ public sealed class SearchIndexWriteTests : IDisposable
         var pinyin = new Pinyin { Inspect = name =>
         {
             if (name == "a.txt" && Interlocked.Increment(ref seenA) == 1)
-            { enteredA.TrySetResult(); if (!releaseA.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); }
+            { enteredA.TrySetResult(); if (!releaseA.Wait(TimeSpan.FromSeconds(10), _cancellation)) throw new TimeoutException(); }
             if (name == "b.txt")
-            { enteredB.TrySetResult(); if (!releaseB.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); }
+            { enteredB.TrySetResult(); if (!releaseB.Wait(TimeSpan.FromSeconds(10), _cancellation)) throw new TimeoutException(); }
         } };
         var changes = new Changes(); var catalog = Catalog();
         await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database }, pinyin, changes);
         try
         {
             indexer.EnsureRoot(Root);
-            await enteredA.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await enteredA.Task.WaitAsync(TimeSpan.FromSeconds(5), _cancellation);
             changes.Emit(first, true, true);
             indexer.EnsureRoot(other);
             releaseA.Set();
-            await enteredB.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root));
+            await enteredB.Task.WaitAsync(TimeSpan.FromSeconds(5), _cancellation);
+            Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root, _cancellation));
             Assert.Equal(SearchIndexPhase.Ready, indexer.Observe(other).Status.Phase);
             releaseB.Set(); await Ready(indexer, Root);
-            Assert.Equal(1ul, await catalog.GetCheckpointAsync(Root));
+            Assert.Equal(1ul, await catalog.GetCheckpointAsync(Root, _cancellation));
         }
         finally { releaseA.Set(); releaseB.Set(); }
     }
@@ -541,24 +572,24 @@ public sealed class SearchIndexWriteTests : IDisposable
         await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database }, new Pinyin(), new MacSearchChangeSource());
         indexer.EnsureRoot(Root); await Ready(indexer, Root);
         var temporary = path + ".saving"; File.WriteAllText(temporary, "atomic replacement"); File.Move(temporary, path, true);
-        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("native-report"), new(), 10, false)).Any(entry => entry.Path == path && entry.Size == 18));
+        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("native-report"), new(), 10, false, _cancellation)).Any(entry => entry.Path == path && entry.Size == 18));
         var renamed = Path.Combine(Root, "renamed-report.txt"); File.Move(path, renamed);
         await Eventually(async () =>
         {
-            var entries = await catalog.SearchAsync(Root, SearchQuery.Parse("report"), new(), 10, false);
+            var entries = await catalog.SearchAsync(Root, SearchQuery.Parse("report"), new(), 10, false, _cancellation);
             return entries.Count == 1 && entries[0].Path == renamed;
         });
         var directory = Directory.CreateDirectory(Path.Combine(Root, "nested")).FullName;
         File.WriteAllText(Path.Combine(directory, "child-report.txt"), "child");
-        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false)).Count == 1);
+        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false, _cancellation)).Count == 1);
         var moved = Path.Combine(Root, "moved"); Directory.Move(directory, moved);
         await Eventually(async () =>
         {
-            var entries = await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false);
+            var entries = await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false, _cancellation);
             return entries.Count == 1 && entries[0].ParentPath == moved;
         });
         Directory.Delete(moved, true);
-        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false)).Count == 0);
+        await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("child-report"), new(), 10, false, _cancellation)).Count == 0);
         Assert.True(indexer.GetStatistics().ReceivedEvents > 0);
     }
 
@@ -594,10 +625,10 @@ public sealed class SearchIndexWriteTests : IDisposable
         await Eventually(() => Task.FromResult(indexer.Observe(Root).Status.Phase == SearchIndexPhase.Partial));
         failing.Remove("b.txt"); changes.Emit(Path.Combine(Root, "b.txt"), kind: SearchChangeKind.Modified);
         await Eventually(() => Task.FromResult(indexer.Observe(Root).Status.Phase == SearchIndexPhase.Partial));
-        Assert.Equal(0ul, await Catalog().GetCheckpointAsync(Root));
+        Assert.Equal(0ul, await Catalog().GetCheckpointAsync(Root, _cancellation));
         failing.Clear(); changes.Emit(Path.Combine(Root, "a.txt"), kind: SearchChangeKind.Modified);
         await Ready(indexer, Root);
-        Assert.Equal(changes.Id, await Catalog().GetCheckpointAsync(Root));
+        Assert.Equal(changes.Id, await Catalog().GetCheckpointAsync(Root, _cancellation));
     }
 
     [Fact(Explicit = true)]

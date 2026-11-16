@@ -15,7 +15,7 @@ for index in range(1000):
     directory = args.root / "tree" / f"branch-{index // 100}" / f"directory-{index:04d}"
     directory.mkdir(parents=True)
     for number in range(90):
-        name = f"合同-{number:03d}.txt" if number else "Report.txt"
+        name = ("长文件名" * 12 + ".txt") if index == 0 and number == 1 else (f"合同-{number:03d}.txt" if number else "Report.txt")
         (directory / name).write_text("fixture\n")
 special = args.root / "特殊路径_%_" / ("长文件夹" * 15)
 special.mkdir(parents=True)
