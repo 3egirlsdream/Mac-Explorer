@@ -176,7 +176,8 @@ public sealed class LibRawThumbnailTests
         Directory.CreateDirectory(root);
         var rawPath = Path.Combine(root, "queued.dng");
         File.Copy(SamplePath, rawPath);
-        var rawKey = $"image-v2:{rawPath}:{File.GetLastWriteTimeUtc(rawPath).Ticks}:48";
+        string Key(string path) => $"{MacThumbnailService.GetThumbnailCachePrefix(Path.GetExtension(path), true)}{path}:{File.GetLastWriteTimeUtc(path).Ticks}:48";
+        var rawKey = Key(rawPath);
         var rawStripe = (StringComparer.Ordinal.GetHashCode(rawKey) & int.MaxValue) % 64;
         string? pngPath = null;
         for (var i = 0; i < 64; i++)
@@ -184,7 +185,7 @@ public sealed class LibRawThumbnailTests
             var candidate = Path.Combine(root, $"ordinary-{i}.png");
             File.WriteAllBytes(candidate, Convert.FromBase64String(
                 "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
-            var key = $"image-v2:{candidate}:{File.GetLastWriteTimeUtc(candidate).Ticks}:48";
+            var key = Key(candidate);
             if ((StringComparer.Ordinal.GetHashCode(key) & int.MaxValue) % 64 != rawStripe)
             {
                 pngPath = candidate;
@@ -206,8 +207,9 @@ public sealed class LibRawThumbnailTests
                 await queued.Task.WaitAsync(timeout.Token);
                 Assert.False(rawTask.IsCompleted);
                 var ordinary = await service.GetThumbnailResultAsync(pngPath, 48, timeout.Token)
-                    .WaitAsync(TimeSpan.FromSeconds(2), timeout.Token);
+                    .WaitAsync(timeout.Token);
                 Assert.NotNull(ordinary);
+                Assert.False(rawTask.IsCompleted);
             }
             finally { gate.Release(); }
             Assert.NotNull(await rawTask.WaitAsync(timeout.Token));

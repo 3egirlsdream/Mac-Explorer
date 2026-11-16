@@ -153,7 +153,7 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
             .ConfigureAwait(false);
     }
 
-    private static string GetThumbnailCachePrefix(string extension, bool isImage)
+    internal static string GetThumbnailCachePrefix(string extension, bool isImage)
         => isImage ? "image-v3:" : AudioArtworkExtensions.Contains(extension) ? "audio-artwork-v1:" : "";
 
     // Generators write a private staging path, never the final cache path. Publication
