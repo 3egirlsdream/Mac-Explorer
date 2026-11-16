@@ -5,6 +5,7 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "search.reconciliation-unavailable": "The directory could not be reconciled safely. Existing index entries were retained.",
     "file.snapshot-read-error": "Cannot safely read the file snapshot: {0}",
     "sidebar.groups.not_found": "This group no longer exists.",
     "sidebar.groups.title": "Custom Groups",

@@ -29,6 +29,12 @@ public class IndexConfiguration
     /// </summary>
     public string DatabasePath { get; set; } = RuntimePaths.DatabasePath;
 
+    public TimeSpan DiagnosticWriteInterval { get; set; } = TimeSpan.FromSeconds(10);
+    public TimeSpan OverflowFullScanCooldown { get; set; } = TimeSpan.FromMinutes(10);
+    internal TimeSpan EventMergeDelay { get; set; } = TimeSpan.FromMilliseconds(200);
+    internal int PendingLimit { get; set; } = 4096;
+    internal long PendingBytesLimit { get; set; } = 8 * 1024 * 1024;
+
     /// <summary>
     /// Check if a path should be indexed.
     /// </summary>

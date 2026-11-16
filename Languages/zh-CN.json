@@ -4,6 +4,7 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "search.reconciliation-unavailable": "无法安全核对目录，已保留原有索引。",
     "file.snapshot-read-error": "无法安全读取文件快照：{0}",
     "sidebar.groups.not_found": "分组已不存在。",
     "sidebar.groups.title": "自定义分组",

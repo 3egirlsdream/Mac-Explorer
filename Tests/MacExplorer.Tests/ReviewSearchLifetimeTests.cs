@@ -33,6 +33,8 @@ public sealed class ReviewSearchLifetimeTests
     {
         private long _ticks = DateTimeOffset.UnixEpoch.Ticks;
         public override DateTimeOffset GetUtcNow() => new(Interlocked.Read(ref _ticks), TimeSpan.Zero);
+        public override long GetTimestamp() => Interlocked.Read(ref _ticks) - DateTimeOffset.UnixEpoch.Ticks;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
         public void Advance(TimeSpan elapsed) => Interlocked.Add(ref _ticks, elapsed.Ticks);
     }
 
@@ -138,7 +140,7 @@ public sealed class ReviewSearchLifetimeTests
         var pinyin = new Pinyin();
         pinyin.FailedNames.Add("bad-report.txt");
         var changes = new Changes();
-        await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = databasePath }, pinyin, changes);
+        await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = databasePath, DiagnosticWriteInterval = TimeSpan.Zero }, pinyin, changes);
         indexer.EnsureRoot(db.Root);
         Assert.Equal(SearchIndexPhase.Partial, (await WaitSettled(indexer, db.Root)).Phase);
         var path = Path.Combine(db.Root, "Logs", "search-index-status.json");

@@ -253,7 +253,7 @@ public sealed partial class FeatureUpgradeTests
             return new SearchEntry(path, info.Name, info.DirectoryName!, ".txt", info.Name.ToLowerInvariant(), "", info.DirectoryName!.ToLowerInvariant(), info.Length,
                 false, false, info.CreationTimeUtc.Ticks, info.LastWriteTimeUtc.Ticks);
         }).ToArray();
-        await catalog.UpsertBatchAsync(entries, "fixture", Token);
+        await catalog.ApplyEntriesAsync(entries, Token);
         var query = new IndexedFileQuery { Query = "report", Source = "name" };
         var first = await catalog.SearchResourcesAsync(_root, query, new(), Token);
         var second = await catalog.SearchResourcesAsync(_root, query with { Offset = first.NextOffset!.Value }, new(), Token);

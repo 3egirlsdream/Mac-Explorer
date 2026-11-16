@@ -5,6 +5,7 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "search.reconciliation-unavailable": "Le dossier n’a pas pu être vérifié en toute sécurité. Les entrées existantes de l’index ont été conservées.",
     "file.snapshot-read-error": "Impossible de lire le fichier de manière sûre pour vérifier son état : {0}",
     "sidebar.groups.not_found": "Ce groupe n’existe plus.",
     "sidebar.groups.title": "Groupes personnalisés",

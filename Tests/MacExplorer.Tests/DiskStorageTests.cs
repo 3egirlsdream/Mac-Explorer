@@ -122,12 +122,12 @@ public sealed class DiskStorageTests : IDisposable
         var catalog = new SearchCatalog(factory);
         SearchEntry Entry(string parent, int number) => new($"{parent}/report-{number}.pdf", $"report-{number}.pdf", parent,
             ".pdf", $"REPORT-{number}.PDF", "", SearchQuery.Fold(parent), 1, false, false, 0, 0, false);
-        await catalog.UpsertBatchAsync(Enumerable.Range(0, 500).Select(i => Entry("/scope/a%_项目", i)).Append(Entry("/scope/aXX项目", 999)).ToArray(), "scan");
+        await catalog.ApplyEntriesAsync(Enumerable.Range(0, 500).Select(i => Entry("/scope/a%_项目", i)).Append(Entry("/scope/aXX项目", 999)).ToArray());
         using var connection = factory.GetConnection();
         Assert.Equal(2, Count(connection, "search_directories"));
         Assert.Equal(500, (await catalog.SearchAsync("/scope", SearchQuery.Parse("report path:a%_项目"), new(), 1000, false)).Count);
         Assert.Empty(await catalog.SearchAsync("/scope2", SearchQuery.Parse("report path:a%_项目"), new(), 10, false));
-        await catalog.CompleteDirectoryAsync("/scope/a%_项目", "new-scan");
+        await catalog.ReconcileDirectoryAsync("/scope/a%_项目");
         Assert.Single(await catalog.SearchAsync("/scope", SearchQuery.Parse("report"), new(), 1000, false));
     }
 
