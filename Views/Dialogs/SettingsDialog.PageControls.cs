@@ -37,6 +37,7 @@ public partial class SettingsDialog
     private ListBox DefaultSearchLocationsList => GetPageControl<ListBox>("locations", "DefaultSearchLocationsList");
     private StackPanel EmptySearchLocationsPanel => GetPageControl<StackPanel>("locations", "EmptySearchLocationsPanel");
     private ToggleSwitch FolderPhotoCoversToggle => GetPageControl<ToggleSwitch>("display", "FolderPhotoCoversToggle");
+    private ListBox FolderCoverStylePicker => GetPageControl<ListBox>("display", "FolderCoverStylePicker");
     private ToggleSwitch HideDotFoldersToggle => GetPageControl<ToggleSwitch>("display", "HideDotFoldersToggle");
     private ToggleSwitch HideDotFilesToggle => GetPageControl<ToggleSwitch>("display", "HideDotFilesToggle");
     private ToggleSwitch HideSystemFilesToggle => GetPageControl<ToggleSwitch>("display", "HideSystemFilesToggle");

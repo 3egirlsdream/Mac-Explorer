@@ -52,7 +52,7 @@ public partial class FinderSidebarView : UserControl
             var isCompactItem = compactItem?.Classes.Contains("sidebar-item") == true;
             control.Classes.Set("rail-compact-item", railMode && isCompactItem);
             control.Classes.Set("rail-action-hidden",
-                railMode && control is Button && control.Classes.Contains("sidebar-item-action"));
+                railMode && control is Button && (control.Classes.Contains("sidebar-item-action") || control.Classes.Contains("sidebar-header-action")));
             if (isCompactItem)
                 SetCompactItemRailMode(compactItem!, railMode);
             if (!control.Classes.Contains("rail-secondary"))
@@ -570,6 +570,13 @@ public partial class FinderSidebarView : UserControl
     }
 
     // ── Actions ──
+
+    private async void OnOpenDiskManagement(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (TopLevel.GetTopLevel(this) is MainWindow window)
+            await window.OpenDiskManagementAsync();
+    }
 
     private async void UnpinFolder(object? sender, RoutedEventArgs e)
     {

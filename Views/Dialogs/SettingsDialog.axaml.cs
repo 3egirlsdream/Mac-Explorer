@@ -88,6 +88,7 @@ public partial class SettingsDialog : DialogWindow
         _pinnedFolderService = pinnedFolderService;
         _defaultAppService = defaultAppService;
         _settingsService = settingsService;
+        _settingsService.SettingChanged += OnFolderCoverSettingChanged;
         _themeService = themeService;
         _typographyService = typographyService;
         _interactionStyleService = interactionStyleService ?? new Services.Impl.InteractionStyleService(settingsService);
@@ -111,6 +112,8 @@ public partial class SettingsDialog : DialogWindow
             _localizationService.LanguageChanged -= RefreshLanguage;
             if (_ownsLocalizationService && _localizationService is IDisposable owned) owned.Dispose();
             _updateCancellation.Cancel();
+            _settingsService.SettingChanged -= OnFolderCoverSettingChanged;
+            DisposeFolderCoverPreviews();
         };
     }
 

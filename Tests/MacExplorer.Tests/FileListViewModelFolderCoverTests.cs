@@ -59,6 +59,27 @@ public sealed class FileListViewModelFolderCoverViewModelTests : FileListViewMod
                     var secondList = secondView.FindControl<FastFileList>("FastList")!;
                     Assert.False(first.ShowFolderPhotoCovers);
                     Assert.False(firstList.FolderCoversEnabled);
+                    Assert.Equal(Models.FolderPhotoCoverStyle.Default, first.PhotoCoverStyle);
+                    Assert.Equal(Models.FolderPhotoCoverStyle.Default, firstList.FolderIconStyle);
+                    Assert.Null(settings.Get<string?>(FolderPhotoCoverStyles.SettingKey, null));
+                    var changed = new List<string?>();
+                    first.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+                    settings.Set(FolderPhotoCoverStyles.SettingKey, "frosted");
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Contains(nameof(first.PhotoCoverStyle), changed);
+                    Assert.Equal(Models.FolderPhotoCoverStyle.Frosted, first.PhotoCoverStyle);
+                    Assert.Equal(first.PhotoCoverStyle, second.PhotoCoverStyle);
+                    Assert.Equal(Models.FolderPhotoCoverStyle.Frosted, firstList.FolderIconStyle);
+                    Assert.Equal(firstList.FolderIconStyle, secondList.FolderIconStyle);
+                    Assert.False(first.ShowFolderPhotoCovers);
+
+                    settings.Set(FolderPhotoCoverStyles.SettingKey, "skeuomorphic");
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(Models.FolderPhotoCoverStyle.Skeuomorphic, first.PhotoCoverStyle);
+                    Assert.Equal(first.PhotoCoverStyle, second.PhotoCoverStyle);
+                    Assert.Equal(first.PhotoCoverStyle, firstList.FolderIconStyle);
+                    Assert.Equal(firstList.FolderIconStyle, secondList.FolderIconStyle);
+                    Assert.False(first.ShowFolderPhotoCovers);
 
                     settings.Set(FileListViewModel.FolderPhotoCoverSettingKey, true);
                     Dispatcher.UIThread.RunJobs();
@@ -70,12 +91,16 @@ public sealed class FileListViewModelFolderCoverViewModelTests : FileListViewMod
                     settings.Set(FileListViewModel.FolderPhotoCoverSettingKey, false);
                     Dispatcher.UIThread.RunJobs();
                     Assert.False(secondList.FolderCoversEnabled);
+                    Assert.Equal(Models.FolderPhotoCoverStyle.Skeuomorphic, secondList.FolderIconStyle);
                 }
                 finally { window.Close(); }
                 settings.Set(FileListViewModel.FolderPhotoCoverSettingKey, true);
             }
             using var reopened = new SettingsService(new DatabaseConnectionFactory(databasePath));
             Assert.True(reopened.Get(FileListViewModel.FolderPhotoCoverSettingKey, false));
+            Assert.Equal(Models.FolderPhotoCoverStyle.Skeuomorphic, FolderPhotoCoverStyles.Read(reopened));
+            reopened.Set(FolderPhotoCoverStyles.SettingKey, "unknown-future-style");
+            Assert.Equal(Models.FolderPhotoCoverStyle.Default, FolderPhotoCoverStyles.Read(reopened));
         }
         finally { Directory.Delete(root, recursive: true); }
     }

@@ -8,7 +8,6 @@ namespace MacExplorer.ViewModels;
 public partial class FileListViewModel
 {
     internal IFileTagService? FileTagService => _fileTagService;
-    public event Action? NewTagRequested;
     public bool ShowToolbarTags
     {
         get => _settingsService?.Get("show_toolbar_tags", true) ?? _showToolbarTags;

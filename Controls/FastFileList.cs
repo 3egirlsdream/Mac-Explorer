@@ -145,6 +145,17 @@ public sealed class FastFileList : Control, ILogicalScrollable
         _images.InvalidateFolderCovers();
         ScheduleVisibleUpdate();
     }
+    internal FolderPhotoCoverStyle FolderIconStyle
+    {
+        get => _images.FolderStyle;
+        set
+        {
+            if (_images.FolderStyle == value) return;
+            _images.FolderStyle = value;
+            ScheduleVisibleUpdate();
+            InvalidateVisual();
+        }
+    }
     public IReadOnlyList<FileSystemEntry> Rows => _rows;
     public bool IsTree => _treeRows.Count == _rows.Count && _treeRows.Count > 0;
     internal int CachedTextCount => _texts.Count;

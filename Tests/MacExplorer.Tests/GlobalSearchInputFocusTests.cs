@@ -32,8 +32,6 @@ public sealed class GlobalSearchInputFocusTests
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/Styles.axaml")));
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
-            new Uri("avares://MacExplorer/Controls/SurfaceCard.axaml")));
-        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Controls/AppWindow.axaml")));
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));

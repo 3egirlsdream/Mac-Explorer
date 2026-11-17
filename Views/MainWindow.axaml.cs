@@ -162,16 +162,6 @@ public partial class MainWindow : AppWindow
             PaneLayoutPopup.IsOpen = false;
         };
         GlobalSearchResults.ItemsSource = _globalSearchSuggestions;
-
-        // Ctrl+Shift+G: open Liquid Glass demo
-        KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.G && e.KeyModifiers.HasFlag(KeyModifiers.Control)
-                               && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
-                new LiquidGlassDemoWindow().Show();
-            }
-        };
     }
 
     private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -1109,6 +1099,8 @@ public partial class MainWindow : AppWindow
         try
         {
             var fileList = scope.ServiceProvider.GetRequiredService<FileListViewModel>();
+            if (navigate && loadDirectory && sourcePath == VirtualPath.Disks)
+                await fileList.NavigateToAsync(sourcePath);
             if (navigate && !string.IsNullOrWhiteSpace(sourcePath) && Path.IsPathFullyQualified(sourcePath))
                 fileList.PrepareInitialDirectoryView();
             if (navigate && !loadDirectory)
@@ -1119,7 +1111,7 @@ public partial class MainWindow : AppWindow
             // Finder opens a new tab at the current ordinary folder. Special
             // views start at Home because their virtual state cannot be safely
             // reconstructed from a filesystem path alone.
-            if (navigate && loadDirectory)
+            if (navigate && loadDirectory && sourcePath != VirtualPath.Disks)
                 await fileList.NavigateToAsync(sourcePath);
             return tab;
         }
@@ -1144,6 +1136,15 @@ public partial class MainWindow : AppWindow
         await AddTabAsync(directoryPath: directoryPath);
         if (_vm == null || _vm.Tabs.Count <= before)
             throw new InvalidOperationException(_vm?.FileList.StatusText ?? "无法新建标签页。");
+    }
+
+    internal async Task OpenDiskManagementAsync()
+    {
+        if (_vm == null) return;
+        var group = _vm.SelectedTab?.Group;
+        var existing = _vm.Tabs.FirstOrDefault(tab => tab.Group == group && tab.FileList.IsDiskManagementPage);
+        if (existing != null) _vm.SelectedTab = existing;
+        else await AddTabAsync(directoryPath: VirtualPath.Disks, group: group);
     }
 
     public async Task SetPaneLayoutAsync(PaneLayout layout)

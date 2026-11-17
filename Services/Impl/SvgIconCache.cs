@@ -16,6 +16,15 @@ namespace MacExplorer.Services.Impl;
 public static class SvgIconCache
 {
     private static readonly WeakBitmapCache Cache = new(8L * 1024 * 1024);
+    private static int _folderStyle;
+    internal static FolderPhotoCoverStyle FolderStyle => (FolderPhotoCoverStyle)Volatile.Read(ref _folderStyle);
+    internal static event Action? FolderStyleChanged;
+
+    internal static void SetFolderStyle(FolderPhotoCoverStyle style)
+    {
+        if (Interlocked.Exchange(ref _folderStyle, (int)style) != (int)style)
+            FolderStyleChanged?.Invoke();
+    }
 
     /// <summary>Clear all cached bitmaps (e.g. on theme change).</summary>
     public static void Clear() => Cache.Clear();
@@ -29,10 +38,12 @@ public static class SvgIconCache
     }
 
     /// <summary>Get or render a folder icon at the given size.</summary>
-    public static Bitmap GetFolderIcon(int size)
+    public static Bitmap GetFolderIcon(int size) => GetFolderIcon(size, FolderStyle);
+
+    public static Bitmap GetFolderIcon(int size, FolderPhotoCoverStyle style)
     {
-        var key = $"folder:{size}";
-        return Cache.GetOrAdd(key, _ => RenderFolderIcon(size));
+        var key = $"folder:{style}:{size}";
+        return Cache.GetOrAdd(key, _ => RenderFolderIcon(size, style));
     }
 
     /// <summary>Get or render an AI virtual-folder icon.</summary>
@@ -50,11 +61,14 @@ public static class SvgIconCache
         return RenderSvgToBitmap(svg, size);
     }
 
-    private static Bitmap RenderFolderIcon(int size)
+    private static Bitmap RenderFolderIcon(int size, FolderPhotoCoverStyle style)
     {
-        using var stream = new MemoryStream(RenderFolderPng(size));
+        using var stream = new MemoryStream(RenderFolderPng(size, style));
         return new Bitmap(stream);
     }
+
+    internal static byte[] RenderFolderPng(int size, FolderPhotoCoverStyle style)
+        => FolderArtwork.ReadIcon(size, style) ?? RenderFolderPng(size);
 
     internal static byte[] RenderFolderPng(int size)
     {

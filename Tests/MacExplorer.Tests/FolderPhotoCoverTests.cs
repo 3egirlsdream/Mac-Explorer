@@ -14,6 +14,157 @@ public sealed class FolderPhotoCoverTests : IDisposable
 
     [Fact]
     [Trait("Kind", "Unit")]
+    public void OrdinaryFolderStylesHaveDistinctTransparentArtworkAtEveryIconSize()
+    {
+        foreach (var size in new[] { 16, 48, 128, 256 })
+        {
+            var original = SvgIconCache.RenderFolderPng(size);
+            Assert.Equal(original, SvgIconCache.RenderFolderPng(size, Models.FolderPhotoCoverStyle.Default));
+            var variants = new[] { Models.FolderPhotoCoverStyle.Frosted, Models.FolderPhotoCoverStyle.Skeuomorphic }
+                .Select(style => SvgIconCache.RenderFolderPng(size, style)).ToArray();
+            Assert.False(variants[0].SequenceEqual(variants[1]));
+            foreach (var artwork in variants)
+            {
+                Assert.False(original.SequenceEqual(artwork));
+                using var bitmap = SKBitmap.Decode(artwork);
+                Assert.Equal(size, bitmap.Width);
+                Assert.Equal(size, bitmap.Height);
+                Assert.Equal(0, bitmap.GetPixel(0, 0).Alpha);
+                Assert.Equal(255, bitmap.GetPixel(size / 2, size / 2).Alpha);
+            }
+        }
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "UI")]
+    public async Task PairedStyleRefreshesCachedFoldersWithoutReloadingFileArtwork()
+    {
+        var folder = new Models.FileSystemEntry { FullPath = "/tmp/folder", Name = "folder", IsDirectory = true };
+        var file = new Models.FileSystemEntry { FullPath = "/tmp/file.pdf", Name = "file.pdf" };
+        var images = new FastFileListImages();
+        try
+        {
+            images.UpdateVisible([folder, file], 64);
+            await WaitForImages();
+            var originalFolder = images.Get(folder);
+            var originalFile = images.Get(file);
+            images.FolderStyle = Models.FolderPhotoCoverStyle.Frosted;
+            images.UpdateVisible([folder, file], 64);
+            await WaitForImages();
+            Assert.NotSame(originalFolder, images.Get(folder));
+            Assert.Same(originalFile, images.Get(file));
+            images.FolderStyle = Models.FolderPhotoCoverStyle.Default;
+            images.UpdateVisible([folder, file], 64);
+            await WaitForImages();
+            Assert.Same(originalFolder, images.Get(folder));
+        }
+        finally { images.Clear(); }
+
+        async Task WaitForImages()
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (images.Get(folder) == null || images.Get(file) == null) await Task.Delay(10, timeout.Token);
+        }
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    [Trait("Kind", "Unit")]
+    public async Task FrostedStyleUsesAtMostTwoValidPhotosAndRequestedOutputSize(int count, bool brokenFirst)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_root, "Frosted")).FullName;
+        foreach (var name in new[] { "a.png", "b.png", "c.png" }.Take(count))
+            File.WriteAllBytes(Path.Combine(folder, name), [1]);
+        var thumbnails = new StubThumbnails();
+        if (brokenFirst) thumbnails.BrokenNames.Add("a.png");
+        var result = await new FolderPhotoCoverService(thumbnails).CreateAsync(folder, 112,
+            CancellationToken.None, Models.FolderPhotoCoverStyle.Frosted);
+        Assert.NotNull(result);
+        using var bitmap = SKBitmap.Decode(result.Bytes);
+        Assert.Equal(112, bitmap.Width);
+        Assert.Equal(112, bitmap.Height);
+        Assert.Equal(Math.Min(count, brokenFirst ? 3 : 2), thumbnails.Requested.Count);
+    }
+
+    [Theory]
+    [InlineData(1, 32)]
+    [InlineData(2, 64)]
+    [InlineData(3, 128)]
+    [InlineData(3, 256)]
+    [Trait("Kind", "Unit")]
+    public async Task PaperStyleKeepsPhotosClearAndUsesAnOpaqueWarmPocket(int count, int pixels)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_root, "Paper")).FullName;
+        foreach (var name in new[] { "a.png", "b.png", "c.png" }.Take(count))
+            File.WriteAllBytes(Path.Combine(folder, name), [1]);
+        var thumbnails = new StubThumbnails();
+        var result = await new FolderPhotoCoverService(thumbnails).CreateAsync(folder, pixels,
+            CancellationToken.None, Models.FolderPhotoCoverStyle.Skeuomorphic);
+        Assert.NotNull(result);
+        Assert.Equal(count, thumbnails.Requested.Count);
+        using var bitmap = SKBitmap.Decode(result.Bytes);
+        Assert.Equal(pixels, bitmap.Width);
+        Assert.Equal(0, bitmap.GetPixel(0, 0).Alpha);
+        Assert.Equal(SKColors.Red, bitmap.GetPixel(pixels / 2, pixels / 2));
+        var photoPixels = from y in Enumerable.Range(0, pixels)
+                          from x in Enumerable.Range(0, pixels)
+                          let color = bitmap.GetPixel(x, y)
+                          where color.Red > 200 && color.Green < 50 && color.Blue < 50
+                          select (X: x, Y: y);
+        var visiblePhoto = photoPixels.ToArray();
+        var photoWidth = visiblePhoto.Max(p => p.X) - visiblePhoto.Min(p => p.X) + 1;
+        var photoHeight = visiblePhoto.Max(p => p.Y) - visiblePhoto.Min(p => p.Y) + 1;
+        // Small icons lose up to a pixel at antialiased paper and pocket edges.
+        var targetPhotoRatio = 266f / 152.5f;
+        Assert.InRange(Math.Abs(photoHeight - photoWidth / targetPhotoRatio), 0, 1.5f);
+        if (pixels >= 64)
+        {
+            var backplate = bitmap.GetPixel((int)(pixels * 16f / 320), (int)(pixels * 160f / 320));
+            Assert.Equal(255, backplate.Alpha);
+            Assert.True(Math.Abs(backplate.Red - backplate.Green) < 6 && backplate.Green > backplate.Blue + 8,
+                "The sage backplate remains visible without a separate warm grey folded side strip.");
+        }
+        var pocket = bitmap.GetPixel(pixels / 2, (int)(pixels * .84));
+        Assert.Equal(255, pocket.Alpha);
+        Assert.True(pocket.Red > pocket.Green && pocket.Green > pocket.Blue);
+        if (count > 1)
+        {
+            var green = 0; var magenta = 0;
+            foreach (var color in bitmap.Pixels)
+            {
+                if (color.Green > 190 && color.Red < 80 && color.Blue < 80) green++;
+                if (color.Red > 190 && color.Blue > 190 && color.Green < 80) magenta++;
+            }
+            Assert.True(green > 5, "The left rear photo is visible above the main photo.");
+            if (count > 2) Assert.True(magenta > 5, "The right rear photo is visible above the main photo.");
+        }
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public void WidePaperFolderPreservesPhotoGeometry()
+    {
+        using var photo = new SKBitmap(300, 200);
+        photo.Erase(SKColors.Red);
+        using (var canvas = new SKCanvas(photo))
+        using (var paint = new SKPaint { IsAntialias = true, Color = SKColors.Blue })
+            canvas.DrawCircle(150, 100, 35, paint);
+        using var rendered = SKBitmap.Decode(SkeuomorphicFolderRenderer.RenderPng(256, [photo]));
+        var blue = (from y in Enumerable.Range(0, rendered.Height)
+                    from x in Enumerable.Range(0, rendered.Width)
+                    let color = rendered.GetPixel(x, y)
+                    where color.Blue > 200 && color.Red < 50 && color.Green < 50
+                    select (X: x, Y: y)).ToArray();
+        Assert.NotEmpty(blue);
+        var width = blue.Max(p => p.X) - blue.Min(p => p.X) + 1;
+        var height = blue.Max(p => p.Y) - blue.Min(p => p.Y) + 1;
+        Assert.InRange(Math.Abs(width - height), 0, 2);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
     public void SelectsOnlyFirstThreeDirectImagesByFileName()
     {
         var folder = Path.Combine(_root, "Album");

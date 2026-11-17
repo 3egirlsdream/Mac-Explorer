@@ -5,7 +5,6 @@
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:models="using:MacExplorer.Models"
              xmlns:icons="using:MacExplorer.Assets"
-             xmlns:converters="using:MacExplorer.Converters"
              xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              x:Class="MacExplorer.Views.FinderSidebarView"
              x:DataType="vm:FileListViewModel"
@@ -66,8 +65,6 @@
                     </Grid>
                 </Border>
             </DataTemplate>
-            <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
-            <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -111,7 +108,7 @@
         <Style Selector="TextBlock.rail-text-hidden">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <Style Selector="Button.sidebar-item-action.rail-action-hidden">
+        <Style Selector="Button.sidebar-item-action.rail-action-hidden, Button.sidebar-header-action.rail-action-hidden">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
         <Style Selector="ItemsControl.rail-secondary.rail-hidden">
@@ -313,7 +310,17 @@
                     </Border>
 
                     <!-- Connected network locations and external disks share the mounts section. -->
-                    <TextBlock x:Name="MountedLocationsHeader" Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="{loc:Loc network.mounts}" IsVisible="False"/>
+                    <Grid x:Name="MountedLocationsHeader" ColumnDefinitions="*,Auto" Background="Transparent" Cursor="Arrow"
+                          Classes="sidebar-section-header sidebar-category-header rail-secondary" IsVisible="False">
+                        <TextBlock Classes="sidebar-section-title" Text="{loc:Loc network.mounts}"/>
+                        <controls:AppButton Grid.Column="1" x:Name="DiskManagementButton" Classes="ghost sidebar-header-action"
+                                            Margin="0,0,14,0" VerticalAlignment="Center"
+                                            ToolTip.Tip="{loc:Loc disk.title}" AutomationProperties.Name="{loc:Loc disk.title}"
+                                            Click="OnOpenDiskManagement">
+                            <PathIcon Data="{x:Static icons:Icons.Settings}" Width="12" Height="12"
+                                      Foreground="{DynamicResource TextMutedBrush}"/>
+                        </controls:AppButton>
+                    </Grid>
 
                     <ItemsControl x:Name="NetworkLocationsList"
                                   Classes="sidebar-items rail-secondary"

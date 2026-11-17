@@ -477,6 +477,10 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
         {
             segments.Add(new BreadcrumbSegment { DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("delivery.staging"), FullPath = path, HasDropdown = false });
         }
+        else if (path == VirtualPath.Disks)
+        {
+            segments.Add(new BreadcrumbSegment { DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("disk.title"), FullPath = path, HasDropdown = false });
+        }
         else if (path == VirtualPath.Network)
         {
             segments.Add(new BreadcrumbSegment { DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("network.title"), FullPath = path });

@@ -671,6 +671,15 @@ public partial class InfoPanelView : UserControl
         RetryPreviewButton.IsVisible = canRetry && IsLivePreviewEnabled;
     }
 
+    private void OnFolderIconStyleChanged()
+    {
+        if (!PreviewFileIcon.IsVisible || ViewModel?.SelectedEntries is not { Count: 1 } selected
+            || !selected[0].DetailsIconSource.IsDirectory) return;
+        PreviewFileIcon.Source = new MacExplorer.Converters.FileEntryToIconConverter()
+            .Convert(selected[0].DetailsIconSource, typeof(IImage), 128,
+                System.Globalization.CultureInfo.InvariantCulture) as IImage;
+    }
+
     private void ShowPreviewBadge(string text)
     {
         if (text.EndsWith(" 预览", StringComparison.Ordinal))
@@ -964,6 +973,7 @@ public partial class InfoPanelView : UserControl
         _memoryLifetime?.SetState(DiagnosticObjectState.Attached);
         base.OnAttachedToVisualTree(e);
         _language = LocalizationService.Current;
+        SvgIconCache.FolderStyleChanged += OnFolderIconStyleChanged;
         if (_language != null) _language.LanguageChanged += RefreshLocalizedDetails;
         RefreshLocalizedDetails();
         if (_fileTagService != null) _fileTagService.TagsChanged += OnFileTagsChanged;
@@ -976,6 +986,7 @@ public partial class InfoPanelView : UserControl
         CancelPanelLoad();
         CloseTagSuggestions();
         if (_language != null) _language.LanguageChanged -= RefreshLocalizedDetails;
+        SvgIconCache.FolderStyleChanged -= OnFolderIconStyleChanged;
         _language = null;
         if (_fileTagService != null) _fileTagService.TagsChanged -= OnFileTagsChanged;
         _tagReadGeneration++;

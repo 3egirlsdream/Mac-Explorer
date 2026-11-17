@@ -70,6 +70,7 @@ internal static class MacSandboxNative
     }
     internal static void CloseBookmark(IntPtr scope) => me_bookmark_close(scope);
     internal static string? FileIdentity(string path) => Take(me_file_identity(path));
+    internal static string? FileIdentity(SafeFileHandle handle) => Take(me_file_identity_handle(handle));
     internal static SafeFileHandle OpenRegularRead(string path)
     {
         var descriptor = me_open_regular_read(path);
@@ -124,6 +125,7 @@ internal static class MacSandboxNative
     [DllImport(Library)] private static extern IntPtr me_bookmark_open([MarshalAs(UnmanagedType.LPUTF8Str)] string bookmark, out IntPtr path, out IntPtr refreshed, [MarshalAs(UnmanagedType.I1)] out bool stale);
     [DllImport(Library)] private static extern void me_bookmark_close(IntPtr scope);
     [DllImport(Library)] private static extern IntPtr me_file_identity([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    [DllImport(Library)] private static extern IntPtr me_file_identity_handle(SafeFileHandle handle);
     [DllImport(Library, SetLastError = true)] private static extern int me_open_regular_read([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_trash_result([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out IntPtr result);
     [DllImport(Library)] private static extern IntPtr me_trash([MarshalAs(UnmanagedType.LPUTF8Str)] string path);

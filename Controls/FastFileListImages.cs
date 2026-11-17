@@ -24,6 +24,18 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
     private long _bytes;
     private CancellationTokenSource? _coverSchedule;
     private DateTime _lastVisibleUse = DateTime.UtcNow;
+    private FolderPhotoCoverStyle _folderStyle;
+    internal FolderPhotoCoverStyle FolderStyle
+    {
+        get => _folderStyle;
+        set
+        {
+            if (_folderStyle == value) return;
+            _folderStyle = value;
+            foreach (var key in _types.Keys.Where(key => key.IsDirectory && !key.Icon.StartsWith("ai-", StringComparison.Ordinal)).ToArray())
+                _types.Remove(key);
+        }
+    }
 
     public FastFileListImages() { MemoryCacheMaintenance.Register(this); MemoryDiagnostics.Register(this); }
     public MemoryDiagnosticState GetMemoryState() => new("file-list-images", _cache.Count, _bytes, _requests.Count);
@@ -50,7 +62,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             _lru.AddFirst(node);
             return node.Value.Bitmap;
         }
-        return _types.GetValueOrDefault(TypeKey.For(entry, _typePixelSize));
+        return _types.GetValueOrDefault(TypeKey.For(entry, _typePixelSize, _folderStyle));
     }
 
     public void UpdateVisible(IReadOnlyList<FileSystemEntry> entries, int pixelSize, int typePixelSize = 48,
@@ -78,7 +90,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
         List<FileSystemEntry>? coversToSchedule = null;
         foreach (var entry in entries)
         {
-            var type = TypeKey.For(entry, typePixelSize);
+            var type = TypeKey.For(entry, typePixelSize, _folderStyle);
             if (!_types.ContainsKey(type) && _pendingTypes.Add(type))
                 _ = LoadTypeAsync(type, _lifetime);
             var key = ImageKey.ForView(entry, pixelSize, loadCovers);
@@ -156,11 +168,12 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
                     if (!key.IsDirectory) return SvgIconCache.GetFileIcon(key.Icon, key.Extension, key.Pixels);
                     return key.Icon.StartsWith("ai-", StringComparison.Ordinal)
                         ? SvgIconCache.GetAiIcon(key.Icon, key.Pixels)
-                        : SvgIconCache.GetFolderIcon(key.Pixels);
+                        : SvgIconCache.GetFolderIcon(key.Pixels, key.Style);
                 }
                 finally { DecodeGate.Release(); }
             });
             if (lifetime != _lifetime) return;
+            if (key.IsDirectory && !key.Icon.StartsWith("ai-", StringComparison.Ordinal) && key.Style != _folderStyle) return;
             // These bitmaps belong to SvgIconCache. Thumbnail eviction never disposes them.
             if (_types.Count >= 256) _types.Clear();
             _types[key] = bitmap;
@@ -296,13 +309,14 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
         if (_visible.Count == 0 && _lastVisibleUse < unusedBefore) { _types.Clear(); _failed.Clear(); }
     }
 
-    private readonly record struct TypeKey(string Icon, string Extension, bool IsDirectory, int Pixels)
+    private readonly record struct TypeKey(string Icon, string Extension, bool IsDirectory, int Pixels, FolderPhotoCoverStyle Style)
     {
-        public static TypeKey For(FileSystemEntry entry, int pixels)
+        public static TypeKey For(FileSystemEntry entry, int pixels, FolderPhotoCoverStyle style)
         {
             var source = entry.DetailsIconSource;
             var badge = source.IsDirectory ? "" : FileIconRenderer.GetBadgeExtension(source.IconKey, source.Extension);
-            return new(source.IconKey, badge, source.IsDirectory, pixels);
+            return new(source.IconKey, badge, source.IsDirectory, pixels,
+                source.IsDirectory && !source.IconKey.StartsWith("ai-", StringComparison.Ordinal) ? style : FolderPhotoCoverStyle.Default);
         }
     }
     private readonly record struct ImageKey(string Path, DateTime Modified, long Size, string? Source, int Pixels, bool IsFolderCover)

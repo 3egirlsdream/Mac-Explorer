@@ -33,6 +33,7 @@ feat: 优化文件夹恢复
 - 实现复用 `DialogWindow` / `AppWindow`、`SettingsStyles.axaml` 的分组与字段行，以及全局按钮、输入框和主题色；完成后检查浅色、深色、窄窗口、长文本和图标是否完整显示。
 
 # 组件样式
+- 磁盘管理从侧栏挂载分组标题右侧的 Fluent Settings 齿轮进入，复用 `sidebar-header-action` 悬停／聚焦显隐，空分组继续隐藏；页面样式集中在 `Assets/DiskManagementStyles.axaml`，详情复用紧凑设置分组与全局信息字段行，窄窗口采用列表与详情逐级进入。
 - 分屏复用全局 `workspace-surface` / `workspace-content` / `workspace-shadow` / `workspace-inactive-overlay`：无边框，内容按 `RadiusLg` 裁切，激活显示零偏移轻阴影，深色额外使用柔和的 0.5px 外轮廓光；未激活以浅／深色淡灰蒙层淡化 30%。侧栏左侧内缩 4px，与玻璃表面上下间距一致；阴影独立于内容裁切，分屏内缩 12px 并结合主窗口 8px 外边距保留阴影空间，蒙层不拦截输入并排除玻璃采样。
 - 商店高级功能通过 `FeatureAccessService` 按功能授权，仅在触发高级入口时使用 `AppWindow.SubscriptionHost` 与可关闭的 `SubscriptionView`，复用紧凑设置分组和全局按钮；应用体验与 Apple 权益独立管理，价格及实际订阅优惠来自 StoreKit。
 - 官网版更新使用自有版本接口及下载安装流程；App Store 版通过 Apple Lookup 查询商店已发布版本，启动提示与关于页复用现有入口，点击“前往 App Store”打开应用详情页，由商店安装，不运行官网更新工作进程。
@@ -96,7 +97,11 @@ feat: 优化文件夹恢复
 
 - 文件名显示统一复用 `FileNameText` 的实际宽度排版；空间不足时仅从中间省略，保留完整扩展名（含点号），不再按固定字符数预先截断。文件列表与图标视图复用同一排版规则，首页和画廊使用该共享文字控件。
 
+- 图标视图重命名复用全局 `inline-rename-editor`，字号、高度、左对齐文字与列表视图一致；追加 `bordered` 显示 1px 主题焦点色边框，输入框与当前图标项的布局框等宽。
+
 # 多语言
+
+- 设置中的图片样式选择复用 `SettingsStyles.axaml` 的 `settings-preview-options`，使用带图片和单选标记的等宽选项，选中与悬停复用全局主题色，支持键盘选择。
 - 新增或修改菜单、按钮、标题、提示和错误信息时，统一复用现有本地化机制（`LocalizationText.Get` / `ILocalizationService`），并同步补齐 `Languages` 目录下简体中文、繁体中文、英文和法语的已发布语言文件，不直接显示硬编码文案。语言列表从 `Languages/*.json` 构建生成，新增语言不修改设置列表；中文原文查询需将 key 加入中文文件的 `literalKeys`。运行时只查内存缓存，不扫描目录或读取 JSON，规则见 `Languages/README.md`。
 - 动态右键菜单在构建时按当前语言取文案；检查语言切换后重新打开菜单的显示，确保中英文均正确，较长英文不裁切，参数占位符保持一致。
 - 代码生成的设置列表订阅语言切换并仅刷新显示文案，不重载配置或覆盖草稿；内置打开方式使用 `OpenWithApp.DisplayLabel`，快捷键使用 `ShortcutDefinition.DisplayName` / `DisplayGroup` / `DisplayContext`，保存的名称及用户自定义名称保持原样。
@@ -136,6 +141,10 @@ feat: 优化文件夹恢复
 - `.app` 列表大小在后台枚举时通过原生 `MDItem` 的 `kMDItemFSSize` 读取，不递归扫描应用包；系统大小尚未就绪时保持未知。普通文件夹列表不显示总大小，信息面板选中本地目录时通过 `DirectorySizeCalculator` 在后台统计，最多两个并发，不跟随符号链接；切换选择、关闭面板或释放页面时取消并拒绝过期结果。空目录显示 `0 B`，读取不完整时显示下限及说明；已有系统大小的 `.app` 直接复用，未知时在信息面板补算。
 
 - 文件缩略图统一复用 `ThumbnailShadow` 主题资源与 `ThumbnailAppearance`，沿实际图片边缘绘制零偏移、轻模糊的均匀阴影；文件列表与首页共用，类型图标和文件夹图标不加矩形阴影。
+- 磨砂文件夹与照片封面的细边材质共用 `FrostedFolderEdge`，保留细窄定向反光，不叠加宽卷边、内侧暗槽或独立白色描边。
+- 两种磨砂文件夹的后片配色与开口阴影共用 `FrostedFolderDepth`：后片使用偏灰冷蓝，开口阴影仅落在前片后方并向两端渐隐，保持细边宽度。
+- 设置中的文件夹样式以普通文件夹与照片封面成对预览并一起切换；普通图标通过 `SvgIconCache` 按样式和尺寸复用，文件列表与首页同步刷新，照片封面开关独立保留。
+- 磨砂与拟物普通文件夹图标、设置示例及纸纹使用 `Assets/FolderArtwork` 的内置素材，经 `Tools/Design/FolderRenderAssets` 重建并核对；动态封面保留原图层与采样算法，固定材质复用 `FolderMaterialCache` 的 4 MiB LRU 和使用租约，空闲清理不得释放仍在绘制的图像。
 - SVG／SVGZ 共用有界 SVG 渲染器；Krita 与 OpenRaster 只读取包内约定的预览图，经 `BoundedImageDecoder` 缩小。常见音频通过原生助手读取内嵌封面，其他系统支持的格式按需调用 Quick Look；缺少预览、解码失败或超过限制时显示类型图标。
 
 - 搜索清除按钮复用全局 `Button.search-clear-btn`，尺寸 15×15px（30px 输入框高度的一半），10px Fluent 关闭图标居中。
@@ -157,7 +166,7 @@ feat: 优化文件夹恢复
 - 内存生命周期：永久移除工作区及关闭窗口时通过 `MacAutomationLifetime` 解除 Avalonia macOS 原生无障碍节点循环，包含页签标题、装饰层光标及焦点框；关闭窗口后解绑原生输入根与回调，隐藏或短暂切换不释放；`AutomationLifetime.mm` 为固定版本补齐无障碍子节点、父节点、根节点及原生窗口查询的 COM 引用释放；仅托管弱引用归零不足以证明窗口已释放，实机回归还需验证关闭窗口的原生引用归零，升级 Avalonia 后核对接口 ABI 并运行 `Tools/Performance/MemoryBench` 验证关闭对象归零及重复操作后的内存增长。成功／取消任务释放执行上下文，失败重试上下文最多保留最近 8 个、估算断点数据总量 32 MiB、15 分钟，超限释放执行闭包与断点并保留错误摘要，释放后需重新创建任务；完成摘要和撤销分组各保留最近 100 条，进行中的撤销分组不淘汰。`MacFontLifetime` 针对 Avalonia 12.0.4 为系统字体合成结果补齐请求家族名与样式的原缓存键，避免 Helvetica 等缺少备用家族名时反复从字体流重建并滞留 CoreText 注册表；不改字体选择和字重，升级时核对内部缓存接口并验证相同字体查询复用与原生字体数量稳定。macOS 在加载界面前通过 `MacFontTableLifetime` 安装固定 Avalonia 12.0.4 的 `ThirdParty/Avalonia.TextShaping` 回补，将 HarfBuzz 长期字体表复制到 POH，Blob 释放时解除句柄，不固定普通 SOH 数组；仅适配项目引用对应运行时后端接口，升级时核对源文件／ABI 并验证字体排版一致性、Blob 回收及真实目录下的堆碎片。共享位图以弱引用缓存，不释放仍被绑定的图片；`MemoryCacheMaintenance` 每 30 秒清理闲置超过 60 秒的缓存，首页已租用预览及当前可见缩略图继续保留。
 
 - 图片预览通过 `BoundedImageDecoder` 在像素分配前读取尺寸，按最长边缩小且不放大，输出最长边最多 2048px；共享两个解码槽，每槽估算工作集上限 128 MiB，不支持安全缩小的大图返回类型图标。RAW 从原生 RGB 缓冲区直接采样到目标尺寸，不再建立全尺寸 RGBA 副本。搜索导航最多 100 条，最多缓存 8 份／4 MiB 结果快照，清理后返回原搜索时按原范围重新查询。
-- 内存诊断由 `MemoryDiagnostics` 写入 `RuntimePaths.LogDirectory` 的 `memory-*.jsonl`，每 30 秒记录 physical footprint、RSS、托管堆、GC、窗口／页签与弱注册的缓存统计，并记录图片拒绝／大解码、失败重试状态清理及原生节点释放；不记录文件路径、搜索内容或图片内容。日志队列最多 128 条，其中操作最多占 96 槽且每秒最多 128 条，超限在序列化前丢弃；趋势保留 2 个文件／4 MiB、事件保留 6 个文件／12 MiB，每文件最多 2 MiB，最后写入超过 7 天清理、单文件满一天轮转，清理只在后台执行并保护活动日志，无法腾出空间或写盘失败时停用诊断；不得为采样强制 GC 或建立强引用注册表。操作时间线只使用固定操作类型、进程内匿名 ID、数量与耗时，生命周期最多跟踪 2048 个弱引用，已结束元数据最多观察 24 小时；统计源最多弱登记 512 个，锁忙跳过并标记缺失；每个新文件保留会话／运行时／GC 配置，日志包含采样自身耗时，并汇总关闭／释放后经历 Gen2 仍存活的候选；GC 详情按周期分别采集各类最近结果及分代／LOH／POH 前后数据，编号不变不重写，不订阅分配事件。具体字段与限制见 `Tools/Performance/MemoryBench/Diagnostics.md`。
+- 内存诊断由 `MemoryDiagnostics` 写入 `RuntimePaths.LogDirectory` 的 `memory-*.jsonl`，每 30 秒记录 physical footprint、RSS、托管堆、GC、窗口／页签与弱注册的缓存统计，并记录图片拒绝／大解码、失败重试状态清理及原生节点释放；常规内存与操作事件不记录文件路径、搜索内容或图片内容。新建失败另外通过 `task.create_failed` 记录任务 ID、操作名称、目标目录、当前文件、异常消息／堆栈、HResult 和可用的原生错误码，写入前按字段限长，详细错误最多 4096 字符并标记截断；仅该事件允许最多 49152 个 JSON 字符，以容纳中文转义，仍复用原队列、限流和轮转。日志队列最多 128 条，其中操作最多占 96 槽且每秒最多 128 条，超限在序列化前丢弃；趋势保留 2 个文件／4 MiB、事件保留 6 个文件／12 MiB，每文件最多 2 MiB，最后写入超过 7 天清理、单文件满一天轮转，清理只在后台执行并保护活动日志，无法腾出空间或写盘失败时停用诊断；不得为采样强制 GC 或建立强引用注册表。操作时间线只使用固定操作类型、进程内匿名 ID、数量与耗时，生命周期最多跟踪 2048 个弱引用，已结束元数据最多观察 24 小时；统计源最多弱登记 512 个，锁忙跳过并标记缺失；每个新文件保留会话／运行时／GC 配置，日志包含采样自身耗时，并汇总关闭／释放后经历 Gen2 仍存活的候选；GC 详情按周期分别采集各类最近结果及分代／LOH／POH 前后数据，编号不变不重写，不订阅分配事件。具体字段与限制见 `Tools/Performance/MemoryBench/Diagnostics.md`。
 - 窗口缩放诊断通过 `WindowRenderDiagnostics` 复用上述日志，记录最大化／还原前后及稳定后的布局、原生视图、Retina 缩放和 Metal 画布尺寸，持续不一致标记为 `window.render_mismatch`；只读采样，不触发布局、重绘、GPU drawable 获取或事务刷新，不记录窗口标题和画面内容。采样随窗口关闭解除，取证步骤见 `Tools/Diagnostics/window-rendering.md`。
 
 - 主窗口页签通过 `AdaptiveTabPanel` 保留按内容 180–280px 的宽度，拥挤时按比例收窄至至少 112px，之后横向滚动；组名单独按内容计宽，最长 148px。新建按钮通过全局 `tab-add` 样式与可见页签区域保留 6px 左间距，与右侧预设及分屏入口统一使用全局 `title-nav-button`，采用与工具栏图标按钮一致的 32×32px 悬停尺寸、左右各 2px／上下各 6px 外边距并在 44px 标题栏内垂直居中；三项分别使用 Fluent Add／Square Multiple／Split Vertical 24 Regular，14px 图标居中并在同一水平线上，名称裁切并保留完整名称提示，不设置固定总宽度上限。
@@ -206,8 +215,14 @@ feat: 优化文件夹恢复
 
 - 下拉选择统一使用 `Controls/AppButton.cs` 的 `AppComboBox`，字段、选项及四档高度均在 `Assets/ButtonStyles.axaml` 定义，设置行显式使用 compact，页面不再覆盖样式；ComboBox 下拉与 MenuFlyout（含组合按钮菜单）共用标准 `context-submenu-surface` / `PopupGlass`，保留统一圆角、内边距、悬停与阴影空间。
 
-- Git 文件及目录的右键操作统一收在「标签」下方的「GIT」子菜单，复用 `ContextMenuAction`；入口由列表已加载的 Git 状态与仓库归属同步决定，打开后不因异步补全插入或移除，展开二级菜单时才刷新详细状态；按暂存区／工作区独立状态启用操作，目录与多选保持明确范围，写操作后同步刷新相关窗格。提交历史使用 `GitHistoryDialog`、全局 `ListBox.git-history` 与 `DiffPreviewView`，窄窗口上下排列，保留标题栏关闭和 Escape。
+- Git 文件及目录的右键操作统一收在「标签」下方的「Git」子菜单，复用 `ContextMenuAction`；入口由列表已加载的 Git 状态与仓库归属同步决定，打开后不因异步补全插入或移除，展开二级菜单时才刷新详细状态；按暂存区／工作区独立状态启用操作，目录与多选保持明确范围，写操作后同步刷新相关窗格。提交历史使用 `GitHistoryDialog`、全局 `ListBox.git-history` 与 `DiffPreviewView`，窄窗口上下排列，保留标题栏关闭和 Escape。
 
 - 侧栏自定义分组的标题与收起箭头复用 `sidebar-section-header` / `sidebar-collapse-icon`，交互与 AI 智能一致；每组独立保存展开状态并同步窗口，收起时标题保留文件夹固定拖入区。
 
 - 搜索索引通过 `SearchIndexer` 的文件事件分类与有界局部待办执行增量更新；`SearchCatalog` 仅写真实变化的元数据，目录删除必须经扫描会话完整核对，取消或读取失败保留旧项，不再以更新所有行的 `scan_id` 检测删除。恢复和刷新优先于后台遍历，整根积压冷却不阻塞精确更新；检查点不得越过未完成或延迟的核对。诊断合并写入，索引自身产物不得触发扫描。规则与实测入口见 `docs/development/search-indexing.md` 和 `Tools/Performance/SearchWriteBench/README.md`。
+
+- 拟物纸质文件夹与照片封面共用 `SkeuomorphicFolderRenderer` 的米灰纸纹、鼠尾草绿页耳、暖白相纸与实体口袋；与默认、磨砂玻璃三套样式在设置中成对预览并切换，照片封面开关保持独立。纸纹静态复用，照片最多三张，沿用后台限流与按样式／尺寸缓存。
+
+- 新建文件通过 `NewFileWriter` 先写隐藏暂存文件，优先使用独占改名发布；macOS 返回不支持独占改名时，以 `FileMode.CreateNew` 独占创建目标并复制内容，重名继续编号，不使用存在性检查后普通改名。复制失败或取消时，在关闭句柄前以 `fstat` 与路径身份比对后清理自身文件，兼容 exFAT 刷盘时 inode 变化；兼容复制期间目标可见，不承诺原子发布。
+
+- 磨砂玻璃的普通文件夹与照片封面共用 `FrostedFolderDepth` 的默认文件夹横向轮廓（约 1.27:1）、前片和圆角；照片纹理按前片实际宽高等比裁切，默认 11% 底部磨砂与细边材质独立于轮廓比例。

@@ -250,6 +250,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public string GetLocationIcon(string location)
     {
+        if (location == VirtualPath.Disks) return AppIcons.ExternalDrive;
         if (location == FileDeliveryService.StagingPath) return AppIcons.Download;
         if (location == VirtualPath.Network || VirtualPath.IsRemotePath(location)) return AppIcons.Network;
         if (TagPathHelper.IsTagPath(location)) return AppIcons.Tag;
@@ -1081,6 +1082,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (e.PropertyName == nameof(NavigationViewModel.CurrentPath))
         {
             OnPropertyChanged(nameof(IsNetworkPage));
+            OnPropertyChanged(nameof(IsDiskManagementPage));
             OnTreeLocationChanged();
             _restoredPreferencePath = null;
             _restoringDirectoryPreferences = true;
@@ -1279,6 +1281,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (_navigation.IsSearchMode)
             _search.Reset();
 
+        if (path == VirtualPath.Disks)
+        {
+            NavigateToDisks();
+            return;
+        }
+
         if (path == VirtualPath.Network)
         {
             NavigateToNetwork();
@@ -1409,7 +1417,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateUpAsync()
     {
         if (IsHomePage || IsDeliveryStaging) return;
-        if (IsNetworkPage) { GoHome(); return; }
+        if (IsNetworkPage || IsDiskManagementPage) { GoHome(); return; }
 
         if (IsTagView)
         {
@@ -1488,6 +1496,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (path == FileDeliveryService.StagingPath && _deliveryStaging != null)
             {
                 await LoadDeliveryStagingAsync(recordHistory: false);
+            }
+            else if (path == VirtualPath.Disks)
+            {
+                NavigateToDisks();
             }
             else if (path == VirtualPath.Network)
             {
@@ -1939,6 +1951,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsDeliveryStaging) { await LoadDeliveryStagingAsync(recordHistory: false); return; }
         if (IsHomePage) return;
+        if (IsDiskManagementPage)
+        {
+            DiskManagementRefreshRequested?.Invoke();
+            return;
+        }
         if (IsNetworkPage)
         {
             App.Services?.GetService<INetworkDiscoveryService>()?.Refresh();
@@ -3469,7 +3486,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task PasteAsync()
     {
-        if (IsBrowseOnly || IsNetworkPage) return;
+        if (IsBrowseOnly || IsNetworkPage || IsDiskManagementPage) return;
         if (_clipboardService == null) return;
 
         if (CurrentTag is { } tag)
@@ -3486,7 +3503,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (IsArchiveView || IsHomePage || IsNetworkPage || string.IsNullOrWhiteSpace(_navigation.CurrentPath)) return;
+        if (IsArchiveView || IsHomePage || IsNetworkPage || IsDiskManagementPage || string.IsNullOrWhiteSpace(_navigation.CurrentPath)) return;
 
         var kind = _clipboardService.GetPasteKind();
         if (kind == ClipboardPasteKind.None) return;
@@ -3736,7 +3753,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task CreateNewFolderAsync()
     {
-        if (IsBrowseOnly || IsNetworkPage) return;
+        if (IsBrowseOnly || IsNetworkPage || IsDiskManagementPage) return;
         try
         {
             var rawEntries = Entries.ToList();
@@ -3766,7 +3783,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task CreateNewFileAsync(string? extension = null)
     {
-        if (IsBrowseOnly || IsNetworkPage) return;
+        if (IsBrowseOnly || IsNetworkPage || IsDiskManagementPage) return;
         try
         {
             var rawEntries = Entries.ToList();
@@ -4576,7 +4593,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     internal Task<ThumbnailResult?> GetFolderPhotoCoverAsync(FileSystemEntry entry, int pixelSize, CancellationToken ct)
         => entry.IsFolder && entry.IsReadable && !entry.IsSymbolicLink && !entry.IsVirtual && !IsRemoteView && !IsArchiveView
             && _folderPhotoCoverService != null
-            ? _folderPhotoCoverService.CreateAsync(entry.FullPath, pixelSize, ct)
+            ? _folderPhotoCoverService.CreateAsync(entry.FullPath, pixelSize, ct, PhotoCoverStyle)
             : Task.FromResult<ThumbnailResult?>(null);
 
     internal event Action? FolderCoversRefreshRequested;

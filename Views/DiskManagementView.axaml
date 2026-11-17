@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:MacExplorer.Controls" xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:icons="using:MacExplorer.Assets" x:Class="MacExplorer.Views.DiskManagementView"
+             x:DataType="vm:DiskManagementViewModel">
+    <UserControl.Styles>
+        <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
+        <StyleInclude Source="avares://MacExplorer/Assets/DiskManagementStyles.axaml"/>
+    </UserControl.Styles>
+    <UserControl.Resources>
+        <DataTemplate x:Key="DiskFieldTemplate" x:DataType="vm:DiskField">
+            <Border Classes="info-field-row">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="{Binding Label}" Classes="info-field-label"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Value}" ToolTip.Tip="{Binding Value}"
+                               Classes="info-field-value" TextWrapping="Wrap"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource WorkspaceContentBrush}">
+        <ProgressBar x:Name="DiskLoadingIndicator" Grid.RowSpan="2" ZIndex="1" VerticalAlignment="Top"
+                     IsVisible="{Binding IsLoading}" IsIndeterminate="True" Height="2"
+                     AutomationProperties.Name="{controls:Loc disk.loading}"/>
+        <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Margin="16,8"
+                   Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
+        <Grid Grid.Row="1" x:Name="DiskLayout" ColumnDefinitions="220,*">
+            <Border x:Name="DiskListPane" BorderBrush="{DynamicResource DialogDividerBrush}" BorderThickness="0,0,1,0">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Text="{controls:Loc disk.list}" Classes="info-section-title" Margin="18,16,8,4"/>
+                    <ListBox Grid.Row="1" x:Name="DiskList" Classes="disk-list" ItemsSource="{Binding Disks}"
+                             SelectedItem="{Binding SelectedDisk, Mode=TwoWay}" SelectionChanged="OnDiskSelected"
+                             PointerReleased="OnDiskReleased"
+                             AutomationProperties.Name="{controls:Loc disk.list}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DiskRowViewModel">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding GroupTitle}" IsVisible="{Binding HasGroupTitle}"
+                                               FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"
+                                               Margin="10,8,0,4"/>
+                                    <Border Classes="disk-row">
+                                        <Grid ColumnDefinitions="20,*" ColumnSpacing="8">
+                                            <PathIcon Data="{Binding IconData}" Width="20" Height="20" VerticalAlignment="Top"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                            <StackPanel Grid.Column="1" Spacing="5">
+                                                <TextBlock Text="{Binding Name}" ToolTip.Tip="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                           FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <ProgressBar Classes="disk-capacity" Value="{Binding UsedPercent}" IsVisible="{Binding HasCapacity}"/>
+                                                <TextBlock Text="{Binding CapacityText}" TextWrapping="Wrap"
+                                                           FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+            <Grid Grid.Column="1" x:Name="DiskDetailPane" RowDefinitions="Auto,Auto,*" Margin="16">
+                <StackPanel Grid.Row="0" Spacing="12">
+                    <controls:AppButton x:Name="BackToDisksButton" Classes="ghost compact" HorizontalAlignment="Left"
+                                        IsVisible="False" Click="OnBackToList" Content="{controls:Loc disk.back}"/>
+                    <Grid ColumnDefinitions="28,*" ColumnSpacing="10" IsVisible="{Binding HasSelection}">
+                        <PathIcon Data="{Binding IconData}" Width="28" Height="28" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding Name}" ToolTip.Tip="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                       FontSize="{DynamicResource FontSizeTitle}" FontWeight="{DynamicResource FontWeightMedium}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Status}" IsVisible="{Binding HasDetails}" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Grid>
+                    <WrapPanel IsVisible="{Binding HasDetails}" Orientation="Horizontal">
+                        <controls:AppButton x:Name="OpenDiskButton" Classes="secondary compact" Margin="0,0,8,4"
+                                            Content="{controls:Loc disk.open}" Click="OnOpenDisk" IsEnabled="{Binding CanOpen}"/>
+                        <controls:AppButton x:Name="EjectDiskButton" Classes="secondary compact" Margin="0,0,8,4"
+                                            Content="{controls:Loc disk.eject}" Click="OnEjectDisk" IsVisible="{Binding SelectedDisk.Info.CanEject}"
+                                            IsEnabled="{Binding CanEject}"/>
+                        <controls:AppButton Classes="icon-action" Click="OnMore" ToolTip.Tip="{controls:Loc disk.more}"
+                                            AutomationProperties.Name="{controls:Loc disk.more}">
+                            <PathIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="16" Height="16"/>
+                        </controls:AppButton>
+                    </WrapPanel>
+                </StackPanel>
+                <TextBlock Grid.Row="1" Text="{controls:Loc disk.disconnected}" IsVisible="{Binding IsDisconnected}"
+                           Foreground="{DynamicResource TextMutedBrush}" Margin="0,16" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="1" Text="{controls:Loc disk.empty}" IsVisible="{Binding IsEmpty}"
+                           Foreground="{DynamicResource TextMutedBrush}" Margin="0,16" TextWrapping="Wrap"/>
+                <ScrollViewer x:Name="DiskDetailsScroll" Grid.Row="2" IsVisible="{Binding HasDetails}" HorizontalScrollBarVisibility="Disabled" Margin="0,12,0,0">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding CapacityText}" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <ProgressBar Classes="disk-capacity" Value="{Binding UsedPercent}" IsVisible="{Binding HasCapacity}"/>
+                            <TextBlock Text="{Binding FreeText}" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{controls:Loc disk.apfs-shared}" IsVisible="{Binding IsApfs}" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                        <Border Classes="settings-group" Padding="12,4">
+                            <ItemsControl x:Name="BasicFieldsList" ItemsSource="{Binding BasicFields}" ItemTemplate="{StaticResource DiskFieldTemplate}"/>
+                        </Border>
+                        <Expander x:Name="TechnicalDetails" Classes="compact-details" Header="{controls:Loc disk.technical}" HorizontalAlignment="Stretch">
+                            <Border Classes="settings-group" Padding="12,4">
+                                <ItemsControl x:Name="TechnicalFieldsList" ItemsSource="{Binding TechnicalFields}" ItemTemplate="{StaticResource DiskFieldTemplate}"/>
+                            </Border>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

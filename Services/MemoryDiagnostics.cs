@@ -16,7 +16,7 @@ internal readonly record struct MemoryDiagnosticState(string Kind, int Entries, 
 // waiting for business locks. Busy sources must report Skipped instead.
 internal interface IMemoryDiagnosticSource { MemoryDiagnosticState GetMemoryState(); }
 
-/// <summary>Bounded, local diagnostics. Never collects file names, search text or file contents.</summary>
+/// <summary>Bounded, local diagnostics. Task failures include paths and exception details; no file contents are collected.</summary>
 internal sealed class MemoryDiagnostics : IDisposable
 {
     private static readonly List<WeakReference<IMemoryDiagnosticSource>> Sources = [];
@@ -61,7 +61,8 @@ internal sealed class MemoryDiagnostics : IDisposable
             serverGc = GCSettings.IsServerGC, latencyMode = GCSettings.LatencyMode.ToString(),
             gcConfiguration = GC.GetConfigurationVariables().Where(p => p.Value is bool or int or uint or long or ulong or double).ToDictionary(),
             policy = new { sampleSeconds = 30, queueCapacity = QueueCapacity, eventRateLimit = EventRateLimit,
-                maxRecordCharacters = 8192, retentionDays = 7, fileBytes = 2 * 1024 * 1024, eventFiles = 6, trendFiles = 2,
+                maxRecordCharacters = 8192, maxTaskFailureRecordCharacters = 48 * 1024,
+                retentionDays = 7, fileBytes = 2 * 1024 * 1024, eventFiles = 6, trendFiles = 2,
                 sourceCapacity = SourceCapacity, lifetimeCapacity = MemoryDiagnosticLifetimes.Capacity, endedLifetimeHours = 24 } };
         // A process-wide timer/writer must never root a file task through AsyncLocal.
         using var flow = ExecutionContext.IsFlowSuppressed() ? default : ExecutionContext.SuppressFlow();
@@ -152,7 +153,9 @@ internal sealed class MemoryDiagnostics : IDisposable
         try
         {
             var record = Serialize(name, data);
-            if (record.Length > 8192) Drop(ref _oversized);
+            // Exception text and paths can expand sixfold when JSON-escaped.
+            var limit = name is "task.create_failed" or "task.failed" ? 48 * 1024 : 8192;
+            if (record.Length > limit) Drop(ref _oversized);
             else if (!(queued = _records.Writer.TryWrite(new(record, summary)))) Drop(ref _queueFull);
         }
         catch { Drop(ref _serializationFailed); }

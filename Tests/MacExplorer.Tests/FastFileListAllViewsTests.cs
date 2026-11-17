@@ -125,7 +125,9 @@ public sealed class FastFileListAllViewsViewModelTests : FileListViewModelTestBa
             var index = list.IndexOf(Assert.Single(vm.SelectedEntries));
             if (grid)
             {
-                Assert.Equal(100, editor.Width);
+                Assert.Equal(list.RowBounds(index).Width, editor.Width);
+                var origin = list.TranslatePoint(default, overlay)!.Value;
+                Assert.Equal(origin.X + list.RowBounds(index).X, Canvas.GetLeft(editor));
                 Assert.True(Canvas.GetTop(editor) + editor.Height <= list.RowBounds(index).Bottom);
             }
             else Assert.InRange(editor.Width, 60, list.Bounds.Width);

@@ -97,6 +97,18 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     }
     private HomeView HomeViewControl => LoadPage<HomeView>(HomeViewHost, "HomeViewControl");
     private NetworkView NetworkViewControl => LoadPage<NetworkView>(NetworkViewHost, "NetworkViewControl");
+    private DiskManagementView? _diskManagement;
+    private DiskManagementView DiskManagementControl
+    {
+        get
+        {
+            if (_diskManagement != null) return _diskManagement;
+            _diskManagement = LoadPage<DiskManagementView>(DiskManagementViewHost, "DiskManagementControl");
+            _diskManagement.OpenDirectory = path => TopLevel.GetTopLevel(this) is MainWindow window
+                ? window.OpenNewTabAsync(path) : _tab?.FileList.NavigateToAsync(path) ?? Task.CompletedTask;
+            return _diskManagement;
+        }
+    }
 
     private static T LoadPage<T>(ContentControl host, string name) where T : Control, new()
     {
@@ -146,6 +158,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         {
             _tab.PropertyChanged -= OnTabPropertyChanged;
             _tab.FileList.PropertyChanged -= OnFileListPropertyChanged;
+            _tab.FileList.DiskManagementRefreshRequested -= OnRefreshDisks;
         }
 
         base.OnDataContextChanged(e);
@@ -155,6 +168,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         {
             _tab.PropertyChanged += OnTabPropertyChanged;
             _tab.FileList.PropertyChanged += OnFileListPropertyChanged;
+            _tab.FileList.DiskManagementRefreshRequested += OnRefreshDisks;
             _normalPreviewWidth = _tab.InfoPanelWidth;
             _infoPanel?.RestorePreviewExpanded(_tab.IsPreviewExpanded);
         }
@@ -175,6 +189,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (e.PropertyName is nameof(FileListViewModel.IsHomePage)
             or nameof(FileListViewModel.IsAiView)
             or nameof(FileListViewModel.IsNetworkPage)
+            or nameof(FileListViewModel.IsDiskManagementPage)
             or nameof(FileListViewModel.AiViewMode))
         {
             UpdateContentVisibility();
@@ -204,7 +219,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         var fileList = _tab?.FileList;
         var showAiSearch = fileList?.IsAiView == true && fileList.AiViewMode == AiViewMode.TextSearch;
-        FileListControl.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage && !showAiSearch;
+        FileListControl.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage && !fileList.IsDiskManagementPage && !showAiSearch;
         HomeViewHost.IsVisible = fileList?.IsHomePage == true;
         if (HomeViewHost.IsVisible) _ = HomeViewControl;
         if (HomeViewHost.Content is Control home) home.IsVisible = HomeViewHost.IsVisible;
@@ -215,8 +230,15 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         NetworkViewHost.IsVisible = fileList?.IsNetworkPage == true;
         if (NetworkViewHost.IsVisible) _ = NetworkViewControl;
         if (NetworkViewHost.Content is Control network) network.IsVisible = NetworkViewHost.IsVisible;
-        StatusBar.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
-        ToolbarSurface.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage;
+        DiskManagementViewHost.IsVisible = fileList?.IsDiskManagementPage == true;
+        if (DiskManagementViewHost.IsVisible) _ = DiskManagementControl;
+        if (_diskManagement != null)
+        {
+            _diskManagement.IsVisible = DiskManagementViewHost.IsVisible;
+            _diskManagement.UpdateActivity();
+        }
+        StatusBar.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage && !fileList.IsDiskManagementPage;
+        ToolbarSurface.IsVisible = fileList != null && !fileList.IsHomePage && !fileList.IsNetworkPage && !fileList.IsDiskManagementPage;
         SyncThumbnailZoomSlider();
         UpdatePageSearchPresentation();
     }
@@ -261,7 +283,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private void UpdateInfoPanelVisibility()
     {
         var fileList = _tab?.FileList;
-        var canShow = fileList != null && !fileList.IsHomePage && !fileList.IsAiView && !fileList.IsNetworkPage;
+        var canShow = fileList != null && !fileList.IsHomePage && !fileList.IsAiView && !fileList.IsNetworkPage && !fileList.IsDiskManagementPage;
         if (canShow && fileList!.IsInfoPanelVisible) _ = InfoPanelControl;
         InfoDrawer.IsPaneOpen = canShow && fileList!.IsInfoPanelVisible;
     }
@@ -357,7 +379,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private void UpdatePageSearchPresentation()
     {
         var isHome = _tab?.FileList.IsHomePage == true;
-        if (_tab?.FileList.IsNetworkPage == true)
+        if (_tab?.FileList.IsNetworkPage == true || _tab?.FileList.IsDiskManagementPage == true)
         {
             SearchToggleButton.IsVisible = SearchHost.IsVisible = false;
             BreadcrumbControl.IsVisible = true;
@@ -620,6 +642,11 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             await _tab.FileList.RefreshCommand.ExecuteAsync(null);
     }
 
+    private void OnRefreshDisks()
+    {
+        if (_diskManagement != null) _ = _diskManagement.RefreshAsync();
+    }
+
     private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
     {
         if (_tab?.FileList == null)
@@ -690,12 +717,14 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         _disposed = true;
         _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
         _infoPanel?.ReleaseDiagnosticLifetime();
+        _diskManagement?.Dispose();
         SizeChanged -= OnWorkspaceSizeChanged;
         if (_infoPanel != null) _infoPanel.PreviewExpandedChanged -= OnPreviewExpandedChanged;
         if (_tab != null)
         {
             _tab.PropertyChanged -= OnTabPropertyChanged;
             _tab.FileList.PropertyChanged -= OnFileListPropertyChanged;
+            _tab.FileList.DiskManagementRefreshRequested -= OnRefreshDisks;
         }
         ToolbarControl.CloseDropdowns();
         BreadcrumbControl.CloseTransientUi();

@@ -101,7 +101,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
             vm.ExternalVolumes.Add(new VolumeInfo { Path = "/Volumes/USB", DisplayName = "USB", IsExternal = true });
             Dispatcher.UIThread.RunJobs();
             Assert.Single(local.Items);
-            Assert.True(sidebar.FindControl<TextBlock>("MountedLocationsHeader")!.IsVisible);
+            Assert.True(sidebar.FindControl<Grid>("MountedLocationsHeader")!.IsVisible);
             Assert.False(volumes.IsVisible);
             vm.ExternalVolumes.Add(new VolumeInfo { Path = "/Volumes/TestShare", DisplayName = "TestShare", IsNetwork = true });
             Dispatcher.UIThread.RunJobs();
@@ -111,7 +111,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
             Dispatcher.UIThread.RunJobs();
             Assert.False(volumes.IsVisible);
             Assert.False(local.IsVisible);
-            Assert.False(sidebar.FindControl<TextBlock>("MountedLocationsHeader")!.IsVisible);
+            Assert.False(sidebar.FindControl<Grid>("MountedLocationsHeader")!.IsVisible);
         }
         finally { window.Close(); }
     }

@@ -609,6 +609,19 @@
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
+    <Style Selector="TextBox.inline-rename-editor.bordered,
+                     TextBox.inline-rename-editor.bordered:pointerover,
+                     TextBox.inline-rename-editor.bordered:focus">
+        <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="TextBox.inline-rename-editor.bordered /template/ Border#PART_BorderElement,
+                     TextBox.inline-rename-editor.bordered:pointerover /template/ Border#PART_BorderElement,
+                     TextBox.inline-rename-editor.bordered:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
     <Style Selector="ListBoxItem">
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>

@@ -188,14 +188,15 @@ public partial class FileListView
         var editor = new TextBox
         {
             Text = entry.Name, MinWidth = 0, MinHeight = 0,
-            TextAlignment = FastList.IsGrid ? Avalonia.Media.TextAlignment.Center : Avalonia.Media.TextAlignment.Left,
+            TextAlignment = Avalonia.Media.TextAlignment.Left,
             TextWrapping = Avalonia.Media.TextWrapping.NoWrap,
             VerticalContentAlignment = VerticalAlignment.Center
         };
-        AppTypography.BindFontSize(editor, FastList.IsGrid ? AppTypography.Caption : AppTypography.Body);
+        AppTypography.BindFontSize(editor, AppTypography.Body);
         editor.Bind(HeightProperty, editor.GetResourceObservable("TypographyInlineEditorHeight"));
         editor.Bind(TextBox.FontWeightProperty, editor.GetResourceObservable("FontWeightRegular"));
         editor.Classes.Add("inline-rename-editor");
+        editor.Classes.Set("bordered", FastList.IsGrid);
         _renameEditor = editor;
         _activeRenamePath = entry.FullPath;
         FastList.EditingPath = entry.FullPath;
@@ -216,9 +217,9 @@ public partial class FileListView
         }
         var bounds = FastList.NameBounds(index);
         var origin = FastList.TranslatePoint(default, FastRenameOverlay) ?? default;
-        var gridEditorWidth = FastList.GridNameWidth + 8;
-        Canvas.SetLeft(_renameEditor, origin.X + (FastList.IsGrid ? FastList.RowBounds(index).Center.X - gridEditorWidth / 2 : bounds.X));
+        var rowBounds = FastList.RowBounds(index);
+        Canvas.SetLeft(_renameEditor, origin.X + (FastList.IsGrid ? rowBounds.X : bounds.X));
         Canvas.SetTop(_renameEditor, origin.Y + (FastList.IsGrid ? bounds.Y : FastList.RowBounds(index).Y + Math.Round((FastFileList.RowHeight - _renameEditor.Height) / 2)));
-        _renameEditor.Width = FastList.IsGrid ? gridEditorWidth : Math.Min(Math.Max(72, bounds.Width + 12), Math.Max(1, FastList.ColumnWidths.Name - 8));
+        _renameEditor.Width = FastList.IsGrid ? rowBounds.Width : Math.Min(Math.Max(72, bounds.Width + 12), Math.Max(1, FastList.ColumnWidths.Name - 8));
     }
 }

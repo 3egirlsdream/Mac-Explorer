@@ -16,6 +16,7 @@
     <PackageReference Include="xunit.v3" Version="3.2.2" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../../Tools/Design/FolderIconDemo/FolderCoverRenderService.cs" Link="FolderIconDemo/FolderCoverRenderService.cs" />
     <ProjectReference Include="../../MacExplorer.csproj" />
     <ProjectReference Include="../MacExplorer.UnitTests/MacExplorer.UnitTests.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" />

@@ -1,8 +1,6 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
 using MacExplorer.Views;
@@ -59,19 +57,4 @@ public class FileEntryToIconConverter : IValueConverter
 
         return Math.Clamp(size, 16, 512);
     }
-}
-
-/// <summary>
-/// Legacy color converter — kept for backward compatibility.
-/// The SVG bitmaps already carry their own colours; this returns a neutral fallback.
-/// </summary>
-public class FileEntryToIconColorConverter : IValueConverter
-{
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        return Brushes.Gray; // unused when Image replaces PathIcon
-    }
-
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => throw new NotSupportedException();
 }

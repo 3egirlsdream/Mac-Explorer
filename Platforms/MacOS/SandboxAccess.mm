@@ -252,12 +252,22 @@ int me_open_regular_read(const char *path) {
     }
     return descriptor;
 }
+static char *MEFileIdentity(const struct stat &status) {
+    return MEString([NSString stringWithFormat:@"%llu:%llu:%lld:%ld", (unsigned long long)status.st_dev,
+        (unsigned long long)status.st_ino, (long long)status.st_birthtimespec.tv_sec, status.st_birthtimespec.tv_nsec]);
+}
 char *me_file_identity(const char *path) {
     @autoreleasepool {
         struct stat status;
         if (lstat(path, &status) != 0) return nullptr;
-        return MEString([NSString stringWithFormat:@"%llu:%llu:%lld:%ld", (unsigned long long)status.st_dev,
-            (unsigned long long)status.st_ino, (long long)status.st_birthtimespec.tv_sec, status.st_birthtimespec.tv_nsec]);
+        return MEFileIdentity(status);
+    }
+}
+char *me_file_identity_handle(intptr_t descriptor) {
+    @autoreleasepool {
+        struct stat status;
+        if (fstat((int)descriptor, &status) != 0) return nullptr;
+        return MEFileIdentity(status);
     }
 }
 bool me_eject_volume(const char *path, char **failure) {

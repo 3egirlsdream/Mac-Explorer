@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Controls;
 using MacExplorer.Models;
+using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using Xunit;
 
@@ -16,6 +17,35 @@ namespace MacExplorer.Tests;
 [Trait("Area", "FileTasks")]
 public sealed class SessionFileTasksUiTests
 {
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData("zh-CN", BackgroundTaskState.Failed)]
+    [InlineData("en", BackgroundTaskState.NeedsAttention)]
+    [InlineData("zh-Hant", BackgroundTaskState.Failed)]
+    [InlineData("fr", BackgroundTaskState.NeedsAttention)]
+    public void FailureTooltipsShowOnlyLocalizedStatus(string languageCode, BackgroundTaskState state)
+    {
+        using var theme = new FastListTestTheme();
+        using var language = new LocalizationService(new ShortcutMemorySettings());
+        language.SetLanguage(languageCode);
+        var manager = new BackgroundTaskManager();
+        var task = manager.AddTask("新建文件", BackgroundTaskKind.Create);
+        task.State = state;
+        task.CurrentFile = "/test/new.txt";
+        task.ErrorMessage = "Operation not supported";
+        task.ErrorDetail = "System.IO.IOException: Operation not supported\n   at DeveloperOnly.Frame()";
+        var presenter = new FileTaskPanelPresenter(manager, null);
+        var row = Assert.IsType<Border>(Assert.Single(Assert.IsType<StackPanel>(presenter.View).Children));
+        var status = Assert.Single(Assert.IsType<Grid>(row.Child).Children.OfType<TextBlock>(),
+            text => text.Classes.Contains("task-percentage"));
+        Assert.Equal(LocalizationText.Get(state == BackgroundTaskState.Failed ? "失败" : "需要处理"), ToolTip.GetTip(row));
+        Assert.Equal(status.Text, ToolTip.GetTip(row));
+
+        task.State = BackgroundTaskState.Running;
+        presenter.Refresh();
+        row = Assert.IsType<Border>(Assert.Single(Assert.IsType<StackPanel>(presenter.View).Children));
+        Assert.Equal(task.CurrentFile, ToolTip.GetTip(row));
+    }
+
     private static void AssertCentered(Border row)
     {
         var title = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("task-title"));

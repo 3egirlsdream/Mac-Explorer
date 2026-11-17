@@ -302,7 +302,7 @@ public partial class FileListView : UserControl
             });
         }
 
-        if (e.PropertyName == nameof(FileListViewModel.ShowFolderPhotoCovers))
+        if (e.PropertyName is nameof(FileListViewModel.ShowFolderPhotoCovers) or nameof(FileListViewModel.PhotoCoverStyle))
         {
             FastList.InvalidateFolderCovers();
             UpdateViewMode();
@@ -2259,6 +2259,7 @@ public partial class FileListView : UserControl
         if (visible != FastListActive) CancelActiveRename();
         FastList.IsVisible = visible;
         FastList.IsGrid = ViewModel?.ViewMode == ViewMode.Grid;
+        FastList.FolderIconStyle = ViewModel?.PhotoCoverStyle ?? Models.FolderPhotoCoverStyle.Default;
         FastList.FolderCoversEnabled = visible && FastList.IsGrid
             && ViewModel?.ShowFolderPhotoCovers == true
             && ViewModel.IsRemoteView == false && ViewModel.IsArchiveView == false;

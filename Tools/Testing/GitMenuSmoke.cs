@@ -55,12 +55,12 @@ internal static class GitMenuSmoke
                     owner.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
                     await (Task)showMenu.Invoke(fileView, [fileView, entry])!;
                     var nativeMenu = (ContextMenu)menuField.GetValue(fileView)!;
-                    if (!nativeMenu.Items.OfType<MenuItem>().Any(i => i.Header?.ToString() == "GIT")) throw new InvalidOperationException("Git missing from initial menu");
-                    var group = nativeMenu.Items.OfType<MenuItem>().Single(i => i.Header?.ToString() == "GIT");
+                    if (!nativeMenu.Items.OfType<MenuItem>().Any(i => i.Header?.ToString() == "Git")) throw new InvalidOperationException("Git missing from initial menu");
+                    var group = nativeMenu.Items.OfType<MenuItem>().Single(i => i.Header?.ToString() == "Git");
                     var initialItems = nativeMenu.Items.OfType<MenuItem>().ToArray();
                     if (initialItems[Array.IndexOf(initialItems, group) - 1].Header?.ToString() != LocalizationText.Get("标签")) throw new InvalidOperationException("Git is not below Tags");
                     await Task.Delay(300);
-                    if (!ReferenceEquals(group, nativeMenu.Items.OfType<MenuItem>().Single(i => i.Header?.ToString() == "GIT"))) throw new InvalidOperationException("Git item replaced after menu opened");
+                    if (!ReferenceEquals(group, nativeMenu.Items.OfType<MenuItem>().Single(i => i.Header?.ToString() == "Git"))) throw new InvalidOperationException("Git item replaced after menu opened");
                     group.IsSubMenuOpen = true;
                     await Wait(() => group.Items.OfType<MenuItem>().Count(i => i.IsEnabled) >= 5);
                     if (!group.IsSubMenuOpen) throw new InvalidOperationException("Git submenu did not stay open.");

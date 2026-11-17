@@ -63,7 +63,8 @@ internal sealed class FileTaskPanelPresenter
             row.Percentage.IsVisible = true;
             row.Percentage.Classes.Set("state", !ShowProgress(task) || task.IsIndeterminate);
             row.Arrange();
-            ToolTip.SetTip(row.View, task.ErrorDetail ?? task.ErrorMessage ?? task.CurrentFile);
+            ToolTip.SetTip(row.View, task.State is BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention
+                ? StateText(task) : task.CurrentFile);
             ToolTip.SetTip(row.Metrics, task.State == BackgroundTaskState.Running && task.Remaining is { } remaining
                 ? LocalizationText.Get("剩余 {0} 秒", Math.Ceiling(remaining.TotalSeconds)) : task.CurrentFile);
         }

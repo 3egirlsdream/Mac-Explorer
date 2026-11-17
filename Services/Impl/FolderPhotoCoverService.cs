@@ -1,4 +1,5 @@
 using SkiaSharp;
+using MacExplorer.Models;
 
 namespace MacExplorer.Services.Impl;
 
@@ -8,7 +9,8 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
     private static readonly SemaphoreSlim CoverGate = new(2);
     private static readonly Lazy<SKImage> FolderArtwork = new(LoadFolderArtwork);
 
-    public async Task<ThumbnailResult?> CreateAsync(string folderPath, int pixels, CancellationToken cancellationToken)
+    public async Task<ThumbnailResult?> CreateAsync(string folderPath, int pixels, CancellationToken cancellationToken,
+        FolderPhotoCoverStyle style = FolderPhotoCoverStyle.Default)
     {
         if (!Path.IsPathFullyQualified(folderPath) || !DirectoryAccess.Current.CanAccess(folderPath)) return null;
         await CoverGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -29,6 +31,7 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
                         if (result?.Bytes is not { Length: > 0 } bytes) continue;
                         var bitmap = BoundedImageDecoder.DecodeSkia(bytes, pixels, cancellationToken);
                         if (bitmap != null) photos.Add(bitmap);
+                        if (style == FolderPhotoCoverStyle.Frosted && photos.Count == 2) break;
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
                     {
@@ -37,7 +40,7 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
                 }
                 if (photos.Count == 0) return null;
                 cancellationToken.ThrowIfCancellationRequested();
-                return new ThumbnailResult(Compose(photos, pixels), folderPath);
+                return new ThumbnailResult(ComposeStyle(photos, pixels, style, cancellationToken), folderPath);
             }
             finally
             {
@@ -73,6 +76,19 @@ internal sealed class FolderPhotoCoverService(IThumbnailService thumbnails)
         var rightName = Path.GetFileName(right);
         var comparison = StringComparer.OrdinalIgnoreCase.Compare(leftName, rightName);
         return comparison != 0 ? comparison : StringComparer.Ordinal.Compare(leftName, rightName);
+    }
+
+    internal static byte[] ComposeStyle(IReadOnlyList<SKBitmap> photos, int pixels, FolderPhotoCoverStyle style,
+        CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+        pixels = Math.Clamp(pixels, 32, 256);
+        return style switch
+        {
+            FolderPhotoCoverStyle.Frosted => FrostedFolderRenderer.RenderPng(photos[0], photos.Count > 1 ? photos[1] : null, pixels, token: token),
+            FolderPhotoCoverStyle.Skeuomorphic => SkeuomorphicFolderRenderer.RenderPng(pixels, photos, token),
+            _ => Compose(photos, pixels)
+        };
     }
 
     private static byte[] Compose(IReadOnlyList<SKBitmap> photos, int pixels)

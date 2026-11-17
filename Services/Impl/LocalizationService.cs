@@ -138,8 +138,3 @@ public sealed class LocalizationService : ILocalizationService, IDisposable
     [DllImport(CoreFoundation)] private static extern void CFRelease(IntPtr value);
 
 }
-
-public static class LocalizationSystem
-{
-    public static string Resolve() => LocalizationService.ResolveSystemLanguage();
-}

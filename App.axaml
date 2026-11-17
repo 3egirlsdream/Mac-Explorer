@@ -12,10 +12,7 @@
                 <ResourceInclude Source="avares://MacExplorer/Assets/TypographyTokens.axaml"/>
             </ResourceDictionary.MergedDictionaries>
             <views:BoolNotConverter x:Key="BoolNotConverter"/>
-            <converters:StringToGeometryConverter x:Key="StringToGeometryConverter"/>
-            <converters:StringToColorConverter x:Key="StringToColorConverter"/>
             <converters:FileEntryToIconConverter x:Key="FileEntryToIconConverter"/>
-            <converters:FileEntryToIconColorConverter x:Key="FileEntryToIconColorConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 
@@ -27,7 +24,6 @@
         <FluentTheme />
         <StyleInclude Source="avares://MacExplorer/Assets/ThemeTokens.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Assets/Styles.axaml"/>
-        <StyleInclude Source="avares://MacExplorer/Controls/SurfaceCard.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Controls/AppWindow.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Assets/ComponentStyles.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Assets/HomeStyles.axaml"/>

@@ -47,6 +47,7 @@ public partial class App : Application
         Services.GetRequiredService<IThemeService>().Initialize();
         Services.GetRequiredService<IInteractionStyleService>().Initialize();
         Services.GetRequiredService<ITypographyService>().Initialize();
+        Services.GetRequiredService<FolderIconStyleService>();
         RegisterOmniboxProviders();
 
         // Catch UI-thread exceptions so a single handler error never crashes the app.
@@ -151,6 +152,7 @@ public partial class App : Application
                 _startupUpdateCancellation.Cancel();
                 Services.GetRequiredService<FileDeliveryController>().Dispose();
                 Services.GetRequiredService<BackgroundThemeService>().Dispose();
+                Services.GetRequiredService<FolderIconStyleService>().Dispose();
                 DirectoryAccess.Current.Dispose();
             };
 
@@ -173,6 +175,21 @@ public partial class App : Application
         }
 
 #if DEBUG
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FOLDER_RENDER_SOAK") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FolderRenderSoak.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FOLDER_COVER_STYLE_SMOKE") is "1" or "interactive" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FolderCoverStyleSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_DISK_MANAGEMENT_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.DiskManagementSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_SIDEBAR_GROUPS_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -661,6 +678,7 @@ public partial class App : Application
         services.AddSingleton<IGlobalSearchService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISearchSessionService>(sp => sp.GetRequiredService<Platforms.MacCatalyst.Services.MacSearchService>());
         services.AddSingleton<ISettingsService, Services.Impl.SettingsService>();
+        services.AddSingleton<FolderIconStyleService>();
         services.AddSingleton<BackgroundThemeService>();
         services.AddSingleton<ILocalizationService, Services.Impl.LocalizationService>();
         services.AddSingleton<IShortcutService, ShortcutService>();
@@ -739,6 +757,7 @@ public partial class App : Application
             sp.GetService<IRemoteConnectionService>(),
             sp.GetRequiredService<IFileTagService>()));
         services.AddSingleton<IVolumeMonitorService>(sp => new Platforms.MacCatalyst.Services.MacVolumeMonitorService(sp.GetRequiredService<IAiTagService>(), sp.GetService<ILoggerFactory>()?.CreateLogger<Platforms.MacCatalyst.Services.MacVolumeMonitorService>()));
+        services.AddSingleton<IDiskInformationService, DiskInformationService>();
         services.AddSingleton<Platforms.MacCatalyst.Services.MacDockMenuService>();
         services.AddScoped<NavigationViewModel>(sp =>
         {

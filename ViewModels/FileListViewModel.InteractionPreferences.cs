@@ -1,3 +1,6 @@
+using MacExplorer.Models;
+using MacExplorer.Services.Impl;
+
 namespace MacExplorer.ViewModels;
 
 public partial class FileListViewModel
@@ -36,6 +39,7 @@ public partial class FileListViewModel
     }
 
     public bool ShowFolderPhotoCovers => _settingsService?.Get(FolderPhotoCoverSettingKey, false) ?? false;
+    public FolderPhotoCoverStyle PhotoCoverStyle => FolderPhotoCoverStyles.Read(_settingsService);
 
     private void OnSettingsChanged(string key)
     {
@@ -61,13 +65,14 @@ public partial class FileListViewModel
             Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (!_disposed) OnPropertyChanged(nameof(ShowToolbarTags)); });
             return;
         }
-        if (key != FolderPhotoCoverSettingKey || _disposed) return;
+        if (key is not (FolderPhotoCoverSettingKey or FolderPhotoCoverStyles.SettingKey) || _disposed) return;
+        var property = key == FolderPhotoCoverSettingKey ? nameof(ShowFolderPhotoCovers) : nameof(PhotoCoverStyle);
         if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
-            OnPropertyChanged(nameof(ShowFolderPhotoCovers));
+            OnPropertyChanged(property);
         else
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (!_disposed) OnPropertyChanged(nameof(ShowFolderPhotoCovers));
+                if (!_disposed) OnPropertyChanged(property);
             });
     }
 }

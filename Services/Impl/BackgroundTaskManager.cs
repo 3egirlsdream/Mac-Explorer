@@ -153,6 +153,8 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
                 info.RetryAction = null;
             }
         }
+        if (entry.Info.State is BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention)
+            RecordFailure(entry.Info, failure);
         if (entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
         {
             entry.Info.RetainedRetryBytes = 0;
@@ -180,6 +182,28 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
             exception = failure?.GetType().Name, items = entry.Info.TotalItems, retainedBytes, retry = entry.Info.CanRetry });
         RaiseTasksChanged();
         if (callback != null) await InvokeCallbackAsync(callback);
+    }
+
+    private static void RecordFailure(BackgroundTaskInfo task, Exception? failure = null)
+    {
+        if (MemoryDiagnostics.IsEnabled)
+        {
+            MemoryDiagnostics.Record(task.Kind == BackgroundTaskKind.Create ? "task.create_failed" : "task.failed", new
+            {
+                taskId = task.Id,
+                kind = task.Kind.ToString(),
+                operation = Shorten(task.Label, 128),
+                targetDirectory = Shorten(task.Request?.Destination, 1024),
+                currentFile = Shorten(task.CurrentFile, 512),
+                exception = Shorten(failure?.GetType().FullName, 256),
+                hResult = failure?.HResult,
+                nativeErrorCode = failure?.GetBaseException() is System.ComponentModel.Win32Exception nativeError
+                    ? nativeError.NativeErrorCode : (int?)null,
+                message = Shorten(task.ErrorMessage, 1024),
+                detail = Shorten(task.ErrorDetail, 4096),
+                detailTruncated = task.ErrorDetail?.Length > 4096
+            });
+        }
     }
 
     private async Task PauseAtCheckpointAsync(Entry entry)
@@ -290,6 +314,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
             {
                 task.State = BackgroundTaskState.Failed; task.CanRetry = task.RetryAction != null;
                 task.FailedAtUtc = DateTime.UtcNow;
+                RecordFailure(task);
             }
         }
         TrimFailedTasks(DateTime.UtcNow, deferCleanup: true);

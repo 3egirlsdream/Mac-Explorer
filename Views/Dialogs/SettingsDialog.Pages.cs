@@ -57,7 +57,10 @@ public partial class SettingsDialog
                     break;
                 case "locations": LoadSearchLocations(); break;
                 case "display":
+                    InitializeFolderStylePicker();
                     FolderPhotoCoversToggle.IsChecked = _settingsService.Get(FileListViewModel.FolderPhotoCoverSettingKey, false);
+                    FolderCoverStylePicker.SelectedIndex = (int)FolderPhotoCoverStyles.Read(_settingsService);
+                    _folderCoverPreviewsTask = LoadFolderCoverPreviewsAsync();
                     if (ViewModel != null)
                     {
                         HideSystemFilesToggle.IsChecked = ViewModel.HideSystemFiles;

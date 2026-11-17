@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using MacExplorer.Converters;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Controls;
 
@@ -65,6 +66,7 @@ public sealed class HomeFileImage : Control
         {
             _attached = true;
             _entry.PropertyChanged += OnEntryChanged;
+            SvgIconCache.FolderStyleChanged += OnFolderStyleChanged;
             _ancestors = this.GetVisualAncestors().ToArray();
             foreach (var ancestor in _ancestors) ancestor.PropertyChanged += OnAncestorChanged;
             ShowFallback();
@@ -77,6 +79,7 @@ public sealed class HomeFileImage : Control
         {
             _attached = false;
             _entry.PropertyChanged -= OnEntryChanged;
+            SvgIconCache.FolderStyleChanged -= OnFolderStyleChanged;
             foreach (var ancestor in _ancestors) ancestor.PropertyChanged -= OnAncestorChanged;
             _ancestors = [];
             Cancel();
@@ -116,6 +119,11 @@ public sealed class HomeFileImage : Control
         Source = Icons.Convert(_entry.DetailsIconSource, typeof(Avalonia.Media.IImage),
             FileThumbnailSizing.GetPixelSize(Width, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1),
             CultureInfo.InvariantCulture) as Avalonia.Media.IImage;
+    }
+
+    private void OnFolderStyleChanged()
+    {
+        if (_entry.DetailsIconSource.IsDirectory && _lease?.Bitmap == null) ShowFallback();
     }
 
     private void UpdateRequest()

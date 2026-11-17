@@ -237,6 +237,12 @@ MACEXPLORER_GIT_MENU_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 
 真实窗口检查只在隔离测试目录创建 Git 仓库，验证四语原生子菜单、取消丢弃后内容不变，以及浅／深色、宽／窄提交历史与双栏差异；截图与 `report.json` 位于打印的测试目录 `git-menu/`。集成检查覆盖暂存／取消暂存、首次提交、目录与删除、重命名历史、分页与合并、冲突与锁文件、字面文件名、二进制／超限差异及 worktree；商店 helper 的调用检查不能替代签名沙盒与真实授权验证。
 
+## 磁盘管理验证
+
+运行 `bash Tools/Testing/run-tests.sh fast` 和 `bash Tools/Testing/run-tests.sh ui --area DiskManagement --area Network`，覆盖挂载标题齿轮显隐、空分组隐藏、窄窗口返回、导航历史、磁盘替换、异步过期结果和弹出失败。原生查询与临时只读磁盘映像通过 `bash Tools/Testing/run-tests.sh integration --area DiskManagement` 验证；映像仅在本次隔离目录创建并于结束时卸载清理，不操作现有磁盘。
+
+Debug 构建后，运行 `MACEXPLORER_DISK_MANAGEMENT_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'`，检查真实齿轮入口、页签复用、原生启动卷信息与页面切换，并输出四语、浅深色、宽窄窗口及断开状态截图至测试目录 `disk-management/`。界面示例使用测试替身，未执行真实外置盘弹出；商店签名沙盒需另行验证。
+
 ## 侧栏自定义分组验证
 
 ```bash
@@ -257,3 +263,22 @@ MACEXPLORER_DELIVERY_SMOKE=native-drag bash Tools/Testing/run-isolated.sh \
 ```
 
 先用 `-p:SkipMacOSReleaseDMG=true` 构建 Debug `.app`。此模式在隔离目录创建四个示例文件夹，实际发送鼠标输入，将前三个连续拖入自定义分组，第四个用 Escape 取消；检查原生拖拽开始／结束、投放窗复用、快捷入口数量、原文件内容和暂存区，保存 `sidebar-native-drag/report.json` 与截图后退出。需要已有的原生输入权限。文件速递／窗口集成检查同时覆盖 KVO 注册后重复定位和 Metal 层替换，避免重复覆盖 KVO 动态类。
+
+## exFAT 新建文件兼容验证
+
+先构建并运行 `fast`，再明确指定已授权的 exFAT 测试目录运行实盘检查：
+
+```bash
+MACEXPLORER_EXFAT_TEST_DIRECTORY=/Volumes/FKF_EXFAT \
+  bash Tools/Testing/run-tests.sh integration --area ExFat --configuration Release --no-build
+```
+
+`--configuration` 应与本轮构建一致；未构建时去掉 `--no-build`。测试在指定目录下创建唯一的 `FKFinder-create-test-*` 子目录并在结束后清理，不格式化磁盘，也不访问其他文件。未指定目录或平台不匹配时跳过；指定目录必须实际位于 exFAT 卷上。覆盖真实新建任务的 TXT／DOCX／XLSX／PPTX、未出现在列表快照中的重名、16 路并发、目录重名、写入失败／取消清理及并发替换保护。保留原生 `RENAME_EXCL` 返回错误码 45 的对照，确认实际使用兼容分支。
+
+兼容分支仅用于新建文件：以独占新建方式占用名称并复制已完成的暂存内容，不通过普通改名覆盖目标。复制过程中正式名称可见，不能提供 APFS 独占改名的原子可见性或进程中断后的自动回滚保证。普通写入失败／取消会在关闭输出前比较文件句柄与当前路径身份，只清理仍属于本次创建的文件。
+
+## 文件夹内置素材与内存回归
+
+普通磨砂／拟物文件夹改用内置 PNG，动态照片封面复用带租约的 4 MiB 材质缓存。素材生成、像素一致性校验、Release 合成与原生滚动基准见 [FolderRenderAssets](../Design/FolderRenderAssets/README.md)。`MACEXPLORER_FOLDER_RENDER_SOAK=1` 配合隔离 Debug 应用运行至少 10 分钟的浏览／样式／缩放／关闭页签循环，并分别记录工作负载和空闲回收阶段。
+
+回归使用 `fast`、`ui --area FolderPhotoCover --area DiskManagement` 和 `integration --area DiskManagement`。材质淘汰时仍持有租约的原生图像不得提前释放；磁盘查询成功不得清除此前的弹出失败原因，切换磁盘或关闭页面后的迟到错误不得覆盖当前状态。
