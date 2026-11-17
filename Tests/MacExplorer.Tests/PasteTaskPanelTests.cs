@@ -14,7 +14,7 @@ namespace MacExplorer.Tests;
 public sealed class PasteTaskPanelTests
 {
     [AvaloniaFact(Explicit = true)]
-    public void TaskPanelDisplaysCopyProgressCancellationAndFailureDetails()
+    public void TaskPanelDisplaysCopyProgressCancellationAndFailureStatus()
     {
         var manager = new BackgroundTaskManager();
         var panel = new TaskPanel();
@@ -37,7 +37,11 @@ public sealed class PasteTaskPanelTests
             const string details = "/tmp/project/unreadable: permission denied";
             manager.FailTask(failed.Id, "复制未完整完成，1 项失败", details);
             Dispatcher.UIThread.RunJobs();
-            Assert.Contains(panel.GetVisualDescendants().OfType<Border>(), row => Equals(ToolTip.GetTip(row), details));
+            var rows = panel.GetVisualDescendants().OfType<Border>()
+                .Where(row => row.Classes.Contains("file-task-row")).ToArray();
+            Assert.Contains(rows, row => Equals(ToolTip.GetTip(row), LocalizationText.Get("失败")));
+            Assert.DoesNotContain(rows, row => Equals(ToolTip.GetTip(row), details));
+            Assert.Equal(details, failed.ErrorDetail);
         }
         finally { panel.Close(); }
     }
