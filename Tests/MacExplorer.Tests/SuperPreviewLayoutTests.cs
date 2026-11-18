@@ -87,6 +87,38 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
         finally { root.Delete(true); }
     }
 
+    [AvaloniaFact(Explicit = true)]
+    public async Task StandaloneImagePreviewOnlyRequestsTheDisplayedImage()
+    {
+        var root = Directory.CreateTempSubdirectory("FKFinder_StandaloneImagePreview_");
+        try
+        {
+            var path = Path.Combine(root.FullName, "image.png");
+            await File.WriteAllBytesAsync(path, PreviewTestPng);
+            var entry = new FileSystemEntry { FullPath = path, Name = "image.png", Extension = ".png" };
+            var thumbnails = new PreviewThumbnailStub(path);
+            var files = new FakeFileService(root.FullName);
+            files.Seed(entry);
+            await using var fixture = await TabCacheFixture.CreateAsync(entries: 0,
+                configureServices: services => services.AddSingleton<IThumbnailService>(thumbnails)
+                    .AddSingleton<IFileService>(files));
+            var preview = new SuperPreviewView();
+            var window = new Window { Width = 800, Height = 600, Content = preview };
+            try
+            {
+                window.Show();
+                await preview.OpenAsync(entry);
+                RenderIssue11(window);
+                Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
+                Assert.False(preview.FindControl<Border>("PreviewListCard")!.IsVisible);
+                Assert.Equal(1, thumbnails.CallCount);
+                Assert.Equal(1800, thumbnails.PixelSize);
+            }
+            finally { preview.Close(); window.Close(); }
+        }
+        finally { root.Delete(true); }
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]

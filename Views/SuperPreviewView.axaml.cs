@@ -300,7 +300,7 @@ public partial class SuperPreviewView : UserControl
             // has its own list. Populate thumbnails for local folders as well as
             // archives so PDFs, text documents and images do not fall back to a
             // generic file-type icon until the user opens them.
-            if (_entries.Count > 0)
+            if (PreviewListCard.IsVisible && _entries.Count > 0)
                 _ = PopulateListThumbnailsAsync(_entries.ToArray(), location, token);
 
             // Keep keyboard navigation in the preview list after a folder/archive
@@ -670,7 +670,7 @@ public partial class SuperPreviewView : UserControl
         PreviewLocation location,
         CancellationToken token)
     {
-        if (_thumbnailService == null || !Equals(_location, location))
+        if (!PreviewListCard.IsVisible || _thumbnailService == null || !Equals(_location, location))
             return null;
 
         if (string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
