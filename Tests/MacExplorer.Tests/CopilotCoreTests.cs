@@ -2,6 +2,7 @@ using Avalonia.Headless.XUnit;
 using MacExplorer.Copilot;
 using MacExplorer.Services.Impl;
 using Microsoft.Agents.AI;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.AI;
 using Xunit;
 
@@ -262,7 +263,22 @@ public sealed class CopilotCoreTests
             store.AddTurn(id, "user", "test message");
             store.SaveState(id, "{\"test\":true}");
             store.SaveArtifact("artifact-1", id, "plan", "{} ");
+            using var database = new SqliteConnection($"Data Source={path}");
+            database.Open();
+            using var command = database.CreateCommand();
+            command.CommandText = """
+                DROP INDEX IF EXISTS idx_turns_session;
+                DROP INDEX IF EXISTS idx_turns_session_created;
+                DROP INDEX IF EXISTS idx_artifacts_session_created;
+                """;
+            command.ExecuteNonQuery();
+
             var restored = new CopilotStore(path);
+            command.CommandText = """
+                SELECT COUNT(*) FROM sqlite_schema
+                WHERE type='index' AND name IN ('idx_turns_session','idx_turns_session_created','idx_artifacts_session_created')
+                """;
+            Assert.Equal(3L, command.ExecuteScalar());
             Assert.Equal(id, restored.LatestSessionId());
             Assert.Equal("{\"test\":true}", restored.LoadState(id));
             Assert.Single(restored.GetTurns(id));

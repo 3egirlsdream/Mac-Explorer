@@ -89,6 +89,33 @@ public sealed class DirectoryIndexIncrementalTests : IDisposable
         Assert.True(Scalar("SELECT count(*) FROM fts_audit") > 0);
     }
 
+    [Theory]
+    [Trait("Kind", "Unit")]
+    [InlineData("files", "path")]
+    [InlineData("directories", "path")]
+    [InlineData("file_tags", "file_path")]
+    [InlineData("pending_tag_changes", "file_path")]
+    [InlineData("file_ratings", "file_path")]
+    [InlineData("pinned_folders", "folder_path")]
+    [InlineData("ai_tags", "file_path")]
+    [InlineData("ai_analysis_status", "file_path")]
+    [InlineData("face_observations", "file_path")]
+    [InlineData("document_index", "path")]
+    [InlineData("document_segments", "path")]
+    public void SubtreeUpdateSeeksBothTheExactPathAndTheDescendantRange(string table, string column)
+    {
+        using var command = _db.CreateCommand();
+        command.CommandText = $"EXPLAIN QUERY PLAN UPDATE {table} SET {column} = @destination WHERE {SqlitePathScope.Match(column)}";
+        command.Parameters.AddWithValue("@destination", "/moved");
+        SqlitePathScope.Bind(command, "/data/子%_");
+        using var reader = command.ExecuteReader();
+        var steps = new List<string>();
+        while (reader.Read()) steps.Add(reader.GetString(3));
+        Assert.Contains(steps, step => step.StartsWith($"SEARCH {table} ") && step.Contains($"({column}=?)"));
+        Assert.Contains(steps, step => step.StartsWith($"SEARCH {table} ") && step.Contains($"({column}>? AND {column}<?)"));
+        Assert.DoesNotContain(steps, step => step.StartsWith($"SCAN {table}"));
+    }
+
     [Fact]
     [Trait("Kind", "Unit")]
     public async Task AllPersistedAttributesAreComparedWithSqlNullSemantics()

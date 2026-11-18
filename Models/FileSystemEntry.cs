@@ -126,7 +126,10 @@ public class FileSystemEntry : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
 
-    public string DisplayName => IsApplication || IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
+    private bool HidesDisplayNameExtension => IsApplication || IconKey == "app-bundle";
+    public string DisplayName => HidesDisplayNameExtension ? Path.GetFileNameWithoutExtension(Name) : Name;
+    internal ReadOnlySpan<char> DisplayNameSpan => HidesDisplayNameExtension
+        ? Path.GetFileNameWithoutExtension(Name.AsSpan()) : Name.AsSpan();
     public string IconDisplayName => AbbreviateForIconView(DisplayName);
     public string FormattedSize => IsVirtual ? Services.Impl.LocalizationText.Get("{0} 项", VirtualItemCount) : FormatSize(Size, IsDirectory);
     public string KindText => IsVirtual ? VirtualFolderType switch

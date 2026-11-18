@@ -63,6 +63,8 @@ public partial class FileListView
 
     private void ConfigureGalleryStrip()
     {
+        GalleryStrip.IsTextSearchEnabled = false;
+        BindTypeAhead(GalleryStrip);
         GalleryStrip.ItemTemplate = new FuncDataTemplate<FileSystemEntry>((entry, _) =>
         {
             if (entry == null) return null;
@@ -108,6 +110,7 @@ public partial class FileListView
     {
         var showGallery = FastList.IsVisible && ViewModel?.IsGalleryMode == true;
         var wasGallery = IsGalleryVisible;
+        if (wasGallery != showGallery) _typeAhead.Reset();
         if (showGallery && !wasGallery)
         {
             CancelActiveRename();

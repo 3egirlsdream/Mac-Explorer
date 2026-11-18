@@ -92,7 +92,7 @@ public sealed partial class SearchCatalog
                 ScopePredicate("e.path"),
                 "search_visible(e.path, e.name, e.is_directory)"
             };
-            AddScopeParameters(command, root);
+            SqlitePathScope.Bind(command, root);
             for (var i = 0; i < query.NameTerms.Count; i++)
             {
                 var parameter = $"@name{i}";
@@ -193,15 +193,7 @@ public sealed partial class SearchCatalog
             return true;
         }, ct);
 
-    public static string ScopePredicate(string column) =>
-        $"({column}=@root COLLATE BINARY OR ({column}>=@prefix COLLATE BINARY AND {column}<@upper COLLATE BINARY))";
-
-    private static void AddScopeParameters(SqliteCommand command, string root)
-    {
-        command.Parameters.AddWithValue("@root", root);
-        command.Parameters.AddWithValue("@prefix", SearchPath.Prefix(root));
-        command.Parameters.AddWithValue("@upper", SearchPath.UpperBound(root));
-    }
+    public static string ScopePredicate(string column) => SqlitePathScope.Match(column);
 
     private static SearchEntry ReadEntry(SqliteDataReader reader) => ReadEntry(reader, reader.GetString(2), reader.GetString(6));
 

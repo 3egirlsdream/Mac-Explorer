@@ -51,6 +51,31 @@ public sealed class PinnedFolderGroupTests : IDisposable
     }
 
     [Fact]
+    public async Task VersionFourteenAddsPathIndexWithoutChangingGroupMemberships()
+    {
+        using var store = Store();
+        var group = await store.CreateGroupAsync("Work");
+        await store.PinAsync("/work", "Work");
+        await store.PinAsync("/work", "Shared work", group);
+        var expected = (await store.GetAllAsync()).Select(pin => (pin.Id, pin.GroupId, pin.FolderPath)).ToArray();
+
+        using var connection = Factory.GetConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            DROP INDEX IF EXISTS idx_pf_folder_path;
+            DELETE FROM schema_version WHERE version > 14;
+            INSERT OR IGNORE INTO schema_version VALUES(14);
+            """;
+        command.ExecuteNonQuery();
+
+        SqliteSchema.Initialize(connection);
+        SqliteSchema.Initialize(connection);
+        command.CommandText = "SELECT name FROM pragma_index_info('idx_pf_folder_path')";
+        Assert.Equal("folder_path", command.ExecuteScalar());
+        Assert.Equal(expected, (await store.GetAllAsync()).Select(pin => (pin.Id, pin.GroupId, pin.FolderPath)).ToArray());
+    }
+
+    [Fact]
     public async Task MembershipIsIndependentAndDeleteDoesNotTouchOriginalFolders()
     {
         var original = Directory.CreateDirectory(Path.Combine(_root, "original")).FullName;

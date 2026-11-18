@@ -624,11 +624,16 @@ public sealed class FileTagService : IFileTagService, IDisposable
             using var transaction = _connection.BeginTransaction();
             foreach (var (table, columns) in new[] { ("file_tags", "tag, is_system, created_at"), ("pending_tag_changes", "tag, applied, color_id") })
             {
-                Execute($"""
+                using var command = _connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = $"""
                     INSERT OR REPLACE INTO {table}(file_path, {columns})
-                    SELECT @destination || substr(file_path, length(@source) + 1), {columns} FROM {table}
-                    WHERE file_path = @source OR substr(file_path, 1, length(@prefix)) = @prefix;
-                    """, transaction, ("@source", source), ("@destination", destination), ("@prefix", Prefix(source)));
+                    SELECT @destination || substr(file_path, length(@root) + 1), {columns} FROM {table}
+                    WHERE {SqlitePathScope.Match("file_path")};
+                    """;
+                command.Parameters.AddWithValue("@destination", destination);
+                SqlitePathScope.Bind(command, source);
+                command.ExecuteNonQuery();
                 if (move) DeleteRows(table, source, transaction);
             }
             transaction.Commit();
@@ -651,11 +656,16 @@ public sealed class FileTagService : IFileTagService, IDisposable
         TagsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DeleteRows(string table, string path, SqliteTransaction transaction) => Execute(
-        $"DELETE FROM {table} WHERE file_path = @path OR substr(file_path, 1, length(@prefix)) = @prefix",
-        transaction, ("@path", path), ("@prefix", Prefix(path)));
+    private void DeleteRows(string table, string path, SqliteTransaction transaction)
+    {
+        using var command = _connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = $"DELETE FROM {table} WHERE {SqlitePathScope.Match("file_path")}";
+        SqlitePathScope.Bind(command, path);
+        command.ExecuteNonQuery();
+    }
+
     private int Execute(string sql, SqliteTransaction? transaction, params (string Name, object Value)[] parameters) => FileTagSchema.Execute(_connection, transaction, sql, parameters);
-    private static string Prefix(string path) => path.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
     private static bool SameName(string left, string right) => string.Equals(FileTagCatalog.NormalizeName(left), FileTagCatalog.NormalizeName(right), StringComparison.OrdinalIgnoreCase);
     public static bool IsSupportedPath(string path) => Path.IsPathRooted(path) && !VirtualPath.IsRemotePath(path) && !path.Contains("!/");
     private static string ValidateName(string name)

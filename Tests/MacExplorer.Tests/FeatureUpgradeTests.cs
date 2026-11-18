@@ -126,6 +126,55 @@ public sealed partial class FeatureUpgradeTests : IDisposable
         Assert.Empty((await catalog.SearchResourcesAsync(_root, query, new(), Token, true)).Items);
         await tasks.ShutdownAsync();
     }
+
+    [Fact]
+    public async Task AnalysisPathUpdatesAndCleanupUseLiteralCaseSensitiveSubtrees()
+    {
+        var database = Database();
+        using var tags = new AiTagService(database);
+        using var connection = database.GetConnection();
+        using var command = connection.CreateCommand();
+        const string source = "/data/相册%_";
+        const string target = "/data/Photos%_";
+        string[] neighbors = ["/data/PhotosXY/a.txt", "/data/photos%_/a.txt", target + "0/keep.txt"];
+        command.CommandText = """
+            INSERT INTO ai_analysis_status(file_path,file_modified_at,analyzed_at) VALUES(@path,1,1);
+            INSERT INTO ai_tags(file_path,tag_type,tag_value,created_at) VALUES(@path,'text','sample',1);
+            INSERT INTO face_observations(file_path,bounding_box_x,bounding_box_y,bounding_box_w,bounding_box_h,created_at)
+                VALUES(@path,0,0,1,1,1);
+            INSERT INTO document_index(path,modified,size,status) VALUES(@path,1,1,'Ready');
+            INSERT INTO document_segments(path,ordinal,text,location) VALUES(@path,0,'sample','{}');
+            """;
+        var path = command.Parameters.Add("@path", Microsoft.Data.Sqlite.SqliteType.Text);
+        foreach (var value in neighbors.Concat([source, source + "/nested/é😀.txt"]))
+        {
+            path.Value = value;
+            command.ExecuteNonQuery();
+        }
+        command.Parameters.Clear();
+
+        await tags.UpdateFilePathAsync(source, target);
+        AssertPaths([.. neighbors, target, target + "/nested/é😀.txt"]);
+        await tags.DeleteAnalysisForPathPrefixAsync(target + "/");
+        AssertPaths(neighbors);
+
+        void AssertPaths(string[] expected)
+        {
+            foreach (var (table, column) in new[]
+            {
+                ("ai_analysis_status", "file_path"), ("ai_tags", "file_path"), ("face_observations", "file_path"),
+                ("document_index", "path"), ("document_segments", "path")
+            })
+            {
+                command.CommandText = $"SELECT {column} FROM {table}";
+                using var reader = command.ExecuteReader();
+                var paths = new List<string>();
+                while (reader.Read()) paths.Add(reader.GetString(0));
+                Assert.Equal(expected.Order(StringComparer.Ordinal), paths.Order(StringComparer.Ordinal));
+            }
+        }
+    }
+
     [Fact]
     public async Task OfficeExtractionCarriesParagraphAndRetainsResourceLimits()
     {

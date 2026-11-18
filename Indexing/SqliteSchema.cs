@@ -5,7 +5,7 @@ namespace MacExplorer.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 14;
+    public const int CurrentVersion = 15;
 
     /// <summary>
     /// Whether FTS5 is available (set during Initialize).
@@ -131,6 +131,8 @@ public static class SqliteSchema
         FeatureUpgradeSchema.Ensure(connection, transaction);
         if (storedVersion < 14)
             MigrateToV14(connection, transaction);
+        if (storedVersion < 15)
+            ExecuteNonQuery(connection, "CREATE INDEX IF NOT EXISTS idx_pf_folder_path ON pinned_folders(folder_path)", transaction);
 
         // Record current version
         ExecuteNonQuery(connection, """

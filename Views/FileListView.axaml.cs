@@ -192,6 +192,7 @@ public partial class FileListView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        _typeAhead.Reset();
         ReleaseGalleryContent();
         GalleryHost.IsVisible = false;
         GalleryHost.Content = null;
@@ -287,6 +288,8 @@ public partial class FileListView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(FileListViewModel.CurrentPath) or nameof(FileListViewModel.ViewMode))
+            _typeAhead.Reset();
         if (e.PropertyName == nameof(FileListViewModel.ThumbnailZoomLevel)) ApplyThumbnailZoom();
         if (e.PropertyName == nameof(FileListViewModel.IsContextMenuVisible) && ViewModel?.IsContextMenuVisible == false)
             DismissContextMenu();
@@ -2003,7 +2006,9 @@ public partial class FileListView : UserControl
             && FastList.EntryAt(e.GetPosition(FastList), contentOnly: FastList.IsGrid) != null)
             return;
 
-        Focus();
+        _typeAhead.Reset();
+        if (FastListActive) FastList.Focus();
+        else Focus();
         var point = e.GetCurrentPoint(FileScroll);
         var rowEntry = ViewModel.ViewMode is ViewMode.List or ViewMode.Tree
             ? EntryAtPointer(e)
@@ -2044,7 +2049,10 @@ public partial class FileListView : UserControl
             // Row whitespace can still become a click. Keep the previous selection
             // until release replaces it or movement produces the marquee selection.
             if (rowEntry == null && !HasAdditiveSelectionModifier(_marqueeModifiers))
+            {
+                _fastFocusedPath = FastList.KeyboardFocusPath = null;
                 ViewModel.ClearSelection();
+            }
             DismissContextMenu();
             // Keep the fast list under the pointer while waiting to distinguish
             // a row-whitespace click from a marquee, so its hover does not flash off.

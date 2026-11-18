@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 using MacExplorer.Models;
@@ -12,6 +13,8 @@ namespace MacExplorer.Views;
 
 public partial class FileListView
 {
+    private readonly FileNameTypeAhead _typeAhead = new();
+    private bool _typeAheadShortcut;
     private string? _fastFocusedPath;
     private IReadOnlyList<FileSystemEntry>? _fastSourceEntries;
     private IReadOnlyList<FileGroup>? _fastSourceGroups;
@@ -23,6 +26,7 @@ public partial class FileListView
 
     private void InitializeFastFileList()
     {
+        BindTypeAhead(FastList);
         FastList.PointerPressed += (_, e) =>
         {
             if (e.GetCurrentPoint(FastList).Properties.IsLeftButtonPressed
@@ -48,6 +52,48 @@ public partial class FileListView
         FastList.PointerMoved += OnItemPointerMoved;
         FastList.PointerReleased += OnItemPointerReleased;
         FastList.ViewportChanged += PositionFastRenameEditor;
+    }
+
+    private void BindTypeAhead(Control list)
+    {
+        list.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            _typeAheadShortcut = (e.KeyModifiers & (KeyModifiers.Meta | KeyModifiers.Control | KeyModifiers.Alt)) != 0;
+            if (_typeAheadShortcut || e.Key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End
+                or Key.PageUp or Key.PageDown or Key.Escape or Key.Enter or Key.Space)
+                _typeAhead.Reset();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        list.AddHandler(KeyUpEvent, (_, _) => _typeAheadShortcut = false, RoutingStrategies.Tunnel, handledEventsToo: true);
+        list.AddHandler(PointerPressedEvent, (_, _) => _typeAhead.Reset(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        list.LostFocus += (_, _) =>
+        {
+            _typeAhead.Reset();
+            _typeAheadShortcut = false;
+        };
+        list.TextInput += (_, e) =>
+        {
+            if (!list.IsKeyboardFocusWithin || !list.IsEffectivelyVisible || _typeAheadShortcut || Shortcuts.IsRecording
+                || _renameEditor != null || ColumnFilterPopup.IsOpen || _openMenu?.IsOpen == true
+                || ViewModel is not { IsDirectoryLoading: false } vm || _fastRowsPath != vm.CurrentPath
+                || FastList.IsLoading || FastList.Rows.Count == 0
+                || string.IsNullOrWhiteSpace(e.Text) || e.Text.Any(char.IsControl)) return;
+
+            var current = IsGalleryVisible ? GalleryStrip.SelectedIndex : CurrentFastRowIndex();
+            var index = _typeAhead.Find(FastList.Rows, current, e.Text, Environment.TickCount64);
+            if (index >= 0)
+            {
+                if (IsGalleryVisible) SelectGalleryItem(index);
+                else FocusFastRow(index);
+            }
+            e.Handled = true;
+        };
+    }
+
+    private int CurrentFastRowIndex()
+    {
+        var current = _fastFocusedPath == null ? -1 : FastList.IndexOfPath(_fastFocusedPath);
+        return current < 0 && ViewModel?.SelectedEntries.LastOrDefault() is { } selected
+            ? FastList.IndexOf(selected) : current;
     }
 
     private void SyncFastListRows(bool force = false)
@@ -115,9 +161,7 @@ public partial class FileListView
         if (!FastListActive || IsGalleryVisible || FastList.IsLoading || ViewModel == null || e.Handled || IsTextInputSource(e.Source)
             || (e.KeyModifiers & (KeyModifiers.Meta | KeyModifiers.Control | KeyModifiers.Alt)) != 0
             || FastList.Rows.Count == 0) return;
-        var current = _fastFocusedPath == null ? -1 : FastList.IndexOfPath(_fastFocusedPath);
-        if (current < 0 && ViewModel.SelectedEntries.LastOrDefault() is { } selected)
-            current = FastList.IndexOf(selected);
+        var current = CurrentFastRowIndex();
         if (ViewModel.ViewMode == ViewMode.Tree && current >= 0 && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
             var row = FastList.TreeRowAt(current);
@@ -126,7 +170,7 @@ public partial class FileListView
                 if (treeRow.CanExpand && !treeRow.IsExpanded) _ = ViewModel.ExpandTreeDirectoryAsync(treeRow.Entry);
                 else if (treeRow.IsExpanded && current + 1 < FastList.Rows.Count
                          && FastList.TreeRowAt(current + 1)?.Depth > treeRow.Depth)
-                    FocusTreeRow(current + 1);
+                    FocusFastRow(current + 1);
                 e.Handled = true;
                 return;
             }
@@ -137,7 +181,7 @@ public partial class FileListView
                     for (var i = current - 1; i >= 0; i--)
                         if (FastList.TreeRowAt(i)?.Depth == leftRow.Depth - 1)
                         {
-                            FocusTreeRow(i);
+                            FocusFastRow(i);
                             break;
                         }
                 e.Handled = true;
@@ -159,25 +203,19 @@ public partial class FileListView
         };
         if (e.Key is not (Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown)
             && !(FastList.IsGrid && e.Key is Key.Left or Key.Right)) return;
-        var entry = FastList.Rows[Math.Clamp(next, 0, FastList.Rows.Count - 1)];
-        CancelSlowRename();
-        _fastFocusedPath = entry.FullPath;
-        FastList.KeyboardFocusPath = entry.FullPath;
-        FastList.Focus(NavigationMethod.Directional);
-        ViewModel.SelectEntry(entry, shiftKey: e.KeyModifiers.HasFlag(KeyModifiers.Shift));
-        FastList.ScrollToEntry(entry);
-        FastList.InvalidateVisual();
+        FocusFastRow(Math.Clamp(next, 0, FastList.Rows.Count - 1), e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         e.Handled = true;
     }
 
-    private void FocusTreeRow(int index)
+    private void FocusFastRow(int index, bool extendSelection = false)
     {
         if (ViewModel == null || index < 0 || index >= FastList.Rows.Count) return;
+        CancelSlowRename();
         var entry = FastList.Rows[index];
         _fastFocusedPath = entry.FullPath;
         FastList.KeyboardFocusPath = entry.FullPath;
         FastList.Focus(NavigationMethod.Directional);
-        ViewModel.SelectEntry(entry);
+        ViewModel.SelectEntry(entry, shiftKey: extendSelection);
         FastList.ScrollToEntry(entry);
         FastList.InvalidateVisual();
     }

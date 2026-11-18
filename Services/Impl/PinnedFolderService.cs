@@ -1,3 +1,4 @@
+using MacExplorer.Indexing;
 using MacExplorer.Models;
 using Microsoft.Data.Sqlite;
 
@@ -112,16 +113,15 @@ public class PinnedFolderService : IPinnedFolderService, IDisposable
         try
         {
             using var cmd = _connection.CreateCommand();
-            cmd.CommandText = """
+            cmd.CommandText = $"""
             UPDATE OR REPLACE pinned_folders
-            SET folder_path = @newPath || substr(folder_path, length(@oldPath) + 1),
-                display_name = CASE WHEN folder_path = @oldPath THEN @newDisplayName ELSE display_name END
-            WHERE folder_path = @oldPath OR substr(folder_path, 1, length(@prefix)) = @prefix
+            SET folder_path = @newPath || substr(folder_path, length(@root) + 1),
+                display_name = CASE WHEN folder_path = @root THEN @newDisplayName ELSE display_name END
+            WHERE {SqlitePathScope.Match("folder_path")}
             """;
-            cmd.Parameters.AddWithValue("@oldPath", oldPath);
             cmd.Parameters.AddWithValue("@newPath", newPath);
             cmd.Parameters.AddWithValue("@newDisplayName", newDisplayName);
-            cmd.Parameters.AddWithValue("@prefix", oldPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
+            SqlitePathScope.Bind(cmd, oldPath);
             await cmd.ExecuteNonQueryAsync();
         }
         finally

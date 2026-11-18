@@ -48,6 +48,9 @@ public sealed class CopilotStore
                 reasoning_content TEXT NOT NULL,
                 UNIQUE(session_id, response_id),
                 FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE);
+            CREATE INDEX IF NOT EXISTS idx_turns_session ON turns(session_id);
+            CREATE INDEX IF NOT EXISTS idx_turns_session_created ON turns(session_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_artifacts_session_created ON artifacts(session_id, created_at DESC);
             """;
         command.ExecuteNonQuery();
         using var columns = db.CreateCommand();

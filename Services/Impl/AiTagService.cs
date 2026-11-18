@@ -1,4 +1,5 @@
 using MacExplorer.Services.Subscriptions;
+using MacExplorer.Indexing;
 using MacExplorer.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ public partial class AiTagService : IAiTagService
         _connection = connectionFactory.GetConnection();
         _logger = loggerFactory?.CreateLogger<AiTagService>();
         using var transaction = _connection.BeginTransaction();
-        MacExplorer.Indexing.FeatureUpgradeSchema.Ensure(_connection, transaction);
+        FeatureUpgradeSchema.Ensure(_connection, transaction);
         transaction.Commit();
     }
 
@@ -306,12 +307,11 @@ public partial class AiTagService : IAiTagService
                 using var cmd = _connection.CreateCommand();
                 cmd.Transaction = transaction;
                 cmd.CommandText = $"""
-                    UPDATE {table} SET file_path = @new || substr(file_path, length(@old) + 1)
-                    WHERE file_path = @old OR substr(file_path, 1, length(@prefix)) = @prefix
+                    UPDATE {table} SET file_path = @new || substr(file_path, length(@root) + 1)
+                    WHERE {SqlitePathScope.Match("file_path")}
                     """;
                 cmd.Parameters.AddWithValue("@new", newPath);
-                cmd.Parameters.AddWithValue("@old", oldPath);
-                cmd.Parameters.AddWithValue("@prefix", oldPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
+                SqlitePathScope.Bind(cmd, oldPath);
                 await cmd.ExecuteNonQueryAsync();
             }
             UpdateFeaturePaths(oldPath, newPath, transaction);
@@ -329,8 +329,8 @@ public partial class AiTagService : IAiTagService
         if (string.IsNullOrEmpty(pathPrefix)) return;
 
         using var connectionLock = await AcquireConnectionAsync();
-        // Ensure prefix ends without trailing slash for consistent LIKE pattern
-        var prefix = pathPrefix.TrimEnd('/');
+        var path = pathPrefix.TrimEnd('/');
+        if (path.Length == 0) path = "/";
 
         using var transaction = _connection.BeginTransaction();
         try
@@ -339,8 +339,8 @@ public partial class AiTagService : IAiTagService
             {
                 using var cmd = _connection.CreateCommand();
                 cmd.Transaction = transaction;
-                cmd.CommandText = $"DELETE FROM {table} WHERE file_path = @prefix OR file_path LIKE @prefix || '/%'";
-                cmd.Parameters.AddWithValue("@prefix", prefix);
+                cmd.CommandText = $"DELETE FROM {table} WHERE {SqlitePathScope.Match("file_path")}";
+                SqlitePathScope.Bind(cmd, path);
                 await cmd.ExecuteNonQueryAsync();
             }
 
@@ -354,7 +354,7 @@ public partial class AiTagService : IAiTagService
                 """;
             await cleanupCmd.ExecuteNonQueryAsync();
 
-            DeleteFeaturePaths(pathPrefix, transaction, true);
+            DeleteFeaturePaths(path, transaction, true);
             transaction.Commit();
         }
         catch

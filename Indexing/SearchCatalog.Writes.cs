@@ -130,8 +130,8 @@ public sealed partial class SearchCatalog
     {
         using var command = connection.CreateCommand(); command.Transaction = transaction;
         command.CommandText = "DELETE FROM search_entries WHERE " + (descendantsOnly
-            ? "path>=@prefix COLLATE BINARY AND path<@upper COLLATE BINARY" : ScopePredicate("path"));
-        AddScopeParameters(command, path);
+            ? SqlitePathScope.Descendants("path") : ScopePredicate("path"));
+        SqlitePathScope.Bind(command, path);
         return command.ExecuteNonQuery();
     }
 

@@ -63,7 +63,7 @@ public sealed partial class SearchCatalog
 
         using var command = connection.CreateCommand();
         command.CommandTimeout = 5;
-        AddScopeParameters(command, root);
+        SqlitePathScope.Bind(command, root);
         var filters = new List<string> { "resource_visible(p.path,p.name,p.is_directory)" };
         string Parameter(object value)
         {
@@ -168,7 +168,7 @@ public sealed partial class SearchCatalog
                         ? Services.Impl.DocumentIndexService.ReadMatches(connection, reader.GetString(0), query.Query) : [] });
             }
         using var coverage = connection.CreateCommand();
-        AddScopeParameters(coverage, root);
+        SqlitePathScope.Bind(coverage, root);
         coverage.CommandText = "SELECT count(*) FROM ai_analysis_status WHERE " + ScopePredicate("file_path");
         var analyzed = (long)coverage.ExecuteScalar()!;
         var statuses = new List<string>();

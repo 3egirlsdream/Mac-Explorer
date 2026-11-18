@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using MacExplorer.Indexing;
 using Microsoft.Data.Sqlite;
 
 namespace MacExplorer.Services.Impl;
@@ -23,18 +24,18 @@ public class RatingService : IRatingService, IDisposable
         {
             using var transaction = _connection.BeginTransaction();
             using var command = _connection.CreateCommand(); command.Transaction = transaction;
-            command.CommandText = """
+            var scope = SqlitePathScope.Match("file_path");
+            command.CommandText = $"""
                 INSERT OR REPLACE INTO file_ratings(file_path, rating, updated_at)
-                SELECT @destination || substr(file_path, length(@source) + 1), rating, updated_at FROM file_ratings
-                WHERE file_path = @source OR substr(file_path, 1, length(@prefix)) = @prefix;
+                SELECT @destination || substr(file_path, length(@root) + 1), rating, updated_at FROM file_ratings
+                WHERE {scope};
                 """;
-            command.Parameters.AddWithValue("@source", source);
             command.Parameters.AddWithValue("@destination", destination);
-            command.Parameters.AddWithValue("@prefix", source.TrimEnd('/') + "/");
+            SqlitePathScope.Bind(command, source);
             await command.ExecuteNonQueryAsync();
             if (move)
             {
-                command.CommandText = "DELETE FROM file_ratings WHERE file_path = @source OR substr(file_path, 1, length(@prefix)) = @prefix";
+                command.CommandText = $"DELETE FROM file_ratings WHERE {scope}";
                 await command.ExecuteNonQueryAsync();
             }
             transaction.Commit(); _cache.Clear();
@@ -47,8 +48,8 @@ public class RatingService : IRatingService, IDisposable
         try
         {
             using var command = _connection.CreateCommand();
-            command.CommandText = "DELETE FROM file_ratings WHERE file_path = @path OR substr(file_path, 1, length(@prefix)) = @prefix";
-            command.Parameters.AddWithValue("@path", path); command.Parameters.AddWithValue("@prefix", path.TrimEnd('/') + "/");
+            command.CommandText = $"DELETE FROM file_ratings WHERE {SqlitePathScope.Match("file_path")}";
+            SqlitePathScope.Bind(command, path);
             await command.ExecuteNonQueryAsync(); _cache.Clear();
         }
         finally { _connectionLock.Release(); }
