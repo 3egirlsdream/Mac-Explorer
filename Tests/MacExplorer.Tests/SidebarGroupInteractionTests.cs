@@ -62,38 +62,45 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
         try
         {
             window.Show(); RenderIssue11(window);
-            StackPanel Group() => sidebar.GetVisualDescendants().OfType<StackPanel>().Single(panel =>
+            StackPanel? FindGroup() => sidebar.GetVisualDescendants().OfType<StackPanel>().SingleOrDefault(panel =>
                 panel.Classes.Contains("pinned-folder-group") && panel.DataContext is PinnedFolderGroup item && item.Id == group);
-            Point At(Control control) => control.TranslatePoint(
-                new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), sidebar)!.Value;
+            StackPanel Group() => Assert.IsType<StackPanel>(FindGroup());
+            Point? Center(Control control) => control.TranslatePoint(
+                new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), sidebar);
+            Border? FindSpacer() => FindGroup()?.Children.OfType<StackPanel>().Single().Children.OfType<Border>().Single();
             async Task<Point> GroupSpacerPointAsync()
             {
                 Point point = default;
                 await WaitForIssue11Async(() =>
                 {
                     RenderIssue11(window);
-                    var spacer = Group().Children.OfType<StackPanel>().Single().Children.OfType<Border>().Single();
-                    spacer.BringIntoView();
+                    FindSpacer()?.BringIntoView();
                     RenderIssue11(window);
-                    point = At(spacer);
-                    return spacer.Bounds.Height > 0 && ReferenceEquals(sidebar.InputHitTest(point), spacer);
+                    // Layout can also process a group reload that replaces the spacer.
+                    if (FindSpacer() is not { Bounds.Height: > 0 } spacer
+                        || Center(spacer) is not { } center || !ReferenceEquals(sidebar.InputHitTest(center), spacer))
+                        return false;
+                    point = center;
+                    return true;
                 });
                 return point;
             }
             using var folders = await Transfer(window, first, second);
-            var header = Group().Children.OfType<Grid>().Single();
+            Point headerPoint = default;
             await WaitForIssue11Async(() =>
             {
                 RenderIssue11(window);
-                var targetGroup = Group();
-                header = targetGroup.Children.OfType<Grid>().Single();
-                return sidebar.InputHitTest(At(header)) is Visual hit
-                    && (hit == targetGroup || hit.GetVisualAncestors().Contains(targetGroup));
+                if (FindGroup() is not { } targetGroup || Center(targetGroup.Children.OfType<Grid>().Single()) is not { } center
+                    || sidebar.InputHitTest(center) is not Visual hit
+                    || (hit != targetGroup && !hit.GetVisualAncestors().Contains(targetGroup)))
+                    return false;
+                headerPoint = center;
+                return true;
             });
-            Assert.Equal(DragDropEffects.Copy, Raise(sidebar, folders, DragDrop.DragOverEvent, At(header)).DragEffects);
+            Assert.Equal(DragDropEffects.Copy, Raise(sidebar, folders, DragDrop.DragOverEvent, headerPoint).DragEffects);
             hover.Fire();
             Assert.Equal(root, vm.CurrentPath);
-            Assert.Equal(DragDropEffects.Copy, Raise(sidebar, folders, DragDrop.DropEvent, At(header)).DragEffects);
+            Assert.Equal(DragDropEffects.Copy, Raise(sidebar, folders, DragDrop.DropEvent, headerPoint).DragEffects);
             await WaitForIssue11Async(() => vm.CustomGroups.Single().Folders.Count == 2
                 && other.CustomGroups.Single().Folders.Count == 2);
             RenderIssue11(window);
@@ -116,13 +123,13 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
             Assert.Equal(DragDropEffects.None, Raise(sidebar, mixed, DragDrop.DragOverEvent, await GroupSpacerPointAsync()).DragEffects);
             Assert.Equal(DragDropEffects.None, Raise(sidebar, mixed, DragDrop.DropEvent, await GroupSpacerPointAsync()).DragEffects);
             Assert.Equal(2, (await fixture.Store.GetAllAsync()).Count(pin => pin.GroupId == group));
-            var row = Group().GetVisualDescendants().OfType<Border>().Single(border => border.Tag is string path && path == first);
             using var file = await Transfer(window, payload);
             RenderIssue11(window);
-            row = Group().GetVisualDescendants().OfType<Border>().Single(border => border.Tag is string path && path == first);
-            Assert.Equal(DragDropEffects.Move, Raise(sidebar, file, DragDrop.DragOverEvent, At(row)).DragEffects);
+            var row = Group().GetVisualDescendants().OfType<Border>().Single(border => border.Tag is string path && path == first);
+            var rowPoint = Assert.IsType<Point>(Center(row));
+            Assert.Equal(DragDropEffects.Move, Raise(sidebar, file, DragDrop.DragOverEvent, rowPoint).DragEffects);
             Assert.Contains("folder-drop-target", row.Classes);
-            Assert.Equal(DragDropEffects.Move, Raise(sidebar, file, DragDrop.DropEvent, At(row)).DragEffects);
+            Assert.Equal(DragDropEffects.Move, Raise(sidebar, file, DragDrop.DropEvent, rowPoint).DragEffects);
             await WaitForIssue11Async(() => files.MoveCalls == 1);
             Assert.Equal((payload, first), Assert.Single(files.MoveRequests));
             RenderIssue11(window);
