@@ -274,6 +274,11 @@ public partial class App : Application
             var smokeWindow = mainWindow;
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.WebDavMountSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
         }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FILE_TYPE_SMOKE") == "1" && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FileTypeSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_WINDOW_OPEN_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -547,9 +552,7 @@ public partial class App : Application
         var scope = Services.CreateScope();
         var window = new MainWindow { InitialNavigationPath = path, RestoreFolderTabsOnOpen = isPrimary, InitialFolderTabSession = folderTabs };
         var model = scope.ServiceProvider.GetRequiredService<MainWindowViewModel>();
-        var navigation = Services.GetRequiredService<NavigationBridge>();
-        var initialPath = folderTabs?.Paths.FirstOrDefault() ?? path
-            ?? (navigation.PendingQuickAccessFocus ? null : model.FileList.GetRestorableDirectoryPath());
+        var initialPath = path ?? folderTabs?.Paths.FirstOrDefault() ?? model.FileList.GetRestorableDirectoryPath();
         if (!string.IsNullOrEmpty(initialPath) && Path.IsPathFullyQualified(initialPath)
             && (!DistributionChannel.IsAppStore || DirectoryAccess.Current.CanAccess(initialPath)))
             model.FileList.PrepareInitialDirectoryView();
@@ -733,7 +736,6 @@ public partial class App : Application
             sp.GetService<IAiTagService>(), sp.GetService<IPinnedFolderService>(), sp.GetRequiredService<IRatingService>(),
             sp.GetService<IFileIndexWriter>()));
         services.AddSingleton<BatchRenameOperationService>();
-        services.AddSingleton<NavigationBridge>();
         services.AddSingleton<IAiTagService>(sp => new Services.Impl.AiTagService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILoggerFactory>()));
         services.AddSingleton<Services.Impl.PhotoLocationConsent>();
         services.AddSingleton<IImageAnalysisService, Platforms.MacCatalyst.Services.MacImageAnalysisService>();

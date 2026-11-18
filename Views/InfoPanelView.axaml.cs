@@ -310,12 +310,14 @@ public partial class InfoPanelView : UserControl
         // starting that work — especially while a large directory is still arriving in batches.
         if (entry.IsDirectory)
         {
-            ShowFileIcon("文件夹");
+            ShowFileIcon(entry.KindText);
             UpdateExifSection(null);
             UpdateTagsFromMetadata(entry.FullPath, []);
-            if (!entry.IsVirtual && !entry.IsSymbolicLink && Path.IsPathFullyQualified(entry.FullPath)
+            var sizePath = entry.IsApplication ? entry.Package?.ApplicationPath ?? (!entry.IsSymbolicLink ? entry.FullPath : null)
+                : !entry.IsSymbolicLink ? entry.FullPath : null;
+            if (!entry.IsVirtual && sizePath != null && Path.IsPathFullyQualified(sizePath)
                 && !(entry.IsApplication && entry.Size > 0))
-                BeginDirectorySizeLoad(entry);
+                BeginDirectorySizeLoad(entry, sizePath);
             return;
         }
 
@@ -620,6 +622,7 @@ public partial class InfoPanelView : UserControl
         _currentPreviewSelection = null;
         CancelHashLoad();
         CancelDirectorySizeLoad();
+        CancelFileIconLoad();
     }
 
     private void CancelQueuedPanelUpdate()
@@ -664,6 +667,7 @@ public partial class InfoPanelView : UserControl
             .Convert(entry.DetailsIconSource, typeof(IImage), 128,
                 System.Globalization.CultureInfo.InvariantCulture) as IImage;
         PreviewFileIcon.IsVisible = true;
+        if (entry.IsApplication) ObserveFileIcon(entry);
         PreviewPlaceholder.IsVisible = false;
         SetLocalized(PreviewFileIcon, ToolTip.TipProperty, reason);
         PreviewFeedback.IsVisible = !entry.IsDirectory;

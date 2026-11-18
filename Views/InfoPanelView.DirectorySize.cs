@@ -13,14 +13,14 @@ public partial class InfoPanelView
     private DirectorySizeResult? _directorySizeResult;
     private string? _directorySizeError;
 
-    private void BeginDirectorySizeLoad(FileSystemEntry entry)
+    private void BeginDirectorySizeLoad(FileSystemEntry entry, string path)
     {
         CancelDirectorySizeLoad();
         var request = new CancellationTokenSource();
         _directorySizeCts = request;
         _directorySizePath = entry.FullPath;
         RefreshDirectorySizeText(entry);
-        _ = LoadDirectorySizeAsync(entry, request);
+        _ = LoadDirectorySizeAsync(entry, path, request);
     }
 
     private void CancelDirectorySizeLoad()
@@ -34,11 +34,11 @@ public partial class InfoPanelView
         ToolTip.SetTip(InfoSize, null);
     }
 
-    private async Task LoadDirectorySizeAsync(FileSystemEntry entry, CancellationTokenSource request)
+    private async Task LoadDirectorySizeAsync(FileSystemEntry entry, string path, CancellationTokenSource request)
     {
         try
         {
-            var result = await _directorySizeLoader(entry.FullPath, request.Token);
+            var result = await _directorySizeLoader(path, request.Token);
             if (!IsCurrentDirectorySizeRequest(entry, request)) return;
             _directorySizeResult = result;
             RefreshDirectorySizeText(entry);

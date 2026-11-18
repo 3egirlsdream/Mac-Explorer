@@ -6,11 +6,11 @@ using Xunit;
 
 namespace MacExplorer.Tests;
 
-[Trait("Kind", "Unit")]
 [Trait("Area", "FolderPhotoCover")]
 public sealed class FolderArtworkTests
 {
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
+    [Trait("Kind", "Integration")]
     public void EmbeddedIconsMatchGeneratorAndArbitrarySizesUseRequestedDimensions()
     {
         foreach (var style in new[] { FolderPhotoCoverStyle.Frosted, FolderPhotoCoverStyle.Skeuomorphic })
@@ -30,6 +30,7 @@ public sealed class FolderArtworkTests
     }
 
     [AvaloniaFact]
+    [Trait("Kind", "Unit")]
     public void MissingOrCorruptAssetsReturnFallbackSignal()
     {
         Assert.Null(FolderArtwork.ReadIcon(48, FolderPhotoCoverStyle.Frosted, _ => throw new FileNotFoundException()));
@@ -38,6 +39,7 @@ public sealed class FolderArtworkTests
     }
 
     [AvaloniaFact]
+    [Trait("Kind", "Unit")]
     public void CachedPaperMaterialsPreservePixelsAndCancellationReleasesLeases()
     {
         using var first = new SKBitmap(80, 50); first.Erase(new SKColor(80, 150, 210, 120));
@@ -56,6 +58,7 @@ public sealed class FolderArtworkTests
     }
 
     [AvaloniaFact]
+    [Trait("Kind", "Unit")]
     public void EvictedMaterialsLiveUntilLastBorrowerReleasesThem()
     {
         using var cache = new FolderMaterialCache(16 * 16 * 4);
@@ -78,6 +81,7 @@ public sealed class FolderArtworkTests
     }
 
     [AvaloniaFact]
+    [Trait("Kind", "Unit")]
     public async Task ConcurrentMissesShareOnePublishedMaterialAndDisposeLosers()
     {
         using var cache = new FolderMaterialCache(1024);

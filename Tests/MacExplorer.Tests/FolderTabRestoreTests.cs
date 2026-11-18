@@ -1,5 +1,7 @@
 using System.Reflection;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using MacExplorer.Services;
 using MacExplorer.ViewModels;
 using MacExplorer.Views;
@@ -12,6 +14,39 @@ namespace MacExplorer.Tests;
 [Trait("Area", "TabStartup")]
 public sealed class FolderTabRestoreTests : FileListViewModelTestBase
 {
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DockTargetTakesPrecedenceOverSavedDirectory(bool quickAccess)
+    {
+        using var root = new Directories();
+        using var theme = new FastListTestTheme();
+        await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
+        var settings = new StartupSettings();
+        settings.Set("navigation_last_directory", root.First);
+        var files = new FakeFileService(root.Path);
+        using var list = CreateViewModel(files, navigation: new NavigationViewModel(files), settingsService: settings);
+        var window = new MainWindow
+        {
+            InitialNavigationPath = quickAccess ? VirtualPath.Home : root.Second,
+            InitialFolderTabSession = new FolderTabSession([root.Third], 0),
+            DataContext = new MainWindowViewModel(list)
+        };
+        try
+        {
+            window.ShowAndActivate();
+            if (quickAccess)
+            {
+                Assert.True(list.IsHomePage);
+                Assert.True(window.GetVisualDescendants().OfType<HomeView>().Single()
+                    .FindControl<TextBox>("HomeSearchBox")!.IsFocused);
+                Assert.Equal(root.First, list.GetRestorableDirectoryPath());
+            }
+            else Assert.Equal(root.Second, list.CurrentPath);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact(Explicit = true)]
     public async Task FirstShowHasAllSavedHeadersAndSelectionBeforeDirectoryEnumeration()
     {

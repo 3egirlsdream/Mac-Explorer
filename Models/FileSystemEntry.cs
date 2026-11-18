@@ -18,10 +18,11 @@ public class FileSystemEntry : INotifyPropertyChanged
     public string Name { get; init; } = string.Empty;
     public bool IsDirectory { get; init; }
     // Preserve physical directory semantics for recursive copy/delete operations.
-    public bool IsApplication => IsDirectory && !IsVirtual && Path.IsPathRooted(FullPath)
+    internal DirectoryPackage? Package { get; set; }
+    public bool IsApplication => Package != null ? Package.ApplicationPath != null : IsDirectory && !IsVirtual && Path.IsPathRooted(FullPath)
         && Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase);
     public bool IsFolder => IsDirectory && !IsApplication;
-    public long Size { get; init; }
+    public long Size { get => Package?.ApplicationPath != null ? Package.ApplicationSize : field; init; }
     public DateTime LastModified { get; init; }
     public DateTime Created { get; init; }
     public string Extension { get; init; } = string.Empty;
@@ -30,7 +31,7 @@ public class FileSystemEntry : INotifyPropertyChanged
     public bool IsSymbolicLink { get; init; }
     public bool IsReadable { get; init; } = true;
     public bool IsWritable { get; init; } = true;
-    public string IconKey { get; init; } = "file-generic";
+    public string IconKey { get => Package?.IconKey ?? field; init; } = "file-generic";
     public string? IconUrl
     {
         get => _iconUrl;
@@ -107,7 +108,7 @@ public class FileSystemEntry : INotifyPropertyChanged
             return new(IconKey, Extension, IsDirectory, cachedPath);
 
         var extension = Extension.Length == 0 ? Path.GetExtension(Name) : Extension;
-        if (IsDirectory && Path.IsPathRooted(FullPath)
+        if (IsDirectory && Package?.IsPackage != false && Path.IsPathRooted(FullPath)
             && Services.Impl.FileKindNames.GetPackageIconKey(extension.ToLowerInvariant()) is { } packageKey)
             return new(packageKey, extension, false, cachedPath);
 

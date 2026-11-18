@@ -186,17 +186,10 @@ public static class SqliteSchema
 
     private static int GetStoredVersion(SqliteConnection connection, SqliteTransaction transaction)
     {
-        try
-        {
-            using var cmd = connection.CreateCommand();
-            cmd.Transaction = transaction;
-            cmd.CommandText = "SELECT MAX(version) FROM schema_version";
-            var result = cmd.ExecuteScalar();
-            if (result != null && result != DBNull.Value)
-                return Convert.ToInt32(result);
-        }
-        catch { }
-        return 0;
+        using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_version";
+        return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
     private static void MigrateToV2(SqliteConnection connection, SqliteTransaction transaction)

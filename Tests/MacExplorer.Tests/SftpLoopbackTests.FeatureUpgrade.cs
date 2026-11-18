@@ -48,6 +48,13 @@ public sealed partial class SftpLoopbackTests
             Assert.Equal("updated", browser.ReadAllText("/destination/item/new.txt"));
             Assert.Equal("keep target only", browser.ReadAllText("/destination/item/keep.txt"));
             Assert.DoesNotContain(browser.ListDirectory("/destination"), entry => entry.Name.StartsWith(".MacExplorer-replace-", StringComparison.Ordinal));
+            browser.CreateDirectory("/source");
+            browser.CreateDirectory("/source/item");
+            browser.WriteAllText("/source/item/added.txt", "move me");
+            await files.MoveAsync(VirtualPath.BuildRemotePath(server.Id, "/source/item"), destination);
+            Assert.False(browser.Exists("/source/item"));
+            Assert.Equal("move me", browser.ReadAllText("/destination/item/added.txt"));
+            Assert.Equal("keep target only", browser.ReadAllText("/destination/item/keep.txt"));
             await tasks.ShutdownAsync();
         }
         finally

@@ -13,6 +13,8 @@ internal static class FileKindNames
 
     public static string Get(FileSystemEntry entry)
     {
+        if (entry.Package is { IsPackage: false })
+            return LocalizationText.Get("文件夹");
         if (entry.IsApplication)
             return LocalizationText.Get("应用程序");
 

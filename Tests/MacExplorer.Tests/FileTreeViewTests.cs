@@ -15,6 +15,36 @@ namespace MacExplorer.Tests;
 public sealed class FileTreeViewViewModelTests : FileListViewModelTestBase
 {
     [AvaloniaFact(Explicit = true)]
+    public async Task NestedBranchesResolveApplicationIconsAndCancelThemWhenCollapsed()
+    {
+        const string root = "/tmp/FKFinderTreeIcons";
+        var files = new FakeFileService(root);
+        files.Seed(TreeEntry(root, "Utilities", folder: true));
+        files.Seed(TreeEntry(root + "/Utilities", "Nested", folder: true));
+        files.Seed(new FileSystemEntry { FullPath = root + "/Utilities/Nested/Terminal.app", Name = "Terminal.app",
+            IsDirectory = true });
+        var loads = 0; CancellationToken loading = default;
+        files.ResolveIcons = (entries, token) =>
+        {
+            var apps = entries.Where(entry => entry.IsApplication).ToArray();
+            if (apps.Length == 0) return Task.CompletedTask;
+            loads++;
+            if (loads == 1) { apps[0].IconUrl = "/cached-terminal.png"; return Task.CompletedTask; }
+            loading = token; return Task.Delay(Timeout.Infinite, token);
+        };
+        using var vm = CreateViewModel(files); vm.SetViewMode(ViewMode.Tree); await vm.RefreshAsync();
+        await vm.ToggleTreeDirectoryAsync(vm.TreeRows.Single(row => row.Entry.Name == "Utilities").Entry);
+        var nested = vm.TreeRows.Single(row => row.Entry.Name == "Nested").Entry;
+        await vm.ToggleTreeDirectoryAsync(nested);
+        Assert.Equal("/cached-terminal.png", vm.TreeRows.Single(row => row.Entry.IsApplication).Entry.IconUrl);
+        await vm.RefreshExpandedDirectoryFromNotificationAsync(nested.FullPath);
+        Assert.Equal(2, loads); Assert.False(loading.IsCancellationRequested);
+        vm.CollapseTreeDirectory(nested);
+        Assert.True(loading.IsCancellationRequested);
+        Assert.DoesNotContain(vm.TreeRows, row => row.Entry.IsApplication);
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public async Task TreeExpandsOneLevelAtATimeAndCollapseReleasesDescendants()
     {
         const string root = "/tmp/FKFinderTreeTests";

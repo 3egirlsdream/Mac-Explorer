@@ -50,6 +50,18 @@ public sealed class OpenWithSchemaMigrationTests : IDisposable
         Assert.Equal(ExpectedDefaults, ReadApps(reopened));
     }
 
+    [Fact]
+    public void UnreadableVersionAbortsMigrationWithoutChangingUserOrder()
+    {
+        using var connection = Factory.GetConnection();
+        SqliteSchema.Initialize(connection);
+        Execute(connection, "UPDATE open_with_apps SET sort_order=100 WHERE bundle_id='com.microsoft.VSCode';"
+            + "INSERT INTO schema_version(version) VALUES(3000000000)");
+        var before = ReadApps(connection);
+        Assert.Throws<OverflowException>(() => SqliteSchema.Initialize(connection));
+        Assert.Equal(before, ReadApps(connection));
+    }
+
     private static readonly (string BundleId, int IsTopLevel, int SortOrder)[] ExpectedDefaults =
     [
         (BuiltInOpenWithActions.RevealInFinderBundleId, 1, 0),

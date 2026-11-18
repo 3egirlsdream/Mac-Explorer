@@ -490,10 +490,21 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         var userLibrary = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library");
         if (userLibrary != root && SearchPath.IsWithin(userLibrary, root) && SearchPath.IsWithin(directory, userLibrary)) return false;
         var relative = directory[SearchPath.Prefix(root).Length..];
-        return !relative.Split(Path.DirectorySeparatorChar).Any(segment => ExcludedNames.Contains(segment)
-            || (!includeHiddenFolders && segment.StartsWith('.'))
-            || segment.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)
-            || Packages.Contains(Path.GetExtension(segment)));
+        var start = 0;
+        foreach (var segment in relative.Split(Path.DirectorySeparatorChar))
+        {
+            start += segment.Length;
+            if (ExcludedNames.Contains(segment) || (!includeHiddenFolders && segment.StartsWith('.'))
+                || segment.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)) return false;
+            if (Packages.Contains(Path.GetExtension(segment)))
+            {
+                var candidate = directory[..(directory.Length - relative.Length + start)];
+                if (!OperatingSystem.IsMacOS() || !_access.CanAccess(candidate)
+                    || Platforms.MacOS.MacSandboxNative.DirectoryPackage(candidate, out _) != false) return false;
+            }
+            start++;
+        }
+        return true;
     }
 
     private bool IsIndexArtifact(string path)

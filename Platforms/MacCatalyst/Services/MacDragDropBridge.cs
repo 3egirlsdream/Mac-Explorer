@@ -134,11 +134,7 @@ public class MacDragDropBridge : IDragDropService, IDragDropBridge
         if (shouldCopy)
         {
             foreach (var entry in sourceEntries)
-            {
                 await _fileService.CopyAsync(entry.FullPath, targetDirectory);
-                if (_fileTagService != null && !isRemoteTarget && !VirtualPath.IsRemotePath(entry.FullPath))
-                    await _fileTagService.CopyPathAsync(entry.FullPath, Path.Combine(targetDirectory, entry.Name));
-            }
             _directoryChangeNotifier.NotifyChanged([targetDirectory], null);
             return true;
         }

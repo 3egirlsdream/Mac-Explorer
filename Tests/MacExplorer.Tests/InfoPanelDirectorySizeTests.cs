@@ -113,6 +113,85 @@ public sealed class InfoPanelDirectorySizeTests : FileListViewModelTestBase
         }
     }
 
+    [AvaloniaFact(Explicit = true)]
+    public async Task ApplicationLinkUsesKnownTargetSizeOrCalculatesOnlyTheResolvedApplication()
+    {
+        using var language = new LocalizationService(new StartupSettings(), () => AppLanguage.ChineseSimplified);
+        using var vm = CreateViewModel(new FakeFileService("/tmp/app-size"));
+        vm.IsInfoPanelVisible = true;
+        var link = new FileSystemEntry { FullPath = "/tmp/app-size/shortcut", Name = "shortcut", IsDirectory = true,
+            IsSymbolicLink = true, Package = new(true, "app-bundle", "/tmp/app-size/target.app") };
+        vm.SelectedEntries.Add(link);
+        var calls = 0;
+        var panel = new InfoPanelView(null, (path, _) =>
+        {
+            calls++; Assert.Equal(link.Package!.ApplicationPath, path);
+            return Task.FromResult(new DirectorySizeResult(4096, true));
+        }) { DataContext = vm };
+        var window = new Window { Content = panel };
+        try
+        {
+            window.Show();
+            await UntilAsync(() => panel.FindControl<TextBlock>("InfoSize")!.Text == "4 KB", TestContext.Current.CancellationToken);
+            Assert.Equal(1, calls); Assert.True(link.IsSymbolicLink); Assert.Equal(0, link.Size);
+            var known = new FileSystemEntry { FullPath = link.FullPath, Name = link.Name, IsDirectory = true, IsSymbolicLink = true,
+                Package = link.Package! with { ApplicationSize = 8192 } };
+            vm.SelectedEntries[0] = known;
+            await UntilAsync(() => panel.FindControl<TextBlock>("InfoSize")!.Text == "8 KB", TestContext.Current.CancellationToken);
+            Assert.Equal(1, calls);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NativeIconLoadsFromAColdCacheAndLateIconsCannotReplaceTheNewSelection(bool switchBeforeReady)
+    {
+        var root = Directory.CreateTempSubdirectory("FKFinder_PanelIcon_");
+        var firstPath = Path.Combine(root.FullName, "first.png");
+        var secondPath = Path.Combine(root.FullName, "second.png");
+        using var image = new SkiaSharp.SKBitmap(8, 8); image.Erase(SkiaSharp.SKColors.CornflowerBlue);
+        using var encoded = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        var png = encoded.ToArray();
+        File.WriteAllBytes(firstPath, png); File.WriteAllBytes(secondPath, png);
+        var first = new FileSystemEntry { FullPath = root.FullName + "/first.app", Name = "first.app", IsDirectory = true,
+            Size = 1 };
+        var second = new FileSystemEntry { FullPath = root.FullName + "/second.app", Name = "second.app", IsDirectory = true,
+            IconUrl = secondPath, Size = 1 };
+        var ready = new TaskCompletionSource(); var finished = new TaskCompletionSource();
+        CancellationToken firstToken = default;
+        var files = new FakeFileService(root.FullName) { ResolveIcons = async (entries, token) =>
+        {
+            if (!entries.Contains(first)) return;
+            firstToken = token; await ready.Task;
+            first.IconUrl = firstPath; finished.TrySetResult();
+        } };
+        using var vm = CreateViewModel(files); vm.IsInfoPanelVisible = true; vm.SelectedEntries.Add(first);
+        var panel = new InfoPanelView(null) { DataContext = vm }; var window = new Window { Content = panel };
+        try
+        {
+            Assert.Null(FileListView.TryGetCachedEntryImage(secondPath));
+            window.Show();
+            if (!switchBeforeReady)
+            {
+                ready.TrySetResult();
+                await UntilAsync(() => FileListView.TryGetCachedEntryImage(firstPath) is { } firstBitmap
+                    && ReferenceEquals(firstBitmap, panel.FindControl<Image>("PreviewFileIcon")!.Source), TestContext.Current.CancellationToken);
+            }
+            vm.SelectedEntries[0] = second;
+            if (switchBeforeReady) Assert.True(firstToken.IsCancellationRequested);
+            await UntilAsync(() => FileListView.TryGetCachedEntryImage(secondPath) is { } secondBitmap
+                && ReferenceEquals(secondBitmap, panel.FindControl<Image>("PreviewFileIcon")!.Source),
+                TestContext.Current.CancellationToken);
+            var bitmap = FileListView.TryGetCachedEntryImage(secondPath);
+            Assert.NotNull(bitmap); Assert.Same(bitmap, panel.FindControl<Image>("PreviewFileIcon")!.Source);
+            ready.TrySetResult(); await finished.Task; await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            Assert.Same(bitmap, panel.FindControl<Image>("PreviewFileIcon")!.Source);
+        }
+        finally { ready.TrySetResult(); window.Close(); root.Delete(true); }
+    }
+
     private static async Task UntilAsync(Func<bool> condition, CancellationToken token)
     {
         for (var i = 0; i < 200 && !condition(); i++)

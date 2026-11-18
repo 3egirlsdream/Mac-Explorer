@@ -442,7 +442,7 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
             bridge.Register(vm);
 
             Assert.Equal(DragDropEffects.Copy, FileDropPolicy.GetEffect([source], target));
-            Assert.True(await bridge.DropFilesAsync([source], target, forceCopy: true, forceMove: false));
+            Assert.True(await bridge.DropFilesAsync([source], target, forceCopy: false, forceMove: true));
             Assert.Equal((source, target), Assert.Single(files.CopyRequests));
             Assert.Empty(files.MoveRequests);
             Assert.Empty(files.DeleteRequests);

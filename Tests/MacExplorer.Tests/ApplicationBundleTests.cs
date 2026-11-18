@@ -134,3 +134,87 @@ public sealed class ApplicationBundleTests
     }
 
 }
+
+[Trait("Area", "FileIcon")]
+[Trait("Kind", "Integration")]
+public sealed class DirectoryPackageProbeTests
+{
+    [Fact(Explicit = true)]
+    public void BatchMatchesIndividualResultsIncludingApplicationLinksAndMissingItems()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS");
+        var root = Directory.CreateTempSubdirectory("FKFinder_PackageBatch_");
+        try
+        {
+            var folder = Directory.CreateDirectory(Path.Combine(root.FullName, "测试 名称.framework")).FullName;
+            var project = Directory.CreateDirectory(Path.Combine(root.FullName, "Plan.xcodeproj")).FullName;
+            var app = Directory.CreateDirectory(Path.Combine(root.FullName, "Sample.app")).FullName;
+            var link = Directory.CreateSymbolicLink(Path.Combine(root.FullName, "应用.app"), app).FullName;
+            var paths = new[] { link, project, Path.Combine(root.FullName, "missing.app"), folder, app, link };
+            var results = Platforms.MacOS.MacSandboxNative.DirectoryPackages(paths);
+            for (var i = 0; i < paths.Length; i++)
+            {
+                var expected = Platforms.MacOS.MacSandboxNative.DirectoryPackage(paths[i], out var target);
+                Assert.Equal(expected, results[i].IsPackage);
+                Assert.Equal(target, results[i].ApplicationPath);
+                if (target == null) Assert.Equal(0, results[i].ApplicationSize);
+            }
+        }
+        finally { root.Delete(true); }
+    }
+
+    [Theory(Explicit = true)]
+    [InlineData(2048, 0, 0)]
+    [InlineData(1536, 448, 64)]
+    [InlineData(0, 0, 2048)]
+    public async Task OnlyCandidateDirectoriesReachTheNativePackageProbe(int files, int folders, int candidates)
+    {
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS");
+        var root = Directory.CreateTempSubdirectory("FKFinder_CandidateCounts_");
+        try
+        {
+            for (var i = 0; i < files; i++) File.WriteAllBytes(Path.Combine(root.FullName, $"file-{i}.framework"), []);
+            for (var i = 0; i < folders; i++) Directory.CreateDirectory(Path.Combine(root.FullName, $"directory-{i}"));
+            for (var i = 0; i < candidates; i++)
+            {
+                var extension = i % 2 == 0 ? ".framework" : ".xcodeproj";
+                Directory.CreateDirectory(Path.Combine(root.FullName, $"project-{i}{extension}"));
+            }
+            var probes = new List<string>();
+            var batchSizes = new List<int>();
+            var service = new MacFileService(null, paths =>
+            {
+                probes.AddRange(paths);
+                batchSizes.Add(paths.Length);
+                return Platforms.MacOS.MacSandboxNative.DirectoryPackages(paths);
+            });
+            var entries = new List<FileSystemEntry>();
+            await foreach (var batch in service.EnumerateDirectoryBatchesAsync(root.FullName, 256, TestContext.Current.CancellationToken))
+                entries.AddRange(batch);
+            Assert.Equal(2048, entries.Count);
+            Assert.Equal(candidates, probes.Count);
+            Assert.Equal(candidates, probes.Distinct().Count());
+            Assert.All(batchSizes, size => Assert.InRange(size, 1, 256));
+            if (files == 2048) Assert.Empty(batchSizes);
+            if (candidates == 2048) Assert.Equal(Enumerable.Repeat(256, 8), batchSizes);
+            Assert.All(entries.Where(entry => entry.IsDirectory && entry.Extension == ".framework"), entry =>
+            {
+                Assert.True(entry.IsFolder);
+                Assert.Equal(entry.Name, entry.DisplayName);
+                Assert.Equal("folder", entry.DetailsIconSource.IconKey);
+            });
+            Assert.All(entries.Where(entry => !entry.IsDirectory), entry => Assert.Null(entry.Package));
+            var streamed = entries.OrderBy(entry => entry.FullPath).ToArray();
+            probes.Clear();
+            batchSizes.Clear();
+            var contents = await service.GetDirectoryContentsAsync(root.FullName, TestContext.Current.CancellationToken);
+            Assert.Equal(candidates, probes.Distinct().Count());
+            Assert.Equal(candidates, probes.Count);
+            Assert.Equal(streamed.Select(entry => (entry.FullPath, entry.Package)),
+                contents.OrderBy(entry => entry.FullPath).Select(entry => (entry.FullPath, entry.Package)));
+            if (candidates == 2048) Assert.Equal(Enumerable.Repeat(256, 8), batchSizes);
+            TestContext.Current.TestOutputHelper!.WriteLine($"Candidate paths: {probes.Count}, native batches: {batchSizes.Count}");
+        }
+        finally { root.Delete(true); }
+    }
+}

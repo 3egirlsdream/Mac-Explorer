@@ -207,6 +207,40 @@ public sealed class SearchIndexWriteTests : IDisposable
     }
 
     [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task PackageCandidatesRespectSystemClassificationAndExplicitRoots()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS");
+        var folder = Directory.CreateDirectory(Path.Combine(Root, "NapCat.Framework")).FullName;
+        var app = Directory.CreateDirectory(Path.Combine(Root, "Example.app")).FullName;
+        File.WriteAllText(Path.Combine(folder, "probe-inside.txt"), "");
+        File.WriteAllText(Path.Combine(app, "probe-private.txt"), "");
+        var catalog = Catalog();
+        await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database }, new Pinyin(), new Changes());
+        Assert.True(indexer.CanDescend(Root, Path.Combine(folder, "child")));
+        Assert.False(indexer.CanDescend(Root, Path.Combine(app, "Contents")));
+        Assert.True(indexer.CanDescend(app, Path.Combine(app, "Contents")));
+        indexer.EnsureRoot(Root);
+        await Ready(indexer, Root);
+        var search = new MacSearchService(catalog, indexer, new MacFileService(), new Pinyin());
+        var found = new List<string>();
+        await foreach (var entry in search.SearchAsync(Root, "probe-", cancellationToken: _cancellation))
+            found.Add(entry.Name);
+        Assert.Contains("probe-inside.txt", found);
+        Assert.DoesNotContain("probe-private.txt", found);
+        var frameworks = new List<Models.FileSystemEntry>();
+        await foreach (var entry in search.SearchAsync(Root, "NapCat", cancellationToken: _cancellation))
+            frameworks.Add(entry);
+        var result = Assert.Single(frameworks);
+        Assert.Equal("NapCat.Framework", result.DisplayName);
+        Assert.Equal("folder", result.DetailsIconSource.IconKey);
+        found.Clear();
+        await foreach (var entry in search.SearchAsync(app, "probe-private", cancellationToken: _cancellation))
+            found.Add(entry.Name);
+        Assert.Equal("probe-private.txt", Assert.Single(found));
+    }
+
+    [Fact(Explicit = true)]
     [Trait("Kind", "Stress")]
     public async Task LargeDirectoryUsesTheRealMemoryLimitAndCleansScratchAfterAbortAndCompletion()
     {

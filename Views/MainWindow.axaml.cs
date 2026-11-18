@@ -66,7 +66,6 @@ public partial class MainWindow : AppWindow
     private const int BackgroundWorkspaceLimit = 3;
     private PaneLayout? _renderedPaneLayout;
     private readonly LivePreviewCoordinator _livePreviewCoordinator;
-    private readonly NavigationBridge _navigationBridge;
     private readonly IDragDropBridge _dragDropBridge;
     private readonly IBackgroundTaskManager _taskManager;
     private readonly ILocalizationService? _taskLocalization;
@@ -122,7 +121,6 @@ public partial class MainWindow : AppWindow
             _tabInteraction.Cancel();
         };
         Closed += (_, _) => { _tabContextMenu?.Close(); _tabInteraction.Dispose(); };
-        _navigationBridge = App.Services.GetRequiredService<NavigationBridge>();
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
         _taskManager = App.Services.GetRequiredService<IBackgroundTaskManager>();
         _globalSearchScopeService = App.Services.GetRequiredService<IGlobalSearchScopeService>();
@@ -593,7 +591,6 @@ public partial class MainWindow : AppWindow
         RegisterViewModel(fileList);
         UpdateTaskButton();
         WireCommandPaletteEvents(fileList);
-        _navigationBridge.SetActive(fileList);
         _dragDropBridge.SetActive(fileList);
     }
 
@@ -623,14 +620,12 @@ public partial class MainWindow : AppWindow
     private void RegisterViewModel(FileListViewModel vm)
     {
         vm.SetOwnerWindow(this);
-        _navigationBridge.Register(vm);
         _dragDropBridge.Register(vm);
     }
 
     private void UnregisterViewModel(FileListViewModel vm)
     {
         vm.SetOwnerWindow(null);
-        _navigationBridge.Unregister(vm);
         _dragDropBridge.Unregister(vm);
         vm.RequestBatchRename -= OnRequestBatchRename;
         vm.RequestRemoteConnection -= OnRequestRemoteConnection;
@@ -715,15 +710,15 @@ public partial class MainWindow : AppWindow
             return;
         }
 
-        var pendingPath = InitialNavigationPath ?? _navigationBridge.PendingNavigationPath;
-        _navigationBridge.PendingNavigationPath = null;
-        var quickAccessRequested = _navigationBridge.PendingQuickAccessFocus;
-        var restorePath = quickAccessRequested
-            ? null
-            : _vm.FileList.GetRestorableDirectoryPath();
-        _navigationBridge.PendingQuickAccessFocus = false;
-
-        var path = !string.IsNullOrEmpty(pendingPath) ? pendingPath : restorePath;
+        var path = string.IsNullOrEmpty(InitialNavigationPath)
+            ? _vm.FileList.GetRestorableDirectoryPath() : InitialNavigationPath;
+        if (VirtualPath.IsHomePath(path))
+        {
+            // A fresh Quick Access window must not clear the saved directory used by ordinary windows.
+            SchedulePaneLayoutRebuild();
+            ActiveWorkspace?.FocusPathInput();
+            return;
+        }
         if (!string.IsNullOrEmpty(path))
         {
             if (File.Exists(path))
@@ -738,7 +733,6 @@ public partial class MainWindow : AppWindow
     {
         if (_vm == null) return;
         App.RecordActiveMainWindow(this);
-        _navigationBridge.SetActive(_vm.FileList);
         _dragDropBridge.SetActive(_vm.FileList);
         _ = ActivateSelectedWorkspaceAsync();
     }
@@ -1377,7 +1371,6 @@ public partial class MainWindow : AppWindow
         foreach (var inactive in _workspaceViews.Values.Where(candidate => !ReferenceEquals(candidate, workspace)))
             inactive.DeactivateTransientUi();
 
-        _navigationBridge.SetActive(_vm.FileList);
         _dragDropBridge.SetActive(_vm.FileList);
         try
         {

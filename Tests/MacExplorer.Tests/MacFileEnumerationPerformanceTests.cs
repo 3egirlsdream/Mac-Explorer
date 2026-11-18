@@ -66,7 +66,7 @@ public sealed class MacFileEnumerationPerformanceTests : IDisposable
                 Assert.False(folder.IsSymbolicLink);
                 Assert.Equal(0, folder.Size);
                 Assert.Equal(name == ".hidden-folder", folder.IsHidden);
-                Assert.Equal(name is "Example.app" or "Photo Booth Library" ? "app-bundle" : "folder", folder.IconKey);
+                Assert.Equal(name == "Example.app" ? "app-bundle" : "folder", folder.IconKey);
             }
             Assert.Equal(".jpg", snapshot.Single(entry => entry.Name == "PHOTO.JPG").Extension);
             Assert.Equal("file-image", snapshot.Single(entry => entry.Name == "PHOTO.JPG").IconKey);
@@ -74,25 +74,24 @@ public sealed class MacFileEnumerationPerformanceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(1)]
-    [InlineData(64)]
-    [InlineData(2048)]
-    public async Task Batches_PreserveEveryEntryAndRespectSizeClamping(int batchSize)
+    [InlineData(1, 32)]
+    [InlineData(64, 64)]
+    [InlineData(2048, 1024)]
+    public async Task Batches_PreserveEveryEntryAndRespectSizeClamping(int requested, int expectedSize)
     {
         var token = TestContext.Current.CancellationToken;
-        const int count = 257;
-        for (var i = 0; i < count; i++)
-            await File.WriteAllBytesAsync(Path.Combine(_root, $"file-{i}.txt"), Array.Empty<byte>(), token);
-        var service = new MacFileService();
-        var paths = new HashSet<string>(StringComparer.Ordinal);
-        var received = 0;
-        await foreach (var batch in service.EnumerateDirectoryBatchesAsync(_root, batchSize, token))
+        var expectedPaths = Enumerable.Range(0, expectedSize + 1)
+            .Select(i => Path.Combine(_root, $"file-{i}.txt")).ToHashSet(StringComparer.Ordinal);
+        foreach (var path in expectedPaths) File.Create(path).Dispose();
+
+        var sizes = new List<int>();
+        await foreach (var batch in new MacFileService().EnumerateDirectoryBatchesAsync(_root, requested, token))
         {
-            Assert.InRange(batch.Count, 1, Math.Clamp(batchSize, 32, 1024));
-            foreach (var entry in batch) Assert.True(paths.Add(entry.FullPath));
-            received += batch.Count;
+            sizes.Add(batch.Count);
+            foreach (var entry in batch) Assert.True(expectedPaths.Remove(entry.FullPath));
         }
-        Assert.Equal(count, received);
+        Assert.Empty(expectedPaths);
+        Assert.Equal([expectedSize, 1], sizes);
     }
 
     [Fact]

@@ -10,6 +10,7 @@ public partial class FileListViewModel
         public IReadOnlyList<FileSystemEntry> RawEntries = [];
         public IReadOnlyList<FileSystemEntry> Entries = [];
         public CancellationTokenSource? Load;
+        public CancellationTokenSource? Icons;
         public bool IsLoading;
         public bool HasError;
     }
@@ -74,6 +75,8 @@ public partial class FileListViewModel
     private void RemoveTreeBranch(string path)
     {
         if (!_treeBranches.Remove(path, out var branch)) return;
+        branch.Icons?.Cancel();
+        branch.Icons = null;
         branch.Load?.Cancel();
         branch.Load?.Dispose();
         branch.Load = null;
@@ -82,6 +85,8 @@ public partial class FileListViewModel
 
     private async Task LoadTreeBranchAsync(string path, TreeBranch branch, bool publishRows = true)
     {
+        branch.Icons?.Cancel();
+        branch.Icons = null;
         branch.Load?.Cancel();
         branch.Load?.Dispose();
         var load = new CancellationTokenSource();
@@ -112,6 +117,7 @@ public partial class FileListViewModel
             branch.IsLoading = false;
             if (StatusText.StartsWith(Services.Impl.LocalizationText.Get("无法展开文件夹:"), StringComparison.Ordinal)) StatusText = string.Empty;
             if (publishRows) RebuildTreeRows(restoreSelection: true);
+            StartTreeIconLoad(branch);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -129,6 +135,26 @@ public partial class FileListViewModel
         {
             if (ReferenceEquals(branch.Load, load)) branch.Load = null;
             load.Dispose();
+        }
+    }
+
+    private void StartTreeIconLoad(TreeBranch branch)
+    {
+        branch.Icons?.Cancel();
+        var request = new CancellationTokenSource();
+        branch.Icons = request;
+        _ = LoadTreeIconsAsync(branch, request);
+    }
+
+    private async Task LoadTreeIconsAsync(TreeBranch branch, CancellationTokenSource request)
+    {
+        try { await ResolveFileIconsAsync(branch.RawEntries, request.Token); }
+        catch (OperationCanceledException) when (request.IsCancellationRequested) { }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Tree application icons: {ex}"); }
+        finally
+        {
+            if (ReferenceEquals(branch.Icons, request)) branch.Icons = null;
+            request.Dispose();
         }
     }
 
@@ -187,6 +213,8 @@ public partial class FileListViewModel
             _treeRestoringBranches = false;
             foreach (var (path, branch) in _treeBranches)
             {
+                branch.Icons?.Cancel();
+                branch.Icons = null;
                 branch.Load?.Cancel();
                 branch.Load?.Dispose();
                 branch.Load = null;
@@ -359,6 +387,8 @@ public partial class FileListViewModel
         _treeRestoringBranches = _treeBranches.Count > 0;
         foreach (var (path, branch) in _treeBranches)
         {
+            branch.Icons?.Cancel();
+            branch.Icons = null;
             branch.Load?.Cancel();
             branch.Load?.Dispose();
             branch.Load = null;

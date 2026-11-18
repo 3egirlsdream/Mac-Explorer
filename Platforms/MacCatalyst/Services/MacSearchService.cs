@@ -72,10 +72,10 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
             await observation.Changed.WaitAsync(cancellationToken).ConfigureAwait(false);
         var entries = await _catalog.SearchAsync(root, query, options, maxResults,
             (FeatureAccess.CanUse(PremiumFeature.ContentSearch) && (_settings?.Get("SearchIncludeAiTags", true) ?? true)), cancellationToken).ConfigureAwait(false);
-        foreach (var entry in entries)
+        foreach (var entry in await MaterializeAsync(entries, maxResults, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            yield return entry.ToFileSystemEntry();
+            yield return entry;
         }
     }
 
@@ -120,13 +120,26 @@ public sealed class MacSearchService : ISearchService, IGlobalSearchService, ISe
             var entries = await _catalog.SearchAsync(root, query, options, checked(limit + 1), includeAi,
                 cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            yield return new(entries.Take(limit).Select(entry => entry.ToFileSystemEntry()).ToArray(),
+            yield return new(await MaterializeAsync(entries, limit, cancellationToken),
                 observation.Status, entries.Count > limit);
             if (!observation.Status.IsBusy && !observation.Changed.IsCompleted) yield break;
             await observation.Changed.WaitAsync(cancellationToken).ConfigureAwait(false);
             await Task.Delay(150, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    private static Task<FileSystemEntry[]> MaterializeAsync(IEnumerable<SearchEntry> entries, int limit, CancellationToken token)
+        => Task.Run(() =>
+        {
+            var batch = new MacDirectoryPackages.Batch(Platforms.MacOS.MacSandboxNative.DirectoryPackages, token);
+            var results = entries.Take(limit).Select(entry =>
+            {
+                token.ThrowIfCancellationRequested();
+                return MacDirectoryPackages.Confirm(entry.ToFileSystemEntry(), batch);
+            }).ToArray();
+            batch.Flush();
+            return results;
+        }, token);
 
     // Remote/virtual providers are not represented by the local SQLite catalog.
     // Only an explicit search of such a provider enumerates it; global local queries never do.

@@ -261,7 +261,6 @@ public abstract partial class FileListViewModelTestBase
             _previousServices = App.Services;
             var settings = new StartupSettings();
             var services = new ServiceCollection()
-                .AddSingleton<NavigationBridge>()
                 .AddSingleton<ISettingsService>(settings)
                 .AddSingleton<IBackgroundTaskManager, BackgroundTaskManager>()
                 .AddSingleton<IGlobalSearchScopeService, GlobalSearchScopeService>()

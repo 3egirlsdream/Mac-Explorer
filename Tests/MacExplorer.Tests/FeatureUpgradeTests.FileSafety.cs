@@ -13,6 +13,77 @@ namespace MacExplorer.Tests;
 public sealed partial class FeatureUpgradeTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Area", "FileConflicts")]
+    public async Task MergedMoveOnlyRemovesAnEmptySource(bool fileArrivesDuringMove)
+    {
+        var child = At("source/folder/item.txt", "original");
+        var source = Path.GetDirectoryName(child)!;
+        var target = Path.GetDirectoryName(At("target/folder/keep.txt"))!;
+        var lateFile = Path.Combine(source, "late.txt");
+        using var tags = new FileTagService(Database());
+        var files = new CompositeFileService(new MacFileService(), null!,
+            conflicts: new Choice(FileConflictAction.Replace), tags: tags);
+        if (fileArrivesDuringMove)
+            tags.TagsChanged += (_, _) => File.WriteAllText(lateFile, "new arrival");
+
+        var move = files.MoveAsync(source, Path.GetDirectoryName(target)!);
+        if (fileArrivesDuringMove)
+        {
+            await Assert.ThrowsAnyAsync<IOException>(() => move);
+            Assert.Equal("new arrival", File.ReadAllText(lateFile));
+        }
+        else
+        {
+            await move;
+            Assert.False(Directory.Exists(source));
+        }
+        Assert.Equal("original", File.ReadAllText(Path.Combine(target, "item.txt")));
+    }
+
+    [Fact]
+    [Trait("Area", "FileConflicts")]
+    public async Task MergeReportsWhenSourceCanNoLongerBeEnumerated()
+    {
+        var source = Path.GetDirectoryName(At("source/folder/item.txt"))!;
+        var target = Path.GetDirectoryName(At("target/folder/keep.txt"))!;
+        var decision = new Choice(FileConflictAction.Replace, beforeReturn: () => Directory.Move(source, source + "-renamed"));
+        var files = new CompositeFileService(new MacFileService(), null!, conflicts: decision);
+        await Assert.ThrowsAsync<DirectoryNotFoundException>(() => files.MoveAsync(source, Path.GetDirectoryName(target)!));
+        Assert.True(File.Exists(Path.Combine(source + "-renamed", "item.txt")));
+    }
+
+    [Theory]
+    [InlineData(FileConflictAction.Skip)]
+    [InlineData(FileConflictAction.KeepBoth)]
+    [Trait("Area", "FileDrop")]
+    public async Task DragCopyTagsFollowTheCommittedDestination(FileConflictAction action)
+    {
+        var source = At("source/item.txt", "source");
+        var original = At("target/item.txt", "existing");
+        var directory = Path.GetDirectoryName(original)!;
+        using var tags = new FileTagService(Database());
+        var tag = await tags.CreateTagAsync("Source");
+        await tags.SetTagAsync([source], tag, true);
+        var decision = new Choice(action);
+        var files = new CompositeFileService(new MacFileService(), null!, conflicts: decision, tags: tags);
+        var drop = new MacDragDropBridge(files, new DirectoryChangeNotifier(), fileTagService: tags);
+        await drop.DropFilesAsync([source], directory, forceCopy: true, forceMove: false);
+
+        Assert.Equal(1, decision.Count);
+        Assert.Empty(await tags.GetFileTagsAsync(original));
+        Assert.Equal("existing", File.ReadAllText(original));
+        var copy = Path.Combine(directory, "item (1).txt");
+        if (action == FileConflictAction.KeepBoth)
+        {
+            Assert.Equal("source", File.ReadAllText(copy));
+            Assert.Equal(tag.Name, Assert.Single(await tags.GetFileTagsAsync(copy)).Name);
+        }
+        else Assert.False(File.Exists(copy));
+    }
+
+    [Theory]
     [InlineData(FileConflictAction.KeepBoth)]
     [InlineData(FileConflictAction.Skip)]
     [InlineData(FileConflictAction.Replace)]

@@ -14,8 +14,12 @@ public class MacFileService : IFileService, ITrashResultFileService
 {
     private readonly SqliteFileIndex? _iconCache;
     private readonly string _iconCacheDir;
-    public MacFileService(SqliteFileIndex? iconCache = null)
+    private readonly Func<string[], MacOS.MacSandboxNative.PackageInfo[]> _packageProbe;
+    public MacFileService(SqliteFileIndex? iconCache = null) : this(iconCache, MacOS.MacSandboxNative.DirectoryPackages) { }
+
+    internal MacFileService(SqliteFileIndex? iconCache, Func<string[], MacOS.MacSandboxNative.PackageInfo[]> packageProbe)
     {
+        _packageProbe = packageProbe;
         _iconCache = iconCache;
         _iconCacheDir = Path.Combine(
             RuntimePaths.CacheDirectory, "icon-cache");
@@ -35,6 +39,7 @@ public class MacFileService : IFileService, ITrashResultFileService
         return await Task.Run(() =>
         {
             var entries = new List<FileSystemEntry>();
+            var packages = new MacDirectoryPackages.Batch(_packageProbe, cancellationToken);
 
             try
             {
@@ -53,7 +58,7 @@ public class MacFileService : IFileService, ITrashResultFileService
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    var entry = CreateEntryForEnumeration(info);
+                    var entry = CreateEntryForEnumeration(info, packages);
                     if (entry != null) entries.Add(entry);
                 }
 
@@ -70,7 +75,7 @@ public class MacFileService : IFileService, ITrashResultFileService
                                 cancellationToken.ThrowIfCancellationRequested();
                                 var name = info.Name;
                                 if (name.StartsWith('.') || entries.Any(e => e.Name == name)) continue;
-                                var entry = CreateEntryForEnumeration(info);
+                                var entry = CreateEntryForEnumeration(info, packages);
                                 if (entry != null) entries.Add(entry);
                             }
                         }
@@ -89,6 +94,7 @@ public class MacFileService : IFileService, ITrashResultFileService
                 // Return whatever entries we collected
             }
 
+            packages.Flush();
             return entries;
         }, cancellationToken);
     }
@@ -152,50 +158,56 @@ public class MacFileService : IFileService, ITrashResultFileService
         CancellationToken cancellationToken)
     {
         var batch = new List<FileSystemEntry>(batchSize);
-        var knownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var packages = new MacDirectoryPackages.Batch(_packageProbe, cancellationToken);
+        var systemPath = path == "/Applications" || path.StartsWith("/Applications/", StringComparison.Ordinal)
+            ? "/System" + path : null;
+        var knownNames = systemPath != null && DirectoryAccess.Current.CanAccess(systemPath) && Directory.Exists(systemPath)
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : null;
         foreach (var info in new DirectoryInfo(path).EnumerateFileSystemInfos())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var entry = CreateEntryForEnumeration(info);
+            var entry = CreateEntryForEnumeration(info, packages);
 
             if (entry != null)
             {
                 batch.Add(entry);
-                knownNames.Add(entry.Name);
+                knownNames?.Add(entry.Name);
             }
             if (batch.Count < batchSize) continue;
+            packages.Flush();
             await writer.WriteAsync(batch.ToArray(), cancellationToken);
             batch.Clear();
         }
 
         if (batch.Count > 0)
         {
+            packages.Flush();
             await writer.WriteAsync(batch.ToArray(), cancellationToken);
             batch.Clear();
         }
 
-        if (path == "/Applications" || path.StartsWith("/Applications/", StringComparison.Ordinal))
+        if (knownNames != null && systemPath != null)
         {
-            var systemPath = "/System" + path;
-            if (DirectoryAccess.Current.CanAccess(systemPath) && Directory.Exists(systemPath))
+            foreach (var info in new DirectoryInfo(systemPath).EnumerateFileSystemInfos())
             {
-                foreach (var info in new DirectoryInfo(systemPath).EnumerateFileSystemInfos())
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var name = info.Name;
-                    if (name.StartsWith('.') || !knownNames.Add(name)) continue;
-                    var systemEntry = CreateEntryForEnumeration(info);
-                    if (systemEntry == null) continue;
-                    batch.Add(systemEntry);
-                    if (batch.Count < batchSize) continue;
-                    await writer.WriteAsync(batch.ToArray(), cancellationToken);
-                    batch.Clear();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                var name = info.Name;
+                if (name.StartsWith('.') || !knownNames.Add(name)) continue;
+                var systemEntry = CreateEntryForEnumeration(info, packages);
+                if (systemEntry == null) continue;
+                batch.Add(systemEntry);
+                if (batch.Count < batchSize) continue;
+                packages.Flush();
+                await writer.WriteAsync(batch.ToArray(), cancellationToken);
+                batch.Clear();
             }
         }
 
         if (batch.Count > 0)
+        {
+            packages.Flush();
             await writer.WriteAsync(batch.ToArray(), cancellationToken);
+        }
     }
 
     private List<FileSystemEntry> EnumerateTrashViaFinder(CancellationToken ct)
@@ -548,12 +560,12 @@ end tell");
 
     // A factory that throws never returns a partially initialized entry. Expected
     // filesystem races are skipped consistently; permission failures get a placeholder.
-    internal FileSystemEntry? CreateEntryForEnumeration(FileSystemInfo info)
+    internal FileSystemEntry? CreateEntryForEnumeration(FileSystemInfo info, MacDirectoryPackages.Batch? packages = null)
     {
         try
         {
             return info is DirectoryInfo directory
-                ? CreateEntryFromDirectoryInfo(directory)
+                ? CreateEntryFromDirectoryInfo(directory, packages)
                 : CreateEntryFromFileInfo((FileInfo)info);
         }
         catch (UnauthorizedAccessException)
@@ -566,27 +578,14 @@ end tell");
         }
     }
 
-    private FileSystemEntry CreateEntryFromDirectoryInfo(DirectoryInfo dir)
+    private FileSystemEntry CreateEntryFromDirectoryInfo(DirectoryInfo dir, MacDirectoryPackages.Batch? packages = null)
     {
         var ext = Path.GetExtension(dir.Name);
-        var bundleIconKey = Indexing.SqliteFileIndex.ResolveBundleIconKey(ext);
-
-        // Handle known macOS library bundles that have no file extension
-        if (bundleIconKey == "folder" && IsKnownLibraryBundle(dir.Name))
-            bundleIconKey = "app-bundle";
-
-        // Enumeration already runs on a worker. Read the system's package size,
-        // without recursively walking every application before publishing the list.
-        var size = OperatingSystem.IsMacOS() && dir.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase)
-            && !dir.Attributes.HasFlag(FileAttributes.ReparsePoint)
-            ? Math.Max(0, MacExplorer.Platforms.MacOS.MacSandboxNative.ApplicationSize(dir.FullName)) : 0;
-
-        return new FileSystemEntry
+        return MacDirectoryPackages.Confirm(new FileSystemEntry
         {
             FullPath = dir.FullName,
             Name = dir.Name,
             IsDirectory = true,
-            Size = size,
             LastModified = dir.LastWriteTime,
             Created = dir.CreationTime,
             Extension = ext,
@@ -594,16 +593,9 @@ end tell");
             IsSymbolicLink = dir.Attributes.HasFlag(FileAttributes.ReparsePoint),
             IsReadable = true,
             IsWritable = !dir.Attributes.HasFlag(FileAttributes.ReadOnly),
-            IconKey = bundleIconKey,
+            IconKey = SqliteFileIndex.ResolveBundleIconKey(ext),
             // Icons loaded lazily via ResolveAppIconsAsync
-        };
-    }
-
-    private static bool IsKnownLibraryBundle(string dirName)
-    {
-        // Photo Booth library has no extension on macOS
-        // Chinese: "Photo Booth图库", English: "Photo Booth Library"
-        return dirName.StartsWith("Photo Booth", StringComparison.OrdinalIgnoreCase);
+        }, packages);
     }
 
     public async Task ResolveAppIconsAsync(
@@ -621,8 +613,9 @@ end tell");
         foreach (var entry in appEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var appPath = entry.Package?.ApplicationPath ?? entry.FullPath;
             var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes($"v2:{entry.FullPath}:{entry.LastModified.ToUniversalTime().Ticks}"))).Substring(0, 16).ToLowerInvariant();
+                System.Text.Encoding.UTF8.GetBytes($"v2:{appPath}:{entry.LastModified.ToUniversalTime().Ticks}"))).Substring(0, 16).ToLowerInvariant();
             var cachedPngPath = Path.Combine(_iconCacheDir, $"{hash}.png");
 
             // Launch Services can briefly return a placeholder while an app is being
@@ -634,7 +627,7 @@ end tell");
             }
             else
             {
-                toExtract.Add((entry, entry.FullPath, cachedPngPath));
+                toExtract.Add((entry, appPath, cachedPngPath));
             }
         }
 
@@ -673,7 +666,15 @@ end tell");
             {
                 DirectoryAccess.Current.EnsureAccess(appPath);
                 var icon = MacExplorer.Platforms.MacOS.MacSandboxNative.ApplicationIcon(appPath, 128);
-                if (icon != null) File.WriteAllBytes(pngPath, Convert.FromBase64String(icon));
+                if (icon == null) continue;
+                var temporary = pngPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    File.WriteAllBytes(temporary, Convert.FromBase64String(icon));
+                    cancellationToken.ThrowIfCancellationRequested();
+                    File.Move(temporary, pngPath, overwrite: true);
+                }
+                finally { TryDeleteFile(temporary); }
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception error) { Debug.WriteLine($"App icon unavailable: {error.Message}"); }
@@ -727,6 +728,7 @@ end tell");
             Name = name,
             IsDirectory = isDirectory,
             IsReadable = false,
+            Package = isDirectory ? DirectoryPackage.Folder : null,
             IconKey = isDirectory ? "folder" : "file-generic"
         };
     }

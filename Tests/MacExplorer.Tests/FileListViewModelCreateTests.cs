@@ -1238,6 +1238,7 @@ public abstract partial class FileListViewModelTestBase
     {
         private readonly Dictionary<string, FileSystemEntry> _entries = new(StringComparer.Ordinal);
 
+        public Func<IReadOnlyList<FileSystemEntry>, CancellationToken, Task>? ResolveIcons { get; set; }
         public int EnumerateDirectoryCallCount { get; private set; }
         public Func<string, CancellationToken, Task>? BeforeEnumerate { get; set; }
         public string HomeDirectory { get; } = homeDirectory;
@@ -1361,7 +1362,8 @@ public abstract partial class FileListViewModelTestBase
         public IReadOnlyList<string> GetVolumes() => [];
         public Task DeletePermanentlyAsync(string path) => Task.CompletedTask;
         public Task EmptyTrashAsync() => Task.CompletedTask;
-        public Task ResolveAppIconsAsync(IEnumerable<FileSystemEntry> entries, Action? onBatchResolved = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ResolveAppIconsAsync(IEnumerable<FileSystemEntry> entries, Action? onBatchResolved = null, CancellationToken cancellationToken = default)
+            => ResolveIcons?.Invoke(entries.ToArray(), cancellationToken) ?? Task.CompletedTask;
         public bool IsCrossVolume(string sourcePath, string destinationPath) => false;
         public Task MoveWithProgressAsync(IReadOnlyList<string> sourcePaths, string destinationDirectory, IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default) => Task.CompletedTask;
 

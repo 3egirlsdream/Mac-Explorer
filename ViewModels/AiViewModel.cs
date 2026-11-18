@@ -288,6 +288,7 @@ public partial class AiViewModel : ObservableObject
             if (entry != null) entries.Add(entry);
         }
 
+        await Task.Run(() => Platforms.MacCatalyst.Services.MacDirectoryPackages.ConfirmAll(entries));
         CurrentFaceClusterId = clusterId;
         var cluster = FaceClusters.FirstOrDefault(c => c.Id == clusterId);
         CurrentAiContextLabel = cluster?.DisplayName ?? "未命名";
@@ -306,6 +307,7 @@ public partial class AiViewModel : ObservableObject
             if (entry != null) entries.Add(entry);
         }
 
+        await Task.Run(() => Platforms.MacCatalyst.Services.MacDirectoryPackages.ConfirmAll(entries));
         CurrentAiContextLabel = tagValue;
         applyEntries?.Invoke(new ObservableCollection<FileSystemEntry>(entries));
         setStatus?.Invoke($"找到 {entries.Count} 项");
@@ -344,6 +346,7 @@ public partial class AiViewModel : ObservableObject
                 if (entry != null) entries.Add(entry);
             }
 
+            await Task.Run(() => Platforms.MacCatalyst.Services.MacDirectoryPackages.ConfirmAll(entries));
             _currentTextSearchQuery = query;
             CurrentAiContextLabel = $"搜索: {query}";
             applyEntries(new ObservableCollection<FileSystemEntry>(entries));

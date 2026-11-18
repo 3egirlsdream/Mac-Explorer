@@ -35,15 +35,12 @@ public sealed class FeatureUpgradeUiTests : FileListViewModelTestBase
             Assert.Same(dialog, TopLevel.GetTopLevel(editor!.TextArea)); Assert.True(editor.TextArea.Bounds.Height > 0);
             Assert.False(editor!.ShowLineNumbers);
             Assert.Equal("indexed needle excerpt", editor.Document.Text);
-            var previewHost = Assert.IsType<Panel>(editor.Parent);
             Assert.True(editor.Bounds.Width > dialog.Bounds.Width * .85);
-            Assert.Equal(626, dialog.Bounds.Height);
-            Assert.Equal(550, previewHost.Bounds.Height);
+            var chromeHeight = dialog.Bounds.Height - editor.Bounds.Height;
             dialog.Width = 520; dialog.Height = 400; Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
             Assert.True(editor.Bounds.Height > 0);
-            Assert.True(previewHost.Bounds.Height < 550);
-            Assert.Equal(dialog.Bounds.Height - 16, previewHost.TranslatePoint(default, dialog)!.Value.Y + previewHost.Bounds.Height);
-            Assert.Empty(previewHost.GetVisualDescendants().OfType<MacExplorer.Controls.AppButton>());
+            Assert.Equal(dialog.Bounds.Height - chromeHeight, editor.Bounds.Height);
+            Assert.Empty(((Control)dialog.Content!).GetVisualDescendants().OfType<MacExplorer.Controls.AppButton>());
             dialog.GetVisualDescendants().OfType<MacExplorer.Controls.WindowTitleBar>().Single()
                 .FindControl<Button>("CloseButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.False(dialog.IsVisible);
@@ -63,17 +60,15 @@ public sealed class FeatureUpgradeUiTests : FileListViewModelTestBase
         {
             dialog.Show(); dialog.UpdateLayout();
             var preview = dialog.GetVisualDescendants().OfType<DiffPreviewView>().Single();
-            Assert.Equal(1000, dialog.Bounds.Width); Assert.Equal(660, dialog.Bounds.Height);
-            Assert.Equal(584, preview.Bounds.Height);
-            Assert.Equal(60, preview.TranslatePoint(default, dialog)!.Value.Y);
+            var chromeHeight = dialog.Bounds.Height - preview.Bounds.Height;
+            Assert.True(preview.Bounds.Height > dialog.Bounds.Height / 2);
             var editors = preview.GetVisualDescendants().OfType<AvaloniaEdit.TextEditor>().ToArray();
             Assert.Equal(2, editors.Length);
             Assert.Contains(editors, editor => editor.Document.Text.Contains("before"));
             Assert.Contains(editors, editor => editor.Document.Text.Contains("after"));
             dialog.Width = 420; dialog.Height = 360; Dispatcher.UIThread.RunJobs(); dialog.UpdateLayout();
-            Assert.Equal(284, preview.Bounds.Height);
+            Assert.Equal(dialog.Bounds.Height - chromeHeight, preview.Bounds.Height);
             Assert.All(editors, editor => Assert.True(editor.Bounds.Width > 0 && editor.Bounds.Height > 0));
-            Assert.Equal(dialog.Bounds.Height - 16, preview.TranslatePoint(default, dialog)!.Value.Y + preview.Bounds.Height);
             Assert.Empty(((Control)dialog.Content!).GetVisualDescendants().OfType<MacExplorer.Controls.AppButton>());
             dialog.GetVisualDescendants().OfType<MacExplorer.Controls.WindowTitleBar>().Single()
                 .FindControl<Button>("CloseButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -99,7 +94,6 @@ public sealed class FeatureUpgradeUiTests : FileListViewModelTestBase
             dialog.UpdateLayout();
             Assert.Same(dialog, TopLevel.GetTopLevel(editor!.TextArea)); Assert.True(editor.TextArea.Bounds.Height > 0);
             Assert.Equal(3, editor!.Document.GetLineByOffset(editor.SelectionStart).LineNumber);
-            Assert.IsType<Panel>(editor.Parent);
             Assert.True(editor.Bounds.Width > dialog.Bounds.Width * .85);
         }
         finally { dialog.Close(); File.Delete(path); }

@@ -4782,6 +4782,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _ = TriggerImageAnalysisAsync(entries, work);
     }
 
+    internal Task ResolveFileIconsAsync(IReadOnlyList<FileSystemEntry> entries, CancellationToken token)
+        => _fileService.ResolveAppIconsAsync(entries, cancellationToken: token);
+
     private async Task ResolveIconsInBackgroundAsync(IReadOnlyList<FileSystemEntry> entries, DirectoryWork work)
     {
         try
@@ -5126,6 +5129,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IsSymbolicLink = src.IsSymbolicLink,
         IsReadable = src.IsReadable,
         IsWritable = src.IsWritable,
+        Package = src.Package,
         IconKey = src.IconKey,
         IconUrl = src.IconUrl,
         ThumbnailUrl = src.ThumbnailUrl,

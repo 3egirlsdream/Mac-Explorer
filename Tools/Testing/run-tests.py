@@ -82,8 +82,12 @@ def main():
         tests.extend(assembly.iter("test"))
         for key in counts:
             counts[key] += int(assembly.get(key, "0"))
-        if int(assembly.get("total", "0")) or int(assembly.get("errors", "0")):
-            code = code or result
+        code = code or result
+        if int(assembly.get("errors", "0")) or int(assembly.get("failed", "0")):
+            code = code or 1
+        if args.profile == "full" and not args.area and int(assembly.get("passed", "0")) == 0:
+            print(f"{project}: full profile requires at least one passing test from each assembly.")
+            code = code or 1
     test_time = time.monotonic() - test_started
     elapsed = time.monotonic() - started
     summary = {"profile": args.profile, "areas": args.area, **counts,

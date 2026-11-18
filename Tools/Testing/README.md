@@ -31,7 +31,7 @@ bash Tools/Testing/run-tests.sh stress
 - `Kind=Stress`：大规模真实文件、长期/大量重复操作。
 - `Kind=Manual`：需要人工操作其他应用或设备的验证；`full` 不包含这些用例。
 
-完整页面 UI、Integration、Stress 和 Manual 用例为显式测试。直接 `dotnet test` 默认只运行所属项目的非显式用例；推荐使用统一入口，确保两个测试程序集都被运行。发布 CI 使用 `full`。
+完整页面 UI、Integration、Stress 和 Manual 用例为显式测试。直接 `dotnet test` 默认只运行所属项目的非显式用例；推荐使用统一入口，确保两个测试程序集都被运行。发布 CI 使用 `full`，无区域过滤时每个测试程序集都必须有通过的用例。
 
 `MacExplorer.UnitTests` 通过显式编译列表收纳不使用 dispatcher、全局语言服务或共享应用状态的测试，最多 4 个集合并行。其余测试保持串行和 Avalonia PerTest 隔离。异步 Avalonia 用例在测试入口保存 `TestContext.Current.CancellationToken`，并传给等待与子进程，避免等待过程中重新读取已释放的测试上下文。不要直接对 UI 程序集打开集合并行或改成 PerAssembly。
 
@@ -124,7 +124,8 @@ MACEXPLORER_DELIVERY_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 
 ```bash
 bash Tools/Testing/run-tests.sh fast --area BackgroundTheme
-bash Tools/Testing/run-tests.sh ui
+bash Tools/Testing/run-tests.sh ui --area BackgroundTheme
+bash Tools/Testing/run-tests.sh integration --area FolderPhotoCover
 
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_BACKGROUND_THEME_SMOKE=1 bash Tools/Testing/run-isolated.sh \

@@ -116,6 +116,50 @@ char *me_registered_apps(const char *path) {
         return MEString([[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]);
     }
 }
+// -1 means unreadable, 0 is an ordinary directory, 1 is a package.
+static int MEReadDirectoryPackage(const char *path, NSArray *keys, char **applicationPath) {
+    *applicationPath = nullptr;
+    NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path] isDirectory:YES];
+    NSDictionary *values = [url resourceValuesForKeys:keys error:nil];
+    if ([values[NSURLIsSymbolicLinkKey] boolValue]) {
+        url = url.URLByResolvingSymlinksInPath;
+        values = [url resourceValuesForKeys:keys error:nil];
+    }
+    NSNumber *package = values[NSURLIsPackageKey];
+    if (!package || [values[NSURLIsSymbolicLinkKey] boolValue]) return -1;
+    if (!package.boolValue) return 0;
+    if ([values[NSURLIsApplicationKey] boolValue]) *applicationPath = MEString(url.path);
+    return 1;
+}
+
+static NSArray *MEPackageKeys() {
+    static NSArray *keys = @[NSURLIsPackageKey, NSURLIsApplicationKey, NSURLIsSymbolicLinkKey];
+    return keys;
+}
+
+int me_directory_package(const char *path, char **applicationPath) {
+    @autoreleasepool { return MEReadDirectoryPackage(path, MEPackageKeys(), applicationPath); }
+}
+
+int64_t me_application_size(const char *path);
+
+void me_directory_packages(const char *const *paths, int count, int *statuses, char **applicationPaths, int64_t *sizes) {
+    @autoreleasepool {
+        NSArray *keys = MEPackageKeys();
+        const int workers = MIN(8, (count + 15) / 16);
+        if (count == 0) return;
+        void (^read)(size_t) = ^(size_t worker) {
+            @autoreleasepool {
+                for (int i = (int)worker; i < count; i += workers) {
+                    statuses[i] = MEReadDirectoryPackage(paths[i], keys, &applicationPaths[i]);
+                    sizes[i] = applicationPaths[i] ? me_application_size(applicationPaths[i]) : 0;
+                }
+            }
+        };
+        if (workers == 1) read(0);
+        else dispatch_apply(workers, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), read);
+    }
+}
 int64_t me_application_size(const char *path) {
     @autoreleasepool {
         MDItemRef item = MDItemCreate(kCFAllocatorDefault, (__bridge CFStringRef)[NSString stringWithUTF8String:path]);

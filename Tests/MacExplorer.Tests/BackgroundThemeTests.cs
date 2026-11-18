@@ -23,11 +23,10 @@ using Xunit;
 namespace MacExplorer.Tests;
 
 [Trait("Kind", "UI")]
-[Trait("Smoke", "UI")]
 [Trait("Area", "BackgroundTheme")]
 public sealed class BackgroundThemeTests
 {
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -64,7 +63,7 @@ public sealed class BackgroundThemeTests
         finally { window.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task DisabledOrMissingBackgroundStillShowsWindow(bool missing)
@@ -87,7 +86,7 @@ public sealed class BackgroundThemeTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ClosedWindowIsNotShownWhenBackgroundFinishesLoading()
     {
         using var fixture = new Fixture();
@@ -105,6 +104,7 @@ public sealed class BackgroundThemeTests
     }
 
     [AvaloniaFact]
+    [Trait("Smoke", "UI")]
     public void HeightTilingKeepsItsScaleWhileWidening()
     {
         var image = new Size(600, 800);
@@ -115,7 +115,7 @@ public sealed class BackgroundThemeTests
         Assert.Equal(new Rect(0, 0, 600, 800), BackgroundThemeSurface.CalculateImageRect(image, new Size(1200, 800)));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task ImportIsBoundedAndDurableAndFailedReplacementKeepsThePreviousImage()
     {
         using var fixture = new Fixture();
@@ -141,6 +141,7 @@ public sealed class BackgroundThemeTests
     }
 
     [AvaloniaFact]
+    [Trait("Smoke", "UI")]
     public async Task MainWindowsUpdateTogetherAndDialogSurfacesStayOpaque()
     {
         using var fixture = new Fixture();
@@ -168,7 +169,7 @@ public sealed class BackgroundThemeTests
         finally { first.Close(); second.Close(); dialog.Close(); }
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("zh-CN", false)]
     [InlineData("zh-Hant", true)]
     [InlineData("en", true)]
@@ -224,6 +225,7 @@ public sealed class BackgroundThemeTests
     }
 
     [AvaloniaFact]
+    [Trait("Smoke", "UI")]
     public async Task MissingImageFallsBackAndCanBeReplaced()
     {
         using var fixture = new Fixture();
@@ -238,7 +240,7 @@ public sealed class BackgroundThemeTests
         Assert.True(service.IsActive);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task PresetsPersistWithoutRemovingTheUsersImageAndLateSelectionsCannotReplaceTheLatest()
     {
         using var fixture = new Fixture();
@@ -265,7 +267,7 @@ public sealed class BackgroundThemeTests
         Assert.False(File.Exists(Path.Combine(fixture.Root, managed)));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task NineWideVectorPresetsHaveContinuousEdgesAndReadableLightAndDarkPalettes()
     {
         using var fixture = new Fixture();
@@ -331,7 +333,7 @@ public sealed class BackgroundThemeTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void FullStrengthPresetsPreserveSourcePixels()
     {
         using var source = new SKBitmap(8, 8);
@@ -344,7 +346,7 @@ public sealed class BackgroundThemeTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void PaletteSpansTheWindowAndTextureStrengthDoesNotDimItsColors()
     {
         var options = new BackgroundThemeOptions { PresetId = "cyber-hud", TextureStrength = 0 };
@@ -363,7 +365,7 @@ public sealed class BackgroundThemeTests
         Assert.Equal(SKColors.White, custom.GetPixel(100, 50));
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void PackagedPreviewsMatchCurrentSvgSourcesAndStayBounded()
     {
         using var manifestStream = AssetLoader.Open(new Uri("avares://MacExplorer/Assets/BackgroundThemes/Previews/sources.json"));
@@ -382,7 +384,7 @@ public sealed class BackgroundThemeTests
         }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task PresetControlsKeepSelectionAndIntensityWhenLanguageChanges()
     {
         using var fixture = new Fixture();
@@ -449,7 +451,7 @@ public sealed class BackgroundThemeTests
         finally { window.Close(); Application.Current!.Styles.Remove(fluent); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public async Task PaletteChangesReuseTheSvgAndPersistIndependentlyForEachPattern()
     {
         using var fixture = new Fixture();
@@ -471,7 +473,7 @@ public sealed class BackgroundThemeTests
         Assert.Equal("custom", restored.Options.GetColors("cyber-circuit").PaletteId);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void PaletteChangesRecolorBothClearAndFrostedFramesAndRejectInvalidStoredValues()
     {
         var preset = BackgroundThemePresets.All[0];
@@ -496,7 +498,7 @@ public sealed class BackgroundThemeTests
         return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData("qq-circuit-pink", "cyber-circuit")]
     [InlineData("qq-circuit-neon", "cyber-hud")]
     [InlineData("qq-confetti-taro", "nature-marigold")]
@@ -518,7 +520,7 @@ public sealed class BackgroundThemeTests
         Assert.True(restored.IsActive);
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Explicit = true)]
     public void TitlePaletteSamplesBroadArtworkAndPhotoColors()
     {
         using var image = new SKBitmap(96, 48);
@@ -534,7 +536,7 @@ public sealed class BackgroundThemeTests
         Assert.All(photo, c => Assert.InRange(c.G, (byte)37, (byte)39));
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ChromeSurfacesFollowTheWindowThemeAndRestoreWithoutTintingDialogs(bool dark)

@@ -136,8 +136,7 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
                         return await TransferAsync(sourcePath, destinationDirectory, context, null);
                     });
                     await RecordAsync(h => h.RecordCreatedAsync(copied, true));
-                    if (context.Results.Any(i => i.State == FileTaskItemState.Skipped
-                        && (i.Source == sourcePath || i.Source.StartsWith(sourcePath.TrimEnd('/') + "/", StringComparison.Ordinal))))
+                    if (HasSkippedItems(sourcePath, context))
                         throw new IOException(LocalizationText.Get("来源包含未复制的项目，已保留源文件。"));
                     if (copied != output) throw new IOException(LocalizationText.Get("目标位置发生冲突，请检查已复制的文件。"));
                     await VerifyCopyAsync(sourcePath, copied, context);
@@ -170,13 +169,43 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
     }
     private Stream Read(string path, FileTaskContext context) => VirtualPath.IsRemotePath(path)
         ? Client(path, context).OpenRead(VirtualPath.ParseRemotePath(path).RemotePath) : File.OpenRead(path);
+    private static bool HasSkippedItems(string source, FileTaskContext context)
+    {
+        var prefix = source.TrimEnd('/') + "/";
+        return context.Results.Any(item => item.State == FileTaskItemState.Skipped
+            && (item.Source == source || item.Source.StartsWith(prefix, StringComparison.Ordinal)));
+    }
+
+    // File operations need the physical children and any enumeration error.
+    // The browser listing can be partial and can include a second Applications directory.
+    private async Task<IReadOnlyList<string>> GetOperationChildPathsAsync(string path, CancellationToken token)
+    {
+        if (VirtualPath.IsRemotePath(path))
+        {
+            var entries = await _remoteService.GetDirectoryContentsAsync(path, token);
+            return entries.Select(entry => entry.FullPath).ToArray();
+        }
+
+        DirectoryAccess.Current.EnsureAccess(path);
+        return await Task.Run(() =>
+        {
+            var paths = new List<string>();
+            foreach (var child in Directory.EnumerateFileSystemEntries(path))
+            {
+                token.ThrowIfCancellationRequested();
+                paths.Add(child);
+            }
+            return paths;
+        }, token);
+    }
+
     private async Task VerifyCopyAsync(string source, string destination, FileTaskContext context)
     {
         var sourceEntry = await GetEntryAsync(source) ?? throw new FileNotFoundException(source);
         if (sourceEntry.IsDirectory && !sourceEntry.IsSymbolicLink)
         {
-            foreach (var item in await GetDirectoryContentsAsync(source, context.CancellationToken))
-                await VerifyCopyAsync(item.FullPath, CombinePath(destination, item.Name), context);
+            foreach (var child in await GetOperationChildPathsAsync(source, context.CancellationToken))
+                await VerifyCopyAsync(child, CombinePath(destination, Path.GetFileName(child)), context);
         }
         else if (sourceEntry.IsSymbolicLink)
         {

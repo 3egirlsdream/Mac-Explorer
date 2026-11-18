@@ -110,7 +110,7 @@ public sealed class MacDockMenuService
     [UnmanagedCallersOnly]
     private static void OnOpenWindow(IntPtr self, IntPtr selector, IntPtr sender)
     {
-        Dispatcher.UIThread.Post(() => App.OpenNewWindow());
+        Dispatcher.UIThread.Post(() => App.OpenNewWindow(VirtualPath.Home));
     }
 
     [UnmanagedCallersOnly]

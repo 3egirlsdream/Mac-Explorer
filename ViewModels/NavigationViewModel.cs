@@ -442,7 +442,7 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
             FullPath = file.FullPath, Name = file.Name, IsDirectory = file.IsDirectory, Size = file.Size,
             LastModified = file.LastModified, Created = file.Created, Extension = file.Extension,
             IsHidden = file.IsHidden, IsSymbolicLink = file.IsSymbolicLink, IsReadable = file.IsReadable, IsWritable = file.IsWritable,
-            IconKey = file.IconKey, IconUrl = file.IconUrl, ThumbnailUrl = file.ThumbnailUrl,
+            Package = file.Package, IconKey = file.IconKey, IconUrl = file.IconUrl, ThumbnailUrl = file.ThumbnailUrl,
             IsVirtual = file.IsVirtual, VirtualFolderType = file.VirtualFolderType, VirtualFolderKey = file.VirtualFolderKey,
             VirtualItemCount = file.VirtualItemCount, GitStatus = file.GitStatus, HasGitChanges = file.HasGitChanges
         }).ToArray();

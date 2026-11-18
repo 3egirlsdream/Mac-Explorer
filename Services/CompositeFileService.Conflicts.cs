@@ -67,11 +67,19 @@ public sealed partial class CompositeFileService
         if (entry.IsDirectory && existing.IsDirectory && !entry.IsSymbolicLink && !existing.IsSymbolicLink)
         {
             context.MarkDone("merge-output:" + target);
-            foreach (var child in await GetDirectoryContentsAsync(source, context.CancellationToken))
-                await CopyOrMovePlannedAsync(child.FullPath, target, move, context, progress);
-            if (move && (await GetDirectoryContentsAsync(source, context.CancellationToken)).Count == 0)
+            foreach (var child in await GetOperationChildPathsAsync(source, context.CancellationToken))
+                await CopyOrMovePlannedAsync(child, target, move, context, progress);
+            if (move && !HasSkippedItems(source, context))
             {
-                await Resolve(source).DeleteAsync(source, false);
+                await context.CheckpointAsync();
+                // Let the filesystem reject a directory that gained an item during the merge.
+                if (VirtualPath.IsRemotePath(source))
+                    await Client(source, context).DeleteDirectoryAsync(VirtualPath.ParseRemotePath(source).RemotePath, context.CancellationToken);
+                else
+                {
+                    DirectoryAccess.Current.EnsureAccess(source);
+                    await Task.Run(() => Directory.Delete(source, recursive: false), context.CancellationToken);
+                }
                 await RecordAsync(h => h.RecordRemovedDirectoryAsync(source));
             }
             context.ReportItem(source, target, FileTaskItemState.Completed); return target;
@@ -108,7 +116,7 @@ public sealed partial class CompositeFileService
             var copied = await CopyToExactAsync(source, target, context, progress);
             if (move)
             {
-                if (context.Results.Any(r => r.State == FileTaskItemState.Skipped && (r.Source == source || r.Source.StartsWith(source.TrimEnd('/') + "/", StringComparison.Ordinal))))
+                if (HasSkippedItems(source, context))
                     throw new IOException(LocalizationText.Get("来源包含未复制的项目，已保留源文件。"));
                 await VerifyCopyAsync(source, copied, context); await Resolve(source).DeleteAsync(source, false);
             }

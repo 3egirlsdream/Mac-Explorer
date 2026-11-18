@@ -44,18 +44,14 @@ public partial class MainWindow
         await LoadRestoredFolderTabsAsync(ordered);
     }
 
-    private bool ShouldRestoreFolderWindows => RestoreFolderTabsOnOpen
-        && string.IsNullOrEmpty(InitialNavigationPath ?? _navigationBridge.PendingNavigationPath)
-        && !_navigationBridge.PendingQuickAccessFocus;
-
     private async Task PrepareInitialFolderTabsAsync()
     {
-        if (!CanStartFolderRestore) return;
+        if (!CanStartFolderRestore || !string.IsNullOrEmpty(InitialNavigationPath)) return;
         var tabs = InitialFolderTabSession;
-        if (tabs == null && ShouldRestoreFolderWindows)
+        if (tabs == null && RestoreFolderTabsOnOpen)
         {
             var windows = await App.ReadFolderWindowsAsync();
-            if (!CanStartFolderRestore || !ShouldRestoreFolderWindows
+            if (!CanStartFolderRestore
                 || !App.Services.GetRequiredService<ISettingsService>().Get(FolderTabSession.EnabledKey, false)) return;
             if (windows == null) return;
             _initialFolderWindows = windows;

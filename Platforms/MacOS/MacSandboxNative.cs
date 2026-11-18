@@ -53,6 +53,33 @@ internal static class MacSandboxNative
     internal static string? DefaultApplication(string path) => Take(me_default_app(path));
     internal static string RegisteredApplications(string path) => Take(me_registered_apps(path)) ?? "[]";
     internal static string Metadata(string path) => Take(me_metadata(path)) ?? "";
+    internal static bool? DirectoryPackage(string path, out string? applicationPath)
+    {
+        var result = me_directory_package(path, out var app);
+        applicationPath = Take(app);
+        return result < 0 ? null : result != 0;
+    }
+    internal readonly record struct PackageInfo(bool? IsPackage, string? ApplicationPath, long ApplicationSize);
+
+    internal static PackageInfo[] DirectoryPackages(string[] paths)
+    {
+        var statuses = new int[paths.Length];
+        var applications = new IntPtr[paths.Length];
+        var sizes = new long[paths.Length];
+        var results = new PackageInfo[paths.Length];
+        try
+        {
+            me_directory_packages(paths, paths.Length, statuses, applications, sizes);
+            for (var i = 0; i < results.Length; i++)
+                results[i] = new(statuses[i] < 0 ? null : statuses[i] != 0, Marshal.PtrToStringUTF8(applications[i]), sizes[i]);
+            return results;
+        }
+        finally
+        {
+            foreach (var pointer in applications)
+                if (pointer != IntPtr.Zero) me_string_free(pointer);
+        }
+    }
     internal static long ApplicationSize(string path) => me_application_size(path);
     internal static bool TryGetVolumeSpace(string path, out long available, out long freeSpace, out long total)
         => me_volume_space(path, out available, out freeSpace, out total);
@@ -113,6 +140,10 @@ internal static class MacSandboxNative
     [DllImport(Library)] private static extern IntPtr me_default_app([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_registered_apps([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] private static extern IntPtr me_metadata([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    [DllImport(Library)] private static extern void me_directory_packages(
+        [In, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths,
+        int count, [Out] int[] statuses, [Out] IntPtr[] applicationPaths, [Out] long[] sizes);
+    [DllImport(Library)] private static extern int me_directory_package([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out IntPtr applicationPath);
     [DllImport(Library)] private static extern long me_application_size([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_volume_space(
         [MarshalAs(UnmanagedType.LPUTF8Str)] string path, out long available, out long freeSpace, out long total);
