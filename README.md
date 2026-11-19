@@ -35,14 +35,14 @@ Mac Explorer brings everyday file work into one macOS app. Keep folders side by 
 - Keep multiple locations open in tabs, each with its own navigation history, sorting, and view.
 - Choose horizontal or vertical splits, three- or four-pane layouts, or a larger main pane beside smaller panes. Browse source and destination together when organizing files.
 - Jump through clickable breadcrumbs, searchable subfolder menus, or direct path entry. Use Back, Forward, and Up to navigate.
-- Reach pinned folders, recent locations, local volumes, and the Trash from the sidebar.
+- Reach pinned folders, recent locations, local volumes, and the Trash from the sidebar. Drag its right edge to resize it. Mac Explorer remembers the width.
 
 ### Flexible file views
 
 - Switch between list, icon grid, and tree list views; expand local folders directly in the tree list.
 - Sort and group files by properties such as type, date, and size. Choose files first, folders first, or mixed sorting.
 - Combine column filters to narrow a directory. Multiple choices in one column match any selected value; filters across columns apply together.
-- Browse image thumbnails and optional photo covers for folders. Camera RAW thumbnails use a fallback when the system preview cannot decode supported files.
+- Browse image thumbnails and choose Default, Frosted, or Skeuomorphic folder icons, with optional photo covers. Camera RAW thumbnails use a fallback when the system preview cannot decode supported files.
 - Inspect paths, sizes, dates, image dimensions, camera and other photo metadata in the information panel. Calculate and copy SHA-256 hashes for local files.
 
 ### Home, favorites, tags, and ratings
@@ -111,9 +111,15 @@ Mac Explorer brings everyday file work into one macOS app. Keep folders side by 
 
 To use Copilot, enter an OpenAI-compatible API endpoint, model name, and API key in **Settings → Copilot**, then open it from the main window. A model service must be configured by the user; its usage is subject to that provider's terms and pricing.
 
+### Background themes
+
+Under **Settings → Appearance**, turn on **More themes** to use one of nine built-in patterns or import your own image. Adjust the background transparency and pick a color for each built-in pattern. The background carries across the main window, with frosted glass on the sidebar, toolbar, and information panel.
+
+![Five Mac Explorer windows in different background themes, with a file conversion menu open in front](.github/assets/readme-themes.webp)
+
 ### Customization and extensions
 
-- Use English or Chinese, light or dark appearance, glass surfaces, and standard, compact, or comfortable typography. Adjust interaction colors to suit your preference.
+- Use English, Simplified Chinese, Traditional Chinese, or French. Choose light or dark appearance, adjust interaction colors, and pick a typography size.
 - Customize keyboard shortcuts, check conflicts, restore defaults, and hold `⌘` to show available shortcut hints.
 - In the website edition, configure named commands for home-page scripts, including their icons, shell, and working directory, and run them through your terminal.
 - Install and manage file-processing extensions through the plugin market or local `.mexplug` packages in the website edition. Developers can build and publish extensions with the [plugin SDK](docs/plugins.md) and [developer center](https://macexplorer.top/developers/).
