@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -21,7 +22,9 @@ namespace MacExplorer.Views;
 
 public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace, IDisposable
 {
+    private const string SidebarWidthSetting = "workspace_sidebar_width";
     private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    private readonly ISettingsService? _settings;
     public static readonly StyledProperty<bool> ForceCompactProperty =
         AvaloniaProperty.Register<ExplorerWorkspaceView, bool>(nameof(ForceCompact));
 
@@ -44,11 +47,19 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private bool _disposed;
     private long _activationGeneration;
     private IPointer? _zoomSliderPointer;
+    private IPointer? _sidebarResizePointer;
+    private double _sidebarResizeStartX;
+    private double _sidebarResizeStartWidth;
+    private int _sidebarWidth;
+    private int? _sidebarDragWidth;
 
     public event Action<ExplorerTabViewModel>? WorkspaceActivated;
 
-    public ExplorerWorkspaceView()
+    public ExplorerWorkspaceView() : this(null) { }
+
+    internal ExplorerWorkspaceView(ISettingsService? settings)
     {
+        _settings = settings;
         _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Workspace);
         InitializeComponent();
         ThumbnailZoomSlider.ValueChanged += OnThumbnailZoomValueChanged;
@@ -71,6 +82,28 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         AddHandler(GotFocusEvent, OnWorkspaceGotFocus,
             RoutingStrategies.Bubble, handledEventsToo: true);
         SizeChanged += OnWorkspaceSizeChanged;
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (_settings == null || _disposed) return;
+        _settings.SettingChanged += OnSidebarWidthSettingChanged;
+        OnSidebarWidthSettingChanged(SidebarWidthSetting);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_settings != null) _settings.SettingChanged -= OnSidebarWidthSettingChanged;
+        FinishSidebarResize();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnSidebarWidthSettingChanged(string key)
+    {
+        if (key != SidebarWidthSetting) return;
+        _sidebarWidth = _settings!.Get(SidebarWidthSetting, 0);
+        InvalidateMeasure();
     }
 
     private void ApplySidebarAppearance()
@@ -292,7 +325,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         ActivateWorkspace();
         if (IsCompact && SidebarSplitView.IsPaneOpen
-            && !IsInsideVisual(e.Source as Visual, SidebarSurface)
+            && !IsInsideVisual(e.Source as Visual, SidebarPane)
             && !IsInsideVisual(e.Source as Visual, SidebarToggleButton))
         {
             SetCompactSidebarOpen(false);
@@ -342,6 +375,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     private void SetCompactSidebarOpen(bool open)
     {
+        if (!open) FinishSidebarResize();
         SidebarSplitView.IsPaneOpen = open;
         SidebarControl.SetRailMode(!open);
         ToolTip.SetTip(SidebarToggleButton, open ? MacExplorer.Services.Impl.LocalizationText.Get("收起侧栏") : MacExplorer.Services.Impl.LocalizationText.Get("展开侧栏"));
@@ -415,6 +449,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     public void DeactivateTransientUi()
     {
+        FinishSidebarResize();
         _zoomSliderPointer = null;
         SyncThumbnailZoomSlider();
         CloseTransientUi(null);
@@ -502,9 +537,10 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (width <= 0 && !ForceCompact)
             return;
 
-        var layout = ResponsiveWorkspaceLayout.Resolve(width, ForceCompact);
+        var layout = ResponsiveWorkspaceLayout.Resolve(width, ForceCompact, _sidebarDragWidth ?? _sidebarWidth);
         if (IsCompact != layout.IsCompact)
         {
+            FinishSidebarResize();
             if (layout.IsCompact)
             {
                 SidebarSplitView.IsPaneOpen = false;
@@ -533,6 +569,64 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (Bounds.Width > 0)
             InfoDrawer.OpenPaneLength = ClampInfoPanelWidth(
                 _tab?.InfoPanelWidth ?? InfoDrawer.OpenPaneLength);
+    }
+
+    private void OnSidebarResizePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_sidebarResizePointer != null ||
+            e.GetCurrentPoint(SidebarSplitView).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed)
+            return;
+        _sidebarResizePointer = e.Pointer;
+        _sidebarResizeStartX = e.GetPosition(SidebarSplitView).X;
+        _sidebarResizeStartWidth = SidebarSplitView.OpenPaneLength;
+        SidebarSplitView.Classes.Add("resizing");
+        e.Pointer.Capture(SidebarResizeHandle);
+        e.Handled = true;
+    }
+
+    private void OnSidebarResizeMoved(object? sender, PointerEventArgs e)
+    {
+        if (e.Pointer != _sidebarResizePointer) return;
+        ResizeSidebarTo(e.GetPosition(SidebarSplitView).X);
+        e.Handled = true;
+    }
+
+    private void OnSidebarResizeReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.Pointer != _sidebarResizePointer ||
+            e.GetCurrentPoint(SidebarSplitView).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonReleased)
+            return;
+        ResizeSidebarTo(e.GetPosition(SidebarSplitView).X);
+        FinishSidebarResize();
+        e.Handled = true;
+    }
+
+    private void OnSidebarResizeCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (e.Pointer == _sidebarResizePointer) FinishSidebarResize();
+    }
+
+    private void ResizeSidebarTo(double x)
+    {
+        _sidebarDragWidth = Math.Max(1, (int)Math.Round(_sidebarResizeStartWidth + x - _sidebarResizeStartX));
+        SidebarSplitView.OpenPaneLength = ResponsiveWorkspaceLayout.Resolve(Bounds.Width, ForceCompact,
+            _sidebarDragWidth.Value).SidebarOpenPaneLength;
+    }
+
+    private void FinishSidebarResize()
+    {
+        if (_sidebarResizePointer is not { } pointer) return;
+        _sidebarResizePointer = null;
+        _sidebarDragWidth = null;
+        var width = SidebarSplitView.OpenPaneLength;
+        if (width != _sidebarResizeStartWidth)
+        {
+            _sidebarWidth = (int)width;
+            _settings?.SetDeferred(SidebarWidthSetting, _sidebarWidth.ToString(CultureInfo.InvariantCulture));
+        }
+        if (pointer.Captured == SidebarResizeHandle) pointer.Capture(null);
+        SidebarSplitView.Classes.Remove("resizing");
+        InvalidateMeasure();
     }
 
     private double GetInfoPanelMaxWidth()
@@ -715,6 +809,8 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (_disposed)
             return;
         _disposed = true;
+        if (_settings != null) _settings.SettingChanged -= OnSidebarWidthSettingChanged;
+        FinishSidebarResize();
         _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);
         _infoPanel?.ReleaseDiagnosticLifetime();
         _diskManagement?.Dispose();

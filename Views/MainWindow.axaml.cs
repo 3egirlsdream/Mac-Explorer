@@ -1323,7 +1323,8 @@ public partial class MainWindow : AppWindow
             var tab = visible[index];
             if (!_workspaceViews.TryGetValue(tab, out var workspace))
             {
-                workspace = new ExplorerWorkspaceView { DataContext = tab, IsVisible = false };
+                workspace = new ExplorerWorkspaceView(App.Services.GetRequiredService<ISettingsService>())
+                    { DataContext = tab, IsVisible = false };
                 workspace.WorkspaceActivated += OnWorkspaceActivated;
                 _workspaceViews.Add(tab, workspace);
                 _workspaceRecency.AddLast(tab);

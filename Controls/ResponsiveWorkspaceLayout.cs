@@ -11,18 +11,25 @@ internal readonly record struct ResponsiveWorkspaceLayout(
 {
     internal const double CompactBreakpoint = 1180;
 
-    internal static ResponsiveWorkspaceLayout Resolve(double workspaceWidth, bool forceCompact)
-        => forceCompact || workspaceWidth < CompactBreakpoint
+    internal static ResponsiveWorkspaceLayout Resolve(double workspaceWidth, bool forceCompact, int preferredSidebarWidth = 0)
+    {
+        var compact = forceCompact || workspaceWidth < CompactBreakpoint;
+        var maximumSidebarWidth = Math.Max(0, Math.Min(420, Math.Floor(workspaceWidth - 64)));
+        var defaultSidebarWidth = compact ? 220 : 240;
+        var sidebarWidth = Math.Clamp(preferredSidebarWidth > 0 ? preferredSidebarWidth : defaultSidebarWidth,
+            Math.Min(150, maximumSidebarWidth), maximumSidebarWidth);
+        return compact
             ? new ResponsiveWorkspaceLayout(
                 true,
                 SplitViewDisplayMode.CompactOverlay,
-                220,
+                sidebarWidth,
                 48,
                 SplitViewDisplayMode.Overlay)
             : new ResponsiveWorkspaceLayout(
                 false,
                 SplitViewDisplayMode.Inline,
-                240,
+                sidebarWidth,
                 0,
                 SplitViewDisplayMode.Inline);
+    }
 }

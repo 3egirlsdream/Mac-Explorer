@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using MacExplorer.Controls;
 using MacExplorer.Models;
+using MacExplorer.Services.Impl;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -140,6 +141,89 @@ public sealed class ExplorerWorkspaceViewTests
         Assert.Same(sidebar, workspace.FindControl<FinderSidebarView>("SidebarControl"));
 
         window.Close();
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(1280, 240)]
+    [InlineData(1000, 220)]
+    public async Task DraggingSidebarEdgeResizesAndSavesTheOpenWidth(double windowWidth, double initialWidth)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var theme = new FastListTestTheme();
+        var directory = Directory.CreateTempSubdirectory("sidebar-width-");
+        try
+        {
+            var database = new DatabaseConnectionFactory(Path.Combine(directory.FullName, "settings.db"));
+            using (var connection = database.GetConnection())
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)";
+                command.ExecuteNonQuery();
+            }
+            using (var settings = new SettingsService(database))
+            {
+                using var workspace = new ExplorerWorkspaceView(settings);
+                var window = new Window { Width = windowWidth, Height = 800, Content = workspace };
+                window.Show();
+                try
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    var sidebar = workspace.FindControl<SplitView>("SidebarSplitView")!;
+                    var handle = workspace.FindControl<Border>("SidebarResizeHandle")!;
+                    if (workspace.IsCompact)
+                    {
+                        Assert.False(handle.IsVisible);
+                        workspace.ToggleSidebar();
+                        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                        await Task.Delay(250, cancellationToken);
+                        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                        Dispatcher.UIThread.RunJobs();
+                    }
+                    Assert.True(handle.IsVisible);
+                    Assert.Equal(StandardCursorType.SizeWestEast.ToString(), handle.Cursor!.ToString());
+                    var start = handle.TranslatePoint(new Rect(handle.Bounds.Size).Center, window)!.Value;
+                    var middle = start + new Vector(-50, 0);
+                    var end = start + new Vector(-65, 0);
+                    window.MouseDown(start, MouseButton.Left);
+                    window.MouseMove(middle, RawInputModifiers.LeftMouseButton);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(initialWidth - 50, sidebar.OpenPaneLength);
+                    Assert.Equal(initialWidth - 50, workspace.FindControl<Grid>("SidebarPane")!.Bounds.Width);
+                    Assert.Empty(settings.GetAll());
+                    window.MouseUp(end, MouseButton.Left);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(initialWidth - 65, sidebar.OpenPaneLength);
+                    Assert.True(sidebar.IsPaneOpen);
+
+                    window.Width = 1400;
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(initialWidth - 65, sidebar.OpenPaneLength);
+
+                    workspace.ForceCompact = true;
+                    window.Width = 200;
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(136, sidebar.OpenPaneLength);
+                    Assert.Equal(48, sidebar.CompactPaneLength);
+                    Assert.False(handle.IsVisible);
+                    window.Width = 1400;
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(initialWidth - 65, sidebar.OpenPaneLength);
+                }
+                finally { window.Close(); }
+            }
+
+            using var restoredSettings = new SettingsService(database);
+            using var restoredWorkspace = new ExplorerWorkspaceView(restoredSettings);
+            var restoredWindow = new Window { Width = 1280, Height = 800, Content = restoredWorkspace };
+            restoredWindow.Show();
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(initialWidth - 65, restoredWorkspace.FindControl<SplitView>("SidebarSplitView")!.OpenPaneLength);
+            }
+            finally { restoredWindow.Close(); }
+        }
+        finally { directory.Delete(recursive: true); }
     }
 
     [AvaloniaFact(Explicit = true)]

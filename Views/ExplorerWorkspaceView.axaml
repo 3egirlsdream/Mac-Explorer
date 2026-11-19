@@ -16,6 +16,9 @@
         <Style Selector="SplitView#SidebarSplitView:left /template/ Panel#PART_PaneRoot">
             <Setter Property="ClipToBounds" Value="False"/>
         </Style>
+        <Style Selector="SplitView#SidebarSplitView.resizing:left /template/ Panel#PART_PaneRoot">
+            <Setter Property="Transitions" Value="{x:Null}"/>
+        </Style>
         <Style Selector="Grid#SidebarMaterialHost">
             <Setter Property="Margin" Value="4,4,8,4"/>
         </Style>
@@ -77,6 +80,7 @@
                    OpenPaneLength="240"
                    CompactPaneLength="0">
             <SplitView.Pane>
+              <Grid x:Name="SidebarPane" ClipToBounds="False">
                 <Grid x:Name="SidebarMaterialHost" ClipToBounds="False">
                     <Border CornerRadius="{StaticResource RadiusLg}" ClipToBounds="True" IsHitTestVisible="False">
                         <controls:SidebarBackdrop/>
@@ -88,6 +92,14 @@
                         <local:FinderSidebarView x:Name="SidebarControl" DataContext="{Binding FileList}"/>
                     </glass:LiquidGlassSurface>
                 </Grid>
+                <Border x:Name="SidebarResizeHandle" Width="10" HorizontalAlignment="Right"
+                        Background="Transparent" Cursor="SizeWestEast"
+                        IsVisible="{Binding #SidebarSplitView.IsPaneOpen}"
+                        PointerPressed="OnSidebarResizePressed"
+                        PointerMoved="OnSidebarResizeMoved"
+                        PointerReleased="OnSidebarResizeReleased"
+                        PointerCaptureLost="OnSidebarResizeCaptureLost"/>
+              </Grid>
             </SplitView.Pane>
 
             <SplitView.Content>
