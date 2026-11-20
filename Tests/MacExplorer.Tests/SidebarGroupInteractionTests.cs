@@ -70,7 +70,11 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
                 window.MouseMove(destination, RawInputModifiers.LeftMouseButton);
                 RenderIssue11(window);
                 Assert.Equal(valid, line.IsVisible);
-                if (cancel) window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                if (cancel)
+                {
+                    window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                    window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                }
                 window.MouseUp(destination, MouseButton.Left);
                 RenderIssue11(window);
                 Assert.False(line.IsVisible);
@@ -117,7 +121,11 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
             var offset = scroll.Offset.Y;
             window.MouseMove(edge, RawInputModifiers.LeftMouseButton);
             await WaitForIssue11Async(() => scroll.Offset.Y > offset);
+            await pins.LoadPinnedFoldersAsync();
+            RenderIssue11(window);
+            Assert.True(sidebar.IsFocused);
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             window.MouseUp(edge, MouseButton.Left);
             Assert.Equal("AC", Order(0));
             window.Height = 1200;

@@ -70,6 +70,8 @@ def main():
         report = results / (project + ".xml")
         command = ["bash", str(ROOT / "Tools/Testing/run-isolated.sh"), str(executable),
                    "-noColor", "-xml", str(report), "-filter", "/[" + expression + "]", "-explicit", explicit]
+        if args.profile == "full":
+            command.append("-verbose")  # Preserve the active test name if the CI runner times out.
         if project == "MacExplorer.UnitTests":
             command += ["-parallel", "collections", "-maxThreads", "4"]
         else:

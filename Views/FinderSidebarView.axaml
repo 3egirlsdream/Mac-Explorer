@@ -9,6 +9,7 @@
              x:Class="MacExplorer.Views.FinderSidebarView"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False"
+             Focusable="True" IsTabStop="False"
              DragDrop.AllowDrop="True"
              DragDrop.DragOver="OnSidebarDragOver"
              DragDrop.DragLeave="OnSidebarDragLeave"

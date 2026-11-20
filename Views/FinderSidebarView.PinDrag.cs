@@ -44,6 +44,8 @@ public partial class FinderSidebarView
             var delta = _pinPosition - _pinPressPosition;
             if (Math.Abs(delta.X) <= threshold.Width && Math.Abs(delta.Y) <= threshold.Height) return;
             _draggingPin = true;
+            // The row can be replaced during a refresh. Keep Escape routed to the drag owner.
+            Focus(NavigationMethod.Pointer);
         }
         UpdatePinDropLine();
         if (PinScrollStep() != 0)
