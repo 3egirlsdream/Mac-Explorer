@@ -1,0 +1,79 @@
+name: LocalSend Intel baseline
+
+"on":
+  push:
+    branches: [diagnostics/intel-paste-v209]
+    paths: [.github/workflows/localsend-intel-baseline.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  copy-tests:
+    name: Website / ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            rid: osx-x64
+            arch: x86_64
+            sdk: x64
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: f6233870ee0a6cce3c1bba8d5b768ce4c7b09da0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          architecture: ${{ matrix.sdk }}
+      - name: Verify source and macOS architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = f6233870ee0a6cce3c1bba8d5b768ce4c7b09da0
+          uname -m
+          sw_vers
+          test "$(uname -m)" = ${{ matrix.arch }}
+          dotnet --info
+      - name: Build Website tests
+        shell: bash
+        run: |
+          dotnet build Tests/MacExplorer.Tests/MacExplorer.Tests.csproj -c Release -r ${{ matrix.rid }} \
+            --artifacts-path "$RUNNER_TEMP/build-Website" -p:DistributionChannel=Website \
+            -p:MacOSSigningIdentity=- -p:SkipMacOSReleaseDMG=true
+      - name: Run isolated LocalSend loopback regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner=$(find "$RUNNER_TEMP/build-Website/bin/MacExplorer.Tests" -type f -name MacExplorer.Tests -print -quit)
+          test -x "$runner"
+          file "$runner"
+          lipo "$runner" -verify_arch ${{ matrix.arch }}
+
+          run_copy_tests() {
+            local label=$1
+            shift
+            local status=0
+            local log="$RUNNER_TEMP/$label.log"
+            bash Tools/Testing/run-isolated.sh env MACEXPLORER_TEST_REPOSITORY="$GITHUB_WORKSPACE" \
+              "$runner" "$@" > "$log" 2>&1 || status=$?
+            cat "$log"
+            if [ "$status" -ne 0 ]; then
+              return "$status"
+            fi
+            python3 Tools/Distribution/verify-test-summary.py "$log"
+          }
+
+          direct_status=0
+          run_copy_tests localsend-direct -explicit on \
+            -method MacExplorer.Tests.LocalSendServiceTests.PartialAcceptanceAndRejectedRequest || direct_status=$?
+          folder_status=0
+          run_copy_tests localsend-folder -explicit on \
+            -method MacExplorer.Tests.LocalSendServiceTests.SkipsSymlinkAndFifoWithoutOpeningThem || folder_status=$?
+          test "$direct_status" -eq 0
+          test "$folder_status" -eq 0
