@@ -1,0 +1,69 @@
+name: Intel paste baseline
+
+"on":
+  push:
+    branches: [diagnostics/intel-paste-v209]
+    paths: [.github/workflows/intel-paste-baseline.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  copy-tests:
+    name: macOS 15 Intel / v2.0.9 Website
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          architecture: x64
+      - name: Verify source and Intel environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git diff --exit-code 87afab641c4f92cc2b945b9ee761450780daf9c6 HEAD -- . ':(exclude).github/workflows/intel-paste-baseline.yml'
+          uname -m
+          sw_vers
+          test "$(uname -m)" = x86_64
+          dotnet --info
+      - name: Build v2.0.9 Website tests for Intel
+        shell: bash
+        run: |
+          dotnet build Tests/MacExplorer.Tests/MacExplorer.Tests.csproj -c Release -r osx-x64 \
+            --artifacts-path "$RUNNER_TEMP/build-Website" -p:DistributionChannel=Website \
+            -p:MacOSSigningIdentity=- -p:SkipMacOSReleaseDMG=true
+      - name: Run isolated paste and file-copy regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner=$(find "$RUNNER_TEMP/build-Website/bin/MacExplorer.Tests" -type f -name MacExplorer.Tests -print -quit)
+          test -x "$runner"
+          file "$runner"
+          lipo "$runner" -verify_arch x86_64
+
+          run_copy_tests() {
+            local label=$1
+            shift
+            local status=0
+            local log="$RUNNER_TEMP/$label.log"
+            bash Tools/Testing/run-isolated.sh env MACEXPLORER_TEST_REPOSITORY="$GITHUB_WORKSPACE" \
+              "$runner" "$@" > "$log" 2>&1 || status=$?
+            cat "$log"
+            if [ "$status" -ne 0 ]; then
+              return "$status"
+            fi
+            python3 Tools/Distribution/verify-test-summary.py "$log"
+          }
+
+          exact_status=0
+          run_copy_tests paste-special-file \
+            -method MacExplorer.Tests.LocalFileCopyTests.PasteSkipsGitDaemonSocketAndFifoButCopiesRegularFilesWithSameName || exact_status=$?
+          class_status=0
+          run_copy_tests local-file-copy -class MacExplorer.Tests.LocalFileCopyTests || class_status=$?
+          test "$exact_status" -eq 0
+          test "$class_status" -eq 0
