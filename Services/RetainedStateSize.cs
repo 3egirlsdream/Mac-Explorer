@@ -23,6 +23,17 @@ internal sealed class RetainedStateSize(long limit)
         var type = value.GetType();
         if (!type.IsValueType && !_seen.Add(value)) return;
         if (value is string text) { _bytes += 24 + text.Length * 2L; return; }
+        // Sources indexes every node. Count child references here and measure each node once
+        // through the index, so a small but deeply nested folder stays eligible for retry.
+        if (value is CompositeFileService.InventoryItem node)
+        {
+            _bytes += 128 + node.Children.Capacity * 8L;
+            Visit(node.Entry, depth + 1);
+            Visit(node.CopyMetadata, depth + 1);
+            Visit(node.Identity, depth + 1);
+            return;
+        }
+        if (value is Models.FileOperationDisplay) { _bytes += 160; return; }
         if (type.IsPrimitive || type.IsEnum || value is DateTime or DateTimeOffset or TimeSpan or Guid or decimal) { _bytes += 32; return; }
         if (value is Array array && array.GetType().GetElementType()!.IsPrimitive)
         { _bytes += 32L + Buffer.ByteLength(array); return; }

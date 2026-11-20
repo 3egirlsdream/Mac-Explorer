@@ -950,7 +950,7 @@ public partial class MainWindow : AppWindow
         _taskRefreshTimer = null;
         Interlocked.Exchange(ref _taskRefreshPending, 0);
         if (_shutdownStarted) return;
-        var tasks = _taskManager.Tasks.ToList();
+        var tasks = _taskManager.PanelTasks.ToList();
         UpdateTaskButton(tasks);
         if (TaskOverlayPanel.IsVisible && !_isTaskPanelAnimating)
             RebuildTaskPanelItems(tasks);
@@ -958,7 +958,7 @@ public partial class MainWindow : AppWindow
 
     private void UpdateTaskButton(IReadOnlyList<BackgroundTaskInfo>? tasks = null)
     {
-        var summary = TaskProgressSummary.FromTasks(tasks ?? _taskManager.Tasks);
+        var summary = TaskProgressSummary.FromTasks(tasks ?? _taskManager.PanelTasks);
         TaskButton.IsVisible = summary.TaskCount > 0;
         TaskProgressRing.Value = summary.Value;
         TaskProgressRing.IsIndeterminate = summary.IsIndeterminate;
@@ -1004,7 +1004,7 @@ public partial class MainWindow : AppWindow
             if (show)
             {
                 UpdateTaskPanelWidth();
-                RebuildTaskPanelItems(_taskManager.Tasks);
+                RebuildTaskPanelItems(_taskManager.PanelTasks);
                 TaskOverlayPanel.IsVisible = true;
                 TaskOverlayPanel.UpdateLayout();
             }
@@ -1033,7 +1033,7 @@ public partial class MainWindow : AppWindow
                 visual?.StopAnimation(nameof(CompositionVisual.Translation));
                 _isTaskPanelAnimating = false;
                 if (show && !token.IsCancellationRequested && !_shutdownStarted)
-                    RebuildTaskPanelItems(_taskManager.Tasks);
+                    RebuildTaskPanelItems(_taskManager.PanelTasks);
             }
         }
     }
@@ -1060,13 +1060,13 @@ public partial class MainWindow : AppWindow
 
     private void ClearAllPanelTasks(object? sender, RoutedEventArgs e)
     {
-        foreach (var task in _taskManager.Tasks.Where(t => t.IsActive && t.CanCancel))
+        foreach (var task in _taskManager.PanelTasks.Where(t => t.IsActive && t.CanCancel))
             _taskManager.CancelTask(task.Id);
     }
 
     private void ClearCompletedPanel(object? sender, RoutedEventArgs e)
     {
-        foreach (var task in _taskManager.Tasks.Where(t => t.IsTerminal)) _taskManager.RemoveTask(task.Id);
+        foreach (var task in _taskManager.PanelTasks.Where(t => t.IsTerminal)) _taskManager.RemoveTask(task.Id);
     }
 
     private void OnTabFileDragOver(object? sender, DragEventArgs e)

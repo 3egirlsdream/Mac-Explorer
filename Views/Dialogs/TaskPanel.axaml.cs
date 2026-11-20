@@ -29,7 +29,7 @@ public partial class TaskPanel : ToolWindow
     private void RefreshTasks()
     {
         if (_taskManager == null) return;
-        var tasks = _taskManager.Tasks;
+        var tasks = _taskManager.PanelTasks;
         var running = tasks.Count(t => t.State is BackgroundTaskState.Running or BackgroundTaskState.Pausing);
         TaskRunningCountText.Text = running > 0 ? LocalizationText.Get("{0} 项进行中", running) : "";
         TaskRunningCountText.IsVisible = running > 0;
@@ -40,12 +40,12 @@ public partial class TaskPanel : ToolWindow
     private void ClearAllTasks(object? sender, RoutedEventArgs e)
     {
         if (_taskManager != null)
-            foreach (var task in _taskManager.Tasks.Where(t => t.IsActive && t.CanCancel)) _taskManager.CancelTask(task.Id);
+            foreach (var task in _taskManager.PanelTasks.Where(t => t.IsActive && t.CanCancel)) _taskManager.CancelTask(task.Id);
     }
     private void ClearCompleted(object? sender, RoutedEventArgs e)
     {
         if (_taskManager != null)
-            foreach (var task in _taskManager.Tasks.Where(t => t.IsTerminal)) _taskManager.RemoveTask(task.Id);
+            foreach (var task in _taskManager.PanelTasks.Where(t => t.IsTerminal)) _taskManager.RemoveTask(task.Id);
     }
     protected override void OnClosed(EventArgs e)
     {

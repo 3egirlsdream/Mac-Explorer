@@ -44,6 +44,24 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
     private Task<T> Run<T>(BackgroundTaskKind kind, string label, IReadOnlyList<string> sources, string? destination,
         Func<FileTaskContext, Task<T>> action, CancellationToken token = default)
         => FileTaskContext.RunAsync(_taskManager, new(kind, LocalizationText.Get(label), sources, destination), action, token);
+    private Task<T> RunFileOperation<T>(FileOperationPresentation mode, BackgroundTaskKind kind, string label,
+        IReadOnlyList<string> sources, string? destination, Func<FileTaskContext, Task<T>> action, CancellationToken token = default)
+        => RunOperationAsync(this, _taskManager, mode, new(kind, LocalizationText.Get(label), sources, destination), action, token);
+
+    internal Task CopyBatchAsync(IReadOnlyList<string> sources, string destination)
+        => RunFileOperation(FileOperationPresentation.Copy, BackgroundTaskKind.Copy, "复制文件", sources, destination, async context =>
+        {
+            foreach (var source in sources) await CopyAsync(source, destination);
+            return true;
+        });
+
+    internal Task PermanentlyDeleteBatchAsync(IReadOnlyList<string> sources)
+        => RunFileOperation(FileOperationPresentation.Delete, BackgroundTaskKind.Delete, "永久删除", sources, null, async context =>
+        {
+            foreach (var path in sources) await DeletePermanentlyAsync(path);
+            return true;
+        });
+
     private async Task RecordAsync(Func<IFileOperationHistoryService, Task> record)
     {
         if (FileOperationHistoryService.IsUndoing || FileTaskContext.Current?.Task.Kind == BackgroundTaskKind.BatchRename || _history?.Invoke() is not { } history) return;
@@ -71,25 +89,71 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
     public async Task DeleteAsync(string path, bool moveToTrash = true)
     {
         if (moveToTrash) { await TrashWithResultAsync(path); return; }
-        await Run(BackgroundTaskKind.Delete, "永久删除", [path], null, async context =>
+        await RunFileOperation(FileOperationPresentation.Delete, BackgroundTaskKind.Delete, "永久删除", [path], null, async context =>
         {
-            await context.StepAsync("delete:" + path, async () => { await Resolve(path).DeleteAsync(path, false); return true; });
+            context.Task.CurrentFile = path;
+            if (context.Batch?.Sources.GetValueOrDefault(path) is { } root)
+                await DeleteInventoryAsync(root, context);
+            else
+                await context.StepAsync("delete:" + path, async () => { await Resolve(path).DeleteAsync(path, false); return true; });
             await RecordAsync(h => h.RecordIrreversibleAsync(path, LocalizationText.Get("永久删除不可撤销。")));
             context.ReportItem(path, null, FileTaskItemState.Completed); return true;
         });
     }
-    public Task<string?> TrashWithResultAsync(string path)
-        => Run(BackgroundTaskKind.Delete, "移到废纸篓", [path], null, async context =>
+    private async Task DeleteInventoryAsync(InventoryItem item, FileTaskContext context, bool reportDeletion = true)
+    {
+        var path = item.Entry.FullPath;
+        await context.StepAsync("delete:" + path, async () =>
         {
-            var output = await context.StepAsync("trash:" + path, () => FileTrash.MoveAsync(Resolve(path), path));
+            var current = await PhysicalEntryAsync(path) ?? throw new FileNotFoundException(path);
+            if (item.Identity != FileIdentitySnapshot.Capture(path, false) || current.IsSymbolicLink != item.Entry.IsSymbolicLink || current.IsDirectory != item.Entry.IsDirectory ||
+                !current.IsDirectory && (current.Size != item.Entry.Size || current.LastModified != item.Entry.LastModified))
+                throw Changed();
+            foreach (var child in item.Children) await DeleteInventoryAsync(child, context, reportDeletion);
+            await context.CheckpointAsync();
+            context.Task.CurrentFile = path;
+            if (VirtualPath.IsRemotePath(path))
+            {
+                var client = Client(path, context);
+                var raw = VirtualPath.ParseRemotePath(path).RemotePath;
+                if (current.IsDirectory && !current.IsSymbolicLink) await client.DeleteDirectoryAsync(raw, context.CancellationToken);
+                else await client.DeleteFileAsync(raw, context.CancellationToken);
+            }
+            else if (current.IsDirectory && !current.IsSymbolicLink) Directory.Delete(path, recursive: false);
+            else File.Delete(path);
+            if (reportDeletion) context.ReportItem(path, null, FileTaskItemState.Completed);
+            return true;
+        });
+    }
+
+    public Task<string?> TrashWithResultAsync(string path)
+        => RunFileOperation(FileOperationPresentation.Trash, BackgroundTaskKind.Delete, "移到废纸篓", [path], null, async context =>
+        {
+            context.Task.CurrentFile = path;
+            var output = await context.StepAsync("trash:" + path, async () =>
+            {
+                if (VirtualPath.IsRemotePath(path) && _remoteService is SftpFileService && context.Batch?.Sources.GetValueOrDefault(path) is { } root)
+                {
+                    await DeleteInventoryAsync(root, context);
+                    return null;
+                }
+                return await FileTrash.MoveAsync(Resolve(path), path);
+            });
             if (_ratings != null && output != null)
                 await SyncMetadataAsync(() => _ratings.TransferPathAsync(path, output, true));
             await RecordAsync(h => h.RecordTrashAsync(path, output ?? ""));
-            context.ReportItem(path, output, FileTaskItemState.Completed); return output;
+            context.Batch?.Finish(path); context.ReportItem(path, output, FileTaskItemState.Completed); return output;
         });
     public Task DeletePermanentlyAsync(string path) => DeleteAsync(path, false);
-    public Task EmptyTrashAsync() => Run(BackgroundTaskKind.Delete, "清空废纸篓", [TrashDirectory], null,
-        async context => { await _localService.EmptyTrashAsync(); return true; });
+    public Task EmptyTrashAsync() => RunFileOperation(FileOperationPresentation.EmptyTrash, BackgroundTaskKind.Delete, "清空废纸篓", [TrashDirectory], null,
+        async context =>
+        {
+            await context.CheckpointAsync();
+            context.Task.CanCancel = false;
+            if (context.Task.Request?.Operation is { } display) display.FinderRunning = true;
+            await _localService.EmptyTrashAsync();
+            return true;
+        });
     public Task RenameAsync(string path, string newName)
         => Run(BackgroundTaskKind.Rename, "重命名", [path], CombinePath(GetParentPath(path), newName), async context =>
         {
@@ -104,10 +168,10 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
         => CopyWithProgressAsync(sourcePath, destinationDirectory);
     public Task<string> CopyWithProgressAsync(string sourcePath, string destinationDirectory,
         IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
-        => Run(BackgroundTaskKind.Copy, "复制文件", [sourcePath], destinationDirectory, async context =>
+        => RunFileOperation(FileOperationPresentation.Copy, BackgroundTaskKind.Copy, "复制文件", [sourcePath], destinationDirectory, async context =>
         {
             if (_conflicts != null && !FileOperationHistoryService.IsUndoing)
-                return await CopyOrMovePlannedAsync(sourcePath, destinationDirectory, false, context, progress);
+                    return await CopyOrMovePlannedAsync(sourcePath, destinationDirectory, false, context, progress);
             var output = await context.StepAsync("copy:" + sourcePath + ":" + destinationDirectory, async () =>
                 !VirtualPath.IsRemotePath(sourcePath) && !VirtualPath.IsRemotePath(destinationDirectory)
                     ? await _localService.CopyWithProgressAsync(sourcePath, destinationDirectory, progress, context.CancellationToken)
@@ -117,10 +181,14 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
             context.ReportItem(sourcePath, output, FileTaskItemState.Completed); return output;
         }, ct);
     public Task MoveAsync(string sourcePath, string destinationDirectory, bool overwrite = false)
-        => Run(BackgroundTaskKind.Move, "移动文件", [sourcePath], destinationDirectory, async context =>
+        => RunFileOperation(FileOperationPresentation.Move, BackgroundTaskKind.Move, "移动文件", [sourcePath], destinationDirectory, async context =>
         {
             if (_conflicts != null && !FileOperationHistoryService.IsUndoing)
-            { await CopyOrMovePlannedAsync(sourcePath, destinationDirectory, true, context, null); return true; }
+            {
+                context.Task.CurrentFile = sourcePath;
+                await CopyOrMovePlannedAsync(sourcePath, destinationDirectory, true, context, null);
+                return true;
+            }
             var output = CombinePath(destinationDirectory, Path.GetFileName(sourcePath));
             var existed = context.Remember("overwrite:" + output, () => ExistsAsync(output).GetAwaiter().GetResult());
             await context.StepAsync("move:" + sourcePath + ":" + output, async () =>
@@ -140,7 +208,7 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
                         throw new IOException(LocalizationText.Get("来源包含未复制的项目，已保留源文件。"));
                     if (copied != output) throw new IOException(LocalizationText.Get("目标位置发生冲突，请检查已复制的文件。"));
                     await VerifyCopyAsync(sourcePath, copied, context);
-                    await Resolve(sourcePath).DeleteAsync(sourcePath, false);
+                    await RemoveMoveSourceAsync(sourcePath, context);
                 }
                 else await Resolve(sourcePath).MoveAsync(sourcePath, destinationDirectory, overwrite);
                 return true;
@@ -153,7 +221,7 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
     public async Task MoveWithProgressAsync(IReadOnlyList<string> sourcePaths, string destinationDirectory,
         IProgress<FileOperationProgress>? progress = null, CancellationToken ct = default)
     {
-        await Run(BackgroundTaskKind.Move, "移动文件", sourcePaths, destinationDirectory, async context =>
+        await RunFileOperation(FileOperationPresentation.Move, BackgroundTaskKind.Move, "移动文件", sourcePaths, destinationDirectory, async context =>
         {
             foreach (var path in sourcePaths) { await context.CheckpointAsync(); await MoveAsync(path, destinationDirectory); }
             progress?.Report(new() { Percentage = 100 }); return true;
@@ -193,10 +261,24 @@ public sealed partial class CompositeFileService : IFileService, ITrashResultFil
             foreach (var child in Directory.EnumerateFileSystemEntries(path))
             {
                 token.ThrowIfCancellationRequested();
+                FileTaskContext.Checkpoint();
                 paths.Add(child);
             }
             return paths;
         }, token);
+    }
+
+    private async Task RemoveMoveSourceAsync(string source, FileTaskContext context)
+    {
+        await context.CheckpointAsync();
+        var service = Resolve(source);
+        if (service is Platforms.MacCatalyst.Services.MacFileService or SftpFileService &&
+            context.Batch?.Sources.GetValueOrDefault(source) is { Entry.IsDirectory: true } item)
+        {
+            // Stop between children and retain their transfer destinations in the results.
+            await DeleteInventoryAsync(item, context, reportDeletion: false);
+        }
+        else await service.DeleteAsync(source, false);
     }
 
     private async Task VerifyCopyAsync(string source, string destination, FileTaskContext context)

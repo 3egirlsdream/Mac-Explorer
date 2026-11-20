@@ -1,7 +1,11 @@
 using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Platforms.MacCatalyst.Services;
@@ -195,6 +199,48 @@ public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
             Assert.True(old.IsDisposed);
         }
         finally { release.TrySetResult(); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    public async Task TwoColumnSidebarReturnsToIconsAfterClickingOutside()
+    {
+        using var theme = new FastListTestTheme();
+        await using var fixture = await TabCacheFixture.CreateAsync();
+        fixture.AddTab();
+        fixture.Model.SetPaneLayout(PaneLayout.TwoColumns);
+        Dispatcher.UIThread.RunJobs();
+
+        var workspace = fixture.Workspaces[fixture.Model.VisiblePanes[0]];
+        var toggle = workspace.FindControl<Button>("SidebarToggleButton")!;
+        var pane = workspace.FindControl<SplitView>("SidebarSplitView")!;
+        var sidebar = workspace.FindControl<FinderSidebarView>("SidebarControl")!;
+        var header = sidebar.FindControl<TextBlock>("PinnedFoldersHeader")!;
+        // The gap between columns dismisses the overlay through SplitView itself.
+        var outside = workspace.TranslatePoint(new Point(workspace.Bounds.Width + 2, 350), fixture.Window)!.Value;
+
+        for (var cycle = 0; cycle < 2; cycle++)
+        {
+            Point buttonCenter = default;
+            await WaitForIssue11Async(() =>
+            {
+                RenderIssue11(fixture.Window);
+                buttonCenter = toggle.TranslatePoint(new Rect(toggle.Bounds.Size).Center, fixture.Window)!.Value;
+                return fixture.Window.InputHitTest(buttonCenter) is Visual hit &&
+                    hit.GetSelfAndVisualAncestors().Contains(toggle);
+            });
+            fixture.Window.MouseDown(buttonCenter, MouseButton.Left);
+            fixture.Window.MouseUp(buttonCenter, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(pane.IsPaneOpen);
+            Assert.True(header.IsVisible);
+
+            fixture.Window.MouseDown(outside, MouseButton.Left);
+            fixture.Window.MouseUp(outside, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(pane.IsPaneOpen);
+            Assert.True(sidebar.IsRailMode);
+            Assert.False(header.IsVisible);
+        }
     }
 
     [AvaloniaTheory(Explicit = true)]

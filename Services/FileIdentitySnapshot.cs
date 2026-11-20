@@ -21,6 +21,7 @@ internal sealed record FileIdentitySnapshot(string Identity, string Signature)
         void Visit(FileSystemInfo entry, string relative)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            FileTaskContext.Checkpoint();
             entry.Refresh();
             Add(relative); Add(entry.LinkTarget ?? "");
             Add(entry.LastWriteTimeUtc.Ticks.ToString()); Add(((int)entry.Attributes).ToString());
@@ -47,6 +48,7 @@ internal sealed record FileIdentitySnapshot(string Identity, string Signature)
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            FileTaskContext.Checkpoint();
             var read = stream.Read(buffer);
             cancellationToken.ThrowIfCancellationRequested();
             if (read == 0) return;

@@ -122,19 +122,15 @@ public partial class PinnedFoldersViewModel : ObservableObject, IDisposable
         return await _pinnedFolderService.IsPinnedAsync(path);
     }
 
-    public async Task ReorderPinnedFolderAsync(string sourcePath, string targetPath)
+    public Task MovePinnedFolderAsync(PinnedFolder pin, int targetGroupId, int? anchorId, bool afterAnchor)
+        => _pinnedFolderService?.MoveAsync(pin.Id, pin.GroupId, targetGroupId, anchorId, afterAnchor) ?? Task.CompletedTask;
+
+    public Task ReorderPinnedFolderAsync(string sourcePath, string targetPath)
     {
-        if (_pinnedFolderService == null || string.Equals(sourcePath, targetPath, StringComparison.Ordinal)) return;
-        var ordered = PinnedFolders.Select(folder => folder.FolderPath).ToList();
-        var sourceIndex = ordered.FindIndex(path => string.Equals(path, sourcePath, StringComparison.Ordinal));
-        var targetIndex = ordered.FindIndex(path => string.Equals(path, targetPath, StringComparison.Ordinal));
-        if (sourceIndex < 0 || targetIndex < 0) return;
-        var item = ordered[sourceIndex];
-        ordered.RemoveAt(sourceIndex);
-        targetIndex = ordered.FindIndex(path => string.Equals(path, targetPath, StringComparison.Ordinal));
-        ordered.Insert(targetIndex, item);
-        await _pinnedFolderService.ReorderAsync(ordered);
-        await LoadPinnedFoldersAsync();
+        var source = PinnedFolders.FirstOrDefault(pin => pin.FolderPath == sourcePath);
+        var target = PinnedFolders.FirstOrDefault(pin => pin.FolderPath == targetPath);
+        return source == null || target == null ? Task.CompletedTask
+            : MovePinnedFolderAsync(source, 0, target.Id, afterAnchor: false);
     }
 
     // ── Star Ratings ──

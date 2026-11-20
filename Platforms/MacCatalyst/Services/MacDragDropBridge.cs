@@ -120,25 +120,23 @@ public class MacDragDropBridge : IDragDropService, IDragDropBridge
         var isRemoteTarget = VirtualPath.IsRemotePath(targetDirectory);
         if (!isRemoteTarget && !Directory.Exists(targetDirectory)) return false;
 
-        var sourceEntries = new List<FileSystemEntry>();
-        foreach (var sourcePath in sourcePaths.Distinct(StringComparer.Ordinal))
-        {
-            var entry = await _fileService.GetEntryAsync(sourcePath);
-            if (entry != null) sourceEntries.Add(entry);
-        }
-        if (sourceEntries.Count == 0) return false;
-
-        // Remote targets or remote sources always copy (never move)
-        var hasRemoteSource = sourceEntries.Any(e => VirtualPath.IsRemotePath(e.FullPath));
-        var shouldCopy = forceCopy || isRemoteTarget || hasRemoteSource || (!forceMove && !IsSameVolume(sourceEntries[0].FullPath, targetDirectory));
+        var paths = sourcePaths.Distinct(StringComparer.Ordinal).ToArray();
+        // Remote drag-and-drop copies the selection regardless of the local move modifier.
+        var shouldCopy = forceCopy || isRemoteTarget || paths.Any(VirtualPath.IsRemotePath)
+            || (!forceMove && !IsSameVolume(paths[0], targetDirectory));
         if (shouldCopy)
         {
-            foreach (var entry in sourceEntries)
-                await _fileService.CopyAsync(entry.FullPath, targetDirectory);
+            if (_fileService is CompositeFileService composite)
+                await composite.CopyBatchAsync(paths, targetDirectory);
+            else
+                foreach (var path in paths) await _fileService.CopyAsync(path, targetDirectory);
             _directoryChangeNotifier.NotifyChanged([targetDirectory], null);
             return true;
         }
 
+        var sourceEntries = new List<FileSystemEntry>(paths.Length);
+        foreach (var path in paths)
+            sourceEntries.Add(await _fileService.GetEntryAsync(path) ?? throw new FileNotFoundException(path));
         var targetEntry = await _fileService.GetEntryAsync(targetDirectory)
             ?? new FileSystemEntry
             {

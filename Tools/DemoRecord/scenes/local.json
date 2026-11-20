@@ -1142,6 +1142,17 @@
           "arguments": {}
         },
         {
+          "action": "app",
+          "op": "frame-delivery"
+        },
+        {
+          "action": "click",
+          "target": {
+            "name": "下载",
+            "window": "delivery"
+          }
+        },
+        {
           "action": "wait",
           "state": {
             "loading": false,

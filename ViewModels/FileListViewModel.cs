@@ -3016,8 +3016,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly || entries.Count == 0 || entries.Any(item => !IsUsableLocalEntry(item)))
             throw new InvalidOperationException("当前文件无法永久删除。");
-        foreach (var item in entries)
-            await _fileService.DeletePermanentlyAsync(item.FullPath);
+        if (_fileService is CompositeFileService composite)
+            await composite.PermanentlyDeleteBatchAsync(entries.Select(item => item.FullPath).ToArray());
+        else
+            foreach (var item in entries) await _fileService.DeletePermanentlyAsync(item.FullPath);
         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         await LoadDirectoryContentsAsync(forceRefresh: true);
         StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已永久删除");
@@ -4664,6 +4666,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     }
 
     public void ToggleCustomGroupCollapsed(int groupId) => _pinnedFolders.ToggleGroupCollapsed(groupId);
+
+    public Task MovePinnedFolderAsync(PinnedFolder pin, int targetGroupId, int? anchorId, bool afterAnchor)
+        => IsBrowseOnly ? Task.CompletedTask : _pinnedFolders.MovePinnedFolderAsync(pin, targetGroupId, anchorId, afterAnchor);
 
     public Task ReorderPinnedFolderAsync(string sourcePath, string targetPath)
         => _pinnedFolders.ReorderPinnedFolderAsync(sourcePath, targetPath);

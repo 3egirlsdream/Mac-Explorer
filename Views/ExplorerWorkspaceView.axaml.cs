@@ -62,6 +62,14 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         _settings = settings;
         _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Workspace);
         InitializeComponent();
+        SidebarSplitView.PropertyChanged += (_, change) =>
+        {
+            if (change.Property != SplitView.IsPaneOpenProperty) return;
+            var open = SidebarSplitView.IsPaneOpen;
+            if (!open) FinishSidebarResize();
+            SidebarControl.SetRailMode(IsCompact && !open);
+            UpdateSidebarToggleTip();
+        };
         ThumbnailZoomSlider.ValueChanged += OnThumbnailZoomValueChanged;
         ThumbnailZoomSlider.AddHandler(PointerPressedEvent, (_, e) =>
         {
@@ -218,7 +226,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private void OnFileListPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(FileListViewModel.CurrentLocationTitle))
-            ToolTip.SetTip(SidebarToggleButton, MacExplorer.Services.Impl.LocalizationText.Get(SidebarSplitView.IsPaneOpen ? "收起侧栏" : "展开侧栏"));
+            UpdateSidebarToggleTip();
         if (e.PropertyName is nameof(FileListViewModel.IsHomePage)
             or nameof(FileListViewModel.IsAiView)
             or nameof(FileListViewModel.IsNetworkPage)
@@ -328,7 +336,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             && !IsInsideVisual(e.Source as Visual, SidebarPane)
             && !IsInsideVisual(e.Source as Visual, SidebarToggleButton))
         {
-            SetCompactSidebarOpen(false);
+            SidebarSplitView.IsPaneOpen = false;
         }
     }
 
@@ -357,14 +365,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     public void ToggleSidebar()
     {
-        if (!IsCompact)
-        {
-            SidebarSplitView.IsPaneOpen = true;
-            SidebarControl.SetRailMode(false);
-            return;
-        }
-
-        SetCompactSidebarOpen(!SidebarSplitView.IsPaneOpen);
+        SidebarSplitView.IsPaneOpen = !IsCompact || !SidebarSplitView.IsPaneOpen;
     }
 
     private void OnToggleSidebar(object? sender, RoutedEventArgs e)
@@ -373,13 +374,9 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         e.Handled = true;
     }
 
-    private void SetCompactSidebarOpen(bool open)
-    {
-        if (!open) FinishSidebarResize();
-        SidebarSplitView.IsPaneOpen = open;
-        SidebarControl.SetRailMode(!open);
-        ToolTip.SetTip(SidebarToggleButton, open ? MacExplorer.Services.Impl.LocalizationText.Get("收起侧栏") : MacExplorer.Services.Impl.LocalizationText.Get("展开侧栏"));
-    }
+    private void UpdateSidebarToggleTip()
+        => ToolTip.SetTip(SidebarToggleButton, MacExplorer.Services.Impl.LocalizationText.Get(
+            SidebarSplitView.IsPaneOpen ? "收起侧栏" : "展开侧栏"));
 
     public void TogglePageSearch()
     {
@@ -455,11 +452,12 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         CloseTransientUi(null);
         FileListControl.DeactivateTabInteraction();
         if (IsCompact)
-            SetCompactSidebarOpen(false);
+            SidebarSplitView.IsPaneOpen = false;
     }
 
     public bool TryHandleEscape()
     {
+        if (SidebarControl.CancelPinDrag()) return true;
         if (FileListControl.TryDismissContextMenu())
             return true;
         if (BreadcrumbControl.TryCloseTransientUi())
@@ -479,7 +477,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (FileListControl.TryExitGallery()) return true;
         if (IsCompact && SidebarSplitView.IsPaneOpen)
         {
-            SetCompactSidebarOpen(false);
+            SidebarSplitView.IsPaneOpen = false;
             SidebarToggleButton.Focus();
             return true;
         }
@@ -501,7 +499,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         CloseTransientUi(null);
         FileListControl.DeactivateTabInteraction();
         if (IsCompact)
-            SetCompactSidebarOpen(false);
+            SidebarSplitView.IsPaneOpen = false;
     }
 
     async Task ILivePreviewWorkspace.SetLivePreviewStateAsync(bool enabled, long activationGeneration)
@@ -541,23 +539,14 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (IsCompact != layout.IsCompact)
         {
             FinishSidebarResize();
-            if (layout.IsCompact)
-            {
-                SidebarSplitView.IsPaneOpen = false;
-                SidebarSplitView.DisplayMode = layout.SidebarDisplayMode;
-            }
-            else
-            {
-                SidebarSplitView.IsPaneOpen = false;
-                SidebarSplitView.DisplayMode = layout.SidebarDisplayMode;
-                SidebarSplitView.IsPaneOpen = true;
-            }
-
             IsCompact = layout.IsCompact;
+            SidebarSplitView.IsPaneOpen = false;
+            SidebarSplitView.DisplayMode = layout.SidebarDisplayMode;
+            if (!IsCompact)
+                SidebarSplitView.IsPaneOpen = true;
             PseudoClasses.Set(":compact", IsCompact);
             ToolbarControl.IsCompact = IsCompact;
             SidebarToggleButton.IsVisible = IsCompact;
-            SidebarControl.SetRailMode(IsCompact && !SidebarSplitView.IsPaneOpen);
             _isPageSearchExpanded = false;
             UpdatePageSearchPresentation();
         }

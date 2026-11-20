@@ -251,9 +251,9 @@ final class CaptureSink:NSObject,SCStreamOutput,SCStreamDelegate,@unchecked Send
 }
 @MainActor func receiver(_ d:[String:Any]) {
     let app=NSApplication.shared;app.setActivationPolicy(.regular)
-    let w=NSWindow(contentRect:NSRect(x:850,y:200,width:450,height:300),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+    let height=CGDisplayBounds(CGMainDisplayID()).height
+    let w=NSWindow(contentRect:NSRect(x:850,y:height-700,width:450,height:300),styleMask:[.titled,.closable],backing:.buffered,defer:false)
     w.title="演示收件箱";w.contentView=DropView(d);w.makeKeyAndOrderFront(nil);app.activate(ignoringOtherApps:true)
-    let display=CGMainDisplayID(),height=CGDisplayBounds(display).height
     save(d["readyPath"] as! String,["pid":ProcessInfo.processInfo.processIdentifier,"x":w.frame.midX,"y":height-w.frame.midY])
     app.run()
 }

@@ -47,12 +47,12 @@ internal static class SftpTransfer
                 var items = new List<Item>();
                 void Scan(string path, string relative)
                 {
-                    context.CancellationToken.ThrowIfCancellationRequested();
+                    context.CheckpointAsync().GetAwaiter().GetResult();
                     var item = Inspect(path, relative); items.Add(item);
                     if (!item.Directory || item.Link != null) return;
-                    var children = Remote(path)
+                    var children = context.Batch?.Sources.GetValueOrDefault(path)?.Children.Select(c => c.Entry.FullPath).ToArray() ?? (Remote(path)
                         ? client(path).ListDirectory(Raw(path)).Where(i => i.Name is not ("." or "..")).Select(i => Join(path, i.Name)).ToArray()
-                        : System.IO.Directory.GetFileSystemEntries(path);
+                        : System.IO.Directory.GetFileSystemEntries(path));
                     foreach (var child in children) Scan(child, relative.Length == 0 ? Path.GetFileName(child) : relative + "/" + Path.GetFileName(child));
                 }
                 Scan(source, ""); return items;
@@ -72,10 +72,11 @@ internal static class SftpTransfer
             {
                 await context.CheckpointAsync();
                 var target = item.Relative.Length == 0 ? root : Join(root, item.Relative);
-                var output = context.Remember("transfer-output:" + target, () => new Output
+                var transferKey = item.Source + "\0" + target;
+                var output = context.Remember("transfer-output:" + transferKey, () => new Output
                 { Path = target, Temporary = target + "." + context.Task.Id + ".fkfinder-tmp" });
-                var original = context.Remember<Item?>("transfer-original:" + target, () => replaceExisting && Exists(target) ? Inspect(target, "") : null);
-                context.RegisterCleanup("transfer:" + target, () =>
+                var original = context.Remember<Item?>("transfer-original:" + transferKey, () => replaceExisting && Exists(target) ? Inspect(target, "") : null);
+                context.RegisterCleanup("transfer:" + transferKey, () =>
                 {
                     if (output.BackupOwned && output.Backup != null && Exists(output.Backup) && !Exists(target))
                         client(target).RenameFile(Raw(output.Backup), Raw(target));
@@ -131,7 +132,7 @@ internal static class SftpTransfer
                             var a = new byte[128 * 1024]; var b = new byte[a.Length]; long remaining = output.Offset;
                             while (remaining > 0)
                             {
-                                context.CancellationToken.ThrowIfCancellationRequested();
+                                await context.CheckpointAsync();
                                 var count = (int)Math.Min(a.Length, remaining);
                                 input.ReadExactly(a.AsSpan(0, count)); destination.ReadExactly(b.AsSpan(0, count));
                                 left.AppendData(a.AsSpan(0, count)); right.AppendData(b.AsSpan(0, count)); remaining -= count;
@@ -144,6 +145,7 @@ internal static class SftpTransfer
                             await context.CheckpointAsync();
                             if (Inspect(item.Source, item.Relative) != item) throw new IOException(Impl.LocalizationText.Get("源项目已变化，请重新创建任务。"));
                             destination.Write(buffer, 0, read); output.Offset += read; attemptBytes += read;
+                            context.Batch?.ReportBytes(item.Source, output.Offset);
                             context.Task.BytesTransferred = finishedBytes + output.Offset;
                             context.Task.TotalBytes = total;
                             context.Task.BytesPerSecond = attemptBytes / Math.Max(.001, clock.Elapsed.TotalSeconds);

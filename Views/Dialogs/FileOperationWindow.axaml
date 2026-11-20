@@ -1,0 +1,56 @@
+<c:DialogWindow xmlns="https://github.com/avaloniaui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:c="using:MacExplorer.Controls" xmlns:m="using:MacExplorer.Models"
+                x:Class="MacExplorer.Views.Dialogs.FileOperationWindow"
+                SizeToContent="Height" FullHeightContent="True" ShowTitleBarDivider="False" CanMinimize="True" CanMaximize="True">
+    <c:DialogWindow.Resources>
+        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent"/>
+    </c:DialogWindow.Resources>
+    <c:DialogWindow.Styles>
+        <Style Selector="TextBlock.operation-meta">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+    </c:DialogWindow.Styles>
+    <Grid Margin="18,32,15,8" RowDefinitions="Auto,6,*,Auto,Auto">
+        <Grid ColumnDefinitions="43,*,Auto" ColumnSpacing="13" Margin="1,0,4,7">
+            <Border x:Name="IconTile" Background="{DynamicResource SelectionBrush}" Width="43" Height="43"
+                    CornerRadius="{DynamicResource RadiusLg}" VerticalAlignment="Top" Margin="0,3,0,0">
+                <PathIcon x:Name="OperationIcon" Width="26" Height="26" Foreground="{DynamicResource AccentBrush}"/>
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Top">
+                <TextBlock x:Name="Heading" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{DynamicResource FontWeightSemibold}" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="Route" Classes="operation-meta"/>
+                <TextBlock x:Name="Current" Classes="operation-meta"/>
+            </StackPanel>
+            <TextBlock x:Name="Percent" Grid.Column="2" FontSize="{DynamicResource FontSizeDisplay}"
+                       FontWeight="{DynamicResource FontWeightSemibold}" VerticalAlignment="Top" Margin="0,6,0,0"/>
+        </Grid>
+        <ProgressBar x:Name="Bar" Grid.Row="1" Margin="0,0,5,0" Height="6" CornerRadius="3"
+                     Background="{DynamicResource BorderBrush}" Foreground="{DynamicResource AccentBrush}"/>
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,*" Margin="0,4,5,0">
+            <TextBlock x:Name="Amount" Classes="operation-meta" VerticalAlignment="Center"/>
+            <TextBlock x:Name="Speed" Grid.Column="1" Classes="operation-meta" VerticalAlignment="Center"/>
+            <TextBlock x:Name="Eta" Grid.Column="2" Classes="operation-meta" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        </Grid>
+        <StackPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,3,0,0" Spacing="9" Orientation="Horizontal">
+            <c:AppButton x:Name="Pause" MinWidth="66" Classes="secondary small" Click="PauseOrResume"/>
+            <c:AppButton x:Name="Stop" MinWidth="66" Classes="secondary small" Content="{c:Loc operation.stop}" Click="StopOperation"/>
+            <c:AppButton x:Name="Retry" MinWidth="66" Classes="secondary small" Content="{c:Loc operation.retry}" Click="RetryOperation"/>
+        </StackPanel>
+        <Grid x:Name="FailureSummary" Grid.Row="4" RowDefinitions="Auto,*" MaxHeight="154" Margin="0,8,0,0" IsVisible="False">
+            <SelectableTextBlock x:Name="Error" MaxHeight="46" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"/>
+            <ListBox Grid.Row="1" x:Name="Results" Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="m:FileTaskItemResult">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <TextBlock Text="{Binding StateLabel}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Source}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Detail}"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </Grid>
+</c:DialogWindow>

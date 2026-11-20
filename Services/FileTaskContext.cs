@@ -9,6 +9,8 @@ public sealed class FileTaskContext
 {
     private static readonly AsyncLocal<FileTaskContext?> Ambient = new();
     public static FileTaskContext? Current => Ambient.Value;
+    internal string? ExactCopyTarget { get; set; }
+    internal CompositeFileService.OperationBatch? Batch { get; set; }
     private readonly PremiumFeature _featureGrant;
     private int _grantActive;
     internal bool HasFeatureGrant(PremiumFeature feature) => Volatile.Read(ref _grantActive) != 0 && (_featureGrant & feature) == feature;
@@ -153,8 +155,12 @@ public sealed class FileTaskContext
         return result;
     }
 
+    internal FileTaskItemResult? ResultFor(string path)
+        => _resultIndices.TryGetValue(path, out var index) ? Results[index] : null;
+
     public void ReportItem(string source, string? destination, FileTaskItemState state, string? error = null)
     {
+        if (state is FileTaskItemState.Completed or FileTaskItemState.Skipped) Batch?.Finish(source, subtree: false);
         var result = new FileTaskItemResult(source, destination, state, error);
         if (_resultIndices.TryGetValue(source, out var index)) Results[index] = result;
         else

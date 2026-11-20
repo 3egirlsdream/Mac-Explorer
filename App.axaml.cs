@@ -105,6 +105,8 @@ public partial class App : Application
                 string.IsNullOrEmpty(startupPath) ? null : Path.GetFullPath(startupPath),
                 isPrimary: true);
             desktop.MainWindow = mainWindow;
+            if (Services.GetRequiredService<IBackgroundTaskManager>() is BackgroundTaskManager operations)
+                operations.OperationQueued += task => FileOperationWindow.Observe(operations, task, desktop);
             mainWindow.Opened += OnStartupWindowOpened;
             var stoppingPlugins = false;
             var pluginsStopped = false;
@@ -199,6 +201,11 @@ public partial class App : Application
         {
             var smokeWindow = mainWindow;
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.WindowResizeSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
+        if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FILE_OPERATION_SMOKE") == "1" && mainWindow != null)
+        {
+            var owner = mainWindow;
+            DispatcherTimer.RunOnce(() => _ = Tools.Testing.FileOperationWindowSmoke.RunAsync(owner), TimeSpan.FromSeconds(1));
         }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_FILE_CONFLICT_SMOKE") == "1" && mainWindow != null)
         {

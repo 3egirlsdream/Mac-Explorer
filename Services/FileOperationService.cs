@@ -36,7 +36,7 @@ public sealed class FileOperationService(
     public Task<FileOperationResult> CopyDetailedAsync(IReadOnlyList<string> sourcePaths, string destinationDirectory)
     {
         var paths = sourcePaths.ToArray();
-        return FileTaskContext.RunAsync(tasks, new(BackgroundTaskKind.Copy,
+        return CompositeFileService.RunOperationAsync(files, tasks, FileOperationPresentation.Copy, new(BackgroundTaskKind.Copy,
             Services.Impl.LocalizationText.Get("复制 {0} 项", paths.Length), paths, destinationDirectory),
             _ => CopyCoreAsync(paths, destinationDirectory));
     }
@@ -48,14 +48,15 @@ public sealed class FileOperationService(
         var trackProgress = !VirtualPath.IsRemotePath(destinationDirectory)
             && sourcePaths.All(path => !VirtualPath.IsRemotePath(path));
         var task = trackProgress ? tasks?.AddTask($"粘贴：复制 {sourcePaths.Count} 项", BackgroundTaskKind.Copy) : null;
-        var token = task?.Cts.Token ?? CancellationToken.None;
+        var token = task?.Cts.Token ?? FileTaskContext.Current!.CancellationToken;
         var outputs = new List<string>(sourcePaths.Count);
         var warnings = new List<string>();
         var failed = new List<string>();
+        var index = 0;
         try
         {
             var skippedCount = 0;
-            for (var index = 0; index < sourcePaths.Count; index++)
+            for (; index < sourcePaths.Count; index++)
             {
                 token.ThrowIfCancellationRequested();
                 var itemIndex = index;
@@ -72,7 +73,7 @@ public sealed class FileOperationService(
                 var context = FileTaskContext.Current!;
                 var destination = await context.StepAsync("copy-item:" + sourcePath, () => files.CopyWithProgressAsync(sourcePath,
                     destinationDirectory, progress, token));
-                if (context.Results.Any(r => r.Source == sourcePath && r.State == FileTaskItemState.Skipped)) continue;
+                if (context.ResultFor(sourcePath)?.State == FileTaskItemState.Skipped) continue;
                 if (history != null) await context.StepAsync("copy-history:" + sourcePath, async () =>
                 { await history.RecordCreatedAsync(destination, true); return true; });
                 context.ReportItem(sourcePath, destination, FileTaskItemState.Completed);
@@ -110,18 +111,18 @@ public sealed class FileOperationService(
         {
             await RecordPartialCopiesAsync(sourcePaths, outputs);
             if (FileTaskContext.Current is { } context)
-                foreach (var pending in sourcePaths.Skip(outputs.Count))
+                foreach (var pending in sourcePaths.Skip(index))
                     context.ReportItem(pending, context.Results.FirstOrDefault(i => i.Source == pending)?.Destination,
-                        pending == sourcePaths[outputs.Count] ? FileTaskItemState.Failed : FileTaskItemState.NotAttempted,
-                        pending == sourcePaths[outputs.Count] ? ex.Message : null);
+                        pending == sourcePaths[index] ? FileTaskItemState.Failed : FileTaskItemState.NotAttempted,
+                        pending == sourcePaths[index] ? ex.Message : null);
             if (task != null)
                 tasks!.FailTask(task.Id,
                     ex is AggregateException aggregate ? $"复制未完整完成，{aggregate.InnerExceptions.Count} 项失败" : ex.Message,
                     ex.ToString());
             logger?.LogError(ex, "Copy failed");
-            if (outputs.Count < sourcePaths.Count) failed.Add(sourcePaths[outputs.Count]);
+            if (index < sourcePaths.Count) failed.Add(sourcePaths[index]);
             throw new FileOperationPartialException(new(outputs, failed, warnings,
-                sourcePaths.Skip(outputs.Count + 1).ToArray()), ex);
+                sourcePaths.Skip(index + 1).ToArray()), ex);
         }
         finally { changes?.NotifyChanged([destinationDirectory], null); }
     }
@@ -147,7 +148,7 @@ public sealed class FileOperationService(
         string currentPath, Action<string>? setStatus = null, FileListViewModel? refreshedViewModel = null)
     {
         var captured = entries.ToArray();
-        return FileTaskContext.RunAsync(tasks, new(BackgroundTaskKind.Delete,
+        return CompositeFileService.RunOperationAsync(files, tasks, FileOperationPresentation.Trash, new(BackgroundTaskKind.Delete,
             Services.Impl.LocalizationText.Get("删除 {0} 项", captured.Length), captured.Select(e => e.FullPath).ToArray()),
             async _ => { await DeleteCoreAsync(captured, currentPath, setStatus, refreshedViewModel); return true; });
     }
@@ -232,7 +233,7 @@ public sealed class FileOperationService(
 
     private Task<FileOperationResult> MoveCoreAsync(FileSystemEntry source, FileSystemEntry targetFolder,
         Action<string>? setStatus, bool throwOnMetadataFailure)
-        => FileTaskContext.RunAsync(tasks, new(BackgroundTaskKind.Move, Services.Impl.LocalizationText.Get("移动文件"),
+        => CompositeFileService.RunOperationAsync(files, tasks, FileOperationPresentation.Move, new(BackgroundTaskKind.Move, Services.Impl.LocalizationText.Get("移动文件"),
             [source.FullPath], targetFolder.FullPath), _ => MoveItemCoreAsync(source, targetFolder, setStatus, throwOnMetadataFailure));
 
     private async Task<FileOperationResult> MoveItemCoreAsync(FileSystemEntry source, FileSystemEntry targetFolder,

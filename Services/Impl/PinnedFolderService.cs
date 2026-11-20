@@ -131,6 +131,70 @@ public class PinnedFolderService : IPinnedFolderService, IDisposable
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    public async Task MoveAsync(int pinId, int sourceGroupId, int targetGroupId, int? anchorId, bool afterAnchor)
+    {
+        await _connectionLock.WaitAsync();
+        try
+        {
+            using var transaction = _connection.BeginTransaction();
+            using var check = _connection.CreateCommand();
+            check.Transaction = transaction;
+            check.CommandText = """
+                SELECT 1 FROM pinned_folders AS source
+                WHERE source.id = @pin AND source.group_id = @source
+                  AND (@target = 0 OR EXISTS (SELECT 1 FROM pinned_folder_groups WHERE id = @target))
+                  AND NOT EXISTS (SELECT 1 FROM pinned_folders AS other WHERE other.group_id = @target
+                                  AND other.folder_path = source.folder_path AND other.id <> source.id)
+                """;
+            check.Parameters.AddWithValue("@pin", pinId);
+            check.Parameters.AddWithValue("@source", sourceGroupId);
+            check.Parameters.AddWithValue("@target", targetGroupId);
+            if (anchorId == pinId || await check.ExecuteScalarAsync() == null) return;
+
+            using var read = _connection.CreateCommand();
+            read.Transaction = transaction;
+            read.CommandText = "SELECT id FROM pinned_folders WHERE group_id = @group ORDER BY sort_order, pinned_at, id";
+            read.Parameters.AddWithValue("@group", targetGroupId);
+            var order = new List<int>();
+            using (var reader = await read.ExecuteReaderAsync())
+                while (await reader.ReadAsync()) order.Add(reader.GetInt32(0));
+
+            var previousIndex = order.IndexOf(pinId);
+            if (previousIndex >= 0) order.RemoveAt(previousIndex);
+            var index = order.Count;
+            if (anchorId is int anchor)
+            {
+                index = order.IndexOf(anchor);
+                if (index < 0) return;
+                if (afterAnchor) index++;
+            }
+            if (index == previousIndex) return;
+            order.Insert(index, pinId);
+
+            using var update = _connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = """
+                UPDATE pinned_folders SET group_id = @group, sort_order = @order
+                WHERE id = @id AND (group_id <> @group OR sort_order <> @order)
+                """;
+            update.Parameters.AddWithValue("@group", targetGroupId);
+            var id = update.Parameters.Add("@id", SqliteType.Integer);
+            var position = update.Parameters.Add("@order", SqliteType.Integer);
+            for (var i = 0; i < order.Count; i++)
+            {
+                id.Value = order[i];
+                position.Value = i + 1;
+                await update.ExecuteNonQueryAsync();
+            }
+            transaction.Commit();
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     public async Task ReorderAsync(IReadOnlyList<string> orderedFolderPaths, int groupId = 0)
     {
         await _connectionLock.WaitAsync();

@@ -13,6 +13,7 @@ public interface IBackgroundTaskManager
     Task WaitForCompletionAsync(string taskId) => Task.CompletedTask;
     Task ShutdownAsync() => Task.CompletedTask;
     IReadOnlyList<BackgroundTaskInfo> Tasks { get; }
+    IReadOnlyList<BackgroundTaskInfo> PanelTasks => Tasks.Where(t => t.Request?.Operation == null).ToArray();
     event Action? TasksChanged;
 
     BackgroundTaskInfo AddTask(string label, Func<Task>? onCompleted = null);

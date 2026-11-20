@@ -114,10 +114,12 @@ public partial class FileOpsViewModel : ObservableObject
     {
         var clipboardEntry = _clipboardService?.GetClipboardEntry();
         var paths = clipboardEntry?.SourcePaths.ToArray() ?? [];
+        if (paths.Length == 0) return Task.CompletedTask;
+        LastOperationResult = null;
         var kind = clipboardEntry?.Operation == ClipboardOperation.Cut ? BackgroundTaskKind.Move : BackgroundTaskKind.Copy;
         var request = new FileTaskRequest(kind, Services.Impl.LocalizationText.Get("粘贴文件"), paths, currentPath);
         // Queue path normalization can touch every source on a slow or disconnected volume.
-        return Task.Run(() => FileTaskContext.RunAsync(_taskManager, request,
+        return Task.Run(() => CompositeFileService.RunOperationAsync(_fileService, _taskManager, FileOperationPresentation.Paste, request,
             async _ => { await PasteCoreAsync(currentPath, overwrite, clipboardEntry, paths); return true; }));
     }
 
@@ -146,14 +148,16 @@ public partial class FileOpsViewModel : ObservableObject
         var completed = new List<string>();
         var warnings = new List<string>();
         Exception? metadataError = null;
+        var index = 0;
         try
         {
-            foreach (var sourcePath in sourcePaths)
+            for (; index < sourcePaths.Length; index++)
             {
+                var sourcePath = sourcePaths[index];
                 await FileTaskContext.Current!.StepAsync("paste-cut:" + sourcePath, async () =>
                 { await _fileService.MoveAsync(sourcePath, currentPath, overwrite); return true; });
-                if (FileTaskContext.Current.Results.Any(r => r.Source == sourcePath && r.State == FileTaskItemState.Skipped)) continue;
-                var movedPath = FileTaskContext.Current.Results.LastOrDefault(r => r.Source == sourcePath)?.Destination
+                if (FileTaskContext.Current.ResultFor(sourcePath)?.State == FileTaskItemState.Skipped) continue;
+                var movedPath = FileTaskContext.Current.ResultFor(sourcePath)?.Destination
                     ?? CombineDestinationPath(currentPath, Path.GetFileName(sourcePath));
                 completed.Add(movedPath);
                 // Consume only confirmed moves so a retry cannot move a missing source.
@@ -190,8 +194,8 @@ public partial class FileOpsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            LastOperationResult = new(completed, sourcePaths.Skip(completed.Count).Take(1).ToArray(),
-                warnings, sourcePaths.Skip(completed.Count + 1).ToArray());
+            LastOperationResult = new(completed, sourcePaths.Skip(index).Take(1).ToArray(),
+                warnings, sourcePaths.Skip(index + 1).ToArray());
             _logger?.LogError(ex, "Paste failed");
             throw;
         }
@@ -279,14 +283,16 @@ public partial class FileOpsViewModel : ObservableObject
         if (sourcePaths.Count == 0) return;
         var affectedDirectories = GetAffectedMoveDirectories(entries, targetFolder.FullPath);
 
-        await FileTaskContext.RunAsync(_taskManager, new(BackgroundTaskKind.Move,
+        await CompositeFileService.RunOperationAsync(_fileService, _taskManager, FileOperationPresentation.Move, new(BackgroundTaskKind.Move,
             Services.Impl.LocalizationText.Get("移动 {0} 项", sourcePaths.Count), sourcePaths, targetFolder.FullPath), async context =>
         {
             var completed = new List<string>(); var warnings = new List<string>();
+            var index = 0;
             try
             {
-                foreach (var path in sourcePaths)
+                for (; index < sourcePaths.Count; index++)
                 {
+                    var path = sourcePaths[index];
                     await context.CheckpointAsync();
                     var output = CombineDestinationPath(targetFolder.FullPath, Path.GetFileName(path));
                     var replaced = context.Remember("move-replaced:" + output,
@@ -305,8 +311,8 @@ public partial class FileOpsViewModel : ObservableObject
                         }
                         return true;
                     });
-                    if (context.Results.Any(r => r.Source == path && r.State == FileTaskItemState.Skipped)) continue;
-                    output = context.Results.LastOrDefault(r => r.Source == path)?.Destination ?? output;
+                    if (context.ResultFor(path)?.State == FileTaskItemState.Skipped) continue;
+                    output = context.ResultFor(path)?.Destination ?? output;
                     completed.Add(output); context.ReportItem(path, output, FileTaskItemState.Completed);
                     if (_fileTagService != null && _fileService is not CompositeFileService { HandlesConflicts: true })
                         try { await _fileTagService.UpdatePathAsync(path, output); }
@@ -317,8 +323,8 @@ public partial class FileOpsViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                LastOperationResult = new(completed, sourcePaths.Skip(completed.Count).Take(1).ToArray(), warnings,
-                    sourcePaths.Skip(completed.Count + 1).ToArray());
+                LastOperationResult = new(completed, sourcePaths.Skip(index).Take(1).ToArray(), warnings,
+                    sourcePaths.Skip(index + 1).ToArray());
                 setStatus?.Invoke(Services.Impl.LocalizationText.Get("移动失败: {0}", ex.Message));
                 throw;
             }
@@ -535,9 +541,11 @@ public partial class FileOpsViewModel : ObservableObject
 
     public async Task PasteImageAsync(string currentPath, ClipboardImageData image, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
     {
-        var path = await FileTaskContext.RunAsync(_taskManager,
-            new(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("粘贴文件"), [], currentPath),
-            _ => PasteImageCoreAsync(currentPath, image));
+        var request = new FileTaskRequest(BackgroundTaskKind.Create, Services.Impl.LocalizationText.Get("粘贴文件"), [], currentPath)
+        {
+            Operation = new(FileOperationPresentation.Paste) { TotalItems = 1, TotalBytes = image.Bytes.LongLength, Preparing = false }
+        };
+        var path = await Task.Run(() => FileTaskContext.RunAsync(_taskManager, request, _ => PasteImageCoreAsync(currentPath, image)));
         var name = Path.GetFileName(path);
         setStatus?.Invoke($"已粘贴图片：{name}");
         if (refreshCallback != null) await refreshCallback(name);

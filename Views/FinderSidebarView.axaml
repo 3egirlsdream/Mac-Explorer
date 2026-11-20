@@ -142,11 +142,11 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="*,Auto,Auto">
-    <ScrollViewer>
+    <ScrollViewer x:Name="SidebarScroll">
         <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
                     <!-- ═══ 收藏 Favorites ═══ -->
-                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" x:Name="PinnedFoldersHeader" Text="{loc:Loc ui.318}" Margin="0,0,0,2"/>
+                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" x:Name="PinnedFoldersHeader" Background="Transparent" Text="{loc:Loc ui.318}" Margin="0,0,0,2"/>
 
                     <!-- Username -->
                     <Border Classes="sidebar-item"
@@ -248,7 +248,7 @@
                     <ItemsControl x:Name="PinnedFoldersControl" Classes="sidebar-items rail-secondary"
                                   ItemsSource="{Binding PinnedFolders}"
                                   ItemTemplate="{StaticResource PinnedFolderTemplate}"
-                                  MinHeight="8"/>
+                                  MinHeight="8" Padding="0,0,0,6" Background="Transparent"/>
 
                     <!-- ═══ 位置 Locations ═══ -->
                     <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" Text="{loc:Loc ui.145}"/>
@@ -496,6 +496,9 @@
 
                 </StackPanel>
             </ScrollViewer>
+    <Canvas x:Name="PinDropOverlay" ClipToBounds="True" IsHitTestVisible="False">
+        <Border x:Name="PinDropLine" Height="2" Background="{DynamicResource AccentBrush}" IsVisible="False"/>
+    </Canvas>
     <controls:AppButton Grid.Row="1" x:Name="AccessStatusButton" Classes="ghost compact" Margin="8,4"
             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnUpgradeAccess"
             IsVisible="False">

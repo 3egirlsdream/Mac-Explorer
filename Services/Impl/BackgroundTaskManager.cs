@@ -28,6 +28,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         public TaskCompletionSource<object?> Completion = NewCompletion();
         public TaskCompletionSource? Resume;
         public bool Slot;
+        public bool PathsReady;
         public bool Claimed;
         public bool Executing;
         public CancellationTokenRegistration Registration;
@@ -41,6 +42,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
     private bool _stopping;
     private int _maxConcurrency;
     private static TaskCompletionSource<object?> NewCompletion() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal event Action<BackgroundTaskInfo>? OperationQueued;
     public event Action? TasksChanged;
     public IReadOnlyList<BackgroundTaskInfo> Tasks { get { lock (_lock) return _tasks.ToArray(); } }
     public int MaxConcurrency
@@ -74,15 +76,19 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         var context = new FileTaskContext(info, () => PauseAtCheckpointAsync(entry!), RaiseTasksChanged, features);
         entry = new Entry { Info = info, Request = request, Context = context,
             Execute = async () => await context.ExecuteAsync(execute) };
-        foreach (var path in request.Sources.Concat(request.Destination is { } dest ? [dest] : Array.Empty<string>()))
-            entry.Paths.Add(Normalize(path));
         lock (_lock)
         {
             if (_stopping) throw new InvalidOperationException(LocalizationText.Get("应用正在退出，无法添加任务。"));
             _tasks.Add(info); _queue.Add(entry);
             entry.Registration = cancellationToken.Register(() => CancelTask(info.Id));
-            Schedule();
         }
+        if (request.Operation != null) OperationQueued?.Invoke(info);
+        foreach (var path in request.Sources.Concat(request.Destination is { } dest ? [dest] : Array.Empty<string>()))
+        {
+            if (info.Cts.IsCancellationRequested) break;
+            entry.Paths.Add(Normalize(path));
+        }
+        lock (_lock) { entry.PathsReady = true; Schedule(); }
         RaiseTasksChanged();
         return (T)(await entry.Completion.Task)!;
     }
@@ -91,7 +97,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
     private void Schedule()
     {
         if (_stopping) return;
-        foreach (var entry in _queue.Where(e => e.Info.State == BackgroundTaskState.Waiting).ToArray())
+        foreach (var entry in _queue.Where(e => e.PathsReady && e.Info.State == BackgroundTaskState.Waiting).ToArray())
         {
             if (_queue.Count(e => e.Slot) + _finishing >= _maxConcurrency) break;
             if (_queue.Any(other => other != entry && other.Claimed && Conflicts(other, entry))) continue;
@@ -327,7 +333,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         lock (_lock)
         {
             var task = _tasks.Find(t => t.Id == taskId);
-            if (task == null || task.IsTerminal) return;
+            if (task == null || task.IsTerminal || !task.CanCancel) return;
             cts = task.Cts;
             var entry = _queue.Find(e => e.Info == task);
             task.State = entry?.Executing == true ? BackgroundTaskState.Cancelling : BackgroundTaskState.Cancelled;
@@ -356,6 +362,11 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
             if (entry != null && (entry.Executing || !entry.Completion.Task.IsCompleted)) return;
             if (task.Request is { } retryRequest && !FeatureAccess.TryUse(FeatureAccess.ForRequest(retryRequest))) return;
             task.ErrorMessage = task.ErrorDetail = null;
+            if (task.Request?.Operation is { FinderRunning: true } display)
+            {
+                display.FinderRunning = false;
+                task.CanCancel = true;
+            }
             task.FailedAtUtc = null; task.RetainedRetryBytes = 0;
             if (entry != null)
             {
@@ -476,7 +487,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         lock (_lock)
         {
             var task = _tasks.Find(t => t.Id == taskId);
-            if (task == null || !task.IsTerminal) return;
+            if (task == null || !task.IsTerminal && task.State != BackgroundTaskState.NeedsAttention) return;
             if (_queue.Any(e => e.Info == task && e.Executing)) return;
             context = _queue.Find(e => e.Info == task)?.Context;
             _tasks.Remove(task); _queue.RemoveAll(e => e.Info == task); removed = task;

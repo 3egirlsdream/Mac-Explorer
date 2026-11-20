@@ -33,7 +33,7 @@ public sealed partial class CompositeFileService
             }, context.CancellationToken);
             await SyncPlannedMetadataAsync(target, backup, true);
             await SyncPlannedMetadataAsync(source, target, false);
-            if (move) await Resolve(source).DeleteAsync(source, false);
+            if (move) await RemoveMoveSourceAsync(source, context);
             if (move) await SyncPlannedMetadataAsync(source, target, true);
             await RecordAsync(h => h.RecordIrreversibleAsync(target, LocalizationText.Get("远程修改不可撤销。")));
             context.ReportItem(source, target, FileTaskItemState.Completed); return target;

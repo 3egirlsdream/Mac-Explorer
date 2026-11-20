@@ -44,6 +44,7 @@ public partial class FinderSidebarView : UserControl
     {
         if (_isRailMode == railMode)
             return;
+        if (railMode) CancelPinDrag();
         _isRailMode = railMode;
         foreach (var control in this.GetLogicalDescendants().OfType<Control>())
         {
@@ -117,6 +118,7 @@ public partial class FinderSidebarView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        CancelPinDrag();
         ClearFolderDropTarget();
         if (_subscribedViewModel != null)
         {
@@ -261,6 +263,11 @@ public partial class FinderSidebarView : UserControl
 
     private async void OnSidebarKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && CancelPinDrag())
+        {
+            e.Handled = true;
+            return;
+        }
         if (e.Key is not (Key.Enter or Key.Space))
             return;
 
@@ -342,13 +349,6 @@ public partial class FinderSidebarView : UserControl
         header.Focus();
         ViewModel?.ToggleCustomGroupCollapsed(group.Id);
         e.Handled = true;
-    }
-
-    private async void OnPinnedFolderPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Border { Tag: string path } || ViewModel == null) return;
-        await ViewModel.NavigateToCommand.ExecuteAsync(path);
-        UpdateActiveStates();
     }
 
     private void OnPinnedFolderLoaded(object? sender, RoutedEventArgs e) => UpdateDynamicActiveStates();
@@ -490,22 +490,21 @@ public partial class FinderSidebarView : UserControl
 
     private int? GetPinnedFolderDropGroup(DragEventArgs e)
     {
-        if (this.InputHitTest(e.GetPosition(this)) is not Visual hit) return null;
-        if (IsDescendantOf(hit, PinnedFoldersControl) || IsDescendantOf(hit, PinnedFoldersHeader)) return 0;
-        for (Visual? current = hit; current != null && current != this; current = current.GetVisualParent())
-            if (current is Control { DataContext: PinnedFolderGroup group } control
-                && control.Classes.Contains("pinned-folder-group")) return group.Id;
+        for (var hit = this.InputHitTest(e.GetPosition(this)) as Visual; hit != null && hit != this; hit = hit.GetVisualParent())
+            if (hit is Control control && GetPinDropGroup(control) is int groupId) return groupId;
+        return null;
+    }
+
+    private int? GetPinDropGroup(Control control)
+    {
+        if (control == PinnedFoldersHeader || control == PinnedFoldersControl) return 0;
+        if (control.DataContext is PinnedFolderGroup group &&
+            (control.Classes.Contains("custom-group-header") || control.Classes.Contains("pinned-folder-group")))
+            return group.Id;
         return null;
     }
 
     private static string[] GetDroppedPaths(IDataTransfer data) => FileListView.GetDroppedPaths(data);
-
-    private static bool IsDescendantOf(Visual visual, Visual ancestor)
-    {
-        for (Visual? current = visual; current != null; current = current.GetVisualParent())
-            if (ReferenceEquals(current, ancestor)) return true;
-        return false;
-    }
 
     private void ClearFolderDropTarget()
     {
@@ -551,6 +550,7 @@ public partial class FinderSidebarView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        CancelPinDrag();
         ClearFolderDropTarget();
         if (FeatureAccess.Current is { } access) access.Changed -= OnAccessChanged;
         if (_networkLocations != null) _networkLocations.Changed -= OnConnectionsChanged;

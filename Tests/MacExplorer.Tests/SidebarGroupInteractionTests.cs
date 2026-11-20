@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
@@ -26,6 +27,122 @@ namespace MacExplorer.Tests;
 [Trait("Area", "Sidebar")]
 public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
 {
+    [AvaloniaFact(Explicit = true)]
+    public async Task DragPinsBetweenRowsAndGroupsWithoutNavigatingOrMovingFiles()
+    {
+        using var theme = new FastListTestTheme();
+        using var fixture = new StoreFixture();
+        var files = new FakeFileService(fixture.Root);
+        var group = await fixture.Store.CreateGroupAsync("Work");
+        var empty = await fixture.Store.CreateGroupAsync("Empty");
+        string PathFor(string name) => Path.Combine(fixture.Root, name);
+        foreach (var name in new[] { "A", "B", "C" })
+        {
+            files.Seed(new FileSystemEntry { FullPath = PathFor(name), Name = name, IsDirectory = true });
+            await fixture.Store.PinAsync(PathFor(name), name);
+        }
+        await fixture.Store.PinAsync(PathFor("A"), "A", group);
+        using var pins = new PinnedFoldersViewModel(fixture.Store);
+        using var observer = new PinnedFoldersViewModel(fixture.Store);
+        using var vm = CreateViewModel(files, pinnedFolderService: fixture.Store, pinnedFolders: pins);
+        await pins.LoadPinnedFoldersAsync();
+        await observer.LoadPinnedFoldersAsync();
+        await vm.RefreshAsync();
+        var sidebar = new FinderSidebarView { DataContext = vm };
+        AddStyles(sidebar);
+        var window = new Window { Content = sidebar, Width = 240, Height = 1200 };
+        try
+        {
+            window.Show();
+            RenderIssue11(window);
+            Border Row(string name, int groupId = 0) => sidebar.GetVisualDescendants().OfType<Border>()
+                .Single(row => row.Classes.Contains("sidebar-item") && row.DataContext is PinnedFolder pin
+                    && pin.GroupId == groupId && pin.DisplayName == name);
+            Grid Header(int id) => sidebar.GetVisualDescendants().OfType<Grid>()
+                .Single(grid => grid.Classes.Contains("custom-group-header") && ((PinnedFolderGroup)grid.DataContext!).Id == id);
+            Point At(Control target, double fraction = 0.5) => target.TranslatePoint(
+                new Point(target.Bounds.Width / 2, target.Bounds.Height * fraction), window)!.Value;
+            var line = sidebar.FindControl<Border>("PinDropLine")!;
+            void Drag(Border from, Control to, double fraction = 0.5, bool valid = true, bool cancel = false)
+            {
+                var destination = At(to, fraction);
+                window.MouseDown(At(from), MouseButton.Left);
+                window.MouseMove(destination, RawInputModifiers.LeftMouseButton);
+                RenderIssue11(window);
+                Assert.Equal(valid, line.IsVisible);
+                if (cancel) window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                window.MouseUp(destination, MouseButton.Left);
+                RenderIssue11(window);
+                Assert.False(line.IsVisible);
+            }
+            string Order(int id) => string.Concat(observer.AllPinnedFolders.Where(pin => pin.GroupId == id).Select(pin => pin.DisplayName));
+            Drag(Row("A"), Row("C"), 0.75);
+            Assert.Equal("BCA", Order(0));
+            Drag(Row("A"), Row("B"), 0.25);
+            Assert.Equal("ABC", Order(0));
+            Drag(Row("A"), Header(group), valid: false);
+            Assert.Equal("ABC", Order(0));
+            Assert.Equal("A", Order(group));
+            Drag(Row("B"), Row("A", group), 0.25);
+            Assert.Equal("AC", Order(0));
+            Assert.Equal("BA", Order(group));
+            Drag(Row("B", group), sidebar.FindControl<TextBlock>("PinnedFoldersHeader")!);
+            Assert.Equal("ACB", Order(0));
+            Drag(Row("B"), Header(empty), cancel: true);
+            Assert.Equal("", Order(empty));
+            Drag(Row("B"), sidebar.FindControl<Border>("DesktopItem")!, valid: false);
+            Assert.Equal("ACB", Order(0));
+
+            vm.ToggleCustomGroupCollapsed(empty);
+            RenderIssue11(window);
+            Drag(Row("B"), Header(empty));
+            Assert.Equal("B", Order(empty));
+            Assert.True(vm.CustomGroups.Single(item => item.Id == empty).IsCollapsed);
+
+            vm.ToggleCustomGroupCollapsed(empty);
+            RenderIssue11(window);
+            var groupPanel = (StackPanel)Header(group).Parent!;
+            var groupTail = groupPanel.Children.OfType<StackPanel>().Single().Children.OfType<Border>().Single();
+            Drag(Row("B", empty), groupTail);
+            Assert.Equal("AB", Order(group));
+            Assert.Empty(Order(empty));
+
+            window.Height = 320;
+            RenderIssue11(window);
+            Row("A").BringIntoView();
+            RenderIssue11(window);
+            var scroll = sidebar.FindControl<ScrollViewer>("SidebarScroll")!;
+            var edge = scroll.TranslatePoint(new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height - 4), window)!.Value;
+            window.MouseDown(At(Row("A")), MouseButton.Left);
+            var offset = scroll.Offset.Y;
+            window.MouseMove(edge, RawInputModifiers.LeftMouseButton);
+            await WaitForIssue11Async(() => scroll.Offset.Y > offset);
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            window.MouseUp(edge, MouseButton.Left);
+            Assert.Equal("AC", Order(0));
+            window.Height = 1200;
+            RenderIssue11(window);
+            Assert.Equal(fixture.Root, vm.CurrentPath);
+            Assert.Empty(files.CopyRequests);
+            Assert.Empty(files.MoveRequests);
+
+            var click = At(Row("C"));
+            window.MouseDown(click, MouseButton.Left);
+            Assert.Equal(fixture.Root, vm.CurrentPath);
+            window.MouseUp(click, MouseButton.Left);
+            await WaitForIssue11Async(() => vm.CurrentPath == PathFor("C"));
+            var unpin = Row("A").GetVisualDescendants().OfType<Button>().Single();
+            var buttonPoint = At(unpin);
+            window.MouseMove(buttonPoint);
+            RenderIssue11(window);
+            window.MouseDown(buttonPoint, MouseButton.Left);
+            window.MouseUp(buttonPoint, MouseButton.Left);
+            await WaitForIssue11Async(() => Order(0) == "C");
+            Assert.Equal(PathFor("C"), vm.CurrentPath);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false, 240)]
     [InlineData(true, 180)]

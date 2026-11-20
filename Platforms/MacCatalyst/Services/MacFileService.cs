@@ -349,7 +349,7 @@ end tell");
 
     public Task<string> CreateFileWithContentAsync(string parentPath, string name, byte[] content)
         => Task.Run(() => { DirectoryAccess.Current.EnsureAccess(parentPath); return NewFileWriter.WriteAsync(Path.Combine(parentPath, name),
-            (stream, token) => stream.WriteAsync(content.AsMemory(), token).AsTask()); });
+            (stream, token) => NewFileWriter.WriteContentAsync(stream, content, token), FileTaskContext.Current?.CancellationToken ?? default); });
 
     public Task<string?> TrashWithResultAsync(string path)
     {

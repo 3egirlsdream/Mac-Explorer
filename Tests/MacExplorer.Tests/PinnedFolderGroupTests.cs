@@ -154,6 +154,50 @@ public sealed class PinnedFolderGroupTests : IDisposable
         Assert.Equal(2, (await store.GetAllAsync()).Count(pin => pin.FolderPath == "/old/child"));
     }
 
+    [Fact]
+    public async Task MovePreservesIdentityAndNotifiesOnlyForACommittedChange()
+    {
+        using var store = Store();
+        var group = await store.CreateGroupAsync("Work");
+        await store.PinAsync("/one/docs", "docs");
+        await store.PinAsync("/two/docs", "docs", group);
+        await store.PinAsync("/three", "Third", group);
+        var original = await store.GetAllAsync();
+        var source = original[0];
+        var first = original[1];
+        var last = original[2];
+        int changes = 0;
+        store.Changed += (_, _) => changes++;
+
+        await store.MoveAsync(source.Id, 0, group, first.Id, true);
+        await store.MoveAsync(source.Id, group, group, last.Id, false); // already before last
+        Assert.Equal(1, changes);
+        using var other = Store();
+        var reloaded = await other.GetAllAsync();
+        Assert.Equal(new[] { first.Id, source.Id, last.Id }, reloaded.Select(pin => pin.Id));
+        Assert.Equal(source.PinnedAt, reloaded[1].PinnedAt);
+        Assert.Equal(source.DisplayName, reloaded[1].DisplayName);
+        Assert.All(reloaded, pin => Assert.Equal(group, pin.GroupId));
+
+        await other.PinAsync(source.FolderPath, "Other shortcut");
+        await store.MoveAsync(source.Id, group, 0, null, true);
+        await store.MoveAsync(source.Id, 0, group, null, true); // source moved since press
+        Assert.Equal(1, changes);
+        Assert.Equal(reloaded.Select(pin => (pin.Id, pin.SortOrder)),
+            (await store.GetAllAsync()).Where(pin => pin.GroupId == group).Select(pin => (pin.Id, pin.SortOrder)));
+        Assert.True(await store.IsPinnedAsync(source.FolderPath));
+
+        var target = await other.CreateGroupAsync("Transient");
+        await other.PinAsync("/anchor", "Anchor", target);
+        var anchorId = (await other.GetAllAsync()).Single(pin => pin.GroupId == target).Id;
+        await other.UnpinAsync("/anchor", target);
+        await store.MoveAsync(source.Id, group, target, anchorId, false);
+        await other.DeleteGroupAsync(target);
+        await store.MoveAsync(source.Id, group, target, null, true);
+        Assert.Equal(1, changes);
+        Assert.True(await store.IsPinnedAsync(source.FolderPath, group));
+    }
+
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();

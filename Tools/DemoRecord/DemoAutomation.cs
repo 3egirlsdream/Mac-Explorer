@@ -291,6 +291,11 @@ internal static class DemoAutomation
                 var archive = pane.Entries.Single(e => e.FullPath == LocalPath(Text(command, "path")));
                 pane.ExtractToNamedFolder(archive);
                 return true;
+            case "frame-delivery":
+                var deliveryWindow = Window(main, "delivery");
+                deliveryWindow.Position = new PixelPoint(170, 100);
+                await CommitAsync(deliveryWindow);
+                return true;
             case "delivery-navigate":
                 await Pane(main, "delivery").NavigateToAsync(LocalPath(Text(command, "path")));
                 return true;

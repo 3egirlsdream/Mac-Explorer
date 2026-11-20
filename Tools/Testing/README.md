@@ -226,6 +226,8 @@ MACEXPLORER_BULK_PASTE_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 
 自动回归使用 `fast`、`ui --area FileTasks --area Clipboard --area UnifiedTagInteraction`、`integration --area Clipboard`；覆盖长文件名、取消、权限失败后重试、未完成目录重新扫描、临时文件所有权与原生剪贴板中的不可用路径。
 
+独立进度窗的整批同名预检回归位于 `fast --area FileConflicts`，包括三层目录同名、同批来源互相重名及最后一次确认取消。Debug 构建后运行 `MACEXPLORER_FILE_OPERATION_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'`，测试目录的 `operation-windows/` 包含原生窗口的浅色和深色窄窗截图。该入口检查真实进度的逐帧过渡，并在隔离目录内验证排队暂停、写入途中暂停与继续、运行或暂停时停止复制、停止批量删除及结束自动关窗。
+
 ## Git 菜单与提交历史
 
 ```bash

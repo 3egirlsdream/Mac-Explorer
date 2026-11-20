@@ -14,5 +14,6 @@ public interface IPinnedFolderService
     Task UnpinAsync(string folderPath, int groupId = 0);
     Task<bool> IsPinnedAsync(string folderPath, int groupId = 0);
     Task UpdateFolderPathAsync(string oldPath, string newPath, string newDisplayName);
+    Task MoveAsync(int pinId, int sourceGroupId, int targetGroupId, int? anchorId, bool afterAnchor);
     Task ReorderAsync(IReadOnlyList<string> orderedFolderPaths, int groupId = 0);
 }

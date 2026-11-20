@@ -34,7 +34,7 @@ internal sealed class FileTaskPanelPresenter
 
     internal void Refresh()
     {
-        var tasks = _tasks.Tasks;
+        var tasks = _tasks.PanelTasks;
         var order = string.Join(",", tasks.Select(t => t.Id));
         foreach (var task in tasks)
         {
@@ -259,7 +259,7 @@ internal sealed class FileTaskPanelPresenter
         return "";
     }
 
-    private static string FormatBytes(double bytes)
+    internal static string FormatBytes(double bytes)
     {
         string[] units = ["B", "KB", "MB", "GB", "TB"];
         var index = 0;
@@ -267,7 +267,7 @@ internal sealed class FileTaskPanelPresenter
         return $"{bytes:0.#} {units[index]}";
     }
 
-    private static string StateText(BackgroundTaskInfo task)
+    internal static string StateText(BackgroundTaskInfo task)
     {
         if (DisplayKind(task) is BackgroundTaskKind.RemoteDownload or BackgroundTaskKind.RemoteUpload
             && task.State == BackgroundTaskState.NeedsAttention

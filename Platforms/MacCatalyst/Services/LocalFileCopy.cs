@@ -17,7 +17,11 @@ internal static class LocalFileCopy
         public string? Identity;
     }
     private sealed class OutputIdentity { public FileIdentitySnapshot? Snapshot; }
-    private sealed record CopyEntry(string Path, bool IsDirectory, string? LinkTarget, long Length, DateTime Modified, string? Identity, bool IsRuntimeFile = false);
+    internal static bool OwnsDirectory(FileTaskContext context, string source, string target)
+        => context.IsDone("local-copy:" + source + ":" + target) && Directory.Exists(target) &&
+            context.Recall<OutputIdentity>("local-output-identity:" + target)?.Snapshot is { } identity &&
+            identity == FileIdentitySnapshot.Capture(target, false);
+    internal sealed record CopyEntry(string Path, bool IsDirectory, string? LinkTarget, long Length, DateTime Modified, string? Identity, bool IsRuntimeFile = false);
 
     public static string Copy(string sourcePath, string destinationDirectory,
         IProgress<FileOperationProgress>? progress, CancellationToken ct)
@@ -37,7 +41,7 @@ internal static class LocalFileCopy
         }
 
         var context = FileTaskContext.Current;
-        var destinationPath = context?.Remember("local-copy-output:" + sourcePath + ":" + destinationDirectory,
+        var destinationPath = context?.ExactCopyTarget ?? context?.Remember("local-copy-output:" + sourcePath + ":" + destinationDirectory,
             () => GetDestinationPath(destinationDirectory, Path.GetFileName(sourcePath), source.IsDirectory))
             ?? GetDestinationPath(destinationDirectory, Path.GetFileName(sourcePath), source.IsDirectory);
         MacExplorer.Services.DirectoryAccess.Current.EnsureAccess(destinationPath);
@@ -72,6 +76,7 @@ internal static class LocalFileCopy
         void Scan(CopyEntry entry)
         {
             ct.ThrowIfCancellationRequested();
+            FileTaskContext.Checkpoint();
             if (entry.IsRuntimeFile)
             {
                 skipped++;
@@ -85,10 +90,11 @@ internal static class LocalFileCopy
             if (!entry.IsDirectory || entry.LinkTarget != null) return;
             try
             {
-                foreach (var path in Directory.EnumerateFileSystemEntries(entry.Path))
+                var children = context?.Batch?.Sources.GetValueOrDefault(entry.Path)?.Children;
+                foreach (var path in children?.Select(c => c.Entry.FullPath) ?? Directory.EnumerateFileSystemEntries(entry.Path))
                 {
                     ct.ThrowIfCancellationRequested();
-                    try { Scan(ReadEntry(path)); }
+                    try { Scan(context?.Batch?.Sources.GetValueOrDefault(path)?.CopyMetadata ?? ReadEntry(path)); }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
                         RecordError(path, ex);
@@ -135,7 +141,12 @@ internal static class LocalFileCopy
                 }
                 else if (entry.IsDirectory)
                 {
-                    Directory.CreateDirectory(destination);
+                    if (context?.ExactCopyTarget != null && OperatingSystem.IsMacOS())
+                    {
+                        if (Mkdir(destination, 0x1ff) != 0) throw new IOException(destination,
+                            new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError()));
+                    }
+                    else Directory.CreateDirectory(destination);
                 }
                 else
                 {
@@ -164,6 +175,7 @@ internal static class LocalFileCopy
                             while (remaining > 0)
                             {
                                 ct.ThrowIfCancellationRequested();
+                                FileTaskContext.Checkpoint();
                                 var count = (int)Math.Min(buffer.Length, remaining);
                                 input.ReadExactly(buffer.AsSpan(0, count)); output.ReadExactly(verify.AsSpan(0, count));
                                 if (!buffer.AsSpan(0, count).SequenceEqual(verify.AsSpan(0, count)))
@@ -179,6 +191,8 @@ internal static class LocalFileCopy
                                     ct.ThrowIfCancellationRequested(); FileTaskContext.Checkpoint();
                                     if (ReadEntry(entry.Path) != entry) throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("源项目已变化，请重新创建任务。"));
                                     output.Write(buffer, 0, read); state.Offset += read; completed += read;
+                                    context?.Batch?.ReportBytes(entry.Path, state.Offset);
+                                    if (context != null) context.Task.CurrentFile = entry.Path;
                                     Report(entry.Path);
                                 }
                                 output.Flush();
@@ -186,7 +200,12 @@ internal static class LocalFileCopy
                             catch (OperationCanceledException) { output.Dispose(); context?.Cleanup(); if (context == null) File.Delete(state.Temporary); throw; }
                         }
                         if (ReadEntry(entry.Path) != entry) throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("源项目已变化，请重新创建任务。"));
-                        File.Move(state.Temporary, destination, false); state.Committed = true;
+                        FileTaskContext.Checkpoint();
+                        if (!MacExplorer.Services.Impl.NewFileWriter.TryPublishFileAsync(state.Temporary, destination, ct).GetAwaiter().GetResult())
+                            throw new IOException(MacExplorer.Services.Impl.LocalizationText.Get("conflict.changed"));
+                        state.Committed = true;
+                        if (FileIdentitySnapshot.Capture(state.Temporary, false)?.Identity == state.Identity && File.Exists(state.Temporary))
+                            File.Delete(state.Temporary);
                     }
                     CopyMetadata(entry.Path, destination);
                 }
@@ -250,7 +269,7 @@ internal static class LocalFileCopy
         return Path.Combine(Path.GetDirectoryName(destination)!, name);
     }
 
-    private static CopyEntry ReadEntry(string path)
+    internal static CopyEntry ReadEntry(string path)
     {
         var attributes = File.GetAttributes(path);
         var isDirectory = attributes.HasFlag(FileAttributes.Directory);
@@ -269,6 +288,9 @@ internal static class LocalFileCopy
         return new CopyEntry(path, isDirectory, target,
             isDirectory || target != null ? 0 : ((FileInfo)info).Length, info.LastWriteTimeUtc, FileIdentitySnapshot.Capture(path, false)?.Identity);
     }
+
+    [DllImport("libc", EntryPoint = "mkdir", SetLastError = true)]
+    private static extern int Mkdir(string path, uint mode);
 
     private static void CopyMetadata(string source, string destination)
     {

@@ -87,22 +87,19 @@ public class SftpFileService : IRemoteFileService, IDisposable
             yield return batch.ToArray();
     }
 
-    public async Task<FileSystemEntry?> GetEntryAsync(string path)
+    public Task<FileSystemEntry?> GetEntryAsync(string path) => ReadEntryAsync(path, allowPartialListing: true);
+
+    internal Task<FileSystemEntry?> GetOperationEntryAsync(string path) => ReadEntryAsync(path, allowPartialListing: false);
+
+    private Task<FileSystemEntry?> ReadEntryAsync(string path, bool allowPartialListing)
     {
         var client = GetClient(path);
-        var serverId = VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).ServerId : GetServerId();
-        var remotePath = VirtualPath.IsRemotePath(path) ? VirtualPath.ParseRemotePath(path).RemotePath : path;
-        return await Task.Run(() =>
+        var remotePath = ToRemotePath(path);
+        return Task.Run<FileSystemEntry?>(() =>
         {
-            try
-            {
-                var attrs = client.GetAttributes(remotePath);
-                return CreateEntryFromAttrs(Path.GetFileName(remotePath), attrs, path);
-            }
-            catch
-            {
-                return null;
-            }
+            try { return CreateEntryFromAttrs(Path.GetFileName(remotePath), client.GetAttributes(remotePath), path); }
+            catch (SftpPathNotFoundException) { return null; }
+            catch when (allowPartialListing) { return null; }
         });
     }
 
@@ -136,16 +133,44 @@ public class SftpFileService : IRemoteFileService, IDisposable
         return await Task.Run(() =>
         {
             var remoteParent = ToRemotePath(parentPath);
-            for (var index = 1; ; index++)
+            var context = FileTaskContext.Current;
+            var isPaste = context?.Task.Request?.Operation?.Kind == FileOperationPresentation.Paste;
+            string? staged = null;
+            try
             {
-                var fullPath = CombinePath(remoteParent, NewFileWriter.CandidateName(name, index));
-                SftpFileStream stream;
-                try { stream = client.Open(fullPath, FileMode.CreateNew, FileAccess.Write); }
-                catch (SshException) when (client.Exists(fullPath)) { continue; }
-                // Only an exclusive-open collision is retried. A failed write must not
-                // become an endless loop that creates more partial files on a full disk.
-                using (stream) stream.Write(content, 0, content.Length);
-                return VirtualPath.BuildRemotePath(serverId, fullPath);
+                if (isPaste)
+                {
+                    var temporary = CombinePath(remoteParent, ".MacExplorer-paste-" + Guid.NewGuid().ToString("N") + ".fkfinder-tmp");
+                    using var stream = client.Open(temporary, FileMode.CreateNew, FileAccess.Write);
+                    staged = temporary;
+                    NewFileWriter.WriteContentAsync(stream, content, context!.CancellationToken).GetAwaiter().GetResult();
+                }
+                for (var index = 1; ; index++)
+                {
+                    context?.CancellationToken.ThrowIfCancellationRequested();
+                    var fullPath = CombinePath(remoteParent, NewFileWriter.CandidateName(name, index));
+                    if (staged != null)
+                    {
+                        // Standard SFTP rename refuses an existing destination.
+                        try { client.RenameFile(staged, fullPath); }
+                        catch (SshException) when (client.Exists(fullPath)) { continue; }
+                        staged = null;
+                    }
+                    else
+                    {
+                        SftpFileStream stream;
+                        try { stream = client.Open(fullPath, FileMode.CreateNew, FileAccess.Write); }
+                        catch (SshException) when (client.Exists(fullPath)) { continue; }
+                        using (stream) stream.Write(content, 0, content.Length);
+                    }
+                    return VirtualPath.BuildRemotePath(serverId, fullPath);
+                }
+            }
+            finally
+            {
+                if (staged != null)
+                    try { client.DeleteFile(staged); }
+                    catch (SshException ex) { context?.Warnings.Add(ex.Message); }
             }
         });
     }

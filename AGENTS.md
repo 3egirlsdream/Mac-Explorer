@@ -1,3 +1,5 @@
+> Talk to me ELI5 by default and go deeper if I ask.
+
 # Commit 风格
 
 - 标题简短概括修改；正文按 `1. `、`2. `、`3. ` 连续编号，用中文更新日志风格描述实际变化。
@@ -219,7 +221,7 @@ feat: 优化文件夹恢复
 
 - Git 文件及目录的右键操作统一收在「标签」下方的「Git」子菜单，复用 `ContextMenuAction`；入口由列表已加载的 Git 状态与仓库归属同步决定，打开后不因异步补全插入或移除，展开二级菜单时才刷新详细状态；按暂存区／工作区独立状态启用操作，目录与多选保持明确范围，写操作后同步刷新相关窗格。提交历史使用 `GitHistoryDialog`、全局 `ListBox.git-history` 与 `DiffPreviewView`，窄窗口上下排列，保留标题栏关闭和 Escape。
 
-- 侧栏自定义分组的标题与收起箭头复用 `sidebar-section-header` / `sidebar-collapse-icon`，交互与 AI 智能一致；每组独立保存展开状态并同步窗口，收起时标题保留文件夹固定拖入区。
+- 侧栏自定义分组的标题与收起箭头复用 `sidebar-section-header` / `sidebar-collapse-icon`，交互与 AI 智能一致；每组独立保存展开状态并同步窗口，收起时标题保留文件夹固定拖入区。侧栏内拖动固定项时用主题强调色细线标记插入位置，分组标题接收追加，目标组已有相同路径时隐藏插入线。
 
 - 搜索索引通过 `SearchIndexer` 的文件事件分类与有界局部待办执行增量更新；`SearchCatalog` 仅写真实变化的元数据，目录删除必须经扫描会话完整核对，取消或读取失败保留旧项，不再以更新所有行的 `scan_id` 检测删除。恢复和刷新优先于后台遍历，整根积压冷却不阻塞精确更新；检查点不得越过未完成或延迟的核对。诊断合并写入，索引自身产物不得触发扫描。规则与实测入口见 `docs/development/search-indexing.md` 和 `Tools/Performance/SearchWriteBench/README.md`。
 
@@ -228,3 +230,5 @@ feat: 优化文件夹恢复
 - 新建文件通过 `NewFileWriter` 先写隐藏暂存文件，优先使用独占改名发布；macOS 返回不支持独占改名时，以 `FileMode.CreateNew` 独占创建目标并复制内容，重名继续编号，不使用存在性检查后普通改名。复制失败或取消时，在关闭句柄前以 `fstat` 与路径身份比对后清理自身文件，兼容 exFAT 刷盘时 inode 变化；兼容复制期间目标可见，不承诺原子发布。
 
 - 磨砂玻璃的普通文件夹与照片封面共用 `FrostedFolderDepth` 的默认文件夹横向轮廓（约 1.27:1）、前片和圆角；照片纹理按前片实际宽高等比裁切，默认 11% 底部磨砂与细边材质独立于轮廓比例。
+
+- 文件复制、粘贴、移动和删除共用独立非模态 `FileOperationWindow`，操作复用全局 `AppButton.secondary.small`，以 24px 按钮高度换算附件比例，默认宽 617px；横条随屏幕逐帧过渡至已完成量，失败时直接显示错误与逐项结果。操作超过 800ms 才显示进度窗，等待同名确认的时间单独扣除；整批递归预检后复用现有同名弹窗，完成全部确认后才写入。

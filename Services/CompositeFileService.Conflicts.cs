@@ -6,7 +6,6 @@ namespace MacExplorer.Services;
 
 public sealed partial class CompositeFileService
 {
-    private sealed class BatchConflictPolicy { internal FileConflictDecision? Decision; }
     private sealed record LocalReplacementPublication(string Backup, string Root, FileIdentitySnapshot Snapshot, FileIdentitySnapshot? SourceIdentity)
     { internal bool SourceRemoved; }
     private static string ReplacementKey(string source, string target, bool move)
@@ -15,8 +14,26 @@ public sealed partial class CompositeFileService
         FileTaskContext context, IProgress<FileOperationProgress>? progress)
     {
         await context.CheckpointAsync();
-        var target = CombinePath(directory, Path.GetFileName(source));
+        var batch = context.Batch!;
+        var plan = batch.Choices[(source, CombinePath(directory, Path.GetFileName(source)))];
+        context.Task.CurrentFile = source;
+        var target = plan.Target;
         if (source == target && move) return target;
+        return await context.StepAsync("approved:" + source + "\0" + target, async () =>
+        {
+            var output = await ExecuteTransferAsync(source, directory, move, context, progress, plan);
+            batch.Finish(source, subtree: !context.IsDone("merge-output:" + target));
+            if (batch.WatchedOutputs.TryGetValue(source, out var watched))
+                foreach (var path in watched) batch.Published[path] = await SnapshotAsync(path);
+            return output;
+        });
+    }
+
+    private async Task<string> ExecuteTransferAsync(string source, string directory, bool move,
+        FileTaskContext context, IProgress<FileOperationProgress>? progress, TransferChoice plan)
+    {
+        var batch = context.Batch!;
+        var target = plan.Target;
         if (!VirtualPath.IsRemotePath(target) && context.Recall<LocalReplacementPublication>(ReplacementKey(source, target, move)) is { } publication)
         {
             if (publication.Snapshot != await Task.Run(() => FileIdentitySnapshot.Capture(target, true, context.CancellationToken), context.CancellationToken))
@@ -29,46 +46,39 @@ public sealed partial class CompositeFileService
             }
             return await CompleteLocalReplacementAsync(source, target, move, publication, context);
         }
-        var entry = await GetEntryAsync(source) ?? throw new FileNotFoundException(source);
+        var item = batch.Sources[source];
+        var entry = item.Entry;
+        if (await PhysicalEntryAsync(source) is not { } currentSource)
+        {
+            if (entry.IsDirectory) throw new DirectoryNotFoundException(source);
+            throw new FileNotFoundException(source);
+        }
+        if (item.Identity != FileIdentitySnapshot.Capture(source, false) || currentSource.IsDirectory != entry.IsDirectory || currentSource.IsSymbolicLink != entry.IsSymbolicLink ||
+            !entry.IsDirectory && (currentSource.LastModified != entry.LastModified || currentSource.Size != entry.Size))
+            throw Changed();
         if (entry.IsDirectory && !entry.IsSymbolicLink)
         {
             var realSource = BackgroundTaskManager.Normalize(source); var realDirectory = BackgroundTaskManager.Normalize(directory);
             if (realDirectory == realSource || realDirectory.StartsWith(realSource.TrimEnd('/') + "/", StringComparison.Ordinal))
                 throw new IOException(LocalizationText.Get("conflict.self-copy"));
         }
-        var existing = await GetEntryAsync(target);
-        if (existing == null) return await CommitNewAsync(source, directory, target, move, context, progress);
-        var previousIdentity = VirtualPath.IsRemotePath(target) ? null : await Task.Run(() => FileIdentitySnapshot.Capture(target, false), context.CancellationToken);
-        var batch = context.Remember("file-conflict-policy", () => new BatchConflictPolicy());
-        var differentTypes = entry.IsDirectory != existing.IsDirectory;
-        var inherited = batch.Decision;
-        if (differentTypes && inherited?.Action is FileConflictAction.Replace or FileConflictAction.ReplaceOlder) inherited = null;
-        var decision = inherited ?? await _conflicts!.ResolveAsync(new(entry, existing, move, VirtualPath.IsRemotePath(target)), context.CancellationToken);
-        if (decision.ApplyToRemaining) batch.Decision = decision;
-        if (decision.Action == FileConflictAction.Skip || decision.Action == FileConflictAction.ReplaceOlder
-            && (differentTypes || !entry.IsDirectory && entry.LastModified <= existing.LastModified))
+        if (plan.Action == FileConflictAction.Skip)
         {
             context.ReportItem(source, target, FileTaskItemState.Skipped); return target;
         }
-        if (decision.Action == FileConflictAction.KeepBoth || source == target)
-        {
-            var extension = entry.IsDirectory ? "" : Path.GetExtension(target);
-            var stem = Path.GetFileName(target)[..^extension.Length];
-            if (extension.Length == 0) stem = Path.GetFileName(target);
-            var n = 1;
-            do { target = CombinePath(directory, $"{stem} ({n++}){extension}"); } while (await ExistsAsync(target));
-            return await CommitNewAsync(source, directory, target, move, context, progress);
-        }
-        var currentTarget = await GetEntryAsync(target);
-        if (currentTarget == null || currentTarget.Size != existing.Size || currentTarget.LastModified != existing.LastModified
-            || currentTarget.IsDirectory != existing.IsDirectory || !VirtualPath.IsRemotePath(target)
-                && previousIdentity != await Task.Run(() => FileIdentitySnapshot.Capture(target, false), context.CancellationToken))
-            throw new IOException(LocalizationText.Get("conflict.changed"));
+        var expected = plan.FromBatch ? batch.Published[target] ?? throw Changed() : plan.Expected;
+        var current = await SnapshotAsync(target);
+        var merging = context.IsDone("merge-output:" + target);
+        if (!Matches(expected, current) && !(merging && current?.Entry.IsDirectory == true &&
+            current.Identity == expected?.Identity) && !Platforms.MacCatalyst.Services.LocalFileCopy.OwnsDirectory(context, source, target))
+            throw Changed();
+        if (expected == null) return await CommitNewAsync(source, directory, target, move, context, progress);
+        var existing = expected.Entry;
         if (entry.IsDirectory && existing.IsDirectory && !entry.IsSymbolicLink && !existing.IsSymbolicLink)
         {
             context.MarkDone("merge-output:" + target);
-            foreach (var child in await GetOperationChildPathsAsync(source, context.CancellationToken))
-                await CopyOrMovePlannedAsync(child, target, move, context, progress);
+            foreach (var child in item.Children)
+                await CopyOrMovePlannedAsync(child.Entry.FullPath, target, move, context, progress);
             if (move && !HasSkippedItems(source, context))
             {
                 await context.CheckpointAsync();
@@ -98,12 +108,12 @@ public sealed partial class CompositeFileService
                     var now = client.GetAttributes(raw); if (now.Size != attributes.Size || now.LastWriteTimeUtc != attributes.LastWriteTimeUtc)
                         throw new IOException(LocalizationText.Get("conflict.changed"));
                 });
-            if (move) { await VerifyCopyAsync(source, output, context); await Resolve(source).DeleteAsync(source, false); }
+            if (move) { await VerifyCopyAsync(source, output, context); await RemoveMoveSourceAsync(source, context); }
             await SyncPlannedMetadataAsync(source, output, move);
             await RecordAsync(h => h.RecordIrreversibleAsync(output, LocalizationText.Get("远程修改不可撤销。")));
             context.ReportItem(source, output, FileTaskItemState.Completed); return output;
         }
-        return await ReplaceLocalAsync(source, target, move, context, progress);
+        return await ReplaceLocalAsync(source, target, move, context, progress, expected);
     }
 
     private async Task<string> CommitNewAsync(string source, string directory, string target, bool move,
@@ -111,14 +121,33 @@ public sealed partial class CompositeFileService
     {
         var output = await context.StepAsync("planned-transfer:" + source + ":" + target, async () =>
         {
-            if (move && !IsCrossVolume(source, directory) && !VirtualPath.IsRemotePath(source) && Path.GetFileName(source) == Path.GetFileName(target))
-            { await _localService.MoveAsync(source, directory); return target; }
+            if (move && !VirtualPath.IsRemotePath(source) && !IsCrossVolume(source, directory))
+            {
+                if (_localService is Platforms.MacCatalyst.Services.MacFileService)
+                {
+                    try
+                    {
+                        DirectoryAccess.Current.EnsureAccess(target);
+                        if (!NewFileWriter.TryPublish(source, target, context.Batch!.Sources[source].Entry.IsDirectory))
+                            throw Changed();
+                        return target;
+                    }
+                    catch (IOException ex) when (OperatingSystem.IsMacOS() &&
+                        ex.InnerException is System.ComponentModel.Win32Exception { NativeErrorCode: 45 or 78 or 102 })
+                    { /* This volume needs the verified copy-and-remove path below. */ }
+                }
+                else if (Path.GetFileName(source) == Path.GetFileName(target))
+                {
+                    await _localService.MoveAsync(source, directory);
+                    return target;
+                }
+            }
             var copied = await CopyToExactAsync(source, target, context, progress);
             if (move)
             {
                 if (HasSkippedItems(source, context))
                     throw new IOException(LocalizationText.Get("来源包含未复制的项目，已保留源文件。"));
-                await VerifyCopyAsync(source, copied, context); await Resolve(source).DeleteAsync(source, false);
+                await VerifyCopyAsync(source, copied, context); await RemoveMoveSourceAsync(source, context);
             }
             return copied;
         });
@@ -131,7 +160,10 @@ public sealed partial class CompositeFileService
         var directory = GetParentPath(target);
         if (VirtualPath.IsRemotePath(source) || VirtualPath.IsRemotePath(target))
             return await SftpTransfer.CopyAsync(source, directory, context, p => Client(p, context), progress, target);
-        var copied = await _localService.CopyWithProgressAsync(source, directory, progress, context.CancellationToken);
+        context.ExactCopyTarget = target;
+        string copied;
+        try { copied = await _localService.CopyWithProgressAsync(source, directory, progress, context.CancellationToken); }
+        finally { context.ExactCopyTarget = null; }
         if (copied != target)
         {
             if (await ExistsAsync(target)) throw new IOException(LocalizationText.Get("conflict.changed"));
@@ -139,10 +171,11 @@ public sealed partial class CompositeFileService
         }
         return target;
     }
-    private async Task<string> ReplaceLocalAsync(string source, string target, bool move, FileTaskContext context, IProgress<FileOperationProgress>? progress)
+    private async Task<string> ReplaceLocalAsync(string source, string target, bool move, FileTaskContext context, IProgress<FileOperationProgress>? progress, TargetSnapshot expected)
     {
         var original = await Task.Run(() => FileIdentitySnapshot.Capture(target, true, context.CancellationToken), context.CancellationToken)
             ?? throw new IOException(LocalizationText.Get("conflict.changed"));
+        if (!Matches(expected, await SnapshotAsync(target))) throw Changed();
         var sourceIdentity = move ? FileIdentitySnapshot.Capture(source, false, context.CancellationToken) : null;
         var root = Path.Combine(Path.GetDirectoryName(target)!, ".MacExplorer-replace-" + Guid.NewGuid().ToString("N") + ".fkfinder-tmp");
         var incoming = Path.Combine(root, "incoming");
@@ -184,8 +217,7 @@ public sealed partial class CompositeFileService
         {
             if (!publication.SourceRemoved)
             {
-                await context.CheckpointAsync();
-                await Resolve(source).DeleteAsync(source, false);
+                await RemoveMoveSourceAsync(source, context);
                 publication.SourceRemoved = true;
             }
             await SyncPlannedMetadataAsync(source, target, true);
