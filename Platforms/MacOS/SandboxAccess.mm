@@ -296,6 +296,13 @@ int me_open_regular_read(const char *path) {
     }
     return descriptor;
 }
+// Let the SDK select the correct Darwin stat ABI for each architecture.
+int me_read_nofollow_file_type(const char *path, int *type) {
+    struct stat status;
+    if (lstat(path, &status) != 0) return errno;
+    *type = status.st_mode & S_IFMT;
+    return 0;
+}
 static char *MEFileIdentity(const struct stat &status) {
     return MEString([NSString stringWithFormat:@"%llu:%llu:%lld:%ld", (unsigned long long)status.st_dev,
         (unsigned long long)status.st_ino, (long long)status.st_birthtimespec.tv_sec, status.st_birthtimespec.tv_nsec]);

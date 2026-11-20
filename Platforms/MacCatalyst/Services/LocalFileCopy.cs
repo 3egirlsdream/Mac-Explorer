@@ -2,6 +2,7 @@ using MacExplorer.Services;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using MacExplorer.Models;
+using MacExplorer.Platforms.MacOS;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
@@ -257,9 +258,9 @@ internal static class LocalFileCopy
         var target = info.LinkTarget;
         if (!isDirectory && target == null && OperatingSystem.IsMacOS())
         {
-            if (LStat(path, out var status) != 0)
-                throw new IOException($"无法读取文件类型：{path}", new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError()));
-            var type = status.Mode & 0xf000;
+            var error = MacSandboxNative.ReadNoFollowFileType(path, out var type);
+            if (error != 0)
+                throw new IOException($"无法读取文件类型：{path}", new System.ComponentModel.Win32Exception(error));
             if (type is 0xc000 or 0x1000) // Unix socket / FIFO: process endpoints, not stored file data.
                 return new CopyEntry(path, false, null, 0, info.LastWriteTimeUtc, FileIdentitySnapshot.Capture(path, false)?.Identity, IsRuntimeFile: true);
             if (type != 0x8000)
@@ -268,16 +269,6 @@ internal static class LocalFileCopy
         return new CopyEntry(path, isDirectory, target,
             isDirectory || target != null ? 0 : ((FileInfo)info).Length, info.LastWriteTimeUtc, FileIdentitySnapshot.Capture(path, false)?.Identity);
     }
-
-    // Darwin's 64-bit struct stat (macOS SDK sys/stat.h).
-    [StructLayout(LayoutKind.Explicit, Size = 144)]
-    private struct MacStat
-    {
-        [FieldOffset(4)] public ushort Mode;
-    }
-
-    [DllImport("libSystem.B.dylib", EntryPoint = "lstat", SetLastError = true)]
-    private static extern int LStat([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out MacStat status);
 
     private static void CopyMetadata(string source, string destination)
     {
