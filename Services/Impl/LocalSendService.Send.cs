@@ -5,7 +5,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using MacExplorer.Models;
 using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
+using MacExplorer.Platforms.MacOS;
 
 namespace MacExplorer.Services.Impl;
 
@@ -236,13 +236,8 @@ public sealed partial class LocalSendService
     private static bool IsRegularLocalFile(string path)
     {
         if (!OperatingSystem.IsMacOS()) return File.Exists(path);
-        var status = new byte[256];
-        // Darwin's stat.st_mode follows the 32-bit st_dev field on arm64 and x64.
-        return LStat(path, status) == 0 && (BitConverter.ToUInt16(status, 4) & 0xF000) == 0x8000;
+        return MacSandboxNative.ReadNoFollowFileType(path, out var type) == 0 && type == 0x8000;
     }
-
-    [DllImport("libSystem.B.dylib", EntryPoint = "lstat", SetLastError = true)]
-    private static extern int LStat(string path, [Out] byte[] status);
 
     private sealed class ProgressFileContent(FileStream source, long length, Action<long> progress) : HttpContent
     {
