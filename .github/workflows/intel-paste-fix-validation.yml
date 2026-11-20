@@ -1,0 +1,134 @@
+name: Paste file type fix validation
+
+"on":
+  push:
+    branches: [diagnostics/intel-paste-v209]
+    paths: [.github/workflows/intel-paste-fix-validation.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  copy-tests:
+    name: Website / ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            rid: osx-x64
+            arch: x86_64
+            sdk: x64
+          - runner: macos-15
+            rid: osx-arm64
+            arch: arm64
+            sdk: arm64
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: f6233870ee0a6cce3c1bba8d5b768ce4c7b09da0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          architecture: ${{ matrix.sdk }}
+      - name: Verify source and macOS architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = f6233870ee0a6cce3c1bba8d5b768ce4c7b09da0
+          uname -m
+          sw_vers
+          test "$(uname -m)" = ${{ matrix.arch }}
+          dotnet --info
+      - name: Compare legacy and SDK lstat on Intel
+        if: matrix.rid == 'osx-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe_dir=$(mktemp -d "$RUNNER_TEMP/paste-abi.XXXXXX")
+          printf 'copy fixture\n' > "$probe_dir/regular.txt"
+          ln -s regular.txt "$probe_dir/link"
+          mkfifo "$probe_dir/fifo"
+          cat > "$probe_dir/probe.c" <<'EOF'
+          #include <dlfcn.h>
+          #include <stddef.h>
+          #include <stdint.h>
+          #include <stdio.h>
+          #include <string.h>
+          #include <sys/stat.h>
+
+          typedef int (*raw_lstat)(const char *, void *);
+
+          int main(int argc, char **argv) {
+              if (argc != 4) return 1;
+              void *lib = dlopen("libSystem.B.dylib", RTLD_NOW);
+              if (!lib) return 2;
+              raw_lstat bare = (raw_lstat)dlsym(lib, "lstat");
+              if (!bare) return 3;
+              const unsigned expected[] = { S_IFREG, S_IFLNK, S_IFIFO };
+              printf("SDK struct stat: sizeof=%zu st_mode offset=%zu\n",
+                  sizeof(struct stat), offsetof(struct stat, st_mode));
+              for (int i = 1; i < argc; i++) {
+                  struct stat current;
+                  union { struct stat alignment; unsigned char bytes[512]; } raw = {0};
+                  if (lstat(argv[i], &current) != 0 || bare(argv[i], raw.bytes) != 0) {
+                      perror("lstat");
+                      return 4;
+                  }
+                  uint16_t legacy_at4, legacy_at8;
+                  memcpy(&legacy_at4, raw.bytes + 4, sizeof(legacy_at4));
+                  memcpy(&legacy_at8, raw.bytes + 8, sizeof(legacy_at8));
+                  unsigned actual = current.st_mode & S_IFMT;
+                  printf("%s SDK type=0x%04x bare+4=0x%04x bare+8=0x%04x\n",
+                      argv[i], actual, (unsigned)legacy_at4, (unsigned)legacy_at8);
+                  if (actual != expected[i - 1]) return 5;
+              }
+              return 0;
+          }
+          EOF
+          xcrun clang -Wall -Wextra -Werror -o "$probe_dir/probe" "$probe_dir/probe.c"
+          nm -u "$probe_dir/probe" | grep 'lstat'
+          "$probe_dir/probe" "$probe_dir/regular.txt" "$probe_dir/link" "$probe_dir/fifo"
+      - name: Build Website tests
+        shell: bash
+        run: |
+          dotnet build Tests/MacExplorer.Tests/MacExplorer.Tests.csproj -c Release -r ${{ matrix.rid }} \
+            --artifacts-path "$RUNNER_TEMP/build-Website" -p:DistributionChannel=Website \
+            -p:MacOSSigningIdentity=- -p:SkipMacOSReleaseDMG=true
+      - name: Run isolated paste and file-copy regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner=$(find "$RUNNER_TEMP/build-Website/bin/MacExplorer.Tests" -type f -name MacExplorer.Tests -print -quit)
+          test -x "$runner"
+          file "$runner"
+          lipo "$runner" -verify_arch ${{ matrix.arch }}
+
+          run_copy_tests() {
+            local label=$1
+            shift
+            local status=0
+            local log="$RUNNER_TEMP/$label.log"
+            bash Tools/Testing/run-isolated.sh env MACEXPLORER_TEST_REPOSITORY="$GITHUB_WORKSPACE" \
+              "$runner" "$@" > "$log" 2>&1 || status=$?
+            cat "$log"
+            if [ "$status" -ne 0 ]; then
+              return "$status"
+            fi
+            python3 Tools/Distribution/verify-test-summary.py "$log"
+          }
+
+          exact_status=0
+          run_copy_tests paste-special-file \
+            -method MacExplorer.Tests.LocalFileCopyTests.PasteSkipsGitDaemonSocketAndFifoButCopiesRegularFilesWithSameName || exact_status=$?
+          class_status=0
+          run_copy_tests local-file-copy -class MacExplorer.Tests.LocalFileCopyTests || class_status=$?
+          move_status=0
+          run_copy_tests cross-volume-move -class MacExplorer.Tests.ReviewCrossVolumeMoveTests || move_status=$?
+          test "$move_status" -eq 0
+          test "$exact_status" -eq 0
+          test "$class_status" -eq 0
