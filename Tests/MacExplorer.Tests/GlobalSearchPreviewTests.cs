@@ -56,7 +56,14 @@ public sealed class GlobalSearchPreviewViewModelTests : FileListViewModelTestBas
             Assert.Null(preview.FindControl<Grid>("PreviewMetadata"));
             var panel = fixture.Window.FindControl<Border>("GlobalSearchPreviewPanel")!;
             Assert.Equal(220, panel.Bounds.Width);
-            Assert.Equal(860, fixture.Window.FindControl<Border>("GlobalSearchPanel")!.Width);
+            var searchPanel = fixture.Window.FindControl<Border>("GlobalSearchPanel")!;
+            Assert.Equal(860, searchPanel.Bounds.Width);
+            fixture.Window.Width = fixture.Window.MinWidth;
+            fixture.Window.Height = fixture.Window.MinHeight;
+            fixture.Window.UpdateLayout();
+            var origin = searchPanel.TranslatePoint(default, fixture.Window)!.Value;
+            Assert.True(origin.X >= 0 && origin.X + searchPanel.Bounds.Width <= fixture.Window.Bounds.Width);
+            Assert.True(origin.Y >= 0 && origin.Y + searchPanel.Bounds.Height <= fixture.Window.Bounds.Height);
             Assert.True(panel.TranslatePoint(default, fixture.Window)!.Value.X
                 > results.TranslatePoint(default, fixture.Window)!.Value.X + results.Bounds.Width);
             Assert.Null(fixture.Window.FindControl<ComboBox>("GlobalSearchPreviewSizeCombo"));

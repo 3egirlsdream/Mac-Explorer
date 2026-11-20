@@ -135,7 +135,12 @@ public partial class MainWindow : AppWindow
         Opened += (_, _) => { if (FeatureAccess.Current is { } access) access.Changed += OnFeatureAccessChanged; };
         Activated += (_, _) => OnFeatureAccessChanged();
         Closed += (_, _) => { if (FeatureAccess.Current is { } access) access.Changed -= OnFeatureAccessChanged; };
-        SizeChanged += (_, _) => UpdateTaskPanelWidth();
+        RootLayout.SizeChanged += (_, e) =>
+        {
+            CopilotPanel.MaxWidth = Math.Max(0, e.NewSize.Width - CopilotPanel.Margin.Left - CopilotPanel.Margin.Right);
+            CopilotPanel.MaxHeight = Math.Max(0, e.NewSize.Height - CopilotPanel.Margin.Top - CopilotPanel.Margin.Bottom);
+            UpdateTaskPanelWidth();
+        };
         Activated += OnActivated;
         Closing += OnClosing;
         Closed += OnClosed;

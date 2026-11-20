@@ -83,10 +83,11 @@ public sealed class TabStartupViewModelTests : FileListViewModelTestBase
         Assert.Equal(WindowState.Normal, fixture.Window.WindowState);
         settings.Writes.Clear();
         fixture.Window.Position = new PixelPoint(80, 90);
-        fixture.Window.Width = 1200;
-        fixture.Window.Height = 740;
+        fixture.Window.Width = 640;
+        fixture.Window.Height = 400;
         await Task.Delay(400, ct);
         Dispatcher.UIThread.RunJobs();
+        Assert.Equal(new Size(640, 400), fixture.Window.ClientSize);
         fixture.Window.Close();
         Dispatcher.UIThread.RunJobs();
         Assert.DoesNotContain(settings.Writes, key => key.StartsWith("window.primary."));
