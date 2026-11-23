@@ -20,6 +20,8 @@ public sealed partial class TabGroupViewModel : ObservableObject
     [ObservableProperty] private string _name;
     [ObservableProperty] private bool _isCollapsed;
     [ObservableProperty] private bool _isActive;
+    private bool _applyingAutoSplitName;
+    internal bool IsAutoSplitName { get; set; }
     internal PaneLayout Layout { get; set; } = PaneLayout.Single;
     internal List<ExplorerTabViewModel> Panes { get; set; } = [];
     internal ExplorerTabViewModel? LastSelectedTab { get; set; }
@@ -32,6 +34,26 @@ public sealed partial class TabGroupViewModel : ObservableObject
         ColorIndex = Math.Clamp(colorIndex, 0, Colors.Length - 1);
         var color = Color.Parse(Colors[ColorIndex]);
         ColorBrush = new SolidColorBrush(color);
+    }
+
+    partial void OnNameChanged(string value)
+    {
+        if (!_applyingAutoSplitName)
+            IsAutoSplitName = false;
+    }
+
+    internal void SetAutoSplitName(string name)
+    {
+        _applyingAutoSplitName = true;
+        try
+        {
+            Name = name;
+            IsAutoSplitName = true;
+        }
+        finally
+        {
+            _applyingAutoSplitName = false;
+        }
     }
 }
 
@@ -73,6 +95,9 @@ public partial class MainWindowViewModel
     }
 
     public TabGroupViewModel CreateGroup(IEnumerable<ExplorerTabViewModel> tabs)
+        => CreateGroup(tabs, preferredBaseName: null, isAutoSplitName: false);
+
+    internal TabGroupViewModel CreateGroup(IEnumerable<ExplorerTabViewModel> tabs, string? preferredBaseName, bool isAutoSplitName = false)
     {
         var members = tabs.Where(Tabs.Contains).Distinct().ToArray();
         if (members.Length == 0) throw new ArgumentException("A group needs at least one tab.", nameof(tabs));
@@ -85,11 +110,18 @@ public partial class MainWindowViewModel
             .OrderBy(index => adjacentColors.Contains(index))
             .ThenBy(index => Groups.Count(group => group.ColorIndex == index))
             .First();
-        var number = 1;
         string name;
-        do { name = LocalizationText.Get("tabs.group.default", number++); }
-        while (Groups.Any(group => group.Name == name));
-        var group = new TabGroupViewModel(name, color);
+        if (!string.IsNullOrWhiteSpace(preferredBaseName))
+        {
+            name = AllocateUniqueGroupName(preferredBaseName);
+        }
+        else
+        {
+            var number = 1;
+            do { name = LocalizationText.Get("tabs.group.default", number++); }
+            while (Groups.Any(group => group.Name == name));
+        }
+        var group = new TabGroupViewModel(name, color) { IsAutoSplitName = isAutoSplitName };
         Groups.Add(group);
         var index = members[0].Group is { } owner ? GroupEnd(owner) : Tabs.IndexOf(members[0]);
         var owners = members.Select(tab => tab.Group).OfType<TabGroupViewModel>().Distinct().ToArray();
@@ -107,6 +139,33 @@ public partial class MainWindowViewModel
         RefreshTabStrip();
         return group;
     }
+
+    internal string AllocateUniqueGroupName(string baseName, TabGroupViewModel? excluding = null)
+    {
+        var candidate = baseName.Trim();
+        if (!Groups.Any(group => !ReferenceEquals(group, excluding) && group.Name == candidate))
+            return candidate;
+        var suffix = 2;
+        while (Groups.Any(group => !ReferenceEquals(group, excluding) && group.Name == $"{candidate} {suffix}"))
+            suffix++;
+        return $"{candidate} {suffix}";
+    }
+
+    internal static string GetSplitLayoutName(PaneLayout layout) => LocalizationText.Get(layout switch
+    {
+        PaneLayout.TwoColumns => "ui.059",
+        PaneLayout.TwoRows => "ui.037",
+        PaneLayout.ThreeColumns => "ui.035",
+        PaneLayout.ThreeRows => "ui.036",
+        PaneLayout.MainLeftTwoRowsRight => "ui.056",
+        PaneLayout.MainRightTwoRowsLeft => "ui.058",
+        PaneLayout.FourGrid => "ui.050",
+        PaneLayout.FourColumns => "ui.049",
+        PaneLayout.FourRows => "ui.051",
+        PaneLayout.MainLeftThreeRowsRight => "ui.055",
+        PaneLayout.MainRightThreeRowsLeft => "ui.057",
+        _ => "ui.044"
+    });
 
     public void ToggleGroup(TabGroupViewModel group)
     {

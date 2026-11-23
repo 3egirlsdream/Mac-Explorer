@@ -45,6 +45,7 @@ public sealed partial class ExplorerTabViewModel : ObservableObject, IDisposable
     public Guid Id { get; } = Guid.NewGuid();
     public FileListViewModel FileList { get; }
     internal MacExplorer.Services.FileListTabViewState? CachedListState { get; set; }
+    internal bool IsSplitSidebarOpen { get; set; }
 
     [ObservableProperty]
     private TabGroupViewModel? _group;
@@ -243,9 +244,11 @@ public partial class MainWindowViewModel : ObservableObject
         {
             var candidates = GetSplitCandidates(GetPaneCount(layout));
             if (candidates.Length < GetPaneCount(layout)) return;
-            CreateGroup(candidates);
+            CreateGroup(candidates, GetSplitLayoutName(layout), isAutoSplitName: true);
         }
         if (SelectedTab.Group != null && Members(SelectedTab.Group).Count() < GetPaneCount(layout)) return;
+        if (layout != PaneLayout.Single && SelectedTab.Group is { IsAutoSplitName: true } splitGroup)
+            splitGroup.SetAutoSplitName(AllocateUniqueGroupName(GetSplitLayoutName(layout), splitGroup));
         var active = SelectedTab;
         var oldCount = PaneCount;
         var oldSlot = ActivePaneSlotIndex;

@@ -53,12 +53,15 @@ public partial class MainWindow
     {
         var enabled = App.Services.GetRequiredService<ISettingsService>().Get(CopilotSettings.EnabledKey, false);
         CopilotStatusButton.IsVisible = enabled;
+        VerticalTabBarControl.CopilotStatusButton.IsVisible = enabled;
         if (enabled) return;
         CopilotPanel.IsVisible = false;
         if (_copilotBusy && CopilotStopButton.IsEnabled) _copilotRunCts?.Cancel();
     }
 
-    private void ToggleCopilot(object? sender, RoutedEventArgs e)
+    private void ToggleCopilot(object? sender, RoutedEventArgs e) => ToggleCopilotCore();
+
+    private void ToggleCopilotCore()
     {
         if (!FeatureAccess.TryUse(PremiumFeature.Copilot)) return;
         if (!App.Services.GetRequiredService<ISettingsService>().Get(CopilotSettings.EnabledKey, false)) return;

@@ -15,7 +15,44 @@ internal static class MacSandboxNative
     internal static string ReadPlistValue(string path, string key) => Take(me_plist_value(path, key)) ?? "";
     internal static void OpenFile(string path, string? bundle = null)
     { if (!me_open_file(path, bundle)) throw new IOException("无法打开文件或找不到所选应用。"); }
+    internal static void OpenFiles(string[] paths, string? bundle = null)
+    {
+        if (paths.Length == 0) return;
+        if (paths.Length == 1)
+        {
+            OpenFile(paths[0], bundle);
+            return;
+        }
+        try
+        {
+            if (!me_open_files(paths, paths.Length, bundle))
+                throw new IOException("无法打开文件或找不到所选应用。");
+        }
+        catch (EntryPointNotFoundException)
+        {
+            foreach (var path in paths)
+                OpenFile(path, bundle);
+        }
+    }
     internal static void RevealFile(string path) => me_reveal_file(path);
+    internal static void RevealFiles(string[] paths)
+    {
+        if (paths.Length == 0) return;
+        if (paths.Length == 1)
+        {
+            RevealFile(paths[0]);
+            return;
+        }
+        try
+        {
+            me_reveal_files(paths, paths.Length);
+        }
+        catch (EntryPointNotFoundException)
+        {
+            foreach (var path in paths)
+                RevealFile(path);
+        }
+    }
     internal static bool EjectVolume(string path) => EjectVolumeWithResult(path).Success;
     internal static VolumeEjectResult EjectVolumeWithResult(string path)
     {
@@ -131,7 +168,9 @@ internal static class MacSandboxNative
     [DllImport(Library)] private static extern IntPtr me_temporary_directory();
     [DllImport(Library)] private static extern IntPtr me_plist_value([MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.LPUTF8Str)] string key);
     [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_open_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.LPUTF8Str)] string? bundle);
+    [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_open_files([In, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths, int count, [MarshalAs(UnmanagedType.LPUTF8Str)] string? bundle);
     [DllImport(Library)] private static extern void me_reveal_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+    [DllImport(Library)] private static extern void me_reveal_files([In, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths, int count);
     [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_eject_volume([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out IntPtr failure);
     [DllImport(Library)] private static extern void me_quicklook_show([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
     [DllImport(Library)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool me_quicklook_visible();

@@ -15,10 +15,10 @@ public sealed class HomeThumbnailCache : IDisposable, IIdleMemoryCache, IMemoryD
     MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState() => new("home-images", _entries.Count,
         _entries.Values.Sum(e => e.Bitmap is { } b ? (long)b.PixelSize.Width * b.PixelSize.Height * 4 : 0),
         _entries.Values.Count(e => e.Loading?.IsCompleted == false));
-    private readonly record struct Key(string Path, long Size, DateTime Modified, string? Source, int Pixels)
+    private readonly record struct Key(string Path, long Size, DateTime Modified, string? Source, int Pixels, string? ArchiveVersion)
     {
         public static Key For(FileSystemEntry entry, int pixels)
-            => new(entry.FullPath, entry.Size, entry.LastModified, entry.ThumbnailUrl ?? entry.IconUrl, pixels);
+            => new(entry.FullPath, entry.Size, entry.LastModified, entry.ThumbnailUrl ?? entry.IconUrl, pixels, entry.ArchiveThumbnailVersion);
     }
     private sealed class Entry
     {

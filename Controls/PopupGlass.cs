@@ -11,9 +11,13 @@ public sealed class PopupGlass : AvaloniaObject
 {
     public static readonly AttachedProperty<bool> IsEnabledProperty =
         AvaloniaProperty.RegisterAttached<PopupGlass, Border, bool>("IsEnabled");
+    public static readonly AttachedProperty<bool> IsFloatingProperty =
+        AvaloniaProperty.RegisterAttached<PopupGlass, Border, bool>("IsFloating");
 
     public static bool GetIsEnabled(Border border) => border.GetValue(IsEnabledProperty);
     public static void SetIsEnabled(Border border, bool value) => border.SetValue(IsEnabledProperty, value);
+    public static bool GetIsFloating(Border border) => border.GetValue(IsFloatingProperty);
+    public static void SetIsFloating(Border border, bool value) => border.SetValue(IsFloatingProperty, value);
 
     static PopupGlass()
     {
@@ -68,12 +72,13 @@ public sealed class PopupGlass : AvaloniaObject
                 Margin = new Thickness(-p.Left, -p.Top, -p.Right, -p.Bottom);
                 ContentHost.Padding = p;
             }
-            owner.PropertyChanged += OnOwnerChanged;
             WindowBackgroundTheme? renderer = null;
             void UpdateMaterial()
             {
+                var floating = GetIsFloating(owner);
+                glass.Classes.Set("floating-glass", floating);
                 // Native popups can retain a resolved resource across detach/reopen.
-                if (renderer != null) glass.SurfaceColor = renderer.PopupColor;
+                if (renderer != null && !floating) glass.SurfaceColor = renderer.PopupColor;
                 else glass.ClearValue(LiquidGlassSurface.SurfaceColorProperty);
             }
             DetachedFromVisualTree += (_, _) =>
@@ -94,7 +99,9 @@ public sealed class PopupGlass : AvaloniaObject
             void OnOwnerChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
             {
                 if (e.Property == Border.PaddingProperty) UpdatePadding();
+                if (e.Property == IsFloatingProperty) UpdateMaterial();
             }
+            owner.PropertyChanged += OnOwnerChanged;
             UpdatePadding();
         }
     }

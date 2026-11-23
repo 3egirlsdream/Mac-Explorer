@@ -7,10 +7,14 @@ using SharpCompress.Writers;
 
 namespace MacExplorer.Services.Impl;
 
-public class ArchiveService : IArchiveService
+public partial class ArchiveService : IArchiveService
 {
     private readonly IBackgroundTaskManager? _tasks;
+    private readonly IFileConflictResolver? _conflicts;
+    private readonly ArchivePasswordVault? _passwords;
     public ArchiveService(IBackgroundTaskManager? tasks = null) { _tasks = tasks; }
+    internal ArchiveService(IBackgroundTaskManager? tasks, IFileConflictResolver? conflicts, ArchivePasswordVault? passwords)
+        : this(tasks) { _conflicts = conflicts; _passwords = passwords; }
     public bool IsArchiveFile(string filePath) => ArchiveFormats.IsArchive(filePath);
 
     public bool IsEncrypted(string archivePath)
@@ -55,81 +59,44 @@ public class ArchiveService : IArchiveService
         return ReadArchiveAsync(() =>
         {
             using var archive = OpenArchive(archivePath, password);
+            var thumbnailVersion = archive.SupportsAutomaticThumbnails ? GetThumbnailVersion(archivePath) : null;
 
             var normalizedPrefix = NormalizePath(internalPath);
             if (!string.IsNullOrEmpty(normalizedPrefix) && !normalizedPrefix.EndsWith('/'))
                 normalizedPrefix += "/";
 
-            var allKeys = new HashSet<string>();
-            var entryMap = new Dictionary<string, ArchiveReadEntry>();
-
+            var children = new Dictionary<string, (bool IsDirectory, ArchiveReadEntry? Metadata)>(StringComparer.Ordinal);
             while (archive.MoveNext())
             {
                 var entry = archive.Entry;
                 var key = NormalizePath(entry.Key);
-                if (key.Length == 0) continue;
-                if (entry.IsDirectory) key = key.TrimEnd('/') + "/";
-                allKeys.Add(key);
-                entryMap[key] = entry;
-            }
-
-            // Collect unique immediate children at the given level
-            var children = new Dictionary<string, (bool isDir, long size, DateTime modified)>(StringComparer.Ordinal);
-
-            foreach (var key in allKeys)
-            {
-                if (!IsImmediateChild(key, normalizedPrefix))
+                if (!key.StartsWith(normalizedPrefix, StringComparison.Ordinal) || key.Length == normalizedPrefix.Length)
                     continue;
-
-                var childName = GetChildName(key, normalizedPrefix);
-                if (string.IsNullOrEmpty(childName)) continue;
-
-                var isDir = key.EndsWith('/') || HasChildren(key, allKeys);
-
-                if (!children.ContainsKey(childName))
-                {
-                    long size = 0;
-                    var modified = DateTime.Now;
-                    if (entryMap.TryGetValue(key, out var archEntry))
-                    {
-                        size = archEntry.Size ?? 0;
-                        modified = archEntry.LastModifiedTime ?? DateTime.Now;
-                    }
-                    children[childName] = (isDir, size, modified);
-                }
+                var relative = key.AsSpan(normalizedPrefix.Length);
+                var separator = relative.IndexOf('/');
+                if (separator == 0) continue;
+                var name = (separator < 0 ? relative : relative[..separator]).ToString();
+                var isDirectory = separator >= 0 || entry.IsDirectory;
+                var direct = separator == -1 || separator == relative.Length - 1;
+                children.TryGetValue(name, out var previous);
+                children[name] = (isDirectory || previous.IsDirectory, direct ? entry : previous.Metadata);
             }
 
-            // Also detect implicit directories from deeper paths
-            foreach (var key in allKeys)
+            var entries = new List<FileSystemEntry>(children.Count);
+            var now = DateTime.Now;
+            foreach (var (name, (isDir, metadata)) in children)
             {
-                if (!key.StartsWith(normalizedPrefix, StringComparison.Ordinal) || key == normalizedPrefix)
-                    continue;
-                var relative = key[normalizedPrefix.Length..];
-                var slashIdx = relative.IndexOf('/');
-                if (slashIdx < 0) continue;
-                var dirName = relative[..slashIdx];
-                if (!string.IsNullOrEmpty(dirName) && !children.ContainsKey(dirName))
-                {
-                    children[dirName] = (true, 0, DateTime.Now);
-                }
-            }
-
-            var entries = new List<FileSystemEntry>();
-            foreach (var (name, (isDir, size, modified)) in children)
-            {
-                var childInternalPath = string.IsNullOrEmpty(normalizedPrefix)
-                    ? name
-                    : normalizedPrefix + name;
-                if (isDir && !childInternalPath.EndsWith('/'))
-                    childInternalPath += "/";
-
+                var childInternalPath = normalizedPrefix + name + (isDir ? "/" : "");
+                var modified = metadata?.LastModifiedTime ?? now;
                 var ext = isDir ? "" : Path.GetExtension(name);
                 entries.Add(new FileSystemEntry
                 {
                     FullPath = ArchivePathHelper.Build(archivePath, childInternalPath),
+                    ArchiveThumbnailVersion = !isDir && metadata is { IsEncrypted: false, LinkTarget: null, Size: >= 0 and <= ThumbnailSourceLimit }
+                        ? thumbnailVersion : null,
                     Name = name,
                     IsDirectory = isDir,
-                    Size = isDir ? 0 : size,
+                    Size = isDir ? 0 : metadata?.Size ?? 0,
                     LastModified = modified,
                     Created = modified,
                     Extension = ext,
@@ -145,178 +112,103 @@ public class ArchiveService : IArchiveService
         });
     }
 
-    public Task ExtractAsync(string archivePath, string destinationPath, IProgress<ArchiveProgress>? progress = null,
-        CancellationToken ct = default, string? password = null)
-        => FileTaskContext.RunAsync(_tasks, new(BackgroundTaskKind.Extract, LocalizationText.Get("正在解压..."),
-            [archivePath], destinationPath), async context =>
-            {
-                await ExtractCoreAsync(archivePath, destinationPath, progress, context.CancellationToken, password);
-                return true;
-            }, ct);
+    public Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey, string? password = null)
+        => ExtractEntryToTempAsync(archivePath, entryKey, password, CancellationToken.None);
 
-    private async Task ExtractCoreAsync(
-        string archivePath, string destinationPath,
-        IProgress<ArchiveProgress>? progress = null,
-        CancellationToken ct = default,
-        string? password = null)
+    internal async Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey, string? password,
+        CancellationToken ct)
+        => await ExtractTemporaryEntryAsync(archivePath, entryKey, password, thumbnail: false, ct).ConfigureAwait(false)
+            ?? throw new FileNotFoundException(LocalizationText.Get("archive.entry_missing", entryKey));
+
+    internal Task<string?> ExtractThumbnailSourceAsync(string archivePath, string entryKey, CancellationToken ct)
+        => ExtractTemporaryEntryAsync(archivePath, entryKey, null, thumbnail: true, ct);
+
+    private async Task<string?> ExtractTemporaryEntryAsync(string archivePath, string entryKey, string? password,
+        bool thumbnail, CancellationToken ct)
     {
         DirectoryAccess.Current.EnsureAccess(archivePath);
-        DirectoryAccess.Current.EnsureAccess(destinationPath);
-        await ReadArchiveAsync(() =>
+        var source = password != null ? _passwords?.Capture(archivePath) : null;
+        var result = await ReadArchiveAsync(() =>
         {
-            var context = FileTaskContext.Current;
-            if (context != null) context.Task.IsIndeterminate = true;
-            progress?.Report(new ArchiveProgress { IsActive = true, IsIndeterminate = true,
-                CurrentFile = Path.GetFileName(archivePath), OperationLabel = LocalizationText.Get("正在解压...") });
-            CheckCompressionSource(archivePath);
-            var metadata = new List<ArchiveReadEntry>();
-            using (var scan = OpenArchive(archivePath, password, ct))
-            {
-                while (scan.MoveNext())
-                {
-                    ct.ThrowIfCancellationRequested();
-                    FileTaskContext.Checkpoint();
-                    var entry = scan.Entry with { Key = NormalizePath(scan.Entry.Key) };
-                    if (entry.Key.Length == 0) continue;
-                    ValidateEntry(destinationPath, entry, resolveLinks: false);
-                    metadata.Add(entry);
-                }
-            }
-            CheckCompressionSource(archivePath);
-
-            var rootNames = metadata.Select(e => e.Key.Split('/')[0]).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var mapKey = "extract-map:" + archivePath + ":" + destinationPath;
-            var renameMap = context?.Remember(mapKey, () => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
-                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (context?.IsDone(mapKey) != true)
-            {
-                renameMap.Clear();
-                var reservedNames = new HashSet<string>(rootNames, StringComparer.OrdinalIgnoreCase);
-                foreach (var rootName in rootNames)
-                {
-                    if (!PathExists(Path.Combine(destinationPath, rootName))) continue;
-                    var name = Path.GetFileNameWithoutExtension(rootName);
-                    var extension = Path.GetExtension(rootName);
-                    var counter = 2;
-                    string renamed;
-                    do { renamed = $"{name} {counter++}{extension}"; }
-                    while (reservedNames.Contains(renamed) || PathExists(Path.Combine(destinationPath, renamed)));
-                    renameMap[rootName] = renamed;
-                    reservedNames.Add(renamed);
-                }
-                context?.MarkDone(mapKey);
-            }
-
-            var totalEntries = metadata.Count(e => !e.IsDirectory);
-            var processed = 0;
-            var outputPaths = context?.Remember(mapKey + ":paths", () => BuildExtractionPaths(destinationPath, metadata, renameMap))
-                ?? BuildExtractionPaths(destinationPath, metadata, renameMap);
-            var entryIndex = 0;
-            if (context != null) context.Task.TotalItems = metadata.Count;
+            var normalizedKey = NormalizePath(entryKey).TrimEnd('/');
             using var archive = OpenArchive(archivePath, password, ct);
+            if (thumbnail && !archive.SupportsAutomaticThumbnails) return (Path: (string?)null, Verified: false);
             while (archive.MoveNext())
             {
                 ct.ThrowIfCancellationRequested();
-                FileTaskContext.Checkpoint();
                 var entry = archive.Entry with { Key = NormalizePath(archive.Entry.Key) };
-                if (entry.Key.Length == 0) continue;
-                ValidateEntry(destinationPath, entry, resolveLinks: false);
-                if (entryIndex >= metadata.Count || entry.Key != metadata[entryIndex].Key
-                    || entry.IsDirectory != metadata[entryIndex].IsDirectory || entry.Size != metadata[entryIndex].Size)
-                    throw new IOException(LocalizationText.Get("源项目已变化，请重新创建任务。"));
-                var entryPath = Path.GetRelativePath(destinationPath, outputPaths[entryIndex++]);
-                var fullDest = ValidateExtractionPath(destinationPath, entryPath);
-                if (entry.IsDirectory)
-                {
-                    Directory.CreateDirectory(fullDest);
-                    context?.ReportItem(entry.Key, fullDest, FileTaskItemState.Completed);
-                    continue;
-                }
-
-                Directory.CreateDirectory(Path.GetDirectoryName(fullDest)!);
-                var key = "extract-entry:" + archivePath + ":" + fullDest;
-                if (context?.IsDone(key) == true) { processed++; continue; }
-                var temporary = fullDest + "." + (context?.Task.Id ?? Guid.NewGuid().ToString("N")) + ".fkfinder-tmp";
-                var temporaryOwned = false;
-                void Report(long copied, bool complete)
-                {
-                    var indeterminate = entry.Size == null && !complete;
-                    var fraction = complete ? 1 : entry.Size > 0 ? Math.Min((double)copied / entry.Size.Value, 0.999) : 0;
-                    var percentage = totalEntries > 0 ? (processed + fraction) / totalEntries * 100 : 0;
-                    if (context != null) context.Task.IsIndeterminate = indeterminate;
-                    progress?.Report(new ArchiveProgress { IsActive = true, Percentage = percentage,
-                        IsIndeterminate = indeterminate, CurrentFile = entryPath,
-                        OperationLabel = LocalizationText.Get("正在解压...") });
-                }
+                if (entry.IsDirectory || entry.Key.TrimEnd('/') != normalizedKey) continue;
+                if (thumbnail && (entry.IsEncrypted || entry.Size is not (>= 0 and <= ThumbnailSourceLimit)))
+                    return (Path: (string?)null, Verified: false);
+                var sessionDir = Path.Combine(RuntimePaths.TemporaryDirectory, "MacExplorer-archive-temp", Guid.NewGuid().ToString("N"));
+                if (OperatingSystem.IsWindows()) Directory.CreateDirectory(sessionDir);
+                else Directory.CreateDirectory(sessionDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
                 try
                 {
-                    Report(0, false);
-                    using (var entryStream = archive.OpenEntryStream())
-                    using (var fileStream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write))
-                    {
-                        temporaryOwned = true;
-                        try
-                        {
-                            var copied = CopyEntry(entryStream, fileStream, ct, copied => Report(copied, false));
-                            if (entry.Size is { } expected && copied != expected)
-                                throw new InvalidDataException("Archive entry size mismatch.");
-                        }
-                        catch { archive.StopReading(); throw; }
-                    }
-                    ct.ThrowIfCancellationRequested();
-                    FileTaskContext.Checkpoint();
-                    CheckCompressionSource(archivePath);
-                    File.Move(temporary, fullDest, false);
-                    context?.MarkDone(key);
-                    context?.ReportItem(entry.Key, fullDest, FileTaskItemState.Completed);
-                    Report(0, true);
-                }
-                finally { if (temporaryOwned) TryDeleteFile(temporary); }
-                processed++;
-            }
-            if (entryIndex != metadata.Count)
-                throw new IOException(LocalizationText.Get("源项目已变化，请重新创建任务。"));
-            if (context != null) context.Task.IsIndeterminate = false;
-            progress?.Report(new ArchiveProgress { IsActive = true, Percentage = 100,
-                OperationLabel = LocalizationText.Get("正在解压...") });
-            return true;
-        }, ct);
-    }
-
-    public Task<string> ExtractEntryToTempAsync(string archivePath, string entryKey, string? password = null)
-    {
-        DirectoryAccess.Current.EnsureAccess(archivePath);
-        return ReadArchiveAsync(() =>
-        {
-            var sessionDir = Path.Combine(Path.GetTempPath(), "MacExplorer-archive-temp", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(sessionDir);
-            try
-            {
-                var normalizedKey = NormalizePath(entryKey).TrimEnd('/');
-                using var archive = OpenArchive(archivePath, password);
-                while (archive.MoveNext())
-                {
-                    var entry = archive.Entry with { Key = NormalizePath(archive.Entry.Key) };
-                    if (entry.IsDirectory || entry.Key.TrimEnd('/') != normalizedKey) continue;
                     ValidateEntry(sessionDir, entry);
                     var destFile = ValidateExtractionPath(sessionDir, Path.GetFileName(entry.Key));
-                    using (var entryStream = archive.OpenEntryStream())
-                    using (var fileStream = new FileStream(destFile, FileMode.CreateNew, FileAccess.Write))
-                    {
-                        try
-                        {
-                            var copied = CopyEntry(entryStream, fileStream, default);
-                            if (entry.Size is { } expected && copied != expected)
-                                throw new InvalidDataException("Archive entry size mismatch.");
-                        }
-                        catch { archive.StopReading(); throw; }
-                    }
-                    return destFile;
+                    using var entryStream = archive.OpenEntryStream();
+                    using var fileStream = new FileStream(destFile, FileMode.CreateNew, FileAccess.Write);
+                    var verified = CopyArchiveEntry(entry, entryStream, fileStream, ct, archive.AuthenticatesEntry,
+                        byteLimit: thumbnail ? ThumbnailSourceLimit : long.MaxValue);
+                    return (Path: (string?)destFile, Verified: verified);
                 }
-                throw new FileNotFoundException(LocalizationText.Get("archive.entry_missing", entryKey));
+                catch
+                {
+                    archive.StopReading();
+                    Directory.Delete(sessionDir, recursive: true);
+                    throw;
+                }
             }
-            catch { Directory.Delete(sessionDir, recursive: true); throw; }
-        });
+            return (Path: (string?)null, Verified: false);
+        }, ct).ConfigureAwait(false);
+        try
+        {
+            if (result.Verified && password != null && _passwords != null)
+                await _passwords.SaveAsync(archivePath, source, password, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            return result.Path;
+        }
+        catch
+        {
+            if (result.Path != null) Directory.Delete(Path.GetDirectoryName(result.Path)!, recursive: true);
+            throw;
+        }
+    }
+
+    internal const long ThumbnailSourceLimit = 16L * 1024 * 1024;
+
+    internal static string? GetThumbnailVersion(string path)
+    {
+        var info = new FileInfo(path);
+        var identity = FileIdentitySnapshot.Capture(path, false);
+        return info.Exists && identity != null ? $"{identity.Identity}:{info.Length}:{info.LastWriteTimeUtc.Ticks}" : null;
+    }
+
+    public Task<string?> ReadSavedPasswordAsync(string archivePath, CancellationToken ct)
+        => _passwords?.ReadAsync(archivePath, ct) ?? Task.FromResult<string?>(null);
+
+    public async Task VerifyBrowsingPasswordAsync(string archivePath, string password, CancellationToken ct)
+    {
+        if (_passwords?.Enabled != true) return;
+        var source = _passwords.Capture(archivePath);
+        if (source == null) return;
+        var verified = await ReadArchiveAsync(() =>
+        {
+            using var archive = OpenArchive(archivePath, password, ct);
+            if (!archive.SupportsAutomaticThumbnails) return false;
+            while (archive.MoveNext())
+            {
+                ct.ThrowIfCancellationRequested();
+                var entry = archive.Entry;
+                if (entry.IsDirectory || !entry.IsEncrypted || entry.Size is not (>= 0 and <= ThumbnailSourceLimit)) continue;
+                using var input = archive.OpenEntryStream();
+                return CopyArchiveEntry(entry, input, Stream.Null, ct, archive.AuthenticatesEntry,
+                    byteLimit: ThumbnailSourceLimit);
+            }
+            return false;
+        }, ct).ConfigureAwait(false);
+        if (verified) await _passwords.SaveAsync(archivePath, source, password, ct).ConfigureAwait(false);
     }
 
     public Task<string> CompressAsync(CompressOptions options, IProgress<ArchiveProgress>? progress = null,
@@ -331,8 +223,10 @@ public class ArchiveService : IArchiveService
         CancellationToken ct = default)
     {
         DirectoryAccess.Current.EnsureAccess(options.OutputDirectory);
+        if (IsOutputInsideSource(options.OutputDirectory, options.SourcePaths))
+            throw new IOException(LocalizationText.Get("archive.output_inside_source"));
         foreach (var source in options.SourcePaths) DirectoryAccess.Current.EnsureAccess(source);
-        return await Task.Run(() =>
+        var output = await Task.Run(() =>
         {
             var outputPath = Path.Combine(options.OutputDirectory, options.OutputFileName);
             outputPath = FileTaskContext.Current?.Remember("compress-output", () => GetUniqueFilePath(outputPath))
@@ -371,11 +265,10 @@ public class ArchiveService : IArchiveService
 
             var tempPath = outputPath + "." + (FileTaskContext.Current?.Task.Id ?? Guid.NewGuid().ToString("N")) + ".fkfinder-tmp";
 
-            // SharpZipLib writes WinZip AES; SharpCompress retains existing archive reading.
             if (options.Format == ArchiveFormat.Zip && !string.IsNullOrEmpty(options.Password))
             {
-                WriteEncryptedZip(outputPath, tempPath, filesToCompress, options.Password, progress, ct);
-                return outputPath;
+                var source = WriteEncryptedZip(outputPath, tempPath, filesToCompress, options.Password, progress, ct);
+                return (Path: outputPath, PasswordSource: source);
             }
 
             var temporaryOwned = false;
@@ -412,7 +305,7 @@ public class ArchiveService : IArchiveService
                 }
 
                 File.Move(tempPath, outputPath, overwrite: false);
-                return outputPath;
+                return (Path: outputPath, PasswordSource: (ArchivePasswordVault.Source?)null);
             }
             catch
             {
@@ -420,9 +313,25 @@ public class ArchiveService : IArchiveService
                 throw;
             }
         }, ct);
+        if (output.PasswordSource != null && _passwords != null && options.Password is { } password)
+            await _passwords.SaveAsync(output.Path, output.PasswordSource, password, ct).ConfigureAwait(false);
+        return output.Path;
     }
 
-    private static void WriteEncryptedZip(
+    internal static bool IsOutputInsideSource(string directory, IReadOnlyList<string> sources)
+    {
+        var target = Path.TrimEndingDirectorySeparator(ArchiveOutputDirectory(directory));
+        foreach (var path in sources.Where(Directory.Exists))
+        {
+            var source = Path.TrimEndingDirectorySeparator(ArchiveOutputDirectory(path));
+            if (target.Equals(source, StringComparison.OrdinalIgnoreCase)
+                || target.StartsWith(Path.EndsInDirectorySeparator(source) ? source : source + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    private ArchivePasswordVault.Source? WriteEncryptedZip(
         string outputPath,
         string tempPath,
         List<(string fullPath, string relativePath)> files,
@@ -483,7 +392,9 @@ public class ArchiveService : IArchiveService
             }
 
             ct.ThrowIfCancellationRequested();
+            var verifiedSource = files.Count > 0 ? _passwords?.Capture(tempPath) : null;
             File.Move(tempPath, outputPath, overwrite: false);
+            return verifiedSource == null ? null : verifiedSource with { Paths = [outputPath] };
         }
         catch
         {
@@ -506,8 +417,10 @@ public class ArchiveService : IArchiveService
             try { return read(); }
             catch (SharpCompress.Common.CryptographicException ex) when (IsUnsupportedEncryption(ex))
             { throw new NotSupportedException(LocalizationText.Get("archive.encryption_unsupported"), ex); }
+            catch (ICSharpCode.SharpZipLib.Zip.ZipException ex)
+            { throw new InvalidDataException(LocalizationText.Get("archive.invalid_data"), ex); }
             catch (MultiVolumeExtractionException ex)
-            { throw new NotSupportedException(LocalizationText.Get("archive.volumes_unsupported"), ex); }
+            { throw new NotSupportedException(LocalizationText.Get("archive.missing_volumes"), ex); }
             catch (NotSupportedException ex)
             { throw new NotSupportedException(LocalizationText.Get("archive.unsupported_method"), ex); }
             catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException
@@ -519,21 +432,29 @@ public class ArchiveService : IArchiveService
     private static bool IsUnsupportedEncryption(Exception ex)
         => ex.Message.Contains("currently not supported", StringComparison.OrdinalIgnoreCase);
 
-    private static long CopyEntry(Stream source, Stream destination, CancellationToken ct, Action<long>? report = null)
+    private static bool CopyArchiveEntry(ArchiveReadEntry entry, Stream source, Stream destination,
+        CancellationToken ct, bool authenticates, Action<long>? report = null, long byteLimit = long.MaxValue)
     {
+        var checksum = entry.IsEncrypted && entry.Crc != 0 ? new ICSharpCode.SharpZipLib.Checksum.Crc32() : null;
         var buffer = new byte[64 * 1024];
         long copied = 0;
         while (true)
         {
             ct.ThrowIfCancellationRequested();
             FileTaskContext.Checkpoint();
-            var read = source.Read(buffer);
+            var read = source.Read(buffer, 0, buffer.Length);
             if (read == 0) break;
+            if (read > byteLimit - copied) throw new InvalidDataException(LocalizationText.Get("archive.invalid_data"));
             destination.Write(buffer, 0, read);
+            checksum?.Update(new ArraySegment<byte>(buffer, 0, read));
             copied += read;
             report?.Invoke(copied);
         }
-        return copied;
+        // RAR can store a keyed hash in the checksum field. Only a matching plain CRC proves the password here.
+        var crcMatches = checksum?.Value == entry.Crc;
+        if (entry.Size is { } expected && copied != expected || checksum != null && !crcMatches && !entry.OptionalCrc)
+            throw new InvalidDataException(LocalizationText.Get("archive.invalid_data"));
+        return entry.IsEncrypted && (authenticates || crcMatches);
     }
 
     private static void ValidateEntry(string destination, ArchiveReadEntry entry, bool resolveLinks = true)
@@ -636,76 +557,28 @@ public class ArchiveService : IArchiveService
         };
     }
 
-    private static bool IsImmediateChild(string key, string prefix)
-    {
-        if (!key.StartsWith(prefix, StringComparison.Ordinal))
-            return false;
-        var relative = key[prefix.Length..];
-        if (string.IsNullOrEmpty(relative)) return false;
-        var trimmed = relative.TrimEnd('/');
-        return !trimmed.Contains('/');
-    }
-
-    private static string GetChildName(string key, string prefix)
-    {
-        var relative = key[prefix.Length..];
-        return relative.TrimEnd('/');
-    }
-
-    private static bool HasChildren(string key, HashSet<string> allKeys)
-    {
-        var prefix = key.EndsWith('/') ? key : key + "/";
-        return allKeys.Any(k => k.StartsWith(prefix, StringComparison.Ordinal) && k != prefix);
-    }
-
     private static string GetUniqueFilePath(string path)
     {
-        if (!File.Exists(path)) return path;
-        var dir = Path.GetDirectoryName(path) ?? ".";
-        var name = Path.GetFileNameWithoutExtension(path);
-        var ext = Path.GetExtension(path);
-
-        if (path.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
-        {
-            ext = ".tar.gz";
-            name = Path.GetFileNameWithoutExtension(path[..^3]);
-            name = Path.GetFileNameWithoutExtension(name.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)
-                ? name : name);
-        }
-        else if (path.EndsWith(".tar.bz2", StringComparison.OrdinalIgnoreCase))
-        {
-            ext = ".tar.bz2";
-            name = Path.GetFileNameWithoutExtension(path[..^4]);
-            name = Path.GetFileNameWithoutExtension(name.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)
-                ? name : name);
-        }
-
-        int counter = 2;
-        string newPath;
-        do
-        {
-            newPath = Path.Combine(dir, $"{name} {counter}{ext}");
-            counter++;
-        } while (File.Exists(newPath));
-
-        return newPath;
+        if (!PathExists(path) && new FileInfo(path).LinkTarget == null) return path;
+        var directory = Path.GetDirectoryName(path)!;
+        var name = ArchiveFormats.RemoveExtension(path);
+        var extension = Path.GetFileName(path)[name.Length..];
+        var counter = 2;
+        string candidate;
+        do { candidate = Path.Combine(directory, $"{name} {counter++}{extension}"); }
+        while (PathExists(candidate) || new FileInfo(candidate).LinkTarget != null);
+        return candidate;
     }
 
     private static string GetUniqueRelativePath(string name, HashSet<string> usedPaths)
     {
-        if (usedPaths.Add(name))
-            return name;
-
+        if (usedPaths.Add(name)) return name;
         var baseName = Path.GetFileNameWithoutExtension(name);
-        var ext = Path.GetExtension(name);
+        var extension = Path.GetExtension(name);
         var counter = 2;
         string candidate;
-        do
-        {
-            candidate = $"{baseName} {counter}{ext}";
-            counter++;
-        } while (!usedPaths.Add(candidate));
-
+        do { candidate = $"{baseName} {counter++}{extension}"; }
+        while (!usedPaths.Add(candidate));
         return candidate;
     }
 }

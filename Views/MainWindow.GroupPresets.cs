@@ -18,16 +18,25 @@ public partial class MainWindow
 
     private void ShowGroupPresets(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Control target || _vm == null) return;
+        if (sender is not Control target) return;
+        ShowGroupPresetsForControl(target);
+        e.Handled = true;
+    }
+
+    private void ShowGroupPresetsForControl(Control target)
+    {
+        if (_vm == null) return;
         if (_tabContextMenu is { IsOpen: true } current && target.Classes.Contains("active"))
         {
             current.Close();
-            e.Handled = true;
             return;
         }
         _tabContextMenu?.Close();
         PaneLayoutPopup.IsOpen = false;
-        var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedRight, MinWidth = 260 };
+        var placement = ReferenceEquals(target, VerticalTabBarControl.GroupPresetsButton)
+            ? PlacementMode.RightEdgeAlignedBottom
+            : PlacementMode.BottomEdgeAlignedRight;
+        var menu = new ContextMenu { Placement = placement, MinWidth = 260 };
         var presets = TabGroupPresets.Read(App.Services.GetRequiredService<ISettingsService>());
         MenuItem Item(string title, Func<Task> action, string? icon = null, bool enabled = true)
         {
@@ -58,7 +67,6 @@ public partial class MainWindow
         menu.Opened += (_, _) => target.Classes.Add("active");
         menu.Closed += (_, _) => target.Classes.Remove("active");
         OpenTabMenu(menu, target);
-        e.Handled = true;
     }
 
     private async Task SaveGroupPresetAsync(TabGroupViewModel group)

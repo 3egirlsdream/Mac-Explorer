@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
         xmlns:controls="using:MacExplorer.Controls"
+             xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="using:MacExplorer.Models"
              xmlns:icons="using:MacExplorer.Assets"
@@ -41,7 +42,7 @@
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="False">
             <Border CornerRadius="{Binding CornerRadius, ElementName=Shell}" ClipToBounds="True">
             <Grid RowDefinitions="Auto,Auto,*">
-                <Grid Grid.Row="0" x:Name="PreviewHeader" ColumnDefinitions="Auto,*,Auto,Auto" Margin="16,12,12,8">
+                <Grid Grid.Row="0" x:Name="PreviewHeader" ColumnDefinitions="Auto,*,Auto" Margin="16,12,12,8">
                     <controls:AppButton AutomationProperties.Name="{loc:Loc ui.598}" Grid.Column="0" x:Name="BackButton" Classes="ghost icon-action" Click="GoBack" ToolTip.Tip="{loc:Loc ui.598}">
                         <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
                     </controls:AppButton>
@@ -53,9 +54,7 @@
                                    Foreground="{DynamicResource TextMutedBrush}"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
-                    <TextBlock Grid.Column="2" x:Name="ItemCountText" VerticalAlignment="Center"
-                               FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,12,0"/>
-                    <controls:AppButton AutomationProperties.Name="{loc:Loc ui.600}" Grid.Column="3" x:Name="ClosePreviewButton" Classes="ghost icon-action"
+                    <controls:AppButton AutomationProperties.Name="{loc:Loc ui.600}" Grid.Column="2" x:Name="ClosePreviewButton" Classes="ghost icon-action"
                             Click="ClosePreview" ToolTip.Tip="{loc:Loc ui.600}">
                         <PathIcon Data="{x:Static icons:Icons.Close}" Width="12" Height="12"/>
                     </controls:AppButton>
@@ -63,10 +62,26 @@
 
                 <Border Grid.Row="1" x:Name="HeaderDivider" Height="1" Background="{DynamicResource ColorDivider}"/>
 
-                <Grid Grid.Row="2" x:Name="PreviewContentGrid" ColumnDefinitions="240,6,*" Margin="8">
-                    <Border Grid.Column="0" x:Name="PreviewListCard" Classes="card" CornerRadius="10" ClipToBounds="True">
-                        <Grid RowDefinitions="*">
+                <Grid Grid.Row="2" x:Name="PreviewContentGrid" ColumnDefinitions="0,0,*">
+                    <Border Grid.Column="0" x:Name="PreviewListCard" IsVisible="False" ClipToBounds="True">
+                        <Grid>
+                            <ScrollViewer x:Name="PreviewTreeScroll" HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                                <controls:FastFileList x:Name="PreviewTree"
+                                    Background="{DynamicResource WorkspaceContentBrush}"
+                                    Foreground="{DynamicResource TextPrimaryBrush}" Secondary="{DynamicResource TextMutedBrush}"
+                                    Hover="{DynamicResource InteractionHoverBrush}" Selected="{DynamicResource InteractionSelectedBrush}"
+                                    SelectedHover="{DynamicResource InteractionSelectedHoverBrush}"
+                                    FontFamily="{DynamicResource FontFamilyUi}" FontSize="{DynamicResource FontSizeBody}"
+                                    FontWeight="{StaticResource FontWeightRegular}" DetailFontSize="{DynamicResource FontSizeLabel}"
+                                    RowCornerRadius="{DynamicResource InteractionCornerRadius}"
+                                    FocusRing="{DynamicResource FocusRingBrush}" SelectionOutline="{DynamicResource SelectionOutlineShadow}"
+                                    FocusOutline="{DynamicResource FocusOutlineShadow}" AutomationProperties.Name="{loc:Loc ui.083}"
+                                    PointerPressed="OnPreviewTreePressed"
+                                    KeyDown="OnPreviewTreeKeyDown"/>
+                            </ScrollViewer>
                             <ListBox x:Name="ItemsList" Classes="super-preview-items"
+                                     IsVisible="False"
                                      SelectionMode="Single" SelectionChanged="OnItemSelectionChanged"
                                      DoubleTapped="OnItemDoubleTapped">
                                 <ListBox.ItemTemplate>
@@ -92,15 +107,20 @@
                             </ListBox>
                         </Grid>
                     </Border>
-                    <Border Grid.Column="1" x:Name="ContentDivider" Background="{DynamicResource ColorDivider}" Width="1" HorizontalAlignment="Center"/>
-                    <Border Grid.Column="2" x:Name="PreviewCard" Classes="card" CornerRadius="{DynamicResource RadiusLg}" Padding="0" ClipToBounds="True">
-                        <Grid x:Name="PreviewHost">
+                    <Border Grid.Column="1" x:Name="ContentDivider" IsVisible="False" Background="{DynamicResource ColorDivider}"/>
+                    <Border Grid.Column="2" x:Name="PreviewCard" ClipToBounds="True" SizeChanged="OnPreviewCardSizeChanged">
+                        <Grid>
+                        <Grid x:Name="PreviewHost" ClipToBounds="True">
                             <TextBlock x:Name="PreviewPlaceholder" Text="{loc:Loc ui.603}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextMutedBrush}" FontSize="{DynamicResource FontSizeBodyLarge}"
                                        TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
                             <Image x:Name="PreviewImage" IsVisible="False" Stretch="Uniform"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ScrollViewer x:Name="ZoomedImageScroll" IsVisible="False"
+                                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                <Image x:Name="ZoomedImage" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </ScrollViewer>
                             <ScrollViewer x:Name="PreviewTextScroll" IsVisible="False"
                                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                                 <TextBox x:Name="PreviewText" IsReadOnly="True" AcceptsReturn="True"
@@ -110,18 +130,70 @@
                                          VerticalContentAlignment="Top"/>
                             </ScrollViewer>
                             <StackPanel x:Name="FolderSummary" IsVisible="False" HorizontalAlignment="Center"
-                                        VerticalAlignment="Center" Spacing="8">
+                                        VerticalAlignment="Center" Margin="12,0" Spacing="8">
                                 <PathIcon x:Name="FolderSummaryIcon" Data="{x:Static icons:Icons.Folder}" Width="72" Height="72"
                                           Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
                                 <TextBlock x:Name="FolderSummaryTitle" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}"
                                            HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="500"/>
                                 <TextBlock x:Name="FolderSummaryDetails" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"
-                                           HorizontalAlignment="Center" TextAlignment="Center"/>
-                                <TextBlock Text="{loc:Loc ui.604}" FontSize="{DynamicResource FontSizeCaption}"
-                                           Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="500"/>
                             </StackPanel>
                         </Grid>
+                        <Border x:Name="PreviewPreviousSlot" Classes="preview-step-slot" HorizontalAlignment="Left"
+                                Margin="12,0,0,0" IsVisible="False">
+                            <Border x:Name="PreviewPreviousZone" Classes="preview-step-zone">
+                                <controls:AppButton x:Name="PreviewPreviousButton" Classes="ghost preview-step-button"
+                                        Click="OnPreviewStepClick" KeyDown="OnSuperPreviewKeyDown"
+                                        AutomationProperties.Name="{loc:Loc preview.previous-file}" ToolTip.Tip="{loc:Loc preview.previous-file}">
+                                    <Border Classes="preview-step-glass">
+                                        <PathIcon Width="26" Height="26" FlowDirection="LeftToRight"
+                                                  Data="{x:Static icons:Icons.ChevronRightGeometry}" RenderTransform="scale(-1,1)"/>
+                                    </Border>
+                                </controls:AppButton>
+                            </Border>
+                        </Border>
+                        <Border x:Name="PreviewNextSlot" Classes="preview-step-slot" HorizontalAlignment="Right"
+                                Margin="0,0,12,0" IsVisible="False">
+                            <Border x:Name="PreviewNextZone" Classes="preview-step-zone">
+                                <controls:AppButton x:Name="PreviewNextButton" Classes="ghost preview-step-button"
+                                        Click="OnPreviewStepClick" KeyDown="OnSuperPreviewKeyDown"
+                                        AutomationProperties.Name="{loc:Loc preview.next-file}" ToolTip.Tip="{loc:Loc preview.next-file}">
+                                    <Border Classes="preview-step-glass">
+                                        <PathIcon Width="26" Height="26" FlowDirection="LeftToRight"
+                                                  Data="{x:Static icons:Icons.ChevronRightGeometry}"/>
+                                    </Border>
+                                </controls:AppButton>
+                            </Border>
+                        </Border>
+                        <Popup x:Name="NativePreviewPreviousPopup" Placement="Center" PlacementTarget="PreviewPreviousSlot"
+                               ShouldUseOverlayLayer="False" TakesFocusFromNativeControl="False" WindowManagerAddShadowHint="False">
+                            <Border x:Name="NativePreviewPreviousSlot"/>
+                        </Popup>
+                        <Popup x:Name="NativePreviewNextPopup" Placement="Center" PlacementTarget="PreviewNextSlot"
+                               ShouldUseOverlayLayer="False" TakesFocusFromNativeControl="False" WindowManagerAddShadowHint="False">
+                            <Border x:Name="NativePreviewNextSlot"/>
+                        </Popup>
+                        <Border x:Name="PreviewToolbarSlot" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                Margin="12,0,12,12">
+                            <Border x:Name="PreviewToolbar" IsVisible="False" Padding="4"
+                                    CornerRadius="{DynamicResource RadiusFull}" controls:PopupGlass.IsEnabled="True"
+                                    controls:PopupGlass.IsFloating="True"
+                                    KeyDown="OnSuperPreviewKeyDown">
+                                <StackPanel x:Name="PreviewToolbarButtons" Orientation="Horizontal" Spacing="2"/>
+                            </Border>
+                        </Border>
+                        <Border x:Name="NativePreviewToolbarAnchor" VerticalAlignment="Bottom" Height="1" IsHitTestVisible="False"/>
+                        <Popup x:Name="NativePreviewToolbarPopup" Placement="Top" PlacementTarget="NativePreviewToolbarAnchor"
+                               ShouldUseOverlayLayer="False" TakesFocusFromNativeControl="False" WindowManagerAddShadowHint="False">
+                            <Border x:Name="NativePreviewToolbarSlot" Padding="12"/>
+                        </Popup>
+                        </Grid>
                     </Border>
+                    <Border x:Name="PreviewTreeResizeHandle" Grid.Column="0" IsVisible="False" ZIndex="1"
+                            HorizontalAlignment="Right" Width="6" Background="Transparent" Cursor="SizeWestEast"
+                            PointerPressed="OnPreviewResizePressed" PointerMoved="OnPreviewResizeMoved"
+                            PointerReleased="OnPreviewResizeReleased" PointerCaptureLost="OnPreviewResizeCaptureLost"
+                            glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
                 </Grid>
             </Grid>
             </Border>

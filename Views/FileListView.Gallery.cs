@@ -30,6 +30,7 @@ public partial class FileListView
     private long _lastZoomWheelInput;
 
     internal bool IsGalleryVisible => GalleryHost.IsVisible;
+    internal bool KeepThumbnailZoomFocus { get; set; }
     internal ListBox? GalleryFilmstrip => _gallery?.GalleryStrip;
     private ListBox GalleryStrip => _gallery!.GalleryStrip;
     internal Task<bool> GalleryPreviewReady { get; private set; } = Task.FromResult(false);
@@ -131,10 +132,10 @@ public partial class FileListView
         if (showGallery)
         {
             QueueGalleryRefresh();
-            if (!wasGallery)
+            if (!wasGallery && !KeepThumbnailZoomFocus)
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (IsGalleryVisible && IsEffectivelyVisible) GalleryStrip.Focus();
+                    if (IsGalleryVisible && IsEffectivelyVisible && !KeepThumbnailZoomFocus) GalleryStrip.Focus();
                 }, DispatcherPriority.Loaded);
         }
         else if (wasGallery)
@@ -152,7 +153,7 @@ public partial class FileListView
                     if (!IsGalleryVisible && FastList.IsEffectivelyVisible) FastList.ScrollToEntry(entry);
                 }, DispatcherPriority.Loaded);
             }
-            if (FastList.IsVisible) FastList.Focus();
+            if (FastList.IsVisible && !KeepThumbnailZoomFocus) FastList.Focus();
         }
     }
 
@@ -200,7 +201,7 @@ public partial class FileListView
         }
         if (!IsWithinVisual(e.Source as Visual, GalleryStrip) || FastList.Rows.Count == 0) return false;
         if (e.Key == Key.Enter && _galleryEntry is { } entry)
-            OpenEntryFromGesture(entry);
+            OpenEntryFromGesture(entry, doubleClick: false);
         else if (e.Key is Key.Left or Key.Right)
             SelectGalleryItem(Math.Clamp(_galleryIndex + (e.Key == Key.Left ? -1 : 1), 0, FastList.Rows.Count - 1));
         else

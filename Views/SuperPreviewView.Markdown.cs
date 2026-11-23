@@ -16,18 +16,20 @@ public partial class SuperPreviewView
             _markdownPreview ??= new MarkdownPreviewView();
             if (_markdownPreview.Parent == null) PreviewHost.Children.Add(_markdownPreview);
             _markdownPreview.SetDocument(text, path);
+            _loadedPreviewText = text;
             _markdownPreview.IsVisible = true;
             PreviewTextScroll.IsVisible = false;
             PreviewText.IsVisible = false;
             PreviewImage.IsVisible = false;
             PreviewPlaceholder.IsVisible = false;
             FolderSummary.IsVisible = false;
+            UpdatePreviewToolbar();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex)
         {
             if (version == _operationVersion && IsVisible && !token.IsCancellationRequested)
-                ShowPlaceholder("Markdown 预览失败：" + ex.Message);
+                ShowPlaceholder(Services.Impl.LocalizationText.Get("preview.markdown.failed", ex.Message));
         }
     }
 

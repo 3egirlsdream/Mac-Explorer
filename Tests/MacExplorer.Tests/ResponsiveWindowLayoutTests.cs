@@ -33,15 +33,23 @@ public sealed class ResponsiveWorkspaceLayoutTests
     }
 
     [Fact]
-    public void ForceCompactOverridesAnyWorkspaceWidth()
+    public void SplitWorkspaceUsesAnInlineSidebarAndCompactToolbar()
     {
         var layout = ResponsiveWorkspaceLayout.Resolve(1600, forceCompact: true);
 
         Assert.True(layout.IsCompact);
-        Assert.Equal(SplitViewDisplayMode.CompactOverlay, layout.SidebarDisplayMode);
+        Assert.Equal(SplitViewDisplayMode.CompactInline, layout.SidebarDisplayMode);
         Assert.Equal(220, layout.SidebarOpenPaneLength);
         Assert.Equal(48, layout.SidebarCompactPaneLength);
         Assert.Equal(SplitViewDisplayMode.Overlay, layout.InfoPanelDisplayMode);
+    }
+
+    [Fact]
+    public void SplitSidebarClampsItsWidthToLeaveRoomForFileContent()
+    {
+        var layout = ResponsiveWorkspaceLayout.Resolve(560, forceCompact: true, preferredSidebarWidth: 400);
+
+        Assert.Equal(280, layout.SidebarOpenPaneLength);
     }
 
 }

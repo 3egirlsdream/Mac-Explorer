@@ -261,4 +261,35 @@ public sealed class TabGroupsTests : FileListViewModelTestBase
         Assert.Equal(PaneLayout.FourGrid, model.PaneLayout);
         Assert.Equal(panes, model.VisiblePanes);
     }
+
+    [AvaloniaFact]
+    public void SplitCreatedGroupsUseSplitLayoutNameAndRespectManualRenames()
+    {
+        using var access = new GrantedFeatureAccess();
+        using var fixture = new TabsFixture(8);
+        var model = fixture.Model;
+
+        model.SelectedTab = fixture.Tabs[0];
+        model.SetPaneLayout(PaneLayout.TwoColumns);
+        var first = model.SelectedTab.Group!;
+        Assert.Equal(MainWindowViewModel.GetSplitLayoutName(PaneLayout.TwoColumns), first.Name);
+
+        // Switching another split layout updates the auto split name.
+        model.MoveTabToGroup(fixture.Tabs[2], first);
+        model.MoveTabToGroup(fixture.Tabs[3], first);
+        model.SetPaneLayout(PaneLayout.FourGrid);
+        Assert.Equal(MainWindowViewModel.GetSplitLayoutName(PaneLayout.FourGrid), first.Name);
+
+        // Creating a second split group with the same layout deduplicates cleanly.
+        model.SelectedTab = fixture.Tabs[4];
+        model.SetPaneLayout(PaneLayout.FourGrid);
+        var second = model.SelectedTab.Group!;
+        Assert.Equal($"{MainWindowViewModel.GetSplitLayoutName(PaneLayout.FourGrid)} 2", second.Name);
+
+        // Manual rename stops automatic split-name updates.
+        first.Name = "Compare Build";
+        model.ActivateGroup(first);
+        model.SetPaneLayout(PaneLayout.TwoRows);
+        Assert.Equal("Compare Build", first.Name);
+    }
 }

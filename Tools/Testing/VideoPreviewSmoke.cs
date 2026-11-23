@@ -7,6 +7,7 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Platform;
 using Avalonia.Styling;
@@ -46,8 +47,12 @@ internal static class VideoPreviewSmoke
                     await preview.OpenAsync(entry);
                     await ReadyAsync();
                     Require(Rate(Player()) == 0, "Preview must start paused.");
+                    var toolbar = preview.FindControl<Popup>("NativePreviewToolbarPopup")!;
+                    Require(toolbar.IsOpen && !toolbar.IsUsingOverlayLayer, "Toolbar must float above the native player.");
+                    Require(preview.FindControl<Grid>("PreviewHost")!.Bounds.Size ==
+                        preview.FindControl<Border>("PreviewCard")!.Bounds.Size, "Toolbar must not shrink the player viewport.");
                     await CaptureAsync($"{(dark ? "dark" : "light")}-{(narrow ? "narrow" : "wide")}");
-                    checks.Add($"{(dark ? "dark" : "light")}/{(narrow ? "narrow" : "wide")}: first frame and paused");
+                    checks.Add($"{(dark ? "dark" : "light")}/{(narrow ? "narrow" : "wide")}: first frame, paused and floating toolbar");
                     preview.Close();
                 }
             }
@@ -59,6 +64,7 @@ internal static class VideoPreviewSmoke
             await WaitAsync(() => Rate(player) > 0);
             owner.IsModalInteractionBlocked = true;
             await WaitAsync(() => Rate(player) == 0 && !Host()!.IsVisible);
+            Require(!preview.FindControl<Popup>("NativePreviewToolbarPopup")!.IsOpen, "Modal overlay must hide the floating toolbar.");
             owner.IsModalInteractionBlocked = false;
             await ReadyAsync();
             Require(Rate(player) == 0, "Dismissed modal resumed playback.");
@@ -140,8 +146,9 @@ internal static class VideoPreviewSmoke
             {
                 await preview.OpenAsync(entry);
                 await ReadyAsync();
-                references.Add(new WeakReference(Host()!));
-                preview.Close();
+                var reference = CloseAndTrackVideo();
+                references.Add(reference);
+                await WaitAsync(() => reference.Target is not VideoPreviewHost host || NativeView(host) == IntPtr.Zero);
             }
             await Task.Delay(200);
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
@@ -174,6 +181,12 @@ internal static class VideoPreviewSmoke
         }
 
         VideoPreviewHost? Host() => preview.GetVisualDescendants().OfType<VideoPreviewHost>().SingleOrDefault();
+        WeakReference CloseAndTrackVideo()
+        {
+            var reference = new WeakReference(Host()!);
+            preview.Close();
+            return reference;
+        }
         IntPtr Player() => Send(Send(NativeView(Host()!), Selector("video")), Selector("player"));
         async Task ReadyAsync()
         {

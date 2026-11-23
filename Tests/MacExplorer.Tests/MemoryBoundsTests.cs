@@ -85,6 +85,34 @@ public sealed class MemoryBoundsTests : FileListViewModelTestBase
     }
 
     [AvaloniaFact]
+    public async Task IdleCleanupKeepsTypeIconsWhilePreviewRowsAreVisible()
+    {
+        var images = new FastFileListImages { TypeIconsOnly = true };
+        var folder = new FileSystemEntry { Name = "Pictures", FullPath = "/tmp/Pictures", IsDirectory = true };
+        var file = new FileSystemEntry { Name = "picture.png", FullPath = "/tmp/Pictures/picture.png", Extension = ".png" };
+        try
+        {
+            images.UpdateVisible([folder, file], 32);
+            await WaitForPreviewAsync(() => images.Get(folder) != null && images.Get(file) != null);
+            var folderIcon = images.Get(folder);
+            var fileIcon = images.Get(file);
+            var cutoff = DateTime.UtcNow.AddMinutes(1);
+
+            images.TrimMemory(cutoff);
+
+            Assert.Same(folderIcon, images.Get(folder));
+            Assert.Same(fileIcon, images.Get(file));
+
+            images.UpdateVisible([], 32);
+            images.TrimMemory(cutoff);
+
+            Assert.Null(images.Get(folder));
+            Assert.Null(images.Get(file));
+        }
+        finally { images.Clear(); }
+    }
+
+    [AvaloniaFact]
     public async Task SearchHistoryIsBoundedAndRetainsQueriesForReload()
     {
         var navigation = new NavigationViewModel(new FakeFileService("/tmp/history"));

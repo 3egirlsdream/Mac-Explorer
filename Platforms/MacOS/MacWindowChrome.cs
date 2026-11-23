@@ -26,6 +26,38 @@ internal static class MacWindowChrome
     internal static bool PrefersReducedMotion => OperatingSystem.IsMacOS() && objc_msgSend_getBool(
         SendIntPtr(GetClass("NSWorkspace"), "sharedWorkspace"), GetSelector("accessibilityDisplayShouldReduceMotion"));
 
+    internal static int GetDisplayRefreshRate(TopLevel? topLevel, int maxFps = 120)
+    {
+        var ceiling = Math.Max(30, maxFps);
+        if (!OperatingSystem.IsMacOS())
+            return Math.Clamp(60, 30, ceiling);
+
+        try
+        {
+            var nsView = topLevel == null ? IntPtr.Zero : GetNSView(topLevel);
+            var nsWindow = nsView == IntPtr.Zero ? IntPtr.Zero : SendIntPtr(nsView, "window");
+            var screen = nsWindow == IntPtr.Zero ? IntPtr.Zero : SendIntPtr(nsWindow, "screen");
+            if (screen == IntPtr.Zero)
+                screen = SendIntPtr(GetClass("NSScreen"), "mainScreen");
+            if (screen != IntPtr.Zero && RespondsToSelector(screen, "maximumFramesPerSecond"))
+            {
+                var fps = (int)SendIntPtr(screen, "maximumFramesPerSecond");
+                if (fps > 0)
+                    return Math.Clamp(fps, 30, ceiling);
+            }
+        }
+        catch
+        {
+            // Fall back to 60 Hz when AppKit screen metadata is unavailable.
+        }
+
+        return Math.Clamp(60, 30, ceiling);
+    }
+
+    private static bool RespondsToSelector(IntPtr receiver, string selectorName)
+        => receiver != IntPtr.Zero && objc_msgSend_respondsToSelector(
+            receiver, GetSelector("respondsToSelector:"), GetSelector(selectorName));
+
     public static void PrepareToShow(TopLevel topLevel)
     {
         if (!OperatingSystem.IsMacOS()) return;
@@ -338,6 +370,10 @@ internal static class MacWindowChrome
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     [return: MarshalAs(UnmanagedType.I1)]
     private static extern bool objc_msgSend_getBool(IntPtr receiver, IntPtr selector);
+
+    [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool objc_msgSend_respondsToSelector(IntPtr receiver, IntPtr selector, IntPtr testedSelector);
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_void(IntPtr receiver, IntPtr selector);

@@ -96,6 +96,15 @@ public partial class FinderToolbar : UserControl
     }
 
     private void CutSelected(object? sender, RoutedEventArgs e) => ViewModel?.CutSelected();
+    private async void ExtractEntireArchive(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is { } vm) await vm.ExtractEntireArchiveAsync();
+    }
+
+    private async void ExtractArchiveSelection(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is { } vm) await vm.ExtractArchiveSelectionAsync(vm.SelectedEntries.ToArray());
+    }
     private void CopySelected(object? sender, RoutedEventArgs e) => ViewModel?.CopySelected();
     private async void PasteItems(object? sender, RoutedEventArgs e) { if (ViewModel != null) await ViewModel.PasteAsync(); }
     private void DeleteSelected(object? sender, RoutedEventArgs e) => ViewModel?.ShowDeleteConfirmDialog();

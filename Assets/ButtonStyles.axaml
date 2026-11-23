@@ -1442,6 +1442,10 @@
         <Setter Property="ShadowOffset" Value="0,2"/>
         <Setter Property="ShadowColor" Value="#24000000"/>
     </Style>
+    <Style Selector="glass|LiquidGlassSurface.popup-glass.floating-glass">
+        <Setter Property="SurfaceColor" Value="{DynamicResource FloatingGlassColor}"/>
+        <Setter Property="BackdropOpacity" Value="0.30"/>
+    </Style>
 
     <Style Selector="MenuFlyoutPresenter">
         <Setter Property="Theme" Value="{StaticResource StandardMenuFlyoutPresenterTheme}"/>
@@ -1450,5 +1454,191 @@
         <Setter Property="Padding" Value="0"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.preview-toolbar-button">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinWidth" Value="32"/>
+        <Setter Property="Padding" Value="8,0"/>
+    </Style>
+    <Style Selector="Border.preview-step-slot, Border.preview-step-zone">
+        <Setter Property="Width" Value="76"/>
+        <Setter Property="Height" Value="144"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.preview-step-zone">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.preview-step-button">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        <Setter Property="Width" Value="48"/>
+        <Setter Property="Height" Value="64"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+    </Style>
+    <Style Selector="Button.preview-step-button:pointerover, Button.preview-step-button:pressed">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.preview-step-button /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.preview-step-glass">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="controls:PopupGlass.IsEnabled" Value="True"/>
+        <Setter Property="controls:PopupGlass.IsFloating" Value="True"/>
+        <Setter Property="Opacity" Value="0"/>
+    </Style>
+    <Style Selector="Border.preview-step-zone:pointerover Border.preview-step-glass,
+                     Button.preview-step-button:focus-visible Border.preview-step-glass">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+
+    <!-- Vertical tab bar button styles -->
+    <Style Selector="Button.vertical-window-control">
+        <Setter Property="Theme" Value="{StaticResource TrafficLightButtonTheme}"/>
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinWidth" Value="18"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Arrow"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+        <Setter Property="Transitions" Value="{x:Null}"/>
+    </Style>
+    <Style Selector="Button.vertical-window-control:pointerover,
+                     Button.vertical-window-control:pressed">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+    </Style>
+    <Style Selector="Button.vertical-window-control:disabled">
+        <Setter Property="IsHitTestVisible" Value="False"/>
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+    </Style>
+    <Style Selector="Button.vertical-window-control:focus-visible">
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="StackPanel.vertical-window-controls:pointerover Button.vertical-window-control:not(:disabled) Path.window-control-symbol,
+                     Button.vertical-window-control:not(:disabled):focus-visible Path.window-control-symbol">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:inactive StackPanel.vertical-window-controls:not(:pointerover) Ellipse.traffic-light,
+                     Button.vertical-window-control:disabled Ellipse.traffic-light">
+        <Setter Property="Fill" Value="{DynamicResource VerticalTabTrafficInactiveBrush}"/>
+    </Style>
+    <Style Selector="Button.vertical-window-control Ellipse.traffic-light">
+        <Setter Property="Stroke" Value="{DynamicResource VerticalTabTrafficOutlineBrush}"/>
+        <Setter Property="StrokeThickness" Value="0.5"/>
+    </Style>
+    <Style Selector="Button.vertical-window-control Path.vertical-fullscreen-symbol">
+        <Setter Property="Data" Value="{DynamicResource VerticalTabEnterFullScreenGeometry}"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:fullscreen Button.vertical-window-control Path.vertical-fullscreen-symbol">
+        <Setter Property="Data" Value="{DynamicResource VerticalTabExitFullScreenGeometry}"/>
+    </Style>
+    <Style Selector="Button.vertical-group-action">
+        <Setter Property="Width" Value="24"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinWidth" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.vertical-group-action:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.vertical-tab-close">
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="MinWidth" Value="20"/>
+        <Setter Property="MinHeight" Value="20"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem:selected Button.vertical-tab-close,
+                     ListBox.vertical-tab-strip ListBoxItem:pointerover Button.vertical-tab-close">
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="IsHitTestVisible" Value="True"/>
+    </Style>
+    <Style Selector="Button.vertical-tab-close:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed Button.vertical-tab-close,
+                     controls|VerticalTabBar:collapsed Button.vertical-pin-toggle">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Button.vertical-new-tab">
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="MinHeight" Value="34"/>
+        <Setter Property="Margin" Value="11,2,8,4"/>
+        <Setter Property="Padding" Value="12,0,10,0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.vertical-new-tab:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed Button.vertical-new-tab">
+        <Setter Property="Width" Value="38"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="11,2,11,4"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.vertical-tab-utility">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinWidth" Value="32"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.vertical-tab-utility:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.vertical-tab-utility.active">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.vertical-tab-utility PathIcon">
+        <Setter Property="Width" Value="15"/>
+        <Setter Property="Height" Value="15"/>
     </Style>
 </Styles>

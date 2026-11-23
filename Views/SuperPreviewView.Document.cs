@@ -28,7 +28,7 @@ public partial class SuperPreviewView
             return false;
 
         var host = new DocumentPreviewHost(key =>
-            RaiseEvent(new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = key }));
+            RaiseEvent(new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = key }), squareCorners: !_isCompactPreview);
         try
         {
             var result = host.Load(path, Path.GetExtension(name).Equals(".pdf", StringComparison.OrdinalIgnoreCase),
@@ -54,6 +54,7 @@ public partial class SuperPreviewView
             _documentSubscription = SubscriptionAccess.Current;
             if (_documentSubscription != null) _documentSubscription.Changed += UpdateDocumentVisibility;
             UpdateDocumentVisibility();
+            UpdatePreviewToolbar();
             return true;
         }
         catch (Exception ex)
@@ -67,7 +68,8 @@ public partial class SuperPreviewView
 
     private void OnDocumentOverlayChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == AppWindow.IsModalInteractionBlockedProperty || e.Property == AppWindow.IsUpgradeOpenProperty || e.Property == IsVisibleProperty)
+        if (e.Property == AppWindow.IsModalInteractionBlockedProperty || e.Property == AppWindow.IsUpgradeOpenProperty
+            || e.Property == IsVisibleProperty || e.Property == Window.WindowStateProperty)
             UpdateDocumentVisibility();
     }
 
@@ -81,6 +83,7 @@ public partial class SuperPreviewView
         if (_documentPreview != null)
             _documentPreview.IsVisible = _documentWindow?.IsModalInteractionBlocked != true && _documentWindow?.IsUpgradeOpen != true
                 && _documentDialog?.IsVisible != true;
+        UpdatePreviewToolbarPlacement();
     }
 
     private void ClearDocumentPreview()

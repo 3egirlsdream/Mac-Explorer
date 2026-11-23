@@ -115,12 +115,15 @@ public partial class MainWindow : AppWindow
             () => _vm != null && !IsModalInteractionBlocked && !_shutdownStarted && !GlobalSearchOverlay.IsVisible,
             (item, anchor, after, ungroup) => _vm?.MoveStripItem(item, anchor, after, ungroup), ShowTabContextMenu,
             group => _vm?.ToggleGroup(group), ShowGroupContextMenu);
+        InitializeVerticalTabBar();
         Deactivated += (_, _) =>
         {
             _tabInteraction.FinishGroupMotion();
             _tabInteraction.Cancel();
+            _verticalTabInteraction.Cancel();
+            VerticalTabBarControl.ForceCollapseHover();
         };
-        Closed += (_, _) => { _tabContextMenu?.Close(); _tabInteraction.Dispose(); };
+        Closed += (_, _) => { _tabContextMenu?.Close(); _tabInteraction.Dispose(); DisposeVerticalTabBar(); };
         _dragDropBridge = App.Services.GetRequiredService<IDragDropBridge>();
         _taskManager = App.Services.GetRequiredService<IBackgroundTaskManager>();
         _globalSearchScopeService = App.Services.GetRequiredService<IGlobalSearchScopeService>();
@@ -196,12 +199,27 @@ public partial class MainWindow : AppWindow
         }
 
         ActiveWorkspace?.CloseTransientUi(e.Source);
-        // Keep the layout picker open during native title-bar dragging. Popup light-dismiss
-        // closes on window movement, so dismiss outside clicks in the window instead.
-        var isTitleBarPress = e.GetPosition(this).Y < (RootLayout.TranslatePoint(default, this)?.Y ?? 0);
-        if (IsInsideVisual(e.Source as Visual, TabScrollViewer)
-            || (!isTitleBarPress && !IsInsideVisual(e.Source as Visual, PaneLayoutPopup.Child as Visual)))
-            PaneLayoutPopup.IsOpen = false;
+        var sourceVisual = e.Source as Visual;
+        if (_isVerticalTabsEnabled)
+        {
+            if (!IsInsideVisual(sourceVisual, PaneLayoutPopup.Child as Visual)
+                && !IsInsideVisual(sourceVisual, VerticalTabBarControl.PaneLayoutButton))
+                PaneLayoutPopup.IsOpen = false;
+
+            if (!_isVerticalTabsPinned && VerticalTabBarControl.IsHoverExpanded
+                && !IsInsideVisual(sourceVisual, VerticalTabBarControl)
+                && !IsInsideVisual(sourceVisual, PaneLayoutPopup.Child as Visual))
+                VerticalTabBarControl.ForceCollapseHover();
+        }
+        else
+        {
+            // Keep the layout picker open during native title-bar dragging. Popup light-dismiss
+            // closes on window movement, so dismiss outside clicks in the window instead.
+            var isTitleBarPress = e.GetPosition(this).Y < (RootLayout.TranslatePoint(default, this)?.Y ?? 0);
+            if (IsInsideVisual(sourceVisual, TabScrollViewer)
+                || (!isTitleBarPress && !IsInsideVisual(sourceVisual, PaneLayoutPopup.Child as Visual)))
+                PaneLayoutPopup.IsOpen = false;
+        }
         ClearTextInputFocusFromPointerSource(e.Source);
     }
 
@@ -266,9 +284,12 @@ public partial class MainWindow : AppWindow
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (IsUpgradeOpen) return;
-        if (e.Key == Key.Escape && _tabInteraction.IsPointerDown)
+        if (e.Key == Key.Escape && (_tabInteraction.IsPointerDown || _verticalTabInteraction.IsPointerDown))
         {
-            _tabInteraction.Cancel(); e.Handled = true; return;
+            _tabInteraction.Cancel();
+            _verticalTabInteraction.Cancel();
+            e.Handled = true;
+            return;
         }
 
         if (e.Handled || Shortcuts.IsRecording) return;
@@ -300,7 +321,7 @@ public partial class MainWindow : AppWindow
         if (e.Key == Key.Escape && PaneLayoutPopup.IsOpen)
         {
             PaneLayoutPopup.IsOpen = false;
-            PaneLayoutButton.Focus();
+            (_isVerticalTabsEnabled ? (Control)VerticalTabBarControl.PaneLayoutButton : PaneLayoutButton).Focus();
             e.Handled = true;
             return;
         }
@@ -439,6 +460,7 @@ public partial class MainWindow : AppWindow
         {
             ActiveWorkspace?.CloseTransientUi(null);
             PaneLayoutPopup.IsOpen = false;
+            VerticalTabBarControl.ForceCollapseHover();
         }
     }
 
@@ -852,10 +874,13 @@ public partial class MainWindow : AppWindow
         if (IsMarkdownEditorOpen || SuperPreviewControl.IsVisible)
             return;
 
-        SuperPreviewControl.PasswordPrompt = _vm == null
-            ? null
-            : () => _vm.FileList.RequestArchivePasswordAsync();
-        await SuperPreviewControl.OpenAsync(entry);
+        var fileList = _vm?.FileList;
+        if (fileList != null)
+        {
+            SuperPreviewControl.PasswordPrompt = fileList.RequestArchivePasswordAsync;
+            SuperPreviewControl.ExtractToNamedFolder = fileList.ExtractToNamedFolder;
+        }
+        await SuperPreviewControl.OpenAsync(entry, fileList?.GetSelectableEntries());
     }
 
     private void OnSuperPreviewClosed(object? sender, EventArgs e)
@@ -863,6 +888,7 @@ public partial class MainWindow : AppWindow
         if (SuperPreviewControl.IsVisible)
             return;
         SuperPreviewControl.PasswordPrompt = null;
+        SuperPreviewControl.ExtractToNamedFolder = null;
     }
 
     private async Task SyncDialogsAsync()
@@ -959,17 +985,23 @@ public partial class MainWindow : AppWindow
     private void UpdateTaskButton(IReadOnlyList<BackgroundTaskInfo>? tasks = null)
     {
         var summary = TaskProgressSummary.FromTasks(tasks ?? _taskManager.PanelTasks);
-        TaskButton.IsVisible = summary.TaskCount > 0;
-        TaskProgressRing.Value = summary.Value;
-        TaskProgressRing.IsIndeterminate = summary.IsIndeterminate;
-        TaskProgressRing.IsAnimating = summary.IsAnimating;
-        TaskProgressRing.Classes.Set("muted", summary.Appearance == TaskProgressAppearance.Muted);
-        TaskProgressRing.Classes.Set("attention", summary.Appearance == TaskProgressAppearance.Attention);
-        TaskProgressRing.Classes.Set("failed", summary.Appearance == TaskProgressAppearance.Failed);
-        TaskProgressRing.Classes.Set("completed", summary.Appearance == TaskProgressAppearance.Completed);
         var description = Services.Impl.TaskProgressText.Format(summary);
-        ToolTip.SetTip(TaskButton, description);
-        Avalonia.Automation.AutomationProperties.SetName(TaskButton, description);
+        ApplyTaskButtonSummary(TaskButton, TaskProgressRing, summary, description);
+        ApplyTaskButtonSummary(VerticalTabBarControl.TaskButton, VerticalTabBarControl.TaskProgressRing, summary, description);
+    }
+
+    private static void ApplyTaskButtonSummary(AppButton button, AnimatedProgressRing ring, TaskProgressSummary summary, string description)
+    {
+        button.IsVisible = summary.TaskCount > 0;
+        ring.Value = summary.Value;
+        ring.IsIndeterminate = summary.IsIndeterminate;
+        ring.IsAnimating = summary.IsAnimating;
+        ring.Classes.Set("muted", summary.Appearance == TaskProgressAppearance.Muted);
+        ring.Classes.Set("attention", summary.Appearance == TaskProgressAppearance.Attention);
+        ring.Classes.Set("failed", summary.Appearance == TaskProgressAppearance.Failed);
+        ring.Classes.Set("completed", summary.Appearance == TaskProgressAppearance.Completed);
+        ToolTip.SetTip(button, description);
+        Avalonia.Automation.AutomationProperties.SetName(button, description);
     }
 
     // ──────────────────────────────────────────────
@@ -1047,7 +1079,15 @@ public partial class MainWindow : AppWindow
         ClearFinishedTasksMenuItem.IsEnabled = tasks.Any(t => t.IsTerminal);
         if (_fileTaskPresenter == null)
         {
-            _fileTaskPresenter = new FileTaskPanelPresenter(_taskManager, _taskHistory);
+            _fileTaskPresenter = new FileTaskPanelPresenter(_taskManager, _taskHistory, async path =>
+            {
+                if (_vm == null) return;
+                if (TaskOverlayPanel.IsVisible) await SlideTaskPanelAsync(show: false);
+                await _vm.FileList.RevealFileAsync(new FileSystemEntry
+                {
+                    FullPath = path, Name = Path.GetFileName(path), IsDirectory = Directory.Exists(path)
+                });
+            });
             TaskItemsPanel.Children.Clear(); TaskItemsPanel.Children.Add(_fileTaskPresenter.View);
         }
         else _fileTaskPresenter.Refresh();
@@ -1089,6 +1129,7 @@ public partial class MainWindow : AppWindow
             return null;
 
         _tabInteraction.Cancel();
+        _verticalTabInteraction.Cancel();
         var sourcePath = directoryPath ?? _vm.FileList.CurrentPath;
         var navigate = directoryPath != null || (!string.IsNullOrWhiteSpace(sourcePath)
             && Path.IsPathFullyQualified(sourcePath) && await Task.Run(() => Directory.Exists(sourcePath)));
@@ -1167,7 +1208,9 @@ public partial class MainWindow : AppWindow
 
         StopRestoringFolderTab(tab);
         _tabInteraction.Cancel();
-        var header = TabList.ContainerFromItem(tab);
+        _verticalTabInteraction.Cancel();
+        var activeTabList = _isVerticalTabsEnabled ? VerticalTabBarControl.TabList : TabList;
+        var header = activeTabList.ContainerFromItem(tab);
         var releaseHeader = Platforms.MacOS.MacAutomationLifetime.Capture(header, tab);
         var release = DetachWorkspaceAsync(tab, "tab-close");
         if (_vm.RemoveTab(tab) != true)
@@ -1189,11 +1232,20 @@ public partial class MainWindow : AppWindow
 
     private void TogglePaneLayoutPopup(object? sender, RoutedEventArgs e)
     {
+        TogglePaneLayoutPopupForControl(sender as Control ?? PaneLayoutButton);
+        e.Handled = true;
+    }
+
+    private void TogglePaneLayoutPopupForControl(Control target)
+    {
         _tabContextMenu?.Close();
+        PaneLayoutPopup.PlacementTarget = target;
+        PaneLayoutPopup.Placement = ReferenceEquals(target, VerticalTabBarControl.PaneLayoutButton)
+            ? PlacementMode.RightEdgeAlignedBottom
+            : PlacementMode.BottomEdgeAlignedRight;
         PaneLayoutPopup.IsOpen = !PaneLayoutPopup.IsOpen;
         if (PaneLayoutPopup.IsOpen)
             Dispatcher.UIThread.Post(UpdatePaneLayoutPickerSelection);
-        e.Handled = true;
     }
 
     private void UpdatePaneLayoutPickerSelection()

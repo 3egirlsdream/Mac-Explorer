@@ -16,9 +16,11 @@ public static class ArchivePathHelper
         var hashIdx = payload.IndexOf('#');
         if (hashIdx < 0)
             return (payload, "");
-        return (payload[..hashIdx], payload[(hashIdx + 1)..]);
+        var archive = payload[..hashIdx];
+        return (archive.StartsWith("!", StringComparison.Ordinal) ? Uri.UnescapeDataString(archive[1..]) : archive,
+            payload[(hashIdx + 1)..]);
     }
 
     public static string Build(string archivePath, string internalPath) =>
-        $"{Prefix}{archivePath}#{internalPath}";
+        $"{Prefix}{(archivePath.Contains('#') ? "!" + Uri.EscapeDataString(archivePath) : archivePath)}#{internalPath}";
 }

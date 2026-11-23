@@ -15,13 +15,15 @@ internal readonly record struct ResponsiveWorkspaceLayout(
     {
         var compact = forceCompact || workspaceWidth < CompactBreakpoint;
         var maximumSidebarWidth = Math.Max(0, Math.Min(420, Math.Floor(workspaceWidth - 64)));
+        if (forceCompact)
+            maximumSidebarWidth = Math.Min(maximumSidebarWidth, Math.Max(150, Math.Floor(workspaceWidth - 280)));
         var defaultSidebarWidth = compact ? 220 : 240;
         var sidebarWidth = Math.Clamp(preferredSidebarWidth > 0 ? preferredSidebarWidth : defaultSidebarWidth,
             Math.Min(150, maximumSidebarWidth), maximumSidebarWidth);
         return compact
             ? new ResponsiveWorkspaceLayout(
                 true,
-                SplitViewDisplayMode.CompactOverlay,
+                forceCompact ? SplitViewDisplayMode.CompactInline : SplitViewDisplayMode.CompactOverlay,
                 sidebarWidth,
                 48,
                 SplitViewDisplayMode.Overlay)

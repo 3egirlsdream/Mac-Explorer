@@ -12,10 +12,11 @@
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
 
-    <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="settings-title" Margin="16,10,16,6"
-                   Text="{Binding Title, RelativeSource={RelativeSource AncestorType=controls:DialogWindow}}"/>
-    <Grid RowDefinitions="Auto,Auto" RowSpacing="12" Margin="16,6,16,16">
+    <controls:DialogWindow.TitleBarContent>
+        <TextBlock Classes="dialog-window-title centered" Text="{loc:Loc ui.483}"/>
+    </controls:DialogWindow.TitleBarContent>
+
+    <Grid RowDefinitions="Auto,Auto" RowSpacing="12" Margin="16,12,16,16">
         <Border Classes="settings-group">
             <StackPanel>
                 <Border Classes="settings-compact-row settings-divider">
@@ -80,6 +81,8 @@
             </StackPanel>
         </Border>
 
+        <TextBlock Grid.Row="1" x:Name="ArchiveErrorText" IsVisible="False" TextWrapping="Wrap" VerticalAlignment="Center"
+                   Foreground="{DynamicResource DangerBrush}" Margin="0,0,160,0"/>
         <StackPanel Grid.Row="1" Orientation="Horizontal"
                     HorizontalAlignment="Right" Spacing="8">
             <controls:AppButton Content="{loc:Loc ui.094}"
@@ -93,5 +96,4 @@
                     Click="ConfirmClick"/>
         </StackPanel>
     </Grid>
-    </DockPanel>
 </controls:DialogWindow>

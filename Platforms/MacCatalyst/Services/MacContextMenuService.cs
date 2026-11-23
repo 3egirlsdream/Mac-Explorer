@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Text.Json;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -10,18 +9,29 @@ public class MacContextMenuService : IContextMenuService
 {
     private readonly IApplicationLauncherService _launcher;
     private readonly IOpenWithAppService _openWithService;
+    private readonly Func<string, IReadOnlyList<RegisteredApp>> _queryRegisteredApplications;
+    private readonly Func<string, string?> _queryDefaultApplicationPath;
     private readonly ConcurrentDictionary<string, bool> _installedApps = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _installChecks = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, IReadOnlyList<RegisteredApp>> _applicationsByType = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, byte> _applicationLoads = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, Task<string?>> _defaultApplicationIconLoads = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(string Extension, bool IsDirectory), IReadOnlyList<RegisteredApp>> _applicationsByType = new();
 
     public MacContextMenuService(
         IApplicationLauncherService launcher,
         IOpenWithAppService openWithService)
+        : this(launcher, openWithService, QueryLaunchServicesApplications)
+    {
+    }
+
+    internal MacContextMenuService(
+        IApplicationLauncherService launcher,
+        IOpenWithAppService openWithService,
+        Func<string, IReadOnlyList<RegisteredApp>> queryRegisteredApplications,
+        Func<string, string?>? queryDefaultApplicationPath = null)
     {
         _launcher = launcher;
         _openWithService = openWithService;
+        _queryRegisteredApplications = queryRegisteredApplications;
+        _queryDefaultApplicationPath = queryDefaultApplicationPath ?? Platforms.MacOS.MacSandboxNative.DefaultApplication;
 
         foreach (var bundleId in new[]
         {
@@ -57,27 +67,31 @@ public class MacContextMenuService : IContextMenuService
     public Task<IReadOnlyList<ContextMenuAction>> GetTrashBackgroundContextMenuActionsAsync()
         => Task.FromResult<IReadOnlyList<ContextMenuAction>>([]);
 
-    public async Task<IReadOnlyList<ContextMenuAction>> GetOpenWithActionsAsync(string filePath)
+    public Task<IReadOnlyList<ContextMenuAction>> GetOpenWithActionsAsync(string filePath)
+        => GetOpenWithActionsAsync(filePath, null);
+
+    public async Task<IReadOnlyList<ContextMenuAction>> GetOpenWithActionsAsync(string filePath, IReadOnlyList<string>? allPaths)
     {
+        var targetPaths = allPaths is { Count: > 0 } ? allPaths : [filePath];
         var actions = new List<ContextMenuAction>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var topLevelBundleIds = (await _openWithService.GetTopLevelAppsAsync())
             .Select(app => app.BundleId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Launch Services is authoritative. Configured apps only fill gaps.
-        foreach (var app in await GetApplicationsForFileAsync(filePath))
+        var recommendations = await Task.Run(() => GetRecommendedApplications(targetPaths));
+        foreach (var (app, paths) in recommendations.Values)
         {
-            if (topLevelBundleIds.Contains(app.BundleIdentifier) || !seen.Add(app.BundleIdentifier))
+            if (topLevelBundleIds.Contains(app.BundleIdentifier))
                 continue;
 
-            var systemApp = app;
+            seen.Add(app.BundleIdentifier);
             actions.Add(new ContextMenuAction
             {
-                Label = systemApp.Name,
+                Label = app.Name,
                 IconSvg = Icons.Open,
-                LoadIconBase64Async = CreateSystemAppIconLoader(systemApp),
-                Execute = () => _launcher.OpenFileWithAppAsync(filePath, systemApp.BundleIdentifier)
+                LoadIconBase64Async = CreateSystemAppIconLoader(app),
+                Execute = () => _launcher.OpenFilesWithAppAsync(paths, app.BundleIdentifier)
             });
         }
 
@@ -94,11 +108,36 @@ public class MacContextMenuService : IContextMenuService
                 Label = configuredApp.Label,
                 IconSvg = Icons.Open,
                 LoadIconBase64Async = () => _openWithService.GetAppIconBase64Async(configuredApp.BundleId),
-                Execute = () => _launcher.OpenFileWithAppAsync(filePath, configuredApp.BundleId)
+                Execute = () => _launcher.OpenFilesWithAppAsync(targetPaths, configuredApp.BundleId)
             });
         }
 
         return actions;
+    }
+
+    private Dictionary<string, (RegisteredApp App, List<string> Paths)> GetRecommendedApplications(
+        IReadOnlyList<string> targetPaths)
+    {
+        var recommendations = new Dictionary<string, (RegisteredApp App, List<string> Paths)>(
+            StringComparer.OrdinalIgnoreCase);
+        var groups = targetPaths.Distinct(StringComparer.Ordinal).GroupBy(path =>
+        {
+            var type = GetApplicationType(path);
+            return (Type: type, UntypedFile: type is { Extension.Length: 0, IsDirectory: false } ? path : null);
+        });
+        foreach (var group in groups)
+        {
+            foreach (var app in GetApplicationsForFile(group.First(), group.Key.Type))
+            {
+                if (!recommendations.TryGetValue(app.BundleIdentifier, out var match))
+                {
+                    match = (app, []);
+                    recommendations.Add(app.BundleIdentifier, match);
+                }
+                match.Paths.AddRange(group);
+            }
+        }
+        return recommendations;
     }
 
     private Func<Task<string?>> CreateSystemAppIconLoader(RegisteredApp app)
@@ -113,8 +152,12 @@ public class MacContextMenuService : IContextMenuService
         return () => _openWithService.GetAppIconBase64Async(bundleIdentifier);
     }
 
-    public async Task<IReadOnlyList<ContextMenuAction>> GetTopLevelOpenWithActionsAsync(string path)
+    public Task<IReadOnlyList<ContextMenuAction>> GetTopLevelOpenWithActionsAsync(string path)
+        => GetTopLevelOpenWithActionsAsync(path, null);
+
+    public async Task<IReadOnlyList<ContextMenuAction>> GetTopLevelOpenWithActionsAsync(string path, IReadOnlyList<string>? allPaths)
     {
+        var targetPaths = allPaths is { Count: > 0 } ? allPaths : [path];
         var actions = new List<ContextMenuAction>();
         foreach (var app in await _openWithService.GetTopLevelAppsAsync())
         {
@@ -127,67 +170,46 @@ public class MacContextMenuService : IContextMenuService
                 Label = MacExplorer.Services.Impl.LocalizationText.Get("在 {0} 中打开", configuredApp.DisplayLabel),
                 IconSvg = Icons.Open,
                 LoadIconBase64Async = () => _openWithService.GetAppIconBase64Async(configuredApp.BundleId),
-                Execute = () => _launcher.OpenFileWithAppAsync(path, configuredApp.BundleId)
+                Execute = () => _launcher.OpenFilesWithAppAsync(targetPaths, configuredApp.BundleId)
             });
         }
         return actions;
     }
 
     public Task<IReadOnlyList<RegisteredApp>> GetApplicationsForFileAsync(string filePath)
+        => Task.Run(() => GetApplicationsForFile(filePath, GetApplicationType(filePath)));
+
+    private static (string Extension, bool IsDirectory) GetApplicationType(string filePath)
+        => (Path.GetExtension(filePath).ToLowerInvariant(), Directory.Exists(filePath));
+
+    private IReadOnlyList<RegisteredApp> GetApplicationsForFile(string filePath, (string Extension, bool IsDirectory) type)
     {
-        var cacheKey = Path.GetExtension(filePath).ToLowerInvariant();
-        if (_applicationsByType.TryGetValue(cacheKey, out var cachedApps))
-            return Task.FromResult(cachedApps);
+        var cacheable = type.Extension.Length > 0 || type.IsDirectory;
+        if (cacheable && _applicationsByType.TryGetValue(type, out var cachedApps))
+            return cachedApps;
 
-        StartApplicationsLoad(cacheKey, filePath);
+        var apps = _queryRegisteredApplications(filePath);
+        if (apps.Count > 0)
+            return cacheable ? _applicationsByType.GetOrAdd(type, apps) : apps;
 
-        IReadOnlyList<RegisteredApp> apps = GetKnownAppsForExtension(cacheKey)
+        return type.IsDirectory ? [] : GetKnownAppsForExtension(type.Extension)
             .Where(app => IsAppInstalledForMenu(app.BundleIdentifier))
             .ToList();
-        return Task.FromResult(apps);
     }
 
-    public async Task<string?> GetDefaultApplicationIconBase64Async(string filePath)
+    public async Task<ContextMenuIconGroup> GetDefaultApplicationIconsAsync(IReadOnlyList<string> filePaths)
     {
-        var loadTask = _defaultApplicationIconLoads.GetOrAdd(
-            filePath,
-            LoadDefaultApplicationIconBase64Async);
-        var icon = await loadTask.ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(icon))
-            _defaultApplicationIconLoads.TryRemove(filePath, out _);
-        return icon;
-    }
-
-    private async Task<string?> LoadDefaultApplicationIconBase64Async(string filePath)
-    {
-        var appPath = await Task.Run(() => QueryDefaultApplicationPath(filePath)).ConfigureAwait(false);
-        return string.IsNullOrWhiteSpace(appPath)
-            ? null
-            : await _openWithService.GetAppIconBase64ByPathAsync(appPath).ConfigureAwait(false);
-    }
-
-    private static string? QueryDefaultApplicationPath(string filePath)
-    {
-        return Platforms.MacOS.MacSandboxNative.DefaultApplication(filePath);
-    }
-
-    private void StartApplicationsLoad(string cacheKey, string filePath)
-    {
-        if (!_applicationLoads.TryAdd(cacheKey, 0)) return;
-
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                var apps = QueryLaunchServicesApplications(filePath);
-                if (apps.Count > 0)
-                    _applicationsByType[cacheKey] = apps;
-            }
-            finally
-            {
-                _applicationLoads.TryRemove(cacheKey, out _);
-            }
-        });
+        const int iconLimit = 3;
+        var appPaths = await Task.Run(() => filePaths.Select(_queryDefaultApplicationPath)
+            .OfType<string>()
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.Ordinal)
+            .Take(iconLimit + 1)
+            .ToArray()).ConfigureAwait(false);
+        var icons = await Task.WhenAll(appPaths.Take(iconLimit).Select(_openWithService.GetAppIconBase64ByPathAsync))
+            .ConfigureAwait(false);
+        return new ContextMenuIconGroup(icons.OfType<string>().Where(icon => icon.Length > 0).ToArray(),
+            appPaths.Length > iconLimit);
     }
 
     private static IReadOnlyList<RegisteredApp> QueryLaunchServicesApplications(string filePath)

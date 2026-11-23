@@ -1,12 +1,9 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using MacExplorer.Models;
 using MacExplorer.Services;
-using MacExplorer.Views.Dialogs;
-using SharpCompress.Common;
-using CryptographicException = SharpCompress.Common.CryptographicException;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.ViewModels;
 
@@ -14,8 +11,6 @@ public partial class ArchiveViewModel : ObservableObject
 {
     private readonly IArchiveService? _archiveService;
     private readonly IBackgroundTaskManager? _taskManager;
-    private readonly IApplicationLauncherService? _launcherService;
-    private readonly IFileService? _fileService;
 
     [ObservableProperty]
     private bool _isCompressDialogVisible;
@@ -31,8 +26,6 @@ public partial class ArchiveViewModel : ObservableObject
     {
         _archiveService = archiveService;
         _taskManager = taskManager;
-        _launcherService = launcherService;
-        _fileService = fileService;
     }
 
     public async Task<bool> NavigateToArchiveAsync(
@@ -51,257 +44,91 @@ public partial class ArchiveViewModel : ObservableObject
 
         try
         {
-            var entries = await Task.Run(() => _archiveService.IsEncrypted(archivePath))
-                ? await TryNavigateWithPasswordAsync(archivePath, internalPath, setStatus, promptPassword)
-                : await TryNavigateToArchiveAsync(archivePath, internalPath);
-            if (entries == null) return false;
+            var entries = await ArchivePasswordAccess.ReadAsync(_archiveService, archivePath,
+                password => _archiveService.GetArchiveContentsAsync(archivePath, internalPath, password),
+                promptPassword, browse: true, checkEncryption: true);
 
             setCurrentPath(ArchivePathHelper.Build(archivePath, internalPath));
             updateBreadcrumbs();
-            applyEntries(entries);
+            applyEntries(new ObservableCollection<FileSystemEntry>(entries));
             return true;
         }
-        catch (CryptographicException)
+        catch (OperationCanceledException)
         {
-            var entries = await TryNavigateWithPasswordAsync(archivePath, internalPath, setStatus, promptPassword);
-            if (entries == null) return false;
-
-            setCurrentPath(ArchivePathHelper.Build(archivePath, internalPath));
-            updateBreadcrumbs();
-            applyEntries(entries);
-            return true;
+            setStatus(LocalizationText.Get("archive.password_cancelled"));
+            return false;
         }
-        catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
+        catch (Exception ex) when (ArchivePasswordAccess.IsPasswordError(ex))
         {
-            var entries = await TryNavigateWithPasswordAsync(archivePath, internalPath, setStatus, promptPassword);
-            if (entries == null) return false;
-
-            setCurrentPath(ArchivePathHelper.Build(archivePath, internalPath));
-            updateBreadcrumbs();
-            applyEntries(entries);
-            return true;
+            setStatus(LocalizationText.Get("archive.wrong_password"));
+            return false;
         }
         catch (Exception ex)
         {
-            setStatus($"无法打开归档: {ex.Message}");
+            setStatus(LocalizationText.Get("archive.open_failed", ex.Message));
             return false;
         }
-        finally
-        {
-            setLoading(false);
-        }
+        finally { setLoading(false); }
     }
 
-    private async Task<ObservableCollection<FileSystemEntry>> TryNavigateToArchiveAsync(
-        string archivePath,
-        string internalPath)
-    {
-        var entries = await _archiveService!.GetArchiveContentsAsync(archivePath, internalPath);
-        return new ObservableCollection<FileSystemEntry>(entries);
-    }
+    public Task ExtractHereAsync(FileSystemEntry entry, string currentPath, Action<string> setStatus,
+        Func<Task> refreshCallback, Func<Task<string?>> promptPassword)
+        => QueueExtraction(entry.FullPath, new(Path.GetDirectoryName(entry.FullPath) ?? currentPath,
+            ArchiveExtractionMode.CurrentFolder), refreshCallback, promptPassword);
 
-    private async Task<ObservableCollection<FileSystemEntry>?> TryNavigateWithPasswordAsync(
-        string archivePath,
-        string internalPath,
-        Action<string> setStatus,
-        Func<Task<string?>> promptPassword)
-    {
-        var password = await promptPassword();
-        if (string.IsNullOrEmpty(password))
-        {
-            setStatus("需要密码才能打开此归档文件");
-            return null;
-        }
+    public Task ExtractToNamedFolderAsync(FileSystemEntry entry, string currentPath, Action<string> setStatus,
+        Func<Task> refreshCallback, Func<Task<string?>> promptPassword)
+        => QueueExtraction(entry.FullPath, new(Path.GetDirectoryName(entry.FullPath) ?? currentPath,
+            ArchiveExtractionMode.NamedFolder), refreshCallback, promptPassword);
 
-        try
-        {
-            var entries = await _archiveService!.GetArchiveContentsAsync(archivePath, internalPath, password);
-            return new ObservableCollection<FileSystemEntry>(entries);
-        }
-        catch (CryptographicException)
-        {
-            setStatus("密码错误，无法打开归档文件");
-            return null;
-        }
-        catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
-        {
-            setStatus("密码错误，无法打开归档文件");
-            return null;
-        }
-    }
-
-    public async Task ExtractHereAsync(
-        FileSystemEntry entry,
-        string currentPath,
-        Action<string> setStatus,
-        Func<Task> refreshCallback,
-        Func<Task<string?>> promptPassword)
-    {
-        await ExtractAsync(
-            entry,
-            currentPath,
-            createNamedFolder: false,
-            setStatus,
-            refreshCallback,
-            promptPassword);
-    }
-
-    public async Task ExtractToNamedFolderAsync(
-        FileSystemEntry entry,
-        string currentPath,
-        Action<string> setStatus,
-        Func<Task> refreshCallback,
-        Func<Task<string?>> promptPassword)
-    {
-        await ExtractAsync(
-            entry,
-            currentPath,
-            createNamedFolder: true,
-            setStatus,
-            refreshCallback,
-            promptPassword);
-    }
-
-    private Task ExtractAsync(
-        FileSystemEntry entry,
-        string currentPath,
-        bool createNamedFolder,
-        Action<string> setStatus,
-        Func<Task> refreshCallback,
-        Func<Task<string?>> promptPassword)
+    internal Task QueueExtraction(string path, ArchiveExtractionOptions options, Func<Task> refreshCallback,
+        Func<Task<string?>> promptPassword, string? displayName = null)
     {
         if (_archiveService == null || _taskManager == null) return Task.CompletedTask;
-        var archPath = ArchivePathHelper.IsArchivePath(entry.FullPath)
-            ? ArchivePathHelper.Parse(entry.FullPath).archivePath
-            : entry.FullPath;
-        var parentDir = Path.GetDirectoryName(archPath) ?? currentPath;
-
         _ = ObserveArchiveTaskAsync(FileTaskContext.RunAsync(_taskManager,
-            new(BackgroundTaskKind.Extract, Services.Impl.LocalizationText.Get("正在解压..."), [archPath], parentDir), async context =>
+            new(BackgroundTaskKind.Extract, LocalizationText.Get("正在解压..."), [path], options.Directory, displayName), async context =>
             {
-                var destDir = context.Remember("extract-destination", () => createNamedFolder
-                    ? ArchiveExtractionPathHelper.CreateUniqueExtractionDirectory(parentDir, archPath) : parentDir);
                 var progress = new Progress<ArchiveProgress>(p =>
                     _taskManager.UpdateProgress(context.Task.Id, p.Percentage, p.CurrentFile));
                 try
                 {
-                    try { await _archiveService.ExtractAsync(archPath, destDir, progress, context.CancellationToken); }
-                    catch (CryptographicException)
-                    { await HandleExtractPasswordAsync(archPath, destDir, progress, context.Task, promptPassword); }
-                    catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
-                    { await HandleExtractPasswordAsync(archPath, destDir, progress, context.Task, promptPassword); }
-                    return true;
+                    return await ArchivePasswordAccess.ReadAsync(_archiveService, path, async password =>
+                    {
+                        await _archiveService.ExtractAsync(path, options, progress, context.CancellationToken, password);
+                        return true;
+                    }, async () =>
+                    {
+                        _taskManager.UpdateProgress(context.Task.Id, context.Task.Progress, LocalizationText.Get("archive.wait_password"));
+                        return await promptPassword();
+                    }, context.CancellationToken);
                 }
                 finally { await RunOnUiThreadAsync(refreshCallback); }
             }));
         return Task.CompletedTask;
     }
 
-    private async Task HandleExtractPasswordAsync(
-        string archivePath,
-        string destDir,
-        IProgress<ArchiveProgress> progress,
-        BackgroundTaskInfo taskInfo,
+    public async Task<string?> ExtractEntryToTempWithPasswordAsync(string archivePath, string entryKey,
         Func<Task<string?>> promptPassword)
-    {
-        _taskManager?.UpdateProgress(taskInfo.Id, taskInfo.Progress, "等待输入密码", "需要密码才能解压...");
-        var password = await promptPassword();
-        if (string.IsNullOrEmpty(password))
-            throw new OperationCanceledException("用户取消密码输入");
-
-        await _archiveService!.ExtractAsync(archivePath, destDir, progress, taskInfo.Cts.Token, password);
-    }
-
-    public async Task OpenArchiveEntryAsync(
-        FileSystemEntry entry,
-        IArchiveService archiveService,
-        IApplicationLauncherService launcherService,
-        Action<string> setStatus,
-        Func<Task<string?>> promptPassword)
-    {
-        if (archiveService == null || launcherService == null) return;
-        try
-        {
-            var (archPath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
-
-            try
-            {
-                var tempFile = await archiveService.ExtractEntryToTempAsync(archPath, entryKey);
-                await launcherService.OpenFileAsync(tempFile);
-            }
-            catch (CryptographicException)
-            {
-                await OpenEntryWithPasswordAsync(archPath, entryKey, archiveService, launcherService, promptPassword);
-            }
-            catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
-            {
-                await OpenEntryWithPasswordAsync(archPath, entryKey, archiveService, launcherService, promptPassword);
-            }
-        }
-        catch (Exception ex)
-        {
-            setStatus($"打开文件失败: {ex.Message}");
-        }
-    }
-
-    private async Task OpenEntryWithPasswordAsync(
-        string archPath,
-        string entryKey,
-        IArchiveService archiveService,
-        IApplicationLauncherService launcherService,
-        Func<Task<string?>> promptPassword)
-    {
-        var password = await promptPassword();
-        if (string.IsNullOrEmpty(password)) return;
-
-        var tempFile = await archiveService.ExtractEntryToTempAsync(archPath, entryKey, password);
-        await launcherService.OpenFileAsync(tempFile);
-    }
-
-    public async Task<string?> ExtractEntryToTempAsync(string archivePath, string entryKey)
-    {
-        if (_archiveService == null) return null;
-        return await _archiveService.ExtractEntryToTempAsync(archivePath, entryKey);
-    }
-
-    public async Task<string?> ExtractEntryToTempWithPasswordAsync(
-        string archivePath, string entryKey, Func<Task<string?>> promptPassword)
     {
         if (_archiveService == null) return null;
         try
         {
-            return await _archiveService.ExtractEntryToTempAsync(archivePath, entryKey);
+            return await ArchivePasswordAccess.ReadAsync(_archiveService, archivePath,
+                password => _archiveService.ExtractEntryToTempAsync(archivePath, entryKey, password), promptPassword);
         }
-        catch (CryptographicException)
-        {
-            var password = await promptPassword();
-            if (string.IsNullOrEmpty(password)) return null;
-            return await _archiveService.ExtractEntryToTempAsync(archivePath, entryKey, password);
-        }
-        catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
-        {
-            var password = await promptPassword();
-            if (string.IsNullOrEmpty(password)) return null;
-            return await _archiveService.ExtractEntryToTempAsync(archivePath, entryKey, password);
-        }
+        catch (OperationCanceledException) { return null; }
     }
 
     public void ShowCompressDialog(
         IReadOnlyList<FileSystemEntry> selectedEntries,
         FileSystemEntry? contextMenuEntry,
-        string currentPath,
-        bool isArchiveView,
-        FileTag? currentTag)
+        FileTag? currentTag, ArchiveFormat defaultFormat = ArchiveFormat.Zip)
     {
         var sources = selectedEntries.Count > 0
             ? selectedEntries.Select(e => e.FullPath).ToList()
             : contextMenuEntry != null ? new List<string> { contextMenuEntry.FullPath } : new List<string>();
-        if (sources.Count == 0) return;
-
-        // Sentinel paths (tag/archive) are not real dirs — use first file's parent
-        var outputDir = (currentTag != null || isArchiveView)
-            ? Path.GetDirectoryName(sources[0]) ?? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-            : currentPath;
+        if (sources.Count == 0 || sources.Any(path => !Path.IsPathFullyQualified(path))
+            || Path.GetDirectoryName(sources[0]) is not { } outputDir) return;
 
         var defaultName = sources.Count == 1
             ? Path.GetFileNameWithoutExtension(sources[0])
@@ -309,6 +136,7 @@ public partial class ArchiveViewModel : ObservableObject
 
         PendingCompressOptions = new CompressOptions
         {
+            Format = defaultFormat,
             ArchiveName = defaultName,
             OutputDirectory = outputDir,
             SourcePaths = sources,

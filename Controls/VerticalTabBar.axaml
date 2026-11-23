@@ -1,0 +1,257 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MacExplorer.ViewModels"
+             xmlns:icons="using:MacExplorer.Assets"
+             xmlns:controls="using:MacExplorer.Controls"
+             xmlns:loc="using:MacExplorer.Controls"
+             xmlns:chrome="using:Avalonia.Controls.Chrome"
+             x:Class="MacExplorer.Controls.VerticalTabBar"
+             x:Name="VerticalTabBarRoot"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="False"
+             ClipToBounds="False"
+             chrome:WindowDecorationProperties.ElementRole="User">
+    <Grid ClipToBounds="False">
+        <Border x:Name="SurfaceBorder" Classes="vertical-tab-surface" ClipToBounds="False">
+            <Grid RowDefinitions="40,*,Auto" ClipToBounds="True">
+                <!-- Row 0: macOS traffic lights + draggable header + Pin/Collapse button -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+                    <Border x:Name="HeaderDragArea" Grid.ColumnSpan="3" Background="Transparent"
+                            PointerPressed="OnBlankAreaPointerPressed"/>
+                    <StackPanel Grid.Column="0" Classes="vertical-window-controls"
+                                Orientation="Horizontal" Spacing="0"
+                                Margin="3,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                chrome:WindowDecorationProperties.ElementRole="User">
+                        <controls:AppButton x:Name="CloseButton" Classes="vertical-window-control"
+                                            ToolTip.Tip="关闭" AutomationProperties.Name="关闭窗口">
+                            <Viewbox Width="14" Height="14" IsHitTestVisible="False">
+                                <Grid Width="12" Height="12">
+                                    <Ellipse Classes="traffic-light traffic-close"/>
+                                    <Path Classes="window-control-symbol"
+                                          Data="M3.75,3.75 L8.25,8.25 M8.25,3.75 L3.75,8.25"
+                                          Stroke="{DynamicResource VerticalTabCloseSymbolBrush}"
+                                          StrokeThickness="1.25" StrokeLineCap="Round"/>
+                                </Grid>
+                            </Viewbox>
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="MinimizeButton" Classes="vertical-window-control"
+                                            ToolTip.Tip="最小化" AutomationProperties.Name="最小化窗口">
+                            <Viewbox Width="14" Height="14" IsHitTestVisible="False">
+                                <Grid Width="12" Height="12">
+                                    <Ellipse Classes="traffic-light traffic-minimize"/>
+                                    <Path Classes="window-control-symbol"
+                                          Data="M3,6 H9"
+                                          Stroke="{DynamicResource VerticalTabMinimizeSymbolBrush}"
+                                          StrokeThickness="1.25" StrokeLineCap="Round"/>
+                                </Grid>
+                            </Viewbox>
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="FullScreenButton" Classes="vertical-window-control"
+                                            ToolTip.Tip="进入全屏" AutomationProperties.Name="进入全屏">
+                            <Viewbox Width="14" Height="14" IsHitTestVisible="False">
+                                <Grid Width="12" Height="12">
+                                    <Ellipse Classes="traffic-light traffic-fullscreen"/>
+                                    <Path Classes="window-control-symbol vertical-fullscreen-symbol"
+                                          Fill="{DynamicResource VerticalTabFullScreenSymbolBrush}"/>
+                                </Grid>
+                            </Viewbox>
+                        </controls:AppButton>
+                    </StackPanel>
+
+                    <controls:AppButton Grid.Column="2" x:Name="PinToggleButton"
+                                        Classes="vertical-tab-utility vertical-pin-toggle"
+                                        Margin="0,0,6,0"
+                                        VerticalAlignment="Center"
+                                        Opacity="{Binding #VerticalTabBarRoot.RevealOpacity}"
+                                        Click="OnPinToggleClick">
+                        <PathIcon x:Name="PinToggleIcon" Width="15" Height="15"/>
+                    </controls:AppButton>
+                </Grid>
+
+                <!-- Row 1: Scrollable vertical tab list + immediate New Tab row + blank drag fill -->
+                <controls:VerticalTabsLayoutPanel Grid.Row="1">
+                    <Grid>
+                        <ScrollViewer x:Name="TabScrollViewer"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ListBox x:Name="VerticalTabList"
+                                     Classes="vertical-tab-strip"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                     DragDrop.AllowDrop="True"
+                                     DragDrop.DragOver="OnTabFileDragOver"
+                                     DragDrop.Drop="OnTabFileDrop"
+                                     ItemsSource="{Binding TabStripItems}"
+                                     SelectedItem="{Binding SelectedStripItem, Mode=TwoWay}"
+                                     SelectionMode="Single">
+                                <ListBox.DataTemplates>
+                                    <DataTemplate DataType="{x:Type vm:TabGroupViewModel}" x:DataType="vm:TabGroupViewModel">
+                                        <Grid Classes="vertical-tab-group-row" ColumnDefinitions="*,Auto" Background="Transparent">
+                                            <Border Grid.Column="0" Classes="vertical-tab-group-pill"
+                                                    Background="{Binding ColorBrush}"
+                                                    ToolTip.Tip="{Binding Name}"
+                                                    AutomationProperties.Name="{Binding Name}"
+                                                    AutomationProperties.HelpText="{loc:Loc tabs.group.toggle}">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                    <PathIcon Classes="vertical-group-caret" Classes.collapsed="{Binding IsCollapsed}"/>
+                                                    <TextBlock Classes="vertical-group-name"
+                                                               Margin="6,0,0,0"
+                                                               Opacity="{Binding #VerticalTabBarRoot.RevealOpacity}"
+                                                               Text="{Binding Name}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               FontSize="{DynamicResource FontSizeBody}"
+                                                               FontWeight="{DynamicResource FontWeightMedium}"
+                                                               Foreground="White"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Classes="vertical-group-actions"
+                                                        Orientation="Horizontal" Spacing="1"
+                                                        Margin="4,0,0,0"
+                                                        Opacity="{Binding #VerticalTabBarRoot.RevealOpacity}"
+                                                        VerticalAlignment="Center">
+                                                <controls:AppButton Classes="vertical-group-action"
+                                                                    Click="OnGroupNewTabClick"
+                                                                    ToolTip.Tip="{loc:Loc tabs.group.new_tab}"
+                                                                    AutomationProperties.Name="{loc:Loc tabs.group.new_tab}">
+                                                    <PathIcon Data="{x:Static icons:Icons.Plus}" Width="12" Height="12"/>
+                                                </controls:AppButton>
+                                                <controls:AppButton Classes="vertical-group-action"
+                                                                    Click="OnGroupRenameClick"
+                                                                    ToolTip.Tip="{loc:Loc tabs.group.rename}"
+                                                                    AutomationProperties.Name="{loc:Loc tabs.group.rename}">
+                                                    <PathIcon Data="{x:Static icons:Icons.Edit}" Width="12" Height="12"/>
+                                                </controls:AppButton>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ExplorerTabViewModel}" x:DataType="vm:ExplorerTabViewModel">
+                                        <Grid Background="Transparent" ClipToBounds="False">
+                                            <Border Classes="vertical-tab-group-line"
+                                                    IsVisible="{Binding Group, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                    Background="{Binding Group.ColorBrush}"/>
+                                            <Border Classes="vertical-tab-card" ToolTip.Tip="{Binding Title}">
+                                                <Grid Classes="vertical-tab-content" ColumnDefinitions="Auto,*,Auto">
+                                                    <PathIcon Grid.Column="0" Classes="vertical-tab-icon"
+                                                              Data="{Binding FileList.CurrentLocationIcon}"
+                                                              Width="16" Height="16"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                              Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <TextBlock Grid.Column="1" Classes="vertical-tab-title"
+                                                               Margin="9,0,4,0"
+                                                               Opacity="{Binding #VerticalTabBarRoot.RevealOpacity}"
+                                                               Text="{Binding Title}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               TextWrapping="NoWrap"
+                                                               FontSize="{DynamicResource FontSizeBody}"
+                                                               VerticalAlignment="Center"/>
+                                                    <Border Grid.Column="2" Classes="vertical-tab-close-host"
+                                                            Opacity="{Binding #VerticalTabBarRoot.RevealOpacity}"
+                                                            VerticalAlignment="Center">
+                                                        <controls:AppButton Classes="vertical-tab-close"
+                                                                            IsVisible="{Binding CanClose}"
+                                                                            Click="OnCloseTabClick"
+                                                                            controls:ShortcutTip.Command="tab.close"
+                                                                            AutomationProperties.Name="{loc:Loc ui.043}">
+                                                            <PathIcon Data="{x:Static icons:Icons.Close}" Width="9" Height="9"/>
+                                                        </controls:AppButton>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.DataTemplates>
+                            </ListBox>
+                        </ScrollViewer>
+                        <Canvas IsHitTestVisible="False">
+                            <Border x:Name="DropIndicator" Classes="vertical-tab-drop-indicator" IsVisible="False"/>
+                        </Canvas>
+                    </Grid>
+
+                    <StackPanel x:Name="NewTabFooter">
+                        <Border Classes="vertical-tab-divider"/>
+                        <controls:AppButton x:Name="VerticalNewTabButton"
+                                            Classes="vertical-new-tab"
+                                            Click="OnAddTabClick"
+                                            controls:ShortcutTip.Command="tab.new"
+                                            AutomationProperties.Name="{loc:Loc ui.066}">
+                            <Grid Classes="vertical-new-tab-content" ColumnDefinitions="Auto,*,Auto">
+                                <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Plus}"
+                                          Width="14" Height="14"
+                                          Foreground="{DynamicResource TextSecondaryBrush}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Classes="vertical-new-tab-label"
+                                           Margin="10,0,4,0"
+                                           Opacity="{Binding #VerticalTabBarRoot.RevealOpacity}"
+                                           Text="{loc:Loc ui.066}"
+                                           FontSize="{DynamicResource FontSizeBody}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+                                <Border Grid.Column="2" Classes="vertical-new-tab-shortcut-host"
+                                        Opacity="{Binding #VerticalTabBarRoot.RevealOpacity}"
+                                        VerticalAlignment="Center">
+                                    <controls:ShortcutText x:Name="NewTabShortcutText"
+                                                           FontSize="{DynamicResource FontSizeCaption}"
+                                                           Foreground="{DynamicResource TextMutedBrush}"
+                                                           VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                        </controls:AppButton>
+                    </StackPanel>
+
+                    <Border x:Name="BlankDragArea" Background="Transparent"
+                            PointerPressed="OnBlankAreaPointerPressed"/>
+                </controls:VerticalTabsLayoutPanel>
+
+                <!-- Row 2: Utility buttons (Group Presets, Pane Layout, Task Progress, Copilot) -->
+                <StackPanel Grid.Row="2">
+                    <Border Classes="vertical-tab-divider" Margin="11,0,11,0"/>
+                    <StackPanel x:Name="UtilityBar" Classes="vertical-utility-bar">
+                        <controls:AppButton x:Name="VerticalGroupPresetsButton"
+                                            Classes="vertical-tab-utility"
+                                            Click="OnGroupPresetsClick"
+                                            ToolTip.Tip="{loc:Loc tabs.preset.title}"
+                                            AutomationProperties.Name="{loc:Loc tabs.preset.title}">
+                            <PathIcon Data="{x:Static icons:Icons.SquareMultiple}"/>
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="VerticalPaneLayoutButton"
+                                            Classes="vertical-tab-utility"
+                                            Click="OnPaneLayoutClick"
+                                            ToolTip.Tip="{loc:Loc ui.071}"
+                                            AutomationProperties.Name="{loc:Loc ui.071}">
+                            <PathIcon Data="{x:Static icons:Icons.SplitVertical}"/>
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="VerticalTaskButton"
+                                            Classes="vertical-tab-utility"
+                                            IsVisible="False"
+                                            Click="OnTaskPanelClick">
+                            <controls:AnimatedProgressRing x:Name="VerticalTaskProgressRing"/>
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="VerticalCopilotStatusButton"
+                                            Classes="vertical-tab-utility"
+                                            IsVisible="False"
+                                            Click="OnCopilotClick"
+                                            ToolTip.Tip="Copilot"
+                                            AutomationProperties.Name="{loc:Loc ui.060}">
+                            <PathIcon Data="{x:Static icons:Icons.Copilot}"/>
+                        </controls:AppButton>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Right-edge drag resize handle when expanded -->
+        <Border x:Name="ResizeHandle"
+                Width="6"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Stretch"
+                Background="Transparent"
+                Cursor="SizeWestEast"
+                PointerPressed="OnResizePointerPressed"
+                PointerMoved="OnResizePointerMoved"
+                PointerReleased="OnResizePointerReleased"
+                PointerCaptureLost="OnResizeCaptureLost"/>
+    </Grid>
+</UserControl>

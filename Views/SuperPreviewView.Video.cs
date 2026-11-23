@@ -32,7 +32,7 @@ public partial class SuperPreviewView
                 _videoReady = true;
                 PreviewPlaceholder.IsVisible = false;
                 UpdateVideoVisibility();
-            }) { IsVisible = false };
+            }, squareCorners: true) { IsVisible = false };
         try
         {
             _videoPreview = host;
@@ -65,7 +65,7 @@ public partial class SuperPreviewView
     private void OnVideoOverlayChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property == AppWindow.IsModalInteractionBlockedProperty || e.Property == AppWindow.IsUpgradeOpenProperty
-            || e.Property == IsVisibleProperty) UpdateVideoVisibility();
+            || e.Property == IsVisibleProperty || e.Property == Window.WindowStateProperty) UpdateVideoVisibility();
     }
 
     private void UpdateVideoVisibility()
@@ -78,6 +78,7 @@ public partial class SuperPreviewView
         if (_videoPreview != null)
             _videoPreview.IsVisible = _videoReady && _videoWindow?.IsModalInteractionBlocked != true
                 && _videoWindow?.IsUpgradeOpen != true && _videoDialog?.IsVisible != true;
+        UpdatePreviewToolbarPlacement();
     }
 
     private void ClearVideoPreview()

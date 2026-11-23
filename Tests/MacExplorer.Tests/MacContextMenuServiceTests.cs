@@ -10,7 +10,7 @@ namespace MacExplorer.Tests;
 public sealed class MacContextMenuServiceTests
 {
     [Fact]
-    public async Task GetDefaultApplicationIconBase64Async_LoadsIconFromDefaultApplication()
+    public async Task GetDefaultApplicationIconsAsync_LoadsIconFromDefaultApplication()
     {
         var root = Path.Combine(Path.GetTempPath(), $"fkfinder-default-app-{Guid.NewGuid():N}");
         var filePath = Path.Combine(root, "document.txt");
@@ -22,12 +22,13 @@ public sealed class MacContextMenuServiceTests
             var openWithService = new RecordingOpenWithAppService();
             var service = new MacContextMenuService(new LauncherStub(), openWithService);
 
-            var icon = await service.GetDefaultApplicationIconBase64Async(filePath);
+            var group = await service.GetDefaultApplicationIconsAsync([filePath]);
 
-            Assert.Equal(RecordingOpenWithAppService.IconResult, icon);
-            Assert.NotNull(openWithService.RequestedAppPath);
-            Assert.EndsWith(".app", openWithService.RequestedAppPath, StringComparison.OrdinalIgnoreCase);
-            Assert.True(Directory.Exists(openWithService.RequestedAppPath));
+            var appPath = Assert.Single(openWithService.RequestedAppPaths);
+            Assert.Equal(appPath, Assert.Single(group.Icons));
+            Assert.False(group.HasMore);
+            Assert.EndsWith(".app", appPath, StringComparison.OrdinalIgnoreCase);
+            Assert.True(Directory.Exists(appPath));
         }
         finally
         {
@@ -35,11 +36,26 @@ public sealed class MacContextMenuServiceTests
         }
     }
 
+    [Theory]
+    [InlineData(3, false)]
+    [InlineData(4, true)]
+    public async Task GetDefaultApplicationIconsAsync_LimitsDistinctAppsInSelectionOrder(int appCount, bool hasMore)
+    {
+        string?[] apps = [null, "/Preview.app", "/Preview.app", "/Pages.app", "/Safari.app", "/TextEdit.app"];
+        var openWithService = new RecordingOpenWithAppService();
+        var service = new MacContextMenuService(new LauncherStub(), openWithService, _ => [], path => apps[int.Parse(path)]);
+        var files = Enumerable.Range(0, appCount + 2).Select(index => index.ToString()).ToArray();
+
+        var group = await service.GetDefaultApplicationIconsAsync(files);
+
+        Assert.Equal(["/Preview.app", "/Pages.app", "/Safari.app"], group.Icons);
+        Assert.Equal(group.Icons, openWithService.RequestedAppPaths);
+        Assert.Equal(hasMore, group.HasMore);
+    }
+
     private sealed class RecordingOpenWithAppService : IOpenWithAppService
     {
-        internal const string IconResult = "default-app-icon";
-
-        public string? RequestedAppPath { get; private set; }
+        public List<string> RequestedAppPaths { get; } = [];
 
         public Task<List<OpenWithApp>> GetAllAsync() => Task.FromResult<List<OpenWithApp>>([]);
         public Task<List<OpenWithApp>> GetTopLevelAppsAsync() => Task.FromResult<List<OpenWithApp>>([]);
@@ -48,8 +64,8 @@ public sealed class MacContextMenuServiceTests
 
         public Task<string?> GetAppIconBase64ByPathAsync(string appPath)
         {
-            RequestedAppPath = appPath;
-            return Task.FromResult<string?>(IconResult);
+            RequestedAppPaths.Add(appPath);
+            return Task.FromResult<string?>(appPath);
         }
 
         public Task AddAsync(string bundleId, string label, bool isTopLevel, string? iconBase64 = null) => Task.CompletedTask;

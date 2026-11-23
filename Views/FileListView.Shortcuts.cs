@@ -42,7 +42,8 @@ public partial class FileListView
             ShortcutIds.Copy or ShortcutIds.Cut or ShortcutIds.Trash => !vm.IsArchiveView && vm.SelectedEntries.Count > 0,
             ShortcutIds.Paste => !vm.IsArchiveView && vm.HasPasteableContent,
             ShortcutIds.NewFile or ShortcutIds.NewFolder => !vm.IsArchiveView,
-            ShortcutIds.Open or ShortcutIds.Info => vm.SelectedEntries.Count == 1,
+            ShortcutIds.Open => vm.SelectedEntries.Count >= 1,
+            ShortcutIds.Info => vm.SelectedEntries.Count == 1,
             ShortcutIds.BatchRename => vm.CanBatchRename,
             ShortcutIds.Back => vm.CanGoBack,
             ShortcutIds.Forward => vm.CanGoForward,
@@ -68,7 +69,7 @@ public partial class FileListView
             case ShortcutIds.Cut: ViewModel.CutSelected(); break;
             case ShortcutIds.Paste: _ = ViewModel.PasteAsync(); break;
             case ShortcutIds.SelectAll: ViewModel.SelectAll(); break;
-            case ShortcutIds.Open: _ = ViewModel.OpenEntryAsync(ViewModel.SelectedEntries[0]); break;
+            case ShortcutIds.Open: _ = ViewModel.OpenEntriesAsync(ViewModel.SelectedEntries.ToList()); break;
             case ShortcutIds.Refresh: _ = ViewModel.RefreshAsync(); break;
             case ShortcutIds.Info: _ = ViewModel.ShowMetadataAsync(ViewModel.SelectedEntries[0]); break;
             case ShortcutIds.NewFile: _ = ViewModel.CreateNewFileAsync(".txt"); break;

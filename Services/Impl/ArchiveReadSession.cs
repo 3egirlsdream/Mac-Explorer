@@ -7,11 +7,14 @@ using SharpCompress.Providers;
 using SharpCompress.Readers;
 using SharpCompress.Readers.Rar;
 using SharpCompress.Readers.Tar;
+using ZipFile = ICSharpCode.SharpZipLib.Zip.ZipFile;
+using ZipException = ICSharpCode.SharpZipLib.Zip.ZipException;
+using ZipStringCodec = ICSharpCode.SharpZipLib.Zip.StringCodec;
 
 namespace MacExplorer.Services.Impl;
 
 internal sealed record ArchiveReadEntry(string Key, bool IsDirectory, long? Size,
-    DateTime? LastModifiedTime, bool IsEncrypted, string? LinkTarget);
+    DateTime? LastModifiedTime, bool IsEncrypted, string? LinkTarget, long Crc = 0, bool OptionalCrc = false);
 
 /// <summary>A forward cursor: entry streams must be consumed before advancing.</summary>
 internal abstract class ArchiveReadSession : IDisposable
@@ -19,6 +22,8 @@ internal abstract class ArchiveReadSession : IDisposable
     internal abstract ArchiveReadEntry Entry { get; }
     internal abstract bool MoveNext();
     internal abstract Stream OpenEntryStream();
+    internal virtual bool AuthenticatesEntry => false;
+    internal virtual bool SupportsAutomaticThumbnails => false;
     internal virtual void StopReading() { }
     public abstract void Dispose();
 
@@ -61,14 +66,19 @@ internal abstract class ArchiveReadSession : IDisposable
                     ArchiveFormats.SingleFileName(path, embeddedName), File.GetLastWriteTime(path));
             }
 
-            if (!ArchiveFactory.IsArchive(source, options, out var archiveType))
-                throw new InvalidFormatException("Unrecognized archive header.");
+            if (!ArchiveFactory.IsArchive(source, options with { Password = null }, out var archiveType))
+            {
+                source.Position = 0;
+                if (options.Password == null || !ArchiveFactory.IsArchive(source, options, out archiveType))
+                    throw new InvalidFormatException("Unrecognized archive header.");
+            }
             source.Position = 0;
             if (archiveType is ArchiveType.Zip or ArchiveType.SevenZip)
             {
                 // Retain the path-based API so existing split ZIP/7Z discovery still works.
                 source.Dispose();
-                return new RandomAccessSession(ArchiveFactory.OpenArchive(path, options));
+                var plainZip = archiveType == ArchiveType.Zip && ArchiveFactory.GetFileParts(path).Take(2).Count() <= 1;
+                return new RandomAccessSession(ArchiveFactory.OpenArchive(path, options), path, options.Password, plainZip);
             }
             if (archiveType == ArchiveType.Rar)
             {
@@ -146,18 +156,59 @@ internal abstract class ArchiveReadSession : IDisposable
         finally { source.Position = 0; }
     }
 
-    private static ArchiveReadEntry Snapshot(IEntry entry) => new(
-        (entry.Key ?? "").Replace('\\', '/'), entry.IsDirectory,
-        entry is SharpCompress.Common.Arc.ArcEntry ? null : entry.Size,
-        entry.LastModifiedTime, entry.IsEncrypted, entry.LinkTarget);
+    private static ArchiveReadEntry Snapshot(IEntry entry)
+    {
+        var rar = entry is SharpCompress.Common.Rar.RarEntry;
+        long crc = 0;
+        if (entry.IsEncrypted && !entry.IsDirectory)
+        {
+            try { crc = entry.Crc; }
+            catch (ArgumentNullException) when (rar) { }
+        }
+        return new((entry.Key ?? "").Replace('\\', '/'), entry.IsDirectory,
+            entry is SharpCompress.Common.Arc.ArcEntry ? null : entry.Size,
+            entry.LastModifiedTime, entry.IsEncrypted, entry.LinkTarget, crc, rar);
+    }
 
-    private sealed class RandomAccessSession(IArchive archive) : ArchiveReadSession
+    private sealed class RandomAccessSession(IArchive archive, string path, string? password, bool plainZip) : ArchiveReadSession
     {
         private readonly IEnumerator<IArchiveEntry> _entries = archive.Entries.GetEnumerator();
+        private ZipFile? _verifiedZip;
+        private int _index = -1;
+        private bool _authenticatesEntry;
+        internal override bool AuthenticatesEntry => _authenticatesEntry;
+        internal override bool SupportsAutomaticThumbnails => plainZip;
         internal override ArchiveReadEntry Entry => Snapshot(_entries.Current);
-        internal override bool MoveNext() => _entries.MoveNext();
-        internal override Stream OpenEntryStream() => _entries.Current.OpenEntryStream();
-        public override void Dispose() { _entries.Dispose(); archive.Dispose(); }
+        internal override bool MoveNext() { _index++; _authenticatesEntry = false; return _entries.MoveNext(); }
+
+        internal override Stream OpenEntryStream()
+        {
+            if (!plainZip || password == null || !_entries.Current.IsEncrypted) return _entries.Current.OpenEntryStream();
+            try { _verifiedZip ??= new ZipFile(path, ZipStringCodec.FromEncoding(Encoding.UTF8)) { Password = password }; }
+            catch (ZipException) { return _entries.Current.OpenEntryStream(); }
+            if (_index >= _verifiedZip.Count) return _entries.Current.OpenEntryStream();
+            try
+            {
+                var entry = _verifiedZip[_index];
+                var key = _entries.Current.Key?.Replace('\\', '/');
+                if (entry.Name.Replace('\\', '/') == key && entry.IsCrypted && entry.IsCompressionMethodSupported())
+                {
+                    var stream = _verifiedZip.GetInputStream(entry);
+                    _authenticatesEntry = entry.AESKeySize > 0;
+                    return stream;
+                }
+            }
+            catch (ZipException error) when (error.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
+            { throw new CryptographicException("Invalid archive password."); }
+            return _entries.Current.OpenEntryStream();
+        }
+
+        public override void Dispose()
+        {
+            (_verifiedZip as IDisposable)?.Dispose();
+            _entries.Dispose();
+            archive.Dispose();
+        }
     }
 
     private sealed class ReaderSession(IReader reader, Stream source, Stream? decoded = null,

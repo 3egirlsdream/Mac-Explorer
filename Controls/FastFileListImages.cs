@@ -17,6 +17,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
     private readonly Dictionary<TypeKey, Bitmap> _types = [];
     private readonly HashSet<TypeKey> _pendingTypes = [];
     private HashSet<ImageKey> _visible = [];
+    private bool _hasVisibleEntries;
     private int _pixelSize = 64;
     private int _typePixelSize = 48;
     private bool _reuseSizes;
@@ -41,6 +42,8 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
     public MemoryDiagnosticState GetMemoryState() => new("file-list-images", _cache.Count, _bytes, _requests.Count);
 
     public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? ThumbnailProvider { get; set; }
+    internal bool TypeIconsOnly { get; set; }
+    internal bool ShowArchiveThumbnails { get; set; } = true;
     public Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? FolderCoverProvider { get; set; }
     public event Action? Changed;
     internal int PendingCount => _requests.Count;
@@ -52,6 +55,8 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
     public Bitmap? Get(FileSystemEntry entry, bool folderCoversEnabled, out bool isThumbnail)
     {
         isThumbnail = false;
+        if (TypeIconsOnly || !ShowArchiveThumbnails && entry.ArchiveThumbnailVersion != null)
+            return _types.GetValueOrDefault(TypeKey.For(entry, _typePixelSize, _folderStyle));
         var key = ImageKey.ForView(entry, _pixelSize, folderCoversEnabled && FolderCoverProvider != null);
         var node = FindThumbnail(key, allowSmaller: true);
         if (node != null)
@@ -72,10 +77,13 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
         _typePixelSize = typePixelSize;
         _reuseSizes = reuseSizes;
         var loadCovers = folderCoversEnabled && FolderCoverProvider != null;
-        var nextVisible = entries.Select(e => ImageKey.ForView(e, pixelSize, loadCovers)).ToHashSet();
+        HashSet<ImageKey> nextVisible = TypeIconsOnly ? [] : entries
+            .Where(entry => ShowArchiveThumbnails || entry.ArchiveThumbnailVersion == null)
+            .Select(e => ImageKey.ForView(e, pixelSize, loadCovers)).ToHashSet();
         var viewportChanged = !_visible.SetEquals(nextVisible);
         _visible = nextVisible;
-        if (_visible.Count > 0) _lastVisibleUse = DateTime.UtcNow;
+        _hasVisibleEntries = entries.Count > 0;
+        if (_hasVisibleEntries) _lastVisibleUse = DateTime.UtcNow;
         if (viewportChanged && _coverSchedule != null)
         {
             _coverSchedule.Cancel();
@@ -93,6 +101,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             var type = TypeKey.For(entry, typePixelSize, _folderStyle);
             if (!_types.ContainsKey(type) && _pendingTypes.Add(type))
                 _ = LoadTypeAsync(type, _lifetime);
+            if (TypeIconsOnly || !ShowArchiveThumbnails && entry.ArchiveThumbnailVersion != null) continue;
             var key = ImageKey.ForView(entry, pixelSize, loadCovers);
             if (key.IsFolderCover)
             {
@@ -104,7 +113,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             if (FindThumbnail(key) != null || _requests.ContainsKey(key)
                 || _failed.TryGetValue(key, out var until) && until > DateTime.UtcNow) continue;
             if (string.IsNullOrEmpty(key.Source) && !key.IsFolderCover
-                && (entry.IsDirectory || entry.IsVirtual || !Path.IsPathRooted(entry.FullPath) || ThumbnailProvider == null)) continue;
+                && (!CanRequestThumbnail(entry) || ThumbnailProvider == null)) continue;
             var cancellation = new CancellationTokenSource();
             _requests[key] = cancellation;
             _ = LoadThumbnailAsync(entry, key, cancellation, 100);
@@ -201,7 +210,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
                     var result = await FolderCoverProvider(entry, key.Pixels, token).ConfigureAwait(false);
                     bytes = result?.Bytes;
                 }
-                else if (!entry.IsDirectory && !entry.IsVirtual && Path.IsPathRooted(entry.FullPath) && provider != null)
+                else if (CanRequestThumbnail(entry) && provider != null)
                 {
                     var result = await provider(entry, key.Pixels, token).ConfigureAwait(false);
                     bytes = result?.Bytes;
@@ -233,6 +242,9 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             cancellation.Dispose();
         }
     }
+
+    private static bool CanRequestThumbnail(FileSystemEntry entry) => !entry.IsDirectory && !entry.IsVirtual
+        && (Path.IsPathRooted(entry.FullPath) || entry.ArchiveThumbnailVersion != null);
 
     private void MarkFailed(ImageKey key)
     {
@@ -288,6 +300,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
         foreach (var cancellation in _requests.Values) cancellation.Cancel();
         _requests.Clear();
         _visible.Clear();
+        _hasVisibleEntries = false;
         foreach (var item in _lru) item.Bitmap.Dispose();
         _lru.Clear();
         _cache.Clear();
@@ -306,7 +319,7 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             _cache.Remove(node.Value.Key); _lru.Remove(node); _bytes -= node.Value.Bytes;
             node.Value.Bitmap.Dispose();
         }
-        if (_visible.Count == 0 && _lastVisibleUse < unusedBefore) { _types.Clear(); _failed.Clear(); }
+        if (!_hasVisibleEntries && _lastVisibleUse < unusedBefore) { _types.Clear(); _failed.Clear(); }
     }
 
     private readonly record struct TypeKey(string Icon, string Extension, bool IsDirectory, int Pixels, FolderPhotoCoverStyle Style)
@@ -319,14 +332,16 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
                 source.IsDirectory && !source.IconKey.StartsWith("ai-", StringComparison.Ordinal) ? style : FolderPhotoCoverStyle.Default);
         }
     }
-    private readonly record struct ImageKey(string Path, DateTime Modified, long Size, string? Source, int Pixels, bool IsFolderCover)
+    private readonly record struct ImageKey(string Path, DateTime Modified, long Size, string? Source, int Pixels,
+        bool IsFolderCover, string? ArchiveVersion)
     {
         public static ImageKey For(FileSystemEntry e, int pixels) => ForView(e, pixels, false);
         public static ImageKey ForView(FileSystemEntry e, int pixels, bool folderCoversEnabled) => new(
             e.FullPath, e.LastModified, e.Size,
             string.IsNullOrWhiteSpace(e.ThumbnailUrl) ? e.IconUrl : e.ThumbnailUrl, pixels,
             folderCoversEnabled && e.IsFolder && e.IsReadable && !e.IsSymbolicLink && !e.IsVirtual
-                && System.IO.Path.IsPathFullyQualified(e.FullPath) && e.DetailsIconSource.IsDirectory);
+                && System.IO.Path.IsPathFullyQualified(e.FullPath) && e.DetailsIconSource.IsDirectory,
+            e.ArchiveThumbnailVersion);
     }
     private sealed record CachedImage(ImageKey Key, Bitmap Bitmap, long Bytes)
     {

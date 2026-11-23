@@ -69,8 +69,61 @@ bool me_open_file(const char *path, const char *bundle) {
         return true;
     }
 }
+bool me_open_files(const char **paths, int count, const char *bundle) {
+    @autoreleasepool {
+        if (count <= 0) return true;
+        NSWorkspace *workspace = NSWorkspace.sharedWorkspace;
+        NSMutableArray<NSURL *> *urls = [NSMutableArray arrayWithCapacity:count];
+        for (int i = 0; i < count; i++) {
+            if (paths[i]) [urls addObject:[NSURL fileURLWithPath:[NSString stringWithUTF8String:paths[i]]]];
+        }
+        if (urls.count == 0) return true;
+        if (bundle) {
+            NSURL *application = [workspace URLForApplicationWithBundleIdentifier:[NSString stringWithUTF8String:bundle]];
+            if (!application) return false;
+            [workspace openURLs:urls withApplicationAtURL:application
+                configuration:[NSWorkspaceOpenConfiguration configuration] completionHandler:nil];
+            return true;
+        }
+
+        NSMutableDictionary<NSURL *, NSMutableArray<NSURL *> *> *documentsByApp = [NSMutableDictionary dictionary];
+        bool allSuccess = true;
+        for (NSURL *url in urls) {
+            NSURL *application = [url.pathExtension caseInsensitiveCompare:@"app"] == NSOrderedSame
+                ? nil : [workspace URLForApplicationToOpenURL:url];
+            if (!application) {
+                if (![workspace openURL:url]) allSuccess = false;
+                continue;
+            }
+
+            NSMutableArray<NSURL *> *documents = documentsByApp[application];
+            if (!documents) {
+                documents = [NSMutableArray array];
+                documentsByApp[application] = documents;
+            }
+            [documents addObject:url];
+        }
+        for (NSURL *application in documentsByApp) {
+            [workspace openURLs:documentsByApp[application] withApplicationAtURL:application
+                configuration:[NSWorkspaceOpenConfiguration configuration] completionHandler:nil];
+        }
+        return allSuccess;
+    }
+}
 void me_reveal_file(const char *path) {
     @autoreleasepool { [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[[NSURL fileURLWithPath:[NSString stringWithUTF8String:path]]]]; }
+}
+void me_reveal_files(const char **paths, int count) {
+    @autoreleasepool {
+        if (count <= 0) return;
+        NSMutableArray<NSURL *> *urls = [NSMutableArray arrayWithCapacity:count];
+        for (int i = 0; i < count; i++) {
+            if (paths[i]) [urls addObject:[NSURL fileURLWithPath:[NSString stringWithUTF8String:paths[i]]]];
+        }
+        if (urls.count > 0) {
+            [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:urls];
+        }
+    }
 }
 void me_quicklook_show(const char *path) {
     @autoreleasepool {

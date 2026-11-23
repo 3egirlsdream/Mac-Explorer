@@ -215,6 +215,7 @@ public partial class FileListView : UserControl
         base.OnDataContextChanged(e);
         _subscribedViewModel = ViewModel;
         FastList.ThumbnailProvider = _subscribedViewModel == null ? null : _subscribedViewModel.GetListThumbnailAsync;
+        FastList.ShowArchiveThumbnails = _subscribedViewModel?.ShowArchiveThumbnails ?? true;
         FastList.FolderCoverProvider = _subscribedViewModel == null ? null : _subscribedViewModel.GetFolderPhotoCoverAsync;
         if (_subscribedViewModel != null)
         {
@@ -309,6 +310,18 @@ public partial class FileListView : UserControl
         {
             FastList.InvalidateFolderCovers();
             UpdateViewMode();
+        }
+
+        if (e.PropertyName == nameof(FileListViewModel.ShowArchiveThumbnails) && ViewModel is { } archiveVm)
+        {
+            FastList.ShowArchiveThumbnails = archiveVm.ShowArchiveThumbnails;
+            if (archiveVm.IsArchiveView && IsGalleryVisible)
+            {
+                GalleryStrip.ItemsSource = null;
+                _galleryThumbnails?.Dispose();
+                _galleryThumbnails = null;
+                QueueGalleryRefresh();
+            }
         }
 
         if (e.PropertyName is nameof(FileListViewModel.GroupField)
@@ -992,6 +1005,8 @@ public partial class FileListView : UserControl
             _ = LoadMenuIconAsync(item, action.IconBase64, 16, requestVersion);
         else if (action.LoadIconBase64Async != null)
             _ = LoadMenuIconAsync(item, action.LoadIconBase64Async, 16, requestVersion);
+        else if (action.LoadIconGroupAsync != null)
+            _ = LoadMenuIconGroupAsync(item, action.LoadIconGroupAsync, requestVersion);
         if (action.ReloadParentSubmenu && menu is MenuItem parent)
         {
             item.StaysOpenOnClick = true;
@@ -1103,6 +1118,7 @@ public partial class FileListView : UserControl
                 && previous.IconColor == action.IconColor && previous.ShortcutText == action.ShortcutText
                 && previous.IconBase64 == action.IconBase64
                 && ReferenceEquals(previous.LoadIconBase64Async, action.LoadIconBase64Async)
+                && ReferenceEquals(previous.LoadIconGroupAsync, action.LoadIconGroupAsync)
                 && previous.IsCheckable == action.IsCheckable
                 && previous.IsChecked == action.IsChecked && previous.IsIndeterminate == action.IsIndeterminate
                 && (previous.Execute is null) == (action.Execute is null)
@@ -1134,11 +1150,7 @@ public partial class FileListView : UserControl
         _menuLoads.Clear();
     }
 
-    private async System.Threading.Tasks.Task LoadMenuIconAsync(
-        MenuItem item,
-        string iconBase64,
-        double size,
-        int requestVersion)
+    private async Task<Image?> LoadMenuIconImageAsync(string iconBase64, double size, int requestVersion)
     {
         Bitmap? bitmap = null;
         try
@@ -1154,18 +1166,17 @@ public partial class FileListView : UserControl
                 return BoundedImageDecoder.Decode(bytes, 128);
             });
 
-            if (bitmap == null) return;
+            if (bitmap == null) return null;
             if (requestVersion != _menuRequestVersion)
             {
                 bitmap.Dispose();
-                bitmap = null;
-                return;
+                return null;
             }
 
             var ownedBitmap = bitmap;
             _menuOwnedBitmaps.Add(ownedBitmap);
             bitmap = null;
-            item.Icon = new Image
+            return new Image
             {
                 Source = ownedBitmap,
                 Width = size,
@@ -1176,8 +1187,15 @@ public partial class FileListView : UserControl
         catch
         {
             bitmap?.Dispose();
-            // Keep the SVG fallback when the cached image cannot be decoded.
+            return null;
         }
+    }
+
+    private async Task LoadMenuIconAsync(MenuItem item, string iconBase64, double size, int requestVersion)
+    {
+        var image = await LoadMenuIconImageAsync(iconBase64, size, requestVersion);
+        if (image != null && requestVersion == _menuRequestVersion)
+            item.Icon = image;
     }
 
     private async System.Threading.Tasks.Task LoadMenuIconAsync(
@@ -1195,6 +1213,43 @@ public partial class FileListView : UserControl
         catch
         {
             // Keep the SVG fallback when the system icon cannot be loaded.
+        }
+    }
+
+    private async Task LoadMenuIconGroupAsync(
+        MenuItem item, Func<Task<ContextMenuIconGroup>> loadIconsAsync, int requestVersion)
+    {
+        try
+        {
+            var group = await loadIconsAsync();
+            if (requestVersion != _menuRequestVersion) return;
+            var images = (await Task.WhenAll(group.Icons.Select(icon => LoadMenuIconImageAsync(icon, 16, requestVersion))))
+                .OfType<Image>().ToArray();
+            if (requestVersion != _menuRequestVersion || images.Length == 0) return;
+            if (images.Length == 1 && !group.HasMore)
+            {
+                item.Icon = images[0];
+                return;
+            }
+
+            var icons = new StackPanel
+            {
+                Orientation = global::Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 2,
+                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            icons.Children.AddRange(images);
+            if (group.HasMore)
+                icons.Children.Add(new PathIcon
+                {
+                    Data = Geometry.Parse(Assets.Icons.MoreHorizontal), Width = 12, Height = 12,
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                });
+            item.Icon = icons;
+        }
+        catch
+        {
+            // Keep the SVG fallback when the system icons cannot be loaded.
         }
     }
 
@@ -1334,6 +1389,7 @@ public partial class FileListView : UserControl
             && a.IsEnabled == b.IsEnabled && a.ToolTip == b.ToolTip
             && a.IconSvg == b.IconSvg && a.IconColor == b.IconColor && ReferenceEquals(a.IconImage, b.IconImage)
             && a.IconBase64 == b.IconBase64 && (a.LoadIconBase64Async == null) == (b.LoadIconBase64Async == null)
+            && (a.LoadIconGroupAsync == null) == (b.LoadIconGroupAsync == null)
             && a.ShortcutId == b.ShortcutId && a.ShortcutText == b.ShortcutText && a.IsCheckable == b.IsCheckable
             && a.IsChecked == b.IsChecked && a.IsIndeterminate == b.IsIndeterminate
             && (a.Execute == null) == (b.Execute == null) && a.ReloadParentSubmenu == b.ReloadParentSubmenu
@@ -2308,10 +2364,16 @@ public partial class FileListView : UserControl
         RetryReadButton.IsVisible = readFailed;
     }
 
-    private void OpenEntryFromGesture(FileSystemEntry entry)
+    private void OpenEntryFromGesture(FileSystemEntry entry, bool doubleClick = true)
     {
         if (ViewModel == null) return;
         CancelSlowRename();
+        if (ViewModel.SelectedEntries.Count > 1 && ViewModel.IsEntrySelected(entry))
+        {
+            _ = ViewModel.OpenEntriesAsync(ViewModel.SelectedEntries.ToList());
+            return;
+        }
+        if (doubleClick && ViewModel.TryExtractOnArchiveDoubleClick(entry)) return;
         if (entry.IsDirectory) ViewModel.SetSelection([entry], entry);
         if (entry.IsFolder) _ = ViewModel.NavigateToAsync(entry.FullPath);
         else _ = ViewModel.OpenEntryAsync(entry);
@@ -2362,6 +2424,11 @@ public partial class FileListView : UserControl
                 break;
             case Key.Space:
                 _ = ViewModel.QuickLookSelectedAsync();
+                e.Handled = true;
+                break;
+            case Key.Enter when ViewModel.IsArchiveView && ViewModel.SelectedEntries.Count > 1:
+                DismissContextMenu();
+                _ = ViewModel.OpenEntriesAsync(ViewModel.SelectedEntries.ToList());
                 e.Handled = true;
                 break;
             case Key.Enter when ViewModel.SelectedEntries.Count == 1:

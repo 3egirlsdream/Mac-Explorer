@@ -33,11 +33,22 @@ public partial class FinderSidebarView : UserControl
     private bool _isRailMode;
 
     internal bool IsRailMode => _isRailMode;
+    internal event Action? SidebarToggleRequested;
 
     public FinderSidebarView()
     {
         InitializeComponent();
         AddHandler(KeyDownEvent, OnSidebarKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    internal void SetSidebarToggleVisible(bool visible) => SidebarToggleButton.IsVisible = visible;
+
+    internal void FocusSidebarToggle() => SidebarToggleButton.Focus();
+
+    private void OnSidebarToggleClick(object? sender, RoutedEventArgs e)
+    {
+        SidebarToggleRequested?.Invoke();
+        e.Handled = true;
     }
 
     public void SetRailMode(bool railMode)
@@ -46,6 +57,7 @@ public partial class FinderSidebarView : UserControl
             return;
         if (railMode) CancelPinDrag();
         _isRailMode = railMode;
+        SidebarToggleButton.Classes.Set("expand", railMode);
         foreach (var control in this.GetLogicalDescendants().OfType<Control>())
         {
             control.Classes.Set("rail-text-hidden", railMode && control is TextBlock);
@@ -497,7 +509,7 @@ public partial class FinderSidebarView : UserControl
 
     private int? GetPinDropGroup(Control control)
     {
-        if (control == PinnedFoldersHeader || control == PinnedFoldersControl) return 0;
+        if (control == PinnedFoldersHeaderRow || control == PinnedFoldersControl) return 0;
         if (control.DataContext is PinnedFolderGroup group &&
             (control.Classes.Contains("custom-group-header") || control.Classes.Contains("pinned-folder-group")))
             return group.Id;

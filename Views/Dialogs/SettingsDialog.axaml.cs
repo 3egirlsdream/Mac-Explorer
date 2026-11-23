@@ -179,6 +179,7 @@ public partial class SettingsDialog : DialogWindow
         _initializing = true;
         try
         {
+            LoadArchiveSettings();
             RestoreFolderTabsToggle.IsChecked = _settingsService.Get(FolderTabSession.EnabledKey, false);
             FileTaskConcurrencyInput.Value = _settingsService.Get("FileTaskConcurrency", 2);
             FileDeliveryToggle.IsChecked = _settingsService.Get(Services.Impl.FileDeliveryService.EnabledKey, true);

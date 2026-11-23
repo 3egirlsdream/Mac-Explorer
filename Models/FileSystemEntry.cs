@@ -15,6 +15,7 @@ public class FileSystemEntry : INotifyPropertyChanged
     private bool _hasGitChanges;
 
     public string FullPath { get; init; } = string.Empty;
+    internal string? ArchiveThumbnailVersion { get; init; }
     public string Name { get; init; } = string.Empty;
     public bool IsDirectory { get; init; }
     // Preserve physical directory semantics for recursive copy/delete operations.

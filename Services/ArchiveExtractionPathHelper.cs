@@ -7,6 +7,9 @@ internal static class ArchiveExtractionPathHelper
     internal static string GetArchiveFolderName(string archivePath)
         => EnsureFolderName(ArchiveFormats.RemoveExtension(archivePath));
 
+    internal static string GetNamedDestination(string directory, string archivePath)
+        => Path.Combine(directory, GetArchiveFolderName(archivePath));
+
     internal static string CreateUniqueExtractionDirectory(string parentPath, string archivePath)
     {
         var folderName = GetArchiveFolderName(archivePath);
@@ -33,8 +36,8 @@ internal static class ArchiveExtractionPathHelper
         }
     }
 
-    private static bool PathExists(string path) => File.Exists(path) || Directory.Exists(path);
+    private static bool PathExists(string path) => File.Exists(path) || Directory.Exists(path) || new FileInfo(path).LinkTarget != null;
 
     private static string EnsureFolderName(string name) =>
-        string.IsNullOrWhiteSpace(name) ? "解压内容" : name;
+        string.IsNullOrWhiteSpace(name) || name is "." or ".." ? "解压内容" : name;
 }

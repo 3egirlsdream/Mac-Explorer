@@ -66,6 +66,7 @@ internal sealed class ImageClipboardService(ClipboardImageData? image = null) : 
 
     public ClipboardImageData? Image { get; set; } = image;
     public ClipboardPasteKind? KindOverride { get; set; }
+    public string? CopiedText { get; private set; }
 
     public bool HasClipboardFiles => _entry is { IsEmpty: false };
 
@@ -83,7 +84,11 @@ internal sealed class ImageClipboardService(ClipboardImageData? image = null) : 
     public void CutFiles(string[] paths, FileTag? sourceTag = null)
         => _entry = new ClipboardEntry { SourcePaths = paths.ToList(), Operation = ClipboardOperation.Cut, SourceTag = sourceTag };
 
-    public Task CopyTextAsync(string text) => Task.CompletedTask;
+    public Task CopyTextAsync(string text)
+    {
+        CopiedText = text;
+        return Task.CompletedTask;
+    }
     public Task PasteFilesAsync(string targetDirectory) => Task.CompletedTask;
     public ClipboardEntry? GetClipboardEntry() => _entry;
     public void Clear() => _entry = null;

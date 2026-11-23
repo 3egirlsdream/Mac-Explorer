@@ -35,8 +35,8 @@ public partial class FileListView
         }
         else if (e.Key is Key.Space or Key.Enter)
         {
-            if (e.Key == Key.Enter && ViewModel.SelectedEntries.Count == 1)
-                _ = ViewModel.OpenEntryAsync(ViewModel.SelectedEntries[0]);
+            if (e.Key == Key.Enter && ViewModel.SelectedEntries.Count >= 1)
+                _ = ViewModel.OpenEntriesAsync(ViewModel.SelectedEntries.ToList());
             else _ = ViewModel.QuickLookSelectedAsync();
             e.Handled = true;
         }

@@ -68,14 +68,13 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             var open = SidebarSplitView.IsPaneOpen;
             if (!open) FinishSidebarResize();
             SidebarControl.SetRailMode(IsCompact && !open);
-            UpdateSidebarToggleTip();
         };
+        SidebarControl.SidebarToggleRequested += ToggleSidebar;
         ThumbnailZoomSlider.ValueChanged += OnThumbnailZoomValueChanged;
         ThumbnailZoomSlider.AddHandler(PointerPressedEvent, (_, e) =>
         {
             if (!e.GetCurrentPoint(ThumbnailZoomSlider).Properties.IsLeftButtonPressed) return;
             _zoomSliderPointer = e.Pointer;
-            UpdateThumbnailZoomLabel();
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         ThumbnailZoomSlider.AddHandler(PointerReleasedEvent, (_, e) =>
         {
@@ -102,6 +101,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        ThumbnailZoomPopup.IsOpen = false;
         if (_settings != null) _settings.SettingChanged -= OnSidebarWidthSettingChanged;
         FinishSidebarResize();
         base.OnDetachedFromVisualTree(e);
@@ -194,7 +194,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     protected override void OnDataContextChanged(EventArgs e)
     {
-        _zoomSliderPointer = null;
+        ThumbnailZoomPopup.IsOpen = false;
         if (_tab != null)
         {
             _tab.PropertyChanged -= OnTabPropertyChanged;
@@ -204,6 +204,8 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
         base.OnDataContextChanged(e);
         _tab = Tab;
+        if (ForceCompact)
+            SidebarSplitView.IsPaneOpen = _tab?.IsSplitSidebarOpen == true;
         _memoryLifetime?.Link(_tab?.DiagnosticId ?? 0);
         if (_tab != null)
         {
@@ -225,8 +227,6 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
 
     private void OnFileListPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FileListViewModel.CurrentLocationTitle))
-            UpdateSidebarToggleTip();
         if (e.PropertyName is nameof(FileListViewModel.IsHomePage)
             or nameof(FileListViewModel.IsAiView)
             or nameof(FileListViewModel.IsNetworkPage)
@@ -287,38 +287,70 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private void SyncThumbnailZoomSlider()
     {
         ThumbnailZoomHost.IsVisible = FileListControl.IsVisible && _tab?.FileList.ViewMode == ViewMode.Grid;
-        if (_tab is { FileList: var fileList } && (_zoomSliderPointer == null
-            || ThumbnailZoomSlider.Value != FileThumbnailSizing.GalleryLevel))
+        if (!ThumbnailZoomHost.IsVisible) ThumbnailZoomPopup.IsOpen = false;
+        if (_zoomSliderPointer == null && _tab is { FileList: var fileList })
             ThumbnailZoomSlider.Value = fileList.ThumbnailZoomLevel;
     }
 
+    private int NearestThumbnailZoomLevel => (int)Math.Round(ThumbnailZoomSlider.Value, MidpointRounding.AwayFromZero);
+
     private void OnThumbnailZoomValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
-        UpdateThumbnailZoomLabel();
-        if (_zoomSliderPointer == null || e.NewValue != FileThumbnailSizing.GalleryLevel) ApplyThumbnailZoomSlider();
+        if (ThumbnailZoomPopup.IsOpen) UpdateThumbnailZoomSelection();
+        if (_zoomSliderPointer == null)
+            _tab?.FileList.SetThumbnailZoomLevel(NearestThumbnailZoomLevel);
     }
 
-    private void UpdateThumbnailZoomLabel()
+    private void UpdateThumbnailZoomSelection()
     {
-        var level = (int)ThumbnailZoomSlider.Value;
-        ThumbnailZoomSlider.Tag = level == FileThumbnailSizing.GalleryLevel
-            ? Services.Impl.LocalizationText.Get("file_gallery.title")
-            : Services.Impl.LocalizationText.Get("file_gallery.zoom_value", FileThumbnailSizing.GetGridSize(level));
+        var selectedLevel = NearestThumbnailZoomLevel;
+        for (var level = 0; level < ThumbnailZoomLabels.Children.Count; level++)
+            ThumbnailZoomLabels.Children[level].Classes.Set("active", level == selectedLevel);
     }
-
-    private void ApplyThumbnailZoomSlider()
-        => _tab?.FileList.SetThumbnailZoomLevel((int)ThumbnailZoomSlider.Value);
 
     private void CompleteThumbnailZoomGesture()
     {
         if (_zoomSliderPointer == null) return;
+        var level = NearestThumbnailZoomLevel;
+        ThumbnailZoomSlider.Value = level;
         _zoomSliderPointer = null;
-        ApplyThumbnailZoomSlider();
+        _tab?.FileList.SetThumbnailZoomLevel(level);
     }
 
-    private void OnGalleryButtonClick(object? sender, RoutedEventArgs e)
+    private void ToggleThumbnailZoomPopup(object? sender, RoutedEventArgs e)
+        => ThumbnailZoomPopup.IsOpen = !ThumbnailZoomPopup.IsOpen;
+
+    private void OnThumbnailZoomPopupOpened(object? sender, EventArgs e)
     {
-        if (!FileListControl.TryExitGallery()) _tab?.FileList.SetThumbnailZoomLevel(FileThumbnailSizing.GalleryLevel);
+        FileListControl.KeepThumbnailZoomFocus = true;
+        for (var level = 0; level < ThumbnailZoomLabels.Children.Count; level++)
+        {
+            ((TextBlock)ThumbnailZoomLabels.Children[level]).Text = level == FileThumbnailSizing.GalleryLevel
+                ? Services.Impl.LocalizationText.Get("file_gallery.title")
+                : Services.Impl.LocalizationText.Get("file_gallery.zoom_value", FileThumbnailSizing.GetGridSize(level));
+        }
+        UpdateThumbnailZoomSelection();
+        ThumbnailZoomSlider.Focus();
+    }
+
+    private void OnThumbnailZoomPopupClosed(object? sender, EventArgs e)
+    {
+        FileListControl.KeepThumbnailZoomFocus = false;
+        _zoomSliderPointer = null;
+        SyncThumbnailZoomSlider();
+    }
+
+    private void OnThumbnailZoomKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape) e.Handled = TryCloseThumbnailZoomPopup();
+    }
+
+    private bool TryCloseThumbnailZoomPopup()
+    {
+        if (!ThumbnailZoomPopup.IsOpen) return false;
+        ThumbnailZoomPopup.IsOpen = false;
+        ThumbnailZoomButton.Focus();
+        return true;
     }
 
     private void UpdateInfoPanelVisibility()
@@ -332,9 +364,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     private void OnWorkspacePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         ActivateWorkspace();
-        if (IsCompact && SidebarSplitView.IsPaneOpen
-            && !IsInsideVisual(e.Source as Visual, SidebarPane)
-            && !IsInsideVisual(e.Source as Visual, SidebarToggleButton))
+        if (IsSidebarOverlayOpen && !IsInsideVisual(e.Source as Visual, SidebarPane))
         {
             SidebarSplitView.IsPaneOpen = false;
         }
@@ -363,20 +393,17 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             BreadcrumbControl.FocusPathInput();
     }
 
+    private bool IsSidebarOverlayOpen => SidebarSplitView.IsPaneOpen
+        && SidebarSplitView.DisplayMode == SplitViewDisplayMode.CompactOverlay;
+
     public void ToggleSidebar()
     {
-        SidebarSplitView.IsPaneOpen = !IsCompact || !SidebarSplitView.IsPaneOpen;
+        if (!IsCompact) return;
+        var open = !SidebarSplitView.IsPaneOpen;
+        if (ForceCompact && _tab != null)
+            _tab.IsSplitSidebarOpen = open;
+        SidebarSplitView.IsPaneOpen = open;
     }
-
-    private void OnToggleSidebar(object? sender, RoutedEventArgs e)
-    {
-        ToggleSidebar();
-        e.Handled = true;
-    }
-
-    private void UpdateSidebarToggleTip()
-        => ToolTip.SetTip(SidebarToggleButton, MacExplorer.Services.Impl.LocalizationText.Get(
-            SidebarSplitView.IsPaneOpen ? "收起侧栏" : "展开侧栏"));
 
     public void TogglePageSearch()
     {
@@ -439,6 +466,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         // Avalonia's internal dismiss layer must forward the click before we remove it.
         if (source?.GetType().FullName == "Avalonia.Controls.Primitives.LightDismissOverlayLayer")
             return;
+        if (source == null) ThumbnailZoomPopup.IsOpen = false;
         FileListControl.DismissContextMenu();
         ToolbarControl.CloseDropdownsFromPointerSource(source);
         BreadcrumbControl.CloseTransientUiFromPointerSource(source);
@@ -447,16 +475,16 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     public void DeactivateTransientUi()
     {
         FinishSidebarResize();
-        _zoomSliderPointer = null;
-        SyncThumbnailZoomSlider();
+        SidebarControl.CancelPinDrag();
         CloseTransientUi(null);
         FileListControl.DeactivateTabInteraction();
-        if (IsCompact)
+        if (IsSidebarOverlayOpen)
             SidebarSplitView.IsPaneOpen = false;
     }
 
     public bool TryHandleEscape()
     {
+        if (TryCloseThumbnailZoomPopup()) return true;
         if (SidebarControl.CancelPinDrag()) return true;
         if (FileListControl.TryDismissContextMenu())
             return true;
@@ -475,10 +503,10 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             return true;
         }
         if (FileListControl.TryExitGallery()) return true;
-        if (IsCompact && SidebarSplitView.IsPaneOpen)
+        if (IsSidebarOverlayOpen)
         {
             SidebarSplitView.IsPaneOpen = false;
-            SidebarToggleButton.Focus();
+            SidebarControl.FocusSidebarToggle();
             return true;
         }
         if (IsCompact && InfoDrawer.IsPaneOpen && _tab?.FileList != null)
@@ -496,10 +524,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     public void MarkDetaching()
     {
         IsDetaching = true;
-        CloseTransientUi(null);
-        FileListControl.DeactivateTabInteraction();
-        if (IsCompact)
-            SidebarSplitView.IsPaneOpen = false;
+        DeactivateTransientUi();
     }
 
     async Task ILivePreviewWorkspace.SetLivePreviewStateAsync(bool enabled, long activationGeneration)
@@ -538,20 +563,20 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         var layout = ResponsiveWorkspaceLayout.Resolve(width, ForceCompact, _sidebarDragWidth ?? _sidebarWidth);
         if (IsCompact != layout.IsCompact)
         {
-            FinishSidebarResize();
             IsCompact = layout.IsCompact;
-            SidebarSplitView.IsPaneOpen = false;
-            SidebarSplitView.DisplayMode = layout.SidebarDisplayMode;
-            if (!IsCompact)
-                SidebarSplitView.IsPaneOpen = true;
             PseudoClasses.Set(":compact", IsCompact);
             ToolbarControl.IsCompact = IsCompact;
-            SidebarToggleButton.IsVisible = IsCompact;
+            SidebarControl.SetSidebarToggleVisible(IsCompact);
             _isPageSearchExpanded = false;
             UpdatePageSearchPresentation();
         }
 
-        SidebarSplitView.DisplayMode = layout.SidebarDisplayMode;
+        if (SidebarSplitView.DisplayMode != layout.SidebarDisplayMode)
+        {
+            FinishSidebarResize();
+            SidebarSplitView.DisplayMode = layout.SidebarDisplayMode;
+            SidebarSplitView.IsPaneOpen = !IsCompact || (ForceCompact && _tab?.IsSplitSidebarOpen == true);
+        }
         SidebarSplitView.OpenPaneLength = layout.SidebarOpenPaneLength;
         SidebarSplitView.CompactPaneLength = layout.SidebarCompactPaneLength;
         InfoDrawer.DisplayMode = layout.InfoPanelDisplayMode;
@@ -798,6 +823,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (_disposed)
             return;
         _disposed = true;
+        ThumbnailZoomPopup.IsOpen = false;
         if (_settings != null) _settings.SettingChanged -= OnSidebarWidthSettingChanged;
         FinishSidebarResize();
         _memoryLifetime?.SetState(DiagnosticObjectState.Disposed);

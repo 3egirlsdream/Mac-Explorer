@@ -165,6 +165,10 @@ public partial class MainWindow
         menu.Items.Add(move);
         if (tab.Group != null)
             Add("tabs.group.remove", () => { _vm.MoveTabToGroup(tab, null); return Task.CompletedTask; });
+        menu.Items.Add(new Separator());
+        Add(_isVerticalTabsEnabled ? "tabs.vertical.disable" : "tabs.vertical.enable",
+            () => { SetVerticalTabsEnabled(!_isVerticalTabsEnabled); return Task.CompletedTask; },
+            icon: Icons.PanelLeft);
         OpenTabMenu(menu, target);
     }
 
@@ -172,7 +176,11 @@ public partial class MainWindow
     {
         Grid.SetIsSharedSizeScope(menu, true);
         _tabContextMenu = menu;
-        menu.Closed += (_, _) => { if (ReferenceEquals(_tabContextMenu, menu)) _tabContextMenu = null; };
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_tabContextMenu, menu)) _tabContextMenu = null;
+            VerticalTabBarControl.CollapseHoverIfPointerOutside();
+        };
         menu.Open(target);
     }
 
@@ -206,25 +214,30 @@ public partial class MainWindow
             item.Click += async (_, e) => { e.Handled = true; menu.Close(); await action(); };
             menu.Items.Add(item);
         }
-        Add("tabs.group.rename", async () =>
-        {
-            var dialog = new Dialogs.TabGroupNameDialog(group.Name);
-            using var modal = BlockModalParentInteraction();
-            if (await dialog.ShowDialog<string?>(this) is { } name && _vm?.Groups.Contains(group) == true)
-                group.Name = name;
-        }, Icons.Rename);
-        Add("tabs.group.new_tab", async () =>
-        {
-            if (_vm?.Groups.Contains(group) != true) return;
-            var source = group.LastSelectedTab ?? _vm.Members(group).First();
-            if (group.IsCollapsed) _vm.ToggleGroup(group);
-            await AddTabAsync(directoryPath: source.FileList.CurrentPath, group: group, inheritGroup: false);
-        }, Icons.TabAdd);
+        Add("tabs.group.rename", () => RenameGroupAsync(group), Icons.Rename);
+        Add("tabs.group.new_tab", () => AddTabInGroupAsync(group), Icons.TabAdd);
         Add("tabs.preset.save", () => SaveGroupPresetAsync(group), Icons.Save);
         menu.Items.Add(new Separator());
         Add("tabs.group.ungroup", () => { _vm?.Ungroup(group); return Task.CompletedTask; });
         Add("tabs.group.close", () => CloseGroupAsync(group), Icons.Close);
         OpenTabMenu(menu, target);
+    }
+
+    internal async Task RenameGroupAsync(TabGroupViewModel group)
+    {
+        if (_vm?.Groups.Contains(group) != true) return;
+        var dialog = new Dialogs.TabGroupNameDialog(group.Name);
+        using var modal = BlockModalParentInteraction();
+        if (await dialog.ShowDialog<string?>(this) is { } name && _vm?.Groups.Contains(group) == true)
+            group.Name = name;
+    }
+
+    internal async Task AddTabInGroupAsync(TabGroupViewModel group)
+    {
+        if (_vm?.Groups.Contains(group) != true) return;
+        var source = group.LastSelectedTab ?? _vm.Members(group).First();
+        if (group.IsCollapsed) _vm.ToggleGroup(group);
+        await AddTabAsync(directoryPath: source.FileList.CurrentPath, group: group, inheritGroup: false);
     }
 
     internal async Task CloseGroupAsync(TabGroupViewModel group)

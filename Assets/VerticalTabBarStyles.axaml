@@ -1,0 +1,205 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MacExplorer.Controls"
+        xmlns:icons="using:MacExplorer.Assets">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="VerticalTabActiveBg" Color="#FFFFFF"/>
+                    <BoxShadows x:Key="VerticalTabActiveShadow">0 1 3 0 #20000000, 0 0 1 0 #14000000</BoxShadows>
+                    <BoxShadows x:Key="VerticalTabOverlayShadow">6 0 24 -4 #2A000000, 1 0 4 0 #14000000</BoxShadows>
+                    <SolidColorBrush x:Key="VerticalTabTrafficInactiveBrush" Color="#C8C8C8"/>
+                    <SolidColorBrush x:Key="VerticalTabTrafficOutlineBrush" Color="#24000000"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="VerticalTabActiveBg" Color="#2B3038"/>
+                    <BoxShadows x:Key="VerticalTabActiveShadow">0 1 4 0 #66000000, inset 0 0 0 0.5 #1EFFFFFF</BoxShadows>
+                    <BoxShadows x:Key="VerticalTabOverlayShadow">6 0 28 -4 #80000000, 1 0 6 0 #48000000</BoxShadows>
+                    <SolidColorBrush x:Key="VerticalTabTrafficInactiveBrush" Color="#555555"/>
+                    <SolidColorBrush x:Key="VerticalTabTrafficOutlineBrush" Color="#30000000"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <SolidColorBrush x:Key="VerticalTabCloseSymbolBrush" Color="#760E08"/>
+            <SolidColorBrush x:Key="VerticalTabMinimizeSymbolBrush" Color="#805400"/>
+            <SolidColorBrush x:Key="VerticalTabFullScreenSymbolBrush" Color="#075D13"/>
+            <StreamGeometry x:Key="VerticalTabEnterFullScreenGeometry">M3,3 H7 L3,7 Z M9,9 H5 L9,5 Z</StreamGeometry>
+            <StreamGeometry x:Key="VerticalTabExitFullScreenGeometry">M5.25,5.25 H2.75 L5.25,2.75 Z M6.75,6.75 H9.25 L6.75,9.25 Z</StreamGeometry>
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <!-- Main vertical tab bar surface -->
+    <Style Selector="Border.vertical-tab-surface">
+        <Setter Property="Background" Value="{DynamicResource TitleBarBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,1,0"/>
+        <Setter Property="BoxShadow" Value="none"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:hover-overlay Border.vertical-tab-surface">
+        <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource VerticalTabOverlayShadow}"/>
+    </Style>
+
+    <!-- ListBox container reset -->
+    <Style Selector="ListBox.vertical-tab-strip">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem">
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem /template/ ContentPresenter,
+                     ListBox.vertical-tab-strip ListBoxItem:pointerover /template/ ContentPresenter,
+                     ListBox.vertical-tab-strip ListBoxItem:selected /template/ ContentPresenter,
+                     ListBox.vertical-tab-strip ListBoxItem:selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem:pointerover,
+                     ListBox.vertical-tab-strip ListBoxItem:selected">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+    <!-- Tab card: locked to center X = 30px in both expanded and collapsed modes (11 margin + 11 padding = 22px for 16px icon) -->
+    <Style Selector="Border.vertical-tab-card">
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="Margin" Value="11,2,8,2"/>
+        <Setter Property="Padding" Value="11,0,6,0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BoxShadow" Value="none"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem:pointerover Border.vertical-tab-card">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem:selected Border.vertical-tab-card,
+                     ListBox.vertical-tab-strip ListBoxItem:selected:pointerover Border.vertical-tab-card">
+        <Setter Property="Background" Value="{DynamicResource VerticalTabActiveBg}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource VerticalTabActiveShadow}"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem:selected PathIcon.vertical-tab-icon">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+    <!-- Collapsed rail tab card: 38x34 square centered at X = 30px (11..49), no close button or text -->
+    <Style Selector="controls|VerticalTabBar:collapsed Border.vertical-tab-card">
+        <Setter Property="Width" Value="38"/>
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="Margin" Value="11,2,11,2"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed TextBlock.vertical-tab-title,
+                     controls|VerticalTabBar:collapsed Border.vertical-tab-close-host">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed Grid.vertical-tab-content,
+                     controls|VerticalTabBar:collapsed Grid.vertical-new-tab-content">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Vertical colored group accent line on the left of grouped tabs (x = 3..6px in both modes) -->
+    <Style Selector="Border.vertical-tab-group-line">
+        <Setter Property="Width" Value="3"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="VerticalAlignment" Value="Stretch"/>
+        <Setter Property="Margin" Value="3,0,0,0"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem.group-first Border.vertical-tab-group-line">
+        <Setter Property="Margin" Value="3,3,0,0"/>
+        <Setter Property="CornerRadius" Value="1.5,1.5,0,0"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem.group-last Border.vertical-tab-group-line">
+        <Setter Property="Margin" Value="3,0,0,3"/>
+        <Setter Property="CornerRadius" Value="0,0,1.5,1.5"/>
+    </Style>
+    <Style Selector="ListBox.vertical-tab-strip ListBoxItem.group-first.group-last Border.vertical-tab-group-line">
+        <Setter Property="Margin" Value="3,3,0,3"/>
+        <Setter Property="CornerRadius" Value="1.5"/>
+    </Style>
+
+    <!-- Vertical tab group header: left edge locked to x = 15px, caret centered at x = 30px -->
+    <Style Selector="Grid.vertical-tab-group-row">
+        <Setter Property="Margin" Value="15,6,8,3"/>
+        <Setter Property="MinHeight" Value="28"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed Grid.vertical-tab-group-row">
+        <Setter Property="Margin" Value="15,6,15,3"/>
+    </Style>
+    <Style Selector="Border.vertical-tab-group-pill">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinWidth" Value="30"/>
+        <Setter Property="Padding" Value="10,0,10,0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed Border.vertical-tab-group-pill">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed TextBlock.vertical-group-name,
+                     controls|VerticalTabBar:collapsed StackPanel.vertical-group-actions,
+                     controls|VerticalTabBar:collapsed TextBlock.vertical-new-tab-label,
+                     controls|VerticalTabBar:collapsed Border.vertical-new-tab-shortcut-host">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="PathIcon.vertical-group-caret">
+        <Setter Property="Data" Value="{x:Static icons:Icons.CaretDownGeometry}"/>
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="PathIcon.vertical-group-caret.collapsed">
+        <Setter Property="Data" Value="{x:Static icons:Icons.CaretRightGeometry}"/>
+    </Style>
+
+    <!-- Bottom utility bar layout: first icon locked to center X = 30px (x = 14..46) -->
+    <Style Selector="StackPanel.vertical-utility-bar">
+        <Setter Property="Orientation" Value="Horizontal"/>
+        <Setter Property="Spacing" Value="4"/>
+        <Setter Property="Margin" Value="14,6,8,8"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+    </Style>
+    <Style Selector="controls|VerticalTabBar:collapsed StackPanel.vertical-utility-bar">
+        <Setter Property="Orientation" Value="Vertical"/>
+        <Setter Property="Spacing" Value="4"/>
+        <Setter Property="Margin" Value="14,6,14,8"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+    </Style>
+
+    <!-- Dividers -->
+    <Style Selector="Border.vertical-tab-divider">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Margin" Value="11,5,11,5"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDividerBrush}"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+
+    <!-- Drop insertion guide line -->
+    <Style Selector="Border.vertical-tab-drop-indicator">
+        <Setter Property="Height" Value="2"/>
+        <Setter Property="CornerRadius" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+</Styles>

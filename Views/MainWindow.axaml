@@ -195,93 +195,6 @@
                             AutomationProperties.Name="{loc:Loc ui.071}">
                         <PathIcon Data="{x:Static icons:Icons.SplitVertical}"/>
                     </controls:AppButton>
-                    <Popup x:Name="PaneLayoutPopup" Placement="BottomEdgeAlignedRight"
-                           PlacementTarget="PaneLayoutButton" IsLightDismissEnabled="False"
-                           ShouldUseOverlayLayer="True"
-                           WindowManagerAddShadowHint="False">
-                        <Border Classes="toolbar-popup" Padding="10" CornerRadius="12">
-                            <Grid RowDefinitions="Auto,*" Width="320"
-                                  KeyboardNavigation.TabNavigation="Cycle">
-                                <TextBlock Grid.Row="0" Text="{loc:Loc ui.071}" Margin="5,2,0,8"
-                                           FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <UniformGrid Grid.Row="1" Columns="4" Rows="3">
-                                    <controls:AppButton Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.044}" AutomationProperties.Name="{loc:Loc ui.044}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="Single"/>
-                                            <TextBlock Text="{loc:Loc ui.044}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.059}" AutomationProperties.Name="{loc:Loc ui.059}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="TwoColumns"/>
-                                            <TextBlock Text="{loc:Loc ui.059}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.037}" AutomationProperties.Name="{loc:Loc ui.037}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="TwoRows"/>
-                                            <TextBlock Text="{loc:Loc ui.037}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.035}" AutomationProperties.Name="{loc:Loc ui.035}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="ThreeColumns"/>
-                                            <TextBlock Text="{loc:Loc ui.035}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.036}" AutomationProperties.Name="{loc:Loc ui.036}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="ThreeRows"/>
-                                            <TextBlock Text="{loc:Loc ui.036}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.056}" AutomationProperties.Name="{loc:Loc ui.056}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight"/>
-                                            <TextBlock Text="{loc:Loc ui.056}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.058}" AutomationProperties.Name="{loc:Loc ui.058}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft"/>
-                                            <TextBlock Text="{loc:Loc ui.058}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.050}" AutomationProperties.Name="{loc:Loc ui.050}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="FourGrid"/>
-                                            <TextBlock Text="{loc:Loc ui.050}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.049}" AutomationProperties.Name="{loc:Loc ui.049}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="FourColumns"/>
-                                            <TextBlock Text="{loc:Loc ui.049}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.051}" AutomationProperties.Name="{loc:Loc ui.051}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="FourRows"/>
-                                            <TextBlock Text="{loc:Loc ui.051}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.055}" AutomationProperties.Name="{loc:Loc ui.055}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight"/>
-                                            <TextBlock Text="{loc:Loc ui.055}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                    <controls:AppButton Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.057}" AutomationProperties.Name="{loc:Loc ui.057}">
-                                        <StackPanel Spacing="5" HorizontalAlignment="Center">
-                                            <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft"/>
-                                            <TextBlock Text="{loc:Loc ui.057}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </controls:AppButton>
-                                </UniformGrid>
-                            </Grid>
-                        </Border>
-                    </Popup>
                     <controls:AppButton Grid.Column="3" x:Name="TaskButton" IsVisible="False"
                             Classes="title-nav-button"
                             Click="ToggleTaskPanel">
@@ -295,18 +208,115 @@
         </Grid>
     </controls:AppWindow.TitleBarContent>
 
-    <Grid>
-    <Border x:Name="RootLayout" CornerRadius="0">
-        <Grid>
-            <!-- Match the tab and toolbar through the top inset, including translucent themes.
-                 Paint this band once so stacked translucent fills cannot create a dark seam. -->
-            <Border x:Name="TabContentJoin" Height="8" VerticalAlignment="Top"
-                    Background="{DynamicResource WorkspaceTabBrush}" IsHitTestVisible="False"/>
-            <Grid Margin="8">
-                <Grid x:Name="PaneLayoutRoot"/>
+    <Grid x:Name="MainShellGrid">
+    <Grid ColumnDefinitions="Auto,*">
+        <Border x:Name="VerticalTabSlot" Grid.Column="0" IsVisible="False" Width="228"
+                Background="Transparent" IsHitTestVisible="False"/>
+        <Border x:Name="RootLayout" Grid.Column="1" CornerRadius="0"
+                chrome:WindowDecorationProperties.ElementRole="User">
+            <Grid>
+                <!-- Match the tab and toolbar through the top inset, including translucent themes.
+                     Paint this band once so stacked translucent fills cannot create a dark seam. -->
+                <Border x:Name="TabContentJoin" Height="8" VerticalAlignment="Top"
+                        Background="{DynamicResource WorkspaceTabBrush}" IsHitTestVisible="False"/>
+                <Grid Margin="8">
+                    <Grid x:Name="PaneLayoutRoot"/>
+                </Grid>
             </Grid>
-        </Grid>
-    </Border>
+        </Border>
+    </Grid>
+    <controls:VerticalTabBar x:Name="VerticalTabBarControl"
+                             HorizontalAlignment="Left"
+                             VerticalAlignment="Stretch"
+                             IsVisible="False"
+                             glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
+    <Popup x:Name="PaneLayoutPopup" Placement="BottomEdgeAlignedRight"
+           PlacementTarget="{Binding #PaneLayoutButton}" IsLightDismissEnabled="False"
+           ShouldUseOverlayLayer="True"
+           WindowManagerAddShadowHint="False">
+        <Border Classes="toolbar-popup" Padding="10" CornerRadius="12">
+            <Grid RowDefinitions="Auto,*" Width="320"
+                  KeyboardNavigation.TabNavigation="Cycle">
+                <TextBlock Grid.Row="0" Text="{loc:Loc ui.071}" Margin="5,2,0,8"
+                           FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <UniformGrid Grid.Row="1" Columns="4" Rows="3">
+                    <controls:AppButton Classes="layout-choice" Tag="Single" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.044}" AutomationProperties.Name="{loc:Loc ui.044}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="Single"/>
+                            <TextBlock Text="{loc:Loc ui.044}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="TwoColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.059}" AutomationProperties.Name="{loc:Loc ui.059}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="TwoColumns"/>
+                            <TextBlock Text="{loc:Loc ui.059}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="TwoRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.037}" AutomationProperties.Name="{loc:Loc ui.037}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="TwoRows"/>
+                            <TextBlock Text="{loc:Loc ui.037}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="ThreeColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.035}" AutomationProperties.Name="{loc:Loc ui.035}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="ThreeColumns"/>
+                            <TextBlock Text="{loc:Loc ui.035}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="ThreeRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.036}" AutomationProperties.Name="{loc:Loc ui.036}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="ThreeRows"/>
+                            <TextBlock Text="{loc:Loc ui.036}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="MainLeftTwoRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.056}" AutomationProperties.Name="{loc:Loc ui.056}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="MainLeftTwoRowsRight"/>
+                            <TextBlock Text="{loc:Loc ui.056}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="MainRightTwoRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.058}" AutomationProperties.Name="{loc:Loc ui.058}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="MainRightTwoRowsLeft"/>
+                            <TextBlock Text="{loc:Loc ui.058}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="FourGrid" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.050}" AutomationProperties.Name="{loc:Loc ui.050}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="FourGrid"/>
+                            <TextBlock Text="{loc:Loc ui.050}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="FourColumns" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.049}" AutomationProperties.Name="{loc:Loc ui.049}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="FourColumns"/>
+                            <TextBlock Text="{loc:Loc ui.049}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="FourRows" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.051}" AutomationProperties.Name="{loc:Loc ui.051}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="FourRows"/>
+                            <TextBlock Text="{loc:Loc ui.051}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="MainLeftThreeRowsRight" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.055}" AutomationProperties.Name="{loc:Loc ui.055}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="MainLeftThreeRowsRight"/>
+                            <TextBlock Text="{loc:Loc ui.055}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton Classes="layout-choice" Tag="MainRightThreeRowsLeft" Click="ChoosePaneLayout" ToolTip.Tip="{loc:Loc ui.057}" AutomationProperties.Name="{loc:Loc ui.057}">
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <controls:PaneLayoutIcon Layout="MainRightThreeRowsLeft"/>
+                            <TextBlock Text="{loc:Loc ui.057}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                </UniformGrid>
+            </Grid>
+        </Border>
+    </Popup>
     <Grid x:Name="HomeFolderOverlayHost" IsVisible="False" Background="Transparent"
           glass:LiquidGlassBackdrop.IsExcludedFromCapture="True"/>
     <Border x:Name="CopilotPanel" IsVisible="False"

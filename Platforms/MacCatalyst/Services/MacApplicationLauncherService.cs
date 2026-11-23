@@ -11,20 +11,54 @@ public class MacApplicationLauncherService : IApplicationLauncherService
     public MacApplicationLauncherService(HomeWorkspaceService? homeWorkspace = null)
         => _homeWorkspace = homeWorkspace;
 
-    public async Task OpenFileAsync(string filePath)
+    public Task OpenFileAsync(string filePath)
+        => OpenFilesAsync([filePath]);
+
+    public async Task OpenFilesAsync(IReadOnlyList<string> filePaths)
     {
-        DirectoryAccess.Current.EnsureAccess(filePath);
-        if (DistributionChannel.IsAppStore) Platforms.MacOS.MacSandboxNative.OpenFile(filePath);
-        else await RunAsync("/usr/bin/open", filePath);
-        _ = _homeWorkspace?.RecordUseAsync(filePath);
+        var validPaths = filePaths.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToArray();
+        if (validPaths.Length == 0) return;
+        foreach (var path in validPaths)
+        {
+            DirectoryAccess.Current.EnsureAccess(path);
+            _ = _homeWorkspace?.RecordUseAsync(path);
+        }
+
+        if (DistributionChannel.IsAppStore)
+        {
+            Platforms.MacOS.MacSandboxNative.OpenFiles(validPaths);
+        }
+        else
+        {
+            await RunAsync("/usr/bin/open", validPaths);
+        }
     }
 
-    public async Task OpenFileWithAppAsync(string filePath, string bundleIdentifier)
+    public Task OpenFileWithAppAsync(string filePath, string bundleIdentifier)
+        => OpenFilesWithAppAsync([filePath], bundleIdentifier);
+
+    public async Task OpenFilesWithAppAsync(IReadOnlyList<string> filePaths, string bundleIdentifier)
     {
-        DirectoryAccess.Current.EnsureAccess(filePath);
-        if (DistributionChannel.IsAppStore) Platforms.MacOS.MacSandboxNative.OpenFile(filePath, bundleIdentifier);
-        else await RunAsync("/usr/bin/open", "-b", bundleIdentifier, filePath);
-        _ = _homeWorkspace?.RecordUseAsync(filePath);
+        var validPaths = filePaths.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToArray();
+        if (validPaths.Length == 0) return;
+        foreach (var path in validPaths)
+        {
+            DirectoryAccess.Current.EnsureAccess(path);
+            _ = _homeWorkspace?.RecordUseAsync(path);
+        }
+
+        if (DistributionChannel.IsAppStore)
+        {
+            Platforms.MacOS.MacSandboxNative.OpenFiles(validPaths, bundleIdentifier);
+        }
+        else
+        {
+            var args = new string[validPaths.Length + 2];
+            args[0] = "-b";
+            args[1] = bundleIdentifier;
+            Array.Copy(validPaths, 0, args, 2, validPaths.Length);
+            await RunAsync("/usr/bin/open", args);
+        }
     }
 
     public Task OpenInTerminalAsync(string directoryPath)
@@ -34,10 +68,24 @@ public class MacApplicationLauncherService : IApplicationLauncherService
     }
 
     public Task RevealInFinderAsync(string filePath)
+        => RevealInFinderAsync([filePath]);
+
+    public Task RevealInFinderAsync(IReadOnlyList<string> filePaths)
     {
-        DirectoryAccess.Current.EnsureAccess(filePath);
-        if (!DistributionChannel.IsAppStore) return RunAsync("/usr/bin/open", "-R", filePath);
-        Platforms.MacOS.MacSandboxNative.RevealFile(filePath);
+        var validPaths = filePaths.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToArray();
+        if (validPaths.Length == 0) return Task.CompletedTask;
+        foreach (var path in validPaths)
+            DirectoryAccess.Current.EnsureAccess(path);
+
+        if (!DistributionChannel.IsAppStore)
+        {
+            var args = new string[validPaths.Length + 1];
+            args[0] = "-R";
+            Array.Copy(validPaths, 0, args, 1, validPaths.Length);
+            return RunAsync("/usr/bin/open", args);
+        }
+
+        Platforms.MacOS.MacSandboxNative.RevealFiles(validPaths);
         return Task.CompletedTask;
     }
 

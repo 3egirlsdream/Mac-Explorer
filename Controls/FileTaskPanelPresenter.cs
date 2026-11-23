@@ -17,6 +17,7 @@ internal sealed class FileTaskPanelPresenter
 {
     private readonly IBackgroundTaskManager _tasks;
     private readonly IFileOperationHistoryService? _history;
+    private readonly Func<string, Task>? _locate;
     private readonly Dictionary<string, TaskRow> _rows = [];
     private readonly StackPanel _list = new();
     private string _order = "";
@@ -25,10 +26,12 @@ internal sealed class FileTaskPanelPresenter
     private sealed record TaskRow(Border View, TextBlock Title, TextBlock Metrics, TextBlock Percentage,
         ProgressBar Progress, Grid Grid, string Actions, Action Arrange);
 
-    internal FileTaskPanelPresenter(IBackgroundTaskManager tasks, IFileOperationHistoryService? history)
+    internal FileTaskPanelPresenter(IBackgroundTaskManager tasks, IFileOperationHistoryService? history,
+        Func<string, Task>? locate = null)
     {
         _tasks = tasks;
         _history = history;
+        _locate = locate;
         Refresh();
     }
 
@@ -139,6 +142,22 @@ internal sealed class FileTaskPanelPresenter
             primary = ActionButton("重试", FileTaskIcons.Retry, () => _tasks.RetryTask(task.Id));
         if ((task.IsTerminal || task.State == BackgroundTaskState.NeedsAttention) && undoable && primary == null)
             primary = UndoButton(task.HistoryId!.Value);
+        if (primary == null && _locate is { } locate && task.Kind == BackgroundTaskKind.Extract && task.State == BackgroundTaskState.Completed
+            && task.Items.LastOrDefault(item => item.State == FileTaskItemState.Completed && item.Destination != null)?.Destination is { } outputPath)
+        {
+            var button = new AppButton { Classes = { "icon-action" },
+                Content = new PathIcon { Data = Geometry.Parse(Icons.Location), Width = 16, Height = 16 } };
+            var label = LocalizationText.Get("archive.locate_file");
+            AutomationProperties.SetName(button, label);
+            ToolTip.SetTip(button, label);
+            button.Click += async (_, _) =>
+            {
+                if (File.Exists(outputPath) || Directory.Exists(outputPath)) await locate(outputPath);
+                else if (TopLevel.GetTopLevel(button) is Window window)
+                    AppToast.ShowError(window, LocalizationText.Get("项目或所在目录已不存在"));
+            };
+            primary = button;
+        }
         if (primary != null) actions.Children.Add(primary);
         Button? dismiss = null;
         if (task.IsActive && task.CanCancel && task.State != BackgroundTaskState.Cancelling)

@@ -725,7 +725,10 @@ public partial class App : Application
         services.AddSingleton<IFrequentFolderService>(sp => new Services.Impl.FrequentFolderService(sp.GetRequiredService<DatabaseConnectionFactory>(), RuntimePaths.HomeDirectory));
         services.AddSingleton<IGitStatusService>(sp => new Services.Impl.GitStatusService(sp.GetService<ILoggerFactory>()));
         services.AddSingleton<IPinnedFolderService>(sp => new Services.Impl.PinnedFolderService(sp.GetRequiredService<DatabaseConnectionFactory>()));
-        services.AddSingleton<IArchiveService, Services.Impl.ArchiveService>();
+        services.AddSingleton(sp => new ArchivePasswordVault(sp.GetRequiredService<ISettingsService>(),
+            new DatabaseConnectionFactory(RuntimePaths.DatabasePath), ArchivePasswordKeyFile.ReadLocalKey));
+        services.AddSingleton<IArchiveService>(sp => new ArchiveService(sp.GetService<IBackgroundTaskManager>(),
+            sp.GetService<IFileConflictResolver>(), sp.GetRequiredService<ArchivePasswordVault>()));
         services.AddSingleton<IBackgroundTaskManager>(sp => new Services.Impl.BackgroundTaskManager(sp.GetService<ILoggerFactory>(), sp.GetRequiredService<ISettingsService>()));
         services.AddSingleton<IBatchRenameService>(sp => new Services.Impl.BatchRenameService(
             sp.GetRequiredService<IFileService>(),

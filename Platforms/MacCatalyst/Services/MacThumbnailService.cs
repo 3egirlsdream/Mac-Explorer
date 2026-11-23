@@ -2,7 +2,9 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
@@ -155,6 +157,45 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
 
     internal static string GetThumbnailCachePrefix(string extension, bool isImage)
         => isImage ? "image-v3:" : AudioArtworkExtensions.Contains(extension) ? "audio-artwork-v1:" : "";
+
+    private static readonly SemaphoreSlim ArchiveThumbnailReads = new(2, 2);
+    private static readonly SemaphoreSlim[] ArchiveThumbnailGates = Enumerable.Range(0, 32)
+        .Select(_ => new SemaphoreSlim(1, 1)).ToArray();
+
+    internal async Task<ThumbnailResult?> GetArchiveThumbnailAsync(ArchiveService archive, FileSystemEntry entry,
+        int pixels, CancellationToken ct)
+    {
+        var extension = entry.Extension.ToLowerInvariant();
+        if (entry.ArchiveThumbnailVersion is not { } version || !SupportsThumbnailExtension(extension)) return null;
+        var (path, key) = ArchivePathHelper.Parse(entry.FullPath);
+        if (!DirectoryAccess.Current.CanAccess(path) || ArchiveService.GetThumbnailVersion(path) != version) return null;
+        var cacheKey = $"archive-v1:{version}:{path.Length}:{path}:{key}:{pixels}";
+        return await GetOrCreateThumbnailAsync(cacheKey, async (output, token) =>
+        {
+            var gate = ArchiveThumbnailGates[(StringComparer.Ordinal.GetHashCode(path) & int.MaxValue) % ArchiveThumbnailGates.Length];
+            var temporary = await ReadArchiveThumbnailSourceAsync(archive, path, key, gate, token).ConfigureAwait(false);
+            if (temporary == null) return null;
+            try
+            {
+                return ArchiveService.GetThumbnailVersion(path) == version
+                    ? await GenerateThumbnailAsync(temporary, extension, output, pixels, token).ConfigureAwait(false) : null;
+            }
+            finally { Directory.Delete(Path.GetDirectoryName(temporary)!, recursive: true); }
+        }, rememberFailure: true, ct, manageGenerationGate: false).ConfigureAwait(false);
+    }
+
+    private static async Task<string?> ReadArchiveThumbnailSourceAsync(ArchiveService archive, string path, string key,
+        SemaphoreSlim gate, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await ArchiveThumbnailReads.WaitAsync(ct).ConfigureAwait(false);
+            try { return await archive.ExtractThumbnailSourceAsync(path, key, ct).ConfigureAwait(false); }
+            finally { ArchiveThumbnailReads.Release(); }
+        }
+        finally { gate.Release(); }
+    }
 
     // Generators write a private staging path, never the final cache path. Publication
     // and trimming are serialized, but neither consumes a native-generation slot.

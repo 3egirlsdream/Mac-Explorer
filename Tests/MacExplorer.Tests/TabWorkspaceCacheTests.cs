@@ -202,7 +202,7 @@ public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
     }
 
     [AvaloniaFact(Explicit = true)]
-    public async Task TwoColumnSidebarReturnsToIconsAfterClickingOutside()
+    public async Task TwoColumnSidebarStaysOpenUntilItsHeaderButtonIsClicked()
     {
         using var theme = new FastListTestTheme();
         await using var fixture = await TabCacheFixture.CreateAsync();
@@ -211,14 +211,15 @@ public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
         Dispatcher.UIThread.RunJobs();
 
         var workspace = fixture.Workspaces[fixture.Model.VisiblePanes[0]];
-        var toggle = workspace.FindControl<Button>("SidebarToggleButton")!;
         var pane = workspace.FindControl<SplitView>("SidebarSplitView")!;
         var sidebar = workspace.FindControl<FinderSidebarView>("SidebarControl")!;
+        var toggle = sidebar.FindControl<Button>("SidebarToggleButton")!;
         var header = sidebar.FindControl<TextBlock>("PinnedFoldersHeader")!;
-        // The gap between columns dismisses the overlay through SplitView itself.
-        var outside = workspace.TranslatePoint(new Point(workspace.Bounds.Width + 2, 350), fixture.Window)!.Value;
+        var otherTab = fixture.Model.VisiblePanes[1];
+        var otherWorkspace = fixture.Workspaces[otherTab];
+        Assert.False(pane.IsPaneOpen);
 
-        for (var cycle = 0; cycle < 2; cycle++)
+        async Task ClickToggleAsync()
         {
             Point buttonCenter = default;
             await WaitForIssue11Async(() =>
@@ -231,16 +232,43 @@ public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
             fixture.Window.MouseDown(buttonCenter, MouseButton.Left);
             fixture.Window.MouseUp(buttonCenter, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(pane.IsPaneOpen);
-            Assert.True(header.IsVisible);
-
-            fixture.Window.MouseDown(outside, MouseButton.Left);
-            fixture.Window.MouseUp(outside, MouseButton.Left);
-            Dispatcher.UIThread.RunJobs();
-            Assert.False(pane.IsPaneOpen);
-            Assert.True(sidebar.IsRailMode);
-            Assert.False(header.IsVisible);
         }
+
+        await ClickToggleAsync();
+        Assert.True(pane.IsPaneOpen);
+        Assert.True(header.IsVisible);
+        Assert.Equal(1, Grid.GetColumn(toggle));
+
+        var content = workspace.FindControl<Grid>("PageSurface")!;
+        await WaitForIssue11Async(() =>
+        {
+            RenderIssue11(fixture.Window);
+            var origin = content.TranslatePoint(default, workspace);
+            return origin?.X >= pane.OpenPaneLength;
+        });
+        foreach (var target in new[] { workspace, otherWorkspace })
+        {
+            var fileArea = target.FindControl<Border>("PageContentSurface")!;
+            var point = fileArea.TranslatePoint(new Rect(fileArea.Bounds.Size).Center, fixture.Window)!.Value;
+            fixture.Window.MouseDown(point, MouseButton.Left);
+            fixture.Window.MouseUp(point, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(pane.IsPaneOpen);
+        }
+        Assert.Same(otherTab, fixture.Model.SelectedTab);
+        Assert.False(otherWorkspace.FindControl<SplitView>("SidebarSplitView")!.IsPaneOpen);
+
+        fixture.Model.SelectedTab = fixture.Model.VisiblePanes[0];
+        fixture.Model.SetPaneLayout(PaneLayout.Single);
+        fixture.Model.SetPaneLayout(PaneLayout.TwoColumns);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(pane.IsPaneOpen);
+
+        await ClickToggleAsync();
+        Assert.False(pane.IsPaneOpen);
+        Assert.True(sidebar.IsRailMode);
+        Assert.False(header.IsVisible);
+        Assert.Equal(0, Grid.GetColumn(toggle));
     }
 
     [AvaloniaTheory(Explicit = true)]

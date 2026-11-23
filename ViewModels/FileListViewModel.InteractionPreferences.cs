@@ -1,4 +1,5 @@
 using MacExplorer.Models;
+using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 
 namespace MacExplorer.ViewModels;
@@ -39,10 +40,19 @@ public partial class FileListViewModel
     }
 
     public bool ShowFolderPhotoCovers => _settingsService?.Get(FolderPhotoCoverSettingKey, false) ?? false;
+    internal bool ShowArchiveThumbnails => _settingsService?.Get(ArchivePreferences.ShowThumbnails, true) ?? true;
     public FolderPhotoCoverStyle PhotoCoverStyle => FolderPhotoCoverStyles.Read(_settingsService);
 
     private void OnSettingsChanged(string key)
     {
+        if (key == ArchivePreferences.ShowThumbnails && !_disposed)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (!_disposed) OnPropertyChanged(nameof(ShowArchiveThumbnails));
+            });
+            return;
+        }
         if (key == "ai_analysis_enabled" && !_disposed)
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>

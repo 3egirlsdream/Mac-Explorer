@@ -98,7 +98,7 @@ internal sealed class FileConflictDialog : DialogWindow
         replace.Click += (_, _) => Choose(FileConflictAction.Replace);
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
             ItemSpacing = 11, LineSpacing = 8 };
-        foreach (var button in new Control[] { skip, replace, keep })
+        foreach (var button in (conflict.CanReplace ? new Control[] { skip, replace, keep } : [skip, keep]))
         {
             button.MinWidth = button == skip ? 74 : button == keep ? 92 : 90;
             buttons.Children.Add(button);

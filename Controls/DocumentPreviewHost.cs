@@ -18,13 +18,15 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void KeyCallback(ushort keyCode);
     private readonly KeyCallback _keyCallback;
+    private readonly bool _squareCorners;
     private IntPtr _view;
     private bool _attached;
     private bool _disposed;
     private readonly MemoryDiagnosticLifetime? _memoryLifetime;
 
-    internal DocumentPreviewHost(Action<Key> onKey)
+    internal DocumentPreviewHost(Action<Key> onKey, bool squareCorners = false)
     {
+        _squareCorners = squareCorners;
         _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.DocumentPreview);
         Focusable = false;
         ActualThemeVariantChanged += (_, _) => ApplyAppearance();
@@ -63,7 +65,7 @@ internal sealed class DocumentPreviewHost : NativeControlHost, IDisposable
         if (_disposed || _view == IntPtr.Zero) return;
         var radius = this.TryFindResource("RadiusLg", out var value) && value is CornerRadius corners
             ? corners.TopLeft : 10;
-        me_document_preview_appearance(_view, ActualThemeVariant == ThemeVariant.Dark, radius);
+        me_document_preview_appearance(_view, ActualThemeVariant == ThemeVariant.Dark, _squareCorners ? 0 : radius);
         var width = this.TryFindResource("ScrollBarSize", ActualThemeVariant, out var size) && size is double pixels ? pixels : 8;
         uint Color(string key) => this.TryFindResource(key, ActualThemeVariant, out var color) && color is ISolidColorBrush brush
             ? brush.Color.ToUInt32() : Colors.Gray.ToUInt32();

@@ -28,9 +28,12 @@ public class ContextMenuAction
     public bool IsQuickAction { get; init; }
     public string? IconBase64 { get; init; }
     public Func<Task<string?>>? LoadIconBase64Async { get; init; }
+    public Func<Task<ContextMenuIconGroup>>? LoadIconGroupAsync { get; init; }
 
     public static ContextMenuAction Separator => new() { IsSeparator = true };
 }
+
+public sealed record ContextMenuIconGroup(IReadOnlyList<string> Icons, bool HasMore);
 
 /// <summary>
 /// SVG icon constants — Fluent UI System Icons style.

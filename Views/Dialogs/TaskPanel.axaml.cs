@@ -21,7 +21,8 @@ public partial class TaskPanel : ToolWindow
         _history = App.Services?.GetService<IFileOperationHistoryService>();
         _taskManager.TasksChanged += OnTasksChanged;
         if (_history != null) _history.HistoryChanged += OnTasksChanged;
-        _presenter = new(taskManager, _history);
+        var launcher = App.Services?.GetService<IApplicationLauncherService>();
+        _presenter = new(taskManager, _history, launcher == null ? null : path => launcher.RevealInFinderAsync(path));
         TaskItemsPanel.Children.Clear(); TaskItemsPanel.Children.Add(_presenter.View);
         RefreshTasks();
     }

@@ -98,7 +98,8 @@ public abstract partial class FileListViewModelTestBase
         public Task<IReadOnlyList<ContextMenuAction>> GetOpenWithActionsAsync(string path) => Empty();
         public Task<IReadOnlyList<ContextMenuAction>> GetTopLevelOpenWithActionsAsync(string path) => Empty();
         public Task<IReadOnlyList<RegisteredApp>> GetApplicationsForFileAsync(string path) => Task.FromResult<IReadOnlyList<RegisteredApp>>([]);
-        public Task<string?> GetDefaultApplicationIconBase64Async(string path) => Task.FromResult<string?>(null);
+        public Task<ContextMenuIconGroup> GetDefaultApplicationIconsAsync(IReadOnlyList<string> filePaths)
+            => Task.FromResult(new ContextMenuIconGroup([], false));
         private static Task<IReadOnlyList<ContextMenuAction>> Empty() => Task.FromResult<IReadOnlyList<ContextMenuAction>>([]);
     }
 

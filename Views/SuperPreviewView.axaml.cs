@@ -37,7 +37,6 @@ public partial class SuperPreviewView : UserControl
     private PreviewLocation? _location;
     private FileSystemEntry? _selectedEntry;
     private bool _ignoreSelection;
-    private string? _standaloneFileName;
     private Control? _previousFocus;
     private int _operationVersion;
     private readonly bool _isCompactPreview;
@@ -63,7 +62,16 @@ public partial class SuperPreviewView : UserControl
         if (isCompactPreview)
             ConfigureCompactLayout();
         ItemsList.ItemsSource = _entries;
-        SizeChanged += (_, _) => UpdatePreviewColumns();
+        PreviewContentGrid.SizeChanged += (_, _) => UpdatePreviewColumns();
+        if (!isCompactPreview)
+        {
+            PreviewTree.NameOnly = true;
+            ConfigureToolbar();
+            PropertyChanged += (_, args) =>
+            {
+                if (args.Property == IsVisibleProperty) UpdatePreviewToolbarPlacement();
+            };
+        }
         _fileService = App.Services.GetService<IFileService>();
         _archiveService = App.Services.GetService<IArchiveService>();
         _thumbnailService = App.Services.GetService<IThumbnailService>();
@@ -73,8 +81,9 @@ public partial class SuperPreviewView : UserControl
     private void UpdatePreviewColumns()
     {
         if (_isCompactPreview) return;
-        PreviewContentGrid.ColumnDefinitions = ColumnDefinitions.Parse(
-            PreviewListCard.IsVisible ? (Bounds.Width < 800 ? "200,6,*" : "240,6,*") : "0,0,*");
+        var definitions = PreviewContentGrid.ColumnDefinitions;
+        definitions[0].Width = new GridLength(PreviewListCard.IsVisible ? ClampPreviewTreeWidth(_previewTreeWidth) : 0);
+        definitions[1].Width = new GridLength(PreviewListCard.IsVisible ? 1 : 0);
     }
 
     private void ConfigureCompactLayout()
@@ -88,13 +97,11 @@ public partial class SuperPreviewView : UserControl
         PreviewHeader.IsVisible = false;
         BackButton.IsVisible = false;
         ClosePreviewButton.IsVisible = false;
-        ItemCountText.IsVisible = false;
         HeaderDivider.IsVisible = false;
         ContentDivider.IsVisible = false;
-        PreviewContentGrid.Margin = new Thickness(0);
-        PreviewListCard.Classes.Remove("card");
+        PreviewTreeScroll.IsVisible = false;
+        ItemsList.IsVisible = true;
         PreviewListCard.Background = Brushes.Transparent;
-        PreviewCard.Classes.Remove("card");
         PreviewCard.Background = Brushes.Transparent;
         PreviewCard.Padding = new Thickness(0);
     }
@@ -115,7 +122,7 @@ public partial class SuperPreviewView : UserControl
         catch (IOException) { return false; }
     }
 
-    public async Task OpenAsync(FileSystemEntry entry)
+    public async Task OpenAsync(FileSystemEntry entry, IReadOnlyList<FileSystemEntry>? fileOrder = null)
     {
         MemoryDiagnostics.Operation(DiagnosticAction.PreviewOpen, DiagnosticId);
         if (!_isCompactPreview && !IsVisible)
@@ -123,48 +130,30 @@ public partial class SuperPreviewView : UserControl
         CloseResources();
         _history.Clear();
         _entries.Clear();
+        _location = null;
         _selectedEntry = null;
         IsVisible = true;
         if (!_isCompactPreview)
+        {
             Focus();
-        else
-        {
-            var showList = entry.IsDirectory || _archiveService?.IsArchiveFile(entry.FullPath) == true;
-            PreviewListCard.IsVisible = showList;
-            PreviewCard.IsVisible = !showList;
-            PreviewContentGrid.ColumnDefinitions = ColumnDefinitions.Parse(showList ? "*,0,0" : "0,0,*");
-            if (!showList)
-            {
-                // Reuse the file preview without reading its parent folder or moving focus.
-                _selectedEntry = entry;
-                await ShowEntryPreviewAsync(entry);
-                return;
-            }
-        }
-
-        var showNavigation = entry.IsDirectory || ArchivePathHelper.IsArchivePath(entry.FullPath)
-                             || _archiveService?.IsArchiveFile(entry.FullPath) == true;
-        _standaloneFileName = showNavigation ? null : entry.Name;
-        PreviewListCard.IsVisible = showNavigation;
-        ContentDivider.IsVisible = showNavigation;
-        UpdatePreviewColumns();
-
-        var location = await BuildInitialLocationAsync(entry);
-        if (location == null)
-        {
-            ShowPlaceholder("此项目无法在预览中显示");
+            await OpenFullPreviewAsync(entry, fileOrder);
             return;
         }
 
-        var preferred = GetPreferredEntry(entry, location);
-        // A standalone file preview is not a request to browse its parent
-        // directory. Keep the left-side context focused on that file; folder
-        // and archive previews still expose their real immediate contents.
-        var isolatePreferredEntry = preferred != null
-                                   && !location.IsArchive
-                                   && !entry.IsDirectory
-                                   && _archiveService?.IsArchiveFile(entry.FullPath) != true;
-        await LoadLocationAsync(location, preferred, isolatePreferredEntry);
+        var showList = entry.IsDirectory || _archiveService?.IsArchiveFile(entry.FullPath) == true;
+        PreviewListCard.IsVisible = showList;
+        PreviewCard.IsVisible = !showList;
+        PreviewContentGrid.ColumnDefinitions = ColumnDefinitions.Parse(showList ? "*,0,0" : "0,0,*");
+        if (!showList)
+        {
+            _selectedEntry = entry;
+            await ShowEntryPreviewAsync(entry);
+            return;
+        }
+
+        var location = BuildInitialLocation(entry);
+        if (location != null)
+            await LoadLocationAsync(location, ArchivePathHelper.IsArchivePath(entry.FullPath) ? entry : null);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -172,11 +161,18 @@ public partial class SuperPreviewView : UserControl
         base.OnAttachedToVisualTree(e);
         _memoryLifetime?.Link((TopLevel.GetTopLevel(this) as AppWindow)?.DiagnosticId ?? 0);
         _memoryLifetime?.SetState(DiagnosticObjectState.Attached);
+        if (!_isCompactPreview)
+        {
+            _toolbarLanguage = LocalizationService.Current;
+            if (_toolbarLanguage != null) _toolbarLanguage.LanguageChanged += RefreshToolbarLanguage;
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _memoryLifetime?.SetState(DiagnosticObjectState.Detached);
+        if (_toolbarLanguage != null) _toolbarLanguage.LanguageChanged -= RefreshToolbarLanguage;
+        _toolbarLanguage = null;
         CloseResources();
         base.OnDetachedFromVisualTree(e);
     }
@@ -186,10 +182,9 @@ public partial class SuperPreviewView : UserControl
         if (!IsVisible && _location == null)
             return;
 
-        MemoryDiagnostics.Operation(DiagnosticAction.PreviewClose, DiagnosticId, count: _entries.Count);
+        MemoryDiagnostics.Operation(DiagnosticAction.PreviewClose, DiagnosticId, count: _isCompactPreview ? _entries.Count : PreviewTree.Rows.Count);
         IsVisible = false;
         CloseResources();
-        PreviewText.Text = string.Empty;
         _history.Clear();
         _entries.Clear();
         _location = null;
@@ -199,7 +194,7 @@ public partial class SuperPreviewView : UserControl
         RequestClose?.Invoke(this, EventArgs.Empty);
     }
 
-    private async Task<PreviewLocation?> BuildInitialLocationAsync(FileSystemEntry entry)
+    private PreviewLocation? BuildInitialLocation(FileSystemEntry entry)
     {
         var fullPath = entry.FullPath;
         if (ArchivePathHelper.IsArchivePath(fullPath))
@@ -218,27 +213,10 @@ public partial class SuperPreviewView : UserControl
         if (_archiveService?.IsArchiveFile(fullPath) == true)
             return PreviewLocation.Archive(fullPath, string.Empty);
 
-        var parentPath = Path.GetDirectoryName(fullPath);
-        return !string.IsNullOrWhiteSpace(parentPath) && Directory.Exists(parentPath)
-            ? PreviewLocation.Directory(parentPath)
-            : null;
-    }
-
-    private static FileSystemEntry? GetPreferredEntry(FileSystemEntry original, PreviewLocation location)
-    {
-        if (original.IsDirectory && !ArchivePathHelper.IsArchivePath(original.FullPath))
-            return null;
-        if (location.IsArchive && ArchivePathHelper.IsArchivePath(original.FullPath))
-            return original;
-        if (!location.IsArchive && !original.IsDirectory && !string.IsNullOrWhiteSpace(location.DirectoryPath))
-            return original;
         return null;
     }
 
-    private async Task LoadLocationAsync(
-        PreviewLocation location,
-        FileSystemEntry? preferred,
-        bool isolatePreferredEntry = false)
+    private async Task LoadLocationAsync(PreviewLocation location, FileSystemEntry? preferred)
     {
         CancelLoad();
         var tokenSource = new CancellationTokenSource();
@@ -247,8 +225,7 @@ public partial class SuperPreviewView : UserControl
         var version = ++_operationVersion;
         _location = location;
         _selectedEntry = null;
-        UpdateLocationChrome();
-        ShowPlaceholder(location.IsArchive ? "正在读取压缩包目录…" : "正在读取文件夹内容…");
+        ShowPlaceholder(LocalizationText.Get("preview.tree.loading"));
 
         try
         {
@@ -262,17 +239,7 @@ public partial class SuperPreviewView : UserControl
             try
             {
                 _entries.Clear();
-                IEnumerable<FileSystemEntry> visibleEntries = entries
-                    .Where(ShouldShowEntry)
-                    .OrderByDescending(e => e.IsDirectory)
-                    .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase);
-                if (isolatePreferredEntry && preferred != null)
-                {
-                    visibleEntries = visibleEntries.Where(entry =>
-                        string.Equals(entry.FullPath, preferred.FullPath, StringComparison.Ordinal));
-                }
-
-                foreach (var entry in visibleEntries)
+                foreach (var entry in SortPreviewEntries(entries))
                     _entries.Add(entry);
 
                 var match = preferred == null
@@ -287,27 +254,8 @@ public partial class SuperPreviewView : UserControl
                 _ignoreSelection = false;
             }
 
-            ItemCountText.Text = _entries.Count == 0 ? MacExplorer.Services.Impl.LocalizationText.Get("空") : MacExplorer.Services.Impl.LocalizationText.Get("{0} 项", _entries.Count);
-            if (!_isCompactPreview)
-            {
-                if (_selectedEntry != null)
-                    await ShowEntryPreviewAsync(_selectedEntry, token);
-                else
-                    ShowLocationSummary();
-            }
-
-            // The normal file list owns an async image loader, but this preview
-            // has its own list. Populate thumbnails for local folders as well as
-            // archives so PDFs, text documents and images do not fall back to a
-            // generic file-type icon until the user opens them.
             if (PreviewListCard.IsVisible && _entries.Count > 0)
                 _ = PopulateListThumbnailsAsync(_entries.ToArray(), location, token);
-
-            // Keep keyboard navigation in the preview list after a folder/archive
-            // transition; the overlay itself remains the command surface for
-            // Escape/Space and receives bubbled key events from the ListBox.
-            if (!_isCompactPreview)
-                ItemsList.Focus();
         }
         catch (OperationCanceledException)
         {
@@ -315,10 +263,7 @@ public partial class SuperPreviewView : UserControl
         catch (Exception ex)
         {
             if (version == _operationVersion)
-            {
-                ItemCountText.Text = MacExplorer.Services.Impl.LocalizationText.Get("读取失败");
-                ShowPlaceholder($"无法读取内容\n{ex.Message}");
-            }
+                ShowPlaceholder(LocalizationText.Get("preview.tree.read-error", ex.Message));
         }
     }
 
@@ -328,23 +273,14 @@ public partial class SuperPreviewView : UserControl
     private async Task<IReadOnlyList<FileSystemEntry>> ReadArchiveEntriesAsync(PreviewLocation location, CancellationToken token)
     {
         if (_archiveService == null) return [];
-        try
-        {
-            return await _archiveService.GetArchiveContentsAsync(location.ArchivePath!, location.InternalPath);
-        }
-        catch (CryptographicException) when (PasswordPrompt != null)
-        {
-            var password = await PasswordPrompt!();
-            if (string.IsNullOrEmpty(password)) return [];
-            return await _archiveService.GetArchiveContentsAsync(location.ArchivePath!, location.InternalPath, password);
-        }
-        catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase) && PasswordPrompt != null)
-        {
-            var password = await PasswordPrompt!();
-            if (string.IsNullOrEmpty(password)) return [];
-            return await _archiveService.GetArchiveContentsAsync(location.ArchivePath!, location.InternalPath, password);
-        }
+        return await ReadArchiveAsync(location.ArchivePath!,
+            password => _archiveService.GetArchiveContentsAsync(location.ArchivePath!, location.InternalPath, password), token, browse: true)
+            ?? [];
     }
+
+    private IEnumerable<FileSystemEntry> SortPreviewEntries(IReadOnlyList<FileSystemEntry> entries, string? preferredPath = null)
+        => entries.Where(entry => entry.FullPath == preferredPath || ShouldShowEntry(entry)).OrderByDescending(entry => entry.IsDirectory)
+            .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase);
 
     private bool ShouldShowEntry(FileSystemEntry entry)
     {
@@ -395,9 +331,23 @@ public partial class SuperPreviewView : UserControl
         }
         else if (_archiveService?.IsArchiveFile(entry.Name) == true)
         {
-            var extracted = await ExtractArchiveEntryAsync(entry);
-            if (!string.IsNullOrWhiteSpace(extracted))
-                next = PreviewLocation.Archive(extracted, string.Empty, Path.GetFileName(entry.Name));
+            var token = _loadCts?.Token ?? CancellationToken.None;
+            try
+            {
+                var extracted = ArchivePathHelper.IsArchivePath(entry.FullPath)
+                    ? await ExtractArchiveEntryAsync(entry, token) : entry.FullPath;
+                if (extracted != null)
+                {
+                    if (ArchivePathHelper.IsArchivePath(entry.FullPath)) _temporaryFiles.Add(extracted);
+                    next = PreviewLocation.Archive(extracted, string.Empty);
+                }
+            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException or InvalidFormatException)
+            {
+                ShowPlaceholder(LocalizationText.Get("preview.tree.read-error", ex.Message));
+                return;
+            }
         }
         else if (!_location.IsArchive && _archiveService?.IsArchiveFile(entry.FullPath) == true)
         {
@@ -409,44 +359,17 @@ public partial class SuperPreviewView : UserControl
         await LoadLocationAsync(next, null);
     }
 
-    private async Task<string?> ExtractArchiveEntryAsync(FileSystemEntry entry)
+    private async Task<string?> ExtractArchiveEntryAsync(FileSystemEntry entry, CancellationToken token)
     {
         if (_archiveService == null) return null;
-        try
-        {
-            if (ArchivePathHelper.IsArchivePath(entry.FullPath))
-            {
-                var (archivePath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
-                var extracted = await _archiveService.ExtractEntryToTempAsync(archivePath, entryKey);
-                _temporaryFiles.Add(extracted);
-                return extracted;
-            }
-
-            return entry.FullPath;
-        }
-        catch (CryptographicException) when (PasswordPrompt != null && ArchivePathHelper.IsArchivePath(entry.FullPath))
-        {
-            var password = await PasswordPrompt!();
-            if (string.IsNullOrEmpty(password)) return null;
-            var (archivePath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
-            var extracted = await _archiveService.ExtractEntryToTempAsync(archivePath, entryKey, password);
-            _temporaryFiles.Add(extracted);
-            return extracted;
-        }
-        catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase)
-                                                 && PasswordPrompt != null && ArchivePathHelper.IsArchivePath(entry.FullPath))
-        {
-            var password = await PasswordPrompt!();
-            if (string.IsNullOrEmpty(password)) return null;
-            var (archivePath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
-            var extracted = await _archiveService.ExtractEntryToTempAsync(archivePath, entryKey, password);
-            _temporaryFiles.Add(extracted);
-            return extracted;
-        }
-        catch
-        {
-            return null;
-        }
+        var (archivePath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
+        var extracted = await ReadArchiveAsync(archivePath,
+            password => _archiveService is ArchiveService service
+                ? service.ExtractEntryToTempAsync(archivePath, entryKey, password, token)
+                : _archiveService.ExtractEntryToTempAsync(archivePath, entryKey, password), token);
+        if (extracted != null && token.IsCancellationRequested) DeleteTemporaryFile(extracted);
+        token.ThrowIfCancellationRequested();
+        return extracted;
     }
 
     private async Task ShowEntryPreviewAsync(FileSystemEntry entry, CancellationToken? inheritedToken = null)
@@ -465,29 +388,26 @@ public partial class SuperPreviewView : UserControl
 
     private async Task ShowEntryPreviewCoreAsync(FileSystemEntry entry, CancellationToken? inheritedToken)
     {
-        ClearDiffPreview();
-        ClearVideoPreview();
-        ClearDocumentPreview();
-        _previewCts?.Cancel();
-        _previewCts?.Dispose();
+        ResetEntryPreview();
         _previewCts = CancellationTokenSource.CreateLinkedTokenSource(inheritedToken ?? CancellationToken.None);
         var token = _previewCts.Token;
-        var version = ++_operationVersion;
+        var version = _operationVersion;
 
-        if (entry.IsDirectory)
+        if (_isCompactPreview && entry.IsDirectory)
         {
-            ShowFolderSummary(entry.Name, "文件夹", entry.FullPath);
+            ShowFolderSummary(entry.Name, LocalizationText.Get("preview.tree.folder"), entry.FullPath, _entries.Count);
             return;
         }
 
-        ShowPlaceholder("正在生成预览…");
+        ShowPlaceholder(LocalizationText.Get("preview.loading"));
         string? previewPath;
         try { previewPath = await ResolvePreviewPathAsync(entry, token); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
-        catch (Exception ex) when (DiffPreviewDocument.IsDiff(entry.Name) && ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException or InvalidFormatException)
         {
             if (version == _operationVersion && !token.IsCancellationRequested && IsVisible)
-                ShowPlaceholder(LocalizationText.Get("preview.text-unreadable"));
+                ShowPlaceholder(LocalizationText.Get(DiffPreviewDocument.IsDiff(entry.Name)
+                    ? "preview.text-unreadable" : "preview.unreadable"));
             return;
         }
         if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
@@ -495,7 +415,7 @@ public partial class SuperPreviewView : UserControl
         if (string.IsNullOrWhiteSpace(previewPath))
         {
             ShowPlaceholder(DiffPreviewDocument.IsDiff(entry.Name)
-                ? LocalizationText.Get("preview.text-unreadable") : "无法读取此文件");
+                ? LocalizationText.Get("preview.text-unreadable") : LocalizationText.Get("preview.unreadable"));
             return;
         }
 
@@ -519,7 +439,7 @@ public partial class SuperPreviewView : UserControl
 
         if (IsTextFile(entry))
         {
-            await ShowTextPreviewAsync(previewPath, entry, token, version);
+            await ShowTextPreviewAsync(previewPath, token, version);
             return;
         }
 
@@ -535,18 +455,17 @@ public partial class SuperPreviewView : UserControl
             {
                 var bitmap = await Task.Run(() => MacExplorer.Services.BoundedImageDecoder.Decode(bytes, maxPixels, token), token);
                 if (version != _operationVersion || token.IsCancellationRequested || !IsVisible) { bitmap?.Dispose(); return; }
-                if (bitmap == null) { ShowPlaceholder("系统无法为此文件生成预览"); return; }
+                if (bitmap == null) { ShowPlaceholder(LocalizationText.Get("preview.unavailable")); return; }
                 SetPreviewBitmap(bitmap);
                 PreviewImage.IsVisible = true;
                 PreviewPlaceholder.IsVisible = false;
                 PreviewTextScroll.IsVisible = false;
                 FolderSummary.IsVisible = false;
+                UpdatePreviewToolbar();
                 return;
             }
 
-            ShowPlaceholder(IsVideoFile(entry)
-                ? "此视频暂时无法生成预览"
-                : "系统无法为此文件生成预览");
+            ShowPlaceholder(LocalizationText.Get(IsVideoFile(entry) ? "preview.video.unavailable" : "preview.unavailable"));
         }
         catch (OperationCanceledException)
         {
@@ -555,7 +474,7 @@ public partial class SuperPreviewView : UserControl
         {
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
-            ShowPlaceholder("预览生成失败");
+            ShowPlaceholder(LocalizationText.Get("preview.failed"));
         }
     }
 
@@ -566,34 +485,13 @@ public partial class SuperPreviewView : UserControl
         if (!ArchivePathHelper.IsArchivePath(entry.FullPath))
             return File.Exists(entry.FullPath) ? entry.FullPath : null;
 
-        var (archivePath, entryKey) = ArchivePathHelper.Parse(entry.FullPath);
-        try
+        var extracted = await ExtractArchiveEntryAsync(entry, token);
+        if (extracted != null)
         {
-            var extracted = await _archiveService!.ExtractEntryToTempAsync(archivePath, entryKey);
-            _temporaryFiles.Add(extracted);
-            return extracted;
+            if (_isCompactPreview) _temporaryFiles.Add(extracted);
+            else _selectedTemporaryFile = extracted;
         }
-        catch (CryptographicException) when (PasswordPrompt != null)
-        {
-            var password = await PasswordPrompt!();
-            if (string.IsNullOrEmpty(password)) return null;
-            var extracted = await _archiveService!.ExtractEntryToTempAsync(archivePath, entryKey, password);
-            _temporaryFiles.Add(extracted);
-            return extracted;
-        }
-        catch (InvalidFormatException ex) when (ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase)
-                                                 && PasswordPrompt != null)
-        {
-            var password = await PasswordPrompt!();
-            if (string.IsNullOrEmpty(password)) return null;
-            var extracted = await _archiveService!.ExtractEntryToTempAsync(archivePath, entryKey, password);
-            _temporaryFiles.Add(extracted);
-            return extracted;
-        }
-        catch
-        {
-            return null;
-        }
+        return extracted;
     }
 
     private async Task PopulateListThumbnailsAsync(
@@ -702,7 +600,7 @@ public partial class SuperPreviewView : UserControl
         }
     }
 
-    private async Task ShowTextPreviewAsync(string path, FileSystemEntry entry, CancellationToken token, int version)
+    private async Task ShowTextPreviewAsync(string path, CancellationToken token, int version)
     {
         try
         {
@@ -710,11 +608,13 @@ public partial class SuperPreviewView : UserControl
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
             PreviewText.Text = text;
+            _loadedPreviewText = text;
             PreviewTextScroll.IsVisible = true;
             PreviewText.IsVisible = true;
             PreviewImage.IsVisible = false;
             PreviewPlaceholder.IsVisible = false;
             FolderSummary.IsVisible = false;
+            UpdatePreviewToolbar();
         }
         catch (OperationCanceledException)
         {
@@ -728,21 +628,16 @@ public partial class SuperPreviewView : UserControl
         }
     }
 
-    private void ShowLocationSummary()
+    private void ShowFolderSummary(string title, string kind, string path, int? count)
     {
-        if (_location == null) return;
-        ShowFolderSummary(_location.Title, _location.IsArchive ? "压缩包目录" : "文件夹内容", _location.DisplayPath);
-    }
-
-    private void ShowFolderSummary(string title, string kind, string path)
-    {
-        SetPreviewBitmap(null);
         PreviewImage.IsVisible = false;
         PreviewTextScroll.IsVisible = false;
         PreviewPlaceholder.IsVisible = false;
         FolderSummary.IsVisible = true;
         FolderSummaryTitle.Text = title;
-        FolderSummaryDetails.Text = MacExplorer.Services.Impl.LocalizationText.Get("{0} · {1} 项\n{2}", MacExplorer.Services.Impl.LocalizationText.Get(kind), _entries.Count, path);
+        FolderSummaryDetails.Text = count.HasValue
+            ? LocalizationText.Get("preview.tree.summary", kind, count.Value, path)
+            : $"{kind}\n{path}";
     }
 
     private void ShowPlaceholder(string text)
@@ -754,20 +649,18 @@ public partial class SuperPreviewView : UserControl
         FolderSummary.IsVisible = false;
         PreviewPlaceholder.Text = text;
         PreviewPlaceholder.IsVisible = true;
-    }
-
-    private void UpdateLocationChrome()
-    {
-        if (_location == null || _isCompactPreview) return;
-        TitleText.Text = _standaloneFileName ?? _location.Title;
-        BreadcrumbText.IsVisible = _standaloneFileName == null;
-        ItemCountText.IsVisible = _standaloneFileName == null;
-        BreadcrumbText.Text = string.Join("  ›  ", _history.Select(h => h.Title).Append(_location.Title));
-        BackButton.IsEnabled = _history.Count > 0;
+        UpdatePreviewToolbar();
     }
 
     private async void GoBack(object? sender, RoutedEventArgs e)
     {
+        if (!_isCompactPreview && _selectedNode?.Parent is { } parent)
+        {
+            await SelectTreeNodeAsync(parent);
+            PreviewTree.Focus();
+            return;
+        }
+
         if (_history.Count == 0)
         {
             Close();
@@ -798,7 +691,7 @@ public partial class SuperPreviewView : UserControl
             return;
         }
 
-        if (e.Key == Key.Back && _history.Count > 0)
+        if (e.Key == Key.Back && (_history.Count > 0 || _selectedNode?.Parent != null))
         {
             e.Handled = true;
             GoBack(sender, new RoutedEventArgs());
@@ -822,6 +715,9 @@ public partial class SuperPreviewView : UserControl
         ClearVideoPreview();
         ClearDocumentPreview();
         ClearMarkdownPreview();
+        _loadedPreviewText = null;
+        ZoomedImage.Source = null;
+        ZoomedImageScroll.IsVisible = false;
         var previous = _previewBitmap;
         _previewBitmap = bitmap;
         PreviewImage.Source = bitmap;
@@ -837,47 +733,59 @@ public partial class SuperPreviewView : UserControl
 
     private void CloseResources()
     {
-        _operationVersion++;
         CancelLoad();
+        ResetEntryPreview();
+        if (!_isCompactPreview)
+        {
+            ClearPreviewTree();
+            _previewFiles = [];
+            UpdatePreviewSteps();
+        }
+        foreach (var path in _temporaryFiles) DeleteTemporaryFile(path);
+        _temporaryFiles.Clear();
+        _archivePasswords.Clear();
+    }
+
+    private void ResetEntryPreview()
+    {
+        _operationVersion++;
         _previewCts?.Cancel();
         _previewCts?.Dispose();
         _previewCts = null;
         SetPreviewBitmap(null);
+        DeleteSelectedTemporaryFile();
+        PreviewText.Text = string.Empty;
+    }
 
-        foreach (var path in _temporaryFiles.Distinct(StringComparer.Ordinal).ToArray())
+    private void DeleteSelectedTemporaryFile()
+    {
+        if (_selectedTemporaryFile == null) return;
+        DeleteTemporaryFile(_selectedTemporaryFile);
+        _selectedTemporaryFile = null;
+    }
+
+    private static void DeleteTemporaryFile(string path)
+    {
+        try
         {
-            try
-            {
-                var directory = Path.GetDirectoryName(path);
-                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory)
-                    && directory.Contains("MacExplorer-archive-temp", StringComparison.Ordinal))
-                    Directory.Delete(directory, recursive: true);
-                else if (File.Exists(path))
-                    File.Delete(path);
-            }
-            catch { }
+            var directory = Path.GetDirectoryName(path);
+            if (directory != null && Path.GetFileName(Path.GetDirectoryName(directory)) == "MacExplorer-archive-temp")
+                Directory.Delete(directory, recursive: true);
+            else
+                File.Delete(path);
         }
-        _temporaryFiles.Clear();
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private sealed record PreviewLocation(
         bool IsArchive,
         string? DirectoryPath,
         string? ArchivePath,
-        string InternalPath,
-        string? CustomTitle = null)
+        string InternalPath)
     {
-        public string Title => CustomTitle
-            ?? (IsArchive
-                ? Path.GetFileName(ArchivePath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? "压缩包"
-                : Path.GetFileName(DirectoryPath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? DirectoryPath ?? "文件夹");
-
-        public string DisplayPath => IsArchive
-            ? $"{ArchivePath}!/{InternalPath}".TrimEnd('/')
-            : DirectoryPath ?? string.Empty;
-
         public static PreviewLocation Directory(string path) => new(false, path, null, string.Empty);
-        public static PreviewLocation Archive(string path, string internalPath, string? title = null)
-            => new(true, null, path, internalPath.Trim('/'), title);
+        public static PreviewLocation Archive(string path, string internalPath)
+            => new(true, null, path, internalPath.Trim('/'));
     }
 }

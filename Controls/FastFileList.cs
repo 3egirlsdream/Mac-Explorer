@@ -87,6 +87,16 @@ public sealed class FastFileList : Control, ILogicalScrollable
     internal Func<FileSystemEntry, IReadOnlyList<string>>? DetailTextProvider { get; set; }
     internal Geometry? DetailIcon { get; set; }
     internal IReadOnlyList<double>? DetailColumnWidths { get; set; }
+    internal bool NameOnly
+    {
+        get => _images.TypeIconsOnly;
+        set => _images.TypeIconsOnly = value;
+    }
+    internal bool ShowArchiveThumbnails
+    {
+        set { _images.ShowArchiveThumbnails = value; ScheduleVisibleUpdate(); InvalidateVisual(); }
+    }
+    internal string? SelectedPath { get; set; }
     private IReadOnlyList<FileSystemEntry> _rows = Array.Empty<FileSystemEntry>();
     private IReadOnlyList<FileTreeRow> _treeRows = [];
     private readonly Dictionary<string, int> _indices = new(StringComparer.Ordinal);
@@ -382,7 +392,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     public int IndexOf(FileSystemEntry entry) => _indices.GetValueOrDefault(entry.FullPath, -1);
     public int IndexOfPath(string path) => _indices.GetValueOrDefault(path, -1);
-    internal double ListRowRight => Inset + IconSlot + (DetailColumnWidths?.Sum() ?? _columns.Total);
+    internal double ListRowRight => NameOnly ? Bounds.Width : Inset + IconSlot + (DetailColumnWidths?.Sum() ?? _columns.Total);
+    private double NameColumnWidth => NameOnly ? Math.Max(0, Bounds.Width - Inset - IconSlot) : _columns.Name;
 
     public int RowIndexAt(Point point)
     {
@@ -415,7 +426,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     {
         var text = Texts(_rows[index], index).Name;
         var row = RowBounds(index);
-        var width = Math.Ceiling(Math.Min(IsGrid ? GridNameWidth : _columns.Name - 16, text.WidthIncludingTrailingWhitespace));
+        var width = Math.Ceiling(Math.Min(IsGrid ? GridNameWidth : Math.Max(1, NameColumnWidth - 16), text.WidthIncludingTrailingWhitespace));
         var height = Math.Ceiling(text.Height);
         if (IsGrid)
             return new Rect(Math.Round(row.Center.X - width / 2), row.Y + GridIconSize + 35, width, height);
@@ -459,6 +470,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         if (IsTree && _treeRows[index].CanExpand) yield return TreeDisclosureBounds(index);
         yield return new Rect(Inset + TreeIndent(index), y + 4, IconSlot, IconSlot);
         yield return NameBounds(index);
+        if (NameOnly) yield break;
         var modifiedX = Inset + IconSlot + _columns.Name;
         yield return new Rect(modifiedX, y + 4, text.Modified.Width, 22);
         var sizeRight = modifiedX + _columns.Modified + _columns.Size - 12;
@@ -514,7 +526,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     {
         if (!IsTree) return 0;
         return Math.Min(TreeDisclosureWidth + _treeRows[index].Depth * TreeStep,
-            Math.Max(TreeDisclosureWidth, _columns.Name - 96));
+            Math.Max(TreeDisclosureWidth, NameColumnWidth - 96));
     }
 
     private double NameX(int index) => Inset + IconSlot + 8 + TreeIndent(index);
@@ -553,7 +565,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             return LocalizationText.Get("正在读取文件夹");
 
         var entry = EntryAt(position);
-        return !IsGrid && DetailTextProvider == null && position.X >= ListRowRight - _columns.Type
+        return !NameOnly && !IsGrid && DetailTextProvider == null && position.X >= ListRowRight - _columns.Type
             ? entry?.KindText
             : entry?.DisplayName;
     }
@@ -690,7 +702,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         {
             var entry = _rows[index];
             var row = RowBounds(index);
-            var fill = entry.IsSelected ? index == hover ? SelectedHover : Selected
+            var fill = IsRowSelected(entry) ? index == hover ? SelectedHover : Selected
                 : index == hover ? Hover : index % 2 == 1 ? AlternateRow : null;
             if (IsGrid)
             {
@@ -698,7 +710,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 continue;
             }
             context.DrawRectangle(fill, HasKeyboardFocus(entry) ? new Pen(FocusRing, 1) : null, new RoundedRect(row.Deflate(0.5), Math.Max(0, RowCornerRadius.TopLeft - 0.5)));
-            using var opacity = context.PushOpacity(entry.IsCut ? 0.45 : 1);
+            using var opacity = context.PushOpacity(!NameOnly && entry.IsCut ? 0.45 : 1);
             context.DrawRectangle(null, null, new RoundedRect(row.Deflate(1), RowCornerRadius), OutlineFor(entry));
             if (entry.FullPath == _dropPath)
                 foreach (var content in ContentBounds(index)) context.DrawRectangle(DropBrush, null, content);
@@ -723,6 +735,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             }
             var text = Texts(entry, index);
             if (entry.FullPath != EditingPath) DrawText(text.Name, NameX(index));
+            if (NameOnly) continue;
             var modifiedX = Inset + IconSlot + _columns.Name;
             DrawText(text.Modified, modifiedX);
             DrawText(text.Size, modifiedX + _columns.Modified + _columns.Size - 12 - Math.Ceiling(text.Size.Width));
@@ -738,8 +751,10 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private bool HasKeyboardFocus(FileSystemEntry entry)
         => IsFocused && PseudoClasses.Contains(":focus-visible") && entry.FullPath == KeyboardFocusPath;
 
+    private bool IsRowSelected(FileSystemEntry entry) => NameOnly ? entry.FullPath == SelectedPath : entry.IsSelected;
+
     private BoxShadows OutlineFor(FileSystemEntry entry)
-        => HasKeyboardFocus(entry) ? FocusOutline : entry.IsSelected ? SelectionOutline : default;
+        => HasKeyboardFocus(entry) ? FocusOutline : IsRowSelected(entry) ? SelectionOutline : default;
 
     private void RenderGridEntry(DrawingContext context, int index)
     {
@@ -788,7 +803,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 * Matrix.CreateTranslation(bounds.X, bounds.Y));
             context.DrawGeometry(Secondary, null, entry.DetailsIconSource.IsDirectory ? _folderFallback : _fileFallback);
         }
-        if (!entry.HasGitBadge) return;
+        if (NameOnly || !entry.HasGitBadge) return;
         var badgeSize = IsGrid ? 16 : 10;
         var outset = IsGrid ? 4 : 2;
         var badge = new Rect(bounds.Right - badgeSize + outset, bounds.Bottom - badgeSize + outset, badgeSize, badgeSize);
@@ -823,7 +838,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private RowText Texts(FileSystemEntry entry, int index)
     {
-        var nameWidth = IsGrid ? GridNameWidth : Math.Max(1, _columns.Name - 16 - TreeIndent(index));
+        var nameWidth = IsGrid ? GridNameWidth : Math.Max(1, NameColumnWidth - 16 - TreeIndent(index));
         if (_texts.TryGetValue(entry.FullPath, out var node))
         {
             if (node.Value.Matches(entry, nameWidth))
@@ -838,9 +853,9 @@ public sealed class FastFileList : Control, ILogicalScrollable
         }
         var text = new RowText(entry,
             IsGrid ? GridName(entry).Retain() : FormatName(entry.DisplayName, FontSize, nameWidth),
-            CellText(FileListColumn.Modified, IsGrid ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
-            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, GridNameWidth + 8) : CellText(FileListColumn.Size, entry.FormattedSize, _columns.Size - 12).Retain(),
-            CellText(FileListColumn.Type, IsGrid ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth);
+            CellText(FileListColumn.Modified, IsGrid || NameOnly ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
+            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, GridNameWidth + 8) : CellText(FileListColumn.Size, NameOnly ? "" : entry.FormattedSize, _columns.Size - 12).Retain(),
+            CellText(FileListColumn.Type, IsGrid || NameOnly ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth);
         _texts[entry.FullPath] = _textLru.AddFirst(text);
         if (_texts.Count > TextCacheLimit && _textLru.Last is { } last)
         {

@@ -20,14 +20,16 @@ internal sealed class VideoPreviewHost : NativeControlHost, IDisposable
     private delegate void StateCallback(int state);
     private readonly KeyCallback _keyCallback;
     private readonly StateCallback _stateCallback;
+    private readonly bool _squareCorners;
     private readonly MemoryDiagnosticLifetime? _memoryLifetime;
     private Control[] _ancestors = [];
     private IntPtr _view;
     private bool _attached;
     private bool _disposed;
 
-    internal VideoPreviewHost(Action<Key> onKey, Action<bool> onLoaded)
+    internal VideoPreviewHost(Action<Key> onKey, Action<bool> onLoaded, bool squareCorners = false)
     {
+        _squareCorners = squareCorners;
         _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.VideoPreview);
         Focusable = false;
         ActualThemeVariantChanged += (_, _) => ApplyAppearance();
@@ -88,7 +90,7 @@ internal sealed class VideoPreviewHost : NativeControlHost, IDisposable
     {
         if (_disposed || _view == IntPtr.Zero) return;
         var radius = this.TryFindResource("RadiusLg", out var value) && value is CornerRadius corners ? corners.TopLeft : 10;
-        me_video_preview_appearance(_view, ActualThemeVariant == ThemeVariant.Dark, radius);
+        me_video_preview_appearance(_view, ActualThemeVariant == ThemeVariant.Dark, _squareCorners ? 0 : radius);
     }
 
     protected override void DestroyNativeControlCore(IPlatformHandle control)

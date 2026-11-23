@@ -115,11 +115,6 @@
                                   ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="12,0"
                                   VerticalAlignment="Center">
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
-                                    <controls:AppButton x:Name="SidebarToggleButton" Classes="workspace-nav-button"
-                                            ToolTip.Tip="{loc:Loc ui.542}" AutomationProperties.Name="{loc:Loc ui.542}"
-                                            IsVisible="False" Click="OnToggleSidebar">
-                                        <PathIcon Data="{x:Static icons:Icons.List}"/>
-                                    </controls:AppButton>
                                     <controls:AppButton Classes="workspace-nav-button" controls:ShortcutTip.Command="navigation.back"
                                             AutomationProperties.Name="{loc:Loc ui.543}" Click="NavigateBack"
                                             IsEnabled="{Binding FileList.CanGoBack}">
@@ -261,49 +256,60 @@
                                 </SplitView>
 
                                 <Border Grid.Row="2" x:Name="StatusBar" MinHeight="28" Padding="0,4" BorderBrush="{DynamicResource WorkspaceDividerBrush}" BorderThickness="0,1,0,0">
-                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,0">
-                                        <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
-                                                   FontSize="{DynamicResource FontSizeCaption}"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextMutedBrush}"/>
-                                        <TextBlock Grid.Column="1" Classes="workspace-status-detail"
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,0" VerticalAlignment="Center">
+                                        <TextBlock Grid.Column="0" Classes="workspace-status-text"
+                                                   Text="{Binding FileList.StatusSummaryText}"/>
+                                        <TextBlock Grid.Column="1" Classes="workspace-status-text workspace-status-detail"
                                                    Text="{Binding FileList.StatusText}"
                                                    IsVisible="{Binding FileList.HasStatusMessage}"
                                                    Margin="8,0,12,0"
-                                                   FontSize="{DynamicResource FontSizeCaption}"
-                                                   VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"
-                                                   ToolTip.Tip="{Binding FileList.StatusText}"
-                                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                                                   ToolTip.Tip="{Binding FileList.StatusText}"/>
                                         <Border Grid.Column="2" IsVisible="{Binding FileList.HasLocationStatus}"
                                                 VerticalAlignment="Center"
                                                 ToolTip.Tip="{Binding FileList.LocationStatusTooltip}">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <Ellipse Width="6" Height="6"
+                                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
                                                          IsVisible="{Binding FileList.IsRemoteLocationConnected}"
                                                          Fill="{DynamicResource ColorSuccess}"/>
-                                                <Ellipse Width="6" Height="6"
+                                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
                                                          IsVisible="{Binding FileList.IsRemoteLocationDisconnected}"
                                                          Fill="{DynamicResource TextDisabledBrush}"/>
-                                                <TextBlock Text="{Binding FileList.LocationStatusText}"
-                                                           FontSize="{DynamicResource FontSizeCaption}"
-                                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                                <TextBlock Classes="workspace-status-text" Text="{Binding FileList.LocationStatusText}"/>
                                             </StackPanel>
                                         </Border>
-                                        <StackPanel x:Name="ThumbnailZoomHost" Grid.Column="3" Orientation="Horizontal"
-                                                    VerticalAlignment="Center" Margin="10,0,0,0" Spacing="4" IsVisible="False">
-                                            <Slider x:Name="ThumbnailZoomSlider" Classes="compact-slider" Minimum="0" Maximum="4" Value="1"
-                                                    Width="116" SmallChange="1" LargeChange="1"
-                                                    IsSnapToTickEnabled="True" TickFrequency="1"
+                                        <Panel x:Name="ThumbnailZoomHost" Grid.Column="3"
+                                               VerticalAlignment="Center" Margin="10,0,0,0" IsVisible="False">
+                                            <controls:AppButton x:Name="ThumbnailZoomButton" Classes="ghost icon-action small"
+                                                    Click="ToggleThumbnailZoomPopup"
                                                     AutomationProperties.Name="{loc:Loc file_gallery.zoom}"
-                                                    AutomationProperties.HelpText="{loc:Loc file_gallery.zoom_hint}"/>
-                                            <controls:AppButton Classes="ghost icon-action compact small"
-                                                    Click="OnGalleryButtonClick"
-                                                    AutomationProperties.Name="{loc:Loc file_gallery.title}"
-                                                    ToolTip.Tip="{loc:Loc file_gallery.title}">
-                                                <PathIcon Data="{x:Static icons:Icons.Image}" Width="14" Height="14"/>
+                                                    ToolTip.Tip="{loc:Loc file_gallery.zoom}">
+                                                <PathIcon Data="{x:Static icons:Icons.Resize}" Width="14" Height="14"/>
                                             </controls:AppButton>
-                                        </StackPanel>
+                                            <Popup x:Name="ThumbnailZoomPopup" Placement="TopEdgeAlignedRight"
+                                                   PlacementTarget="ThumbnailZoomButton" OverlayInputPassThroughElement="{Binding #ThumbnailZoomButton}"
+                                                   HorizontalOffset="12" VerticalOffset="8" IsLightDismissEnabled="True"
+                                                   ShouldUseOverlayLayer="True" OverlayDismissEventPassThrough="True"
+                                                   WindowManagerAddShadowHint="False"
+                                                   Opened="OnThumbnailZoomPopupOpened" Closed="OnThumbnailZoomPopupClosed">
+                                                <Border Classes="context-submenu-surface">
+                                                    <StackPanel Width="260" Spacing="6" Margin="0,3,0,2">
+                                                        <UniformGrid x:Name="ThumbnailZoomLabels" Rows="1">
+                                                            <TextBlock Classes="slider-stop-label"/>
+                                                            <TextBlock Classes="slider-stop-label"/>
+                                                            <TextBlock Classes="slider-stop-label"/>
+                                                            <TextBlock Classes="slider-stop-label"/>
+                                                            <TextBlock Classes="slider-stop-label"/>
+                                                        </UniformGrid>
+                                                        <Slider x:Name="ThumbnailZoomSlider" Classes="compact-slider" Margin="12,0"
+                                                                Minimum="0" Maximum="4" Value="1" SmallChange="1" LargeChange="1"
+                                                                AutomationProperties.Name="{loc:Loc file_gallery.zoom}"
+                                                                AutomationProperties.HelpText="{loc:Loc file_gallery.zoom_hint}"
+                                                                KeyDown="OnThumbnailZoomKeyDown"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Popup>
+                                        </Panel>
                                     </Grid>
                                 </Border>
                             </Grid>

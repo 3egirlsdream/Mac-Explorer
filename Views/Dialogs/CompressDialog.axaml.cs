@@ -1,9 +1,9 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using MacExplorer.Controls;
 using MacExplorer.Models;
+using MacExplorer.Services.Impl;
 using AssetsIcons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.Views.Dialogs;
@@ -92,20 +92,34 @@ public partial class CompressDialog : DialogWindow
     private void ConfirmClick(object? sender, RoutedEventArgs e)
     {
         var name = ArchiveNameBox.Text?.Trim();
-        if (string.IsNullOrEmpty(name)) return;
-
         if (_options == null) return;
+        if (string.IsNullOrEmpty(name) || name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            ArchiveErrorText.Text = LocalizationText.Get("archive.invalid_name");
+            ArchiveErrorText.IsVisible = true;
+            return;
+        }
+        if (ArchiveService.IsOutputInsideSource(_options.OutputDirectory, _options.SourcePaths))
+        {
+            ArchiveErrorText.Text = LocalizationText.Get("archive.output_inside_source");
+            ArchiveErrorText.IsVisible = true;
+            return;
+        }
+        var format = Enum.Parse<ArchiveFormat>(_format);
+        var extension = new CompressOptions { Format = format }.OutputFileName;
+        if (name.EndsWith(extension, StringComparison.OrdinalIgnoreCase) && name.Length > extension.Length)
+            name = name[..^extension.Length];
 
         var password = PasswordBox.Text;
         var result = new CompressOptions
         {
             ArchiveName = name,
-            Format = Enum.Parse<ArchiveFormat>(_format),
+            Format = format,
             Level = Enum.Parse<CompressionLevel>(_level),
             OutputDirectory = _options.OutputDirectory,
             SourcePaths = _options.SourcePaths,
             Tag = _options.Tag,
-            Password = string.IsNullOrEmpty(password) ? null : password
+            Password = format != ArchiveFormat.Zip || string.IsNullOrEmpty(password) ? null : password
         };
         Close(result);
     }

@@ -78,6 +78,22 @@
         <Style Selector="Grid.sidebar-category-header > TextBlock.sidebar-section-title">
             <Setter Property="Margin" Value="0"/>
         </Style>
+        <Style Selector="Button#SidebarToggleButton">
+            <Setter Property="Grid.Column" Value="1"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="ToolTip.Tip" Value="{loc:Loc ui.runtime.163}"/>
+            <Setter Property="AutomationProperties.Name" Value="{loc:Loc ui.runtime.163}"/>
+        </Style>
+        <Style Selector="Button#SidebarToggleButton.expand">
+            <Setter Property="Grid.Column" Value="0"/>
+            <Setter Property="Grid.ColumnSpan" Value="2"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="ToolTip.Tip" Value="{loc:Loc ui.542}"/>
+            <Setter Property="AutomationProperties.Name" Value="{loc:Loc ui.542}"/>
+        </Style>
+        <Style Selector="Button#SidebarToggleButton:not(.expand) PathIcon.expand-icon, Button#SidebarToggleButton.expand PathIcon.contract-icon">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
         <Style Selector="PathIcon.sidebar-icon">
             <Setter Property="Width" Value="15"/>
             <Setter Property="Height" Value="15"/>
@@ -147,7 +163,20 @@
         <StackPanel x:Name="SidebarRoot" Margin="4,8,4,4">
 
                     <!-- ═══ 收藏 Favorites ═══ -->
-                    <TextBlock Classes="sidebar-section-title sidebar-category-header rail-secondary" x:Name="PinnedFoldersHeader" Background="Transparent" Text="{loc:Loc ui.318}" Margin="0,0,0,2"/>
+                    <Grid x:Name="PinnedFoldersHeaderRow" Classes="sidebar-category-header" ColumnDefinitions="*,Auto"
+                          Background="Transparent" Margin="0,0,0,2">
+                        <TextBlock x:Name="PinnedFoldersHeader" Classes="sidebar-section-title"
+                                   Text="{loc:Loc ui.318}" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" Padding="18,4,0,4"/>
+                        <controls:AppButton x:Name="SidebarToggleButton" Classes="ghost icon-action small"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            IsVisible="False" Click="OnSidebarToggleClick">
+                            <Panel>
+                                <PathIcon Classes="expand-icon" Width="15" Height="15" Data="{x:Static icons:Icons.PanelLeftExpand}"/>
+                                <PathIcon Classes="contract-icon" Width="15" Height="15" Data="{x:Static icons:Icons.PanelLeftContract}"/>
+                            </Panel>
+                        </controls:AppButton>
+                    </Grid>
 
                     <!-- Username -->
                     <Border Classes="sidebar-item"

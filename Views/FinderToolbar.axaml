@@ -87,10 +87,19 @@
                 </controls:AppButton>
             </StackPanel>
 
-            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="4">
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="4" IsVisible="{Binding !IsArchiveView}">
                 <Separator Classes="toolbar-separator" IsVisible="{Binding #ToolbarTags.IsVisible}"/>
                 <controls:TagToolbar Grid.Column="1" x:Name="ToolbarTags"/>
             </Grid>
+            <controls:AppButton Grid.Column="1" Classes="ghost compact" HorizontalAlignment="Left"
+                                IsVisible="{Binding IsArchiveView}" Content="{loc:Loc archive.toolbar_extract}">
+                <controls:AppButton.Flyout>
+                    <MenuFlyout>
+                        <MenuItem Header="{loc:Loc archive.extract_all}" Click="ExtractEntireArchive"/>
+                        <MenuItem Header="{loc:Loc archive.extract_selected}" Click="ExtractArchiveSelection"/>
+                    </MenuFlyout>
+                </controls:AppButton.Flyout>
+            </controls:AppButton>
 
             <!-- View mode toggle -->
             <Grid Grid.Column="2" Grid.ColumnSpan="2" Classes="view-mode-segmented three">

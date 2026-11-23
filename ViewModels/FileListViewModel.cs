@@ -1603,8 +1603,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         // Archive view: directory -> navigate deeper
         if (IsArchiveView && entry.IsDirectory)
         {
-            var (archPath, _) = ArchivePathHelper.Parse(entry.FullPath);
-            var entryInternalPath = entry.FullPath[(entry.FullPath.IndexOf('#') + 1)..];
+            var (archPath, entryInternalPath) = ArchivePathHelper.Parse(entry.FullPath);
             await NavigateToAsync(ArchivePathHelper.Build(archPath, entryInternalPath));
             return;
         }
@@ -1695,6 +1694,86 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         else
         {
             _logger?.LogWarning("[OpenEntry] _launcherService is null, cannot open file");
+        }
+    }
+
+    [RelayCommand]
+    public async Task OpenEntriesAsync(IReadOnlyList<FileSystemEntry> entries)
+    {
+        if (entries == null || entries.Count == 0) return;
+        if (entries.Count == 1)
+        {
+            await OpenEntryAsync(entries[0]);
+            return;
+        }
+
+        if (IsBrowseOnly)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry.IsFolder) await NavigateToAsync(entry.FullPath);
+                else if (_quickLookService != null) await _quickLookService.PreviewFileAsync(entry.FullPath);
+            }
+            return;
+        }
+
+        if (IsTagView)
+        {
+            var missing = entries.FirstOrDefault(e => !File.Exists(e.FullPath) && !Directory.Exists(e.FullPath));
+            if (missing != null)
+            {
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("项目不存在，已刷新: {0}", missing.Name);
+                await RefreshAsync();
+                return;
+            }
+        }
+        else if (!IsArchiveView && !IsRemoteView)
+        {
+            var missing = entries.FirstOrDefault(e => !e.IsDirectory && !File.Exists(e.FullPath) && !Directory.Exists(e.FullPath));
+            if (missing != null)
+            {
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("项目不存在，已刷新: {0}", missing.Name);
+                ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+                await LoadDirectoryContentsAsync(forceRefresh: true);
+                return;
+            }
+        }
+
+        if (IsArchiveView || IsRemoteView)
+        {
+            foreach (var entry in entries)
+                await OpenEntryAsync(entry);
+            return;
+        }
+
+        var localFilesToLaunch = new List<string>();
+        foreach (var entry in entries)
+        {
+            if (entry.IsDirectory && !entry.IsApplication && entry.IconKey != "app-bundle")
+            {
+                if (_topLevelWindow is MacExplorer.Views.MainWindow mainWindow)
+                {
+                    try { await mainWindow.OpenNewTabAsync(entry.FullPath); }
+                    catch (Exception ex) { _logger?.LogWarning(ex, "Failed to open tab for {Path}", entry.FullPath); }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(entry.FullPath))
+            {
+                localFilesToLaunch.Add(entry.FullPath);
+            }
+        }
+
+        if (localFilesToLaunch.Count > 0 && _launcherService != null)
+        {
+            try
+            {
+                await _launcherService.OpenFilesAsync(localFilesToLaunch);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to open files via launcherService");
+                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("打开文件失败: {0}", ex.Message);
+            }
         }
     }
 
@@ -2045,7 +2124,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     // ── Selection ──
 
-    private IReadOnlyList<FileSystemEntry> GetSelectableEntries() =>
+    internal IReadOnlyList<FileSystemEntry> GetSelectableEntries() =>
         ViewMode == ViewMode.Tree && IsTreeExpansionEnabled
             ? _treeVisibleEntries
             : GroupField != GroupField.None
@@ -2290,10 +2369,18 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         else if (IsArchiveView)
         {
-            ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
+            var contextEntries = GetSelectedContextEntries(entry);
+            var actions = new List<ContextMenuAction>
             {
-                new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("打开"), IconSvg = Icons.Open, Execute = () => OpenEntryCommand.ExecuteAsync(entry) }
-            });
+                new() { Label = LocalizationText.Get("打开"), IconSvg = Icons.Open, Execute = () => OpenEntriesAsync(contextEntries) }
+            };
+            if (!entry.IsDirectory && contextEntries.Count == 1)
+                actions.Add(new() { Label = LocalizationText.Get("archive.extract_item"), IconSvg = AppIcons.Extract,
+                    Execute = () => ExtractArchiveItemAsync(entry) });
+            if (contextEntries.Count > 1 || entry.IsDirectory)
+                actions.Add(new() { Label = LocalizationText.Get("archive.extract_selected"), IconSvg = AppIcons.Extract,
+                    Execute = () => ExtractArchiveSelectionAsync(contextEntries) });
+            ContextMenuActions = new(actions);
         }
         else
         {
@@ -2355,6 +2442,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         bool includeDynamicActions, ContextMenuAction? gitMenu)
     {
         var actions = new List<ContextMenuAction>();
+        var contextEntries = GetSelectedContextEntries(entry);
+        var contextPaths = contextEntries.Where(IsUsableLocalEntry).Select(item => item.FullPath).ToArray();
         var isRemote = VirtualPath.IsRemotePath(entry.FullPath);
         var builtInStates = await GetBuiltInOpenWithStatesAsync();
         if (entry.SearchMatches.Count > 0)
@@ -2364,26 +2453,35 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             } });
 
         // Open
-        var opensInsideMacExplorer = entry.IsDirectory
-            || _archiveService?.IsArchiveFile(entry.FullPath) == true;
+        var defaultAppPaths = isRemote || _contextMenuService == null
+            || (contextEntries.Count == 1 && (entry.IsDirectory || _archiveService?.IsArchiveFile(entry.FullPath) == true))
+            ? []
+            : contextEntries.Where(item => !item.IsDirectory && IsUsableLocalEntry(item))
+                .Select(item => item.FullPath).ToArray();
         actions.Add(new ContextMenuAction
         {
             Label = MacExplorer.Services.Impl.LocalizationText.Get("打开"),
             IconSvg = Icons.Open,
-            LoadIconBase64Async = !isRemote && !opensInsideMacExplorer && _contextMenuService != null
-                ? () => _contextMenuService.GetDefaultApplicationIconBase64Async(entry.FullPath)
+            LoadIconGroupAsync = defaultAppPaths.Length > 0 && _contextMenuService != null
+                ? () => _contextMenuService.GetDefaultApplicationIconsAsync(defaultAppPaths)
                 : null,
-            Execute = () => OpenEntryCommand.ExecuteAsync(entry)
+            Execute = () => OpenEntriesAsync(contextEntries)
         });
 
-        if (entry.IsDirectory && !entry.IsApplication && entry.IconKey != "app-bundle")
+        var contextDirectories = contextEntries.Where(e => e.IsDirectory && !e.IsApplication && e.IconKey != "app-bundle").ToList();
+        if (contextDirectories.Count > 0)
         {
             actions.Add(new ContextMenuAction
             {
                 Label = MacExplorer.Services.Impl.LocalizationText.Get("在新页签中打开"),
-                Execute = () => _topLevelWindow is MacExplorer.Views.MainWindow mainWindow
-                    ? mainWindow.OpenNewTabAsync(entry.FullPath)
-                    : Task.CompletedTask
+                Execute = async () =>
+                {
+                    if (_topLevelWindow is MacExplorer.Views.MainWindow mainWindow)
+                    {
+                        foreach (var dir in contextDirectories)
+                            await mainWindow.OpenNewTabAsync(dir.FullPath);
+                    }
+                }
             });
         }
 
@@ -2391,9 +2489,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             var openWith = isRemote
                 ? await BuildOpenWithActionsForRemoteAsync(entry)
-                : await _contextMenuService.GetOpenWithActionsAsync(entry.FullPath);
+                : await _contextMenuService.GetOpenWithActionsAsync(entry.FullPath, contextPaths);
             if (!isRemote && _launcherService != null)
-                openWith = [.. openWith, .. BuildDisabledBuiltInOpenWithActions(entry, builtInStates)];
+                openWith = [.. openWith, .. BuildDisabledBuiltInOpenWithActions(entry, builtInStates, contextPaths)];
             if (openWith.Count > 0)
             {
                 actions.Add(new ContextMenuAction
@@ -2434,17 +2532,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             IsEnabled = !batchSelection || CanBatchRename,
             Execute = () => { if (batchSelection) RaiseRequestBatchRename(); else _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
 
-        var contextEntries = GetContextEntries(entry);
+        var operationEntries = NormalizeTreeOperationEntries(contextEntries);
         var canUseLocalFileTools = !isRemote
             && !entry.IsVirtual
             && !IsArchiveView
-            && contextEntries.All(IsUsableLocalEntry);
+            && operationEntries.All(IsUsableLocalEntry);
 
         actions.Add(BuildMoveToContextMenuAction(entry, canUseLocalFileTools));
         if (canUseLocalFileTools && !IsTrashActive && !IsBrowseOnly
-            && contextEntries.All(item => Path.IsPathFullyQualified(item.FullPath)))
+            && operationEntries.All(item => Path.IsPathFullyQualified(item.FullPath)))
         {
-            var paths = contextEntries.Select(item => item.FullPath).ToArray();
+            var paths = operationEntries.Select(item => item.FullPath).ToArray();
             IReadOnlyList<ContextMenuAction> LocalSendItems(IReadOnlyList<LocalSendDevice> devices,
                 bool searching, bool stopped = false)
             {
@@ -2582,12 +2680,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (_launcherService != null)
             {
                 if (builtInStates.RevealInFinder)
-                    actions.Add(BuildRevealInFinderAction(entry.FullPath));
+                    actions.Add(BuildRevealInFinderAction(entry.FullPath, contextPaths));
                 if (DistributionChannel.SupportsSystemIntegration && builtInStates.OpenInTerminal)
                     actions.Add(BuildOpenInTerminalAction(GetTerminalDirectoryPath(entry)));
             }
             if (_contextMenuService != null && includeDynamicActions)
-                actions.AddRange(await _contextMenuService.GetTopLevelOpenWithActionsAsync(entry.FullPath));
+                actions.AddRange(await _contextMenuService.GetTopLevelOpenWithActionsAsync(entry.FullPath, contextPaths));
         }
         else if (includeDynamicActions)
         {
@@ -2640,21 +2738,23 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private IReadOnlyList<ContextMenuAction> BuildDisabledBuiltInOpenWithActions(
         FileSystemEntry entry,
-        (bool RevealInFinder, bool OpenInTerminal) states)
+        (bool RevealInFinder, bool OpenInTerminal) states,
+        IReadOnlyList<string>? allPaths = null)
     {
         if (states is { RevealInFinder: true, OpenInTerminal: true })
             return [];
 
         var actions = new List<ContextMenuAction>();
         if (!states.RevealInFinder)
-            actions.Add(BuildRevealInFinderAction(entry.FullPath));
+            actions.Add(BuildRevealInFinderAction(entry.FullPath, allPaths));
         if (DistributionChannel.SupportsSystemIntegration && !states.OpenInTerminal)
             actions.Add(BuildOpenInTerminalAction(GetTerminalDirectoryPath(entry)));
         return actions;
     }
 
-    private ContextMenuAction BuildRevealInFinderAction(string path)
+    private ContextMenuAction BuildRevealInFinderAction(string path, IReadOnlyList<string>? allPaths = null)
     {
+        var targetPaths = allPaths is { Count: > 0 } ? allPaths : [path];
         return new ContextMenuAction
         {
             Label = LocalizationText.Get(BuiltInOpenWithActions.RevealInFinderLabel),
@@ -2662,7 +2762,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             LoadIconBase64Async = _openWithAppService == null
                 ? null
                 : () => _openWithAppService.GetAppIconBase64Async(BuiltInOpenWithActions.RevealInFinderBundleId),
-            Execute = () => _launcherService!.RevealInFinderAsync(path)
+            Execute = () => _launcherService!.RevealInFinderAsync(targetPaths)
         };
     }
 
@@ -2852,8 +2952,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     }
 
     private IReadOnlyList<FileSystemEntry> GetContextEntries(FileSystemEntry entry)
+        => NormalizeTreeOperationEntries(GetSelectedContextEntries(entry));
+
+    private IReadOnlyList<FileSystemEntry> GetSelectedContextEntries(FileSystemEntry entry)
         => _selectedEntriesSet.Contains(entry) && SelectedEntries.Count > 0
-            ? NormalizeTreeOperationEntries(SelectedEntries)
+            ? SelectedEntries.ToArray()
             : [entry];
 
     private static bool IsUsableLocalEntry(FileSystemEntry entry)
@@ -3054,6 +3157,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             if (action.Label == "打开")
             {
+                var contextEntries = GetSelectedContextEntries(entry);
                 result.Add(new ContextMenuAction
                 {
                     Label = action.Label,
@@ -3063,7 +3167,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     IsEnabled = action.IsEnabled,
                     IconBase64 = action.IconBase64,
                     LoadIconBase64Async = action.LoadIconBase64Async,
-                    Execute = () => OpenEntryCommand.ExecuteAsync(entry)
+                    LoadIconGroupAsync = action.LoadIconGroupAsync,
+                    Execute = () => OpenEntriesAsync(contextEntries)
                 });
             }
             else if (action.Label == "显示包内容")
@@ -4059,6 +4164,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                         ExtractToNamedFolder(entry);
                         return Task.CompletedTask;
                     }
+                },
+                new ContextMenuAction
+                {
+                    Label = LocalizationText.Get("archive.smart_extract"),
+                    Execute = () => QueueArchiveExtraction(entry.FullPath,
+                        new(Path.GetDirectoryName(entry.FullPath)!, ArchiveExtractionMode.Smart))
+                },
+                new ContextMenuAction
+                {
+                    Label = LocalizationText.Get("archive.extract_elsewhere"),
+                    Execute = async () =>
+                    {
+                        if (await PickArchiveDestinationAsync() is { } destination)
+                            await QueueArchiveExtraction(entry.FullPath, new(destination, ArchiveExtractionMode.Smart));
+                    }
                 }
             ]
         };
@@ -4094,9 +4214,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _archive.ShowCompressDialog(
             NormalizeTreeOperationEntries(SelectedEntries).ToList(),
             ContextMenuEntry,
-            _navigation.CurrentPath,
-            IsArchiveView,
-            CurrentTag
+            CurrentTag,
+            ArchivePreferences.ReadFormat(_settingsService)
         );
     }
 
@@ -4587,7 +4706,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     }
 
     internal Task<ThumbnailResult?> GetListThumbnailAsync(FileSystemEntry entry, int pixelSize, CancellationToken ct)
-        => !entry.IsVirtual && Path.IsPathRooted(entry.FullPath)
+        => ArchivePathHelper.IsArchivePath(entry.FullPath)
+            ? ShowArchiveThumbnails && _archiveService is ArchiveService archive
+                && _thumbnailService is Platforms.MacCatalyst.Services.MacThumbnailService thumbnails
+                ? thumbnails.GetArchiveThumbnailAsync(archive, entry, pixelSize, ct)
+                : Task.FromResult<ThumbnailResult?>(null)
+            : !entry.IsVirtual && Path.IsPathRooted(entry.FullPath)
             ? _thumbnailService?.GetThumbnailResultAsync(entry.FullPath, pixelSize, ct)
                 ?? Task.FromResult<ThumbnailResult?>(null)
             : Task.FromResult<ThumbnailResult?>(null);

@@ -1,5 +1,7 @@
 using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -147,6 +149,46 @@ public sealed class InteractionPerformanceRegressionTests : FileListViewModelTes
             child.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); Assert.Equal("new", executed);
             executed = "";
             copy.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Assert.Equal("new", executed);
+        }
+        finally { menu.Close(); view.DismissContextMenu(); window.Close(); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OpenMenuShowsThreeAppIconsAndEllipsisWithoutOverlappingLabel(bool dark)
+    {
+        const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        using var vm = CreateViewModel(new FakeFileService("/tmp/menu-icons"));
+        var view = new FileListView { DataContext = vm };
+        var window = InputAppearanceTests.CreateWindow(view, dark);
+        var menu = new ContextMenu();
+        var fill = typeof(FileListView).GetMethod("FillMenu", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var action = new ContextMenuAction
+        {
+            Label = "Open",
+            LoadIconGroupAsync = () => Task.FromResult(new ContextMenuIconGroup([png, png, png], true))
+        };
+        var testCancellationToken = TestContext.Current.CancellationToken;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(testCancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        try
+        {
+            fill.Invoke(view, [menu, new List<ContextMenuAction> { action }, 0, null]);
+            menu.Open(view);
+            var open = Assert.IsType<MenuItem>(Assert.Single(menu.Items));
+            while (open.Icon is not StackPanel)
+                await Task.Delay(10, timeout.Token);
+
+            Dispatcher.UIThread.RunJobs();
+            var icons = Assert.IsType<StackPanel>(open.Icon);
+            Assert.Collection(icons.Children,
+                icon => Assert.IsType<Image>(icon), icon => Assert.IsType<Image>(icon),
+                icon => Assert.IsType<Image>(icon), icon => Assert.IsType<PathIcon>(icon));
+            var label = open.GetVisualDescendants().OfType<ContentPresenter>().Single(p => p.Name == "PART_HeaderPresenter");
+            Assert.True(icons.Bounds.Width >= 60);
+            Assert.True(icons.TranslatePoint(new Point(icons.Bounds.Width, 0), open)?.X
+                <= label.TranslatePoint(default, open)?.X);
         }
         finally { menu.Close(); view.DismissContextMenu(); window.Close(); }
     }

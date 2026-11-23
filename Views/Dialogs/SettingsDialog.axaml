@@ -181,6 +181,49 @@
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="settings-section-title" Text="{loc:Loc archive.settings}"/>
+                                <Border Classes="settings-group">
+                                    <StackPanel>
+                                        <Border Classes="settings-row settings-divider">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <TextBlock Classes="settings-label" Text="{loc:Loc archive.double_click}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <controls:AppComboBox Grid.Column="1" x:Name="ArchiveDoubleClickCombo" Classes="compact" Width="180"
+                                                                      AutomationProperties.Name="{loc:Loc archive.double_click}" SelectionChanged="OnArchiveChoiceChanged">
+                                                    <ComboBoxItem Content="{loc:Loc archive.browse}"/>
+                                                    <ComboBoxItem Content="{loc:Loc archive.extract_named}"/>
+                                                </controls:AppComboBox>
+                                            </Grid>
+                                        </Border>
+                                        <Border Classes="settings-row settings-divider">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <TextBlock Classes="settings-label" Text="{loc:Loc archive.thumbnails}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <ToggleSwitch Grid.Column="1" x:Name="ArchiveThumbnailsToggle" Classes="settings-toggle compact"
+                                                              AutomationProperties.Name="{loc:Loc archive.thumbnails}" IsCheckedChanged="OnArchiveToggleChanged"/>
+                                            </Grid>
+                                        </Border>
+                                        <Border Classes="settings-row settings-divider">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <TextBlock Classes="settings-label" Text="{loc:Loc archive.default_format}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <controls:AppComboBox Grid.Column="1" x:Name="ArchiveFormatCombo" Classes="compact" Width="118"
+                                                                      AutomationProperties.Name="{loc:Loc archive.default_format}" SelectionChanged="OnArchiveChoiceChanged">
+                                                    <ComboBoxItem Content="ZIP"/>
+                                                    <ComboBoxItem Content="tar.gz"/>
+                                                    <ComboBoxItem Content="tar.bz2"/>
+                                                </controls:AppComboBox>
+                                            </Grid>
+                                        </Border>
+                                        <Border Classes="settings-row">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <TextBlock Classes="settings-label" Text="{loc:Loc archive.save_passwords}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <ToggleSwitch Grid.Column="1" x:Name="ArchivePasswordsToggle" Classes="settings-toggle compact"
+                                                              AutomationProperties.Name="{loc:Loc archive.save_passwords}"
+                                                              ToolTip.Tip="{loc:Loc archive.save_passwords.description}" IsCheckedChanged="OnArchiveToggleChanged"/>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
 
