@@ -257,6 +257,7 @@ public sealed class TagToolbar : UserControl
         finally { _navigating = false; }
     }
     public bool IsDropdownOpen => _menu?.IsOpen == true;
+    internal bool IsNavigating => _navigating;
     private void CancelHover() { _openDelay?.Dispose(); _openDelay = null; }
     public void CloseDropdown()
     {

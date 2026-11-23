@@ -158,7 +158,7 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             childItem = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Tag is FileTag);
             grandchildItem = Assert.Single(childItem.Items.OfType<MenuItem>());
             grandchildItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-            Dispatcher.UIThread.RunJobs();
+            await WaitUntilAsync(() => vm.CurrentTag?.Name == grandchild.Name && !toolbar.IsNavigating);
             Assert.Equal(grandchild.Name, vm.CurrentTag!.Name);
             var currentParent = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-name"));
             currentParent.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
@@ -168,12 +168,12 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             menuRoot = Assert.IsAssignableFrom<TopLevel>(TopLevel.GetTopLevel(childItem));
             childPoint = childItem.TranslatePoint(new Point(40, 15), menuRoot)!.Value;
             menuRoot.MouseDown(childPoint, MouseButton.Left); menuRoot.MouseUp(childPoint, MouseButton.Left);
-            Dispatcher.UIThread.RunJobs();
+            await WaitUntilAsync(() => vm.CurrentTag?.Name == child.Name && !toolbar.IsNavigating);
             Assert.Equal(child.Name, vm.CurrentTag!.Name);
             toolbar.CloseDropdown();
             toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-name"))
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Dispatcher.UIThread.RunJobs();
+            await WaitUntilAsync(() => vm.CurrentTag?.Name == parent.Name && !toolbar.IsNavigating);
             Assert.Equal(parent.Name, vm.CurrentTag!.Name);
             for (var i = 0; i < 8; i++)
             {
@@ -326,6 +326,18 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             toolbar.CloseDropdowns(); Assert.False(popup.IsOpen);
         }
         finally { window.Close(); Directory.Delete(root, true); }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        while (!condition())
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (condition()) return;
+            await Task.Delay(10, timeout.Token);
+        }
     }
 
     private sealed class TestDisposable : IDisposable { public void Dispose() { } }
