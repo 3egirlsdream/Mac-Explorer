@@ -499,16 +499,16 @@
       ]
     },
     {
-      "package": "microsoft.aspnetcore.app.runtime.osx-arm64/10.0.5",
+      "package": "microsoft.aspnetcore.app.runtime.osx-arm64/10.0.15",
       "license": "MIT",
       "authors": "Microsoft",
       "copyright": "© Microsoft Corporation. All rights reserved.",
       "sources": [
-        "nuget:microsoft.aspnetcore.app.runtime.osx-arm64/10.0.5/THIRD-PARTY-NOTICES.TXT",
-        "nuget:microsoft.aspnetcore.app.runtime.osx-arm64/10.0.5/LICENSE.txt"
+        "nuget:microsoft.aspnetcore.app.runtime.osx-arm64/10.0.15/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.aspnetcore.app.runtime.osx-arm64/10.0.15/LICENSE.txt"
       ],
-      "notice": "Dependencies/microsoft.aspnetcore.app.runtime.osx-arm64-10.0.5.txt",
-      "sha256": "96f08e1ca239e25015ba6701c93b4ca42bc7c70320aa4cd438f1158cb0bd77f8",
+      "notice": "Dependencies/microsoft.aspnetcore.app.runtime.osx-arm64-10.0.15.txt",
+      "sha256": "8fec2a0f6a4cb2cdc6f7a778ef76f634a1c606e5b1d733d5ad5d7bce78ee34c7",
       "artifacts": [
         "Microsoft.AspNetCore.Antiforgery.dll",
         "Microsoft.AspNetCore.Authentication.Abstractions.dll",
@@ -654,16 +654,16 @@
       ]
     },
     {
-      "package": "microsoft.aspnetcore.app.runtime.osx-x64/10.0.5",
+      "package": "microsoft.aspnetcore.app.runtime.osx-x64/10.0.15",
       "license": "MIT",
       "authors": "Microsoft",
       "copyright": "© Microsoft Corporation. All rights reserved.",
       "sources": [
-        "nuget:microsoft.aspnetcore.app.runtime.osx-x64/10.0.5/THIRD-PARTY-NOTICES.TXT",
-        "nuget:microsoft.aspnetcore.app.runtime.osx-x64/10.0.5/LICENSE.txt"
+        "nuget:microsoft.aspnetcore.app.runtime.osx-x64/10.0.15/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.aspnetcore.app.runtime.osx-x64/10.0.15/LICENSE.txt"
       ],
-      "notice": "Dependencies/microsoft.aspnetcore.app.runtime.osx-arm64-10.0.5.txt",
-      "sha256": "96f08e1ca239e25015ba6701c93b4ca42bc7c70320aa4cd438f1158cb0bd77f8",
+      "notice": "Dependencies/microsoft.aspnetcore.app.runtime.osx-arm64-10.0.15.txt",
+      "sha256": "8fec2a0f6a4cb2cdc6f7a778ef76f634a1c606e5b1d733d5ad5d7bce78ee34c7",
       "artifacts": [
         "Microsoft.AspNetCore.Antiforgery.dll",
         "Microsoft.AspNetCore.Authentication.Abstractions.dll",
@@ -970,16 +970,16 @@
       ]
     },
     {
-      "package": "microsoft.netcore.app.runtime.osx-arm64/10.0.5",
+      "package": "microsoft.netcore.app.runtime.osx-arm64/10.0.15",
       "license": "MIT",
       "authors": "Microsoft",
       "copyright": "© Microsoft Corporation. All rights reserved.",
       "sources": [
-        "nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.5/THIRD-PARTY-NOTICES.TXT",
-        "nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.5/LICENSE.TXT"
+        "nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.15/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.15/LICENSE.TXT"
       ],
-      "notice": "Dependencies/microsoft.netcore.app.runtime.osx-arm64-10.0.5.txt",
-      "sha256": "b1192077108fcfeddd704fea27f0acbaf8b1a6c2ad8eb5e1eace51c10577e36e",
+      "notice": "Dependencies/microsoft.netcore.app.runtime.osx-arm64-10.0.15.txt",
+      "sha256": "f9790dd00c02b034e5affb27c12918c157c858bdb678307a7b8534c22f58f858",
       "artifacts": [
         "Microsoft.CSharp.dll",
         "Microsoft.VisualBasic.Core.dll",
@@ -1169,16 +1169,16 @@
       ]
     },
     {
-      "package": "microsoft.netcore.app.runtime.osx-x64/10.0.5",
+      "package": "microsoft.netcore.app.runtime.osx-x64/10.0.15",
       "license": "MIT",
       "authors": "Microsoft",
       "copyright": "© Microsoft Corporation. All rights reserved.",
       "sources": [
-        "nuget:microsoft.netcore.app.runtime.osx-x64/10.0.5/THIRD-PARTY-NOTICES.TXT",
-        "nuget:microsoft.netcore.app.runtime.osx-x64/10.0.5/LICENSE.TXT"
+        "nuget:microsoft.netcore.app.runtime.osx-x64/10.0.15/THIRD-PARTY-NOTICES.TXT",
+        "nuget:microsoft.netcore.app.runtime.osx-x64/10.0.15/LICENSE.TXT"
       ],
-      "notice": "Dependencies/microsoft.netcore.app.runtime.osx-arm64-10.0.5.txt",
-      "sha256": "b1192077108fcfeddd704fea27f0acbaf8b1a6c2ad8eb5e1eace51c10577e36e",
+      "notice": "Dependencies/microsoft.netcore.app.runtime.osx-arm64-10.0.15.txt",
+      "sha256": "f9790dd00c02b034e5affb27c12918c157c858bdb678307a7b8534c22f58f858",
       "artifacts": [
         "Microsoft.CSharp.dll",
         "Microsoft.VisualBasic.Core.dll",

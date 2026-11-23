@@ -1,10 +1,10 @@
-microsoft.netcore.app.runtime.osx-arm64/10.0.5
+microsoft.netcore.app.runtime.osx-arm64/10.0.15
 Authors: Microsoft
 © Microsoft Corporation. All rights reserved.
 License declaration: MIT
 Sources:
-nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.5/THIRD-PARTY-NOTICES.TXT
-nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.5/LICENSE.TXT
+nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.15/THIRD-PARTY-NOTICES.TXT
+nuget:microsoft.netcore.app.runtime.osx-arm64/10.0.15/LICENSE.TXT
 
 Package file: THIRD-PARTY-NOTICES.TXT
 .NET Runtime uses third-party libraries or other resources that may be
