@@ -6,6 +6,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "MacVolumeMonitorService")]
+[Trait("Serial", "true")]
 public sealed class VolumeEjectNativeTests
 {
     [Theory(Explicit = true)]

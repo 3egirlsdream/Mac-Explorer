@@ -18,6 +18,11 @@ name: Release Mac Explorer
         required: true
         default: false
         type: boolean
+      tests_only:
+        description: Run the Release full test suite without publishing assets or updating backend
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -54,6 +59,7 @@ jobs:
         env:
           SYNC_BACKEND_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.sync_backend_only == true }}
           REBUILD_CURRENT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_current_version == true }}
+          TESTS_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.tests_only == true }}
         run: |
           set -euo pipefail
 
@@ -103,10 +109,13 @@ jobs:
           sync_only = os.environ.get("SYNC_BACKEND_ONLY", "false").lower() == "true"
 
           rebuild = os.environ.get("REBUILD_CURRENT_VERSION", "false").lower() == "true"
+          tests_only = os.environ.get("TESTS_ONLY", "false").lower() == "true"
 
-          if sync_only and rebuild:
-              sys.exit("Backend-only sync and current-release rebuild are mutually exclusive")
-          if rebuild:
+          if sum([sync_only, rebuild, tests_only]) > 1:
+              sys.exit("sync_backend_only, rebuild_current_version, and tests_only are mutually exclusive")
+          if tests_only:
+              mode = "tests_only"
+          elif rebuild:
               if current_tag not in release_tags or current_tag != latest_tag:
                   sys.exit("Current-release rebuild requires the existing highest release tag")
               mode = "republish"
@@ -155,7 +164,7 @@ jobs:
         run: python3 -m unittest discover -s Tools/Release -p 'test_*.py' -v
 
       - name: Validate release changelog before publishing
-        if: steps.version.outputs.mode != 'noop'
+        if: steps.version.outputs.mode != 'noop' && steps.version.outputs.mode != 'tests_only'
         shell: bash
         env:
           TAG: ${{ steps.version.outputs.tag }}
@@ -172,7 +181,7 @@ jobs:
   publish-release:
     name: Build and publish release
     needs: detect-version
-    if: needs.detect-version.outputs.mode == 'publish' || needs.detect-version.outputs.mode == 'republish'
+    if: needs.detect-version.outputs.mode == 'publish' || needs.detect-version.outputs.mode == 'republish' || needs.detect-version.outputs.mode == 'tests_only'
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -212,6 +221,7 @@ jobs:
           retention-days: 7
 
       - name: Publish application
+        if: needs.detect-version.outputs.mode != 'tests_only'
         shell: bash
         run: |
           set -euo pipefail
@@ -221,6 +231,7 @@ jobs:
           dotnet publish "$PROJECT_FILE" -c Release -r osx-x64 --no-restore
 
       - name: Package and verify release assets
+        if: needs.detect-version.outputs.mode != 'tests_only'
         id: package
         shell: bash
         env:
@@ -305,6 +316,7 @@ jobs:
           echo "intel_zip_name=$intel_zip_name" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
+        if: needs.detect-version.outputs.mode != 'tests_only'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

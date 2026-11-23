@@ -4,6 +4,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "FileDrop")]
+[Trait("Serial", "true")]
 public sealed class FileDropNativeTests
 {
     [Fact(Explicit = true)]

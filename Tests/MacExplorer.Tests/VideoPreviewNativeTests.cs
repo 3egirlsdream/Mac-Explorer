@@ -4,6 +4,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Preview")]
+[Trait("Serial", "true")]
 public sealed class VideoPreviewNativeTests
 {
     [Fact(Explicit = true)]

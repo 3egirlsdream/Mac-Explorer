@@ -4,6 +4,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "AirDrop")]
+[Trait("Serial", "true")]
 public sealed class AirDropNativeTests
 {
     [Fact(Explicit = true)]

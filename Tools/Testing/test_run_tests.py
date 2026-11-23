@@ -178,9 +178,14 @@ class ShardingTests(unittest.TestCase):
                 return 0
 
             weights = {f"MacExplorer.Tests.C{i}": i + 1 for i in range(4)}
+            serial_weights = {"MacExplorer.Tests.NativeA": 1}
+
+            def fake_discover(_exe, expr, _exp):
+                return serial_weights if "Serial=true" in expr else weights
+
             with (patch.object(runner, "ROOT", root),
                   patch.object(runner, "run", fake_run),
-                  patch.object(runner, "discover_class_weights", return_value=weights),
+                  patch.object(runner, "discover_class_weights", side_effect=fake_discover),
                   patch.object(runner.subprocess, "call", return_value=0),
                   patch.object(runner.tempfile, "mkdtemp", return_value=temporary),
                   patch.object(sys, "argv", ["run-tests.py", "full", "--no-build", "--jobs", "2"]),
@@ -188,9 +193,9 @@ class ShardingTests(unittest.TestCase):
                 code = runner.main()
 
             self.assertEqual(0, code)
-            # 1 MacExplorer.UnitTests + 2 Unit/UI shards + 1 serial Integration/Stress pass = 4 invocations.
+            # 1 MacExplorer.UnitTests + 2 non-serial shards + 1 serial pass = 4 invocations.
             self.assertEqual(4, len(invocations))
-            serial_cmd = [cmd for cmd in invocations if any("Kind!=Unit" in a for a in cmd)]
+            serial_cmd = [cmd for cmd in invocations if any("Serial=true" in a for a in cmd)]
             self.assertEqual(1, len(serial_cmd))
             merged = ET.parse(root / "MacExplorer.Tests.xml").getroot().find("assembly")
             self.assertEqual("6", merged.get("total"))

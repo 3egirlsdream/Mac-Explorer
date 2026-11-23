@@ -7,6 +7,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Window")]
+[Trait("Serial", "true")]
 public sealed class MacWindowChromeTests
 {
     private const string LibObjC = "/usr/lib/libobjc.A.dylib";

@@ -4,6 +4,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "FileDelivery")]
+[Trait("Serial", "true")]
 public sealed class FileDeliveryNativeTests
 {
     [Fact(Explicit = true)]

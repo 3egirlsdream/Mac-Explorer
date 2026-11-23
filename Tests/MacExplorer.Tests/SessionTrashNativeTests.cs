@@ -6,6 +6,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "NativeTrash")]
+[Trait("Serial", "true")]
 public sealed class SessionTrashNativeTests
 {
     [Fact(Explicit = true)]

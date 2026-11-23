@@ -7,6 +7,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Clipboard")]
+[Trait("Serial", "true")]
 public sealed class MacClipboardNativeTests
 {
     [AvaloniaFact(Explicit = true)]

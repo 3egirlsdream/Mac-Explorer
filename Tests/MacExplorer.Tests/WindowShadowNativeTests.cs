@@ -4,6 +4,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Window")]
+[Trait("Serial", "true")]
 public sealed class WindowShadowNativeTests
 {
     [Fact(Explicit = true)]

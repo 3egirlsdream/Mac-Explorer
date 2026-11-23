@@ -9,6 +9,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "UnifiedFileTag")]
+[Trait("Serial", "true")]
 public sealed class TagClipboardNativeTests
 {
     [Theory(Explicit = true)]

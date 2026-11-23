@@ -14,8 +14,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "Tests/MacExplorer.Tests/MacExplorer.Tests.csproj"
-SHARDABLE_PROFILES = {"fast", "unit", "ui", "full"}
+SHARDABLE_PROFILES = {"fast", "unit", "ui", "integration", "full"}
 MIN_CLASSES_FOR_SHARDING = 4
+
+# Approximate duration hints (seconds) for the heaviest classes so LPT sharding
+# spreads them across different workers even when a class has few test methods.
+HEAVY_CLASS_WEIGHTS = {
+    "MacExplorer.Tests.PdfAnalysisTests": 75,
+    "MacExplorer.Tests.LocalSendServiceTests": 75,
+    "MacExplorer.Tests.GitOperationsTests": 45,
+    "MacExplorer.Tests.BackgroundThemeTests": 30,
+    "MacExplorer.Tests.FileConversionTests": 22,
+    "MacExplorer.Tests.TabStripInteractionTests": 22,
+    "MacExplorer.Tests.PluginSystemTests": 16,
+    "MacExplorer.Tests.SearchIndexWriteTests": 15,
+    "MacExplorer.Tests.TabWorkspaceCacheViewModelTests": 13,
+    "MacExplorer.Tests.TabGroupsUiTests": 12,
+    "MacExplorer.Tests.GroupPresetTests": 10,
+    "MacExplorer.Tests.FolderTabRestoreTests": 10,
+    "MacExplorer.Tests.PrivacySecurityFollowupTests": 9,
+}
 
 
 def default_jobs(profile):
@@ -36,7 +54,8 @@ def discover_class_weights(executable, expression, explicit):
         stripped = line.lstrip()
         if stripped.startswith("["):
             items = json.loads(stripped)
-            return dict(Counter(item["Class"] for item in items if item.get("Class")))
+            counts = Counter(item["Class"] for item in items if item.get("Class"))
+            return {cls: max(count, HEAVY_CLASS_WEIGHTS.get(cls, 0)) for cls, count in counts.items()}
     return {}
 
 
@@ -99,10 +118,14 @@ def run_sharded_project(project, executable, expression, explicit, verbose, jobs
     weights = discover_class_weights(executable, expression, explicit)
     if weights is None:
         return None
-    if not serial_expression and len(weights) < MIN_CLASSES_FOR_SHARDING:
-        return None
+    serial_weights = None
+    if serial_expression:
+        serial_weights = discover_class_weights(executable, serial_expression, explicit)
+        if serial_weights is None:
+            return None
+    has_serial = bool(serial_weights)
     shards = partition_classes(weights, jobs) if weights else []
-    if not serial_expression and len(shards) <= 1:
+    if not has_serial and len(shards) <= 1:
         return None
 
     def run_shard(index, classes):
@@ -127,7 +150,7 @@ def run_sharded_project(project, executable, expression, explicit, verbose, jobs
                 shard_results[futures[future]] = future.result()
 
     serial_result = None
-    if serial_expression:
+    if has_serial:
         serial_report = results / f"{project}.serial.xml"
         serial_log = results / f"{project}.serial.log"
         serial_command = [
@@ -147,7 +170,7 @@ def run_sharded_project(project, executable, expression, explicit, verbose, jobs
                 out_log.write(log.read_text(errors="replace"))
             out_log.write("\n")
         if serial_result is not None:
-            out_log.write("=== Serial (Integration/Stress) ===\n")
+            out_log.write("=== Serial (Hardware/Native) ===\n")
             if serial_result[2].exists():
                 out_log.write(serial_result[2].read_text(errors="replace"))
             out_log.write("\n")
@@ -175,7 +198,7 @@ def main():
     parser.add_argument("--configuration", default="Debug", choices=["Debug", "Release"])
     parser.add_argument("--budget", type=float, help="Fail if build + execution exceeds this many seconds")
     parser.add_argument("--jobs", "-j", type=int, default=None,
-                        help="Isolated worker processes for sharding Unit/UI tests (default: 4 for fast/unit/ui/full, 1 otherwise)")
+                        help="Isolated worker processes for sharding non-serial tests (default: 4 for fast/unit/ui/integration/full, 1 otherwise)")
     args = parser.parse_args()
     jobs = default_jobs(args.profile) if args.jobs is None else args.jobs
     if jobs < 1:
@@ -227,15 +250,13 @@ def main():
             parser.error(f"{project} is missing; run without --no-build first")
         sharded = None
         if project != "MacExplorer.UnitTests" and jobs > 1:
-            if args.profile == "full":
-                shard_expr = "(Kind=Unit)|(Kind=UI)"
-                serial_expr = "(Kind!=Manual)&(Kind!=Unit)&(Kind!=UI)"
-                if args.area:
-                    shard_expr = "(" + shard_expr + ")&(" + area_expression + ")"
-                    serial_expr = "(" + serial_expr + ")&(" + area_expression + ")"
+            if args.profile in ("full", "integration"):
+                shard_expr = "(" + expression + ")&(Serial!=true)"
+                serial_expr = "(" + expression + ")&(Serial=true)"
                 sharded = run_sharded_project(
                     project, executable, shard_expr, explicit,
-                    verbose=True, jobs=jobs, results=results, serial_expression=serial_expr)
+                    verbose=(args.profile == "full"), jobs=jobs, results=results,
+                    serial_expression=serial_expr)
             else:
                 sharded = run_sharded_project(
                     project, executable, expression, explicit,

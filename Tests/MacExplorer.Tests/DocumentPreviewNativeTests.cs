@@ -6,6 +6,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Preview")]
+[Trait("Serial", "true")]
 public sealed class DocumentPreviewNativeTests
 {
     [Fact(Explicit = true)]

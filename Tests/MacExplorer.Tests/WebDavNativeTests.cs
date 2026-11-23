@@ -4,6 +4,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "Network")]
+[Trait("Serial", "true")]
 public sealed class WebDavNativeTests
 {
     [Fact(Explicit = true)]

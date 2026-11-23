@@ -6,6 +6,7 @@ namespace MacExplorer.Tests;
 
 [Trait("Kind", "Integration")]
 [Trait("Area", "DiskManagement")]
+[Trait("Serial", "true")]
 public sealed class DiskInformationNativeTests
 {
     [Fact(Explicit = true)]
