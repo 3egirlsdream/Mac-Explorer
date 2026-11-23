@@ -66,13 +66,14 @@ public sealed class InteractionPerformanceRegressionTests : FileListViewModelTes
             Assert.Equal("Latest", vm.CurrentLocationTitle);
             Assert.Equal(red.VirtualPath, vm.CurrentPath);
             Assert.Equal(0, query.Calls);
-            vm.SetWorkspaceVisible(true); Dispatcher.UIThread.RunJobs();
+            vm.SetWorkspaceVisible(true);
+            await WaitUntilAsync(() => query.Calls >= 1);
             Assert.Equal(1, query.Calls);
             vm.SetWorkspaceVisible(true); Dispatcher.UIThread.RunJobs();
             Assert.Equal(1, query.Calls);
             await service.RenameTagAsync(red, "A");
             await service.RenameTagAsync(red, "B");
-            Dispatcher.UIThread.RunJobs();
+            await WaitUntilAsync(() => query.Calls >= 2 && vm.CurrentLocationTitle == "B");
             Assert.Equal(2, query.Calls);
             Assert.Equal("B", vm.CurrentLocationTitle);
         }
@@ -187,6 +188,18 @@ public sealed class InteractionPerformanceRegressionTests : FileListViewModelTes
                 <= label.TranslatePoint(default, open)?.X);
         }
         finally { menu.Close(); view.DismissContextMenu(); window.Close(); }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        while (!condition())
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (condition()) return;
+            await Task.Delay(10, timeout.Token);
+        }
     }
 
     private sealed class CountingStore : IFileTagStore
