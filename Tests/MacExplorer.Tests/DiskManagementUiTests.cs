@@ -153,7 +153,7 @@ public sealed class DiskManagementUiTests : FileListViewModelTestBase
         var previous = App.Services;
         using var services = new ServiceCollection().AddSingleton<IDiskInformationService>(
             new DiskManagementTests.Information { Disks = [DiskManagementTests.Disk()] }).BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         using var model = CreateViewModel(new FakeFileService(RuntimePaths.TestRoot!));
         await model.NavigateToAsync(VirtualPath.Disks);
         using var tab = new ExplorerTabViewModel(model);
@@ -172,7 +172,7 @@ public sealed class DiskManagementUiTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
         }
     }
 }

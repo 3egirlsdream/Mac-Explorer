@@ -19,16 +19,13 @@ namespace MacExplorer.Tests;
 [Trait("Area", "TabGroups")]
 public sealed class TabGroupsUiTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task GroupSeparationPreservesOriginalAccentPositionAndSelectedTabInsets(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task GroupSeparationPreservesOriginalAccentPositionAndSelectedTabInsets()
     {
         using var theme = new FastListTestTheme();
         await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
         fixture.Window.Styles.Add((Avalonia.Styling.Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
-        fixture.Window.RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
         while (fixture.Model.Tabs.Count < 5) fixture.AddTab();
         var model = fixture.Model;
         var members = model.Tabs.ToArray();

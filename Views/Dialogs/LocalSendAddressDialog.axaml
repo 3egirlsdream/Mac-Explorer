@@ -9,7 +9,10 @@
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
-    <Grid RowDefinitions="Auto,Auto,Auto" Margin="16">
+    <controls:DialogWindow.TitleBarContent>
+        <TextBlock Classes="dialog-window-title centered" Text="{loc:Loc ui.494}"/>
+    </controls:DialogWindow.TitleBarContent>
+    <Grid RowDefinitions="Auto,Auto,Auto" Margin="16,12,16,16">
         <Border Classes="settings-group">
             <StackPanel>
                 <Border Classes="settings-compact-row settings-divider">

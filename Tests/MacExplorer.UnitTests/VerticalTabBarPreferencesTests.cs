@@ -1,4 +1,5 @@
 using MacExplorer.Services;
+using MacExplorer.Tests;
 using Xunit;
 
 namespace MacExplorer.UnitTests;
@@ -10,7 +11,7 @@ public sealed class VerticalTabBarPreferencesTests
     [Fact]
     public void DefaultsAndPersistenceRoundTrip()
     {
-        var settings = new InMemorySettings();
+        var settings = new InMemorySettingsService();
         Assert.False(VerticalTabBarPreferences.IsEnabled(settings));
         Assert.True(VerticalTabBarPreferences.IsPinned(settings));
         Assert.Equal(VerticalTabBarPreferences.DefaultExpandedWidth, VerticalTabBarPreferences.GetWidth(settings));
@@ -42,24 +43,5 @@ public sealed class VerticalTabBarPreferencesTests
         Assert.True(VerticalTabBarPreferences.IsRelatedSetting(VerticalTabBarPreferences.PinnedKey));
         Assert.True(VerticalTabBarPreferences.IsRelatedSetting(VerticalTabBarPreferences.WidthKey));
         Assert.False(VerticalTabBarPreferences.IsRelatedSetting("workspace_sidebar_width"));
-    }
-
-    private sealed class InMemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = [];
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue)
-        {
-            if (!_values.TryGetValue(key, out var raw)) return defaultValue;
-            if (typeof(T) == typeof(bool) && bool.TryParse(raw, out var b)) return (T)(object)b;
-            if (typeof(T) == typeof(int) && int.TryParse(raw, out var i)) return (T)(object)i;
-            if (typeof(T) == typeof(double) && double.TryParse(raw, out var d)) return (T)(object)d;
-            if (typeof(T) == typeof(string)) return (T)(object)raw;
-            return defaultValue;
-        }
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 }

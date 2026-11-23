@@ -634,9 +634,7 @@ public partial class MainWindow : AppWindow
     private void OnFileListPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_vm == null) return;
-        if (e.PropertyName is nameof(FileListViewModel.IsPasteConfirmDialogVisible)
-            or nameof(FileListViewModel.IsMoveConfirmDialogVisible)
-            or nameof(FileListViewModel.IsDeleteConfirmDialogVisible)
+        if (e.PropertyName is nameof(FileListViewModel.IsDeleteConfirmDialogVisible)
             or nameof(FileListViewModel.IsTagDeleteConfirmDialogVisible)
             or nameof(FileListViewModel.IsCompressDialogVisible))
         {
@@ -901,32 +899,20 @@ public partial class MainWindow : AppWindow
             if (vm.IsDeleteConfirmDialogVisible)
             {
                 var label = vm.DeleteConfirmItemCount == 1
-                    ? $"“{vm.DeleteConfirmFirstItemName}”"
-                    : $"选中的 {vm.DeleteConfirmItemCount} 个项目";
+                    ? Services.Impl.LocalizationText.Get("confirm.item_quote", vm.DeleteConfirmFirstItemName)
+                    : Services.Impl.LocalizationText.Get("confirm.selected_items", vm.DeleteConfirmItemCount);
                 var message = vm.DeleteConfirmIncludesRemoteFiles
-                    ? $"确定要删除{label}吗？远程项目将直接删除，无法通过废纸篓恢复；本地项目将移到废纸篓。"
-                    : $"确定要将{label}移到废纸篓吗？";
-                var confirmed = await ShowConfirmationAsync("确认删除", message, "删除");
+                    ? Services.Impl.LocalizationText.Get("confirm.trash_remote_message", label)
+                    : Services.Impl.LocalizationText.Get("confirm.trash_message", label);
+                var confirmed = await ShowConfirmationAsync("ui.374", message, "ui.006", isDanger: true);
                 if (confirmed) await vm.ConfirmDeleteSelectedAsync();
                 else vm.CancelDeleteConfirmDialog();
             }
             else if (vm.IsTagDeleteConfirmDialogVisible)
             {
-                var confirmed = await ShowConfirmationAsync("删除标签", vm.TagDeleteConfirmation, "删除");
+                var confirmed = await ShowConfirmationAsync("confirm.delete_tag_title", vm.TagDeleteConfirmation, "ui.006", isDanger: true);
                 if (confirmed) await vm.ConfirmDeleteTagAsync();
                 else vm.CancelTagDeleteConfirmDialog();
-            }
-            else if (vm.IsPasteConfirmDialogVisible)
-            {
-                var confirmed = await ShowConfirmationAsync("替换已有项目", BuildConflictMessage(vm.PasteConflictNames), "替换");
-                if (confirmed) await vm.ConfirmPasteAsync();
-                else vm.CancelPasteConfirmDialog();
-            }
-            else if (vm.IsMoveConfirmDialogVisible)
-            {
-                var confirmed = await ShowConfirmationAsync("替换已有项目", BuildConflictMessage(vm.MoveConflictNames), "替换");
-                if (confirmed) await vm.ConfirmMoveAsync();
-                else vm.CancelMoveConfirmDialog();
             }
             else if (vm.IsCompressDialogVisible && vm.PendingCompressOptions != null)
             {
@@ -943,17 +929,11 @@ public partial class MainWindow : AppWindow
         }
     }
 
-    private async Task<bool> ShowConfirmationAsync(string title, string message, string confirmText)
+    private async Task<bool> ShowConfirmationAsync(string title, string message, string confirmText, bool isDanger = false)
     {
         using var modalBlock = BlockModalParentInteraction();
-        return await DialogHost.ShowConfirmationAsync(title, message, confirmText);
-    }
-
-    private static string BuildConflictMessage(IReadOnlyList<string> names)
-    {
-        var preview = string.Join("、", names.Take(3).Select(name => $"“{name}”"));
-        if (names.Count > 3) preview += $" 等 {names.Count} 个项目";
-        return $"目标位置已经包含 {preview}。是否替换？";
+        var dialog = new ConfirmDialog(title, message, confirmText, isDanger: isDanger);
+        return await dialog.ShowDialog<bool>(this);
     }
 
     private FileTaskPanelPresenter? _fileTaskPresenter;

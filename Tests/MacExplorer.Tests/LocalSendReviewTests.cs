@@ -46,7 +46,7 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
     {
         Environment.SetEnvironmentVariable(RuntimePaths.TestRootVariable, _root);
         RuntimePaths.PrepareTestRoot();
-        _service = new LocalSendService(new MemorySettings(), _tasks)
+        _service = new LocalSendService(new InMemorySettingsService(), _tasks)
         {
             FileAccessOverride = _testAccess,
             ScanInterfacesOverride = () => [],
@@ -258,21 +258,6 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
             return (app, new LocalSendDevice("Review peer", "review-peer", "127.0.0.1", port, "http"), uploads, cancellations);
         }
         catch { await app.DisposeAsync(); throw; }
-    }
-
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly ConcurrentDictionary<string, string> _values = new();
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue)
-        {
-            if (!_values.TryGetValue(key, out var value)) return defaultValue;
-            return typeof(T) == typeof(bool) ? (T)(object)bool.Parse(value) : (T)(object)value;
-        }
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 
 }

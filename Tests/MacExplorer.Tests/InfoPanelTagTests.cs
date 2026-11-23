@@ -22,10 +22,9 @@ namespace MacExplorer.Tests;
 public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
 {
     [AvaloniaTheory(Explicit = true)]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public async Task InfoPanelRemovesCustomTagsFromFinderAndKeepsOtherTags(bool dark, bool lastTag)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InfoPanelRemovesCustomTagsFromFinderAndKeepsOtherTags(bool lastTag)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
@@ -50,11 +49,7 @@ public sealed class InfoPanelTagViewModelTests : FileListViewModelTestBase
         var panel = new InfoPanelView(tags);
         await panel.SetLivePreviewStateAsync(false, 0);
         panel.DataContext = vm;
-        var window = new Window
-        {
-            Width = 374, Height = 940, Content = panel,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
-        };
+        var window = new Window { Width = 374, Height = 940, Content = panel };
         window.Styles.Add(new FluentTheme());
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         try

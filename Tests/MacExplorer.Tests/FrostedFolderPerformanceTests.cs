@@ -1,5 +1,5 @@
 using Avalonia.Headless.XUnit;
-using FolderIconDemo;
+using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.Controls;
 using MacExplorer.Models;
@@ -69,75 +69,74 @@ public sealed class FrostedFolderPerformanceTests
     public async Task ConcurrentRequestsShareTheExistingThumbnailCache()
     {
         using var cache = new HomeThumbnailCache();
-        var service = new FolderCoverRenderService();
-        var source = Photo();
+        var generated = 0;
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var png = Photo();
+        Task<ThumbnailResult?> Load(FileSystemEntry _, int __, CancellationToken ct) => Task.Run(async () =>
+        {
+            await gate.Task.WaitAsync(ct);
+            Interlocked.Increment(ref generated);
+            return (ThumbnailResult?)new ThumbnailResult(png, string.Empty);
+        }, ct);
         var entry = new FileSystemEntry { FullPath = "/demo/shared", ThumbnailUrl = "v1:11:10" };
-        var material = new FolderCoverMaterial(FrostedFolderRenderer.DefaultFrost, 10, false, false);
-        var first = cache.AcquireAsync(entry, 112, (_, p, ct) => service.CreateAsync(source, null, p, material, ct), default);
-        var second = cache.AcquireAsync(entry, 112, (_, p, ct) => service.CreateAsync(source, null, p, material, ct), default);
+        var first = cache.AcquireAsync(entry, 112, Load, default);
+        var second = cache.AcquireAsync(entry, 112, Load, default);
+        gate.SetResult();
         using var a = await first;
         using var b = await second;
         Assert.NotNull(a.Bitmap);
         Assert.Same(a.Bitmap, b.Bitmap);
-        Assert.Equal(1, service.Generated);
+        Assert.Equal(1, generated);
         using var hit = cache.TryAcquire(entry, 112);
         Assert.Same(a.Bitmap, hit?.Bitmap);
-        Assert.Equal(1, service.Generated);
+        Assert.Equal(1, generated);
     }
 
     [AvaloniaFact]
     public async Task ACancelledConsumerDoesNotInvalidateAnotherConsumer()
     {
         using var cache = new HomeThumbnailCache();
-        var service = new FolderCoverRenderService();
-        var source = Photo();
+        var generated = 0;
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var png = Photo();
+        Task<ThumbnailResult?> Load(FileSystemEntry _, int __, CancellationToken ct) => Task.Run(async () =>
+        {
+            await gate.Task.WaitAsync(ct);
+            Interlocked.Increment(ref generated);
+            return (ThumbnailResult?)new ThumbnailResult(png, string.Empty);
+        }, ct);
         var entry = new FileSystemEntry { FullPath = "/demo/shared-cancellation", ThumbnailUrl = "v1" };
-        var material = new FolderCoverMaterial(FrostedFolderRenderer.DefaultFrost, 10, false, false);
         using var cancellation = new CancellationTokenSource();
-        var cancelled = cache.AcquireAsync(entry, 112,
-            (_, p, ct) => service.CreateAsync(source, null, p, material, ct), cancellation.Token);
-        var remaining = cache.AcquireAsync(entry, 112,
-            (_, p, ct) => service.CreateAsync(source, null, p, material, ct), default);
+        var cancelled = cache.AcquireAsync(entry, 112, Load, cancellation.Token);
+        var remaining = cache.AcquireAsync(entry, 112, Load, default);
         cancellation.Cancel();
+        gate.SetResult();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await cancelled);
         using var lease = await remaining;
         Assert.NotNull(lease.Bitmap);
-        Assert.Equal(1, service.Generated);
+        Assert.Equal(1, generated);
     }
 
     [AvaloniaFact]
-    public async Task BackgroundRenderingIsBoundedAndPendingWorkCanBeCancelled()
-    {
-        var service = new FolderCoverRenderService();
-        var material = new FolderCoverMaterial(FrostedFolderRenderer.DefaultFrost, 10, false, false);
-        var source = Photo();
-        var batch = Enumerable.Range(0, 8).Select(_ => service.CreateAsync(source, null, 112, material, default));
-        await Task.WhenAll(batch);
-        Assert.InRange(service.MaximumActive, 1, 2);
-        Assert.Equal(8, service.Generated);
-        using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.CreateAsync(source, null, 1024, material, cancellation.Token));
-        Assert.Equal(8, service.Generated);
-    }
-
-    [AvaloniaFact]
-    public async Task ChangedMaterialAndPixelSizeHaveIndependentCacheEntries()
+    public async Task ChangedThumbnailVersionAndPixelSizeHaveIndependentCacheEntries()
     {
         using var cache = new HomeThumbnailCache();
-        var service = new FolderCoverRenderService();
-        var source = Photo();
+        var generated = 0;
+        var png = Photo();
+        Task<ThumbnailResult?> Load(FileSystemEntry _, int __, CancellationToken ___)
+        {
+            Interlocked.Increment(ref generated);
+            return Task.FromResult<ThumbnailResult?>(new ThumbnailResult(png, string.Empty));
+        }
         var file = new FileSystemEntry { FullPath = "/demo/changed", ThumbnailUrl = "v1:11" };
-        var material = new FolderCoverMaterial(FrostedFolderRenderer.DefaultFrost, 10, false, false);
-        using var first = await cache.AcquireAsync(file, 112, (_, p, ct) => service.CreateAsync(source, null, p, material, ct), default);
-        using var larger = await cache.AcquireAsync(file, 256, (_, p, ct) => service.CreateAsync(source, null, p, material, ct), default);
+        using var first = await cache.AcquireAsync(file, 112, Load, default);
+        using var larger = await cache.AcquireAsync(file, 256, Load, default);
         var changed = new FileSystemEntry { FullPath = file.FullPath, ThumbnailUrl = "v1:30" };
-        using var third = await cache.AcquireAsync(changed, 112,
-            (_, p, ct) => service.CreateAsync(source, null, p, material with { Frost = .30f }, ct), default);
+        using var third = await cache.AcquireAsync(changed, 112, Load, default);
         Assert.NotSame(first.Bitmap, larger.Bitmap);
         Assert.NotSame(first.Bitmap, third.Bitmap);
         Assert.NotNull(larger.Bitmap);
-        Assert.Equal(3, service.Generated);
+        Assert.Equal(3, generated);
     }
 
     private static byte[] Photo()

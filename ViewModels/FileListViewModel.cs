@@ -3102,10 +3102,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var dialog = new DeleteConfirmDialog();
-        var subject = entries.Count == 1 ? $"“{entries[0].Name}”" : $"选中的 {entries.Count} 个项目";
-        dialog.Configure("永久删除", $"{subject} 将被永久删除，且无法恢复。", "永久删除");
-        if (!await dialog.ShowDialogAsync(_topLevelWindow))
+        var subject = entries.Count == 1
+            ? MacExplorer.Services.Impl.LocalizationText.Get("confirm.item_quote", entries[0].Name)
+            : MacExplorer.Services.Impl.LocalizationText.Get("confirm.selected_items", entries.Count);
+        var message = MacExplorer.Services.Impl.LocalizationText.Get("confirm.permanent_delete_message", subject);
+        var dialog = new ConfirmDialog("ui.358", message, "ui.358", isDanger: true);
+        if (!await dialog.ShowDialog<bool>(_topLevelWindow))
             return;
 
         try { await PermanentlyDeleteCheckedAsync(entries); }
@@ -3575,21 +3577,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已剪切 {0} 项", entries.Count);
     }
 
-    // Paste conflict dialog state
-    [ObservableProperty]
-    private bool _isPasteConfirmDialogVisible;
-
-    public List<string> PasteConflictNames { get; private set; } = [];
-
-    // Move (drag-drop) conflict dialog state
-    [ObservableProperty]
-    private bool _isMoveConfirmDialogVisible;
-
-    public List<string> MoveConflictNames { get; private set; } = [];
-
-    private IReadOnlyList<FileSystemEntry>? _pendingMoveEntries;
-    private FileSystemEntry? _pendingMoveTarget;
-
     [RelayCommand]
     public async Task PasteAsync()
     {
@@ -3630,14 +3617,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         try
         {
-            var conflicts = _fileOps.GetPasteConflicts(_navigation.CurrentPath);
-            if (conflicts.Count > 0)
-            {
-                PasteConflictNames = conflicts;
-                IsPasteConfirmDialogVisible = true;
-                return;
-            }
-
             await _fileOps.PasteAsync(_navigation.CurrentPath);
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             await LoadDirectoryContentsAsync(forceRefresh: true);
@@ -3699,45 +3678,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             if (IsTargetVisible()) StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴图片失败: {0}", ex.Message);
         }
-    }
-
-    [RelayCommand]
-    public async Task ConfirmPasteAsync()
-    {
-        if (IsBrowseOnly) return;
-        IsPasteConfirmDialogVisible = false;
-        try
-        {
-            await _fileOps.PasteAsync(_navigation.CurrentPath, overwrite: true);
-            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = _fileOps.LastOperationResult is { Warnings.Count: > 0 } result
-                ? MacExplorer.Services.Impl.LocalizationText.Get("已粘贴 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings)) : MacExplorer.Services.Impl.LocalizationText.Get("已粘贴");
-        }
-        catch (OperationCanceledException) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴已取消，已复制的文件保留在目标目录"); }
-        catch (FileOperationPartialException ex)
-        {
-            await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = ex.Message + MacExplorer.Services.Impl.LocalizationText.Get(" 已完成：{0}", string.Join("、", ex.Result.CompletedPaths));
-        }
-        catch (Exception ex)
-        {
-            if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
-            {
-                await LoadDirectoryContentsAsync(forceRefresh: true);
-                StatusText = result.FailedPaths.Count == 0
-                    ? MacExplorer.Services.Impl.LocalizationText.Get("已粘贴 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings))
-                    : MacExplorer.Services.Impl.LocalizationText.Get("粘贴未完整完成；已完成：{0}；{1}", string.Join("、", result.CompletedPaths), ex.Message);
-            }
-            else StatusText = MacExplorer.Services.Impl.LocalizationText.Get("粘贴失败: {0}", ex.Message);
-        }
-    }
-
-    [RelayCommand]
-    public void CancelPasteConfirmDialog()
-    {
-        IsPasteConfirmDialogVisible = false;
-        PasteConflictNames.Clear();
     }
 
     // Delete confirmation dialog state
@@ -3968,16 +3908,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         entries = NormalizeTreeOperationEntries(entries);
         try
         {
-            var conflicts = _fileOps.GetMoveConflicts(entries, targetFolder.FullPath);
-            if (conflicts.Count > 0)
-            {
-                _pendingMoveEntries = entries;
-                _pendingMoveTarget = targetFolder;
-                MoveConflictNames = conflicts;
-                IsMoveConfirmDialogVisible = true;
-                return;
-            }
-
             await _fileOps.MoveEntriesAsync(
                 entries,
                 targetFolder,
@@ -3988,6 +3918,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (_fileOps.LastOperationResult is { Warnings.Count: > 0 } result)
                 StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已移动 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings));
         }
+        catch (OperationCanceledException) { }
         catch (FileOperationPartialException ex)
         {
             await LoadDirectoryContentsAsync(forceRefresh: true);
@@ -4002,56 +3933,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             else StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动失败: {0}", ex.Message);
         }
-    }
-
-    [RelayCommand]
-    public async Task ConfirmMoveAsync()
-    {
-        if (IsBrowseOnly) return;
-        IsMoveConfirmDialogVisible = false;
-        if (_pendingMoveEntries == null || _pendingMoveTarget == null) return;
-
-        try
-        {
-            await _fileOps.MoveEntriesAsync(
-                _pendingMoveEntries,
-                _pendingMoveTarget,
-                msg => StatusText = msg,
-                overwrite: true
-            );
-            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = _fileOps.LastOperationResult is { Warnings.Count: > 0 } result
-                ? MacExplorer.Services.Impl.LocalizationText.Get("已移动 {0} 项；{1}", result.CompletedPaths.Count, string.Join("；", result.Warnings)) : MacExplorer.Services.Impl.LocalizationText.Get("已移动");
-        }
-        catch (FileOperationPartialException ex)
-        {
-            await LoadDirectoryContentsAsync(forceRefresh: true);
-            StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动未完整完成；已移动：{0}；{1}", string.Join("、", ex.Result.CompletedPaths), ex.InnerException?.Message);
-        }
-        catch (Exception ex)
-        {
-            if (_fileOps.LastOperationResult is { CompletedPaths.Count: > 0 } result)
-            {
-                await LoadDirectoryContentsAsync(forceRefresh: true);
-                StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动未完整完成；已移动：{0}；{1}", string.Join("、", result.CompletedPaths), ex.Message);
-            }
-            else StatusText = MacExplorer.Services.Impl.LocalizationText.Get("移动失败: {0}", ex.Message);
-        }
-        finally
-        {
-            _pendingMoveEntries = null;
-            _pendingMoveTarget = null;
-        }
-    }
-
-    [RelayCommand]
-    public void CancelMoveConfirmDialog()
-    {
-        IsMoveConfirmDialogVisible = false;
-        MoveConflictNames.Clear();
-        _pendingMoveEntries = null;
-        _pendingMoveTarget = null;
     }
 
     public event Action<FileSystemEntry>? RenameRequested;

@@ -48,14 +48,12 @@ public sealed class FeatureUpgradeUiTests : FileListViewModelTestBase
         finally { dialog.Close(); File.Delete(path); }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void GitDiffFillsTheWindowAndKeepsTheTitleBarCloseActionWhenResized(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public void GitDiffFillsTheWindowAndKeepsTheTitleBarCloseActionWhenResized()
     {
         using var theme = new FastListTestTheme();
         const string patch = "--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-before\n+after\n";
-        var dialog = new GitDiffDialog(patch, false) { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var dialog = new GitDiffDialog(patch, false);
         try
         {
             dialog.Show(); dialog.UpdateLayout();

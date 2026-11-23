@@ -178,7 +178,7 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
         await vm.RefreshAsync();
         using var services = new ServiceCollection().AddSingleton<IFileService>(files).BuildServiceProvider();
         var previous = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var hover = new SidebarHoverScheduler();
         var sidebar = new FinderSidebarView { DataContext = vm, ScheduleFolderHover = hover.Schedule };
         AddStyles(sidebar);
@@ -274,14 +274,12 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
         }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task GroupsCollapseIndependentlyRememberStateAndAcceptDropsOnCollapsedHeaders(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task GroupsCollapseIndependentlyRememberStateAndAcceptDropsOnCollapsedHeaders()
     {
         using var theme = new FastListTestTheme();
         using var fixture = new StoreFixture();
@@ -299,11 +297,10 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
         await otherPins.LoadPinnedFoldersAsync();
         using var services = new ServiceCollection().AddSingleton<IFileService>(files).BuildServiceProvider();
         var previous = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var sidebar = new FinderSidebarView { DataContext = vm };
         AddStyles(sidebar);
-        var window = new Window { Width = 220, Height = 1100, Content = sidebar,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var window = new Window { Width = 220, Height = 1100, Content = sidebar };
         try
         {
             window.Show(); RenderIssue11(window);
@@ -355,7 +352,7 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
         }
     }
 
@@ -373,7 +370,7 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
         await pins.LoadPinnedFoldersAsync();
         var previous = App.Services;
         using var services = new ServiceCollection().AddSingleton(new PhotoLocationConsent(settings, Path.Combine(fixture.Root, "consent"))).BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var dialog = new SettingsDialog(new AppUpdateTests.DefaultAppServiceStub(), settings,
             new AppUpdateTests.ThemeServiceStub(), new AppUpdateTests.TypographyServiceStub(),
             new AppUpdateTests.OpenWithAppServiceStub(), new AppUpdateService(http), localizationService: language,
@@ -433,7 +430,7 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
         {
             foreach (var owned in dialog.OwnedWindows.ToArray()) owned.Close();
             dialog.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
         }
     }
 

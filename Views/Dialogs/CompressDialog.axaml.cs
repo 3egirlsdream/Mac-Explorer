@@ -18,9 +18,11 @@ public partial class CompressDialog : DialogWindow
     public CompressDialog()
     {
         InitializeComponent();
+        UpdateSelectionClasses();
+        UpdatePasswordSection();
     }
 
-    public Task<CompressOptions?> ShowDialogAsync(Window owner, CompressOptions options)
+    internal void Configure(CompressOptions options)
     {
         _options = options;
         ArchiveNameBox.Text = options.ArchiveName;
@@ -29,6 +31,11 @@ public partial class CompressDialog : DialogWindow
         PasswordBox.Text = options.Password ?? "";
         UpdateSelectionClasses();
         UpdatePasswordSection();
+    }
+
+    public Task<CompressOptions?> ShowDialogAsync(Window owner, CompressOptions options)
+    {
+        Configure(options);
         return base.ShowDialog<CompressOptions?>(owner);
     }
 

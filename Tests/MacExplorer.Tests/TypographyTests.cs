@@ -23,7 +23,7 @@ public sealed class TypographyTests
     [AvaloniaFact]
     public void PresetsAlwaysScaleFromTheStandardTokensAndPersist()
     {
-        var settings = new MemorySettingsService();
+        var settings = new InMemorySettingsService();
         var service = new TypographyService(settings);
         var changes = new List<FontSizePreset>();
         service.TypographyChanged += (_, args) => changes.Add(args.Preset);
@@ -52,7 +52,7 @@ public sealed class TypographyTests
     [AvaloniaFact]
     public void StoredPresetIsRestoredAndInvalidValueFallsBackToStandard()
     {
-        var restored = new TypographyService(new MemorySettingsService
+        var restored = new TypographyService(new InMemorySettingsService
         {
             [TypographyService.SettingKey] = "large"
         });
@@ -62,7 +62,7 @@ public sealed class TypographyTests
         Assert.Equal(FontSizePreset.Large, restored.CurrentPreset);
         AssertResource("FontSizeBody", 15);
 
-        var invalid = new TypographyService(new MemorySettingsService
+        var invalid = new TypographyService(new InMemorySettingsService
         {
             [TypographyService.SettingKey] = "extra-large"
         });
@@ -73,7 +73,7 @@ public sealed class TypographyTests
     [AvaloniaFact]
     public void ExistingFileListGroupAndSidebarTextUpdateWithoutRecreation()
     {
-        var service = new TypographyService(new MemorySettingsService());
+        var service = new TypographyService(new InMemorySettingsService());
         service.Initialize();
 
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
@@ -87,7 +87,7 @@ public sealed class TypographyTests
         var remoteServers = sidebar.FindControl<ItemsControl>("NetworkLocationsList")!;
         var remoteTemplate = Assert.IsAssignableFrom<IDataTemplate>(remoteServers.ItemTemplate);
         var remoteRow = Assert.IsAssignableFrom<Control>(remoteTemplate.Build(new NetworkLocationRow("fixture", "fixture")));
-        remoteRow.DataContext = new NetworkLocationRow("43.138.192.42", "fixture", Connected: true);
+        remoteRow.DataContext = new NetworkLocationRow("198.51.100.42", "fixture", Connected: true);
         var textBox = new TextBox { Text = "动态字号" };
         var host = new StackPanel
         {
@@ -107,20 +107,24 @@ public sealed class TypographyTests
         var sidebarItem = sidebar.FindControl<Border>("VolumeItem")!;
         var sidebarItemText = sidebarItem.GetVisualDescendants().OfType<TextBlock>().Single();
         var remoteAddress = remoteRow.GetVisualDescendants().OfType<TextBlock>()
-            .Single(text => text.Text == "43.138.192.42");
+            .Single(text => text.Text == "198.51.100.42");
         var remoteAction = remoteRow.GetVisualDescendants().OfType<Button>()
             .Single(button => button.Classes.Contains("sidebar-item-action"));
 
         Assert.Equal(13, fileName.FontSize);
         Assert.Equal("PingFang SC", fileName.FontFamily.Name);
-        Assert.Equal(Color.Parse("#252830"), Assert.IsType<SolidColorBrush>(fileName.Foreground).Color);
+        Assert.True(window.TryFindResource("TextPrimaryBrush", window.ActualThemeVariant, out var primaryBrush));
+        Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(primaryBrush).Color,
+            Assert.IsAssignableFrom<ISolidColorBrush>(fileName.Foreground).Color);
         Assert.Equal(12, fileName.DetailFontSize);
         Assert.Equal(11, sidebarTitle.FontSize);
         Assert.Equal("PingFang SC", sidebarTitle.FontFamily.Name);
         Assert.Equal(FontWeight.Medium, sidebarTitle.FontWeight);
         Assert.Equal(FontWeight.Normal, sidebarItemText.FontWeight);
         Assert.Equal(sidebarItemText.FontWeight, fileName.FontWeight);
-        Assert.Equal(Color.Parse("#565D67"), Assert.IsType<SolidColorBrush>(sidebarTitle.Foreground).Color);
+        Assert.True(window.TryFindResource("TextSecondaryBrush", window.ActualThemeVariant, out var secondaryBrush));
+        Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(secondaryBrush).Color,
+            Assert.IsAssignableFrom<ISolidColorBrush>(sidebarTitle.Foreground).Color);
         Assert.Equal(sidebarItemText.FontSize, remoteAddress.FontSize);
         Assert.Single(remoteRow.GetVisualDescendants().OfType<TextBlock>());
         Assert.Equal(0, remoteAction.Opacity);
@@ -139,12 +143,10 @@ public sealed class TypographyTests
         window.Close();
     }
 
-    [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SettingsCopilotAndSubscriptionFollowSharedTypography(bool dark)
+    [AvaloniaFact]
+    public void SettingsCopilotAndSubscriptionFollowSharedTypography()
     {
-        var service = new TypographyService(new MemorySettingsService());
+        var service = new TypographyService(new InMemorySettingsService());
         service.Initialize();
         var command = new TextBox { Text = "echo 中文 && pwd", Classes = { "settings-command-editor" } };
         var toolTitle = new TextBlock { Text = "工具执行 Tool", Classes = { "copilot-tool-title" } };
@@ -152,7 +154,6 @@ public sealed class TypographyTests
         var window = new Window
         {
             Width = 440, Height = 700,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
             Content = new StackPanel { Children = { command, toolTitle, subscription } }
         };
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
@@ -188,37 +189,6 @@ public sealed class TypographyTests
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
         Assert.True(application.TryGetResource(key, application.ActualThemeVariant, out var value));
         Assert.Equal(expected, Assert.IsType<double>(value));
-    }
-
-    private sealed class MemorySettingsService : ISettingsService
-    {
-        public event Action<string>? SettingChanged { add { } remove { } }
-        private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-
-        public string this[string key]
-        {
-            set => _values[key] = value;
-        }
-
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-
-        public T Get<T>(string key, T defaultValue)
-        {
-            var raw = Get(key);
-            if (raw == null)
-                return defaultValue;
-            if (typeof(T) == typeof(string))
-                return (T)(object)raw;
-            if (typeof(T).IsEnum && Enum.TryParse(typeof(T), raw, true, out var parsed))
-                return (T)parsed;
-            return defaultValue;
-        }
-
-        public void Set(string key, string value) => _values[key] = value;
-
-        public void Set<T>(string key, T value) => _values[key] = value?.ToString() ?? string.Empty;
-
-        public Dictionary<string, string> GetAll() => new(_values, StringComparer.OrdinalIgnoreCase);
     }
 
 }

@@ -93,7 +93,7 @@ public sealed class FileCreationDiagnosticsTests : IDisposable
     [Fact]
     public async Task NativePublishFailureKeepsItsErrorCodeAndInnerExceptionInTheLog()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var manager = new BackgroundTaskManager();
         using (MemoryDiagnostics.Start(LogDirectory))
         {

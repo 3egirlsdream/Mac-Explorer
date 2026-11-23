@@ -103,7 +103,7 @@ internal partial class FileOperationWindow : DialogWindow
     }
 
     private static string L(string key, params object?[] args) => LocalizationText.Get(key, args);
-    private void DismissAndClose() { _dismissed = true; Close(); }
+    internal void DismissAndClose() { _dismissed = true; Close(); }
 
     internal void Refresh()
     {

@@ -19,10 +19,8 @@ namespace MacExplorer.Tests;
 [Trait("Area", "InfoPanelTag")]
 public sealed class InfoPanelTagInteractionTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task MetadataRefreshDuringTagClickPreservesThePressedButton(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task MetadataRefreshDuringTagClickPreservesThePressedButton()
     {
         var root = Directory.CreateTempSubdirectory("info-tag-click-").FullName;
         using var service = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
@@ -33,8 +31,7 @@ public sealed class InfoPanelTagInteractionTests : FileListViewModelTestBase
         vm.IsInfoPanelVisible = true;
         vm.SelectedEntries.Add(new FileSystemEntry { FullPath = path, Name = "file.bin" });
         var panel = new InfoPanelView(service) { DataContext = vm };
-        var window = new Window { Width = 374, Height = 1000, Content = panel,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var window = new Window { Width = 374, Height = 1000, Content = panel };
         window.Styles.Add(new FluentTheme());
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         try

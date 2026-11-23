@@ -12,7 +12,7 @@ public sealed class LocalizationServiceTests
     [Fact]
     public void LanguageSelectionPersistsAndChangesLocalizedValuesImmediately()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         using var service = new LocalizationService(settings);
         var changes = 0;
         service.LanguageChanged += () => changes++;
@@ -35,7 +35,7 @@ public sealed class LocalizationServiceTests
     [Fact]
     public void FileKindsFollowTheCurrentDisplayLanguage()
     {
-        using var service = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var service = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var entry = new FileSystemEntry { Name = "Recording.CAF", Extension = ".CAF" };
         foreach (var (language, label) in new[]
                  {
@@ -64,7 +64,7 @@ public sealed class LocalizationServiceTests
     [InlineData("sample", "", false, "file-generic", "文件")]
     public void FileKindsHandleAliasesPackagesAndFallbacks(string name, string extension, bool directory, string icon, string expected)
     {
-        using var service = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var service = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var entry = new FileSystemEntry
         {
             Name = name, FullPath = "/test/" + name, Extension = extension, IsDirectory = directory, IconKey = icon
@@ -75,7 +75,7 @@ public sealed class LocalizationServiceTests
     [Fact]
     public void EveryDiscoveredLanguageCanBeSelectedAndRestoredWithoutAnEnum()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         using var service = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
         foreach (var option in service.AvailableLanguages)
         {
@@ -103,7 +103,7 @@ public sealed class LocalizationServiceTests
     [InlineData("removed", "system")]
     public void ExistingSettingsAndRemovedLanguagesAreHandled(string saved, string expected)
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         settings.Set(LocalizationService.SettingKey, saved);
         using var service = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
         Assert.Equal(expected, service.Language);
@@ -115,7 +115,7 @@ public sealed class LocalizationServiceTests
     [InlineData("fr", "Langue d’affichage", "Enregistrer", "fr-FR")]
     public void NewLanguagesHaveCompleteCatalogsAndPersistedSelections(string code, string displayLanguage, string save, string culture)
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         using var service = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
         service.SetLanguage(code);
         Assert.Equal(displayLanguage, service["settings.language"]);
@@ -150,7 +150,7 @@ public sealed class LocalizationServiceTests
     [Fact]
     public void WarmLookupsAndLanguageListAccessDoNotAllocate()
     {
-        using var service = new LocalizationService(new MemorySettings(), () => AppLanguage.English);
+        using var service = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.English);
         for (var i = 0; i < 10_000; i++)
         {
             _ = service["settings.language"];
@@ -165,21 +165,6 @@ public sealed class LocalizationServiceTests
             _ = service.AvailableLanguages;
         }
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
-    }
-
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue) => defaultValue;
-        public void Set(string key, string value)
-        {
-            _values[key] = value;
-            SettingChanged?.Invoke(key);
-        }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 
 }

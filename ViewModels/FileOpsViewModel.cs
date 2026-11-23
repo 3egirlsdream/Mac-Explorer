@@ -94,22 +94,6 @@ public partial class FileOpsViewModel : ObservableObject
         if (entry.IsEmpty) _clipboardService.Clear();
     }
 
-    public List<string> GetPasteConflicts(string currentPath)
-    {
-        if (_fileService is CompositeFileService { HandlesConflicts: true }) return [];
-        if (_clipboardService == null || !_clipboardService.HasClipboardFiles) return [];
-        var entry = _clipboardService.GetClipboardEntry();
-        if (entry == null || entry.Operation != ClipboardOperation.Cut) return [];
-
-        // For remote paths, skip local conflict detection (SFTP will handle it)
-        if (VirtualPath.IsRemotePath(currentPath)) return [];
-
-        return entry.SourcePaths
-            .Select(p => Path.GetFileName(p))
-            .Where(name => File.Exists(Path.Combine(currentPath, name)) || Directory.Exists(Path.Combine(currentPath, name)))
-            .ToList();
-    }
-
     public Task PasteAsync(string currentPath, bool overwrite = false)
     {
         var clipboardEntry = _clipboardService?.GetClipboardEntry();
@@ -243,25 +227,6 @@ public partial class FileOpsViewModel : ObservableObject
     public Task<FileOperationResult> MoveEntryDetailedAsync(
         FileSystemEntry source, FileSystemEntry targetFolder, Action<string>? setStatus = null)
         => _operations.MoveDetailedAsync(source, targetFolder, setStatus);
-
-    public List<string> GetMoveConflicts(IReadOnlyList<FileSystemEntry> entries, string targetDirectory)
-    {
-        if (_fileService is CompositeFileService { HandlesConflicts: true }) return [];
-        // For remote paths, skip local conflict detection (SFTP will handle it)
-        if (VirtualPath.IsRemotePath(targetDirectory)) return [];
-
-        var conflicts = new List<string>();
-        foreach (var entry in entries)
-        {
-            var destPath = Path.Combine(targetDirectory, entry.Name);
-            if (PathsEqual(entry.FullPath, destPath))
-                continue;
-            var exists = File.Exists(destPath) || Directory.Exists(destPath);
-            if (exists)
-                conflicts.Add(entry.Name);
-        }
-        return conflicts;
-    }
 
     public async Task MoveEntriesAsync(
         IReadOnlyList<FileSystemEntry> entries,

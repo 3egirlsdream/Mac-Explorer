@@ -270,7 +270,7 @@ public sealed class DiskStorageTests : IDisposable
     [Fact]
     public void HardLinkCannotRetireTheActiveDatabase()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         using (var connection = new DatabaseConnectionFactory(DatabasePath).GetConnection())
         {
             SeedProfile(connection);

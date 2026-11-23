@@ -278,6 +278,8 @@ internal sealed class FastFileListImages : IIdleMemoryCache, IMemoryDiagnosticSo
             cancellation.Cancel();
         }
     }
+    internal void SeedBitmap(FileSystemEntry entry, Bitmap bitmap) => Add(ImageKey.For(entry, _pixelSize), bitmap);
+
     private void Add(ImageKey key, Bitmap bitmap)
     {
         var bytes = (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4;

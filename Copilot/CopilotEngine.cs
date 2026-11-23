@@ -368,7 +368,7 @@ public sealed class CopilotEngine : IDisposable
         _configSignature = signature;
     }
 
-    private async Task<CopilotReply> FinishAsync(AgentResponse response, CancellationToken cancellationToken)
+    internal async Task<CopilotReply> FinishAsync(AgentResponse response, CancellationToken cancellationToken)
     {
         var text = response.Text ?? string.Empty;
         _pendingApprovals.Clear();

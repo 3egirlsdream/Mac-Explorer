@@ -1937,7 +1937,14 @@
     "demo.folder.plain.sizes": "小尺寸预览",
     "demo.folder.plain.current": "现有默认",
     "demo.folder.plain.note": "独立设计预览",
-    "settings.folder-style-pair": "同时应用到文件夹图标和照片封面。"
+    "settings.folder-style-pair": "同时应用到文件夹图标和照片封面。",
+    "confirm.dialog_name": "确认对话框",
+    "confirm.delete_tag_title": "删除标签",
+    "confirm.selected_items": "选中的 {0} 个项目",
+    "confirm.item_quote": "“{0}”",
+    "confirm.trash_message": "确定要将{0}移到废纸篓吗？",
+    "confirm.trash_remote_message": "确定要删除{0}吗？远程项目将直接删除，无法通过废纸篓恢复；本地项目将移到废纸篓。",
+    "confirm.permanent_delete_message": "{0} 将被永久删除，且无法恢复。"
   },
   "literalKeys": [
     "tasks.literal.000",

@@ -4,14 +4,21 @@
         xmlns:controls="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.LocalSendPinDialog"
         Title="{loc:Loc ui.500}"
-        Width="360" Height="150" CanResize="False"
+        Width="360" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner">
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
-    <Grid RowDefinitions="Auto,Auto" RowSpacing="12" Margin="16">
-        <TextBox x:Name="PinBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc ui.501}"
-                 MaxLength="12" Height="32"/>
+    <controls:DialogWindow.TitleBarContent>
+        <TextBlock Classes="dialog-window-title centered" Text="{loc:Loc ui.500}"/>
+    </controls:DialogWindow.TitleBarContent>
+    <Grid RowDefinitions="Auto,Auto" RowSpacing="12" Margin="16,12,16,16">
+        <Border Classes="settings-group">
+            <Border Classes="settings-compact-row">
+                <TextBox x:Name="PinBox" Classes="settings-inline-input" PlaceholderText="{loc:Loc ui.501}"
+                         AutomationProperties.Name="{loc:Loc ui.500}" MaxLength="12" Height="30"/>
+            </Border>
+        </Border>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <controls:AppButton Classes="secondary compact" Content="{loc:Loc ui.094}" IsCancel="True" Click="OnCancel"/>
             <controls:AppButton Classes="primary compact" Content="{loc:Loc ui.502}" IsDefault="True" Click="OnContinue"/>

@@ -105,7 +105,7 @@ public sealed class ArchiveInteractionTests : FileListViewModelTestBase
         using var services = new ServiceCollection()
             .AddSingleton(new PhotoLocationConsent(settings, Path.Combine(directory.FullName, "consent")))
             .BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var dialog = new SettingsDialog(new AppUpdateTests.DefaultAppServiceStub(), settings,
             new AppUpdateTests.ThemeServiceStub(), new AppUpdateTests.TypographyServiceStub(),
             new AppUpdateTests.OpenWithAppServiceStub(), new AppUpdateService(http), localizationService: language)
@@ -138,7 +138,7 @@ public sealed class ArchiveInteractionTests : FileListViewModelTestBase
         finally
         {
             dialog.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
             directory.Delete(true);
         }
     }

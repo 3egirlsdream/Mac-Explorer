@@ -365,7 +365,7 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
         using var services = new ServiceCollection()
             .AddSingleton<IFileService>(files).BuildServiceProvider();
         var previousServices = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var view = new FileListView { DataContext = vm };
         var window = new Window { Width = 900, Height = 600, Content = view };
         try
@@ -400,8 +400,6 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
             {
                 Dispatcher.UIThread.RunJobs();
                 Assert.Empty(files.MoveRequests);
-                Assert.False(vm.IsMoveConfirmDialogVisible);
-                Assert.False(vm.IsPasteConfirmDialogVisible);
                 Assert.Equal("original", await File.ReadAllTextAsync(source));
                 Assert.Equal(new[] { source }, Directory.GetFiles(target));
             }
@@ -417,7 +415,7 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
             Directory.Delete(root, true);
         }
     }

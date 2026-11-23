@@ -69,7 +69,7 @@ public sealed class CrossTabMoveRefreshViewModelTests : FileListViewModelTestBas
         using var services = new ServiceCollection()
             .AddSingleton<IFileService>(files).BuildServiceProvider();
         var previousServices = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var view = new FileListView { DataContext = target };
         var window = new Window { Width = 900, Height = 600, Content = view };
         try
@@ -100,7 +100,7 @@ public sealed class CrossTabMoveRefreshViewModelTests : FileListViewModelTestBas
             foreach (var tab in tabs.Tabs) tab.Dispose();
             source.Dispose();
             target.Dispose();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
             Directory.Delete(root, true);
         }
     }

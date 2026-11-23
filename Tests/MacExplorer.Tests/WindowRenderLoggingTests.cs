@@ -15,7 +15,7 @@ public sealed class WindowRenderLoggingTests
     [AvaloniaFact]
     public void StateTransitionsAreRecordedWithoutWindowTitlesAndStopAfterClose()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var root = Path.Combine(Path.GetTempPath(), "window-render-log-" + Guid.NewGuid().ToString("N"));
         try
         {

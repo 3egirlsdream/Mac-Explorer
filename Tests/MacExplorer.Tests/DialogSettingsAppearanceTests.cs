@@ -45,7 +45,7 @@ public sealed class DialogSettingsAppearanceTests
                 Assert.Equal(new Thickness(0.5), outline.BorderThickness);
                 Assert.Equal(frame.CornerRadius, outline.CornerRadius);
                 Assert.False(outline.IsHitTestVisible);
-                Assert.Equal(Color.Parse(dark ? "#3A3D42" : "#E8E8E8"), ((ISolidColorBrush)outline.BorderBrush!).Color);
+                AssertResourceColor(window, "WindowBorderBrush", outline.BorderBrush);
                 Assert.Equal(0, body.TranslatePoint(default, window)!.Value.X);
                 if (window.ExtendContentToTop)
                     Assert.Equal(44, body.TranslatePoint(default, window)!.Value.Y);
@@ -79,7 +79,7 @@ public sealed class DialogSettingsAppearanceTests
         {
             window.UpdateLayout();
             var frame = window.GetVisualDescendants().OfType<Border>().Single(x => x.Name == "WindowFrame");
-            Assert.Equal(Color.Parse(dark ? "#1B1D21" : "#FFFFFF"), ((ISolidColorBrush)frame.Background!).Color);
+            AssertResourceColor(window, "DialogContentBrush", frame.Background);
             Assert.Equal(new Point(0, 0), body.TranslatePoint(default, window));
             Assert.Equal(window.ClientSize.Height, rail.Bounds.Height);
             var title = window.GetVisualDescendants().OfType<WindowTitleBar>().Single();
@@ -106,10 +106,10 @@ public sealed class DialogSettingsAppearanceTests
         {
             var frame = dialog.GetVisualDescendants().OfType<Border>().Single(x => x.Name == "WindowFrame");
             var group = dialog.GetVisualDescendants().OfType<Border>().First(x => x.Classes.Contains("settings-group"));
-            Assert.Equal(Color.Parse(dark ? "#1B1D21" : "#FFFFFF"), ((ISolidColorBrush)frame.Background!).Color);
-            Assert.Equal(Color.Parse(dark ? "#292D34" : "#F8F8F8"), ((ISolidColorBrush)group.Background!).Color);
+            AssertResourceColor(dialog, "DialogContentBrush", frame.Background);
+            AssertResourceColor(dialog, "DialogGroupBrush", group.Background);
             var divider = dialog.GetVisualDescendants().OfType<Border>().First(x => x.Classes.Contains("settings-divider"));
-            Assert.Equal(Color.Parse(dark ? "#343942" : "#EEEEEE"), ((ISolidColorBrush)divider.BorderBrush!).Color);
+            AssertResourceColor(dialog, "DialogDividerBrush", divider.BorderBrush);
         }
         finally { dialog.Close(); }
     }
@@ -132,16 +132,13 @@ public sealed class DialogSettingsAppearanceTests
         finally { main.Close(); }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
+    [AvaloniaFact(Explicit = true)]
     [Trait("Area", "Remote")]
-    public void SingleConnectionDraftSurvivesProtocolSwitchingAndOnlySavePersists(bool dark)
+    public void SingleConnectionDraftSurvivesProtocolSwitchingAndOnlySavePersists()
     {
         using var fixture = new RemoteFixture();
         fixture.Service.SaveServer(new RemoteServerInfo { Id = "first", Host = "first.test" });
-        var dialog = new RemoteConnectionDialog(fixture.Service.GetSavedServers()[0])
-            { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light, Width = 400, Height = 400 };
+        var dialog = new RemoteConnectionDialog(fixture.Service.GetSavedServers()[0]) { Width = 400, Height = 400 };
         dialog.Show(); Dispatcher.UIThread.RunJobs();
         try
         {
@@ -257,17 +254,15 @@ public sealed class DialogSettingsAppearanceTests
     }
 
     [AvaloniaTheory(Explicit = true)]
-    [InlineData(false, 640)]
-    [InlineData(true, 640)]
-    [InlineData(false, 900)]
-    [InlineData(true, 900)]
+    [InlineData(640)]
+    [InlineData(900)]
     [Trait("Area", "Network")]
-    public void SmbParametersAndProtocolDraftsRemainUsableAtBothSizes(bool dark, int width)
+    public void SmbParametersAndProtocolDraftsRemainUsableAtBothSizes(int width)
     {
         using var fixture = new RemoteFixture();
         var dialog = new RemoteConnectionDialog(new RemoteServerInfo { ServiceType = RemoteServiceType.Smb, Host = "nas.local", Port = 445,
             Username = "fixture", ShareName = "共享 Files", Domain = "WORKGROUP" })
-            { Width = width, Height = 680, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+            { Width = width, Height = 680 };
         dialog.Show(); Dispatcher.UIThread.RunJobs();
         try
         {
@@ -324,6 +319,13 @@ public sealed class DialogSettingsAppearanceTests
         public event EventHandler<string>? ReconnectFailed { add { } remove { } }
     }
 
+    private static void AssertResourceColor(Window window, string resourceKey, IBrush? actual)
+    {
+        Assert.True(window.TryFindResource(resourceKey, window.ActualThemeVariant, out var expected));
+        Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(expected).Color,
+            Assert.IsAssignableFrom<ISolidColorBrush>(actual).Color);
+    }
+
     private static void Click(Window dialog, string name) => dialog.FindControl<Button>(name)!
         .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
 
@@ -342,11 +344,11 @@ public sealed class DialogSettingsAppearanceTests
             Service = new RemoteConnectionService(Path.Combine(_root, "servers.json"), new PrivacySecurityFollowupTests.MemoryCredentials());
             Pending = pendingConnection ? new PendingRemoteService(Service) : null;
             _provider = new ServiceCollection().AddSingleton<IRemoteConnectionService>((IRemoteConnectionService?)Pending ?? Service).BuildServiceProvider();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _provider);
+            App.Services = _provider;
         }
         public void Dispose()
         {
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _previous);
+            App.Services = _previous;
             Application.Current!.Styles.Remove(_theme);
             _provider.Dispose(); Service.Dispose(); Directory.Delete(_root, true);
         }

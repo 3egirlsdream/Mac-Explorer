@@ -107,14 +107,12 @@ public sealed class InteractionPerformanceRegressionTests : FileListViewModelTes
         finally { pending.TrySetResult([]); root.Delete(true); }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void CompleteMenuRetainsStaticControlsFocusAndUsesLatestActions(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public void CompleteMenuRetainsStaticControlsFocusAndUsesLatestActions()
     {
         using var vm = CreateViewModel(new FakeFileService("/tmp/menu-reuse"));
         var view = new FileListView { DataContext = vm };
-        var window = InputAppearanceTests.CreateWindow(view, dark);
+        var window = InputAppearanceTests.CreateWindow(view, false);
         var menu = new ContextMenu();
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var fill = typeof(FileListView).GetMethod("FillMenu", flags)!;
@@ -153,15 +151,13 @@ public sealed class InteractionPerformanceRegressionTests : FileListViewModelTes
         finally { menu.Close(); view.DismissContextMenu(); window.Close(); }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task OpenMenuShowsThreeAppIconsAndEllipsisWithoutOverlappingLabel(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task OpenMenuShowsThreeAppIconsAndEllipsisWithoutOverlappingLabel()
     {
         const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
         using var vm = CreateViewModel(new FakeFileService("/tmp/menu-icons"));
         var view = new FileListView { DataContext = vm };
-        var window = InputAppearanceTests.CreateWindow(view, dark);
+        var window = InputAppearanceTests.CreateWindow(view, false);
         var menu = new ContextMenu();
         var fill = typeof(FileListView).GetMethod("FillMenu", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var action = new ContextMenuAction

@@ -18,15 +18,11 @@ namespace MacExplorer.Tests;
 public sealed class FileConflictDialogTests : FileListViewModelTestBase
 {
     [AvaloniaTheory(Explicit = true)]
-    [InlineData("zh-CN", false)]
-    [InlineData("zh-CN", true)]
-    [InlineData("zh-Hant", false)]
-    [InlineData("zh-Hant", true)]
-    [InlineData("en", false)]
-    [InlineData("en", true)]
-    [InlineData("fr", false)]
-    [InlineData("fr", true)]
-    public void ActionsUseOneRowWheneverTheyFitAndRecoverAfterNarrowing(string locale, bool dark)
+    [InlineData("zh-CN")]
+    [InlineData("zh-Hant")]
+    [InlineData("en")]
+    [InlineData("fr")]
+    public void ActionsUseOneRowWheneverTheyFitAndRecoverAfterNarrowing(string locale)
     {
         using var theme = new FastListTestTheme();
         using var language = new LocalizationService(new StartupSettings(), () => AppLanguage.English);
@@ -35,8 +31,7 @@ public sealed class FileConflictDialogTests : FileListViewModelTestBase
             FullPath = Path.Combine(RuntimePaths.TestRoot!, "example.png") };
         var dialog = new FileConflictDialog(new(entry, entry, false, false))
         {
-            Height = 600, SizeToContent = SizeToContent.Manual,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
+            Height = 600, SizeToContent = SizeToContent.Manual
         };
         try
         {

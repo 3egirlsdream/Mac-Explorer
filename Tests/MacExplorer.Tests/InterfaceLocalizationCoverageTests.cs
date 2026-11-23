@@ -75,7 +75,7 @@ public sealed class InterfaceLocalizationCoverageTests
     [Trait("Kind", "UI")]
     public void HomeMarkupAndFormattedBindingsRefreshInBothDirections()
     {
-        using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var language = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var home = new HomeDashboard();
         var label = new TextBlock { DataContext = new { Name = "我的项目" } };
         label.Bind(TextBlock.TextProperty, (Avalonia.Data.MultiBinding)new LocFormatExtension { Path = "Name", Text = "搜索：{0}" }.ProvideValue(null!));
@@ -106,24 +106,13 @@ public sealed class InterfaceLocalizationCoverageTests
     [Trait("Kind", "Unit")]
     public void BuiltInLocationsDoNotTranslateUnrelatedFolders()
     {
-        using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.English);
+        using var language = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.English);
         Assert.Equal("Users", InterfaceLocationNames.Get("/Users", "/tmp/home"));
         Assert.Equal("Users", InterfaceLocationNames.Get("/Users/", "/tmp/home"));
         Assert.Null(InterfaceLocationNames.Get("/tmp/Users", "/tmp/home"));
         Assert.Equal("Desktop", InterfaceLocationNames.Get("/tmp/home/Desktop", "/tmp/home"));
         Assert.Null(InterfaceLocationNames.Get("/tmp/home/Projects/Desktop", "/tmp/home"));
         Assert.Null(InterfaceLocationNames.Get("/tmp/我的文件", "/tmp/home"));
-    }
-
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = new();
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T fallback) => fallback;
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 
 }

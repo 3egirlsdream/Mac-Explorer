@@ -129,7 +129,7 @@ public sealed class FileDragStartViewModelTests : FileListViewModelTestBase
         var window = new Window { Width = 900, Height = 600, Content = view };
         using var services = new ServiceCollection().AddSingleton<IFileService>(files).BuildServiceProvider();
         var previousServices = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         try
         {
             window.Show();
@@ -148,7 +148,7 @@ public sealed class FileDragStartViewModelTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
             Directory.Delete(root, true);
         }
     }

@@ -300,7 +300,7 @@ public sealed class VerticalTabBarUiTests : FileListViewModelTestBase
         using var theme = new FastListTestTheme();
         await using var fixture = await TabCacheFixture.CreateAsync(entries: 0, configureServices: services =>
         {
-            var settings = new InMemorySettings();
+            var settings = new InMemorySettingsService();
             VerticalTabBarPreferences.SetEnabled(settings, true);
             VerticalTabBarPreferences.SetPinned(settings, false);
             VerticalTabBarPreferences.SetWidth(settings, 264);
@@ -316,24 +316,5 @@ public sealed class VerticalTabBarUiTests : FileListViewModelTestBase
         Assert.True(verticalBar.IsVisible);
         Assert.Equal(VerticalTabBarPreferences.CollapsedWidth, verticalBar.Width);
         Assert.Equal(264, verticalBar.ExpandedWidth);
-    }
-
-    private sealed class InMemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = [];
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue)
-        {
-            if (!_values.TryGetValue(key, out var raw)) return defaultValue;
-            if (typeof(T) == typeof(bool) && bool.TryParse(raw, out var b)) return (T)(object)b;
-            if (typeof(T) == typeof(int) && int.TryParse(raw, out var i)) return (T)(object)i;
-            if (typeof(T) == typeof(double) && double.TryParse(raw, out var d)) return (T)(object)d;
-            if (typeof(T) == typeof(string)) return (T)(object)raw;
-            return defaultValue;
-        }
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 }

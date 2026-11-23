@@ -6,10 +6,11 @@
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
-    <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="settings-title" Margin="16,10,16,6"
+    <controls:DialogWindow.TitleBarContent>
+        <TextBlock Classes="dialog-window-title centered"
                    Text="{Binding Title, RelativeSource={RelativeSource AncestorType=controls:DialogWindow}}"/>
-    <Grid RowDefinitions="*,Auto,Auto" Margin="16,6,16,16">
+    </controls:DialogWindow.TitleBarContent>
+    <Grid RowDefinitions="*,Auto,Auto" Margin="16,12,16,16">
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="CommandRows" Spacing="10" Margin="0,0,8,0"/>
         </ScrollViewer>
@@ -28,5 +29,4 @@
             </StackPanel>
         </DockPanel>
     </Grid>
-    </DockPanel>
 </controls:DialogWindow>

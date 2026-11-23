@@ -68,7 +68,7 @@ MACEXPLORER_WINDOW_OPEN_SMOKE=1 bash Tools/Testing/run-isolated.sh \
   'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
 ```
 
-该入口仅在 Debug 且设置了 `MACEXPLORER_TEST_ROOT` 时生效；依次打开设置、确认、压缩、任务、远程连接、重命名、图片转换、删除、密码、LocalSend、首页编辑、新主窗口和文件速递，不执行文件操作。报告写入终端打印的临时目录 `window-open-smoke.json`，随后退出。设置首开必须仅创建一个页面，逐页进入后检查延迟内容已创建；每个窗口显示调用返回时，外框必须已经铺满客户端区域。
+该入口仅在 Debug 且设置了 `MACEXPLORER_TEST_ROOT` 时生效；依次打开设置、确认、同名冲突、文件进度、压缩、远程连接、重命名、图片转换、密码、LocalSend、首页标签命名、工作组命名、脚本命令、新主窗口和文件速递，不执行文件操作。报告写入终端打印的临时目录 `window-open-smoke.json`，随后退出。设置首开必须仅创建一个页面，逐页进入后检查延迟内容已创建；每个窗口显示调用返回时，外框必须已经铺满客户端区域。
 
 `constructMs` 是构造耗时，`showMs` 包括构造和同步显示，`commitMs` 记录首轮合成提交在渲染线程应用后的时间，不等同于显示器实际呈现时间。首次与再次打开分别记录，不以单机毫秒阈值作为跨机器单元测试断言；配合保留四周外沿的原生录屏，检查没有白边或中心扩散。浅／深色和窄窗口通过 UI 检查补充覆盖。
 

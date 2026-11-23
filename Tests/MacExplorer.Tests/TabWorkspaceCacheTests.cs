@@ -62,20 +62,14 @@ public sealed class TabWorkspaceCacheViewModelTests : FileListViewModelTestBase
         await using var fixture = await TabCacheFixture.CreateAsync();
         var first = fixture.Model.SelectedTab!;
         var list = fixture.Workspaces[first].FileListView.FindControl<FastFileList>("FastList")!;
-        var images = (FastFileListImages)typeof(FastFileList)
-            .GetField("_images", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(list)!;
+        var images = list.Images;
         images.Clear();
         list.ThumbnailProvider = null;
         // Seed a decoded bitmap: this test concerns workspace ownership, not the platform decoder.
-        var keyType = typeof(FastFileListImages).GetNestedType("ImageKey", BindingFlags.NonPublic)!;
-        var pixels = typeof(FastFileListImages).GetField("_pixelSize", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(images);
         var entry = list.Rows[list.VisibleRange.First];
-        var key = keyType.GetMethod("For")!.Invoke(null, [entry, pixels]);
         var bitmap = new Avalonia.Media.Imaging.Bitmap(new MemoryStream(Convert.FromBase64String(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")));
-        typeof(FastFileListImages).GetMethod("Add", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(images, [key, bitmap]);
+        images.SeedBitmap(entry, bitmap);
         var bytes = images.CachedBytes;
         Assert.True(bytes > 0);
         var other = fixture.AddTab();
@@ -341,7 +335,7 @@ public abstract partial class FileListViewModelTestBase
                 .AddSingleton<IDragDropBridge>(new MacDragDropBridge(files, new DirectoryChangeNotifier()));
             configureServices?.Invoke(services);
             _services = services.BuildServiceProvider();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _services);
+            App.Services = _services;
             Model = new MainWindowViewModel(first);
             Window = new MainWindow { Width = 1280, Height = 800, DataContext = Model };
             typeof(MainWindow).GetField("_initialized", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Window, true);
@@ -377,7 +371,7 @@ public abstract partial class FileListViewModelTestBase
                 await Task.Yield();
             }
             foreach (var tab in Model.Tabs) tab.FileList.Dispose();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _previousServices);
+            App.Services = _previousServices;
             _services.Dispose();
         }
     }

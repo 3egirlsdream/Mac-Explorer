@@ -1944,6 +1944,13 @@
     "demo.folder.plain.sizes": "小尺寸預覽",
     "demo.folder.plain.current": "目前預設",
     "demo.folder.plain.note": "獨立設計預覽",
-    "settings.folder-style-pair": "同時套用至資料夾圖示和照片封面。"
+    "settings.folder-style-pair": "同時套用至資料夾圖示和照片封面。",
+    "confirm.dialog_name": "確認對話方塊",
+    "confirm.delete_tag_title": "刪除標籤",
+    "confirm.selected_items": "選取的 {0} 個項目",
+    "confirm.item_quote": "「{0}」",
+    "confirm.trash_message": "確定要將{0}移至垃圾桶嗎？",
+    "confirm.trash_remote_message": "確定要刪除{0}嗎？遠端項目將直接刪除，無法透過垃圾桶復原；本機項目將移至垃圾桶。",
+    "confirm.permanent_delete_message": "{0} 將被永久刪除，且無法復原。"
   }
 }

@@ -32,7 +32,7 @@ public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTest
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         using var services = new ServiceCollection()
             .AddSingleton<IAppCapabilityRegistry>(registry).BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         using var pane = CreateViewModel(new FakeFileService("/tmp/FKFinderSortMenu"),
             sortFilter: new SortFilterViewModel { SortField = SortField.Size, SortAscending = false });
         var toolbar = new FinderToolbar { DataContext = pane };
@@ -73,7 +73,7 @@ public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTest
         {
             toolbar.CloseDropdowns();
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
             Avalonia.Application.Current!.Styles.Remove(theme);
         }
     }
@@ -86,7 +86,7 @@ public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTest
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         using var services = new ServiceCollection()
             .AddSingleton<IAppCapabilityRegistry>(registry).BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         using var pane = CreateViewModel(new FakeFileService("/tmp/FKFinderCopilotToolbar"),
             sortFilter: new SortFilterViewModel { ViewMode = ViewMode.List });
         var toolbar = new FinderToolbar { DataContext = pane };
@@ -102,7 +102,7 @@ public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTest
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
         }
     }
 

@@ -34,7 +34,7 @@ public sealed class GlobalSearchTests
     [Fact]
     public void CustomFolderAppendPreservesExistingLocations()
     {
-        var settings = new InMemorySettings();
+        var settings = new InMemorySettingsService();
         var service = new GlobalSearchScopeService(settings);
         service.SetCustomFolders(["/tmp/mac-explorer-first"]);
 
@@ -63,33 +63,6 @@ public sealed class GlobalSearchTests
 
         public Task<bool> IsDirectoryFreshAsync(string path, TimeSpan freshnessThreshold)
             => Task.FromResult(false);
-    }
-
-    private sealed class InMemorySettings : ISettingsService
-    {
-        public event Action<string>? SettingChanged { add { } remove { } }
-        private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-
-        public string? Get(string key) => _values.TryGetValue(key, out var value) ? value : null;
-
-        public T Get<T>(string key, T defaultValue)
-        {
-            var raw = Get(key);
-            if (raw == null) return defaultValue;
-            if (typeof(T).IsEnum && Enum.TryParse(typeof(T), raw, true, out var parsed))
-                return (T)parsed;
-            if (typeof(T) == typeof(bool) && bool.TryParse(raw, out var boolean))
-                return (T)(object)boolean;
-            if (typeof(T) == typeof(int) && int.TryParse(raw, out var integer))
-                return (T)(object)integer;
-            return typeof(T) == typeof(string) ? (T)(object)raw : defaultValue;
-        }
-
-        public void Set(string key, string value) => _values[key] = value;
-
-        public void Set<T>(string key, T value) => _values[key] = value?.ToString() ?? string.Empty;
-
-        public Dictionary<string, string> GetAll() => new(_values, StringComparer.OrdinalIgnoreCase);
     }
 
 }

@@ -1,5 +1,6 @@
 using MacExplorer.Services;
 using MacExplorer.ViewModels;
+using MacExplorer.Tests;
 using Xunit;
 
 namespace MacExplorer.UnitTests;
@@ -11,7 +12,7 @@ public sealed class FolderTabSessionTests
     [Fact]
     public void DisabledByDefaultDoesNotReadOrWriteSession()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         settings.Set(FolderTabSession.SessionKey, "old session");
         var session = FolderTabSession.Capture(["/first"], 0);
         session.Save(settings);
@@ -199,22 +200,10 @@ public sealed class FolderTabSessionTests
         Assert.Empty(FolderTabSession.Filter(paths, 0, _ => false, [group]).Groups);
     }
 
-    private static MemorySettings EnabledSettings()
+    private static InMemorySettingsService EnabledSettings()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         settings.Set(FolderTabSession.EnabledKey, true);
         return settings;
-    }
-
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = [];
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue)
-            => _values.TryGetValue(key, out var value) ? (T)Convert.ChangeType(value, typeof(T)) : defaultValue;
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 }

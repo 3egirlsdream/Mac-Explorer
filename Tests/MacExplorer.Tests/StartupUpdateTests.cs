@@ -41,7 +41,7 @@ public sealed class StartupUpdateTests
     [Fact(Explicit = true)]
     public async Task ChildActuallyRunsAtLowPriority()
     {
-        if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux(), "Requires macOS or Linux.");
         var parentNice = await ReadNiceValueAsync(Environment.ProcessId);
         var start = StartupUpdateChecker.CreateStartInfo("/bin/sh", "unused");
         start.ArgumentList.RemoveAt(start.ArgumentList.Count - 1);
@@ -71,7 +71,7 @@ public sealed class StartupUpdateTests
     [Fact(Explicit = true)]
     public async Task CancellingCheckStopsItsChildProcess()
     {
-        if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux(), "Requires macOS or Linux.");
         var pidFile = Path.GetTempFileName();
         try
         {

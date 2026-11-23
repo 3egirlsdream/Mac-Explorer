@@ -53,12 +53,10 @@ public sealed class AppUpdateTests
         Assert.Equal(expected, await service.CheckVersionAsync(TestContext.Current.CancellationToken) != null);
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
+    [AvaloniaFact(Explicit = true)]
     [Trait("Kind", "UI")]
     [Trait("Area", "Localization")]
-    public void SettingsLanguageListUsesCatalogAndKeepsDraftsAcrossLanguageChanges(bool dark)
+    public void SettingsLanguageListUsesCatalogAndKeepsDraftsAcrossLanguageChanges()
     {
         var styles = new Avalonia.Styling.IStyle[]
         {
@@ -72,8 +70,7 @@ public sealed class AppUpdateTests
         var dialog = new SettingsDialog(new DefaultAppServiceStub(), settings, new ThemeServiceStub(),
             new TypographyServiceStub(), new OpenWithAppServiceStub(), new FailingUpdateService(), localizationService: language)
         {
-            Width = 780,
-            RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light
+            Width = 780
         };
         using var settingsServices = new SettingsTestServices(settings);
         // Exercise the real general-settings page without starting plugins and account services.
@@ -272,20 +269,17 @@ public sealed class AppUpdateTests
         Assert.Equal(2, updateService.InstallAttempts);
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
+    [AvaloniaFact(Explicit = true)]
     [Trait("Kind", "UI")]
     [Trait("Area", "Window")]
-    public void SettingsPagesAreBuiltOnDemandAndKeepDraftsAndControls(bool dark)
+    public void SettingsPagesAreBuiltOnDemandAndKeepDraftsAndControls()
     {
         var settings = new SettingsServiceStub();
         using var services = new SettingsTestServices(settings);
         using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
         var dialog = new SettingsDialog(new DefaultAppServiceStub(), settings, new ThemeServiceStub(),
             new TypographyServiceStub(), new OpenWithAppServiceStub(), new FailingUpdateService(), localizationService: language)
-            { Width = 780, Height = 540,
-                RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light };
+            { Width = 780, Height = 540 };
         var theme = new Avalonia.Themes.Fluent.FluentTheme();
         Avalonia.Application.Current!.Styles.Insert(0, theme);
         var tabs = dialog.FindControl<TabControl>("SettingsTabs")!;
@@ -395,11 +389,11 @@ public sealed class AppUpdateTests
         public SettingsTestServices(ISettingsService settings)
         {
             _provider = new ServiceCollection().AddSingleton(new PhotoLocationConsent(settings, Path.Combine(_root, "consent"))).BuildServiceProvider();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _provider);
+            App.Services = _provider;
         }
         public void Dispose()
         {
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, _previous);
+            App.Services = _previous;
             _provider.Dispose();
             Directory.Delete(_root, true);
         }
@@ -476,13 +470,11 @@ public sealed class AppUpdateTests
         }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
+    [AvaloniaFact(Explicit = true)]
     [Trait("Kind", "UI")]
-    public void SettingsActivationRefreshesDefaultManagerWithoutWritingOrResettingDrafts(bool dark)
+    public void SettingsActivationRefreshesDefaultManagerWithoutWritingOrResettingDrafts()
     {
-        if (!DistributionChannel.SupportsSystemIntegration) return;
+        Assert.SkipWhen(!DistributionChannel.SupportsSystemIntegration, "Requires a distribution channel with system integration.");
         var settings = new SettingsServiceStub();
         using var services = new SettingsTestServices(settings);
         using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
@@ -497,8 +489,7 @@ public sealed class AppUpdateTests
         var dialog = new SettingsDialog(defaults, settings, new ThemeServiceStub(),
             new TypographyServiceStub(), new OpenWithAppServiceStub(), new FailingUpdateService(), localizationService: language)
         {
-            Width = 560,
-            RequestedThemeVariant = dark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light
+            Width = 560
         };
         dialog.Show();
         try

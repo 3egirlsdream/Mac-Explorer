@@ -1938,6 +1938,13 @@
     "demo.folder.plain.sizes": "Petites tailles",
     "demo.folder.plain.current": "Icône actuelle",
     "demo.folder.plain.note": "Aperçu de conception indépendant",
-    "settings.folder-style-pair": "S’applique aux icônes de dossier et aux couvertures photo."
+    "settings.folder-style-pair": "S’applique aux icônes de dossier et aux couvertures photo.",
+    "confirm.dialog_name": "Boîte de confirmation",
+    "confirm.delete_tag_title": "Supprimer le tag",
+    "confirm.selected_items": "{0} éléments sélectionnés",
+    "confirm.item_quote": "« {0} »",
+    "confirm.trash_message": "Déplacer {0} vers la corbeille ?",
+    "confirm.trash_remote_message": "Supprimer {0} ? Les éléments distants seront supprimés définitivement sans passer par la corbeille ; les éléments locaux seront déplacés vers la corbeille.",
+    "confirm.permanent_delete_message": "{0} sera supprimé définitivement et ne pourra pas être récupéré."
   }
 }

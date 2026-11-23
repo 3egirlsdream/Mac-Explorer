@@ -16,7 +16,7 @@ public sealed class InteractionStyleServiceTests
     [AvaloniaFact(Explicit = true)]
     public void ColorsAreConfiguredAndAppliedIndependentlyForEachTheme()
     {
-        var settings = new MemorySettingsService();
+        var settings = new InMemorySettingsService();
         settings.Set("interaction.pressed.light", "#FFFFFF");
         settings.Set("interaction.pressed.dark", "#FFFFFF");
         var service = new InteractionStyleService(settings);
@@ -104,7 +104,7 @@ public sealed class InteractionStyleServiceTests
     [AvaloniaFact(Explicit = true)]
     public void InvalidColorDoesNotReplaceTheThemeSpecificToken()
     {
-        var service = new InteractionStyleService(new MemorySettingsService());
+        var service = new InteractionStyleService(new InMemorySettingsService());
         service.Initialize();
 
         Assert.False(service.TrySetColor(InteractionStyleToken.Hover, InteractionThemeVariant.Dark, "not-a-color"));
@@ -114,7 +114,7 @@ public sealed class InteractionStyleServiceTests
     [AvaloniaFact(Explicit = true)]
     public void FormerFocusSettingsAreMigratedToTheSelectedToken()
     {
-        var settings = new MemorySettingsService();
+        var settings = new InMemorySettingsService();
         settings.Set("interaction.focus.light", "#80112233");
         settings.Set("interaction.focus.dark", "#80445566");
 
@@ -133,24 +133,6 @@ public sealed class InteractionStyleServiceTests
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
         Assert.True(application.TryGetResource(key, application.ActualThemeVariant, out var resource));
         Assert.Equal(Color.Parse(expected), Assert.IsAssignableFrom<ISolidColorBrush>(resource).Color);
-    }
-
-    private sealed class MemorySettingsService : ISettingsService
-    {
-        public event Action<string>? SettingChanged { add { } remove { } }
-        private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-
-        public T Get<T>(string key, T defaultValue) => Get(key) is { } value && typeof(T) == typeof(string)
-            ? (T)(object)value
-            : defaultValue;
-
-        public void Set(string key, string value) => _values[key] = value;
-
-        public void Set<T>(string key, T value) => _values[key] = value?.ToString() ?? string.Empty;
-
-        public Dictionary<string, string> GetAll() => new(_values, StringComparer.OrdinalIgnoreCase);
     }
 
 }

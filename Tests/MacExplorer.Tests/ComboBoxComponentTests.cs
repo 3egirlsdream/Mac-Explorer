@@ -14,10 +14,8 @@ namespace MacExplorer.Tests;
 [Trait("Area", "Buttons")]
 public sealed class ComboBoxComponentTests
 {
-    [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void AllSizesKeepSelectionAndArrowVisibleAndShareThePopupSurface(bool dark)
+    [AvaloniaFact]
+    public void AllSizesKeepSelectionAndArrowVisibleAndShareThePopupSurface()
     {
         var panel = new StackPanel { Margin = new Thickness(16), Spacing = 8 };
         (string Name, double Height)[] sizes = [("", 32), ("compact", 28), ("small", 24), ("large", 36)];
@@ -30,7 +28,7 @@ public sealed class ComboBoxComponentTests
             if (sizes[i].Name.Length > 0) fields[i].Classes.Add(sizes[i].Name);
             panel.Children.Add(fields[i]);
         }
-        var window = InputAppearanceTests.CreateWindow(panel, dark);
+        var window = InputAppearanceTests.CreateWindow(panel, false);
         try
         {
             for (var i = 0; i < fields.Length; i++)

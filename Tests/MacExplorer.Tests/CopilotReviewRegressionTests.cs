@@ -41,7 +41,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     public void ChangedRecipientAndLegacyHistoryStartFreshSessionsWithoutRestoringOldState()
     {
         var store = CreateStore();
-        var settings = new TestSettings();
+        var settings = new InMemorySettingsService();
         var configuration = new CopilotSettings(settings);
         var old = store.CreateSession();
         store.SetSessionBoundary(old, "https://old.example/v1", "old-model");
@@ -86,7 +86,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
 
                 """;
         var server = new CaptureModelHandler(reply);
-        var settings = new CopilotSettings(new TestSettings())
+        var settings = new CopilotSettings(new InMemorySettingsService())
         {
             Endpoint = "http://127.0.0.1:18549/v1",
             Model = "new-model"
@@ -125,7 +125,7 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
     public async Task PendingApprovalAfterRestartOrSwitchRequiresFreshPreview()
     {
         var store = CreateStore();
-        var settings = new CopilotSettings(new TestSettings());
+        var settings = new CopilotSettings(new InMemorySettingsService());
         var old = store.CreateSession();
         store.SetSessionBoundary(old, settings.Endpoint, settings.Model, pending: true);
         store.SaveState(old, "pending agent state");
@@ -137,17 +137,6 @@ public sealed partial class CopilotReviewRegressionTests : IDisposable
         engine.SwitchSession(old);
         Assert.NotNull(engine.PrepareForSend());
         Assert.NotEqual(old, engine.SessionId);
-    }
-
-    private sealed class TestSettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = [];
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue) => defaultValue;
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 
     [AvaloniaFact(Explicit = true)]

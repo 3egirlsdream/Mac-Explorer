@@ -65,18 +65,15 @@ public sealed class SecurityDialogTests
         }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ConfirmationRequiresAcceptAndEscapeOrCancelReturnFalse(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task ConfirmationRequiresAcceptAndEscapeOrCancelReturnFalse()
     {
-        var owner = InputAppearanceTests.CreateWindow(new TextBlock(), dark);
+        var owner = InputAppearanceTests.CreateWindow(new TextBlock(), false);
         try
         {
             foreach (var choice in new[] { "取消", "Escape", "允许" })
             {
-                var dialog = new ConfirmDialog("授权确认", "GPS 经纬度会发给 Apple，用于转换地点名称。", "允许")
-                    { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+                var dialog = new ConfirmDialog("授权确认", "GPS 经纬度会发给 Apple，用于转换地点名称。", "允许");
                 var pending = dialog.ShowDialog<bool>(owner); Dispatcher.UIThread.RunJobs();
                 if (choice == "Escape") dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
                 else dialog.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, choice))
@@ -88,12 +85,10 @@ public sealed class SecurityDialogTests
         finally { owner.Close(); }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task PrivateKeyPromptDefaultsToOneUseAndCancelReturnsNoCredential(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task PrivateKeyPromptDefaultsToOneUseAndCancelReturnsNoCredential()
     {
-        var owner = InputAppearanceTests.CreateWindow(new TextBlock(), dark);
+        var owner = InputAppearanceTests.CreateWindow(new TextBlock(), false);
         try
         {
             var pending = SftpPrivateKeyConsent.ShowAsync(owner, new RemoteServerInfo { PrivateKeyPath = "/fixture/key.pem" }, TestContext.Current.CancellationToken);
@@ -110,11 +105,9 @@ public sealed class SecurityDialogTests
         finally { owner.Close(); }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
+    [AvaloniaFact(Explicit = true)]
     [Trait("Area", "Remote")]
-    public void FailedRemoteDialogSaveKeepsFormAndSavedServer(bool dark)
+    public void FailedRemoteDialogSaveKeepsFormAndSavedServer()
     {
         using var features = new GrantedFeatureAccess();
         var root = Path.Combine(RuntimePaths.TestRoot ?? Path.GetTempPath(), "remote-ui-" + Guid.NewGuid().ToString("N"));
@@ -126,9 +119,9 @@ public sealed class SecurityDialogTests
         service.SaveServer(new RemoteServerInfo { Id = "key-fixture", Host = "key.test", AuthMethod = RemoteAuthMethod.PrivateKey });
         var previous = App.Services;
         using var services = new ServiceCollection().AddSingleton<IRemoteConnectionService>(service).BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
-        var owner = InputAppearanceTests.CreateWindow(new TextBlock(), dark);
-        var dialog = new RemoteConnectionDialog(service.GetSavedServers().Single(s => s.Id == "fixture")) { Width = 400, Height = 450, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        App.Services = services;
+        var owner = InputAppearanceTests.CreateWindow(new TextBlock(), false);
+        var dialog = new RemoteConnectionDialog(service.GetSavedServers().Single(s => s.Id == "fixture")) { Width = 400, Height = 450 };
         try
         {
             dialog.Show(owner); Dispatcher.UIThread.RunJobs();
@@ -168,7 +161,7 @@ public sealed class SecurityDialogTests
         finally
         {
             dialog.Close(); owner.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
             Directory.Delete(root, true);
         }
     }

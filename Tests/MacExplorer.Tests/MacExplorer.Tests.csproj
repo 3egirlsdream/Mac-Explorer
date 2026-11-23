@@ -16,7 +16,6 @@
     <PackageReference Include="xunit.v3" Version="3.2.2" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../../Tools/Design/FolderIconDemo/FolderCoverRenderService.cs" Link="FolderIconDemo/FolderCoverRenderService.cs" />
     <ProjectReference Include="../../MacExplorer.csproj" />
     <ProjectReference Include="../MacExplorer.UnitTests/MacExplorer.UnitTests.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" />
@@ -29,21 +28,6 @@
     <Content Include="TestData/Archives/*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/gps-ocr-fixture.jpg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="TestData/sftp-loopback.py" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="ArchivePathHelperTests.cs" />
-    <Compile Remove="TaskProgressSummaryTests.cs" />
-    <Compile Remove="ArchiveExtractionPathHelperTests.cs" />
-    <Compile Remove="FileThumbnailSizingTests.cs" />
-    <Compile Remove="FileIconTests.cs" />
-    <Compile Remove="WindowPlacementMathTests.cs" />
-    <Compile Remove="FileListSnapshotCollectionTests.cs" />
-    <Compile Remove="FileListStatusFormatterTests.cs" />
-    <Compile Remove="FileListColumnLayoutServiceTests.cs" />
-    <Compile Remove="PaneLayoutIconTests.cs" />
-    <Compile Remove="ReviewSearchVisibilityTests.cs" />
-    <Compile Remove="ReviewHashBudgetTests.cs" />
-    <Compile Remove="FileDropFolderAccessTests.cs" />
   </ItemGroup>
   <Target Name="CopyHostNativeTestDependencies" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <MSBuild Projects="../../MacExplorer.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">

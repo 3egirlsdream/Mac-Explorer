@@ -11,7 +11,7 @@ public sealed class DiskInformationNativeTests
     [Fact(Explicit = true)]
     public async Task NativeQueryIncludesStartupVolumeWithCapacityAndUniqueIdentities()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var disks = await new DiskInformationService().GetMountedDisksAsync(TestContext.Current.CancellationToken);
         var boot = Assert.Single(disks, disk => disk.Path == "/");
         Assert.False(boot.CanEject);
@@ -26,7 +26,7 @@ public sealed class DiskInformationNativeTests
     [Fact(Explicit = true)]
     public async Task ReadOnlyDiskImageAtCustomMountPointReportsImageAndDisappearsAfterDetach()
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateDirectory(Path.Combine(RuntimePaths.TestRoot!, "disk-image-" + Guid.NewGuid().ToString("N"))).FullName;
         var image = Path.Combine(root, "fixture.dmg");

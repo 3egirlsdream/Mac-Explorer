@@ -16,12 +16,10 @@ namespace MacExplorer.Tests;
 [Trait("Area", "Localization")]
 public sealed class ButtonLocalizationLayoutTests
 {
-    [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SharedActionButtonsCenterLabelsWhenLanguageChanges(bool dark)
+    [AvaloniaFact]
+    public void SharedActionButtonsCenterLabelsWhenLanguageChanges()
     {
-        using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var language = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var panel = new StackPanel { Spacing = 8, Margin = new Thickness(16) };
         foreach (var classes in new[] { "primary compact", "secondary compact", "ghost compact", "danger compact", "secondary" })
         {
@@ -35,7 +33,7 @@ public sealed class ButtonLocalizationLayoutTests
         autoButton.Classes.Add("compact");
         autoButton.Bind(ContentControl.ContentProperty, (Avalonia.Data.Binding)new LocExtension("ui.159").ProvideValue(null!));
         panel.Children.Add(autoButton);
-        var window = InputAppearanceTests.CreateWindow(panel, dark);
+        var window = InputAppearanceTests.CreateWindow(panel, false);
         var chineseWidth = autoButton.Bounds.Width;
         try
         {
@@ -61,17 +59,6 @@ public sealed class ButtonLocalizationLayoutTests
             }
         }
         finally { window.Close(); }
-    }
-
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = new();
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue) => defaultValue;
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 
 }

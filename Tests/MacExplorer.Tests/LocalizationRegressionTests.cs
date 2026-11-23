@@ -42,7 +42,7 @@ public sealed class LocalizationRegressionTests
     [Trait("Kind", "Unit")]
     public void FirstLaunchFollowsSystemAndPersistedOverrideSurvivesRecreation()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         using (var first = new LocalizationService(settings, () => AppLanguage.English))
         {
             Assert.Equal(AppLanguage.System, first.Language);
@@ -61,7 +61,7 @@ public sealed class LocalizationRegressionTests
     [Trait("Kind", "UI")]
     public void MarkupBindingUpdatesMultipleWindowsAndAccessibilityWithoutDataContext()
     {
-        using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var language = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var extension = new LocExtension("settings.language");
         var first = new Window();
         var second = new Window();
@@ -94,7 +94,7 @@ public sealed class LocalizationRegressionTests
     [Trait("Kind", "UI")]
     public void MarkdownRendererUsesTheSelectedNewLanguage(string code, string expectedCopy)
     {
-        using var service = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var service = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         service.SetLanguage(code);
         Assert.Equal(expectedCopy, I18nManager.Instance.GetResource("CodeWF.MarkdownL.Copy"));
     }
@@ -103,7 +103,7 @@ public sealed class LocalizationRegressionTests
     [Trait("Kind", "Unit")]
     public void DatesAndStatusUseInterfaceCultureEvenInAnOlderExecutionContext()
     {
-        using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var language = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var file = new FileSystemEntry { Name = "sample.txt", LastModified = new DateTime(2026, 10, 9, 16, 30, 0) };
         var chinese = file.ModifiedText;
         var oldContext = ExecutionContext.Capture()!;
@@ -120,7 +120,7 @@ public sealed class LocalizationRegressionTests
     [Trait("Kind", "UI")]
     public void AlreadyDrawnFileRowsDiscardOldCultureText()
     {
-        using var language = new LocalizationService(new MemorySettings(), () => AppLanguage.ChineseSimplified);
+        using var language = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var list = new FastFileList();
         list.SetRows([FastFileListTests.Entry(1)]);
         var window = new Window { Width = 900, Height = 300, Content = list };
@@ -237,17 +237,6 @@ public sealed class LocalizationRegressionTests
             Assert.Contains(error.Message, new[] { readError, decodeError });
         }
         finally { Directory.Delete(root, true); }
-    }
-
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = new();
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue) => _values.TryGetValue(key, out var value) && value is T typed ? typed : defaultValue;
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 
 }

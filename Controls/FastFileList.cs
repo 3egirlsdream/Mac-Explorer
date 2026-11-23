@@ -107,6 +107,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private readonly HashSet<FileSystemEntry> _observed = [];
     private readonly Dictionary<string, CachedText> _badges = [];
     private readonly FastFileListImages _images = new();
+    internal FastFileListImages Images => _images;
     private readonly FastFileListLayout _layout = new();
     private IReadOnlyList<FastFileListGroup> _groups = [];
     private readonly Dictionary<string, (CachedText Title, CachedText Count)> _headerTexts = [];

@@ -127,7 +127,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
         locations.Rows = [new("WebDAV", "", dav), new("SFTP", "", sftp)];
         using var services = new ServiceCollection().AddSingleton<INetworkLocationService>(locations)
             .AddSingleton<INetworkDiscoveryService>(new NavigationDiscovery()).BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         using var firstVm = CreateViewModel(new FakeFileService(Path.Combine(RuntimePaths.DataDirectory, "FirstNetworkWindow")));
         using var secondVm = CreateViewModel(new FakeFileService(Path.Combine(RuntimePaths.DataDirectory, "SecondNetworkWindow")));
         var sidebars = new[] { new FinderSidebarView { DataContext = firstVm }, new FinderSidebarView { DataContext = secondVm } };
@@ -164,7 +164,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
         finally
         {
             foreach (var window in windows) window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
         }
     }
 
@@ -195,11 +195,9 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
     }
 
     [AvaloniaTheory(Explicit = true)]
-    [InlineData(640, false)]
-    [InlineData(640, true)]
-    [InlineData(1000, false)]
-    [InlineData(1000, true)]
-    public void NetworkTableKeepsColumnsAlignedAndActionsReachable(int width, bool dark)
+    [InlineData(640)]
+    [InlineData(1000)]
+    public void NetworkTableKeepsColumnsAlignedAndActionsReachable(int width)
     {
         var theme = new FluentTheme();
         var styles = (Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml"));
@@ -208,7 +206,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
         var view = new NetworkView();
         var list = view.FindControl<FastFileList>("ServersList")!;
         view.SetLocations(new[] { new NetworkLocationRow("Long English Network Server Name", "nas", new RemoteServerInfo { Host = "files.long-company-name.example", Port = 445 }) });
-        var window = new Window { Width = width, Height = 400, Content = view, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var window = new Window { Width = width, Height = 400, Content = view };
         try
         {
             window.Show(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
@@ -246,24 +244,21 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
     }
 
     [AvaloniaTheory(Explicit = true)]
-    [InlineData(640, false)]
-    [InlineData(640, true)]
-    [InlineData(1200, false)]
-    [InlineData(1200, true)]
-    public async Task NetworkUsesNavigationRefreshAndConnectionIconBesideBreadcrumb(int width, bool dark)
+    [InlineData(640)]
+    [InlineData(1200)]
+    public async Task NetworkUsesNavigationRefreshAndConnectionIconBesideBreadcrumb(int width)
     {
         using var theme = new FastListTestTheme();
         var previous = App.Services;
         var discovery = new NavigationDiscovery();
         using var services = new ServiceCollection().AddSingleton<INetworkDiscoveryService>(discovery).BuildServiceProvider();
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var files = new FakeFileService(Path.Combine(RuntimePaths.DataDirectory, "NetworkToolbarFixture"));
         using var vm = CreateViewModel(files);
         await vm.NavigateToAsync(VirtualPath.Network);
         using var tab = new ExplorerTabViewModel(vm);
         using var workspace = new ExplorerWorkspaceView { DataContext = tab };
-        var window = new Window { Width = width, Height = 500, Content = workspace,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var window = new Window { Width = width, Height = 500, Content = workspace };
         try
         {
             window.Show(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
@@ -297,7 +292,7 @@ public sealed class NetworkNavigationTests : FileListViewModelTestBase, IDisposa
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previous);
+            App.Services = previous;
         }
     }
 

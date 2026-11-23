@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Xunit;
 
 namespace MacExplorer.Tests;
@@ -16,24 +15,17 @@ public sealed class WebDavNativeTests
         Assert.SkipWhen(configuration != "Debug", "The isolated WebDAV harness is only included in Debug builds.");
         var python = Environment.GetEnvironmentVariable("MACEXPLORER_WEBDAV_TEST_PYTHON");
         Assert.SkipWhen(string.IsNullOrEmpty(python), "Set MACEXPLORER_WEBDAV_TEST_PYTHON to an isolated WsgiDAV QA virtualenv.");
-        var repository = new DirectoryInfo(AppContext.BaseDirectory);
-        while (repository != null && !File.Exists(Path.Combine(repository.FullName, "MacExplorer.csproj"))) repository = repository.Parent;
-        Assert.NotNull(repository);
+        var repository = NativeHarnessRunner.FindRepositoryRoot();
         var architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
-        var executable = Path.Combine(repository.FullName, $"bin/Debug/net10.0/osx-{architecture}/Mac Explorer.app/Contents/MacOS/MacExplorer");
+        var executable = Path.Combine(repository, $"bin/Debug/net10.0/osx-{architecture}/Mac Explorer.app/Contents/MacOS/MacExplorer");
         Assert.True(File.Exists(executable), "Build the Debug app bundle before running native WebDAV checks.");
-        var start = new ProcessStartInfo(python!) { RedirectStandardOutput = true, RedirectStandardError = true };
-        start.ArgumentList.Add(Path.Combine(repository.FullName, "Tools/Testing/webdav-smoke.py"));
-        start.ArgumentList.Add(executable);
-        using var process = Process.Start(start)!;
-        var output = process.StandardOutput.ReadToEndAsync();
-        var error = process.StandardError.ReadToEndAsync();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(160));
-        try { await process.WaitForExitAsync(timeout.Token); }
-        catch { if (!process.HasExited) process.Kill(entireProcessTree: true); throw; }
-        var text = await output + await error;
-        Assert.True(process.ExitCode == 0, text);
+        var text = await NativeHarnessRunner.RunAsync(
+            python!,
+            [Path.Combine(repository, "Tools/Testing/webdav-smoke.py"), executable],
+            timeout.Token,
+            includeStderrInOutput: true);
         Assert.Contains("two-window-sidebar-synchronized", text);
         Assert.Contains("untrusted-tls-rejected", text);
         Assert.Contains("uploaded-renamed-deleted", text);

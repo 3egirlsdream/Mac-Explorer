@@ -41,7 +41,7 @@ public sealed class CopyOnlyFileDropTests : FileListViewModelTestBase
             .AddSingleton<IDragDropService>(new MacDragDropBridge(files, new FakeDirectoryChangeNotifier()))
             .BuildServiceProvider();
         var previousServices = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         try
         {
             window.Show();
@@ -69,7 +69,7 @@ public sealed class CopyOnlyFileDropTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
             Directory.Delete(root, true);
         }
     }

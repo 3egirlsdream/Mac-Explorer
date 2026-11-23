@@ -10,7 +10,10 @@
     <Window.Styles>
         <StyleInclude Source="avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml"/>
     </Window.Styles>
-    <Border Background="{DynamicResource DialogContentBrush}" Padding="16,8,16,16">
+    <controls:DialogWindow.TitleBarContent>
+        <TextBlock Classes="dialog-window-title centered" Text="{loc:Loc ui.028}"/>
+    </controls:DialogWindow.TitleBarContent>
+    <Border Background="{DynamicResource DialogContentBrush}" Padding="16,12,16,16">
         <Grid RowDefinitions="*,Auto,Auto" RowSpacing="8">
         <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="8">

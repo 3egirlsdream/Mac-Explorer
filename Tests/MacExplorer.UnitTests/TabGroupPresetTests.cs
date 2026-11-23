@@ -2,6 +2,7 @@ using System.Text.Json;
 using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.ViewModels;
+using MacExplorer.Tests;
 using Xunit;
 
 namespace MacExplorer.UnitTests;
@@ -13,7 +14,7 @@ public sealed class TabGroupPresetTests
     [Fact]
     public void PresetAndStartupRoundTripsRemapIndependentViewStatesForDuplicateFolders()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         var preferences = new DirectoryPreferences(SortField.Size, false, SortPriority.Folders,
             FileListFilterState.Empty, [300, 160, 100, 230], true, false, true);
         var first = new FolderTabViewState(ViewMode.Grid, GroupField.Type, preferences);
@@ -41,7 +42,7 @@ public sealed class TabGroupPresetTests
     [Fact]
     public void LegacyPreferencesSurvivePresetNormalizationWithoutInventingViewStates()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         var preferences = new DirectoryPreferences(SortField.Modified, false, SortPriority.None,
             FileListFilterState.Empty, [300, 160, 100, 230], false, true, false);
         var preset = TabGroupPreset.Capture("Old", ["/a"], Group([0]), preferences: new() { [0] = preferences })!;
@@ -130,7 +131,7 @@ public sealed class TabGroupPresetTests
     [Fact]
     public void SaveReplaceRenameAndDeleteLeaveOtherPresetsAndStartupSettingsUntouched()
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         settings.Set(FolderTabSession.EnabledKey, false);
         settings.Set(FolderTabSession.SessionKey, "last session");
         var first = TabGroupPreset.Capture("First", ["/a", "/b", "/c"], Group())!;
@@ -151,7 +152,7 @@ public sealed class TabGroupPresetTests
     [InlineData(false)]
     public void StartupAlwaysUsesLastSessionWhileManualPresetsIgnoreTheRestoreSwitch(bool enabled)
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         settings.Set(FolderTabSession.EnabledKey, true);
         new FolderWindowSession([new(["/last-window-one"], 0), new(["/last-window-two"], 0)], 1).Save(settings);
         var preset = TabGroupPreset.Capture("Preset", ["/template"], Group([0]))!;
@@ -174,20 +175,9 @@ public sealed class TabGroupPresetTests
     [InlineData("[null,{}]")]
     public void MalformedStorageHasNoEffectOnTheCurrentSession(string json)
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         settings.Set(TabGroupPresets.SettingKey, json);
         Assert.Empty(TabGroupPresets.Read(settings));
         Assert.Equal(json, settings.Get(TabGroupPresets.SettingKey));
-    }
-
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = [];
-        public event Action<string>? SettingChanged;
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T fallback) => Get(key) is { } value ? (T)Convert.ChangeType(value, typeof(T)) : fallback;
-        public void Set(string key, string value) { _values[key] = value; SettingChanged?.Invoke(key); }
-        public void Set<T>(string key, T value) => Set(key, value?.ToString() ?? "");
-        public Dictionary<string, string> GetAll() => new(_values);
     }
 }

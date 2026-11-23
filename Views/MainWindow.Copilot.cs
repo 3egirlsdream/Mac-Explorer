@@ -28,6 +28,9 @@ public partial class MainWindow
     private Task? _copilotRunTask;
     private readonly List<CopilotAttachment> _copilotAttachments = [];
 
+    internal CopilotEngine? CopilotForTesting { get => _copilot; set => _copilot = value; }
+    internal Task? CopilotRunTaskForTesting { get => _copilotRunTask; set => _copilotRunTask = value; }
+
     private CopilotEngine Copilot => _copilot ??= CreateCopilot();
 
     private CopilotEngine CreateCopilot()
@@ -487,7 +490,7 @@ public partial class MainWindow
         if (_copilotBusy && CopilotStopButton.IsEnabled) _copilotRunCts?.Cancel();
     }
 
-    private async Task CloseCopilotAsync()
+    internal async Task CloseCopilotAsync()
     {
         _copilotClosed = true;
         if (_copilotRunTask != null && !_copilotRunTask.IsCompleted)
@@ -499,7 +502,7 @@ public partial class MainWindow
         _copilot = null;
     }
 
-    private async Task RunCopilotAsync(Func<Action<AgentResponseUpdate>, CancellationToken, Task<CopilotReply>> action,
+    internal async Task RunCopilotAsync(Func<Action<AgentResponseUpdate>, CancellationToken, Task<CopilotReply>> action,
         bool allowStop)
     {
         var completedBeforeRequest = Copilot.CompletedOperationCount;

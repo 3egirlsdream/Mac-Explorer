@@ -19,13 +19,11 @@ namespace MacExplorer.Tests;
 public sealed class ToastAppearanceTests
 {
     [AvaloniaTheory(Explicit = true)]
-    [InlineData(false, 320)]
-    [InlineData(true, 320)]
-    [InlineData(false, 800)]
-    [InlineData(true, 800)]
-    public void ToastFitsWindowAndUpdatesMaterialWithTheme(bool dark, int width)
+    [InlineData(320)]
+    [InlineData(800)]
+    public void ToastFitsWindowAndUpdatesMaterialWithTheme(int width)
     {
-        var window = InputAppearanceTests.CreateWindow(new Border(), dark, width);
+        var window = InputAppearanceTests.CreateWindow(new Border(), false, width);
         try
         {
             var manager = AppToast.For(window);
@@ -44,10 +42,12 @@ public sealed class ToastAppearanceTests
                 Assert.All(text, t => Assert.True(t.Bounds.Width > 0));
                 if (width == 320) Assert.True(text[0].Bounds.Height > 20);
                 var color = glass.SurfaceColor;
-                window.RequestedThemeVariant = dark ? ThemeVariant.Light : ThemeVariant.Dark;
+                window.RequestedThemeVariant = ThemeVariant.Dark;
                 Dispatcher.UIThread.RunJobs();
                 Assert.NotEqual(color, glass.SurfaceColor);
-                window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+                window.RequestedThemeVariant = ThemeVariant.Light;
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(color, glass.SurfaceColor);
             }
         }
         finally { window.Close(); }

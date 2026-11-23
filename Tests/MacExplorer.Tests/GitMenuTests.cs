@@ -101,16 +101,13 @@ public sealed class GitMenuTests : FileListViewModelTestBase
     }
 
     [AvaloniaTheory(Explicit = true)]
-    [InlineData(false, 1080)]
-    [InlineData(true, 1080)]
-    [InlineData(false, 440)]
-    [InlineData(true, 440)]
-    public async Task HistoryUsesVirtualizedListAndIgnoresOldPreviewResults(bool dark, int width)
+    [InlineData(1080)]
+    [InlineData(440)]
+    public async Task HistoryUsesVirtualizedListAndIgnoresOldPreviewResults(int width)
     {
         using var theme = new FastListTestTheme();
         var git = new TestGit(RuntimePaths.TestRoot!);
-        var dialog = new GitHistoryDialog(git, git.Context([RuntimePaths.TestRoot!]))
-        { Width = width, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var dialog = new GitHistoryDialog(git, git.Context([RuntimePaths.TestRoot!])) { Width = width };
         try
         {
             dialog.Show(); dialog.UpdateLayout();

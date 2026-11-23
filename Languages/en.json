@@ -1938,6 +1938,13 @@
     "demo.folder.plain.sizes": "Small sizes",
     "demo.folder.plain.current": "Current default",
     "demo.folder.plain.note": "Standalone design preview",
-    "settings.folder-style-pair": "Applies to folder icons and photo covers together."
+    "settings.folder-style-pair": "Applies to folder icons and photo covers together.",
+    "confirm.dialog_name": "Confirmation dialog",
+    "confirm.delete_tag_title": "Delete Tag",
+    "confirm.selected_items": "{0} selected items",
+    "confirm.item_quote": "“{0}”",
+    "confirm.trash_message": "Move {0} to the Trash?",
+    "confirm.trash_remote_message": "Delete {0}? Remote items will be deleted permanently and cannot be recovered from the Trash; local items will be moved to the Trash.",
+    "confirm.permanent_delete_message": "{0} will be permanently deleted and cannot be recovered."
   }
 }

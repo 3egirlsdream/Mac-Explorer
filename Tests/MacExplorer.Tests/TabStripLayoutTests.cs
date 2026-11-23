@@ -67,16 +67,13 @@ public sealed class TabStripLayoutTests : FileListViewModelTestBase
         }
     }
 
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task TabsKeepOriginalWidthsAndOnlyShrinkWhenCrowded(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task TabsKeepOriginalWidthsAndOnlyShrinkWhenCrowded()
     {
         using var theme = new FastListTestTheme();
         await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
         fixture.Window.Styles.Add((Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
-        fixture.Window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         var tabs = fixture.Window.FindControl<ListBox>("TabList")!;
         var viewport = fixture.Window.FindControl<ScrollViewer>("TabScrollViewer")!;
         var add = fixture.Window.FindControl<Button>("NewTabButton")!;

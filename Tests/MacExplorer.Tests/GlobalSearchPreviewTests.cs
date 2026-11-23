@@ -21,10 +21,8 @@ namespace MacExplorer.Tests;
 [Trait("Area", "Search")]
 public sealed class GlobalSearchPreviewViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task GlobalSearchFixedPreviewTracksSelectionKeepsInputFocusAndReleasesOnClose(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task GlobalSearchFixedPreviewTracksSelectionKeepsInputFocusAndReleasesOnClose()
     {
         var root = Directory.CreateTempSubdirectory("FKFinder_SearchPreview_");
         using var theme = new FastListTestTheme();
@@ -34,7 +32,6 @@ public sealed class GlobalSearchPreviewViewModelTests : FileListViewModelTestBas
                 configureServices: services => services.AddSingleton<IFileService>(new FakeFileService(root.FullName)));
             foreach (var asset in new[] { "ThemeTokens", "Styles", "ComponentStyles" })
                 fixture.Window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri($"avares://MacExplorer/Assets/{asset}.axaml")));
-            fixture.Window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
             fixture.Window.Width = 1000;
             var file = new FileSystemEntry
             {

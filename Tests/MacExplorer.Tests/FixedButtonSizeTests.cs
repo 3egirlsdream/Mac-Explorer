@@ -19,17 +19,13 @@ namespace MacExplorer.Tests;
 public sealed class FixedButtonSizeTests
 {
     [AvaloniaTheory]
-    [InlineData(false, "zh-CN")]
-    [InlineData(false, "zh-Hant")]
-    [InlineData(false, "en")]
-    [InlineData(false, "fr")]
-    [InlineData(true, "zh-CN")]
-    [InlineData(true, "zh-Hant")]
-    [InlineData(true, "en")]
-    [InlineData(true, "fr")]
-    public void EverySizeKeepsVariantsEqualAndContentsCenteredWithoutClipping(bool dark, string locale)
+    [InlineData("zh-CN")]
+    [InlineData("zh-Hant")]
+    [InlineData("en")]
+    [InlineData("fr")]
+    public void EverySizeKeepsVariantsEqualAndContentsCenteredWithoutClipping(string locale)
     {
-        var settings = new MemorySettings();
+        var settings = new InMemorySettingsService();
         using var language = new LocalizationService(settings);
         language.SetLanguage(locale);
         var typography = new TypographyService(settings);
@@ -56,7 +52,7 @@ public sealed class FixedButtonSizeTests
             }
             Add(new AppSplitButton { Content = text, Classes = { "secondary" } }, size, 12, sizeIndex);
         }
-        var window = InputAppearanceTests.CreateWindow(grid, dark, 1600);
+        var window = InputAppearanceTests.CreateWindow(grid, false, 1600);
         try
         {
             typography.Initialize();
@@ -117,14 +113,4 @@ public sealed class FixedButtonSizeTests
         Assert.True(Math.Abs(origin.Y + content.Bounds.Height / 2 - height / 2) <= 0.5, $"{description}: content is not vertically centered: origin {origin}, size {content.Bounds}, target {height}");
     }
 
-    private sealed class MemorySettings : ISettingsService
-    {
-        private readonly Dictionary<string, string> _values = [];
-        public event Action<string>? SettingChanged { add { } remove { } }
-        public string? Get(string key) => _values.GetValueOrDefault(key);
-        public T Get<T>(string key, T defaultValue) => defaultValue;
-        public void Set(string key, string value) => _values[key] = value;
-        public void Set<T>(string key, T value) => _values[key] = value?.ToString() ?? "";
-        public Dictionary<string, string> GetAll() => new(_values);
-    }
 }

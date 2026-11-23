@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
         xmlns:controls="using:MacExplorer.Controls"
+        xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="MacExplorer.Controls.DialogHost"
              x:Name="Host"
@@ -15,7 +16,7 @@
                 Padding="16"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
                 KeyboardNavigation.TabNavigation="Cycle"
-                AutomationProperties.Name="确认对话框"
+                AutomationProperties.Name="{loc:Loc confirm.dialog_name}"
                 BoxShadow="{DynamicResource ShadowMd}">
             <StackPanel Spacing="12">
                 <StackPanel Spacing="7">
@@ -25,10 +26,10 @@
                                TextWrapping="Wrap"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <controls:AppButton x:Name="CancelButton" Classes="secondary compact dialog-action" Content="取消"
-                            AutomationProperties.Name="取消"/>
-                    <controls:AppButton x:Name="ConfirmButton" Classes="danger compact dialog-action" Content="确认"
-                            AutomationProperties.Name="确认"/>
+                    <controls:AppButton x:Name="CancelButton" Classes="secondary compact dialog-action" Content="{loc:Loc ui.094}"
+                            AutomationProperties.Name="{loc:Loc ui.094}"/>
+                    <controls:AppButton x:Name="ConfirmButton" Classes="danger compact dialog-action" Content="{loc:Loc ui.323}"
+                            AutomationProperties.Name="{loc:Loc ui.323}"/>
                 </StackPanel>
             </StackPanel>
         </Border>

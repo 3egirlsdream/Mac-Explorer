@@ -22,7 +22,7 @@ namespace MacExplorer;
 
 public partial class App : Application
 {
-    public static IServiceProvider Services { get; private set; } = null!;
+    public static IServiceProvider Services { get; internal set; } = null!;
     private static IClassicDesktopStyleApplicationLifetime? _desktop;
     internal static bool IsShuttingDown { get; private set; }
     private static WeakReference<MainWindow>? _lastActiveMainWindow;

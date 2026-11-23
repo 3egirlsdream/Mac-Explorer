@@ -8,7 +8,7 @@ namespace MacExplorer.Views.Dialogs;
 
 internal sealed class ConfirmDialog : DialogWindow
 {
-    internal ConfirmDialog(string title, string message, string accept, string cancelText = "取消")
+    internal ConfirmDialog(string title, string message, string accept, string cancelText = "取消", bool isDanger = false)
     {
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
         Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/")) { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
@@ -16,15 +16,17 @@ internal sealed class ConfirmDialog : DialogWindow
         message = MacExplorer.Services.Impl.LocalizationText.Get(message);
         accept = MacExplorer.Services.Impl.LocalizationText.Get(accept);
         cancelText = MacExplorer.Services.Impl.LocalizationText.Get(cancelText);
-        Title = title; Width = 440; MinWidth = 340; SizeToContent = SizeToContent.Height;
+        Title = title;
+        TitleBarContent = new TextBlock { Text = title, Classes = { "dialog-window-title", "centered" } };
+        ToolTip.SetTip(TitleBarContent, title);
+        Width = 440; MinWidth = 340; SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var cancel = new AppButton { Content = cancelText, Classes = { "secondary", "compact" } };
-        var confirm = new AppButton { Content = accept, Classes = { "primary", "compact" } };
+        var confirm = new AppButton { Content = accept, Classes = { isDanger ? "danger" : "primary", "compact" } };
         cancel.Click += (_, _) => Close(false);
         confirm.Click += (_, _) => Close(true);
         Content = new StackPanel { Margin = new Thickness(16), Spacing = 12, Children =
         {
-            new TextBlock { Text = title, Classes = { "settings-title" } },
             new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Classes = { "settings-description" } },
             new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8, Children = { cancel, confirm } }

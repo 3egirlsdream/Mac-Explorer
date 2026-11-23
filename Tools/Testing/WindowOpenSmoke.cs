@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Rendering.Composition;
 using Avalonia.VisualTree;
 using MacExplorer.Controls;
+using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
@@ -28,27 +29,62 @@ internal static class WindowOpenSmoke
         try
         {
             if (auditButtons) await ButtonComponentsSmoke.CaptureGalleryAsync(owner, buttonOutput);
-            var title = LocalizationText.Get("settings.general");
-            var message = LocalizationText.Get("settings.general.description");
-            var script = Path.Combine(root, "Documents", "window-smoke.sh");
-            Directory.CreateDirectory(Path.GetDirectoryName(script)!);
+            var docsDir = Path.Combine(root, "Documents");
+            var script = Path.Combine(docsDir, "window-smoke.sh");
+            var sampleNote = Path.Combine(docsDir, "report-draft.md");
+            Directory.CreateDirectory(docsDir);
             await File.WriteAllTextAsync(script, "#!/bin/sh\n");
+            await File.WriteAllTextAsync(sampleNote, "# Sample\n");
+            var renameEntries = new[]
+            {
+                new FileSystemEntry { Name = "window-smoke.sh", FullPath = script, Size = 10, LastModified = DateTime.Now },
+                new FileSystemEntry { Name = "report-draft.md", FullPath = sampleNote, Size = 9, LastModified = DateTime.Now }
+            };
             var factories = new (string Name, Func<AppWindow> Create)[]
             {
                 ("settings", () => new SettingsDialog { DataContext = ((MainWindowViewModel)owner.DataContext!).FileList }),
-                ("confirm", () => new ConfirmDialog(title, message, LocalizationText.Get("保存"))),
-                ("compress", () => new CompressDialog()),
-                ("tasks", () => { var w = new TaskPanel(); w.SetTaskManager(App.Services.GetRequiredService<IBackgroundTaskManager>()); return w; }),
+                ("confirm", () => new ConfirmDialog("ui.374",
+                    LocalizationText.Get("confirm.trash_message", LocalizationText.Get("confirm.item_quote", "window-smoke.sh")),
+                    "ui.006", isDanger: true)),
+                ("file-conflict", () => new FileConflictDialog(new(
+                    new FileSystemEntry { Name = "report-draft.md", FullPath = sampleNote, Size = 1024, LastModified = DateTime.Now },
+                    new FileSystemEntry { Name = "report-draft.md", FullPath = Path.Combine(root, "Downloads", "report-draft.md"), Size = 512, LastModified = DateTime.Now.AddMinutes(-10) },
+                    false, false))),
+                ("file-operation", () =>
+                {
+                    var display = new FileOperationDisplay(FileOperationPresentation.Copy)
+                    {
+                        Preparing = false, TotalItems = 12, DoneItems = 5, TotalBytes = 128_000_000, DoneBytes = 52_000_000
+                    };
+                    var req = new FileTaskRequest(BackgroundTaskKind.Copy, "", [sampleNote], docsDir) { Operation = display };
+                    var task = new BackgroundTaskInfo { Request = req, Kind = BackgroundTaskKind.Copy, CurrentFile = "report-draft.md" };
+                    return new FileOperationWindow(App.Services.GetRequiredService<IBackgroundTaskManager>(), task);
+                }),
+                ("compress", () =>
+                {
+                    var d = new CompressDialog();
+                    d.Configure(new CompressOptions { ArchiveName = "window-smoke", Format = ArchiveFormat.Zip, Level = CompressionLevel.Standard, OutputDirectory = docsDir, SourcePaths = [script] });
+                    return d;
+                }),
                 ("remote", () => new RemoteConnectionDialog()),
-                ("rename", () => new BatchRenameDialog()),
-                ("image-conversion", () => new ImageConversionDialog()),
-                ("delete-confirm", () => new DeleteConfirmDialog()),
+                ("rename", () =>
+                {
+                    var d = new BatchRenameDialog();
+                    d.Configure(
+                        App.Services.GetRequiredService<IBatchRenameService>(),
+                        App.Services.GetRequiredService<BatchRenameOperationService>(),
+                        App.Services.GetService<ISettingsService>(),
+                        App.Services.GetService<IFileOperationHistoryService>(),
+                        new BatchRenameRequest { Entries = renameEntries, Rules = [new BatchRenameRule { Type = BatchRenameRuleType.AddPrefix, PrefixText = "2026_" }] });
+                    return d;
+                }),
+                ("image-conversion", () => new ImageConversionDialog(new ConversionImageSize(1920, 1080), FileConversionFormat.Png)),
                 ("password", () => new PasswordDialog()),
                 ("localsend-pin", () => new LocalSendPinDialog()),
                 ("localsend-address", () => new LocalSendAddressDialog(App.Services.GetRequiredService<ILocalSendService>())),
-                ("localsend-receive", () => new LocalSendReceiveDialog(new("fixture", [new("fixture", "fixture.txt", 0)], root))),
-                ("home-name", () => new HomeNameDialog(title)),
-                ("home-confirm", () => new HomeConfirmDialog(title, message)),
+                ("localsend-receive", () => new LocalSendReceiveDialog(new("fixture", [new("fixture", "fixture.txt", 1024)], root))),
+                ("home-name", () => new HomeNameDialog(LocalizationText.Get("重命名标签"), "工作资料")),
+                ("tab-group-name", () => new TabGroupNameDialog("开发工作组")),
                 ("script-commands", () => new HomeScriptCommandsDialog(script, App.Services.GetRequiredService<HomeWorkspaceService>()))
             };
             foreach (var (name, create) in factories)
@@ -57,11 +93,7 @@ internal static class WindowOpenSmoke
                 {
                     var timer = Stopwatch.StartNew();
                     if (auditButtons)
-                    {
                         App.Services.GetRequiredService<ILocalizationService>().SetLanguage(iteration == 0 ? "zh-CN" : "en");
-                        title = LocalizationText.Get("settings.general");
-                        message = LocalizationText.Get("settings.general.description");
-                    }
                     var window = create();
                     if (auditButtons)
                     {
@@ -102,10 +134,10 @@ internal static class WindowOpenSmoke
                                 if (auditButtons) await ButtonComponentsSmoke.CaptureAsync(settings, Path.Combine(buttonOutput, $"settings-{page.PageKey}.png"));
                             }
                         }
-                        window.Close();
+                        if (window is FileOperationWindow op) op.DismissAndClose(); else window.Close();
                         await closed;
                     }
-                    finally { window.Close(); }
+                    finally { if (window is FileOperationWindow op) op.DismissAndClose(); else window.Close(); }
                 }
             }
             for (var iteration = 0; iteration < 2; iteration++)

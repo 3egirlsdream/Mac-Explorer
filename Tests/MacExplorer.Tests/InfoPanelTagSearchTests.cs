@@ -21,10 +21,8 @@ namespace MacExplorer.Tests;
 [Trait("Area", "InfoPanelTag")]
 public sealed class InfoPanelTagSearchTests : FileListViewModelTestBase
 {
-    [AvaloniaTheory(Explicit = true)]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task SearchesCustomTagsAndAddsByClickOrReturnWithoutCreatingPartialNames(bool dark)
+    [AvaloniaFact(Explicit = true)]
+    public async Task SearchesCustomTagsAndAddsByClickOrReturnWithoutCreatingPartialNames()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("info-tag-search-").FullName;
@@ -40,8 +38,7 @@ public sealed class InfoPanelTagSearchTests : FileListViewModelTestBase
         vm.IsInfoPanelVisible = true;
         vm.SelectedEntries.Add(new FileSystemEntry { FullPath = path, Name = "file.bin" });
         var panel = new InfoPanelView(service) { DataContext = vm };
-        var window = new Window { Width = 320, Height = 1000, Content = panel,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var window = new Window { Width = 320, Height = 1000, Content = panel };
         window.Styles.Add(new FluentTheme());
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));

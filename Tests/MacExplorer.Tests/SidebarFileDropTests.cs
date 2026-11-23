@@ -55,7 +55,7 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
         await vm.RefreshAsync();
         using var services = new ServiceCollection().AddSingleton<IFileService>(files).BuildServiceProvider();
         var previousServices = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         if (scenario == "volume")
             vm.ExternalVolumes.Add(new VolumeInfo { Path = desktop, DisplayName = "Test volume", IsExternal = true });
         var hover = new SidebarHoverScheduler();
@@ -176,7 +176,7 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
             Directory.Delete(root, true);
         }
     }
@@ -199,7 +199,7 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
         await vm.NavigateToAsync(sourceFolder.FullName);
         using var services = new ServiceCollection().AddSingleton<IFileService>(files).BuildServiceProvider();
         var previousServices = App.Services;
-        typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, services);
+        App.Services = services;
         var sidebar = new FinderSidebarView { DataContext = vm };
         sidebar.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
         var window = new Window { Width = 260, Height = 850, Content = sidebar };
@@ -236,7 +236,7 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
         finally
         {
             window.Close();
-            typeof(App).GetProperty(nameof(App.Services))!.SetValue(null, previousServices);
+            App.Services = previousServices;
             sourceFolder.Delete(true);
             File.Delete(target);
         }

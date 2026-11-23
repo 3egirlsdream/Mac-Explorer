@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -39,8 +38,7 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
             var consentKeychain = new CopilotCredentialStore();
             consentSettings.AllowMetadataSharing();
             var engine = new CopilotEngine(null!, consentSettings, consentKeychain, store, null!, () => null);
-            typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(fixture.Window, engine);
+            fixture.Window.CopilotForTesting = engine;
             fixture.Window.FindControl<Border>("CopilotPanel")!.IsVisible = true;
             var zone = fixture.Window.FindControl<Border>("CopilotAttachmentDropZone")!;
             using var data = new DataTransfer();
@@ -64,8 +62,7 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
             fixture.Window.FindControl<TextBox>("CopilotInput")!.Text = "整理附件";
             fixture.Window.FindControl<Button>("CopilotSendButton")!
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            var run = (Task)typeof(MainWindow).GetField("_copilotRunTask", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(fixture.Window)!;
+            var run = fixture.Window.CopilotRunTaskForTesting!;
             await run.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Empty(chips.Children);
             Assert.True(fixture.Window.FindControl<StackPanel>("CopilotAttachmentEmptyHint")!.IsVisible);
@@ -115,8 +112,7 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
             await using var fixture = await TabCacheFixture.CreateAsync(1,
                 services => services.AddSingleton(store));
             var engine = new CopilotEngine(null!, null!, null!, store, null!, () => null);
-            typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(fixture.Window, engine);
+            fixture.Window.CopilotForTesting = engine;
             var original = engine.SessionId;
             var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var task = RunCopilotWindowAction(fixture.Window, async (_, token) =>
@@ -149,8 +145,7 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
             await using var fixture = await TabCacheFixture.CreateAsync(1,
                 services => services.AddSingleton(store));
             var engine = new CopilotEngine(null!, null!, null!, store, null!, () => null);
-            typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(fixture.Window, engine);
+            fixture.Window.CopilotForTesting = engine;
             var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var task = RunCopilotWindowAction(fixture.Window, async (_, token) =>
             {
@@ -158,11 +153,9 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
                 await Task.Delay(Timeout.Infinite, token);
                 return new CopilotReply("", null, false);
             }, true);
-            typeof(MainWindow).GetField("_copilotRunTask", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(fixture.Window, task);
+            fixture.Window.CopilotRunTaskForTesting = task;
             await started.Task;
-            await (Task)typeof(MainWindow).GetMethod("CloseCopilotAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(fixture.Window, null)!;
+            await fixture.Window.CloseCopilotAsync();
             Assert.True(task.IsCompleted);
             Assert.Throws<ObjectDisposedException>(engine.PrepareForSend);
             Assert.True(store.TryAcquireSession(engine.SessionId, "another-window"));
@@ -185,8 +178,7 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
             var registry = new AppCapabilityRegistry(fixture.Files, null!, null!, null!, null!, null!, null!,
                 null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
             var engine = new CopilotEngine(registry, new CopilotSettings(new StartupSettings()), new CopilotCredentialStore(), store, null!, () => fixture.Model.SelectedTab!.FileList);
-            typeof(MainWindow).GetField("_copilot", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(fixture.Window, engine);
+            fixture.Window.CopilotForTesting = engine;
             fixture.Window.FindControl<Border>("CopilotPanel")!.IsVisible = true;
             var history = fixture.Window.FindControl<Border>("CopilotHistoryPane")!;
             history.IsVisible = true;
@@ -197,8 +189,7 @@ public sealed class CopilotWindowReviewViewModelTests : FileListViewModelTestBas
             var request = new ToolApprovalRequestContent("approval", new FunctionCallContent("call", "ExecuteApprovedPlan",
                 new Dictionary<string, object?> { ["planId"] = preview.RootElement.GetProperty("Id").GetString() }));
             var response = new AgentResponse(new ChatMessage(ChatRole.Assistant, [request]));
-            await (Task<CopilotReply>)typeof(CopilotEngine).GetMethod("FinishAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(engine, [response, CancellationToken.None])!;
+            await engine.FinishAsync(response, CancellationToken.None);
 
             // Make both the error transcript write and final history read fail immediately.
             using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database }.ToString()))
@@ -280,7 +271,6 @@ public abstract partial class FileListViewModelTestBase
 
     protected static Task RunCopilotWindowAction(MainWindow window,
         Func<Action<AgentResponseUpdate>, CancellationToken, Task<CopilotReply>> action, bool allowStop) =>
-        (Task)typeof(MainWindow).GetMethod("RunCopilotAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(window, [action, allowStop])!;
+        window.RunCopilotAsync(action, allowStop);
 
 }
