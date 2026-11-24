@@ -163,6 +163,78 @@ public sealed class HomeWorkspaceTests
         Assert.Equal(expected, HomeScriptCommand.Create(path).Command);
     }
 
+    [Fact]
+    public void SectionPreferencesPersistAndRecoverFromMalformedJson()
+    {
+        using var fixture = new Fixture();
+        Assert.Equal(new HomeSectionPreferences(), fixture.Workspace.GetSectionPreferences());
+        var custom = new HomeSectionPreferences(ShowStorage: false, ShowWorkspaces: true, ShowInbox: false, ShowCollections: true, CollectionViewMode: "GRID");
+        fixture.Workspace.SaveSectionPreferences(custom);
+        var loaded = fixture.Workspace.GetSectionPreferences();
+        Assert.False(loaded.ShowStorage);
+        Assert.True(loaded.ShowWorkspaces);
+        Assert.False(loaded.ShowInbox);
+        Assert.Equal(HomeCollectionViewModes.Grid, loaded.CollectionViewMode);
+
+        fixture.Settings.Set(HomeWorkspaceService.SectionsKey, "{broken");
+        Assert.Equal(new HomeSectionPreferences(), fixture.Workspace.GetSectionPreferences());
+    }
+
+    [Fact]
+    public void PathFormattingShortensHomePrefixAndFiltersDefaultSidebarLocations()
+    {
+        var home = "/Users/tester";
+        Assert.Equal("~", HomePathFormatting.FormatParentPath("/Users/tester/notes.md", home));
+        Assert.Equal("~/Documents/xm", HomePathFormatting.FormatParentPath("/Users/tester/Documents/xm/out", home));
+        Assert.Equal("/Volumes/SSD", HomePathFormatting.FormatParentPath("/Volumes/SSD/archive.zip", home));
+
+        Assert.True(HomePathFormatting.IsDefaultSidebarLocation("/Users/tester", home));
+        Assert.True(HomePathFormatting.IsDefaultSidebarLocation("/Users/tester/Downloads", home));
+        Assert.True(HomePathFormatting.IsDefaultSidebarLocation("/Applications", home));
+        Assert.False(HomePathFormatting.IsDefaultSidebarLocation("/Users/tester/Documents/FKFinder", home));
+
+        Assert.True(HomePathFormatting.IsSystemTemporaryPath("/var/folders/sb/abc/T/untitled.md", home));
+        Assert.True(HomePathFormatting.IsSystemTemporaryPath("/tmp/scratch.txt", home));
+        Assert.False(HomePathFormatting.IsSystemTemporaryPath("/var/folders/sb/testroot/notes.md", "/var/folders/sb/testroot"));
+    }
+
+    [Fact]
+    public async Task FrequentFoldersExcludeSidebarDefaultsAndPinnedDirectories()
+    {
+        using var fixture = new Fixture();
+        var downloads = Directory.CreateDirectory(Path.Combine(fixture.Root, "Downloads")).FullName;
+        var pinned = Directory.CreateDirectory(Path.Combine(fixture.Root, "pinned-project")).FullName;
+        var project = Directory.CreateDirectory(Path.Combine(fixture.Root, "active-project")).FullName;
+        await fixture.Workspace.RecordUseAsync(downloads, directoriesOnly: true);
+        await fixture.Workspace.RecordUseAsync(pinned, directoriesOnly: true);
+        await fixture.Workspace.RecordUseAsync(project, directoriesOnly: true);
+
+        var excluded = new HashSet<string>(StringComparer.Ordinal) { pinned };
+        var result = await fixture.Workspace.GetFrequentFoldersAsync(fixture.Root, excluded, count: 5);
+        Assert.Equal(project, Assert.Single(result).Path);
+    }
+
+    [Fact]
+    public async Task InboxFilesMergeDownloadsAndSupportCategoryFilters()
+    {
+        using var fixture = new Fixture();
+        var downloadsDir = Directory.CreateDirectory(Path.Combine(fixture.Root, "Downloads")).FullName;
+        var downloaded = Path.Combine(downloadsDir, "bundle.zip");
+        System.IO.File.WriteAllText(downloaded, "zip");
+        var edited = fixture.File("notes.md");
+        await fixture.Workspace.RecordUseAsync(edited);
+
+        var all = await fixture.Workspace.GetInboxFilesAsync(fixture.Root, HomeInboxFilter.All, count: 10);
+        Assert.Contains(all, item => item.Path == downloaded && item.IsFromDownloads);
+        Assert.Contains(all, item => item.Path == edited && !item.IsFromDownloads);
+
+        var onlyDownloads = await fixture.Workspace.GetInboxFilesAsync(fixture.Root, HomeInboxFilter.Downloads, count: 10);
+        Assert.Equal(downloaded, Assert.Single(onlyDownloads).Path);
+
+        var onlyEdited = await fixture.Workspace.GetInboxFilesAsync(fixture.Root, HomeInboxFilter.Edited, count: 10);
+        Assert.Equal(edited, Assert.Single(onlyEdited).Path);
+    }
+
     private sealed class Fixture : IDisposable
     {
         public string Root { get; } = Directory.CreateTempSubdirectory("MacExplorer_Home_").FullName;

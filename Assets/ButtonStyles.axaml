@@ -971,6 +971,202 @@
     <Style Selector=".home-card:pointerover Button.home-resize-grip, Button.home-resize-grip:focus, Button.home-resize-grip.resizing">
         <Setter Property="Opacity" Value="1"/>
     </Style>
+
+    <!-- Plan A Home Workspace Button Variants -->
+    <Style Selector="Button.home-header-action">
+        <Setter Property="Height" Value="38"/>
+        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+    </Style>
+    <Style Selector="Button.home-header-action:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.home-header-action.active">
+        <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-section-link">
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+    </Style>
+    <Style Selector="Button.home-section-link:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-disk-card">
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Height" Value="NaN"/>
+        <Setter Property="Padding" Value="13,11"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.home-disk-card:pointerover">
+        <Setter Property="Background" Value="{DynamicResource HomeCardBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-preset-card">
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Height" Value="NaN"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.home-preset-card:pointerover">
+        <Setter Property="Background" Value="{DynamicResource HomeRowHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-row-hit">
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="Height" Value="NaN"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.home-row-hit:pointerover, Button.home-row-hit:pressed">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style Selector="Button.home-grid-tile">
+        <Setter Property="MinHeight" Value="54"/>
+        <Setter Property="Height" Value="NaN"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.home-grid-tile:pointerover">
+        <Setter Property="Background" Value="{DynamicResource HomeRowHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-tag-pill">
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+    </Style>
+    <Style Selector="Button.home-tag-pill:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.home-tag-pill.active">
+        <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.home-tag-pill.add-pill">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardBorderBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <Style Selector="Button.home-tag-pill.add-pill:pointerover">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+    </Style>
+    <Style Selector="Button.home-tag-pill.drop-target">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-mini-seg">
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="MinHeight" Value="22"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+    </Style>
+    <Style Selector="Button.home-mini-seg:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.home-mini-seg.active">
+        <Setter Property="Background" Value="{DynamicResource HomeCardSubtleBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-script-run">
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="9,0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeScriptRunBgBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource HomeScriptRunFgBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+    </Style>
+    <Style Selector="Button.home-script-run:pointerover">
+        <Setter Property="Background" Value="{DynamicResource HomeScriptRunBgBrush}"/>
+        <Setter Property="Opacity" Value="0.88"/>
+    </Style>
+    <Style Selector="Button.home-script-run.setup">
+        <Setter Property="Background" Value="{DynamicResource HomeScriptSetupBgBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource HomeScriptSetupFgBrush}"/>
+    </Style>
+
+    <Style Selector="Button.home-disk-eject">
+        <Setter Property="Width" Value="24"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Opacity" Value="0"/>
+    </Style>
+    <Style Selector="Button.home-disk-card:pointerover Button.home-disk-eject, Button.home-disk-eject:focus">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
     <Style Selector="Button.delivery-tab">
         <Setter Property="Height" Value="28"/>
         <Setter Property="MinHeight" Value="28"/>

@@ -21,6 +21,23 @@
                     <Color x:Key="HomeGlassColor">#28FFFFFF</Color>
                     <SolidColorBrush x:Key="HomeTileBrush" Color="#48FFFFFF"/>
                     <SolidColorBrush x:Key="HomeEdgeBrush" Color="#B8FFFFFF"/>
+
+                    <!-- Continuous workspace canvas + Apple Settings-style grouped cards -->
+                    <SolidColorBrush x:Key="HomeCanvasBrush" Color="Transparent"/>
+                    <SolidColorBrush x:Key="HomeCardBrush" Color="#F7F8FA"/>
+                    <SolidColorBrush x:Key="HomeCardSubtleBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="HomeCardBorderBrush" Color="#E8EBF0"/>
+                    <SolidColorBrush x:Key="HomeCardDividerBrush" Color="#EAECEF"/>
+                    <SolidColorBrush x:Key="HomeRowHoverBrush" Color="#ECEFF4"/>
+                    <SolidColorBrush x:Key="HomeMeterTrackBrush" Color="#E5E8EE"/>
+                    <SolidColorBrush x:Key="HomeMiniSegBgBrush" Color="#EFF1F5"/>
+                    <SolidColorBrush x:Key="HomeKbdBgBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="HomeKbdBorderBrush" Color="#E1E4EA"/>
+                    <SolidColorBrush x:Key="HomeScriptRunBgBrush" Color="#E6F4EC"/>
+                    <SolidColorBrush x:Key="HomeScriptRunFgBrush" Color="#23784D"/>
+                    <SolidColorBrush x:Key="HomeScriptSetupBgBrush" Color="#EAECEF"/>
+                    <SolidColorBrush x:Key="HomeScriptSetupFgBrush" Color="#565D67"/>
+                    <BoxShadows x:Key="HomeCardShadow">0 0 0 0 Transparent</BoxShadows>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <sys:Double x:Key="HomeGlassBlur">12</sys:Double>
@@ -41,10 +58,29 @@
                     <Color x:Key="HomeGlassColor">#CC30302F</Color>
                     <SolidColorBrush x:Key="HomeTileBrush" Color="#283F4148"/>
                     <SolidColorBrush x:Key="HomeEdgeBrush" Color="Transparent"/>
+
+                    <!-- Continuous workspace canvas + elevated dark grouped cards -->
+                    <SolidColorBrush x:Key="HomeCanvasBrush" Color="Transparent"/>
+                    <SolidColorBrush x:Key="HomeCardBrush" Color="#22252C"/>
+                    <SolidColorBrush x:Key="HomeCardSubtleBrush" Color="#2A2E37"/>
+                    <SolidColorBrush x:Key="HomeCardBorderBrush" Color="#303540"/>
+                    <SolidColorBrush x:Key="HomeCardDividerBrush" Color="#2D323C"/>
+                    <SolidColorBrush x:Key="HomeRowHoverBrush" Color="#2B303A"/>
+                    <SolidColorBrush x:Key="HomeMeterTrackBrush" Color="#2E333D"/>
+                    <SolidColorBrush x:Key="HomeMiniSegBgBrush" Color="#262A33"/>
+                    <SolidColorBrush x:Key="HomeKbdBgBrush" Color="#2A2E37"/>
+                    <SolidColorBrush x:Key="HomeKbdBorderBrush" Color="#383E4A"/>
+                    <SolidColorBrush x:Key="HomeScriptRunBgBrush" Color="#246FD196"/>
+                    <SolidColorBrush x:Key="HomeScriptRunFgBrush" Color="#6FD196"/>
+                    <SolidColorBrush x:Key="HomeScriptSetupBgBrush" Color="#2B303A"/>
+                    <SolidColorBrush x:Key="HomeScriptSetupFgBrush" Color="#B8BEC8"/>
+                    <BoxShadows x:Key="HomeCardShadow">0 0 0 0 Transparent</BoxShadows>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Styles.Resources>
+
+    <!-- Preserved legacy glass styles for compatibility and appearance tests -->
     <Style Selector="glass|LiquidGlassSurface.home-glass">
         <Setter Property="SurfaceColor" Value="{DynamicResource HomeGlassColor}"/>
         <Setter Property="TintColor" Value="Transparent"/>
@@ -69,13 +105,136 @@
         <Setter Property="BlurRadius" Value="{DynamicResource HomeExpandedGlassBlur}"/>
         <Setter Property="HighlightOpacity" Value="{DynamicResource HomeExpandedGlassHighlight}"/>
     </Style>
-    <Style Selector="Border.home-search-box">
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
-        <Setter Property="Background" Value="{DynamicResource HomeTileBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource HomeEdgeBrush}"/>
+
+    <!-- Redesigned Home Workspace Surfaces -->
+    <Style Selector="Grid.home-workspace-root">
+        <Setter Property="Background" Value="{DynamicResource HomeCanvasBrush}"/>
     </Style>
 
-    <!-- Content stays legible; shared theme brushes supply light/dark and contrast behavior. -->
+    <Style Selector="Border.home-search-box">
+        <Setter Property="Height" Value="38"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style Selector="Border.home-kbd-badge">
+        <Setter Property="Background" Value="{DynamicResource HomeKbdBgBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeKbdBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="Padding" Value="6,2"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.home-card-surface">
+        <Setter Property="Background" Value="{DynamicResource HomeCardBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+    </Style>
+    <Style Selector="Border.home-card-surface.drop-target">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+
+    <Style Selector="Border.home-card-toolbar">
+        <Setter Property="Padding" Value="12,10,12,4"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+
+    <Style Selector="Border.home-card-divider">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardDividerBrush}"/>
+    </Style>
+
+    <Style Selector="Border.home-disk-icon-box">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style Selector="Border.home-preset-icon-box">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Background" Value="{DynamicResource HomeCardSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style Selector="Border.home-disk-meter-track">
+        <Setter Property="Height" Value="5"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
+        <Setter Property="Background" Value="{DynamicResource HomeMeterTrackBrush}"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+
+    <Style Selector="Border.home-disk-meter-fill">
+        <Setter Property="Height" Value="5"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+    </Style>
+    <Style Selector="Border.home-disk-meter-fill.warn">
+        <Setter Property="Background" Value="{DynamicResource WarningBrush}"/>
+    </Style>
+
+    <Style Selector="Border.home-mini-segmented">
+        <Setter Property="Background" Value="{DynamicResource HomeMiniSegBgBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Padding" Value="2"/>
+    </Style>
+
+    <Style Selector="Border.home-git-pill">
+        <Setter Property="Background" Value="{DynamicResource HomeCardSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="5,1"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.home-item-tag-chip">
+        <Setter Property="Background" Value="{DynamicResource HomeCardSubtleBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource HomeCardDividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
+        <Setter Property="Padding" Value="6,1"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Flush right-aligned timestamps that swap cleanly into quick actions on hover -->
+    <Style Selector="Border.home-row-container">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="Padding" Value="8,6"/>
+    </Style>
+    <Style Selector="Border.home-row-container:pointerover">
+        <Setter Property="Background" Value="{DynamicResource HomeRowHoverBrush}"/>
+    </Style>
+    <Style Selector="Border.home-row-container TextBlock.home-row-meta">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Border.home-row-container:pointerover TextBlock.home-row-meta, Border.home-row-container:focus-within TextBlock.home-row-meta">
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.home-row-container StackPanel.home-row-actions">
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.home-row-container:pointerover StackPanel.home-row-actions, Border.home-row-container:focus-within StackPanel.home-row-actions">
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="IsHitTestVisible" Value="True"/>
+    </Style>
+
     <Style Selector="Border.home-folder">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="{DynamicResource HomeEdgeBrush}"/>
@@ -91,8 +250,26 @@
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
     </Style>
+    <Style Selector="TextBlock.home-muted">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+    </Style>
     <Style Selector="TextBlock.home-section-title">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+    </Style>
+    <Style Selector="TextBlock.home-row-path">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+    <Style Selector="TextBlock.home-empty-hint">
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="16,22"/>
     </Style>
 </Styles>

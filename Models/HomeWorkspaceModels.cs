@@ -81,3 +81,94 @@ public sealed record HomeScriptCommand(string Id, string Name, string Command,
         return this with { Name = Name.Trim(), WorkingDirectory = WorkingDirectory.Trim() };
     }
 }
+
+public static class HomeCollectionViewModes
+{
+    public const string List = "list";
+    public const string Grid = "grid";
+}
+
+public enum HomeInboxFilter
+{
+    All,
+    Downloads,
+    Edited
+}
+
+public sealed record HomeSectionPreferences(
+    bool ShowStorage = true,
+    bool ShowWorkspaces = true,
+    bool ShowInbox = true,
+    bool ShowCollections = true,
+    string CollectionViewMode = HomeCollectionViewModes.List)
+{
+    public HomeSectionPreferences Normalize() => this with
+    {
+        CollectionViewMode = string.Equals(CollectionViewMode, HomeCollectionViewModes.Grid, StringComparison.OrdinalIgnoreCase)
+            ? HomeCollectionViewModes.Grid
+            : HomeCollectionViewModes.List
+    };
+}
+
+public sealed record HomeRecentItem(
+    string Path,
+    bool IsDirectory,
+    DateTime TimestampUtc,
+    bool IsFromDownloads);
+
+public static class HomePathFormatting
+{
+    public static string FormatParentPath(string fullPath, string? homeDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(fullPath)) return "";
+        var normalized = TrimTrailingSeparator(fullPath);
+        var parent = Path.GetDirectoryName(normalized);
+        if (string.IsNullOrEmpty(parent)) return "/";
+        parent = TrimTrailingSeparator(parent);
+        if (!string.IsNullOrWhiteSpace(homeDirectory))
+        {
+            var home = TrimTrailingSeparator(homeDirectory);
+            if (string.Equals(parent, home, StringComparison.Ordinal))
+                return "~";
+            if (parent.StartsWith(home + "/", StringComparison.Ordinal))
+                return "~" + parent[home.Length..];
+        }
+        return parent;
+    }
+
+    public static bool IsDefaultSidebarLocation(string path, string? homeDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        var normalized = TrimTrailingSeparator(path);
+        if (normalized is "/" or "/Applications") return true;
+        if (string.IsNullOrWhiteSpace(homeDirectory)) return false;
+        var home = TrimTrailingSeparator(homeDirectory);
+        if (string.Equals(normalized, home, StringComparison.Ordinal)) return true;
+        return string.Equals(normalized, home + "/Desktop", StringComparison.Ordinal)
+            || string.Equals(normalized, home + "/Documents", StringComparison.Ordinal)
+            || string.Equals(normalized, home + "/Downloads", StringComparison.Ordinal)
+            || string.Equals(normalized, home + "/Pictures", StringComparison.Ordinal)
+            || string.Equals(normalized, home + "/Music", StringComparison.Ordinal);
+    }
+
+    public static bool IsInsideDirectory(string path, string? directoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(directoryPath)) return false;
+        var normalizedPath = TrimTrailingSeparator(path);
+        var normalizedDir = TrimTrailingSeparator(directoryPath);
+        return normalizedPath.StartsWith(normalizedDir + "/", StringComparison.Ordinal);
+    }
+
+    public static bool IsSystemTemporaryPath(string path, string? homeDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        if (IsInsideDirectory(path, homeDirectory)) return false;
+        return path.StartsWith("/var/folders/", StringComparison.Ordinal)
+            || path.StartsWith("/private/var/folders/", StringComparison.Ordinal)
+            || path.StartsWith("/tmp/", StringComparison.Ordinal)
+            || path.StartsWith("/private/tmp/", StringComparison.Ordinal);
+    }
+
+    private static string TrimTrailingSeparator(string path)
+        => path.Length > 1 ? path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) : path;
+}

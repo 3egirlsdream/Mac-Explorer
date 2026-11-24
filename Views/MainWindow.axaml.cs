@@ -867,6 +867,8 @@ public partial class MainWindow : AppWindow
 
     private void OnActualThemeVariantChanged(object? sender, EventArgs e) => ApplyAppearanceSettings();
 
+    internal Task OpenSuperPreviewForEntryAsync(FileSystemEntry entry) => OpenSuperPreviewAsync(entry);
+
     private async Task OpenSuperPreviewAsync(FileSystemEntry entry)
     {
         if (IsMarkdownEditorOpen || SuperPreviewControl.IsVisible)

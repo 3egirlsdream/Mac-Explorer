@@ -3,20 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MacExplorer.Views;
 
 public partial class HomeView : UserControl
 {
     private CancellationTokenSource? _suggestionCancellation;
+    private bool _syncingCustomize;
 
     public HomeView()
     {
@@ -36,8 +38,18 @@ public partial class HomeView : UserControl
 
     private void OnHomeSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
+        var hasText = !string.IsNullOrEmpty(HomeSearchBox.Text);
+        HomeSearchClearButton.IsVisible = hasText;
+        HomeSearchShortcutBadge.IsVisible = !hasText;
         if (HomeSearchBox.IsKeyboardFocusWithin)
             _ = RefreshHomeSuggestionsAsync();
+    }
+
+    private void OnHomeSearchClear(object? sender, RoutedEventArgs e)
+    {
+        HomeSearchBox.Text = "";
+        CloseHomeSuggestions();
+        HomeSearchBox.Focus();
     }
 
     private void OnHomeSearchLostFocus(object? sender, RoutedEventArgs e)
@@ -152,21 +164,51 @@ public partial class HomeView : UserControl
         HomeSearchSuggestionList.SelectedIndex = -1;
     }
 
-    private async void NavigateHomeDirectory(object? sender, RoutedEventArgs e)
+    private void OnCustomizeClick(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
-        await ViewModel.NavigateToAsync(ViewModel.HomeDirectory);
+        if (CustomizePopup.IsOpen)
+        {
+            CustomizePopup.IsOpen = false;
+            return;
+        }
+        SyncCustomizeToggles();
+        CustomizeButton.Classes.Add("active");
+        CustomizePopup.IsOpen = true;
     }
 
-    private async void NavigateDesktop(object? sender, RoutedEventArgs e)
+    private void OnCustomizeClosed(object? sender, EventArgs e)
+        => CustomizeButton.Classes.Remove("active");
+
+    private void SyncCustomizeToggles()
     {
-        if (ViewModel == null) return;
-        await ViewModel.NavigateToAsync(System.IO.Path.Combine(ViewModel.HomeDirectory, "Desktop"));
+        var workspace = App.Services?.GetService<HomeWorkspaceService>();
+        var prefs = workspace?.GetSectionPreferences() ?? new HomeSectionPreferences();
+        _syncingCustomize = true;
+        try
+        {
+            ShowStorageToggle.IsChecked = prefs.ShowStorage;
+            ShowWorkspacesToggle.IsChecked = prefs.ShowWorkspaces;
+            ShowInboxToggle.IsChecked = prefs.ShowInbox;
+            ShowCollectionsToggle.IsChecked = prefs.ShowCollections;
+        }
+        finally
+        {
+            _syncingCustomize = false;
+        }
     }
 
-    private async void NavigateMacintoshHd(object? sender, RoutedEventArgs e)
+    private void OnSectionToggleChanged(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
-        await ViewModel.NavigateToAsync("/");
+        if (_syncingCustomize) return;
+        var workspace = App.Services?.GetService<HomeWorkspaceService>();
+        if (workspace == null) return;
+        var current = workspace.GetSectionPreferences();
+        workspace.SaveSectionPreferences(current with
+        {
+            ShowStorage = ShowStorageToggle.IsChecked == true,
+            ShowWorkspaces = ShowWorkspacesToggle.IsChecked == true,
+            ShowInbox = ShowInboxToggle.IsChecked == true,
+            ShowCollections = ShowCollectionsToggle.IsChecked == true
+        });
     }
 }

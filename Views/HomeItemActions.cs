@@ -42,6 +42,64 @@ public sealed class HomeItemActions : IDisposable
     public HomeItemActions ForOwner(Control owner, Action<string> status)
         => new(owner, _navigation, _files, _tags, _workspace, _runner, status, _thumbnails);
 
+    public Control CreateFileIcon(FileSystemEntry entry, double size)
+        => new MacExplorer.Controls.HomeFileImage(entry, size, _navigation.GetListThumbnailAsync, _thumbnails)
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+    public Task OpenEntryAsync(FileSystemEntry entry, Action? beforeOpen = null)
+        => OpenAsync(entry, beforeOpen);
+
+    public async Task RevealEntryAsync(FileSystemEntry entry, Action? beforeOpen = null)
+    {
+        if (!await Task.Run(() => _files.ExistsAsync(entry.FullPath)))
+            throw new FileNotFoundException(MacExplorer.Services.Impl.LocalizationText.Get("项目已移动、删除或暂时不可访问。"), entry.FullPath);
+        beforeOpen?.Invoke();
+        await _navigation.RevealFileAsync(entry);
+    }
+
+    public async Task PreviewEntryAsync(FileSystemEntry entry)
+    {
+        if (!await Task.Run(() => _files.ExistsAsync(entry.FullPath)))
+            throw new FileNotFoundException(MacExplorer.Services.Impl.LocalizationText.Get("项目已移动、删除或暂时不可访问。"), entry.FullPath);
+        if (TopLevel.GetTopLevel(_owner) is MainWindow window)
+            await window.OpenSuperPreviewForEntryAsync(entry);
+    }
+
+    public async Task OpenInNewTabAsync(string directoryPath)
+    {
+        if (!await Task.Run(() => _files.ExistsAsync(directoryPath)))
+            throw new DirectoryNotFoundException(MacExplorer.Services.Impl.LocalizationText.Get("项目已移动、删除或暂时不可访问。"));
+        if (TopLevel.GetTopLevel(_owner) is MainWindow window)
+            await window.OpenNewTabAsync(directoryPath);
+        else
+            await _navigation.NavigateToAsync(directoryPath);
+    }
+
+    public Task RunScriptCommandAsync(string path, HomeScriptCommand command)
+        => RunCommandAsync(path, command);
+
+    public async Task CreateTagAsync()
+    {
+        if (TopLevel.GetTopLevel(_owner) is not Window owner) return;
+        var name = await new HomeNameDialog(MacExplorer.Services.Impl.LocalizationText.Get("home.tag.create_title"), "").ShowDialog<string?>(owner);
+        if (!string.IsNullOrWhiteSpace(name))
+            await Task.Run(() => _tags.CreateTagAsync(name));
+    }
+
+    public ContextMenu CreateItemContextMenu(FileSystemEntry entry, FileTag? tag = null, Action? beforeOpen = null)
+    {
+        var menu = new ContextMenu();
+        menu.Opened += (_, _) =>
+        {
+            try { PopulateItemMenu(menu, entry, tag, beforeOpen); }
+            catch (Exception ex) { _status(ex.Message); }
+        };
+        return menu;
+    }
+
     public async Task GuardAsync(Func<Task> action)
     {
         try { await action(); }

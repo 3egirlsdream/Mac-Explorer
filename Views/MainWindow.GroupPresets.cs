@@ -23,6 +23,8 @@ public partial class MainWindow
         e.Handled = true;
     }
 
+    internal void OpenGroupPresetsMenu(Control target) => ShowGroupPresetsForControl(target);
+
     private void ShowGroupPresetsForControl(Control target)
     {
         if (_vm == null) return;

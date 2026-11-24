@@ -65,6 +65,7 @@ feat: 优化文件夹恢复
 
 - 首页使用原有白色主题表面，侧栏保留自己的背景；卡片与启动台式居中展开页复用 `home-glass` 液态玻璃样式，内容层排除背景采样。收藏夹通过 `HomeFolderPanel` 自动填补缩放后的可用空位，并保留阴影外边距。
 - 首页与展开页通过 `HomeThumbnailCache` 复用已解码缩略图；栅格未满不显示展开入口，溢出时才在末格显示文件类型组合图标。
+- 首页工作区复用 `Assets/HomeStyles.axaml` 与 `Assets/ButtonStyles.axaml` 的分组卡片与行组件（`home-card-surface` / `home-disk-card` / `home-preset-card` / `home-row-container` / `home-tag-pill` / `home-mini-segmented` / `home-script-run`）：底面透明以与左侧浮层侧栏无缝衔接，默认使用柔和浅灰／深灰分组卡片与 1px 细边，背景主题下自动切为半透磨砂表面；包含顶部搜索与模块自定义弹层、存储与设备条（单盘横排）、工作组横条、等高常用目录（过滤侧栏默认与已固定目录，显示父路径与 Git 分支）与刚刚处理（过滤系统临时目录）、以及标签胶囊筛选的去重收藏与标签列表／网格视图，行尾时间贴右并在悬停时原地切换为快捷操作。
 
 - 信息面板使用单页分区；标题、字段行统一复用全局 `info-section-title` / `info-field-row` / `info-field-label` / `info-field-value`，字段值右对齐，行底部使用主题细分割线。
 

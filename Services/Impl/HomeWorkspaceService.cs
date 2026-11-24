@@ -13,6 +13,7 @@ public sealed class HomeWorkspaceService : IDisposable
 {
     internal const string LayoutsKey = "home_folder_layouts_v1";
     internal const string CommandsKey = "home_script_commands_v1";
+    internal const string SectionsKey = "home_sections_v1";
     private readonly DatabaseConnectionFactory _database;
     private readonly ISettingsService _settings;
     private readonly IFileTagService _tags;
@@ -56,6 +57,29 @@ public sealed class HomeWorkspaceService : IDisposable
             layouts[LayoutKey(tag)] = layout.Normalize();
             _settings.Set(LayoutsKey, JsonSerializer.Serialize(layouts));
         }
+        PreferencesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public HomeSectionPreferences GetSectionPreferences()
+    {
+        lock (_preferencesGate)
+        {
+            var json = _settings.Get(SectionsKey);
+            if (string.IsNullOrEmpty(json)) return new HomeSectionPreferences();
+            try { return (JsonSerializer.Deserialize<HomeSectionPreferences>(json) ?? new HomeSectionPreferences()).Normalize(); }
+            catch (JsonException ex)
+            {
+                _logger?.LogWarning(ex, "Invalid homepage section preferences; using defaults");
+                return new HomeSectionPreferences();
+            }
+        }
+    }
+
+    public void SaveSectionPreferences(HomeSectionPreferences preferences)
+    {
+        var normalized = preferences.Normalize();
+        lock (_preferencesGate)
+            _settings.Set(SectionsKey, JsonSerializer.Serialize(normalized));
         PreferencesChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -167,6 +191,118 @@ public sealed class HomeWorkspaceService : IDisposable
                 .ThenByDescending(e => e.LastUsedUtc).ThenBy(e => e.Path, StringComparer.Ordinal)
                 .Take(Math.Clamp(count, 1, 100)).ToArray();
         }, cancellationToken);
+
+    public Task<IReadOnlyList<HomeUsageEntry>> GetFrequentFoldersAsync(string? homeDirectory,
+        IReadOnlySet<string>? excludedPaths = null, int count = 6, CancellationToken cancellationToken = default)
+        => WithDatabaseAsync<IReadOnlyList<HomeUsageEntry>>(connection =>
+        {
+            var entries = new List<HomeUsageEntry>();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT path, use_count, last_used, added_at FROM home_usage WHERE is_directory = 1";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var path = DirectoryAccess.Current.ResolvePath(reader.GetString(0));
+                if (!DirectoryAccess.Current.CanAccess(path) || !Directory.Exists(path)) continue;
+                if (HomePathFormatting.IsDefaultSidebarLocation(path, homeDirectory)) continue;
+                if (excludedPaths != null && excludedPaths.Contains(path)) continue;
+                entries.Add(new(path, true, reader.GetInt32(1), new DateTime(reader.GetInt64(2), DateTimeKind.Utc))
+                {
+                    AddedUtc = new DateTime(reader.GetInt64(3), DateTimeKind.Utc)
+                });
+            }
+            var now = DateTime.UtcNow;
+            return entries.OrderByDescending(e => e.Score(now))
+                .ThenByDescending(e => e.LastUsedUtc)
+                .ThenBy(e => e.Path, StringComparer.Ordinal)
+                .Take(Math.Clamp(count, 1, 50))
+                .ToArray();
+        }, cancellationToken);
+
+    public async Task<IReadOnlyList<HomeRecentItem>> GetInboxFilesAsync(string? homeDirectory,
+        HomeInboxFilter filter = HomeInboxFilter.All, int count = 6, CancellationToken cancellationToken = default)
+    {
+        var downloadsDir = string.IsNullOrWhiteSpace(homeDirectory)
+            ? null
+            : Path.Combine(homeDirectory, "Downloads");
+
+        var byPath = new Dictionary<string, HomeRecentItem>(StringComparer.Ordinal);
+        var recorded = await WithDatabaseAsync(connection =>
+        {
+            var list = new List<HomeRecentItem>();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT path, last_used FROM home_usage WHERE is_directory = 0 ORDER BY last_used DESC LIMIT 40";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var path = DirectoryAccess.Current.ResolvePath(reader.GetString(0));
+                if (!DirectoryAccess.Current.CanAccess(path) || !File.Exists(path)) continue;
+                if (HomePathFormatting.IsSystemTemporaryPath(path, homeDirectory)) continue;
+                var fromDownloads = HomePathFormatting.IsInsideDirectory(path, downloadsDir);
+                list.Add(new HomeRecentItem(path, false, new DateTime(reader.GetInt64(1), DateTimeKind.Utc), fromDownloads));
+            }
+            return list;
+        }, cancellationToken).ConfigureAwait(false);
+
+        foreach (var item in recorded)
+            byPath[item.Path] = item;
+
+        if (filter is HomeInboxFilter.All or HomeInboxFilter.Downloads
+            && !string.IsNullOrWhiteSpace(downloadsDir)
+            && DirectoryAccess.Current.CanAccess(downloadsDir))
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    if (!Directory.Exists(downloadsDir)) return;
+                    var scanned = new List<(string Path, DateTime WriteUtc)>();
+                    foreach (var file in Directory.EnumerateFiles(downloadsDir))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var name = Path.GetFileName(file);
+                        if (string.IsNullOrEmpty(name) || name.StartsWith('.')) continue;
+                        try
+                        {
+                            var writeUtc = File.GetLastWriteTimeUtc(file);
+                            scanned.Add((NormalizePath(file), writeUtc));
+                        }
+                        catch (IOException) { }
+                        catch (UnauthorizedAccessException) { }
+                        if (scanned.Count >= 120) break;
+                    }
+                    foreach (var (file, writeUtc) in scanned.OrderByDescending(x => x.WriteUtc).Take(12))
+                    {
+                        if (byPath.TryGetValue(file, out var existing))
+                        {
+                            var latest = writeUtc > existing.TimestampUtc ? writeUtc : existing.TimestampUtc;
+                            byPath[file] = existing with { TimestampUtc = latest, IsFromDownloads = true };
+                        }
+                        else
+                        {
+                            byPath[file] = new HomeRecentItem(file, false, writeUtc, true);
+                        }
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        IEnumerable<HomeRecentItem> query = byPath.Values;
+        if (filter == HomeInboxFilter.Downloads)
+            query = query.Where(item => item.IsFromDownloads);
+        else if (filter == HomeInboxFilter.Edited)
+            query = query.Where(item => !item.IsFromDownloads);
+
+        return query
+            .OrderByDescending(item => item.TimestampUtc)
+            .ThenBy(item => item.Path, StringComparer.Ordinal)
+            .Take(Math.Clamp(count, 1, 40))
+            .ToArray();
+    }
 
     public async Task ClearHistoryAsync(CancellationToken cancellationToken = default)
     {

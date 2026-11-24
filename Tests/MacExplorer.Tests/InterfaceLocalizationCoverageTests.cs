@@ -86,8 +86,8 @@ public sealed class InterfaceLocalizationCoverageTests
             language.SetLanguage(AppLanguage.English);
             Dispatcher.UIThread.RunJobs();
             var labels = home.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text).ToArray();
-            Assert.Contains("Recently used", labels);
-            Assert.Contains("Collections", labels);
+            Assert.Contains("Recent Files", labels);
+            Assert.Contains("Collections & Tags", labels);
             Assert.Equal("Search: 我的项目", label.Text);
             Assert.Equal("20 min ago", HomeItemActions.FormatAddedTime(DateTime.UtcNow.AddMinutes(-20), DateTime.UtcNow));
             var server = new RemoteServerInfo();
@@ -97,7 +97,8 @@ public sealed class InterfaceLocalizationCoverageTests
             language.SetLanguage(AppLanguage.ChineseSimplified);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("搜索：我的项目", label.Text);
-            Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "最近使用");
+            Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "刚刚处理");
+            Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "收藏与标签");
         }
         finally { window.Close(); }
     }

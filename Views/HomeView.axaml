@@ -1,88 +1,157 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-        xmlns:controls="using:MacExplorer.Controls"
+             xmlns:controls="using:MacExplorer.Controls"
              xmlns:loc="using:MacExplorer.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MacExplorer.ViewModels"
              xmlns:icons="using:MacExplorer.Assets"
              xmlns:models="using:MacExplorer.Models"
              xmlns:views="using:MacExplorer.Views"
-             xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              x:Class="MacExplorer.Views.HomeView"
              x:DataType="vm:FileListViewModel"
              x:CompileBindings="False">
 
-    <Grid Background="Transparent" x:Name="HomeRoot" RowDefinitions="Auto,*">
-        <Grid x:Name="HeaderLayout" Margin="24,24,24,20"
-              glass:LiquidGlassBackdrop.IsExcludedFromCapture="True">
-            <Grid x:Name="HeaderActions" ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
-            <Grid>
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}" Height="44">
-                <Border x:Name="HomeSearchContainer" Classes="home-search-box" Height="44" CornerRadius="{StaticResource RadiusLg}">
-                    <Grid ColumnDefinitions="Auto,*">
-                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
-                                  Width="18" Height="18" Margin="14,0,8,0"
-                                  Foreground="{DynamicResource TextMutedBrush}"/>
-                        <TextBox Grid.Column="1" x:Name="HomeSearchBox"
-                                 Classes="home-search-input omnibox-input"
-                                 PlaceholderText="{loc:Loc ui.563}" AutomationProperties.Name="{loc:Loc ui.564}"
-                                 GotFocus="OnHomeSearchGotFocus"
-                                 TextChanged="OnHomeSearchTextChanged"
-                                 LostFocus="OnHomeSearchLostFocus"
-                                 KeyDown="OnHomeSearchKeyDown"/>
-                    </Grid>
-                </Border>
-                </glass:LiquidGlassSurface>
-                <Popup x:Name="HomeSearchPopup"
-                       PlacementTarget="{Binding #HomeSearchContainer}"
-                       Placement="Bottom"
-                       IsLightDismissEnabled="False">
-                    <Border x:Name="HomeSearchSurface"
-                            MaxHeight="340"
-                            Classes="omnibox-popup omnibox-input">
-                        <ListBox x:Name="HomeSearchSuggestionList"
-                                 Classes="omnibox-suggestions">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="models:OmniboxSuggestion">
-                                    <Grid ColumnDefinitions="32,*"
-                                          Background="Transparent"
-                                          Tapped="OnHomeSuggestionTapped">
-                                        <Border Width="28" Height="28" CornerRadius="6"
-                                                Background="{DynamicResource ColorBgHover}">
-                                            <PathIcon Data="{Binding IconData}"
-                                                      Width="15" Height="15"
-                                                      Foreground="{Binding IconColor}"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel Grid.Column="1" Margin="8,0,4,0"
-                                                    VerticalAlignment="Center" Spacing="1">
-                                            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeBody}"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding Subtitle}" FontSize="{DynamicResource FontSizeCaption}"
-                                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+    <Grid x:Name="HomeRoot" Classes="home-workspace-root" RowDefinitions="Auto,*">
+        <Grid x:Name="HeaderLayout" Margin="24,18,24,12">
+            <Grid x:Name="HeaderActions" ColumnDefinitions="*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                <Grid>
+                    <Border x:Name="HomeSearchContainer" Classes="home-search-box">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                                      Width="16" Height="16" Margin="12,0,6,0"
+                                      Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBox Grid.Column="1" x:Name="HomeSearchBox"
+                                     Classes="home-search-input omnibox-input"
+                                     PlaceholderText="{loc:Loc home.search.placeholder}"
+                                     AutomationProperties.Name="{loc:Loc ui.564}"
+                                     GotFocus="OnHomeSearchGotFocus"
+                                     TextChanged="OnHomeSearchTextChanged"
+                                     LostFocus="OnHomeSearchLostFocus"
+                                     KeyDown="OnHomeSearchKeyDown"/>
+                            <controls:AppButton Grid.Column="2" x:Name="HomeSearchClearButton"
+                                                Classes="ghost search-clear-btn"
+                                                IsVisible="False"
+                                                Margin="0,0,8,0"
+                                                Click="OnHomeSearchClear"
+                                                ToolTip.Tip="{loc:Loc home.search.clear}"
+                                                AutomationProperties.Name="{loc:Loc home.search.clear}">
+                                <PathIcon Data="{x:Static icons:Icons.Close}" Width="10" Height="10"/>
+                            </controls:AppButton>
+                            <Border Grid.Column="3" x:Name="HomeSearchShortcutBadge"
+                                    Classes="home-kbd-badge" Margin="0,0,10,0">
+                                <controls:ShortcutText Text="⌘K"
+                                                       FontFamily="{StaticResource FontFamilyShortcut}"
+                                                       FontSize="{DynamicResource FontSizeLabel}"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                            </Border>
+                        </Grid>
                     </Border>
-                </Popup>
-            </Grid>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><controls:AppButton Classes="ghost home-quick-action" Click="NavigateHomeDirectory" ToolTip.Tip="{loc:Loc ui.565}" AutomationProperties.Name="{loc:Loc ui.566}">
-                    <PathIcon Data="{x:Static icons:Icons.Home}" Width="18" Height="18"/>
-                </controls:AppButton></glass:LiquidGlassSurface>
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><controls:AppButton Classes="ghost home-quick-action" Click="NavigateDesktop" ToolTip.Tip="{loc:Loc ui.219}" AutomationProperties.Name="{loc:Loc ui.567}">
-                    <PathIcon Data="{x:Static icons:Icons.Desktop}" Width="18" Height="18"/>
-                </controls:AppButton></glass:LiquidGlassSurface>
-                <glass:LiquidGlassSurface Classes="home-glass" CornerRadius="{StaticResource RadiusLg}"><controls:AppButton Classes="ghost home-quick-action" Click="NavigateMacintoshHd" ToolTip.Tip="Macintosh HD" AutomationProperties.Name="{loc:Loc ui.568}">
-                    <PathIcon Data="{x:Static icons:Icons.ExternalDrive}" Width="18" Height="18"/>
-                </controls:AppButton></glass:LiquidGlassSurface>
-            </StackPanel>
+                    <Popup x:Name="HomeSearchPopup"
+                           PlacementTarget="{Binding #HomeSearchContainer}"
+                           Placement="Bottom"
+                           IsLightDismissEnabled="False">
+                        <Border x:Name="HomeSearchSurface"
+                                MaxHeight="340"
+                                Classes="omnibox-popup omnibox-input">
+                            <ListBox x:Name="HomeSearchSuggestionList"
+                                     Classes="omnibox-suggestions">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:OmniboxSuggestion">
+                                        <Grid ColumnDefinitions="32,*"
+                                              Background="Transparent"
+                                              Tapped="OnHomeSuggestionTapped">
+                                            <Border Width="28" Height="28" CornerRadius="6"
+                                                    Background="{DynamicResource ColorBgHover}">
+                                                <PathIcon Data="{Binding IconData}"
+                                                          Width="15" Height="15"
+                                                          Foreground="{Binding IconColor}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="8,0,4,0"
+                                                        VerticalAlignment="Center" Spacing="1">
+                                                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeBody}"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="{DynamicResource FontSizeCaption}"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Popup>
+                </Grid>
+
+                <Panel Grid.Column="1">
+                    <controls:AppButton x:Name="CustomizeButton"
+                                        Classes="ghost home-header-action"
+                                        Click="OnCustomizeClick"
+                                        ToolTip.Tip="{loc:Loc home.customize.tooltip}"
+                                        AutomationProperties.Name="{loc:Loc home.customize}">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
+                            <TextBlock Text="{loc:Loc home.customize}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <Popup x:Name="CustomizePopup"
+                           PlacementTarget="{Binding #CustomizeButton}"
+                           Placement="BottomEdgeAlignedRight"
+                           VerticalOffset="6"
+                           IsLightDismissEnabled="True"
+                           Closed="OnCustomizeClosed">
+                        <Border Classes="context-submenu-surface"
+                                controls:PopupGlass.IsEnabled="True"
+                                Width="236" Padding="12,10">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="{loc:Loc home.customize.title}"
+                                           FontSize="{DynamicResource FontSizeCaption}"
+                                           FontWeight="{StaticResource FontWeightSemibold}"
+                                           Foreground="{DynamicResource TextSubtleBrush}"
+                                           Margin="4,2,4,4"/>
+                                <Grid ColumnDefinitions="*,Auto" Margin="4,2">
+                                    <TextBlock Text="{loc:Loc home.section.storage}"
+                                               FontSize="{DynamicResource FontSizeLabel}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <ToggleSwitch Grid.Column="1" x:Name="ShowStorageToggle"
+                                                  Classes="compact"
+                                                  IsCheckedChanged="OnSectionToggleChanged"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto" Margin="4,2">
+                                    <TextBlock Text="{loc:Loc home.section.workspaces}"
+                                               FontSize="{DynamicResource FontSizeLabel}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <ToggleSwitch Grid.Column="1" x:Name="ShowWorkspacesToggle"
+                                                  Classes="compact"
+                                                  IsCheckedChanged="OnSectionToggleChanged"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto" Margin="4,2">
+                                    <TextBlock Text="{loc:Loc home.section.inbox}"
+                                               FontSize="{DynamicResource FontSizeLabel}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <ToggleSwitch Grid.Column="1" x:Name="ShowInboxToggle"
+                                                  Classes="compact"
+                                                  IsCheckedChanged="OnSectionToggleChanged"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto" Margin="4,2">
+                                    <TextBlock Text="{loc:Loc home.section.collections}"
+                                               FontSize="{DynamicResource FontSizeLabel}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <ToggleSwitch Grid.Column="1" x:Name="ShowCollectionsToggle"
+                                                  Classes="compact"
+                                                  IsCheckedChanged="OnSectionToggleChanged"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                </Panel>
             </Grid>
         </Grid>
-        <views:HomeDashboard Grid.Row="1"/>
+        <views:HomeDashboard x:Name="Dashboard" Grid.Row="1"/>
     </Grid>
 </UserControl>

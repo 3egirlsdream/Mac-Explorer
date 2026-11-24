@@ -1,19 +1,155 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:icons="using:MacExplorer.Assets" xmlns:controls="using:MacExplorer.Controls" x:Class="MacExplorer.Views.HomeDashboard">
-    <Grid RowDefinitions="Auto,*">
-        <StackPanel Margin="24,0,16,14" Spacing="6">
-            <TextBlock Text="{loc:Loc ui.557}" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}"/>
-            <ScrollViewer MaxHeight="100" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                <WrapPanel x:Name="RecentItems" SizeChanged="OnRecentAreaSizeChanged"/>
-            </ScrollViewer>
-            <TextBlock x:Name="RecentEmpty" Text="{loc:Loc ui.558}" Classes="home-secondary" Margin="8,4"/>
-        </StackPanel>
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="16,0,10,24" Spacing="16">
-                <TextBlock Text="{loc:Loc ui.559}" Margin="8,0,0,0" FontSize="{DynamicResource FontSizeTitle}" FontWeight="{StaticResource FontWeightSemibold}"/>
-                <TextBlock x:Name="StatusMessage" IsVisible="False" Classes="home-secondary" TextWrapping="Wrap"/>
-                <controls:HomeFolderPanel Margin="0,0,0,8" x:Name="FolderItems" SizeChanged="OnFolderAreaSizeChanged"/>
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:loc="using:MacExplorer.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:MacExplorer.Controls"
+             x:Class="MacExplorer.Views.HomeDashboard">
+    <ScrollViewer x:Name="HomeScrollViewer"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="DashboardRoot"
+                    Margin="24,4,24,28"
+                    Spacing="18"
+                    SizeChanged="OnDashboardSizeChanged">
+            <TextBlock x:Name="StatusMessage"
+                       IsVisible="False"
+                       Classes="home-secondary"
+                       TextWrapping="Wrap"/>
+
+            <!-- Module 1: Storage & Mounted Volumes -->
+            <StackPanel x:Name="StorageSection" Spacing="8" IsVisible="False">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{loc:Loc home.section.storage}"
+                               Classes="home-section-title"
+                               VerticalAlignment="Center"/>
+                    <controls:AppButton Grid.Column="1"
+                                        Classes="ghost home-section-link"
+                                        Content="{loc:Loc home.action.disk_management}"
+                                        Click="OnOpenDiskManagement"/>
+                </Grid>
+                <Grid x:Name="StorageGrid" ColumnSpacing="10" RowSpacing="10"/>
             </StackPanel>
-        </ScrollViewer>
-    </Grid>
+
+            <!-- Dedicated Horizontal Workgroup Presets Strip (auto-hidden when empty) -->
+            <StackPanel x:Name="WorkgroupsStripSection" Spacing="8" IsVisible="False">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{loc:Loc home.section.workgroups}"
+                               Classes="home-section-title"
+                               VerticalAlignment="Center"/>
+                    <controls:AppButton Grid.Column="1"
+                                        x:Name="WorkgroupsStripActionButton"
+                                        Classes="ghost home-section-link"
+                                        Content="{loc:Loc home.action.manage_workgroups}"
+                                        Click="OnOpenWorkgroupsMenu"/>
+                </Grid>
+                <Grid x:Name="PresetStrip" ColumnSpacing="10" RowSpacing="10"/>
+            </StackPanel>
+
+            <!-- Module 2 & 3: Equal-Height Balanced Bento Row (Frequent Folders + Recent Files) -->
+            <Grid x:Name="MiddleBentoGrid" ColumnSpacing="14" RowSpacing="14">
+                <!-- Left: Frequent Project Folders -->
+                <Grid x:Name="WorkspacesSection" RowDefinitions="Auto,*" RowSpacing="8">
+                    <Grid ColumnDefinitions="*,Auto" MinHeight="26">
+                        <TextBlock Text="{loc:Loc home.section.frequent_folders}"
+                                   Classes="home-section-title"
+                                   VerticalAlignment="Center"/>
+                        <controls:AppButton Grid.Column="1"
+                                            x:Name="WorkgroupsActionButton"
+                                            Classes="ghost home-section-link"
+                                            Content="{loc:Loc home.action.workgroups}"
+                                            Click="OnOpenWorkgroupsMenu"/>
+                    </Grid>
+                    <Border Grid.Row="1" Classes="home-card-surface" VerticalAlignment="Stretch">
+                        <StackPanel>
+                            <StackPanel x:Name="FrequentFoldersList"
+                                        Margin="6"
+                                        Spacing="1"/>
+                            <TextBlock x:Name="WorkspacesEmpty"
+                                       Classes="home-empty-hint"
+                                       Text="{loc:Loc home.empty.workspaces}"
+                                       IsVisible="False"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Right: Recent / Inbox Files -->
+                <Grid x:Name="InboxSection" RowDefinitions="Auto,*" RowSpacing="8">
+                    <Grid ColumnDefinitions="*,Auto" MinHeight="26">
+                        <TextBlock Text="{loc:Loc home.section.inbox}"
+                                   Classes="home-section-title"
+                                   VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" Classes="home-mini-segmented" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <controls:AppButton x:Name="InboxAllButton"
+                                                    Classes="ghost home-mini-seg active"
+                                                    Content="{loc:Loc home.inbox.all}"
+                                                    Click="OnInboxFilterAll"/>
+                                <controls:AppButton x:Name="InboxDownloadsButton"
+                                                    Classes="ghost home-mini-seg"
+                                                    Content="{loc:Loc home.inbox.downloads}"
+                                                    Click="OnInboxFilterDownloads"/>
+                                <controls:AppButton x:Name="InboxEditedButton"
+                                                    Classes="ghost home-mini-seg"
+                                                    Content="{loc:Loc home.inbox.edited}"
+                                                    Click="OnInboxFilterEdited"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Border Grid.Row="1" Classes="home-card-surface" VerticalAlignment="Stretch">
+                        <StackPanel>
+                            <StackPanel x:Name="InboxList"
+                                        Margin="6"
+                                        Spacing="1"/>
+                            <TextBlock x:Name="InboxEmpty"
+                                       Classes="home-empty-hint"
+                                       Text="{loc:Loc home.empty.inbox}"
+                                       IsVisible="False"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- Module 4: Unified Collections & Tags -->
+            <StackPanel x:Name="CollectionsSection" Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{loc:Loc home.section.collections}"
+                               Classes="home-section-title"
+                               VerticalAlignment="Center"/>
+                    <Border Grid.Column="1" Classes="home-mini-segmented">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <controls:AppButton x:Name="CollectionsListButton"
+                                                Classes="ghost home-mini-seg active"
+                                                Content="{loc:Loc home.collections.view_list}"
+                                                Click="OnCollectionsListView"/>
+                            <controls:AppButton x:Name="CollectionsGridButton"
+                                                Classes="ghost home-mini-seg"
+                                                Content="{loc:Loc home.collections.view_grid}"
+                                                Click="OnCollectionsGridView"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <Border x:Name="CollectionsCard" Classes="home-card-surface">
+                    <StackPanel>
+                        <Border Classes="home-card-toolbar">
+                            <WrapPanel x:Name="TagPillsPanel" Orientation="Horizontal"/>
+                        </Border>
+                        <StackPanel x:Name="CollectionsListPanel"
+                                    Margin="6"
+                                    Spacing="1"/>
+                        <WrapPanel x:Name="CollectionsGridPanel"
+                                   Margin="12,10,4,4"
+                                   IsVisible="False"/>
+                        <TextBlock x:Name="CollectionsEmpty"
+                                   Classes="home-empty-hint"
+                                   Text="{loc:Loc home.empty.collections}"
+                                   IsVisible="False"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <TextBlock x:Name="AllHiddenHint"
+                       Classes="home-empty-hint"
+                       Text="{loc:Loc home.empty.all_hidden}"
+                       IsVisible="False"/>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

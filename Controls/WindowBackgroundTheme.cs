@@ -18,10 +18,11 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
     internal static WindowBackgroundTheme? GetController(Control control) => control.GetValue(ControllerProperty);
     private static readonly SemaphoreSlim RenderSlots = new(2, 2);
     private static readonly string[] ClearSurfaces =
-        ["WorkspaceContentBrush", "WorkspaceSurfaceBrush", "WorkspaceInfoBrush"];
+        ["WorkspaceContentBrush", "WorkspaceSurfaceBrush", "WorkspaceInfoBrush", "HomeCanvasBrush"];
     private static readonly string[] ChromeResources = ["TitleBarBackgroundBrush", "ViewModeToggleBg", "ViewModeToggleHoverBg",
         "ViewModeToggleSelectedBg", "WorkspacePreviewBrush", "WorkspaceControlHoverBrush", "WorkspaceControlPressedBrush", "WorkspaceControlSelectedBrush",
         "WorkspaceControlBorderBrush", "WorkspaceDividerBrush", "WorkspaceInfoTagBrush", "WorkspacePreviewBadgeBrush", "WorkspacePreviewActionBrush",
+        "HomeCardBrush", "HomeCardSubtleBrush", "HomeCardBorderBrush", "HomeMiniSegBgBrush",
         "TextSecondaryBrush", "TextMutedBrush", "TextSubtleBrush"];
     private readonly HashSet<string> _surfaceResources = [];
     private readonly AppWindow _window;
@@ -168,6 +169,10 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
         SetBrush("WorkspaceControlBorderBrush", dark ? "#24FFFFFF" : "#18000000");
         SetBrush("WorkspaceDividerBrush", dark ? "#24FFFFFF" : "#18000000");
         SetBrush("WorkspaceInfoTagBrush", dark ? "#281B1D21" : "#30FFFFFF");
+        SetBrush("HomeCardBrush", dark ? "#CC20232A" : "#CCFFFFFF");
+        SetBrush("HomeCardSubtleBrush", dark ? "#D62B303A" : "#E8FFFFFF");
+        SetBrush("HomeCardBorderBrush", dark ? "#28FFFFFF" : "#66FFFFFF");
+        SetBrush("HomeMiniSegBgBrush", dark ? "#99242830" : "#99FFFFFF");
         UpdateControlSurfaces(dark);
         var tint = colors[1];
         var badge = Color.FromArgb(220, (byte)(tint.R * 0.3), (byte)(tint.G * 0.3), (byte)(tint.B * 0.3));
