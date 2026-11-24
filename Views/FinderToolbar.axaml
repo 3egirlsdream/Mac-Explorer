@@ -83,7 +83,7 @@
                 </controls:AppButton>
 
                 <controls:AppButton x:Name="HomeButton" Classes="ghost toolbar-btn w32 toolbar-regular-action" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="{loc:Loc ui.029}" Click="GoHome">
-                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
+                    <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Workbench}"/>
                 </controls:AppButton>
             </StackPanel>
 
@@ -283,7 +283,7 @@
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="GoHome">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Home}"/>
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Workbench}"/>
                                 <TextBlock Text="{loc:Loc ui.027}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </controls:AppButton>

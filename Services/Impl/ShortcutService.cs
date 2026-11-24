@@ -178,7 +178,7 @@ internal sealed class ShortcutService : IShortcutService, IDisposable
         Add(ShortcutIds.PathInput, "编辑路径", "导航", browser, Key.L);
         foreach (var (id, name, key, mods) in new[]
         {
-            (ShortcutIds.Home, "回到首页", Key.H, cmd | shift), (ShortcutIds.Up, "上级目录", Key.Up, cmd),
+            (ShortcutIds.Home, "回到工作台", Key.H, cmd | shift), (ShortcutIds.Up, "上级目录", Key.Up, cmd),
             (ShortcutIds.Back, "后退", Key.OemOpenBrackets, cmd), (ShortcutIds.Forward, "前进", Key.OemCloseBrackets, cmd),
             (ShortcutIds.Refresh, "刷新", Key.R, cmd),
             (ShortcutIds.Copy, "复制文件", Key.C, cmd), (ShortcutIds.Cut, "剪切文件", Key.X, cmd),

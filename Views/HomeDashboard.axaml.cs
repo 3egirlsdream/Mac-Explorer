@@ -81,7 +81,7 @@ public partial class HomeDashboard : UserControl
         var runner = services.GetService<HomeScriptRunner>();
         if (_tags == null || _workspace == null || files == null || runner == null)
         {
-            StatusMessage.Text = LocalizationText.Get("首页服务尚未初始化。");
+            StatusMessage.Text = LocalizationText.Get("工作台服务尚未初始化。");
             StatusMessage.IsVisible = true;
             return;
         }

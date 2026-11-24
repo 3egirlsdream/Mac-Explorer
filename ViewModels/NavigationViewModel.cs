@@ -471,7 +471,7 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
 
         if (IsHomePage)
         {
-            segments.Add(new BreadcrumbSegment { Name = "首页", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("首页"), FullPath = VirtualPath.Home, HasDropdown = false });
+            segments.Add(new BreadcrumbSegment { Name = "工作台", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("工作台"), FullPath = VirtualPath.Home, HasDropdown = false });
         }
         else if (path == MacExplorer.Services.Impl.FileDeliveryService.StagingPath)
         {
@@ -600,7 +600,7 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
     {
         var segments = new List<BreadcrumbSegment>
         {
-            new() { Name = "首页", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("首页"), FullPath = VirtualPath.Home, HasDropdown = false },
+            new() { Name = "工作台", DisplayName = MacExplorer.Services.Impl.LocalizationText.Get("工作台"), FullPath = VirtualPath.Home, HasDropdown = false },
             new() { Name = modeName, DisplayName = modeName, FullPath = modePath, HasDropdown = false }
         };
         if (contextLabel != null)

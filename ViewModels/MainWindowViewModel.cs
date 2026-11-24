@@ -86,7 +86,7 @@ public sealed partial class ExplorerTabViewModel : ObservableObject, IDisposable
     private static string GetTitle(FileListViewModel fileList)
     {
         var title = fileList.CurrentLocationTitle;
-        return string.IsNullOrWhiteSpace(title) ? MacExplorer.Services.Impl.LocalizationText.Get("首页") : title;
+        return string.IsNullOrWhiteSpace(title) ? MacExplorer.Services.Impl.LocalizationText.Get("工作台") : title;
     }
 
     public void Dispose()

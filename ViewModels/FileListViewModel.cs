@@ -233,7 +233,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             var breadcrumbTitle = Breadcrumbs.LastOrDefault()?.DisplayName;
             return !string.IsNullOrWhiteSpace(breadcrumbTitle)
                 ? breadcrumbTitle
-                : IsHomePage ? MacExplorer.Services.Impl.LocalizationText.Get("首页") : AppBranding.Name;
+                : IsHomePage ? MacExplorer.Services.Impl.LocalizationText.Get("工作台") : AppBranding.Name;
         }
     }
     public string HomeDirectory => _fileService.HomeDirectory;
@@ -243,7 +243,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         get
         {
             if (IsSearchMode) return AppIcons.Search;
-            if (IsHomePage) return AppIcons.Home;
+            if (IsHomePage) return AppIcons.Workbench;
             return GetLocationIcon(CurrentPath);
         }
     }

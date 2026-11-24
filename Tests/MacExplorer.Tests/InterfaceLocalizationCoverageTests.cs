@@ -47,11 +47,11 @@ public sealed class InterfaceLocalizationCoverageViewModelTests : FileListViewMo
         navigation.IsHomePage = true;
         navigation.CurrentPath = VirtualPath.Home;
         navigation.UpdateBreadcrumbs();
-        Assert.Equal("Home", tab.Title);
+        Assert.Equal("Workbench", tab.Title);
         language.SetLanguage(AppLanguage.ChineseSimplified);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("桌面", vm.DesktopName);
-        Assert.Equal("首页", tab.Title);
+        Assert.Equal("工作台", tab.Title);
         Assert.Equal("红色", FileTagCatalog.FinderColors[0].DisplayName);
     }
 

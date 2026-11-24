@@ -263,7 +263,7 @@ public sealed class TagTreePanel : UserControl
         }
         Add("添加子标签", Icons.StarAdd, () => StartCreate(tag.Name));
         Add("重命名", Icons.Rename, () => StartEdit(tag));
-        Add(tag.IsPinned ? "从首页取消置顶" : "在首页置顶", tag.IsPinned ? Icons.PinOff : Icons.Pin,
+        Add(tag.IsPinned ? "从工作台取消置顶" : "在工作台置顶", tag.IsPinned ? Icons.PinOff : Icons.Pin,
             () => _ = GuardAsync(() => _viewModel.SetTagPinnedAsync(tag, !tag.IsPinned)));
         Add("删除", Icons.Delete, () => { CloseRequested?.Invoke(); _viewModel.ShowTagDeleteConfirmDialog(tag); }, tag.IsCustom);
         return menu;

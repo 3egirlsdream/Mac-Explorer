@@ -811,7 +811,7 @@ public sealed class FileListViewModelCreateTests : FileListViewModelTestBase
         Assert.Equal("/", viewModel.CurrentLocationTitle);
 
         navigation.GoHome();
-        Assert.Equal("首页", viewModel.CurrentLocationTitle);
+        Assert.Equal("工作台", viewModel.CurrentLocationTitle);
     }
 
     [Fact]

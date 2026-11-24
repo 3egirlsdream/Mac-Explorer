@@ -235,7 +235,7 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
             await first.NavigateBackAsync();
             Assert.True(first.IsHomePage);
             Assert.True(second.IsHomePage);
-            Assert.Equal("首页", secondTab.Title);
+            Assert.Equal("工作台", secondTab.Title);
         }
         finally { Directory.Delete(root, true); }
     }
