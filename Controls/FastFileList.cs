@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using LiquidGlassAvaloniaUI;
 using Icons = MacExplorer.Assets.Icons;
 using MacExplorer.Models;
 using MacExplorer.Performance;
@@ -105,13 +106,17 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private readonly Dictionary<(FileListColumn Column, string Value), CachedText> _cellTexts = [];
     private readonly Queue<(FileListColumn Column, string Value)> _cellTextOrder = new();
     private readonly HashSet<FileSystemEntry> _observed = [];
-    private readonly Dictionary<string, CachedText> _badges = [];
+    private readonly Dictionary<(bool IsGrid, string Text), CachedText> _badges = [];
+    private static readonly Dictionary<string, IBrush> GitBadgeBrushes = new(StringComparer.Ordinal);
+    private static readonly IPen GitBadgePenGrid = new Pen(Brushes.White, 1.5);
+    private static readonly IPen GitBadgePenList = new Pen(Brushes.White, 1);
     private readonly FastFileListImages _images = new();
     internal FastFileListImages Images => _images;
     private readonly FastFileListLayout _layout = new();
     private IReadOnlyList<FastFileListGroup> _groups = [];
     private readonly Dictionary<string, (CachedText Title, CachedText Count)> _headerTexts = [];
     private readonly Dictionary<string, CachedText> _gridNames = [];
+    private readonly Dictionary<(string Name, double Width), CachedText> _listNames = [];
     private bool _hasVirtualRows;
     private readonly Geometry _fileFallback = Geometry.Parse(Icons.File);
     private readonly Geometry _folderFallback = Geometry.Parse(Icons.Folder);
@@ -127,6 +132,40 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private string? _dropPath;
     private string? _editingPath;
     private bool _folderCoversEnabled;
+    private Dictionary<string, MorphStart>? _morphStarts;
+    private bool _morphFromGrid;
+    private double _morphProgress = 1;
+    private long _morphStartTimestamp;
+    private bool _morphTicked;
+    private int _morphGeneration;
+    private bool _morphDeferredClearTexts;
+    private bool _morphDeferredClearGridNames;
+    private bool _morphDeferredClearListTexts;
+    private bool _morphDeferredVisibleUpdate;
+    private IDisposable? _morphGlassSuppression;
+    private readonly List<MorphDrawItem> _morphItems = new(64);
+    private readonly List<MorphAppearItem> _morphAppearItems = new(64);
+    internal double PendingMorphStartOffsetY { get; set; }
+
+    private readonly record struct MorphStart(Rect Icon, Rect Name, Rect Row, Rect IconHighlight, Rect NameHighlight, CachedText? CachedName);
+    private readonly record struct MorphDrawItem(
+        int Index,
+        FileSystemEntry Entry,
+        Rect Row,
+        Rect Icon,
+        Rect IconHighlight,
+        Rect NameHighlight,
+        Point NamePos,
+        CachedText? StartName,
+        RowText? TargetText,
+        IBrush? Fill,
+        IBrush? NameFill,
+        bool IsCut,
+        bool DrawRowOutline,
+        bool DrawNameHighlight,
+        bool DrawDisclosure);
+    private readonly record struct MorphAppearItem(int Index, FileSystemEntry Entry, Rect Row, Rect Icon, RowText? TargetText);
+    internal bool IsLayoutMorphActive => _morphStarts != null && _morphProgress < 1;
 
     internal Func<FileSystemEntry, int, CancellationToken, Task<ThumbnailResult?>>? ThumbnailProvider
     {
@@ -210,7 +249,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
     internal FileListColumnWidths ColumnWidths
     {
         get => _columns;
-        set { if (_columns == value) return; _columns = value; ClearTexts(); InvalidateVisual(); }
+        set
+        {
+            if (_columns == value) return;
+            _columns = value;
+            if (IsLayoutMorphActive) _morphDeferredClearListTexts = true;
+            else ClearListTexts();
+            InvalidateVisual();
+        }
     }
 
     public FastFileList()
@@ -218,7 +264,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         Focusable = true;
         ClipToBounds = true;
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.LowQuality);
-        _images.Changed += InvalidateVisual;
+        _images.Changed += () => { if (!IsLayoutMorphActive) InvalidateVisual(); };
     }
 
     static FastFileList()
@@ -246,6 +292,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     private void ApplyRows(IReadOnlyList<FileSystemEntry> rows, IReadOnlyList<FastFileListGroup> groups)
     {
+        if (!ShouldPreserveMorph(rows))
+            CancelLayoutMorph();
         _rows = rows;
         _groups = groups;
         ClearHeaderTexts();
@@ -292,6 +340,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         {
             var next = ClampOffset(value.Y);
             if (_offset == next) return;
+            if (_morphTicked) CancelLayoutMorph();
             _offset = next;
             ScheduleVisibleUpdate();
             InvalidateVisual();
@@ -322,29 +371,75 @@ public sealed class FastFileList : Control, ILogicalScrollable
             || change.Property == DetailFontSizeProperty || change.Property == MetaFontSizeProperty
             || change.Property == CaptionFontSizeProperty;
         var gridSizeChanged = IsGrid && change.Property == GridIconSizeProperty;
-        if (typographyChanged || gridSizeChanged || change.Property == ForegroundProperty || change.Property == SecondaryProperty
-            || change.Property == MutedProperty || change.Property == IsGridProperty)
+        var canMorph = (change.Property == IsGridProperty || gridSizeChanged)
+            && ViewMotion.ShouldAnimate(this) && !IsLoading && _rows.Count > 0
+            && Bounds.Width > 16 && Bounds.Height > 16 && _layout.Count == _rows.Count;
+        var oldIsGrid = _layout.IsGrid;
+        var oldIconSize = change.Property == GridIconSizeProperty ? change.GetOldValue<int>() : GridIconSize;
+        var morphSnapshot = canMorph ? CaptureMorphSnapshot(oldIsGrid, oldIconSize) : null;
+        var willMorph = morphSnapshot is { Count: > 0 };
+
+        if (typographyChanged || change.Property == ForegroundProperty || change.Property == SecondaryProperty
+            || change.Property == MutedProperty)
+        {
             ClearTexts();
+        }
+        else if (gridSizeChanged)
+        {
+            if (willMorph)
+                _morphDeferredClearGridNames = true;
+            else
+                ClearGridNames();
+        }
         if (change.Property == IsGridProperty)
-            RenderOptions.SetBitmapInterpolationMode(this, IsGrid ? BitmapInterpolationMode.HighQuality : BitmapInterpolationMode.LowQuality);
+            RenderOptions.SetBitmapInterpolationMode(this, !willMorph && IsGrid ? BitmapInterpolationMode.HighQuality : BitmapInterpolationMode.LowQuality);
         if (change.Property == IsLoadingProperty)
         {
+            if (IsLoading) CancelLayoutMorph();
             _pointerPosition = null;
             ToolTip.SetTip(this, null);
             ScheduleVisibleUpdate();
         }
         if (change.Property == BoundsProperty || change.Property == IsGridProperty || gridSizeChanged || typographyChanged || change.Property == GroupMinHeightProperty)
         {
-            var anchor = VisibleRange.First;
-            var y = anchor < _rows.Count ? RowBounds(anchor).Y : 0;
-            BuildLayout();
-            if (anchor < _rows.Count) _offset = _layout.Bounds(anchor).Y - y;
-            _offset = ClampOffset(_offset);
-            RaiseScrollInvalidated(EventArgs.Empty);
-            ScheduleVisibleUpdate();
-            ViewportChanged?.Invoke();
+            var heightOnlyBoundsChange = change.Property == BoundsProperty
+                && _layout.Count == _rows.Count
+                && Math.Abs(Bounds.Width - _layout.Width) < 1;
+            if (heightOnlyBoundsChange)
+            {
+                _offset = ClampOffset(_offset);
+                RaiseScrollInvalidated(EventArgs.Empty);
+                if (!IsLayoutMorphActive)
+                    ScheduleVisibleUpdate();
+                ViewportChanged?.Invoke();
+            }
+            else
+            {
+                if (!canMorph) CancelLayoutMorph();
+
+                var anchor = VisibleRange.First;
+                var y = anchor < _rows.Count ? _layout.Bounds(anchor).Y - _offset : 0;
+                BuildLayout();
+                if (anchor < _rows.Count) _offset = _layout.Bounds(anchor).Y - y;
+                _offset = ClampOffset(_offset);
+                RaiseScrollInvalidated(EventArgs.Empty);
+                if (willMorph)
+                {
+                    _morphDeferredVisibleUpdate = true;
+                    StartLayoutMorph(morphSnapshot!, oldIsGrid);
+                }
+                else
+                {
+                    ScheduleVisibleUpdate();
+                }
+                ViewportChanged?.Invoke();
+            }
         }
-        if (change.Property == IsVisibleProperty) ScheduleVisibleUpdate();
+        if (change.Property == IsVisibleProperty)
+        {
+            if (!IsVisible) CancelLayoutMorph();
+            ScheduleVisibleUpdate();
+        }
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -362,6 +457,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        CancelLayoutMorph();
         _attached = false;
         if (_topLevel != null) _topLevel.ScalingChanged -= OnScalingChanged;
         _topLevel = null;
@@ -586,6 +682,11 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private void ScheduleVisibleUpdate()
     {
         if (!_attached || _visibleUpdateQueued) return;
+        if (IsLayoutMorphActive)
+        {
+            _morphDeferredVisibleUpdate = true;
+            return;
+        }
         _visibleUpdateQueued = true;
         Dispatcher.UIThread.Post(() =>
         {
@@ -699,6 +800,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
             LastRenderedHeaderCount++;
         }
         var hover = _pointerPosition is { } position ? RowIndexAt(position) : -1;
+        if (IsLayoutMorphActive)
+        {
+            RenderMorphEntries(context, first, end, hover);
+            LastRenderedRowCount = end - first;
+            LastRenderMilliseconds = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            FileListPerformanceMetrics.FastListRendered(LastRenderMilliseconds, LastRenderedRowCount);
+            return;
+        }
         for (var index = first; index < end; index++)
         {
             var entry = _rows[index];
@@ -780,7 +889,559 @@ public sealed class FastFileList : Control, ILogicalScrollable
         }
     }
 
-    private void DrawIcon(DrawingContext context, FileSystemEntry entry, Rect bounds)
+    private bool ShouldPreserveMorph(IReadOnlyList<FileSystemEntry> rows)
+    {
+        if (!IsLayoutMorphActive || _morphStarts == null || rows.Count == 0) return false;
+        for (var i = 0; i < rows.Count; i++)
+            if (_morphStarts.ContainsKey(rows[i].FullPath))
+                return true;
+        return false;
+    }
+
+    private Dictionary<string, MorphStart> CaptureMorphSnapshot(bool oldIsGrid, int oldIconSize)
+    {
+        var snapshot = new Dictionary<string, MorphStart>(StringComparer.Ordinal);
+        var (first, end) = _layout.VisibleRange(_offset, _offset + Viewport.Height);
+        var from = Math.Max(0, first - 8);
+        var to = Math.Min(_rows.Count, Math.Min(end + 8, from + 120));
+        var wasMorphing = IsLayoutMorphActive;
+        var prevT = wasMorphing ? ViewMotion.EaseOutCubic(_morphProgress) : 1;
+        var offsetY = PendingMorphStartOffsetY;
+
+        for (var i = from; i < to; i++)
+        {
+            var entry = _rows[i];
+            var raw = _layout.Bounds(i).Translate(new Vector(0, -_offset));
+            var row = oldIsGrid ? raw : new Rect(raw.X, raw.Y, Math.Min(raw.Width, ListRowRight), raw.Height);
+            Rect icon;
+            Rect name;
+            Rect iconHighlight;
+            Rect nameHighlight;
+            CachedText? cachedName = null;
+            if (oldIsGrid)
+            {
+                icon = new Rect(row.Center.X - oldIconSize / 2d, row.Y + 22, oldIconSize, oldIconSize);
+                var oldNameMaxWidth = oldIconSize + 36;
+                double nameWidth = oldNameMaxWidth;
+                double nameHeight = 16;
+                if (_texts.TryGetValue(entry.FullPath, out var cached) && cached.Value.IsGrid)
+                {
+                    cachedName = cached.Value.Name.Retain();
+                    nameWidth = Math.Ceiling(Math.Min(oldNameMaxWidth, cached.Value.Name.WidthIncludingTrailingWhitespace));
+                    nameHeight = Math.Ceiling(cached.Value.Name.Height);
+                }
+                else if (_gridNames.TryGetValue(entry.DisplayName, out var gridCached))
+                {
+                    cachedName = gridCached.Retain();
+                    nameWidth = Math.Ceiling(Math.Min(oldNameMaxWidth, gridCached.WidthIncludingTrailingWhitespace));
+                    nameHeight = Math.Ceiling(gridCached.Height);
+                }
+                name = new Rect(Math.Round(row.Center.X - nameWidth / 2), row.Y + oldIconSize + 35, nameWidth, nameHeight);
+                iconHighlight = icon.Inflate(8);
+                nameHighlight = name.Inflate(new Thickness(4, 1));
+            }
+            else
+            {
+                icon = new Rect(Inset + TreeIndent(i) + 2, row.Y + 6, 18, 18);
+                double nameWidth = Math.Max(1, NameColumnWidth - 16 - TreeIndent(i));
+                double nameHeight = 16;
+                if (_texts.TryGetValue(entry.FullPath, out var cached) && !cached.Value.IsGrid)
+                {
+                    cachedName = cached.Value.Name.Retain();
+                    nameWidth = Math.Ceiling(Math.Min(nameWidth, cached.Value.Name.WidthIncludingTrailingWhitespace));
+                    nameHeight = Math.Ceiling(cached.Value.Name.Height);
+                }
+                else if (_listNames.TryGetValue((entry.DisplayName, nameWidth), out var listCached))
+                {
+                    cachedName = listCached.Retain();
+                    nameWidth = Math.Ceiling(Math.Min(nameWidth, listCached.WidthIncludingTrailingWhitespace));
+                    nameHeight = Math.Ceiling(listCached.Height);
+                }
+                name = new Rect(NameX(i), row.Y + Math.Round((RowHeight - nameHeight) / 2), nameWidth, nameHeight);
+                iconHighlight = row;
+                nameHighlight = row;
+            }
+
+            if (wasMorphing && _morphStarts!.TryGetValue(entry.FullPath, out var existing))
+            {
+                icon = ViewMotion.LerpRect(existing.Icon, icon, prevT);
+                name = ViewMotion.LerpRect(existing.Name, name, prevT);
+                row = ViewMotion.LerpRect(existing.Row, row, prevT);
+                iconHighlight = ViewMotion.LerpRect(existing.IconHighlight, iconHighlight, prevT);
+                nameHighlight = ViewMotion.LerpRect(existing.NameHighlight, nameHighlight, prevT);
+                if (cachedName == null && existing.CachedName != null)
+                    cachedName = existing.CachedName.Retain();
+            }
+
+            if (Math.Abs(offsetY) > 0.5)
+            {
+                var shift = new Vector(0, offsetY);
+                icon = icon.Translate(shift);
+                name = name.Translate(shift);
+                row = row.Translate(shift);
+                iconHighlight = iconHighlight.Translate(shift);
+                nameHighlight = nameHighlight.Translate(shift);
+            }
+
+            snapshot[entry.FullPath] = new MorphStart(icon, name, row, iconHighlight, nameHighlight, cachedName);
+        }
+        return snapshot;
+    }
+
+    private void ReleaseMorphStarts()
+    {
+        if (_morphStarts == null) return;
+        foreach (var item in _morphStarts.Values)
+            item.CachedName?.Release();
+        _morphStarts = null;
+    }
+
+    private void StartLayoutMorph(Dictionary<string, MorphStart> starts, bool fromGrid)
+    {
+        ReleaseMorphStarts();
+        _morphStarts = starts;
+        _morphFromGrid = fromGrid;
+        _morphProgress = 0;
+        _morphTicked = false;
+        _morphStartTimestamp = Stopwatch.GetTimestamp();
+        _morphGlassSuppression?.Dispose();
+        _morphGlassSuppression = LiquidGlassBackdrop.BeginExcludedSceneSuppression(this);
+        RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.LowQuality);
+        var generation = ++_morphGeneration;
+        if (_topLevel is { } topLevel)
+            topLevel.RequestAnimationFrame(ts => OnLayoutMorphFrame(ts, generation));
+        else
+            CancelLayoutMorph();
+    }
+
+    private void OnLayoutMorphFrame(TimeSpan timestamp, int generation)
+    {
+        if (generation != _morphGeneration || _morphStarts == null) return;
+        if (!_attached || !IsEffectivelyVisible || ViewMotion.PrefersReducedMotion)
+        {
+            CancelLayoutMorph();
+            return;
+        }
+        _morphTicked = true;
+        var elapsed = Stopwatch.GetElapsedTime(_morphStartTimestamp).TotalMilliseconds;
+        if (elapsed < 1) elapsed = 8;
+        _morphProgress = Math.Clamp(elapsed / ViewMotion.MorphDurationMs, 0, 1);
+        if (_morphProgress >= 1)
+        {
+            FinishLayoutMorph();
+            return;
+        }
+        InvalidateVisual();
+        if (_topLevel is { } topLevel)
+            topLevel.RequestAnimationFrame(ts => OnLayoutMorphFrame(ts, generation));
+        else
+            CancelLayoutMorph();
+    }
+
+    private void FinishLayoutMorph()
+    {
+        ReleaseMorphStarts();
+        _morphGlassSuppression?.Dispose();
+        _morphGlassSuppression = null;
+        _morphTicked = false;
+        _morphProgress = 1;
+        var generation = _morphGeneration;
+        if (_morphDeferredClearTexts)
+        {
+            _morphDeferredClearTexts = false;
+            _morphDeferredClearGridNames = false;
+            _morphDeferredClearListTexts = false;
+            ClearTexts();
+        }
+        if (_morphDeferredClearGridNames)
+        {
+            _morphDeferredClearGridNames = false;
+            ClearGridNames();
+        }
+        if (_morphDeferredClearListTexts)
+        {
+            _morphDeferredClearListTexts = false;
+            ClearListTexts();
+        }
+        if (_morphDeferredVisibleUpdate)
+        {
+            _morphDeferredVisibleUpdate = false;
+            ScheduleVisibleUpdate();
+        }
+        if (!IsGrid)
+        {
+            RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.LowQuality);
+        }
+        else if (_attached)
+        {
+            // Keep the landing frame cheap; upgrade grid thumbnails to high-quality sampling on the next idle pass.
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_attached || !IsGrid || IsLayoutMorphActive || generation != _morphGeneration) return;
+                RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.HighQuality);
+                InvalidateVisual();
+            }, DispatcherPriority.Background);
+        }
+        InvalidateVisual();
+    }
+
+    internal void CancelLayoutMorph()
+    {
+        _morphGeneration++;
+        if (_morphStarts == null && _morphProgress >= 1)
+        {
+            _morphGlassSuppression?.Dispose();
+            _morphGlassSuppression = null;
+            return;
+        }
+        FinishLayoutMorph();
+    }
+
+    private void RenderMorphEntries(DrawingContext context, int first, int end, int hover)
+    {
+        const int warmTextBudgetPerFrame = 12;
+        var t = ViewMotion.EaseOutCubic(_morphProgress);
+        var modeSwitched = IsGrid != _morphFromGrid;
+        var startNameAlpha = modeSwitched ? Math.Clamp(1 - t / 0.45, 0, 1) : 1;
+        var targetNameAlpha = modeSwitched ? Math.Clamp((t - 0.12) / 0.68, 0, 1) : 0;
+        var detailAlpha = Math.Clamp((t - 0.25) / 0.60, 0, 1);
+        var warmBudget = warmTextBudgetPerFrame;
+        var drawListColumns = !IsGrid && !NameOnly && DetailTextProvider == null;
+
+        _morphItems.Clear();
+        _morphAppearItems.Clear();
+        var hasCutItems = false;
+        var hasNameHighlights = false;
+        var hasDisclosures = false;
+        var hasStartNames = false;
+        var hasTargetNames = false;
+        var hasListDetailColumns = false;
+
+        for (var index = first; index < end; index++)
+        {
+            var entry = _rows[index];
+            var targetRow = RowBounds(index);
+            var targetIcon = IsGrid
+                ? GridImageBounds(targetRow.Center.X, targetRow.Y)
+                : new Rect(Inset + TreeIndent(index) + 2, targetRow.Y + 6, 18, 18);
+            var targetText = modeSwitched && DetailTextProvider == null
+                ? TryGetOrWarmTargetText(entry, index, ref warmBudget)
+                : null;
+
+            if (!_morphStarts!.TryGetValue(entry.FullPath, out var start))
+            {
+                _morphAppearItems.Add(new MorphAppearItem(index, entry, targetRow, targetIcon, targetText));
+                continue;
+            }
+
+            var lerpedRow = ViewMotion.LerpRect(start.Row, targetRow, t);
+            var lerpedIcon = ViewMotion.LerpRect(start.Icon, targetIcon, t);
+            var startName = entry.FullPath != EditingPath ? start.CachedName : null;
+            var metricText = targetText?.Name ?? startName;
+            var maxNameWidth = IsGrid ? GridNameWidth : Math.Max(1, NameColumnWidth - 16 - TreeIndent(index));
+            var nameWidth = metricText != null
+                ? Math.Ceiling(Math.Min(maxNameWidth, metricText.WidthIncludingTrailingWhitespace))
+                : start.Name.Width;
+            var nameHeight = metricText != null ? Math.Ceiling(metricText.Height) : start.Name.Height;
+            var targetName = IsGrid
+                ? new Rect(Math.Round(targetRow.Center.X - nameWidth / 2), targetRow.Y + GridIconSize + 35, nameWidth, nameHeight)
+                : new Rect(Math.Round(NameX(index)), targetRow.Y + Math.Round((RowHeight - nameHeight) / 2), nameWidth, nameHeight);
+            var lerpedNamePos = new Point(
+                Math.Round(start.Name.X + (targetName.X - start.Name.X) * t),
+                Math.Round(start.Name.Y + (targetName.Y - start.Name.Y) * t));
+            var isCut = !NameOnly && entry.IsCut;
+            if (isCut) hasCutItems = true;
+            var drawRowOutline = IsRowSelected(entry) || HasKeyboardFocus(entry);
+            if (startName != null) hasStartNames = true;
+            if (entry.FullPath != EditingPath && targetText != null) hasTargetNames = true;
+            if (drawListColumns && targetText != null) hasListDetailColumns = true;
+
+            if (IsGrid)
+            {
+                var targetIconHighlight = GridIconTargetBounds(index);
+                var iconHighlightRect = ViewMotion.LerpRect(start.IconHighlight, targetIconHighlight, t);
+                var iconHovered = _pointerPosition is { } pt && targetIconHighlight.Contains(pt);
+                var iconFill = entry.FullPath == _dropPath ? DropBrush
+                    : entry.IsSelected ? iconHovered ? SelectedHover : Selected : iconHovered ? Hover : null;
+
+                Rect nameHighlightRect = default;
+                IBrush? nameFill = null;
+                var drawNameHighlight = false;
+                if (entry.FullPath != EditingPath)
+                {
+                    var targetNameHighlight = targetName.Inflate(new Thickness(4, 1));
+                    var nameHovered = _pointerPosition is { } namePt && targetNameHighlight.Contains(namePt);
+                    nameFill = entry.FullPath == _dropPath ? DropBrush
+                        : entry.IsSelected ? nameHovered ? SelectedHover : Selected : nameHovered ? Hover : null;
+                    if (nameFill != null || drawRowOutline)
+                    {
+                        drawNameHighlight = true;
+                        hasNameHighlights = true;
+                        nameHighlightRect = modeSwitched
+                            ? new Rect(lerpedNamePos, targetName.Size).Inflate(new Thickness(4, 1))
+                            : ViewMotion.LerpRect(start.NameHighlight, targetNameHighlight, t);
+                    }
+                }
+
+                _morphItems.Add(new MorphDrawItem(index, entry, lerpedRow, lerpedIcon, iconHighlightRect, nameHighlightRect,
+                    lerpedNamePos, startName, targetText, iconFill, nameFill, isCut,
+                    drawRowOutline, drawNameHighlight, false));
+            }
+            else
+            {
+                var fill = IsRowSelected(entry) ? index == hover ? SelectedHover : Selected
+                    : index == hover ? Hover : index % 2 == 1 ? AlternateRow : null;
+                var drawDisclosure = IsTree && _treeRows[index].CanExpand && detailAlpha > 0.01;
+                if (drawDisclosure) hasDisclosures = true;
+
+                _morphItems.Add(new MorphDrawItem(index, entry, lerpedRow, lerpedIcon, default, default,
+                    lerpedNamePos, startName, targetText, fill, null, isCut,
+                    drawRowOutline, false, drawDisclosure));
+            }
+        }
+
+        // Pass 1: Backgrounds & highlights (batch opacity layers instead of per-item SaveLayer).
+        if (IsGrid)
+        {
+            DrawGridIconHighlights(cutOnly: false);
+            if (hasCutItems)
+            {
+                using var cutOpacity = context.PushOpacity(0.45);
+                DrawGridIconHighlights(cutOnly: true);
+            }
+            if (hasNameHighlights)
+            {
+                var nameBgAlpha = modeSwitched ? detailAlpha : 1;
+                if (nameBgAlpha > 0.001)
+                {
+                    using var nameBgOpacity = nameBgAlpha < 0.999 ? context.PushOpacity(nameBgAlpha) : default;
+                    DrawGridNameHighlights(cutOnly: false);
+                }
+                if (hasCutItems && nameBgAlpha * 0.45 > 0.001)
+                {
+                    using var cutNameBgOpacity = context.PushOpacity(nameBgAlpha * 0.45);
+                    DrawGridNameHighlights(cutOnly: true);
+                }
+            }
+        }
+        else
+        {
+            var radius = Math.Max(0, RowCornerRadius.TopLeft - 0.5);
+            for (var i = 0; i < _morphItems.Count; i++)
+            {
+                var item = _morphItems[i];
+                var hasFocus = HasKeyboardFocus(item.Entry);
+                if (item.Fill != null || hasFocus)
+                    context.DrawRectangle(item.Fill, hasFocus ? new Pen(FocusRing, 1) : null, new RoundedRect(item.Row.Deflate(0.5), radius));
+                if (item.DrawRowOutline && !item.IsCut)
+                    context.DrawRectangle(null, null, new RoundedRect(item.Row.Deflate(1), RowCornerRadius), OutlineFor(item.Entry));
+            }
+            if (hasCutItems)
+            {
+                using var cutOutlineOpacity = context.PushOpacity(0.45);
+                for (var i = 0; i < _morphItems.Count; i++)
+                {
+                    var item = _morphItems[i];
+                    if (item.IsCut && item.DrawRowOutline)
+                        context.DrawRectangle(null, null, new RoundedRect(item.Row.Deflate(1), RowCornerRadius), OutlineFor(item.Entry));
+                }
+            }
+        }
+
+        // Pass 2: Tree disclosures & List detail columns (1 shared opacity layer; 0 SaveLayer once settled).
+        if ((hasDisclosures || hasListDetailColumns) && detailAlpha > 0.001)
+        {
+            var modifiedX = Inset + IconSlot + _columns.Name;
+            var sizeRight = modifiedX + _columns.Modified + _columns.Size - 12;
+            var kindX = modifiedX + _columns.Modified + _columns.Size;
+
+            using (detailAlpha < 0.999 ? context.PushOpacity(detailAlpha) : default)
+            {
+                DrawListDetailsAndDisclosures(cutOnly: false, modifiedX, sizeRight, kindX);
+            }
+            if (hasCutItems)
+            {
+                using var cutDetailOpacity = context.PushOpacity(detailAlpha * 0.45);
+                DrawListDetailsAndDisclosures(cutOnly: true, modifiedX, sizeRight, kindX);
+            }
+        }
+
+        // Pass 3: Icons for morphed items (0 SaveLayer for normal items).
+        for (var i = 0; i < _morphItems.Count; i++)
+        {
+            var item = _morphItems[i];
+            if (!item.IsCut) DrawIcon(context, item.Entry, item.Icon, drawShadow: false);
+        }
+        if (hasCutItems)
+        {
+            using var cutIconOpacity = context.PushOpacity(0.45);
+            for (var i = 0; i < _morphItems.Count; i++)
+            {
+                var item = _morphItems[i];
+                if (item.IsCut) DrawIcon(context, item.Entry, item.Icon, drawShadow: false);
+            }
+        }
+
+        // Pass 4A: Outgoing source labels (cross-fades out over first 45% when switching Grid <-> List).
+        if (hasStartNames && startNameAlpha > 0.001)
+        {
+            using (startNameAlpha < 0.999 ? context.PushOpacity(startNameAlpha) : default)
+            {
+                for (var i = 0; i < _morphItems.Count; i++)
+                {
+                    var item = _morphItems[i];
+                    if (!item.IsCut && item.StartName != null) item.StartName.Draw(context, item.NamePos);
+                }
+            }
+            if (hasCutItems)
+            {
+                using var cutStartLabelOpacity = context.PushOpacity(startNameAlpha * 0.45);
+                for (var i = 0; i < _morphItems.Count; i++)
+                {
+                    var item = _morphItems[i];
+                    if (item.IsCut && item.StartName != null) item.StartName.Draw(context, item.NamePos);
+                }
+            }
+        }
+
+        // Pass 4B: Incoming target labels (exact final List/Grid TextLayout; 0 SaveLayer once settled).
+        if (modeSwitched && hasTargetNames && targetNameAlpha > 0.001)
+        {
+            using (targetNameAlpha < 0.999 ? context.PushOpacity(targetNameAlpha) : default)
+            {
+                for (var i = 0; i < _morphItems.Count; i++)
+                {
+                    var item = _morphItems[i];
+                    if (!item.IsCut && item.TargetText != null && item.Entry.FullPath != EditingPath)
+                        item.TargetText.Name.Draw(context, item.NamePos);
+                }
+            }
+            if (hasCutItems)
+            {
+                using var cutTargetLabelOpacity = context.PushOpacity(targetNameAlpha * 0.45);
+                for (var i = 0; i < _morphItems.Count; i++)
+                {
+                    var item = _morphItems[i];
+                    if (item.IsCut && item.TargetText != null && item.Entry.FullPath != EditingPath)
+                        item.TargetText.Name.Draw(context, item.NamePos);
+                }
+            }
+        }
+
+        // Pass 5: Newly appearing items without snapshot (1 shared SaveLayer including icon & target text).
+        if (_morphAppearItems.Count > 0 && t > 0.001)
+        {
+            var scale = 0.92 + 0.08 * t;
+            var radius = Math.Max(0, RowCornerRadius.TopLeft - 0.5);
+            var modifiedX = Inset + IconSlot + _columns.Name;
+            var sizeRight = modifiedX + _columns.Modified + _columns.Size - 12;
+            var kindX = modifiedX + _columns.Modified + _columns.Size;
+
+            using (t < 0.999 ? context.PushOpacity(t) : default)
+            {
+                for (var i = 0; i < _morphAppearItems.Count; i++)
+                {
+                    var item = _morphAppearItems[i];
+                    var center = item.Icon.Center;
+                    if (!IsGrid)
+                    {
+                        var fill = IsRowSelected(item.Entry) ? item.Index == hover ? SelectedHover : Selected
+                            : item.Index == hover ? Hover : item.Index % 2 == 1 ? AlternateRow : null;
+                        if (fill != null)
+                            context.DrawRectangle(fill, null, new RoundedRect(item.Row.Deflate(0.5), radius));
+                        if (IsTree && _treeRows[item.Index].CanExpand)
+                            DrawTreeDisclosure(context, item.Index);
+                    }
+                    using (context.PushTransform(
+                        Matrix.CreateTranslation(-center.X, -center.Y)
+                        * Matrix.CreateScale(scale, scale)
+                        * Matrix.CreateTranslation(center.X, center.Y)))
+                    {
+                        DrawIcon(context, item.Entry, item.Icon, drawShadow: false);
+                    }
+                    if (item.TargetText is { } appearText && item.Entry.FullPath != EditingPath)
+                    {
+                        if (IsGrid)
+                        {
+                            var width = Math.Ceiling(Math.Min(GridNameWidth, appearText.Name.WidthIncludingTrailingWhitespace));
+                            appearText.Name.Draw(context, new Point(Math.Round(item.Row.Center.X - width / 2), item.Row.Y + GridIconSize + 35));
+                        }
+                        else
+                        {
+                            DrawRowCell(appearText.Name, NameX(item.Index), item.Row.Y);
+                            if (drawListColumns)
+                            {
+                                DrawRowCell(appearText.Modified, modifiedX, item.Row.Y);
+                                DrawRowCell(appearText.Size, sizeRight - Math.Ceiling(appearText.Size.Width), item.Row.Y);
+                                DrawRowCell(appearText.Kind, kindX, item.Row.Y);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        void DrawListDetailsAndDisclosures(bool cutOnly, double modifiedX, double sizeRight, double kindX)
+        {
+            for (var i = 0; i < _morphItems.Count; i++)
+            {
+                var item = _morphItems[i];
+                if (item.IsCut != cutOnly) continue;
+                if (item.DrawDisclosure) DrawTreeDisclosure(context, item.Index);
+                if (drawListColumns && item.TargetText is { } text)
+                {
+                    DrawRowCell(text.Modified, modifiedX, item.Row.Y);
+                    DrawRowCell(text.Size, sizeRight - Math.Ceiling(text.Size.Width), item.Row.Y);
+                    DrawRowCell(text.Kind, kindX, item.Row.Y);
+                }
+            }
+        }
+
+        void DrawRowCell(CachedText value, double x, double rowY) => value.Draw(context,
+            new Point(Math.Round(x), rowY + Math.Round((RowHeight - Math.Ceiling(value.Height)) / 2)));
+
+        void DrawGridIconHighlights(bool cutOnly)
+        {
+            for (var i = 0; i < _morphItems.Count; i++)
+            {
+                var item = _morphItems[i];
+                if (item.IsCut != cutOnly) continue;
+                if (item.Fill != null || item.DrawRowOutline)
+                    context.DrawRectangle(item.Fill, null, new RoundedRect(item.IconHighlight, RowCornerRadius), OutlineFor(item.Entry));
+            }
+        }
+
+        void DrawGridNameHighlights(bool cutOnly)
+        {
+            for (var i = 0; i < _morphItems.Count; i++)
+            {
+                var item = _morphItems[i];
+                if (item.IsCut != cutOnly || !item.DrawNameHighlight) continue;
+                context.DrawRectangle(item.NameFill, null, new RoundedRect(item.NameHighlight, new CornerRadius(4)), OutlineFor(item.Entry));
+            }
+        }
+    }
+
+    private RowText? TryGetOrWarmTargetText(FileSystemEntry entry, int index, ref int warmBudget)
+    {
+        var nameWidth = IsGrid ? GridNameWidth : Math.Max(1, NameColumnWidth - 16 - TreeIndent(index));
+        if (_texts.TryGetValue(entry.FullPath, out var node) && node.Value.Matches(entry, nameWidth, IsGrid))
+            return node.Value;
+
+        var nameAlreadyCached = IsGrid
+            ? _gridNames.ContainsKey(entry.DisplayName)
+            : _listNames.ContainsKey((entry.DisplayName, nameWidth));
+        if (nameAlreadyCached)
+            return Texts(entry, index);
+
+        if (warmBudget <= 0)
+            return null;
+
+        warmBudget--;
+        return Texts(entry, index);
+    }
+
+    private void DrawIcon(DrawingContext context, FileSystemEntry entry, Rect bounds, bool drawShadow = true)
     {
         if (DetailIcon != null)
         {
@@ -795,7 +1456,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             var scale = Math.Min(bounds.Width / image.Size.Width, bounds.Height / image.Size.Height);
             var size = new Size(image.Size.Width * scale, image.Size.Height * scale);
             var destination = new Rect(bounds.Center - new Vector(size.Width / 2, size.Height / 2), size);
-            if (isThumbnail) ThumbnailAppearance.DrawShadow(context, destination, ThumbnailShadow);
+            if (drawShadow && isThumbnail) ThumbnailAppearance.DrawShadow(context, destination, ThumbnailShadow);
             context.DrawImage(image, destination);
         }
         else
@@ -809,10 +1470,13 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var outset = IsGrid ? 4 : 2;
         var badge = new Rect(bounds.Right - badgeSize + outset, bounds.Bottom - badgeSize + outset, badgeSize, badgeSize);
         var stroke = IsGrid ? 1.5 : 1;
-        context.DrawRectangle(Brush.Parse(entry.GitBadgeColor), new Pen(Brushes.White, stroke),
+        if (!GitBadgeBrushes.TryGetValue(entry.GitBadgeColor, out var badgeBrush))
+            GitBadgeBrushes[entry.GitBadgeColor] = badgeBrush = Brush.Parse(entry.GitBadgeColor);
+        context.DrawRectangle(badgeBrush, IsGrid ? GitBadgePenGrid : GitBadgePenList,
             badge.Deflate(stroke / 2), (badgeSize - stroke) / 2, (badgeSize - stroke) / 2);
-        if (!_badges.TryGetValue(entry.GitBadgeText, out var glyph))
-            _badges[entry.GitBadgeText] = glyph = Format(entry.GitBadgeText, IsGrid ? 9 : 6, Brushes.White, double.PositiveInfinity, weight: FontWeight.Bold);
+        var badgeKey = (IsGrid, entry.GitBadgeText);
+        if (!_badges.TryGetValue(badgeKey, out var glyph))
+            _badges[badgeKey] = glyph = Format(entry.GitBadgeText, IsGrid ? 9 : 6, Brushes.White, double.PositiveInfinity, weight: FontWeight.Bold);
         glyph.Draw(context, new Point(Math.Round(badge.Center.X - Math.Ceiling(glyph.Width) / 2), Math.Round(badge.Center.Y - Math.Ceiling(glyph.Height) / 2)));
     }
 
@@ -842,7 +1506,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var nameWidth = IsGrid ? GridNameWidth : Math.Max(1, NameColumnWidth - 16 - TreeIndent(index));
         if (_texts.TryGetValue(entry.FullPath, out var node))
         {
-            if (node.Value.Matches(entry, nameWidth))
+            if (node.Value.Matches(entry, nameWidth, IsGrid))
             {
                 _textLru.Remove(node);
                 _textLru.AddFirst(node);
@@ -853,10 +1517,10 @@ public sealed class FastFileList : Control, ILogicalScrollable
             node.Value.Release();
         }
         var text = new RowText(entry,
-            IsGrid ? GridName(entry).Retain() : FormatName(entry.DisplayName, FontSize, nameWidth),
+            IsGrid ? GridName(entry).Retain() : ListName(entry.DisplayName, nameWidth).Retain(),
             CellText(FileListColumn.Modified, IsGrid || NameOnly ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
             IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, GridNameWidth + 8) : CellText(FileListColumn.Size, NameOnly ? "" : entry.FormattedSize, _columns.Size - 12).Retain(),
-            CellText(FileListColumn.Type, IsGrid || NameOnly ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth);
+            CellText(FileListColumn.Type, IsGrid || NameOnly ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth, IsGrid);
         _texts[entry.FullPath] = _textLru.AddFirst(text);
         if (_texts.Count > TextCacheLimit && _textLru.Last is { } last)
         {
@@ -866,6 +1530,19 @@ public sealed class FastFileList : Control, ILogicalScrollable
         }
         return text;
     }
+
+    private CachedText ListName(string name, double width)
+    {
+        var key = (name, width);
+        if (_listNames.TryGetValue(key, out var text)) return text;
+        if (_listNames.Count >= TextCacheLimit)
+        {
+            foreach (var cached in _listNames.Values) cached.Release();
+            _listNames.Clear();
+        }
+        return _listNames[key] = FormatName(name, FontSize, width);
+    }
+
     private CachedText FormatName(string value, double size, double width, int lines = 1)
         => new(FileNameText.CreateLayout(value, name => new TextLayout(name,
             new Typeface(FontFamily, weight: FontWeight), size, Foreground,
@@ -894,14 +1571,54 @@ public sealed class FastFileList : Control, ILogicalScrollable
         _headerTexts.Clear();
     }
 
+    private void ClearGridNames()
+    {
+        foreach (var text in _gridNames.Values) text.Release();
+        _gridNames.Clear();
+        var node = _textLru.First;
+        while (node != null)
+        {
+            var next = node.Next;
+            if (node.Value.IsGrid)
+            {
+                _texts.Remove(node.Value.Entry.FullPath);
+                _textLru.Remove(node);
+                node.Value.Release();
+            }
+            node = next;
+        }
+    }
+
+    private void ClearListTexts()
+    {
+        foreach (var text in _cellTexts.Values) text.Release();
+        foreach (var text in _listNames.Values) text.Release();
+        _cellTexts.Clear();
+        _cellTextOrder.Clear();
+        _listNames.Clear();
+        var node = _textLru.First;
+        while (node != null)
+        {
+            var next = node.Next;
+            if (!node.Value.IsGrid)
+            {
+                _texts.Remove(node.Value.Entry.FullPath);
+                _textLru.Remove(node);
+                node.Value.Release();
+            }
+            node = next;
+        }
+    }
+
     private void ClearTexts()
     {
         foreach (var row in _textLru) row.Release();
         foreach (var text in _cellTexts.Values) text.Release();
         foreach (var text in _badges.Values) text.Release();
         foreach (var text in _gridNames.Values) text.Release();
+        foreach (var text in _listNames.Values) text.Release();
         ClearHeaderTexts();
-        _texts.Clear(); _textLru.Clear(); _cellTexts.Clear(); _cellTextOrder.Clear(); _badges.Clear(); _gridNames.Clear();
+        _texts.Clear(); _textLru.Clear(); _cellTexts.Clear(); _cellTextOrder.Clear(); _badges.Clear(); _gridNames.Clear(); _listNames.Clear();
     }
 
     // FormattedText reshapes lines on each DrawText. TextLayout retains the shaped
@@ -917,10 +1634,11 @@ public sealed class FastFileList : Control, ILogicalScrollable
         public void Release() { if (--_references == 0) layout.Dispose(); }
     }
 
-    private sealed record RowText(FileSystemEntry Entry, CachedText Name, CachedText Modified, CachedText Size, CachedText Kind, double NameWidth)
+    private sealed record RowText(FileSystemEntry Entry, CachedText Name, CachedText Modified, CachedText Size, CachedText Kind, double NameWidth, bool IsGrid)
     {
         public void Release() { Name.Release(); Modified.Release(); Size.Release(); Kind.Release(); }
-        public bool Matches(FileSystemEntry other, double nameWidth) => NameWidth == nameWidth
+        public bool Matches(FileSystemEntry other, double nameWidth, bool isGrid) => IsGrid == isGrid
+            && NameWidth == nameWidth
             && Entry.Name == other.Name && Entry.Size == other.Size
             && Entry.LastModified == other.LastModified && Entry.Extension == other.Extension
             && Entry.IsDirectory == other.IsDirectory && Entry.IconKey == other.IconKey

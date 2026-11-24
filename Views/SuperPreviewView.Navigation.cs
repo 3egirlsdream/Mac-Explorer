@@ -10,6 +10,7 @@ public partial class SuperPreviewView
     private FileSystemEntry[] _previewFiles = [];
     private int _previousPreviewIndex = -1;
     private int _nextPreviewIndex = -1;
+    private int _previewStepDirection;
 
     private async Task SelectStandaloneFileAsync(FileSystemEntry entry)
     {
@@ -48,8 +49,10 @@ public partial class SuperPreviewView
 
     private async void OnPreviewStepClick(object? sender, RoutedEventArgs e)
     {
-        var index = sender == PreviewPreviousButton ? _previousPreviewIndex : _nextPreviewIndex;
+        var isPrevious = sender == PreviewPreviousButton;
+        var index = isPrevious ? _previousPreviewIndex : _nextPreviewIndex;
         if (index < 0) return;
+        _previewStepDirection = isPrevious ? -1 : 1;
         await RunToolbarActionAsync(() => _selectedNode != null
             ? SelectTreeNodeAsync(_visiblePreviewNodes[index])
             : SelectStandaloneFileAsync(_previewFiles[index]));

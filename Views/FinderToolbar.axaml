@@ -102,9 +102,10 @@
             </controls:AppButton>
 
             <!-- View mode toggle -->
-            <Grid Grid.Column="2" Grid.ColumnSpan="2" Classes="view-mode-segmented three">
+            <Grid Grid.Column="2" Grid.ColumnSpan="2" Classes="view-mode-segmented three animated-thumb">
                 <Path Data="{DynamicResource ViewModeTrackThreeGeometry}"
                       Fill="{DynamicResource ViewModeToggleBg}" IsHitTestVisible="False"/>
+                <Border x:Name="ViewModeSliderThumb" Classes="view-mode-slider-thumb"/>
                 <StackPanel Orientation="Horizontal" Margin="2">
                     <controls:AppToggleButton x:Name="GridViewToggle" Classes="view-mode-toggle"
                                   ToolTip.Tip="{loc:Loc ui.011}" AutomationProperties.Name="{loc:Loc ui.011}" Click="ToggleGridView">

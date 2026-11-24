@@ -38,6 +38,7 @@ namespace LiquidGlassAvaloniaUI
             public bool HasSubscriberOnlyDirtyRect;
             public Rect SubscriberOnlyDirtyRect;
             public long SubscriberOnlyDirtyTicksUtc;
+            public int ExcludedSceneSuppressionCount;
             public List<WeakReference<Control>> Subscribers { get; } = new();
             public ConditionalWeakTable<Control, CapturedLayout> CapturedLayouts { get; } = new();
 
@@ -156,6 +157,44 @@ namespace LiquidGlassAvaloniaUI
 
             state.HasSubscriberOnlyDirtyRect = true;
             state.SubscriberOnlyDirtyTicksUtc = nowTicks;
+        }
+
+        public static IDisposable? BeginExcludedSceneSuppression(Visual? source)
+        {
+            if (source is null || !IsWithinExcludedSubtree(source))
+                return null;
+
+            TopLevel? topLevel = source is Control control ? GetBackdropRoot(control) : TopLevel.GetTopLevel(source);
+            if (topLevel is null)
+                return null;
+
+            BackdropState state = s_states.GetOrCreateValue(topLevel);
+            System.Threading.Interlocked.Increment(ref state.ExcludedSceneSuppressionCount);
+            return new ExcludedSceneSuppressionToken(state);
+        }
+
+        private static bool IsWithinExcludedSubtree(Visual visual)
+        {
+            for (Visual? current = visual; current is not null; current = current.GetVisualParent())
+            {
+                if (LiquidGlassBackdrop.GetIsExcludedFromCapture(current))
+                    return true;
+            }
+            return false;
+        }
+
+        private sealed class ExcludedSceneSuppressionToken : IDisposable
+        {
+            private readonly BackdropState _state;
+            private int _disposed;
+
+            public ExcludedSceneSuppressionToken(BackdropState state) => _state = state;
+
+            public void Dispose()
+            {
+                if (System.Threading.Interlocked.Exchange(ref _disposed, 1) == 0)
+                    System.Threading.Interlocked.Decrement(ref _state.ExcludedSceneSuppressionCount);
+            }
         }
 
         private static void CleanupSubscribers(BackdropState state)
@@ -333,6 +372,11 @@ namespace LiquidGlassAvaloniaUI
                 if (!topLevel.IsVisible)
                     return;
 
+                if (!state.CaptureForeground
+                    && System.Threading.Volatile.Read(ref state.ExcludedSceneSuppressionCount) > 0
+                    && System.Threading.Volatile.Read(ref state.Snapshot) is not null)
+                    return;
+
                 bool hasDirtyRect = TryGetDirtyRect(args, out Rect dirtyRect);
                 if (hasDirtyRect)
                     LiquidGlassDiagnostics.RecordDirtyRectAvailable();
@@ -345,6 +389,11 @@ namespace LiquidGlassAvaloniaUI
                         return;
 
                     if (!topLevel.IsVisible)
+                        return;
+
+                    if (!state.CaptureForeground
+                        && System.Threading.Volatile.Read(ref state.ExcludedSceneSuppressionCount) > 0
+                        && System.Threading.Volatile.Read(ref state.Snapshot) is not null)
                         return;
 
                     if (!GetStates(state.CaptureForeground).TryGetValue(topLevel, out BackdropState? current) || !ReferenceEquals(current, state))

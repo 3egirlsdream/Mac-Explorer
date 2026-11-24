@@ -26,6 +26,8 @@ public partial class MainWindow
     private bool _copilotClosed;
     private CancellationTokenSource? _copilotRunCts;
     private Task? _copilotRunTask;
+    private IDisposable? _copilotDismissGhost;
+    private IDisposable? _copilotWidthAnim;
     private readonly List<CopilotAttachment> _copilotAttachments = [];
 
     internal CopilotEngine? CopilotForTesting { get => _copilot; set => _copilot = value; }
@@ -58,6 +60,10 @@ public partial class MainWindow
         CopilotStatusButton.IsVisible = enabled;
         VerticalTabBarControl.CopilotStatusButton.IsVisible = enabled;
         if (enabled) return;
+        _copilotWidthAnim?.Dispose();
+        _copilotWidthAnim = null;
+        _copilotDismissGhost?.Dispose();
+        _copilotDismissGhost = null;
         CopilotPanel.IsVisible = false;
         if (_copilotBusy && CopilotStopButton.IsEnabled) _copilotRunCts?.Cancel();
     }
@@ -68,10 +74,24 @@ public partial class MainWindow
     {
         if (!FeatureAccess.TryUse(PremiumFeature.Copilot)) return;
         if (!App.Services.GetRequiredService<ISettingsService>().Get(CopilotSettings.EnabledKey, false)) return;
-        CopilotPanel.IsVisible = !CopilotPanel.IsVisible;
-        if (!CopilotPanel.IsVisible) return;
-        if (CopilotHistoryPane.IsVisible) RefreshCopilotHistory();
-        ShowCopilotSession();
+        var show = !CopilotPanel.IsVisible;
+        if (show)
+        {
+            _copilotDismissGhost?.Dispose();
+            _copilotDismissGhost = null;
+            CopilotPanel.IsVisible = true;
+            CopilotPanel.UpdateLayout();
+            ViewMotion.AnimateEnter(CopilotPanel, fromY: 16, fromScale: 0.96, fromOpacity: 0, durationMs: ViewMotion.StandardDurationMs);
+            if (CopilotHistoryPane.IsVisible) RefreshCopilotHistory();
+            ShowCopilotSession();
+            return;
+        }
+
+        _copilotWidthAnim?.Dispose();
+        _copilotWidthAnim = null;
+        _copilotDismissGhost?.Dispose();
+        _copilotDismissGhost = ViewMotion.PlayDismissGhost(MainShellGrid, CopilotPanel, toY: 12, toScale: 0.97, durationMs: ViewMotion.FastDurationMs);
+        CopilotPanel.IsVisible = false;
     }
 
     private void ShowCopilotSession()
@@ -127,8 +147,22 @@ public partial class MainWindow
 
     private void ToggleCopilotHistory(object? sender, RoutedEventArgs e)
     {
-        CopilotHistoryPane.IsVisible = !CopilotHistoryPane.IsVisible;
-        CopilotPanel.Width = CopilotHistoryPane.IsVisible ? 664 : 440;
+        var show = !CopilotHistoryPane.IsVisible;
+        var fromWidth = double.IsFinite(CopilotPanel.Width) && CopilotPanel.Width > 0
+            ? CopilotPanel.Width
+            : (CopilotPanel.Bounds.Width > 0 ? CopilotPanel.Bounds.Width : (show ? 440d : 664d));
+        var targetWidth = show ? 664d : 440d;
+        _copilotWidthAnim?.Dispose();
+        _copilotWidthAnim = null;
+        CopilotHistoryPane.IsVisible = show;
+        _copilotWidthAnim = ViewMotion.StartFrameAnimation(
+            CopilotPanel,
+            fromWidth,
+            targetWidth,
+            ViewMotion.StandardDurationMs,
+            width => CopilotPanel.Width = width);
+        if (show)
+            ViewMotion.AnimateEnter(CopilotHistoryPane, fromX: -16, fromOpacity: 0, durationMs: ViewMotion.StandardDurationMs);
         AutomationProperties.SetName(CopilotHistoryToggle,
             CopilotHistoryPane.IsVisible ? MacExplorer.Services.Impl.LocalizationText.Get("收起历史会话") : MacExplorer.Services.Impl.LocalizationText.Get("展开历史会话"));
         ToolTip.SetTip(CopilotHistoryToggle,
@@ -493,6 +527,10 @@ public partial class MainWindow
     internal async Task CloseCopilotAsync()
     {
         _copilotClosed = true;
+        _copilotWidthAnim?.Dispose();
+        _copilotWidthAnim = null;
+        _copilotDismissGhost?.Dispose();
+        _copilotDismissGhost = null;
         if (_copilotRunTask != null && !_copilotRunTask.IsCompleted)
         {
             if (CopilotStopButton.IsEnabled) _copilotRunCts?.Cancel();

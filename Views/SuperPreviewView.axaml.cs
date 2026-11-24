@@ -122,19 +122,40 @@ public partial class SuperPreviewView : UserControl
         catch (IOException) { return false; }
     }
 
+    internal bool HasNativePreview => _documentPreview != null || _videoPreview != null;
+
+    private void AnimatePreviewContentTransition()
+    {
+        var step = _previewStepDirection;
+        _previewStepDirection = 0;
+        if (_isCompactPreview || HasNativePreview) return;
+        if (step != 0)
+            ViewMotion.AnimateEnter(PreviewHost, fromX: step * 18, fromOpacity: 0.25, durationMs: 170);
+        else
+            ViewMotion.AnimateEnter(PreviewHost, fromOpacity: 0.35, durationMs: 140);
+    }
+
     public async Task OpenAsync(FileSystemEntry entry, IReadOnlyList<FileSystemEntry>? fileOrder = null)
     {
         MemoryDiagnostics.Operation(DiagnosticAction.PreviewOpen, DiagnosticId);
-        if (!_isCompactPreview && !IsVisible)
+        var wasVisible = IsVisible;
+        if (!_isCompactPreview && !wasVisible)
             _previousFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
         CloseResources();
         _history.Clear();
         _entries.Clear();
         _location = null;
         _selectedEntry = null;
+        _previewStepDirection = 0;
         IsVisible = true;
         if (!_isCompactPreview)
         {
+            if (!wasVisible)
+            {
+                UpdateLayout();
+                ViewMotion.AnimateEnter(PreviewBackdrop, fromOpacity: 0, durationMs: 150);
+                ViewMotion.AnimateEnter(Shell, fromY: 10, fromOpacity: 0, durationMs: 170);
+            }
             Focus();
             await OpenFullPreviewAsync(entry, fileOrder);
             return;
@@ -428,18 +449,21 @@ public partial class SuperPreviewView : UserControl
         if (MacExplorer.Services.Markdown.MarkdownDocument.IsMarkdown(entry.Name))
         {
             await ShowMarkdownPreviewAsync(previewPath, entry, token, version);
+            AnimatePreviewContentTransition();
             return;
         }
 
         if (DiffPreviewDocument.IsDiff(entry.Name))
         {
             await ShowDiffPreviewAsync(previewPath, token, version);
+            AnimatePreviewContentTransition();
             return;
         }
 
         if (IsTextFile(entry))
         {
             await ShowTextPreviewAsync(previewPath, token, version);
+            AnimatePreviewContentTransition();
             return;
         }
 
@@ -462,6 +486,7 @@ public partial class SuperPreviewView : UserControl
                 PreviewTextScroll.IsVisible = false;
                 FolderSummary.IsVisible = false;
                 UpdatePreviewToolbar();
+                AnimatePreviewContentTransition();
                 return;
             }
 

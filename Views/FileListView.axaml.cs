@@ -373,7 +373,12 @@ public partial class FileListView : UserControl
         }
 
         if (e.PropertyName == nameof(FileListViewModel.TreeRows))
+        {
+            // When switching from Grid -> Tree, TreeRows fires just before ViewMode;
+            // wait for UpdateViewMode() to flip IsGrid so the layout morph captures the grid positions first.
+            if (ViewModel?.ViewMode == ViewMode.Tree && FastList.IsGrid) return;
             SyncFastListRows();
+        }
 
         if (e.PropertyName is nameof(FileListViewModel.IsLoading) or nameof(FileListViewModel.ReadErrorMessage)
             or nameof(FileListViewModel.SearchQuery) or nameof(FileListViewModel.SearchScopePath) or nameof(FileListViewModel.IsSearchMode) or nameof(FileListViewModel.StatusText))
@@ -557,9 +562,9 @@ public partial class FileListView : UserControl
     private double GetAvailableDataWidth()
     {
         const double iconColumnWidth = 22;
-        var headerWidth = ListHeaderGrid.Bounds.Width;
-        if (headerWidth <= 0)
-            headerWidth = Math.Max(0, Bounds.Width - 24);
+        var headerWidth = ListHeaderPanel.IsVisible && ListHeaderGrid.Bounds.Width > 0
+            ? ListHeaderGrid.Bounds.Width
+            : Math.Max(0, Bounds.Width - 24);
 
         return headerWidth > iconColumnWidth
             ? headerWidth - iconColumnWidth
@@ -2322,14 +2327,26 @@ public partial class FileListView : UserControl
         var visible = ViewModel is { IsHomePage: false };
         if (visible != FastListActive) CancelActiveRename();
         FastList.IsVisible = visible;
-        FastList.IsGrid = ViewModel?.ViewMode == ViewMode.Grid;
+        var nextIsGrid = ViewModel?.ViewMode == ViewMode.Grid;
+        if (visible && !nextIsGrid) ApplyListColumnWidths();
+        var headerWasVisible = ListHeaderPanel.IsVisible;
+        var headerWillBeVisible = visible && !nextIsGrid;
+        if (headerWasVisible != headerWillBeVisible && FastList.IsGrid != nextIsGrid)
+        {
+            var headerHeight = (ListHeaderPanel.Bounds.Height > 0 ? ListHeaderPanel.Bounds.Height : ListHeaderPanel.Height)
+                + ListHeaderPanel.Margin.Top + ListHeaderPanel.Margin.Bottom;
+            if (double.IsFinite(headerHeight) && headerHeight > 0)
+                FastList.PendingMorphStartOffsetY = headerWasVisible ? headerHeight : -headerHeight;
+        }
+        FastList.IsGrid = nextIsGrid;
+        FastList.PendingMorphStartOffsetY = 0;
         FastList.FolderIconStyle = ViewModel?.PhotoCoverStyle ?? Models.FolderPhotoCoverStyle.Default;
         FastList.FolderCoversEnabled = visible && FastList.IsGrid
             && ViewModel?.ShowFolderPhotoCovers == true
             && ViewModel.IsRemoteView == false && ViewModel.IsArchiveView == false;
         SyncFastListRows();
         ApplyThumbnailZoom();
-        ListHeaderPanel.IsVisible = visible && !FastList.IsGrid;
+        ListHeaderPanel.IsVisible = headerWillBeVisible;
         UpdateSortHeaders();
     }
 

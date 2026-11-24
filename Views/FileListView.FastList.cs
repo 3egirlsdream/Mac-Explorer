@@ -114,9 +114,10 @@ public partial class FileListView
         var useTree = vm.ViewMode == ViewMode.Tree && vm.IsTreeExpansionEnabled;
         var entriesChanged = force || !ReferenceEquals(_fastSourceEntries, vm.Entries);
         var treeChanged = useTree && !ReferenceEquals(_fastSourceTreeRows, vm.TreeRows);
-        if (entriesChanged || treeChanged || _fastSourceMode != vm.ViewMode
-            || _fastSourceUsesTree != useTree
-            || !ReferenceEquals(_fastSourceGroups, groups))
+        var modeChanged = _fastSourceMode != vm.ViewMode;
+        var rowsStructureChanged = entriesChanged || treeChanged || _fastSourceUsesTree != useTree
+            || !ReferenceEquals(_fastSourceGroups, groups);
+        if (rowsStructureChanged)
         {
             _fastSourceEntries = vm.Entries;
             _fastSourceGroups = groups;
@@ -130,6 +131,11 @@ public partial class FileListView
             else if (groups == null) FastList.SetRows(vm.Entries);
             else FastList.SetRows(groups.SelectMany(group => group.Entries).ToArray(),
                 groups.Select(group => new FastFileListGroup(group.Name, group.Entries.Count)).ToArray());
+            QueueGalleryRefresh();
+        }
+        else if (modeChanged)
+        {
+            _fastSourceMode = vm.ViewMode;
             QueueGalleryRefresh();
         }
         UpdateFastListLoading();

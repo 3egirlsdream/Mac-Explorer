@@ -236,7 +236,8 @@ public partial class FileListViewModel
         }
         _treeRestoringBranches = _treeBranches.Count > 0;
         RebuildTreeRows();
-        _ = RestoreTreeBranchesAsync();
+        if (_treeBranches.Count > 0)
+            _ = RestoreTreeBranchesAsync();
     }
 
     private async Task RestoreTreeBranchesAsync()

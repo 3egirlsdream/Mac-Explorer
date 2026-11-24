@@ -21,6 +21,7 @@ public partial class FileListView
     private SuperPreviewView? _galleryPreview;
     private FileSystemEntry? _galleryEntry;
     private int _galleryIndex;
+    private int _galleryStepDirection;
     private string? _galleryPath;
     private CancellationTokenSource? _galleryRequest;
     private Visual[] _galleryAncestors = [];
@@ -132,6 +133,16 @@ public partial class FileListView
         if (showGallery)
         {
             QueueGalleryRefresh();
+            if (!wasGallery)
+            {
+                ViewMotion.AnimateEnter(GalleryHost, fromOpacity: 0, durationMs: 200);
+                if (_gallery != null)
+                {
+                    ViewMotion.AnimateEnter(_gallery.GalleryPreviewHost, fromScale: 0.96, fromOpacity: 0, durationMs: 220);
+                    ViewMotion.AnimateEnter(_gallery.GalleryPlaceholder, fromScale: 0.96, fromOpacity: 0, durationMs: 220);
+                    ViewMotion.AnimateEnter(_gallery.GalleryStrip, fromY: 24, fromOpacity: 0, durationMs: 220);
+                }
+            }
             if (!wasGallery && !KeepThumbnailZoomFocus)
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -145,6 +156,8 @@ public partial class FileListView
             GalleryHost.Content = null;
             _galleryEntry = null;
             _galleryPath = null;
+            if (FastListHost.IsVisible)
+                ViewMotion.AnimateEnter(FastListHost, fromScale: 1.02, fromOpacity: 0.2, durationMs: 180);
             if (entry != null && FastList.IndexOf(entry) >= 0)
             {
                 _fastFocusedPath = FastList.KeyboardFocusPath = entry.FullPath;
@@ -264,6 +277,9 @@ public partial class FileListView
     private void SelectGalleryItem(int index)
     {
         var entry = FastList.Rows[index];
+        var previousIndex = _galleryIndex;
+        var hadEntry = _galleryEntry != null;
+        _galleryStepDirection = hadEntry ? Math.Sign(index - previousIndex) : 0;
         _galleryIndex = index;
         _syncingGallerySelection = true;
         try
@@ -282,10 +298,13 @@ public partial class FileListView
     {
         CancelGalleryPreview();
         var gallery = _gallery!;
+        var step = _galleryStepDirection;
         gallery.GalleryPlaceholderName.Text = entry.DisplayName;
         gallery.GalleryPlaceholderKind.Text = entry.KindText;
         gallery.GalleryPlaceholderImage.Content = CreateGalleryImage(entry);
         gallery.GalleryPlaceholder.IsVisible = true;
+        if (step != 0)
+            ViewMotion.AnimateEnter(gallery.GalleryPlaceholder, fromX: step * 14, fromOpacity: 0.25, durationMs: ViewMotion.FastDurationMs);
 
         var request = _galleryRequest = new CancellationTokenSource();
         if (entry.IsDirectory || !entry.IsReadable || entry.IsVirtual || !Path.IsPathFullyQualified(entry.FullPath))
@@ -307,6 +326,8 @@ public partial class FileListView
             }
             gallery.GalleryPlaceholder.IsVisible = false;
             gallery.GalleryPlaceholderImage.Content = null;
+            if (!preview.HasNativePreview)
+                ViewMotion.AnimateEnter(gallery.GalleryPreviewHost, fromX: step * 16, fromOpacity: 0.2, durationMs: 170);
             return true;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { return false; }

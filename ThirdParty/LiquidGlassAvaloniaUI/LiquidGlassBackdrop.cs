@@ -40,5 +40,13 @@ namespace LiquidGlassAvaloniaUI
 
             visual.SetValue(IsExcludedFromCaptureProperty, value);
         }
+
+        /// <summary>
+        /// Suppresses SceneInvalidated-driven non-foreground backdrop recaptures while an excluded
+        /// subtree (such as the file list) runs a frame-by-frame animation.
+        /// Layout, theme, and scaling changes on glass surfaces still recapture immediately via EnsureSnapshot.
+        /// </summary>
+        public static IDisposable? BeginExcludedSceneSuppression(Visual? source)
+            => LiquidGlassBackdropProvider.BeginExcludedSceneSuppression(source);
     }
 }

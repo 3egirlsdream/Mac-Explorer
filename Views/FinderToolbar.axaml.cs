@@ -4,8 +4,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using MacExplorer.Controls;
 using MacExplorer.Views.Dialogs;
 using MacExplorer.Models;
 using MacExplorer.Services;
@@ -27,6 +29,8 @@ public partial class FinderToolbar : UserControl
         AvaloniaProperty.Register<FinderToolbar, bool>(nameof(IsCompact));
 
     private FileListViewModel? _subscribedViewModel;
+    private int _lastViewModeIndex = -1;
+    private readonly TranslateTransform _viewModeThumbTransform = new();
 
     // Callback to open settings dialog via MainWindow
     public Action? OpenSettingsCallback { get; set; }
@@ -40,6 +44,7 @@ public partial class FinderToolbar : UserControl
     public FinderToolbar()
     {
         InitializeComponent();
+        ViewModeSliderThumb.RenderTransform = _viewModeThumbTransform;
         ToolbarTags.Opening += CloseDropdowns;
         ToolbarTags.NewTagRequested += () => ShowTagManagement(create: true);
         ToolbarTags.RenameTagRequested += tag => ShowTagManagement(create: false, target: tag, rename: true);
@@ -55,7 +60,7 @@ public partial class FinderToolbar : UserControl
                 language.LanguageChanged += SyncSortMenu;
             SubscribeToViewModel(ViewModel);
             _ = ViewModel?.LoadNewItemActionsAsync();
-            SyncViewModeToggles();
+            SyncViewModeToggles(animate: false);
         };
         DetachedFromVisualTree += (_, _) =>
         {
@@ -131,7 +136,7 @@ public partial class FinderToolbar : UserControl
     {
         SubscribeToViewModel(ViewModel);
         _ = ViewModel?.LoadNewItemActionsAsync();
-        SyncViewModeToggles();
+        SyncViewModeToggles(animate: false);
     }
 
     private void SubscribeToViewModel(FileListViewModel? viewModel)
@@ -159,14 +164,49 @@ public partial class FinderToolbar : UserControl
             Dispatcher.UIThread.Post(UpdateActionAvailability);
     }
 
-    private void SyncViewModeToggles()
+    private void SyncViewModeToggles() => SyncViewModeToggles(animate: true);
+
+    private void SyncViewModeToggles(bool animate)
     {
         var viewMode = ViewModel?.ViewMode;
         GridViewToggle.IsChecked = viewMode == ViewMode.Grid;
         ListViewToggle.IsChecked = viewMode == ViewMode.List;
         TreeViewToggle.IsChecked = viewMode == ViewMode.Tree;
+
+        var nextIndex = viewMode switch
+        {
+            ViewMode.Grid => 0,
+            ViewMode.List => 1,
+            ViewMode.Tree => 2,
+            _ => -1
+        };
+        ViewModeSliderThumb.IsVisible = nextIndex >= 0;
+        if (nextIndex >= 0)
+        {
+            const double segmentWidth = 32;
+            var targetX = nextIndex * segmentWidth;
+            if (_lastViewModeIndex != nextIndex)
+            {
+                var previousIndex = _lastViewModeIndex;
+                _lastViewModeIndex = nextIndex;
+                _viewModeThumbTransform.X = targetX;
+                if (animate && previousIndex >= 0)
+                    ViewMotion.AnimateEnter(ViewModeSliderThumb, fromX: (previousIndex - nextIndex) * segmentWidth, fromOpacity: 1, durationMs: 180);
+                else
+                    ViewMotion.Reset(ViewModeSliderThumb);
+            }
+            else if (!animate)
+            {
+                _viewModeThumbTransform.X = targetX;
+            }
+        }
+        else
+        {
+            _lastViewModeIndex = -1;
+        }
+
         UpdateActionAvailability();
-        SyncSortMenu();
+        if (!animate) SyncSortMenu();
     }
 
     private void UpdateActionAvailability()

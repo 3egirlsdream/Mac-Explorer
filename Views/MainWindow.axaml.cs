@@ -81,6 +81,7 @@ public partial class MainWindow : AppWindow
     private readonly ObservableCollection<OmniboxSuggestion> _globalSearchSuggestions = [];
     private CancellationTokenSource? _globalSearchCts;
     private SuperPreviewView? _globalSearchPreview;
+    private IDisposable? _globalSearchDismissGhost;
 
     // Task overlay panel opens only on an explicit user action.
     private bool _isTaskPanelAnimating;
@@ -857,6 +858,12 @@ public partial class MainWindow : AppWindow
         _globalSearchCts?.Cancel();
         _globalSearchCts?.Dispose();
         _globalSearchCts = null;
+        _globalSearchDismissGhost?.Dispose();
+        _globalSearchDismissGhost = null;
+        _copilotWidthAnim?.Dispose();
+        _copilotWidthAnim = null;
+        _copilotDismissGhost?.Dispose();
+        _copilotDismissGhost = null;
         CloseGlobalSearchPreview();
         DisposeMarkdownEditor();
         SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
@@ -1346,7 +1353,22 @@ public partial class MainWindow : AppWindow
         }
 
         var definition = MainWindowViewModel.GetPaneLayoutDefinition(_vm.PaneLayout);
-        if (_renderedPaneLayout != _vm.PaneLayout)
+        var layoutChanged = _renderedPaneLayout != _vm.PaneLayout;
+        Dictionary<ExplorerTabViewModel, Rect>? previousPaneRects = null;
+        if (layoutChanged && ViewMotion.ShouldAnimate(PaneLayoutRoot))
+        {
+            foreach (var (tab, workspace) in _workspaceViews)
+            {
+                if (!workspace.IsVisible || workspace.Bounds.Width <= 1 || workspace.Bounds.Height <= 1) continue;
+                var origin = workspace.TranslatePoint(default, PaneLayoutRoot);
+                if (origin.HasValue)
+                {
+                    previousPaneRects ??= new Dictionary<ExplorerTabViewModel, Rect>();
+                    previousPaneRects[tab] = new Rect(origin.Value, workspace.Bounds.Size);
+                }
+            }
+        }
+        if (layoutChanged)
         {
             _renderedPaneLayout = _vm.PaneLayout;
             PaneLayoutRoot.RowDefinitions.Clear();
@@ -1381,6 +1403,26 @@ public partial class MainWindow : AppWindow
             workspace.IsVisible = true;
             tab.FileList.SetWorkspaceVisible(true);
             if (!wasVisible) workspace.FileListView.RestoreTabViewState(tab);
+        }
+
+        if (previousPaneRects is { Count: > 0 })
+        {
+            var capturedRects = previousPaneRects;
+            var expectedGeneration = Volatile.Read(ref _paneLayoutGeneration);
+            var animatingTabs = visible.Take(definition.Slots.Count).ToArray();
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_shutdownStarted || expectedGeneration != Volatile.Read(ref _paneLayoutGeneration)) return;
+                foreach (var tab in animatingTabs)
+                {
+                    if (!_workspaceViews.TryGetValue(tab, out var workspace) || !workspace.IsVisible) continue;
+                    var origin = workspace.TranslatePoint(default, PaneLayoutRoot);
+                    if (capturedRects.TryGetValue(tab, out var fromRect) && origin.HasValue)
+                        ViewMotion.AnimateFromRect(workspace, fromRect, new Rect(origin.Value, workspace.Bounds.Size), 220);
+                    else
+                        ViewMotion.AnimateEnter(workspace, fromScale: 0.96, fromOpacity: 0, durationMs: 220);
+                }
+            }, DispatcherPriority.Render);
         }
 
         TouchSelectedWorkspace();
@@ -1494,7 +1536,12 @@ public partial class MainWindow : AppWindow
             return;
 
         ActiveWorkspace?.CloseTransientUi(null);
+        _globalSearchDismissGhost?.Dispose();
+        _globalSearchDismissGhost = null;
         GlobalSearchOverlay.IsVisible = true;
+        GlobalSearchOverlay.UpdateLayout();
+        ViewMotion.AnimateEnter(GlobalSearchOverlay, fromOpacity: 0, durationMs: 150);
+        ViewMotion.AnimateEnter(GlobalSearchPanel, fromY: -12, fromScale: 0.97, fromOpacity: 0, durationMs: 170);
         _changingGlobalSearchScope = true;
         try
         {
@@ -1516,10 +1563,16 @@ public partial class MainWindow : AppWindow
 
     private void CloseGlobalSearch()
     {
+        var wasVisible = GlobalSearchOverlay.IsVisible;
         _globalSearchCts?.Cancel();
         _globalSearchCts?.Dispose();
         _globalSearchCts = null;
         CloseGlobalSearchPreview();
+        if (wasVisible)
+        {
+            _globalSearchDismissGhost?.Dispose();
+            _globalSearchDismissGhost = ViewMotion.PlayDismissGhost(MainShellGrid, GlobalSearchPanel, toY: -10, toScale: 0.97, durationMs: 140);
+        }
         GlobalSearchOverlay.IsVisible = false;
         _globalSearchSuggestions.Clear();
         GlobalSearchResults.SelectedIndex = -1;
@@ -1780,6 +1833,7 @@ public partial class MainWindow : AppWindow
 
         _globalSearchPreview ??= new SuperPreviewView(isCompactPreview: true);
         GlobalSearchPreviewHost.Content = _globalSearchPreview;
+        ViewMotion.AnimateEnter(GlobalSearchPreviewHost, fromOpacity: 0.25, durationMs: 130);
         _ = _globalSearchPreview.OpenAsync(entry);
     }
 

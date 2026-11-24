@@ -357,8 +357,13 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
     {
         var fileList = _tab?.FileList;
         var canShow = fileList != null && !fileList.IsHomePage && !fileList.IsAiView && !fileList.IsNetworkPage && !fileList.IsDiskManagementPage;
-        if (canShow && fileList!.IsInfoPanelVisible) _ = InfoPanelControl;
-        InfoDrawer.IsPaneOpen = canShow && fileList!.IsInfoPanelVisible;
+        var shouldOpen = canShow && fileList!.IsInfoPanelVisible;
+        var wasOpen = InfoDrawer.IsPaneOpen;
+        InfoDrawer.Classes.Set("reduced-motion", ViewMotion.PrefersReducedMotion);
+        if (shouldOpen) _ = InfoPanelControl;
+        InfoDrawer.IsPaneOpen = shouldOpen;
+        if (shouldOpen && !wasOpen)
+            ViewMotion.AnimateEnter(InfoPanelPane, fromX: 20, fromOpacity: 0, durationMs: ViewMotion.StandardDurationMs);
     }
 
     private void OnWorkspacePointerPressed(object? sender, PointerPressedEventArgs e)
@@ -665,6 +670,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (sender is not Control handle || !e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed)
             return;
         _resizingPreview = true;
+        InfoDrawer.Classes.Add("resizing");
         e.Pointer.Capture(handle);
         e.Handled = true;
     }
@@ -696,6 +702,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         if (!_resizingPreview)
             return;
         _resizingPreview = false;
+        InfoDrawer.Classes.Remove("resizing");
         e.Pointer.Capture(null);
         if (_tab != null)
             _tab.InfoPanelWidth = InfoDrawer.OpenPaneLength;
@@ -717,6 +724,7 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
             : ClampInfoPanelWidth(_normalPreviewWidth);
         if (!expanded)
             _tab.InfoPanelWidth = InfoDrawer.OpenPaneLength;
+        ViewMotion.AnimateEnter(InfoPanelHost, fromOpacity: 0.4, durationMs: ViewMotion.FastDurationMs);
         InfoPanelControl.CompletePreviewTransition(expanded);
     }
 

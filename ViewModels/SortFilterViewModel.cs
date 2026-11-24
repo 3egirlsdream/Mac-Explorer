@@ -80,11 +80,11 @@ public partial class SortFilterViewModel : ObservableObject
         }
     }
 
-    partial void OnViewModeChanged(ViewMode value) { if (!SuppressSettingsPersistence) _settingsService?.Set("ViewMode", value); }
-    partial void OnSortFieldChanged(SortField value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.Set("SortField", value); }
-    partial void OnSortAscendingChanged(bool value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.Set("SortAscending", value); }
-    partial void OnSortPriorityChanged(SortPriority value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.Set("SortPriority", value); }
-    partial void OnGroupFieldChanged(GroupField value) { if (!SuppressSettingsPersistence) _settingsService?.Set("GroupField", value); }
+    partial void OnViewModeChanged(ViewMode value) { if (!SuppressSettingsPersistence) _settingsService?.SetDeferred("ViewMode", value.ToString()); }
+    partial void OnSortFieldChanged(SortField value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.SetDeferred("SortField", value.ToString()); }
+    partial void OnSortAscendingChanged(bool value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.SetDeferred("SortAscending", value.ToString()); }
+    partial void OnSortPriorityChanged(SortPriority value) { if (!DirectoryScoped && !SuppressSettingsPersistence) _settingsService?.SetDeferred("SortPriority", value.ToString()); }
+    partial void OnGroupFieldChanged(GroupField value) { if (!SuppressSettingsPersistence) _settingsService?.SetDeferred("GroupField", value.ToString()); }
     partial void OnHideSystemFilesChanged(bool value) => _settingsService?.Set("HideSystemFiles", value);
     partial void OnHideDotFilesChanged(bool value) => _settingsService?.Set("HideDotFiles", value);
     partial void OnHideDotFoldersChanged(bool value) => _settingsService?.Set("HideDotFolders", value);

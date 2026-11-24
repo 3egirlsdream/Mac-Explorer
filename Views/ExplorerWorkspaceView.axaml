@@ -19,6 +19,9 @@
         <Style Selector="SplitView#SidebarSplitView.resizing:left /template/ Panel#PART_PaneRoot">
             <Setter Property="Transitions" Value="{x:Null}"/>
         </Style>
+        <Style Selector="SplitView#InfoDrawer.resizing /template/ Panel#PART_PaneRoot, SplitView#InfoDrawer.reduced-motion /template/ Panel#PART_PaneRoot">
+            <Setter Property="Transitions" Value="{x:Null}"/>
+        </Style>
         <Style Selector="Grid#SidebarMaterialHost">
             <Setter Property="Margin" Value="4,4,8,4"/>
         </Style>
