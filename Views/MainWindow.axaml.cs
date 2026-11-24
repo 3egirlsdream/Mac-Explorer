@@ -735,8 +735,10 @@ public partial class MainWindow : AppWindow
             return;
         }
 
+        var restoreEnabled = App.Services?.GetService<ISettingsService>()?.Get(FolderTabSession.EnabledKey, false) == true;
         var path = string.IsNullOrEmpty(InitialNavigationPath)
-            ? _vm.FileList.GetRestorableDirectoryPath() : InitialNavigationPath;
+            ? (restoreEnabled ? _vm.FileList.GetRestorableDirectoryPath() : null)
+            : InitialNavigationPath;
         if (VirtualPath.IsHomePath(path))
         {
             // A fresh Quick Access window must not clear the saved directory used by ordinary windows.

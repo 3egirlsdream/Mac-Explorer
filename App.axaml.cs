@@ -559,7 +559,9 @@ public partial class App : Application
         var scope = Services.CreateScope();
         var window = new MainWindow { InitialNavigationPath = path, RestoreFolderTabsOnOpen = isPrimary, InitialFolderTabSession = folderTabs };
         var model = scope.ServiceProvider.GetRequiredService<MainWindowViewModel>();
-        var initialPath = path ?? folderTabs?.Paths.FirstOrDefault() ?? model.FileList.GetRestorableDirectoryPath();
+        var restoreEnabled = Services.GetRequiredService<ISettingsService>().Get(FolderTabSession.EnabledKey, false);
+        var initialPath = path ?? folderTabs?.Paths.FirstOrDefault()
+            ?? (restoreEnabled ? model.FileList.GetRestorableDirectoryPath() : null);
         if (!string.IsNullOrEmpty(initialPath) && Path.IsPathFullyQualified(initialPath)
             && (!DistributionChannel.IsAppStore || DirectoryAccess.Current.CanAccess(initialPath)))
             model.FileList.PrepareInitialDirectoryView();

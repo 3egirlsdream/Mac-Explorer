@@ -48,6 +48,30 @@ public sealed class FolderTabRestoreTests : FileListViewModelTestBase
     }
 
     [AvaloniaFact(Explicit = true)]
+    public async Task StartupDefaultsToWorkbenchWhenFolderTabRestoreIsDisabled()
+    {
+        using var root = new Directories();
+        using var theme = new FastListTestTheme();
+        await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
+        var settings = new StartupSettings();
+        settings.Set(FolderTabSession.EnabledKey, false);
+        settings.Set("navigation_last_directory", root.First);
+        var files = new FakeFileService(root.Path);
+        using var list = CreateViewModel(files, navigation: new NavigationViewModel(files), settingsService: settings);
+        var window = new MainWindow
+        {
+            RestoreFolderTabsOnOpen = true,
+            DataContext = new MainWindowViewModel(list)
+        };
+        try
+        {
+            window.ShowAndActivate();
+            Assert.True(list.IsHomePage);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public async Task FirstShowHasAllSavedHeadersAndSelectionBeforeDirectoryEnumeration()
     {
         var ct = TestContext.Current.CancellationToken;
