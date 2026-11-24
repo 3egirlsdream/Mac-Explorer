@@ -138,6 +138,12 @@
                         <WrapPanel x:Name="CollectionsGridPanel"
                                    Margin="12,10,4,4"
                                    IsVisible="False"/>
+                        <controls:AppButton x:Name="CollectionsShowMoreButton"
+                                            Classes="ghost home-section-link"
+                                            HorizontalAlignment="Center"
+                                            Margin="0,2,0,10"
+                                            IsVisible="False"
+                                            Click="OnCollectionsShowMore"/>
                         <TextBlock x:Name="CollectionsEmpty"
                                    Classes="home-empty-hint"
                                    Text="{loc:Loc home.empty.collections}"

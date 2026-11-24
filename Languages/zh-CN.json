@@ -1983,7 +1983,8 @@
     "home.empty.all_hidden": "工作台模块已全部隐藏，点击右上角“自定义”可随时开启。",
     "home.section.workgroups": "工作组",
     "home.section.frequent_folders": "常用目录",
-    "home.action.manage_workgroups": "管理"
+    "home.action.manage_workgroups": "管理",
+    "home.collections.show_more": "显示更多（还有 {0} 项）"
   },
   "literalKeys": [
     "tasks.literal.000",

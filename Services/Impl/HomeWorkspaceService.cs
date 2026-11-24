@@ -196,7 +196,8 @@ public sealed class HomeWorkspaceService : IDisposable
         IReadOnlySet<string>? excludedPaths = null, int count = 6, CancellationToken cancellationToken = default)
         => WithDatabaseAsync<IReadOnlyList<HomeUsageEntry>>(connection =>
         {
-            var entries = new List<HomeUsageEntry>();
+            var limit = Math.Clamp(count, 1, 50);
+            var candidates = new List<HomeUsageEntry>();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT path, use_count, last_used, added_at FROM home_usage WHERE is_directory = 1";
             using var reader = command.ExecuteReader();
@@ -204,20 +205,26 @@ public sealed class HomeWorkspaceService : IDisposable
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var path = DirectoryAccess.Current.ResolvePath(reader.GetString(0));
-                if (!DirectoryAccess.Current.CanAccess(path) || !Directory.Exists(path)) continue;
+                if (!DirectoryAccess.Current.CanAccess(path)) continue;
                 if (HomePathFormatting.IsDefaultSidebarLocation(path, homeDirectory)) continue;
                 if (excludedPaths != null && excludedPaths.Contains(path)) continue;
-                entries.Add(new(path, true, reader.GetInt32(1), new DateTime(reader.GetInt64(2), DateTimeKind.Utc))
+                candidates.Add(new(path, true, reader.GetInt32(1), new DateTime(reader.GetInt64(2), DateTimeKind.Utc))
                 {
                     AddedUtc = new DateTime(reader.GetInt64(3), DateTimeKind.Utc)
                 });
             }
             var now = DateTime.UtcNow;
-            return entries.OrderByDescending(e => e.Score(now))
+            var results = new List<HomeUsageEntry>(limit);
+            foreach (var entry in candidates.OrderByDescending(e => e.Score(now))
                 .ThenByDescending(e => e.LastUsedUtc)
-                .ThenBy(e => e.Path, StringComparer.Ordinal)
-                .Take(Math.Clamp(count, 1, 50))
-                .ToArray();
+                .ThenBy(e => e.Path, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!Directory.Exists(entry.Path)) continue;
+                results.Add(entry);
+                if (results.Count >= limit) break;
+            }
+            return results.ToArray();
         }, cancellationToken);
 
     public async Task<IReadOnlyList<HomeRecentItem>> GetInboxFilesAsync(string? homeDirectory,

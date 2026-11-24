@@ -1990,6 +1990,7 @@
     "home.empty.all_hidden": "工作台模組已全部隱藏，點擊右上角「自訂」可隨時開啟。",
     "home.section.workgroups": "工作組",
     "home.section.frequent_folders": "常用目錄",
-    "home.action.manage_workgroups": "管理"
+    "home.action.manage_workgroups": "管理",
+    "home.collections.show_more": "顯示更多（還有 {0} 項）"
   }
 }

@@ -1984,6 +1984,7 @@
     "home.empty.all_hidden": "Toutes les sections sont masquées. Cliquez sur Personnaliser en haut à droite pour les afficher.",
     "home.section.workgroups": "Groupes de travail",
     "home.section.frequent_folders": "Dossiers fréquents",
-    "home.action.manage_workgroups": "Gérer"
+    "home.action.manage_workgroups": "Gérer",
+    "home.collections.show_more": "Afficher plus ({0} restants)"
   }
 }

@@ -1984,6 +1984,7 @@
     "home.empty.all_hidden": "All workbench sections are hidden. Click Customize in the top right to enable them.",
     "home.section.workgroups": "Workgroups",
     "home.section.frequent_folders": "Frequent Folders",
-    "home.action.manage_workgroups": "Manage"
+    "home.action.manage_workgroups": "Manage",
+    "home.collections.show_more": "Show more ({0} remaining)"
   }
 }
