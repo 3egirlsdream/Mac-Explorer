@@ -192,6 +192,7 @@ public partial class SettingsDialog : DialogWindow
                 RenderDirectoryAccess();
             }
             RefreshDefaultManager();
+            _ = RefreshDatabaseStorageStatusAsync();
             if (ViewModel == null) return;
             AiAnalysisToggle.IsChecked = ViewModel.IsAiAnalysisEnabled;
             ConfirmBeforeTrashToggle.IsChecked = ViewModel.ConfirmBeforeTrash;
@@ -210,6 +211,7 @@ public partial class SettingsDialog : DialogWindow
             {
                 RefreshLanguageOptions();
                 RefreshDefaultManager();
+                _ = RefreshDatabaseStorageStatusAsync();
                 if (DistributionChannel.IsAppStore) RenderDirectoryAccess();
             }
             if (IsPageLoaded("about"))
@@ -231,6 +233,33 @@ public partial class SettingsDialog : DialogWindow
             if (_plugins != null) RenderPlugins();
         }
         finally { _initializing = initializing; }
+    }
+
+    private async Task RefreshDatabaseStorageStatusAsync()
+    {
+        if (Design.IsDesignMode) return;
+        var status = await Task.Run(() => Services.Impl.DatabaseSpaceMaintenance.Inspect(RuntimePaths.DatabasePath));
+        if (_updateCancellation.IsCancellationRequested || !IsPageLoaded("general")) return;
+        if (status is not { } s)
+        {
+            DatabaseStorageStatusText.Text = "";
+            return;
+        }
+        var total = Services.Impl.FileListStatusFormatter.FormatBytes(s.TotalBytes);
+        DatabaseStorageStatusText.Text = s.IsIncremental
+            ? (s.FreeBytes >= 16L * 1024 * 1024
+                ? _localizationService.Get("storage.status.incremental_reclaimable", total, Services.Impl.FileListStatusFormatter.FormatBytes(s.FreeBytes))
+                : _localizationService.Get("storage.status.incremental", total))
+            : (s.FreeBytes > 0
+                ? _localizationService.Get("storage.status.legacy_reclaimable", total, Services.Impl.FileListStatusFormatter.FormatBytes(s.FreeBytes))
+                : _localizationService.Get("storage.status.legacy", total));
+    }
+
+    private async void OnOptimizeDatabaseClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new DatabaseOptimizationDialog();
+        await dialog.ShowDialog(this);
+        await RefreshDatabaseStorageStatusAsync();
     }
 
     private void RefreshLanguageOptions()

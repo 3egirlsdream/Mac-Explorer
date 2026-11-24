@@ -157,12 +157,16 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
     public Func<LocalSendIncomingRequest, CancellationToken, Task<LocalSendReceiveDecision>>? ConfirmReceiveAsync { get; set; }
     public Func<CancellationToken, Task<string?>>? RequestPinAsync { get; set; }
 
-    public async Task StartAsync()
+    public Task StartAsync() => StartAsync(CancellationToken.None);
+
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (!Enabled) return;
-        await _lifecycle.WaitAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        await _lifecycle.WaitAsync(cancellationToken);
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (_disposed) throw new ObjectDisposedException(nameof(LocalSendService));
             if (_running != null || !Enabled) return;
             _certificate = LoadCertificate();
@@ -171,21 +175,28 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
             _networkDiscovery = new CancellationTokenSource();
             _running = new CancellationTokenSource();
             lock (_discoveryLock) _runningToken = _running.Token;
+            using var startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(_running.Token, cancellationToken);
             // Check first so an already occupied default port does not produce
             // Kestrel's expected hosting-failure log on every launch.
             var preferredPort = ListeningPortOverride ?? (CanBindDefaultPort() ? DiscoveryPort : 0);
-            try { _host = await CreateHostAsync(preferredPort, _running.Token); }
+            try { _host = await CreateHostAsync(preferredPort, startupCancellation.Token); }
             catch (IOException ex) when (preferredPort == DiscoveryPort && IsAddressInUse(ex))
-            { _host = await CreateHostAsync(0, _running.Token); }
+            { _host = await CreateHostAsync(0, startupCancellation.Token); }
             var server = _host.Services.GetRequiredService<IServer>();
             var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses;
             _port = addresses?.Select(address => Uri.TryCreate(address, UriKind.Absolute, out var uri) ? uri.Port : 0)
                 .FirstOrDefault(value => value > 0) ?? 0;
             if (_port == 0) throw new IOException("无法获取 LocalSend 监听端口。");
+            startupCancellation.Token.ThrowIfCancellationRequested();
             await StartDiscoveryAsync();
             NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
             _discovery?.Wake();
             _lastError = null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await StopCoreAsync();
+            throw;
         }
         catch (Exception ex)
         {
@@ -292,7 +303,9 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         }
         if (_host != null)
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            // Active transfers were already cancelled above; bound Kestrel drain so
+            // idle LAN keep-alive sockets do not stall app shutdown for seconds.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
             try { await _host.StopAsync(timeout.Token); }
             catch (Exception ex) { _logger?.LogDebug(ex, "LocalSend listener stop failed"); }
             finally { await _host.DisposeAsync(); _host = null; }

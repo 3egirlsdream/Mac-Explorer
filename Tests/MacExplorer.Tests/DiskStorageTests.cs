@@ -285,6 +285,107 @@ public sealed class DiskStorageTests : IDisposable
         Assert.Equal(1, Count(verify, "file_tags"));
     }
 
+    [Fact]
+    public void NewDatabaseEnablesIncrementalAutoVacuum()
+    {
+        var factory = new DatabaseConnectionFactory(DatabasePath);
+        using var connection = factory.GetConnection();
+        Assert.Equal(2L, DatabaseSpaceMaintenance.Scalar(connection, "PRAGMA auto_vacuum"));
+    }
+
+    [Fact]
+    public void V16MigrationDropsRetiredTablesAndPreservesUserAndUnknownTables()
+    {
+        var factory = new DatabaseConnectionFactory(DatabasePath);
+        using var connection = factory.GetConnection();
+        SeedProfile(connection);
+        foreach (var table in SqliteSchema.RetiredTables)
+            Execute(connection, $"CREATE TABLE IF NOT EXISTS \"{table}\"(id INTEGER PRIMARY KEY); INSERT INTO \"{table}\" VALUES(1);");
+        Execute(connection, "DELETE FROM schema_version; INSERT INTO schema_version(version) VALUES(15);");
+
+        SqliteSchema.Initialize(connection);
+
+        Assert.Equal((long)SqliteSchema.CurrentVersion, DatabaseSpaceMaintenance.Scalar(connection, "SELECT max(version) FROM schema_version"));
+        foreach (var table in SqliteSchema.RetiredTables)
+            Assert.Equal(0L, DatabaseSpaceMaintenance.Scalar(connection, $"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{table}'"));
+        Assert.Equal(1, Count(connection, "personal_extension"));
+        Assert.Equal(1, Count(connection, "collections"));
+        Assert.Equal(1, Count(connection, "file_tags"));
+    }
+
+    [Fact]
+    public async Task ConvertToIncrementalEnablesIncrementalModeAndReclaimsSpace()
+    {
+        // Create an explicit legacy auto_vacuum=NONE database.
+        using (var connection = new SqliteConnection($"Data Source={DatabasePath};Mode=ReadWriteCreate;Pooling=false"))
+        {
+            connection.Open();
+            Execute(connection, "PRAGMA auto_vacuum=NONE; PRAGMA journal_mode=WAL;");
+            SeedProfile(connection);
+            Execute(connection, "CREATE TABLE disposable(bytes BLOB); INSERT INTO disposable VALUES(zeroblob(4194304)); DROP TABLE disposable;");
+        }
+        SqliteConnection.ClearAllPools();
+        var beforeStatus = DatabaseSpaceMaintenance.Inspect(DatabasePath);
+        Assert.NotNull(beforeStatus);
+        Assert.False(beforeStatus!.Value.IsIncremental);
+        Assert.True(beforeStatus.Value.FreeBytes >= 4L * 1024 * 1024);
+
+        var result = await DatabaseSpaceMaintenance.ConvertToIncrementalAsync(DatabasePath);
+        Assert.True(result.IsIncremental);
+        Assert.True(result.FreedBytes > 0);
+
+        var afterStatus = DatabaseSpaceMaintenance.Inspect(DatabasePath);
+        Assert.NotNull(afterStatus);
+        Assert.True(afterStatus!.Value.IsIncremental);
+        Assert.Equal(0L, afterStatus.Value.FreePages);
+        using var verify = DatabaseSpaceMaintenance.Open(DatabasePath, readOnly: true);
+        Assert.Equal(1, Count(verify, "personal_extension"));
+        Assert.Equal(1, Count(verify, "collections"));
+    }
+
+    [Fact]
+    public void IncrementalReclaimAndFastExitShrinkFreelistWithoutFullVacuum()
+    {
+        var factory = new DatabaseConnectionFactory(DatabasePath);
+        using (var connection = factory.GetConnection())
+        {
+            SeedProfile(connection);
+            Execute(connection, "CREATE TABLE disposable(bytes BLOB); INSERT INTO disposable VALUES(zeroblob(4194304)); DROP TABLE disposable;");
+        }
+        SqliteConnection.ClearAllPools();
+        var before = DatabaseSpaceMaintenance.Inspect(DatabasePath);
+        Assert.NotNull(before);
+        Assert.True(before!.Value.IsIncremental);
+        Assert.True(before.Value.FreePages > 512);
+
+        Assert.True(DatabaseSpaceMaintenance.ReclaimIncremental(DatabasePath, maxPages: 256));
+        var afterTick = DatabaseSpaceMaintenance.Inspect(DatabasePath);
+        Assert.NotNull(afterTick);
+        Assert.True(afterTick!.Value.FreePages < before.Value.FreePages);
+
+        Assert.True(DatabaseSpaceMaintenance.ReclaimFastOnExit(DatabasePath));
+        var afterExit = DatabaseSpaceMaintenance.Inspect(DatabasePath);
+        Assert.NotNull(afterExit);
+        Assert.True(afterExit!.Value.FreePages < afterTick.Value.FreePages);
+    }
+
+    [Fact]
+    public void StorageStatusFlagsLegacyConversionOnlyWhenThresholdMet()
+    {
+        var pageSize = 4096L;
+        var smallLegacy = new DatabaseStorageStatus(100L * 1024 * 1024, 0, 32L * 1024 * 1024, pageSize, 25600, 8192, AutoVacuumMode: 0);
+        Assert.False(smallLegacy.NeedsOneTimeConversion);
+
+        var percentLegacy = new DatabaseStorageStatus(400L * 1024 * 1024, 0, 80L * 1024 * 1024, pageSize, 102400, 20480, AutoVacuumMode: 0);
+        Assert.True(percentLegacy.NeedsOneTimeConversion);
+
+        var largeAbsoluteLegacy = new DatabaseStorageStatus(2500L * 1024 * 1024, 0, 220L * 1024 * 1024, pageSize, 640000, 56320, AutoVacuumMode: 0);
+        Assert.True(largeAbsoluteLegacy.NeedsOneTimeConversion);
+
+        var alreadyIncremental = largeAbsoluteLegacy with { AutoVacuumMode = 2 };
+        Assert.False(alreadyIncremental.NeedsOneTimeConversion);
+    }
+
     [DllImport("libSystem.B.dylib", EntryPoint = "link", SetLastError = true)]
     private static extern int Link(string existingPath, string newPath);
 

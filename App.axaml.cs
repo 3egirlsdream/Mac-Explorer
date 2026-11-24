@@ -126,22 +126,20 @@ public partial class App : Application
                 IsShuttingDown = true;
                 SaveFolderTabSession();
                 _startupUpdateCancellation.Cancel();
-                await _startupServicesTask;
-                await Services.GetRequiredService<IRemoteFileEditService>().StopAsync();
-                await Services.GetRequiredService<IBackgroundTaskManager>().ShutdownAsync();
-                await Services.GetRequiredService<IFileOperationHistoryService>().ClearHistoryAsync();
                 try
                 {
-                    try { await ((IAsyncDisposable)Services.GetRequiredService<ILocalSendService>()).DisposeAsync(); }
-                    finally
-                    {
-                        try { await Services.GetRequiredService<SearchIndexer>().DisposeAsync(); }
-                        finally
+                    await RunShutdownStepAsync("startup-services", () => _startupServicesTask);
+                    await Task.WhenAll(
+                        RunShutdownStepAsync("remote-edit", () => Services.GetRequiredService<IRemoteFileEditService>().StopAsync()),
+                        RunShutdownStepAsync("background-tasks", async () =>
                         {
-                            try { await Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync(); }
-                            finally { await Services.GetRequiredService<ApplicationStorageMaintenance>().DisposeAsync(); }
-                        }
-                    }
+                            await Services.GetRequiredService<IBackgroundTaskManager>().ShutdownAsync();
+                            await Services.GetRequiredService<IFileOperationHistoryService>().ClearHistoryAsync();
+                        }),
+                        RunShutdownStepAsync("localsend", () => ((IAsyncDisposable)Services.GetRequiredService<ILocalSendService>()).DisposeAsync().AsTask()),
+                        RunShutdownStepAsync("search-indexer", () => Services.GetRequiredService<SearchIndexer>().DisposeAsync().AsTask()),
+                        RunShutdownStepAsync("plugins", () => Services.GetRequiredService<Services.Plugins.PluginManager>().DisposeAsync().AsTask()),
+                        RunShutdownStepAsync("storage-maintenance", () => Services.GetRequiredService<ApplicationStorageMaintenance>().DisposeAsync().AsTask()));
                 }
                 finally { pluginsStopped = true; desktop.Shutdown(); }
             };
@@ -323,9 +321,16 @@ public partial class App : Application
 #endif
     }
 
-    private static async Task StartLocalSendAsync(ILocalSendService localSend)
+    private static async Task RunShutdownStepAsync(string step, Func<Task> action)
     {
-        try { await localSend.StartAsync(); }
+        try { await action(); }
+        catch (Exception ex) { Services.GetService<ILogger<App>>()?.LogDebug(ex, "Shutdown step {Step} failed", step); }
+    }
+
+    private static async Task StartLocalSendAsync(ILocalSendService localSend, System.Threading.CancellationToken cancellationToken)
+    {
+        try { await localSend.StartAsync(cancellationToken); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LocalSend startup failed: " + ex); }
     }
 
@@ -391,8 +396,20 @@ public partial class App : Application
                 Services.GetRequiredService<SubscriptionService>().Start();
             }, DispatcherPriority.ApplicationIdle);
         _ = Task.Run(CheckStartupUpdateAsync);
-        Services.GetRequiredService<ApplicationStorageMaintenance>().Start();
+        Services.GetRequiredService<ApplicationStorageMaintenance>().Start(OnStorageOptimizationRecommended);
         _ = StartSearchIndexAsync();
+    }
+
+    private void OnStorageOptimizationRecommended(DatabaseStorageStatus status)
+    {
+        if (_startupUpdateCancellation.IsCancellationRequested || IsShuttingDown) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_startupUpdateCancellation.IsCancellationRequested || IsShuttingDown) return;
+            var window = _desktop?.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsActive)
+                ?? _desktop?.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsVisible);
+            window?.ShowStorageOptimizationToast(status);
+        }, DispatcherPriority.Background);
     }
 
     private async Task StartDeferredServicesAsync(MainWindow window)
@@ -406,9 +423,9 @@ public partial class App : Application
             var localSend = Services.GetRequiredService<ILocalSendService>();
             var plugins = Services.GetRequiredService<Services.Plugins.PluginManager>();
             var tags = Services.GetRequiredService<IFileTagService>();
-            await Task.WhenAll(Task.Run(() => StartLocalSendAsync(localSend), token), Task.Run(async () =>
+            await Task.WhenAll(Task.Run(() => StartLocalSendAsync(localSend, token), token), Task.Run(async () =>
             {
-                try { token.ThrowIfCancellationRequested(); await plugins.InitializeAsync(); }
+                try { token.ThrowIfCancellationRequested(); await plugins.InitializeAsync(token); }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
                 catch (Exception ex) { Services.GetService<ILogger<App>>()?.LogError(ex, "Plugin startup failed"); }
                 token.ThrowIfCancellationRequested();
@@ -626,7 +643,23 @@ public partial class App : Application
 
     internal static void CloseDatabaseConnections()
     {
-        (Services?.GetService(typeof(SqliteFileIndex)) as IDisposable)?.Dispose();
+        if (Services == null) return;
+        Type[] databaseServices =
+        [
+            typeof(SqliteFileIndex),
+            typeof(ISettingsService),
+            typeof(IFileTagService),
+            typeof(IAiTagService),
+            typeof(IFrequentFolderService),
+            typeof(IOpenWithAppService),
+            typeof(IPinnedFolderService),
+            typeof(IRatingService)
+        ];
+        foreach (var type in databaseServices)
+        {
+            try { (Services.GetService(type) as IDisposable)?.Dispose(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Closing {type.Name} failed: {ex.Message}"); }
+        }
     }
 
     private static IServiceProvider ConfigureServices()

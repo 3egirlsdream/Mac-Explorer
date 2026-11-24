@@ -5,9 +5,25 @@ namespace MacExplorer.Services.Impl;
 internal sealed class ApplicationStorageMaintenance : IAsyncDisposable
 {
     private readonly CancellationTokenSource _stop = new();
+    private readonly SemaphoreSlim _maintenanceGate = new(1, 1);
     private Task? _worker;
 
-    public void Start()
+    internal async Task<IDisposable> AcquireExclusiveMaintenanceAsync(CancellationToken ct = default)
+    {
+        await _maintenanceGate.WaitAsync(ct).ConfigureAwait(false);
+        return new MaintenanceLease(_maintenanceGate);
+    }
+
+    private sealed class MaintenanceLease(SemaphoreSlim gate) : IDisposable
+    {
+        private int _released;
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0) gate.Release();
+        }
+    }
+
+    public void Start(Action<DatabaseStorageStatus>? onOptimizationRecommended = null)
     {
         if (RuntimePaths.TestRoot != null || _worker != null) return;
         _worker = Task.Run(async () =>
@@ -18,9 +34,23 @@ internal sealed class ApplicationStorageMaintenance : IAsyncDisposable
                 if (!DistributionChannel.IsAppStore && Environment.GetEnvironmentVariable("MACEXPLORER_DB_PATH") == null)
                     RetireLegacyIndex(Path.Combine(RuntimePaths.HomeDirectory, "Documents", "MacExplorer", "index.db"),
                         RuntimePaths.DatabasePath, _stop.Token);
-                CleanLegacyCaches(RuntimePaths.DataDirectory, RuntimePaths.CacheDirectory, DateTime.UtcNow.AddDays(-7));
+                CleanLegacyCaches(RuntimePaths.DataDirectory, RuntimePaths.CacheDirectory, DateTime.UtcNow.AddDays(-7), _stop.Token);
+
+                if (onOptimizationRecommended != null
+                    && DatabaseSpaceMaintenance.Inspect(RuntimePaths.DatabasePath) is { NeedsOneTimeConversion: true } status)
+                    onOptimizationRecommended(status);
+
                 using var timer = new PeriodicTimer(TimeSpan.FromMinutes(2));
-                do { DatabaseSpaceMaintenance.Reclaim(RuntimePaths.DatabasePath, compact: false); }
+                do
+                {
+                    await _maintenanceGate.WaitAsync(_stop.Token);
+                    try
+                    {
+                        DatabaseSpaceMaintenance.ReclaimIncremental(RuntimePaths.DatabasePath,
+                            DatabaseSpaceMaintenance.IncrementalVacuumPagesPerTick, _stop.Token);
+                    }
+                    finally { _maintenanceGate.Release(); }
+                }
                 while (await timer.WaitForNextTickAsync(_stop.Token));
             }
             catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
@@ -100,22 +130,27 @@ internal sealed class ApplicationStorageMaintenance : IAsyncDisposable
     private static string Canonical(string path) => OperatingSystem.IsMacOS()
         ? Platforms.MacOS.MacSandboxNative.RealPath(path) : Path.GetFullPath(path);
 
-    internal static void CleanLegacyCaches(string dataDirectory, string cacheDirectory, DateTime olderThanUtc)
+    internal static void CleanLegacyCaches(string dataDirectory, string cacheDirectory, DateTime olderThanUtc,
+        CancellationToken cancellationToken = default)
     {
         if (Canonical(dataDirectory) == Canonical(cacheDirectory)) return;
         foreach (var name in new[] { "thumbnail-cache", "icon-cache", "preview-cache" })
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var directory = new DirectoryInfo(Path.Combine(dataDirectory, name));
             if (!directory.Exists || directory.LinkTarget != null) continue;
             try { Clean(directory); }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             { System.Diagnostics.Debug.WriteLine($"Legacy cache cleanup deferred: {ex.Message}"); }
         }
 
         void Clean(DirectoryInfo directory)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             foreach (var entry in directory.EnumerateFileSystemInfos())
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (entry.LinkTarget != null) continue;
                 if (entry is DirectoryInfo child) Clean(child);
                 else if (entry.LastWriteTimeUtc < olderThanUtc) entry.Delete();

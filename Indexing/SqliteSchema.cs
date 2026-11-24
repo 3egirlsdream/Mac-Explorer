@@ -5,7 +5,24 @@ namespace MacExplorer.Indexing;
 
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 15;
+    public const int CurrentVersion = 16;
+
+    /// <summary>
+    /// Historical application-owned tables explicitly retired from the schema.
+    /// Unknown tables (e.g. extensions) are never touched automatically.
+    /// </summary>
+    internal static readonly string[] RetiredTables =
+    [
+        "home_file_observations",
+        "home_saved_directories",
+        "home_saved_files",
+        "home_saved_pending",
+        "home_saved_scopes",
+        "search_packages",
+        "search_type_policy",
+        "saved_searches",
+        "face_corrections"
+    ];
 
     /// <summary>
     /// Whether FTS5 is available (set during Initialize).
@@ -133,6 +150,8 @@ public static class SqliteSchema
             MigrateToV14(connection, transaction);
         if (storedVersion < 15)
             ExecuteNonQuery(connection, "CREATE INDEX IF NOT EXISTS idx_pf_folder_path ON pinned_folders(folder_path)", transaction);
+        if (storedVersion < 16)
+            MigrateToV16(connection, transaction);
 
         // Record current version
         ExecuteNonQuery(connection, """
@@ -141,6 +160,12 @@ public static class SqliteSchema
             ("@version", CurrentVersion));
 
         transaction.Commit();
+    }
+
+    private static void MigrateToV16(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        foreach (var table in RetiredTables)
+            ExecuteNonQuery(connection, $"DROP TABLE IF EXISTS \"{table}\"", transaction);
     }
 
     private static void MigrateToV14(SqliteConnection connection, SqliteTransaction transaction)

@@ -22,6 +22,7 @@ public interface ILocalSendService
     Func<LocalSendIncomingRequest, CancellationToken, Task<LocalSendReceiveDecision>>? ConfirmReceiveAsync { get; set; }
     Func<CancellationToken, Task<string?>>? RequestPinAsync { get; set; }
     Task StartAsync();
+    Task StartAsync(CancellationToken cancellationToken) => StartAsync();
     Task SetEnabledAsync(bool enabled);
     Task<IReadOnlyList<LocalSendDevice>> DiscoverAsync(CancellationToken cancellationToken,
         Action<IReadOnlyList<LocalSendDevice>>? onDevicesChanged = null);

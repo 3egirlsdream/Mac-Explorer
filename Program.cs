@@ -40,13 +40,13 @@ sealed class Program
         if (OperatingSystem.IsMacOS())
             WaitForMacDisplayLinkAsync().GetAwaiter().GetResult();
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-        // The UI, task workers and search indexer have stopped. Compact only here;
-        // an online VACUUM would stall foreground configuration/tag writes.
+        // The UI, task workers and search indexer have stopped. Keep exit strictly
+        // bounded: never run a full-database VACUUM synchronously on shutdown.
         if (RuntimePaths.TestRoot == null)
         {
             App.CloseDatabaseConnections();
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            Services.Impl.DatabaseSpaceMaintenance.Reclaim(RuntimePaths.DatabasePath, compact: true);
+            Services.Impl.DatabaseSpaceMaintenance.ReclaimFastOnExit(RuntimePaths.DatabasePath);
         }
     }
 

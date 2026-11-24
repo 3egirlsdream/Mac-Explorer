@@ -29,6 +29,22 @@ public sealed partial class SearchCatalog
         }));
     }
 
+    internal async Task<IDisposable> AcquireExclusiveMaintenanceAsync(CancellationToken ct = default)
+    {
+        await _initialized.Value.WaitAsync(ct).ConfigureAwait(false);
+        await _writer.WaitAsync(ct).ConfigureAwait(false);
+        return new MaintenanceLease(_writer);
+    }
+
+    private sealed class MaintenanceLease(SemaphoreSlim gate) : IDisposable
+    {
+        private int _released;
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0) gate.Release();
+        }
+    }
+
     private async Task<T> RunAsync<T>(bool write, Func<SqliteConnection, bool, T> action, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

@@ -50,9 +50,9 @@ public sealed partial class PluginManager : IAsyncDisposable
         Directory.Exists(Path.Combine(RuntimePaths.BundleExecutableDirectory, "..", "Resources", "BuiltInConversion"))
             ? "../Resources/BuiltInConversion" : "BuiltInConversion");
 
-    public async Task InitializeAsync()
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync();
+        await _gate.WaitAsync(cancellationToken);
         try
         {
             ThrowIfStopping();
@@ -66,7 +66,8 @@ public sealed partial class PluginManager : IAsyncDisposable
             Directory.CreateDirectory(RootDirectory);
             if (File.Exists(_bundledPackage) && (!_state.TryGetValue(BuiltInId, out var existing) || !existing.Removed) && NeedsBundledUpdate())
             {
-                try { await InstallCoreAsync(_bundledPackage, true, false, CancellationToken.None); }
+                try { await InstallCoreAsync(_bundledPackage, true, false, cancellationToken); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                 catch (Exception ex)
                 {
                     if (!_state.TryGetValue(BuiltInId, out var state)) _state[BuiltInId] = state = new() { BuiltIn = true };

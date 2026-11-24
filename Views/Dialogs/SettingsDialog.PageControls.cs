@@ -22,6 +22,8 @@ public partial class SettingsDialog
     private TextBlock DefaultManagerStatus => GetPageControl<TextBlock>("general", "DefaultManagerStatus");
     private Border DefaultManagerRow => GetPageControl<Border>("general", "DefaultManagerRow");
     private ComboBox LanguageCombo => GetPageControl<ComboBox>("general", "LanguageCombo");
+    private TextBlock DatabaseStorageStatusText => GetPageControl<TextBlock>("general", "DatabaseStorageStatusText");
+    private Button OptimizeDatabaseButton => GetPageControl<Button>("general", "OptimizeDatabaseButton");
     private TextBlock LocalSendStatus => GetPageControl<TextBlock>("send", "LocalSendStatus");
     private Button LocalSendRetryButton => GetPageControl<Button>("send", "LocalSendRetryButton");
     private TextBlock LocalSendDirectoryText => GetPageControl<TextBlock>("send", "LocalSendDirectoryText");

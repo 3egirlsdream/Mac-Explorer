@@ -56,6 +56,7 @@ public partial class MainWindow : AppWindow
     ];
 
     private SettingsDialog? _settingsDialog;
+    private DatabaseOptimizationDialog? _storageOptimizationDialog;
     private WindowNotificationManager? _notifications;
     private MainWindowViewModel? _vm;
     private FileListViewModel? _activeFileList;
@@ -1939,6 +1940,43 @@ public partial class MainWindow : AppWindow
             MacExplorer.Services.Impl.LocalizationText.Get("updates.available_tip"),
             NotificationType.Information, TimeSpan.FromSeconds(15),
             onClick: () => _ = OpenSettingsAsync(version)));
+    }
+
+    internal void ShowStorageOptimizationToast(MacExplorer.Services.Impl.DatabaseStorageStatus status)
+    {
+        _notifications = MacExplorer.Controls.AppToast.For(this);
+        var reclaimable = MacExplorer.Services.Impl.FileListStatusFormatter.FormatBytes(status.FreeBytes);
+        _notifications.Show(new Notification(
+            MacExplorer.Services.Impl.LocalizationText.Get("storage.optimize.toast_title", reclaimable),
+            MacExplorer.Services.Impl.LocalizationText.Get("storage.optimize.toast_body"),
+            NotificationType.Information, TimeSpan.FromSeconds(15),
+            onClick: () => _ = OpenStorageOptimizationAsync(status)));
+    }
+
+    private async Task OpenStorageOptimizationAsync(MacExplorer.Services.Impl.DatabaseStorageStatus? initialStatus = null)
+    {
+        if (_storageOptimizationDialog?.IsVisible == true)
+        {
+            _storageOptimizationDialog.Activate();
+            return;
+        }
+        var dialog = new DatabaseOptimizationDialog(initialStatus: initialStatus);
+        _storageOptimizationDialog = dialog;
+        dialog.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_storageOptimizationDialog, dialog))
+                _storageOptimizationDialog = null;
+        };
+        using var modalBlock = BlockModalParentInteraction();
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        finally
+        {
+            if (ReferenceEquals(_storageOptimizationDialog, dialog))
+                _storageOptimizationDialog = null;
+        }
     }
 
     internal void ShowAbout() => _ = OpenSettingsAsync(showAbout: true);

@@ -224,6 +224,22 @@
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="settings-section-title" Text="{loc:Loc storage.section}"/>
+                                <Border Classes="settings-group">
+                                    <Border Classes="settings-row">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Classes="settings-label" Text="{loc:Loc storage.database}"/>
+                                                <TextBlock x:Name="DatabaseStorageStatusText" Classes="settings-description" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <controls:AppButton Grid.Column="1" x:Name="OptimizeDatabaseButton" VerticalAlignment="Center"
+                                                                Classes="secondary compact" Content="{loc:Loc storage.optimize.button}"
+                                                                Click="OnOptimizeDatabaseClick"/>
+                                        </Grid>
+                                    </Border>
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
 

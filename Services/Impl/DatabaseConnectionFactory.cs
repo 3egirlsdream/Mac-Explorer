@@ -50,6 +50,17 @@ public class DatabaseConnectionFactory
         {
             if (_walInitialized) return;
 
+            using (var check = connection.CreateCommand())
+            {
+                check.CommandText = "PRAGMA page_count;";
+                if (Convert.ToInt64(check.ExecuteScalar()) == 0)
+                {
+                    using var vacuum = connection.CreateCommand();
+                    vacuum.CommandText = "PRAGMA auto_vacuum=INCREMENTAL;";
+                    vacuum.ExecuteNonQuery();
+                }
+            }
+
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "PRAGMA journal_mode=WAL;";
             cmd.ExecuteNonQuery();
